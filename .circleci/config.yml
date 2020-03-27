@@ -1,0 +1,38 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: openjdk:8-jdk
+    steps:
+      - run:
+          name: Install sbt
+          command: |
+            apt-get update && \
+            apt-get install apt-transport-https bc ca-certificates software-properties-common -y
+
+            echo "deb https://dl.bintray.com/sbt/debian /" | tee -a /etc/apt/sources.list.d/sbt.list && \
+            apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823 && \
+            apt-get update && \
+            apt-get install sbt -y
+      - checkout
+      - restore_cache:
+          keys:
+            - sbt-cache-{{ checksum "project/build.properties" }}-{{ checksum "project/plugins.sbt" }}-{{ checksum "project/Dependencies.scala" }}
+            - sbt-cache
+      - run:
+          name: Fetch compile dependencies
+          command: sbt update
+      - run:
+          name: Compile
+          command: sbt compile
+      - run:
+          name: Fetch test dependencies
+          command: sbt test:update
+      - run:
+          name: Run unit tests
+          command: sbt test
+      - save_cache:
+          key: sbt-cache-{{ checksum "project/build.properties" }}-{{ checksum "project/plugins.sbt" }}-{{ checksum "project/Dependencies.scala" }}
+          paths:
+            - ~/.sbt
+            - ~/.coursier

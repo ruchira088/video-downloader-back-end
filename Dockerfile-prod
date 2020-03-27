@@ -1,0 +1,7 @@
+FROM openjdk:8-jdk-slim
+
+WORKDIR /opt/video-downloader
+
+ADD target/universal/video-downloader-*.tgz .
+
+CMD [ "/opt/video-downloader/bin/video-downloader" ]

@@ -1,0 +1,15 @@
+version: "3"
+
+services:
+
+  video-downloader:
+    build: .
+    ports:
+      - 5005:5005
+    volumes:
+      - "~/.sbt:/root/.sbt"
+      - "~/.coursier:/root/.coursier"
+      - ".:/opt/video-downloader"
+      - "/opt/video-downloader/target"
+      - "/opt/video-downloader/project/target"
+      - "/root/.sbt/1.0/plugins"
