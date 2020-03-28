@@ -2,7 +2,8 @@ package com.ruchij.services.video
 
 import cats.effect.Sync
 import cats.implicits._
-import com.ruchij.daos.scheduling.models.{VideoMetadata, VideoSite}
+import com.ruchij.daos.video.models
+import com.ruchij.daos.video.models.{VideoMetadata, VideoSite}
 import com.ruchij.utils.Http4sUtils
 import org.http4s.client.Client
 import org.http4s.{Method, Request, Uri}
@@ -24,5 +25,5 @@ class VideoServiceImpl[F[_]: Sync](client: Client[F]) extends VideoService[F] {
       downloadUri <- videoSite.downloadUri[F].apply(document)
       size <- client.run(Request[F](Method.HEAD, downloadUri)).use(Http4sUtils.contentLength[F])
 
-    } yield VideoMetadata(uri, videoSite, videoTitle, duration, size, thumbnailUri)
+    } yield models.VideoMetadata(uri, videoSite, videoTitle, duration, size, thumbnailUri)
 }

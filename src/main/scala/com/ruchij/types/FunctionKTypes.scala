@@ -3,7 +3,7 @@ package com.ruchij.types
 import cats.{Applicative, MonadError, ~>}
 
 object FunctionKTypes {
-  def identityFuctionK[F[_]]: F ~> F = new ~>[F, F] {
+  def identityFunctionK[F[_]]: F ~> F = new ~>[F, F] {
     override def apply[A](fa: F[A]): F[A] = fa
   }
 

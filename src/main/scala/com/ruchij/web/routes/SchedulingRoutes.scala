@@ -15,6 +15,7 @@ object SchedulingRoutes {
       case request @ POST -> Root =>
         for {
           scheduleRequest <- request.as[SchedulingRequest]
+          scheduledVideoDownload <- schedulingService.schedule(scheduleRequest.uri)
 
           response <- Ok()
         }

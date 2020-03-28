@@ -1,10 +1,10 @@
-package com.ruchij.daos.scheduling.models
+package com.ruchij.daos.video.models
 
 import java.util.concurrent.TimeUnit
 
 import cats.implicits._
 import cats.{Applicative, MonadError}
-import com.ruchij.daos.scheduling.models.VideoSite.Selector
+import com.ruchij.daos.video.models.VideoSite.Selector
 import com.ruchij.exceptions.NoMatchingElementsFoundException
 import com.ruchij.types.FunctionKTypes
 import com.ruchij.utils.JsoupUtils

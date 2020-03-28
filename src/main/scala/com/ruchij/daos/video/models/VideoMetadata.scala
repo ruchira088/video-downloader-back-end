@@ -1,4 +1,4 @@
-package com.ruchij.daos.scheduling.models
+package com.ruchij.daos.video.models
 
 import org.http4s.Uri
 

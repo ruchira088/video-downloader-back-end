@@ -14,6 +14,8 @@ object Dependencies
 
   lazy val http4sCirce = "org.http4s" %% "http4s-circe" % HTTP4S_VERSION
 
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "2.1.2"
+
   lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.2.1"
 
   lazy val circeGeneric = "io.circe" %% "circe-generic" % CIRCE_VERSION
@@ -31,6 +33,12 @@ object Dependencies
   lazy val jodaTime = "joda-time" % "joda-time" % "2.10.5"
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.12.3"
+
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "6.3.2"
+
+  lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.11"
+
+  lazy val h2 = "com.h2database" % "h2" % "1.4.200"
 
   lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.3"
 

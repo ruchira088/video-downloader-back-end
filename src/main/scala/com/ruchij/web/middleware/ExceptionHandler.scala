@@ -27,7 +27,7 @@ object ExceptionHandler {
           case _ => Status.InternalServerError
         }
 
-      override def liftG: FunctionK[F, F] = FunctionKTypes.identityFuctionK[F]
+      override def liftG: FunctionK[F, F] = FunctionKTypes.identityFunctionK[F]
     }
 
   def errorResponseBody(throwable: Throwable): ErrorResponse =

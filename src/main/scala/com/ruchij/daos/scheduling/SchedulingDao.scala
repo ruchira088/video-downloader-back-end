@@ -1,5 +1,7 @@
 package com.ruchij.daos.scheduling
 
-trait SchedulingDao {
-  def insert()
+import com.ruchij.daos.scheduling.models.ScheduledVideoDownload
+
+trait SchedulingDao[F[_]] {
+  def insert(scheduledVideoDownload: ScheduledVideoDownload): F[Int]
 }
