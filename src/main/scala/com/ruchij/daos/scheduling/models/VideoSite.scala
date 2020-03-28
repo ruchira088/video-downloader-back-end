@@ -27,7 +27,6 @@ sealed trait VideoSite extends EnumEntry {
   def downloadUri[F[_]: MonadError[*[_], Throwable]]: Selector[F, Uri]
 
   def test(uri: Uri): Boolean = uri.host.exists(hostname => hostname.value.toLowerCase.contains(HOSTNAME.toLowerCase))
-
 }
 
 object VideoSite extends Enum[VideoSite] {
