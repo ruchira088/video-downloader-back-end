@@ -22,11 +22,16 @@ lazy val rootDependencies =
   Seq(
     http4sDsl,
     http4sBlazeServer,
+    http4sBlazeClient,
     http4sCirce,
+    fs2Io,
     circeGeneric,
     circeParser,
     circeLiteral,
     jodaTime,
+    enumeratum,
+    doobiePostgres,
+    jsoup,
     pureconfig,
     logbackClassic
   )

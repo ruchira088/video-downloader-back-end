@@ -10,13 +10,14 @@ import pureconfig.ConfigSource
 object App extends IOApp {
   override def run(args: List[String]): IO[ExitCode] =
     for {
-      serviceConfiguration <- IO.suspend(IO.fromEither(ServiceConfiguration.parse(ConfigSource.default)))
+      configObjectSource <- IO.delay(ConfigSource.defaultApplication)
+      serviceConfiguration <- IO.suspend(IO.fromEither(ServiceConfiguration.parse(configObjectSource)))
 
       healthService = new HealthServiceImpl[IO]
 
       _ <-
         BlazeServerBuilder[IO]
-          .withHttpApp(Routes(healthService))
+          .withHttpApp(Routes(???, healthService))
           .bindHttp(serviceConfiguration.httpConfiguration.port, serviceConfiguration.httpConfiguration.host)
           .serve.compile.drain
 

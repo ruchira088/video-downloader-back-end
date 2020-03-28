@@ -7,5 +7,5 @@ import org.http4s.HttpApp
 
 object HttpTestApp {
   def apply[F[_]: Sync: Clock](): HttpApp[F] =
-    Routes(new HealthServiceImpl[F])
+    Routes(???, new HealthServiceImpl[F])
 }

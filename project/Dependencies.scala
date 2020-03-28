@@ -10,13 +10,23 @@ object Dependencies
 
   lazy val http4sBlazeServer = "org.http4s" %% "http4s-blaze-server" % HTTP4S_VERSION
 
+  lazy val http4sBlazeClient = "org.http4s" %% "http4s-blaze-client" % HTTP4S_VERSION
+
   lazy val http4sCirce = "org.http4s" %% "http4s-circe" % HTTP4S_VERSION
+
+  lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.2.1"
 
   lazy val circeGeneric = "io.circe" %% "circe-generic" % CIRCE_VERSION
 
   lazy val circeParser = "io.circe" %% "circe-parser" % CIRCE_VERSION
 
   lazy val circeLiteral = "io.circe" %% "circe-literal" % CIRCE_VERSION
+
+  lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.5.15"
+
+  lazy val doobiePostgres = "org.tpolecat" %% "doobie-postgres" % "0.8.8"
+
+  lazy val jsoup = "org.jsoup" % "jsoup" % "1.13.1"
 
   lazy val jodaTime = "joda-time" % "joda-time" % "2.10.5"
 

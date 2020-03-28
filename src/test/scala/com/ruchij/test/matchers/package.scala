@@ -1,7 +1,7 @@
 package com.ruchij.test
 
 import cats.effect.IO
-import com.ruchij.types.FunctionKTypes.throwableEitherToIo
+import com.ruchij.types.FunctionKTypes.eitherToF
 import io.circe.Json
 import org.http4s.{MediaType, Status}
 

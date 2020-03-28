@@ -4,7 +4,7 @@ import pureconfig.ConfigObjectSource
 import pureconfig.error.ConfigReaderException
 import pureconfig.generic.auto._
 
-case class ServiceConfiguration(httpConfiguration: HttpConfiguration)
+case class ServiceConfiguration(httpConfiguration: HttpConfiguration, downloadConfiguration: DownloadConfiguration)
 
 object ServiceConfiguration {
   def parse(configObjectSource: ConfigObjectSource): Either[Exception, ServiceConfiguration] =
