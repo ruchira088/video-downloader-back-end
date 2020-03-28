@@ -16,7 +16,7 @@ object Dependencies
 
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "2.1.2"
 
-  lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.2.1"
+  lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.3.0"
 
   lazy val circeGeneric = "io.circe" %% "circe-generic" % CIRCE_VERSION
 
