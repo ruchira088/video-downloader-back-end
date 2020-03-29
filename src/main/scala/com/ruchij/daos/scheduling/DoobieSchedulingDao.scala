@@ -18,8 +18,8 @@ class DoobieSchedulingDao[F[_]: Bracket[*[_], Throwable]](
       .insert(scheduledVideoDownload.videoMetadata)
       .productR {
         sql"""
-          INSERT INTO scheduled_videos (scheduled_at, video_metadata)
-            VALUES (${scheduledVideoDownload.scheduledAt}, ${scheduledVideoDownload.videoMetadata.uri})
+          INSERT INTO scheduled_video (scheduled_at, url)
+            VALUES (${scheduledVideoDownload.scheduledAt}, ${scheduledVideoDownload.videoMetadata.url})
          """
           .update.run.transact(transactor)
       }

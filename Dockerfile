@@ -12,8 +12,6 @@ WORKDIR /opt/video-downloader
 
 COPY . .
 
-EXPOSE 5005
-
 ENTRYPOINT ["sbt"]
 
 CMD ["run"]

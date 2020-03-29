@@ -5,7 +5,7 @@ import org.http4s.Uri
 import scala.concurrent.duration.FiniteDuration
 
 case class VideoMetadata(
-  uri: Uri,
+  url: Uri,
   videoSite: VideoSite,
   title: String,
   duration: FiniteDuration,
