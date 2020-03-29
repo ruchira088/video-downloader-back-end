@@ -3,54 +3,77 @@ import Dependencies._
 inThisBuild {
   Seq(
     organization := "com.ruchij",
+    version := "0.0.1",
     scalaVersion := SCALA_VERSION,
     maintainer := "me@ruchij.com",
     scalacOptions ++= Seq("-Xlint", "-feature"),
+    addCompilerPlugin(kindProjector),
+    addCompilerPlugin(betterMonadicFor)
   )
 }
 
 lazy val migrationApplication =
   (project in file("./migration-application"))
+    .enablePlugins(JavaAppPackaging)
     .settings(
-      name := "migration-application",
-      version := "0.0.1",
-      libraryDependencies ++= Seq(catsEffect, flywayCore, h2, pureconfig)
+      name := "video-downloader-migration",
+      libraryDependencies ++= Seq(catsEffect, flywayCore, h2, postgresql, pureconfig),
+      topLevelDirectory := None
     )
 
-lazy val root =
-  (project in file("."))
+lazy val core =
+  (project in file("./core"))
+    .settings(
+      libraryDependencies ++=
+        Seq(
+          catsEffect,
+          http4sDsl,
+          http4sBlazeClient,
+          h2,
+          doobiePostgres,
+          pureconfig,
+          jodaTime,
+          enumeratum,
+          jsoup,
+          logbackClassic
+        )
+    )
+    .dependsOn(migrationApplication)
+
+lazy val web =
+  (project in file("./web"))
     .enablePlugins(BuildInfoPlugin, JavaAppPackaging)
     .settings(
-      name := "video-downloader",
-      version := "0.0.1",
-      libraryDependencies ++= rootDependencies ++ rootTestDependencies.map(_ % Test),
+      name := "video-downloader-web",
       buildInfoKeys := BuildInfoKey.ofN(name, organization, version, scalaVersion, sbtVersion),
       buildInfoPackage := "com.eed3si9n.ruchij",
       topLevelDirectory := None,
-      addCompilerPlugin(kindProjector),
-      addCompilerPlugin(betterMonadicFor)
+      libraryDependencies ++=
+        Seq(
+          http4sDsl,
+          http4sBlazeServer,
+          http4sCirce,
+          circeGeneric,
+          circeParser,
+          circeLiteral,
+          pureconfig,
+          logbackClassic
+        ) ++ Seq(scalaTest, pegdown).map(_ % Test)
     )
-  .dependsOn(migrationApplication)
+    .dependsOn(core)
 
-lazy val rootDependencies =
-  Seq(
-    http4sDsl,
-    http4sBlazeServer,
-    http4sBlazeClient,
-    http4sCirce,
-    fs2Io,
-    circeGeneric,
-    circeParser,
-    circeLiteral,
-    jodaTime,
-    enumeratum,
-    doobiePostgres,
-    jsoup,
-    pureconfig,
-    logbackClassic
-  )
+lazy val batch =
+  (project in file("./batch"))
+      .enablePlugins(JavaAppPackaging)
+      .settings(
+        name := "video-downloader-batch",
+        topLevelDirectory := None,
+        libraryDependencies ++= Seq(catsEffect)
+      )
+      .dependsOn(core)
 
-lazy val rootTestDependencies =
-  Seq(scalaTest, pegdown)
+addCommandAlias("compileAll", "; migrationApplication/compile; core/compile; web/compile; batch/compile")
 
-addCommandAlias("testWithCoverage", "; coverage; test; coverageReport")
+addCommandAlias("cleanAll", "; batch/clean; web/clean; core/clean; migrationApplication/clean")
+
+addCommandAlias("refreshAll", "; cleanAll; compileAll")
