@@ -13,7 +13,7 @@ import com.ruchij.services.download.Http4sDownloadService
 import com.ruchij.services.scheduler.{Scheduler, SchedulerImpl}
 import com.ruchij.services.scheduling.SchedulingServiceImpl
 import com.ruchij.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
-import com.ruchij.services.worker.WorkerFactoryImpl
+import com.ruchij.services.worker.WorkExecutorImpl
 import org.http4s.client.blaze.BlazeClientBuilder
 
 import scala.concurrent.ExecutionContext
@@ -56,7 +56,7 @@ object BatchApp extends IOApp {
       downloadService = new Http4sDownloadService[F](client, blocker)
       videoService = new VideoServiceImpl[F](videoDao)
 
-      workerFactory = new WorkerFactoryImpl[F](
+      workExecutor = new WorkExecutorImpl[F](
         schedulingService,
         videoAnalysisService,
         videoService,
@@ -64,6 +64,6 @@ object BatchApp extends IOApp {
         downloadConfiguration
       )
 
-      scheduler = new SchedulerImpl(workerFactory, schedulingService, batchConfiguration)
+      scheduler = new SchedulerImpl(workExecutor, schedulingService, batchConfiguration)
     } yield scheduler
 }

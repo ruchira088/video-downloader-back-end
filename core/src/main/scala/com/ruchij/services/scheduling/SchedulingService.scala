@@ -9,5 +9,7 @@ trait SchedulingService[F[_]] {
 
   def updateDownloadProgress(url: Uri, downloadedBytes: Long): F[Int]
 
+  def completeTask(url: Uri): F[ScheduledVideoDownload]
+
   val acquireTask: OptionT[F ,ScheduledVideoDownload]
 }

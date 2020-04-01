@@ -1,15 +1,15 @@
 package com.ruchij.services.scheduler
 
 import cats.Applicative
-import cats.effect.{Concurrent, Sync, Timer}
 import cats.effect.concurrent.Semaphore
+import cats.effect.{Concurrent, Sync, Timer}
 import cats.implicits._
 import com.ruchij.config.BatchConfiguration
 import com.ruchij.services.scheduling.SchedulingService
-import com.ruchij.services.worker.{Worker, WorkerFactory}
+import com.ruchij.services.worker.WorkExecutor
 
-class SchedulerImpl[F[_]: Concurrent: Timer, A <: Worker[F]](
-  workerFactory: WorkerFactory[F, A],
+class SchedulerImpl[F[_]: Concurrent: Timer](
+  workExecutor: WorkExecutor[F],
   schedulingService: SchedulingService[F],
   batchConfiguration: BatchConfiguration
 ) extends Scheduler[F] {
@@ -25,7 +25,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, A <: Worker[F]](
         Concurrent[F].start {
           schedulingService.acquireTask
             .semiflatMap { task =>
-              workerFactory.newWorker.flatMap(_.execute(task)).productR(Applicative[F].unit)
+              workExecutor.execute(task).productR(Applicative[F].unit)
             }
             .getOrElseF {
               Timer[F].sleep(batchConfiguration.idleTimeout)

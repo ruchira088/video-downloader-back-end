@@ -1,14 +1,13 @@
 package com.ruchij.daos.scheduling
 
-import cats.ApplicativeError
 import cats.data.OptionT
 import cats.effect.Bracket
 import cats.implicits._
 import doobie.implicits._
 import com.ruchij.daos.doobie.DoobieCustomMappings._
+import com.ruchij.daos.doobie.singleUpdate
 import com.ruchij.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.daos.videometadata.DoobieVideoMetadataDao
-import com.ruchij.exceptions.InvalidConditionException
 import doobie.util.fragment.Fragment
 import doobie.util.transactor.Transactor
 import org.http4s.Uri
@@ -40,7 +39,7 @@ class DoobieSchedulingDao[F[_]: Bracket[*[_], Throwable]](
   override def updateDownloadProgress(url: Uri, downloadedBytes: Long, timestamp: DateTime): F[Int] =
     sql"""
       UPDATE scheduled_video SET downloaded_bytes = $downloadedBytes, last_updated_at = $timestamp
-        where url = $url
+        WHERE url = $url
     """
       .update.run.transact(transactor)
 
@@ -62,15 +61,28 @@ class DoobieSchedulingDao[F[_]: Bracket[*[_], Throwable]](
     }
 
   override def setInProgress(url: Uri, inProgress: Boolean): OptionT[F, ScheduledVideoDownload] =
-    OptionT.liftF {
+    singleUpdate[F] {
       sql"UPDATE scheduled_video SET in_progress = $inProgress WHERE url = $url AND in_progress = ${!inProgress}"
         .update.run.transact(transactor)
     }
-      .flatMap {
-        case 0 => OptionT.none
-        case 1 => getByUrl(url)
-        case _ => OptionT.liftF(ApplicativeError[F, Throwable].raiseError(InvalidConditionException))
-      }
+      .productR(getByUrl(url))
+
+
+  override def completeTask(url: Uri, timestamp: DateTime): OptionT[F, ScheduledVideoDownload] =
+    singleUpdate[F] {
+      sql"""
+        UPDATE scheduled_video
+          SET
+            in_progress = false,
+            completed_at = $timestamp,
+            last_updated_at = $timestamp
+          WHERE
+            in_progress = true AND
+            completed_at IS NULL AND
+            url = $url
+      """.update.run.transact(transactor)
+    }
+      .productR(getByUrl(url))
 
   override val retrieveNewTask: OptionT[F, ScheduledVideoDownload] =
     OptionT {

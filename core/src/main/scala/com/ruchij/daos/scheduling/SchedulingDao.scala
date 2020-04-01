@@ -14,5 +14,7 @@ trait SchedulingDao[F[_]] {
 
   def setInProgress(url: Uri, inProgress: Boolean): OptionT[F, ScheduledVideoDownload]
 
+  def completeTask(url: Uri, timestamp: DateTime): OptionT[F, ScheduledVideoDownload]
+
   val retrieveNewTask: OptionT[F, ScheduledVideoDownload]
 }

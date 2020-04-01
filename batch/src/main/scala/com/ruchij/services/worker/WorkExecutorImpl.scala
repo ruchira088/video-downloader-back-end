@@ -9,13 +9,13 @@ import com.ruchij.services.download.DownloadService
 import com.ruchij.services.scheduling.SchedulingService
 import com.ruchij.services.video.{VideoAnalysisService, VideoService}
 
-class WorkerImpl[F[_]: Sync](
+class WorkExecutorImpl[F[_]: Sync](
   schedulingService: SchedulingService[F],
   videoAnalysisService: VideoAnalysisService[F],
   videoService: VideoService[F],
   downloadService: DownloadService[F],
   downloadConfiguration: DownloadConfiguration
-) extends Worker[F] {
+) extends WorkExecutor[F] {
 
   override def execute(scheduledVideoDownload: ScheduledVideoDownload): F[Video] =
     videoAnalysisService
@@ -32,6 +32,9 @@ class WorkerImpl[F[_]: Sync](
               .drain
               .as(downloadResult.path)
           }
+      }
+      .productL {
+        schedulingService.completeTask(scheduledVideoDownload.videoMetadata.url)
       }
       .flatMap {
         path => videoService.insert(scheduledVideoDownload.videoMetadata, path)
