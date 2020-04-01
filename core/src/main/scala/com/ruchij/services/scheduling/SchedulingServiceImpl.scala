@@ -2,16 +2,18 @@ package com.ruchij.services.scheduling
 
 import java.util.concurrent.TimeUnit
 
-import cats.Monad
+import cats.data.OptionT
 import cats.effect.Clock
 import cats.implicits._
+import cats.{Applicative, ApplicativeError, MonadError}
 import com.ruchij.daos.scheduling.SchedulingDao
 import com.ruchij.daos.scheduling.models.ScheduledVideoDownload
+import com.ruchij.exceptions.ResourceNotFoundException
 import com.ruchij.services.video.VideoAnalysisService
 import org.http4s.Uri
 import org.joda.time.DateTime
 
-class SchedulingServiceImpl[F[_]: Monad: Clock](videoAnalysisService: VideoAnalysisService[F], schedulingDao: SchedulingDao[F])
+class SchedulingServiceImpl[F[_]: MonadError[*[_], Throwable]: Clock](videoAnalysisService: VideoAnalysisService[F], schedulingDao: SchedulingDao[F])
     extends SchedulingService[F] {
 
   override def schedule(uri: Uri): F[ScheduledVideoDownload] =
@@ -27,6 +29,14 @@ class SchedulingServiceImpl[F[_]: Monad: Clock](videoAnalysisService: VideoAnaly
     for {
       timestamp <- Clock[F].realTime(TimeUnit.MILLISECONDS)
       result <- schedulingDao.updateDownloadProgress(url, downloadedBytes, new DateTime(timestamp))
+
+      _ <- if (result == 0) ApplicativeError[F, Throwable].raiseError(ResourceNotFoundException(s"Url not found: $url")) else Applicative[F].unit
     }
     yield result
+
+  override val acquireTask: OptionT[F, ScheduledVideoDownload] =
+    schedulingDao.retrieveNewTask.flatMap {
+      scheduledVideoDownload =>
+        schedulingDao.setInProgress(scheduledVideoDownload.videoMetadata.url, inProgress = true)
+    }
 }
