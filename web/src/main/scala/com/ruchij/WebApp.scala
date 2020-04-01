@@ -1,7 +1,7 @@
 package com.ruchij
 
 import cats.effect.{Blocker, Clock, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource}
-import com.ruchij.config.ServiceConfiguration
+import com.ruchij.config.WebServiceConfiguration
 import com.ruchij.daos.doobie.DoobieTransactor
 import com.ruchij.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.daos.videometadata.DoobieVideoMetadataDao
@@ -22,13 +22,13 @@ object WebApp extends IOApp {
   override def run(args: List[String]): IO[ExitCode] =
     for {
       configObjectSource <- IO.delay(ConfigSource.defaultApplication)
-      serviceConfiguration <- IO.suspend(ServiceConfiguration.parse[IO](configObjectSource))
+      webServiceConfiguration <- IO.suspend(WebServiceConfiguration.parse[IO](configObjectSource))
 
-      _ <- program[IO](serviceConfiguration, ExecutionContext.global)
+      _ <- program[IO](webServiceConfiguration, ExecutionContext.global)
         .use { httpApp =>
           BlazeServerBuilder[IO]
             .withHttpApp(httpApp)
-            .bindHttp(serviceConfiguration.httpConfiguration.port, serviceConfiguration.httpConfiguration.host)
+            .bindHttp(webServiceConfiguration.httpConfiguration.port, webServiceConfiguration.httpConfiguration.host)
             .serve
             .compile
             .drain
@@ -36,8 +36,8 @@ object WebApp extends IOApp {
     } yield ExitCode.Success
 
   def program[F[_]: ConcurrentEffect: Clock: ContextShift](
-    serviceConfiguration: ServiceConfiguration,
-    executionContext: ExecutionContext
+                                                            serviceConfiguration: WebServiceConfiguration,
+                                                            executionContext: ExecutionContext
   ): Resource[F, HttpApp[F]] =
     for {
       client <- BlazeClientBuilder[F](executionContext).resource
@@ -56,7 +56,6 @@ object WebApp extends IOApp {
 
       videoService = new VideoAnalysisServiceImpl[F](client)
       schedulingService = new SchedulingServiceImpl[F](videoService, schedulingDao)
-
       healthService = new HealthServiceImpl[F]
     } yield Routes(schedulingService, healthService)
 }

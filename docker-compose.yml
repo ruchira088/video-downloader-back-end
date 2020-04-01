@@ -2,12 +2,30 @@ version: "3"
 
 services:
 
-  video-downloader:
+  web:
     build: .
+    command: "web/run"
     depends_on:
       - postgres
     ports:
       - 8000:8000
+    environment:
+      DATABASE_URL: "jdbc:postgresql://postgres:5432/video-downloader"
+      DATABASE_USER: "yocEgxiJYtmeivUv"
+      DATABASE_PASSWORD: "X82z9_TTN^|2C#MxkP0^L88&1685aiR="
+    volumes:
+      - "~/.sbt:/root/.sbt"
+      - "~/.coursier:/root/.coursier"
+      - ".:/opt/video-downloader"
+      - "/opt/video-downloader/target"
+      - "/opt/video-downloader/project/target"
+      - "/root/.sbt/1.0/plugins"
+
+  batch:
+    build: .
+    command: "batch/run"
+    depends_on:
+      - postgres
     environment:
       DATABASE_URL: "jdbc:postgresql://postgres:5432/video-downloader"
       DATABASE_USER: "yocEgxiJYtmeivUv"

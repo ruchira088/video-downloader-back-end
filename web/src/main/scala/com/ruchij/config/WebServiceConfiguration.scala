@@ -6,19 +6,19 @@ import pureconfig.ConfigObjectSource
 import pureconfig.error.ConfigReaderException
 import pureconfig.generic.auto._
 
-case class ServiceConfiguration(
+case class WebServiceConfiguration(
   httpConfiguration: HttpConfiguration,
   downloadConfiguration: DownloadConfiguration,
   databaseConfiguration: DatabaseConfiguration
 )
 
-object ServiceConfiguration {
+object WebServiceConfiguration {
   def parse[F[_]: Sync](
     configObjectSource: ConfigObjectSource
-  )(implicit functionK: Either[Throwable, *] ~> F): F[ServiceConfiguration] =
+  )(implicit functionK: Either[Throwable, *] ~> F): F[WebServiceConfiguration] =
     Sync[F].defer {
       functionK {
-        configObjectSource.load[ServiceConfiguration].left.map(ConfigReaderException.apply)
+        configObjectSource.load[WebServiceConfiguration].left.map(ConfigReaderException.apply)
       }
     }
 }

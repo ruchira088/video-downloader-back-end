@@ -3,11 +3,11 @@ package com.ruchij.daos.scheduling
 import cats.data.OptionT
 import cats.effect.Bracket
 import cats.implicits._
-import doobie.implicits._
-import com.ruchij.daos.doobie.DoobieCustomMappings._
 import com.ruchij.daos.doobie.singleUpdate
+import com.ruchij.daos.doobie.DoobieCustomMappings._
 import com.ruchij.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.daos.videometadata.DoobieVideoMetadataDao
+import doobie.implicits._
 import doobie.util.fragment.Fragment
 import doobie.util.transactor.Transactor
 import org.http4s.Uri
@@ -86,7 +86,10 @@ class DoobieSchedulingDao[F[_]: Bracket[*[_], Throwable]](
 
   override val retrieveNewTask: OptionT[F, ScheduledVideoDownload] =
     OptionT {
-      (SELECT_QUERY ++ sql"WHERE scheduled_video.in_progress = false")
-        .query[ScheduledVideoDownload].option.transact(transactor)
+      (SELECT_QUERY ++ sql"WHERE scheduled_video.in_progress = false AND scheduled_video.completed_at IS NULL LIMIT 1")
+        .query[ScheduledVideoDownload]
+        .to[List]
+        .transact(transactor)
+        .map(_.headOption)
     }
 }
