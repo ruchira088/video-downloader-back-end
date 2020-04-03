@@ -3,7 +3,7 @@ import sbt._
 object Dependencies
 {
   val SCALA_VERSION = "2.13.1"
-  val HTTP4S_VERSION = "0.21.2"
+  val HTTP4S_VERSION = "0.21.3"
   val CIRCE_VERSION = "0.13.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % HTTP4S_VERSION
@@ -36,7 +36,7 @@ object Dependencies
 
   lazy val flywayCore = "org.flywaydb" % "flyway-core" % "6.3.2"
 
-  lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.11"
+  lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.12"
 
   lazy val h2 = "com.h2database" % "h2" % "1.4.200"
 
@@ -45,6 +45,8 @@ object Dependencies
   lazy val kindProjector = "org.typelevel" %% "kind-projector" % "0.11.0" cross CrossVersion.full
 
   lazy val betterMonadicFor = "com.olegpy" %% "better-monadic-for" % "0.3.1"
+
+  lazy val scalaTypedHoles = "com.github.cb372" % "scala-typed-holes" % "0.1.2" cross CrossVersion.full
 
   lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.1.1"
 

@@ -13,8 +13,10 @@ import com.ruchij.services.video.VideoAnalysisService
 import org.http4s.Uri
 import org.joda.time.DateTime
 
-class SchedulingServiceImpl[F[_]: MonadError[*[_], Throwable]: Clock](videoAnalysisService: VideoAnalysisService[F], schedulingDao: SchedulingDao[F])
-    extends SchedulingService[F] {
+class SchedulingServiceImpl[F[_]: MonadError[*[_], Throwable]: Clock](
+  videoAnalysisService: VideoAnalysisService[F],
+  schedulingDao: SchedulingDao[F]
+) extends SchedulingService[F] {
 
   override def schedule(uri: Uri): F[ScheduledVideoDownload] =
     for {
@@ -30,21 +32,27 @@ class SchedulingServiceImpl[F[_]: MonadError[*[_], Throwable]: Clock](videoAnaly
       timestamp <- Clock[F].realTime(TimeUnit.MILLISECONDS)
       result <- schedulingDao.updateDownloadProgress(url, downloadedBytes, new DateTime(timestamp))
 
-      _ <- if (result == 0) ApplicativeError[F, Throwable].raiseError(ResourceNotFoundException(s"Url not found: $url")) else Applicative[F].unit
-    }
-    yield result
+      _ <- if (result == 0) ApplicativeError[F, Throwable].raiseError(ResourceNotFoundException(s"Url not found: $url"))
+      else Applicative[F].unit
+    } yield result
 
   override def completeTask(url: Uri): F[ScheduledVideoDownload] =
-    Clock[F].realTime(TimeUnit.MILLISECONDS)
-      .flatMap {
-        timestamp =>
-          schedulingDao.completeTask(url, new DateTime(timestamp))
-            .getOrElseF(ApplicativeError[F, Throwable].raiseError(InvalidConditionException))
+    Clock[F]
+      .realTime(TimeUnit.MILLISECONDS)
+      .flatMap { timestamp =>
+        schedulingDao
+          .completeTask(url, new DateTime(timestamp))
+          .getOrElseF(ApplicativeError[F, Throwable].raiseError(InvalidConditionException))
       }
 
   override val acquireTask: OptionT[F, ScheduledVideoDownload] =
-    schedulingDao.retrieveNewTask.flatMap {
-      scheduledVideoDownload =>
-        schedulingDao.setInProgress(scheduledVideoDownload.videoMetadata.url, inProgress = true)
+    schedulingDao.retrieveNewTask.flatMap { scheduledVideoDownload =>
+      schedulingDao.setInProgress(scheduledVideoDownload.videoMetadata.url, inProgress = true)
     }
+
+  override val activeDownloads: F[Seq[ScheduledVideoDownload]] =
+    Clock[F].realTime(TimeUnit.MILLISECONDS)
+      .flatMap {
+        timestamp => schedulingDao.activeDownloads(new DateTime(timestamp).minusSeconds(30))
+      }
 }

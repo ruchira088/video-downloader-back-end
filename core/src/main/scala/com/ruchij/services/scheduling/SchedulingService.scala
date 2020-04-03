@@ -11,5 +11,7 @@ trait SchedulingService[F[_]] {
 
   def completeTask(url: Uri): F[ScheduledVideoDownload]
 
-  val acquireTask: OptionT[F ,ScheduledVideoDownload]
+  val acquireTask: OptionT[F, ScheduledVideoDownload]
+
+  val activeDownloads: F[Seq[ScheduledVideoDownload]]
 }

@@ -88,8 +88,13 @@ class DoobieSchedulingDao[F[_]: Bracket[*[_], Throwable]](
     OptionT {
       (SELECT_QUERY ++ sql"WHERE scheduled_video.in_progress = false AND scheduled_video.completed_at IS NULL LIMIT 1")
         .query[ScheduledVideoDownload]
-        .to[List]
+        .to[Seq]
         .transact(transactor)
         .map(_.headOption)
     }
+  override def activeDownloads(timestamp: DateTime): F[Seq[ScheduledVideoDownload]] =
+    (SELECT_QUERY ++ sql"WHERE scheduled_video.in_progress = true AND scheduled_video.last_updated_at >= $timestamp")
+      .query[ScheduledVideoDownload]
+      .to[Seq]
+      .transact(transactor)
 }

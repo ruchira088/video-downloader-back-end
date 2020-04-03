@@ -8,7 +8,8 @@ inThisBuild {
     maintainer := "me@ruchij.com",
     scalacOptions ++= Seq("-Xlint", "-feature"),
     addCompilerPlugin(kindProjector),
-    addCompilerPlugin(betterMonadicFor)
+    addCompilerPlugin(betterMonadicFor),
+    addCompilerPlugin(scalaTypedHoles)
   )
 }
 
