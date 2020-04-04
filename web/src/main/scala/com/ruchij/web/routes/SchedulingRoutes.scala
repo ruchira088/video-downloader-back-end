@@ -3,13 +3,14 @@ package com.ruchij.web.routes
 import cats.effect.Sync
 import cats.implicits._
 import com.ruchij.circe.Encoders._
+import com.ruchij.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.services.scheduling.SchedulingService
 import com.ruchij.web.requests.SchedulingRequest
-import com.ruchij.web.responses.SeqResponse
+import io.circe.Encoder
 import io.circe.generic.auto._
 import org.http4s.circe.CirceEntityEncoder.circeEntityEncoder
 import org.http4s.circe._
-import org.http4s.HttpRoutes
+import org.http4s.{HttpRoutes, ServerSentEvent}
 import org.http4s.dsl.Http4sDsl
 
 object SchedulingRoutes {
@@ -27,11 +28,15 @@ object SchedulingRoutes {
         yield response
 
       case GET -> Root / "active" =>
-        for {
-          activeDownloads <- schedulingService.activeDownloads
-          response <- Ok(SeqResponse(activeDownloads))
+        Ok {
+          schedulingService.active
+            .map {
+              scheduledVideoDownload =>
+                ServerSentEvent {
+                  Encoder[ScheduledVideoDownload].apply(scheduledVideoDownload).noSpaces
+                }
+            }
         }
-        yield response
     }
   }
 }

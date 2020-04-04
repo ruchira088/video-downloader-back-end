@@ -1,6 +1,7 @@
 package com.ruchij.services.scheduling
 
 import cats.data.OptionT
+import fs2.Stream
 import com.ruchij.daos.scheduling.models.ScheduledVideoDownload
 import org.http4s.Uri
 
@@ -13,5 +14,5 @@ trait SchedulingService[F[_]] {
 
   val acquireTask: OptionT[F, ScheduledVideoDownload]
 
-  val activeDownloads: F[Seq[ScheduledVideoDownload]]
+  val active: Stream[F, ScheduledVideoDownload]
 }

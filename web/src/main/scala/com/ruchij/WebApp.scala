@@ -1,6 +1,6 @@
 package com.ruchij
 
-import cats.effect.{Blocker, Clock, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource}
+import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Timer}
 import com.ruchij.config.WebServiceConfiguration
 import com.ruchij.daos.doobie.DoobieTransactor
 import com.ruchij.daos.scheduling.DoobieSchedulingDao
@@ -35,9 +35,9 @@ object WebApp extends IOApp {
         }
     } yield ExitCode.Success
 
-  def program[F[_]: ConcurrentEffect: Clock: ContextShift](
-                                                            serviceConfiguration: WebServiceConfiguration,
-                                                            executionContext: ExecutionContext
+  def program[F[_]: ConcurrentEffect: Timer: ContextShift](
+    serviceConfiguration: WebServiceConfiguration,
+    executionContext: ExecutionContext
   ): Resource[F, HttpApp[F]] =
     for {
       client <- BlazeClientBuilder[F](executionContext).resource

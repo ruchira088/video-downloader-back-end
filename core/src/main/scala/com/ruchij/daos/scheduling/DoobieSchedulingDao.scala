@@ -1,5 +1,6 @@
 package com.ruchij.daos.scheduling
 
+import cats.ApplicativeError
 import cats.data.OptionT
 import cats.effect.Bracket
 import cats.implicits._
@@ -92,9 +93,18 @@ class DoobieSchedulingDao[F[_]: Bracket[*[_], Throwable]](
         .transact(transactor)
         .map(_.headOption)
     }
-  override def activeDownloads(timestamp: DateTime): F[Seq[ScheduledVideoDownload]] =
-    (SELECT_QUERY ++ sql"WHERE scheduled_video.in_progress = true AND scheduled_video.last_updated_at >= $timestamp")
-      .query[ScheduledVideoDownload]
-      .to[Seq]
-      .transact(transactor)
+  override def active(after: DateTime, before: DateTime): F[Seq[ScheduledVideoDownload]] =
+    if (after.isBefore(before))
+      (SELECT_QUERY ++
+        sql"""
+          WHERE
+            scheduled_video.last_updated_at >= $after
+            AND scheduled_video.last_updated_at < $before
+          """
+        )
+        .query[ScheduledVideoDownload]
+        .to[Seq]
+        .transact(transactor)
+    else
+      ApplicativeError[F, Throwable].raiseError(new IllegalArgumentException(s"$after is After $before"))
 }

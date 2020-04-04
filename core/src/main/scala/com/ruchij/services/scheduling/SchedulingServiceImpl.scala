@@ -3,17 +3,20 @@ package com.ruchij.services.scheduling
 import java.util.concurrent.TimeUnit
 
 import cats.data.OptionT
-import cats.effect.Clock
+import cats.effect.{Clock, Timer}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadError}
 import com.ruchij.daos.scheduling.SchedulingDao
+import fs2.Stream
 import com.ruchij.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.exceptions.{InvalidConditionException, ResourceNotFoundException}
 import com.ruchij.services.video.VideoAnalysisService
 import org.http4s.Uri
 import org.joda.time.DateTime
 
-class SchedulingServiceImpl[F[_]: MonadError[*[_], Throwable]: Clock](
+import scala.concurrent.duration.Duration
+
+class SchedulingServiceImpl[F[_]: MonadError[*[_], Throwable]: Timer](
   videoAnalysisService: VideoAnalysisService[F],
   schedulingDao: SchedulingDao[F]
 ) extends SchedulingService[F] {
@@ -50,9 +53,22 @@ class SchedulingServiceImpl[F[_]: MonadError[*[_], Throwable]: Clock](
       schedulingDao.setInProgress(scheduledVideoDownload.videoMetadata.url, inProgress = true)
     }
 
-  override val activeDownloads: F[Seq[ScheduledVideoDownload]] =
-    Clock[F].realTime(TimeUnit.MILLISECONDS)
+  override val active: Stream[F, ScheduledVideoDownload] =
+    Stream.awakeDelay[F](Duration.create(100, TimeUnit.MILLISECONDS))
+      .productR {
+        Stream.eval(Clock[F].realTime(TimeUnit.MILLISECONDS)).map(timestamp => new DateTime(timestamp))
+      }
+      .scan[(Option[DateTime], Option[DateTime])]((None, None)) {
+        case ((_, Some(previous)), timestamp) => (Some(previous), Some(timestamp))
+        case (_, timestamp) => (None, Some(timestamp))
+      }
+      .collect {
+        case (Some(start), Some(end)) => (start, end)
+      }
+      .evalMap {
+        case (start, end) => schedulingDao.active(start, end)
+      }
       .flatMap {
-        timestamp => schedulingDao.activeDownloads(new DateTime(timestamp).minusSeconds(30))
+        scheduledDownloads => Stream.emits(scheduledDownloads)
       }
 }

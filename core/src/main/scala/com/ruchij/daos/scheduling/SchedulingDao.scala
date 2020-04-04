@@ -16,7 +16,7 @@ trait SchedulingDao[F[_]] {
 
   def completeTask(url: Uri, timestamp: DateTime): OptionT[F, ScheduledVideoDownload]
 
-  def activeDownloads(timestamp: DateTime): F[Seq[ScheduledVideoDownload]]
+  def active(after: DateTime, before: DateTime): F[Seq[ScheduledVideoDownload]]
 
   val retrieveNewTask: OptionT[F, ScheduledVideoDownload]
 }
