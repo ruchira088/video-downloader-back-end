@@ -26,7 +26,7 @@ class WorkExecutorImpl[F[_]: Sync](
           .use { downloadResult =>
             downloadResult.data
               .evalMap { bytes =>
-                schedulingService.updateDownloadProgress(scheduledVideoDownload.videoMetadata.url, bytes)
+                schedulingService.updateDownloadProgress(scheduledVideoDownload.videoMetadata.key, bytes)
               }
               .compile
               .drain
@@ -34,7 +34,7 @@ class WorkExecutorImpl[F[_]: Sync](
           }
       }
       .productL {
-        schedulingService.completeTask(scheduledVideoDownload.videoMetadata.url)
+        schedulingService.completeTask(scheduledVideoDownload.videoMetadata.key)
       }
       .flatMap {
         path => videoService.insert(scheduledVideoDownload.videoMetadata, path)

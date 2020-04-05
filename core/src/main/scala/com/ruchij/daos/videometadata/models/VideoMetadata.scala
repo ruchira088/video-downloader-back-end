@@ -6,6 +6,7 @@ import scala.concurrent.duration.FiniteDuration
 
 case class VideoMetadata(
   url: Uri,
+  key: String,
   videoSite: VideoSite,
   title: String,
   duration: FiniteDuration,

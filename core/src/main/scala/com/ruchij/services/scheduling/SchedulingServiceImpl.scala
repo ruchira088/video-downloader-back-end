@@ -30,31 +30,31 @@ class SchedulingServiceImpl[F[_]: MonadError[*[_], Throwable]: Timer](
       _ <- schedulingDao.insert(scheduledVideoDownload)
     } yield scheduledVideoDownload
 
-  override def updateDownloadProgress(url: Uri, downloadedBytes: Long): F[Int] =
+  override def updateDownloadProgress(key: String, downloadedBytes: Long): F[Int] =
     for {
       timestamp <- Clock[F].realTime(TimeUnit.MILLISECONDS)
-      result <- schedulingDao.updateDownloadProgress(url, downloadedBytes, new DateTime(timestamp))
+      result <- schedulingDao.updateDownloadProgress(key, downloadedBytes, new DateTime(timestamp))
 
-      _ <- if (result == 0) ApplicativeError[F, Throwable].raiseError(ResourceNotFoundException(s"Url not found: $url"))
+      _ <- if (result == 0) ApplicativeError[F, Throwable].raiseError(ResourceNotFoundException(s"Key not found: $key"))
       else Applicative[F].unit
     } yield result
 
-  override def completeTask(url: Uri): F[ScheduledVideoDownload] =
+  override def completeTask(key: String): F[ScheduledVideoDownload] =
     Clock[F]
       .realTime(TimeUnit.MILLISECONDS)
       .flatMap { timestamp =>
         schedulingDao
-          .completeTask(url, new DateTime(timestamp))
+          .completeTask(key, new DateTime(timestamp))
           .getOrElseF(ApplicativeError[F, Throwable].raiseError(InvalidConditionException))
       }
 
   override val acquireTask: OptionT[F, ScheduledVideoDownload] =
     schedulingDao.retrieveNewTask.flatMap { scheduledVideoDownload =>
-      schedulingDao.setInProgress(scheduledVideoDownload.videoMetadata.url, inProgress = true)
+      schedulingDao.setInProgress(scheduledVideoDownload.videoMetadata.key, inProgress = true)
     }
 
   override val active: Stream[F, ScheduledVideoDownload] =
-    Stream.awakeDelay[F](Duration.create(100, TimeUnit.MILLISECONDS))
+    Stream.awakeDelay[F](Duration.create(500, TimeUnit.MILLISECONDS))
       .productR {
         Stream.eval(Clock[F].realTime(TimeUnit.MILLISECONDS)).map(timestamp => new DateTime(timestamp))
       }

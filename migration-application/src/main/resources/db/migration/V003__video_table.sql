@@ -1,10 +1,10 @@
 CREATE TABLE video(
     index BIGSERIAL,
-    url VARCHAR(2047) NOT NULL,
+    key VARCHAR(127),
     downloaded_at TIMESTAMP NOT NULL,
     path VARCHAR(2047) NOT NULL,
 
-    PRIMARY KEY (url),
+    PRIMARY KEY (key),
 
-    CONSTRAINT fk_video_video_url FOREIGN KEY (url) REFERENCES video_metadata(url)
+    CONSTRAINT fk_video_video_key FOREIGN KEY (key) REFERENCES video_metadata(key)
 );

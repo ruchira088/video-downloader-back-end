@@ -11,7 +11,6 @@ import com.ruchij.daos.videometadata.DoobieVideoMetadataDao
 import doobie.implicits._
 import doobie.util.fragment.Fragment
 import doobie.util.transactor.Transactor
-import org.http4s.Uri
 import org.joda.time.DateTime
 
 class DoobieSchedulingDao[F[_]: Bracket[*[_], Throwable]](
@@ -24,12 +23,12 @@ class DoobieSchedulingDao[F[_]: Bracket[*[_], Throwable]](
       .insert(scheduledVideoDownload.videoMetadata)
       .productR {
         sql"""
-          INSERT INTO scheduled_video (scheduled_at, last_updated_at, in_progress, url, downloaded_bytes, completed_at)
+          INSERT INTO scheduled_video (scheduled_at, last_updated_at, in_progress, key, downloaded_bytes, completed_at)
             VALUES (
               ${scheduledVideoDownload.scheduledAt},
               ${scheduledVideoDownload.lastUpdatedAt},
               ${scheduledVideoDownload.inProgress},
-              ${scheduledVideoDownload.videoMetadata.url},
+              ${scheduledVideoDownload.videoMetadata.key},
               ${scheduledVideoDownload.downloadedBytes},
               ${scheduledVideoDownload.completedAt}
               )
@@ -37,10 +36,10 @@ class DoobieSchedulingDao[F[_]: Bracket[*[_], Throwable]](
           .update.run.transact(transactor)
       }
 
-  override def updateDownloadProgress(url: Uri, downloadedBytes: Long, timestamp: DateTime): F[Int] =
+  override def updateDownloadProgress(key: String, downloadedBytes: Long, timestamp: DateTime): F[Int] =
     sql"""
       UPDATE scheduled_video SET downloaded_bytes = $downloadedBytes, last_updated_at = $timestamp
-        WHERE url = $url
+        WHERE key = $key
     """
       .update.run.transact(transactor)
 
@@ -48,28 +47,28 @@ class DoobieSchedulingDao[F[_]: Bracket[*[_], Throwable]](
     sql"""
         SELECT
           scheduled_video.scheduled_at, scheduled_video.last_updated_at, scheduled_video.in_progress,
-          video_metadata.url, video_metadata.video_site, video_metadata.title, video_metadata.duration,
+          video_metadata.url, video_metadata.key, video_metadata.video_site, video_metadata.title, video_metadata.duration,
           video_metadata.size, video_metadata.thumbnail,
           scheduled_video.downloaded_bytes, scheduled_video.completed_at
         FROM scheduled_video
-        JOIN video_metadata ON scheduled_video.url = video_metadata.url
+        JOIN video_metadata ON scheduled_video.key = video_metadata.key
       """
 
-  override def getByUrl(url: Uri): OptionT[F, ScheduledVideoDownload] =
+  override def getByKey(key: String): OptionT[F, ScheduledVideoDownload] =
     OptionT {
-      (SELECT_QUERY ++ sql"WHERE scheduled_video.url = $url")
+      (SELECT_QUERY ++ sql"WHERE scheduled_video.key = $key")
         .query[ScheduledVideoDownload].option.transact(transactor)
     }
 
-  override def setInProgress(url: Uri, inProgress: Boolean): OptionT[F, ScheduledVideoDownload] =
+  override def setInProgress(key: String, inProgress: Boolean): OptionT[F, ScheduledVideoDownload] =
     singleUpdate[F] {
-      sql"UPDATE scheduled_video SET in_progress = $inProgress WHERE url = $url AND in_progress = ${!inProgress}"
+      sql"UPDATE scheduled_video SET in_progress = $inProgress WHERE key = $key AND in_progress = ${!inProgress}"
         .update.run.transact(transactor)
     }
-      .productR(getByUrl(url))
+      .productR(getByKey(key))
 
 
-  override def completeTask(url: Uri, timestamp: DateTime): OptionT[F, ScheduledVideoDownload] =
+  override def completeTask(key: String, timestamp: DateTime): OptionT[F, ScheduledVideoDownload] =
     singleUpdate[F] {
       sql"""
         UPDATE scheduled_video
@@ -80,10 +79,10 @@ class DoobieSchedulingDao[F[_]: Bracket[*[_], Throwable]](
           WHERE
             in_progress = true AND
             completed_at IS NULL AND
-            url = $url
+            key = $key
       """.update.run.transact(transactor)
     }
-      .productR(getByUrl(url))
+      .productR(getByKey(key))
 
   override val retrieveNewTask: OptionT[F, ScheduledVideoDownload] =
     OptionT {

@@ -1,11 +1,14 @@
 package com.ruchij
 
-import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Timer}
+import java.util.concurrent.Executors
+
+import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
 import com.ruchij.config.WebServiceConfiguration
 import com.ruchij.daos.doobie.DoobieTransactor
 import com.ruchij.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.migration.MigrationApp
+import com.ruchij.services.hashing.MurmurHash3Service
 import com.ruchij.services.health.HealthServiceImpl
 import com.ruchij.services.scheduling.SchedulingServiceImpl
 import com.ruchij.services.video.VideoAnalysisServiceImpl
@@ -41,20 +44,27 @@ object WebApp extends IOApp {
   ): Resource[F, HttpApp[F]] =
     for {
       client <- BlazeClientBuilder[F](executionContext).resource
-      blocker <- Blocker[F]
+
+      ioThreadPool <- Resource.liftF(Sync[F].delay(Executors.newCachedThreadPool()))
+      ioBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(ioThreadPool))
+
+      processorCount <- Resource.liftF(Sync[F].delay(Runtime.getRuntime.availableProcessors()))
+      cpuBlockingThreadPool <- Resource.liftF(Sync[F].delay(Executors.newFixedThreadPool(processorCount)))
+      cpuBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(cpuBlockingThreadPool))
 
       _ <- Resource.liftF {
-        MigrationApp.migration[F](serviceConfiguration.databaseConfiguration, blocker)
+        MigrationApp.migration[F](serviceConfiguration.databaseConfiguration, ioBlocker)
       }
 
       transactor <- Resource.liftF {
-        DoobieTransactor.create[F](serviceConfiguration.databaseConfiguration, blocker)
+        DoobieTransactor.create[F](serviceConfiguration.databaseConfiguration, ioBlocker)
       }
 
       videoMetadataDao = new DoobieVideoMetadataDao[F](transactor)
       schedulingDao = new DoobieSchedulingDao[F](videoMetadataDao, transactor)
 
-      videoService = new VideoAnalysisServiceImpl[F](client)
+      hashingService = new MurmurHash3Service[F](cpuBlocker)
+      videoService = new VideoAnalysisServiceImpl[F](client, hashingService)
       schedulingService = new SchedulingServiceImpl[F](videoService, schedulingDao)
       healthService = new HealthServiceImpl[F]
     } yield Routes(schedulingService, healthService)

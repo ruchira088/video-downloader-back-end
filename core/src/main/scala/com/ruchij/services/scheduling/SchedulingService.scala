@@ -8,9 +8,9 @@ import org.http4s.Uri
 trait SchedulingService[F[_]] {
   def schedule(uri: Uri): F[ScheduledVideoDownload]
 
-  def updateDownloadProgress(url: Uri, downloadedBytes: Long): F[Int]
+  def updateDownloadProgress(key: String, downloadedBytes: Long): F[Int]
 
-  def completeTask(url: Uri): F[ScheduledVideoDownload]
+  def completeTask(key: String): F[ScheduledVideoDownload]
 
   val acquireTask: OptionT[F, ScheduledVideoDownload]
 

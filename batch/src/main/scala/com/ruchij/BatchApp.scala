@@ -1,6 +1,8 @@
 package com.ruchij
 
-import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Timer}
+import java.util.concurrent.Executors
+
+import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
 import com.ruchij.config.BatchServiceConfiguration
 import com.ruchij.daos.doobie.DoobieTransactor
 import com.ruchij.daos.scheduling.DoobieSchedulingDao
@@ -8,6 +10,7 @@ import com.ruchij.daos.video.DoobieVideoDao
 import com.ruchij.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.migration.MigrationApp
 import com.ruchij.services.download.Http4sDownloadService
+import com.ruchij.services.hashing.MurmurHash3Service
 import com.ruchij.services.scheduler.{Scheduler, SchedulerImpl}
 import com.ruchij.services.scheduling.SchedulingServiceImpl
 import com.ruchij.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
@@ -33,18 +36,28 @@ object BatchApp extends IOApp {
   ): Resource[F, Scheduler[F]] =
     for {
       client <- BlazeClientBuilder[F](executionContext).resource
-      blocker <- Blocker[F]
-      transactor <- Resource.liftF(DoobieTransactor.create[F](batchServiceConfiguration.databaseConfiguration, blocker))
 
-      _ <- Resource.liftF(MigrationApp.migration[F](batchServiceConfiguration.databaseConfiguration, blocker))
+      ioThreadPool <- Resource.liftF(Sync[F].delay(Executors.newCachedThreadPool()))
+      ioBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(ioThreadPool))
+
+      processorCount <- Resource.liftF(Sync[F].delay(Runtime.getRuntime.availableProcessors()))
+      cpuBlockingThreadPool <- Resource.liftF(Sync[F].delay(Executors.newFixedThreadPool(processorCount)))
+      cpuBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(cpuBlockingThreadPool))
+
+      transactor <- Resource.liftF {
+        DoobieTransactor.create[F](batchServiceConfiguration.databaseConfiguration, ioBlocker)
+      }
+
+      _ <- Resource.liftF(MigrationApp.migration[F](batchServiceConfiguration.databaseConfiguration, ioBlocker))
 
       videoMetadataDao = new DoobieVideoMetadataDao[F](transactor)
       schedulingDao = new DoobieSchedulingDao[F](videoMetadataDao, transactor)
       videoDao = new DoobieVideoDao[F](transactor)
 
-      videoAnalysisService = new VideoAnalysisServiceImpl[F](client)
+      hashingService = new MurmurHash3Service[F](cpuBlocker)
+      videoAnalysisService = new VideoAnalysisServiceImpl[F](client, hashingService)
       schedulingService = new SchedulingServiceImpl[F](videoAnalysisService, schedulingDao)
-      downloadService = new Http4sDownloadService[F](client, blocker)
+      downloadService = new Http4sDownloadService[F](client, ioBlocker)
       videoService = new VideoServiceImpl[F](videoDao)
 
       workExecutor = new WorkExecutorImpl[F](

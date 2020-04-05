@@ -2,19 +2,18 @@ package com.ruchij.daos.scheduling
 
 import cats.data.OptionT
 import com.ruchij.daos.scheduling.models.ScheduledVideoDownload
-import org.http4s.Uri
 import org.joda.time.DateTime
 
 trait SchedulingDao[F[_]] {
   def insert(scheduledVideoDownload: ScheduledVideoDownload): F[Int]
 
-  def updateDownloadProgress(url: Uri, downloadedBytes: Long, timestamp: DateTime): F[Int]
+  def updateDownloadProgress(key: String, downloadedBytes: Long, timestamp: DateTime): F[Int]
 
-  def getByUrl(url: Uri): OptionT[F, ScheduledVideoDownload]
+  def getByKey(key: String): OptionT[F, ScheduledVideoDownload]
 
-  def setInProgress(url: Uri, inProgress: Boolean): OptionT[F, ScheduledVideoDownload]
+  def setInProgress(key: String, inProgress: Boolean): OptionT[F, ScheduledVideoDownload]
 
-  def completeTask(url: Uri, timestamp: DateTime): OptionT[F, ScheduledVideoDownload]
+  def completeTask(key: String, timestamp: DateTime): OptionT[F, ScheduledVideoDownload]
 
   def active(after: DateTime, before: DateTime): F[Seq[ScheduledVideoDownload]]
 
