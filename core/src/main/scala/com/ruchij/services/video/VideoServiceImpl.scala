@@ -19,4 +19,7 @@ class VideoServiceImpl[F[_]: Monad: Clock](videoDao: VideoDao[F]) extends VideoS
 
       videoDao.insert(video).as(video)
     }
+
+  override def search(term: Option[String], pageNumber: Int, pageSize: Int): F[Seq[Video]] =
+    videoDao.search(term, pageNumber, pageSize)
 }

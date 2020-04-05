@@ -7,4 +7,6 @@ import com.ruchij.daos.videometadata.models.VideoMetadata
 
 trait VideoService[F[_]] {
   def insert(videoMetadata: VideoMetadata, path: Path): F[Video]
+
+  def search(term: Option[String], pageNumber: Int, pageSize: Int): F[Seq[Video]]
 }
