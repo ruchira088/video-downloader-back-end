@@ -26,7 +26,7 @@ object Dependencies
 
   lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.5.15"
 
-  lazy val doobiePostgres = "org.tpolecat" %% "doobie-postgres" % "0.8.8"
+  lazy val doobie = "org.tpolecat" %% "doobie-core" % "0.9.0"
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.13.1"
 
@@ -34,7 +34,7 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.12.3"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "6.3.2"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "6.3.3"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.12"
 
@@ -49,6 +49,8 @@ object Dependencies
   lazy val scalaTypedHoles = "com.github.cb372" % "scala-typed-holes" % "0.1.2" cross CrossVersion.full
 
   lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.1.1"
+
+  lazy val scalaMock = "org.scalamock" %% "scalamock" % "4.4.0"
 
   lazy val pegdown = "org.pegdown" % "pegdown" % "1.6.0"
 }

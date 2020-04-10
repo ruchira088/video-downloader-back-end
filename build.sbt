@@ -31,13 +31,13 @@ lazy val core =
           http4sDsl,
           http4sBlazeClient,
           h2,
-          doobiePostgres,
+          doobie,
           pureconfig,
           jodaTime,
           enumeratum,
           jsoup,
           logbackClassic
-        )
+        ) ++ Seq(scalaTest, scalaMock).map(_ % Test)
     )
     .dependsOn(migrationApplication)
 
@@ -57,6 +57,7 @@ lazy val web =
           circeGeneric,
           circeParser,
           circeLiteral,
+          postgresql,
           pureconfig,
           logbackClassic
         ) ++ Seq(scalaTest, pegdown).map(_ % Test)
@@ -69,7 +70,7 @@ lazy val batch =
       .settings(
         name := "video-downloader-batch",
         topLevelDirectory := None,
-        libraryDependencies ++= Seq(catsEffect)
+        libraryDependencies ++= Seq(catsEffect, postgresql)
       )
       .dependsOn(core)
 
