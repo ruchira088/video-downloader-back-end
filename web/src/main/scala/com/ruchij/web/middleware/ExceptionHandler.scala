@@ -3,7 +3,7 @@ package com.ruchij.web.middleware
 import cats.arrow.FunctionK
 import cats.data.Kleisli
 import cats.effect.Sync
-import com.ruchij.exceptions.ResourceNotFoundException
+import com.ruchij.exceptions.{AggregatedException, ResourceNotFoundException}
 import com.ruchij.types.FunctionKTypes
 import com.ruchij.web.responses.ErrorResponse
 import org.http4s.dsl.impl.EntityResponseGenerator
@@ -32,6 +32,7 @@ object ExceptionHandler {
 
   def errorResponseBody(throwable: Throwable): ErrorResponse =
     throwable match {
+      case AggregatedException(exceptions) => ErrorResponse(exceptions.toList)
       case _ => ErrorResponse(List(throwable))
     }
 }

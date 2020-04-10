@@ -6,12 +6,13 @@ import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp
 import com.ruchij.config.WebServiceConfiguration
 import com.ruchij.daos.doobie.DoobieTransactor
 import com.ruchij.daos.scheduling.DoobieSchedulingDao
+import com.ruchij.daos.video.DoobieVideoDao
 import com.ruchij.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.migration.MigrationApp
 import com.ruchij.services.hashing.MurmurHash3Service
 import com.ruchij.services.health.HealthServiceImpl
 import com.ruchij.services.scheduling.SchedulingServiceImpl
-import com.ruchij.services.video.VideoAnalysisServiceImpl
+import com.ruchij.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
 import com.ruchij.types.FunctionKTypes.eitherToF
 import com.ruchij.web.Routes
 import org.http4s.HttpApp
@@ -62,10 +63,13 @@ object WebApp extends IOApp {
 
       videoMetadataDao = new DoobieVideoMetadataDao[F](transactor)
       schedulingDao = new DoobieSchedulingDao[F](videoMetadataDao, transactor)
+      videoDao = new DoobieVideoDao[F](transactor)
 
       hashingService = new MurmurHash3Service[F](cpuBlocker)
-      videoService = new VideoAnalysisServiceImpl[F](client, hashingService)
-      schedulingService = new SchedulingServiceImpl[F](videoService, schedulingDao)
+      videoService = new VideoServiceImpl[F](videoDao)
+      videoAnalysisService = new VideoAnalysisServiceImpl[F](client, hashingService)
+      schedulingService = new SchedulingServiceImpl[F](videoAnalysisService, schedulingDao)
       healthService = new HealthServiceImpl[F]
-    } yield Routes(schedulingService, healthService)
+
+    } yield Routes(videoService, schedulingService, healthService)
 }
