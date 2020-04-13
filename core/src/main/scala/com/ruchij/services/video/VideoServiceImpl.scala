@@ -1,6 +1,5 @@
 package com.ruchij.services.video
 
-import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 
 import cats.Monad
@@ -13,7 +12,7 @@ import org.joda.time.DateTime
 
 class VideoServiceImpl[F[_]: Monad: Clock](videoDao: VideoDao[F]) extends VideoService[F] {
 
-  override def insert(videoMetadata: VideoMetadata, path: Path): F[Video] =
+  override def insert(videoMetadata: VideoMetadata, path: String): F[Video] =
     Clock[F].realTime(TimeUnit.MILLISECONDS).flatMap { timestamp =>
       val video = Video(new DateTime(timestamp), videoMetadata, path)
 

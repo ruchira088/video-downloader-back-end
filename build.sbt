@@ -78,4 +78,6 @@ addCommandAlias("compileAll", "; migrationApplication/compile; core/compile; web
 
 addCommandAlias("cleanAll", "; batch/clean; web/clean; core/clean; migrationApplication/clean")
 
+addCommandAlias("testAll", "; migrationApplication/test; core/test; web/test; batch/test")
+
 addCommandAlias("refreshAll", "; cleanAll; compileAll")

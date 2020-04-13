@@ -22,7 +22,7 @@ class WorkExecutorImpl[F[_]: Sync](
       .downloadUri(scheduledVideoDownload.videoMetadata.url)
       .flatMap { downloadUri =>
         downloadService
-          .download(downloadUri, downloadConfiguration.videoFolder)
+          .download(downloadUri, downloadConfiguration.videoFolderKey)
           .use { downloadResult =>
             downloadResult.data
               .evalMap { bytes =>
@@ -30,7 +30,7 @@ class WorkExecutorImpl[F[_]: Sync](
               }
               .compile
               .drain
-              .as(downloadResult.path)
+              .as(downloadResult.key)
           }
       }
       .productL {

@@ -1,15 +1,15 @@
-package com.ruchij.daos.videometadata.models
+package com.ruchij.services.video.models
 
+import com.ruchij.daos.videometadata.models.VideoSite
 import org.http4s.Uri
 
 import scala.concurrent.duration.FiniteDuration
 
-case class VideoMetadata(
+case class VideoAnalysisResult(
   url: Uri,
-  key: String,
   videoSite: VideoSite,
   title: String,
   duration: FiniteDuration,
   size: Long,
-  thumbnail: String
+  thumbnail: Uri
 )

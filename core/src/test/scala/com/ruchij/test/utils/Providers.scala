@@ -2,8 +2,12 @@ package com.ruchij.test.utils
 
 import java.util.concurrent.TimeUnit
 
-import cats.effect.{Blocker, Clock, ContextShift, IO, Sync, Timer}
+import cats.effect.{Async, Blocker, Clock, ContextShift, IO, Sync, Timer}
+import cats.implicits._
 import com.ruchij.config.DatabaseConfiguration
+import com.ruchij.daos.doobie.DoobieTransactor
+import com.ruchij.migration.MigrationApp
+import doobie.util.transactor.Transactor
 import org.joda.time.DateTime
 
 import scala.concurrent.ExecutionContext
@@ -39,4 +43,9 @@ object Providers {
 
       override def sleep(duration: FiniteDuration): IO[Unit] = timer.sleep(duration)
     }
+
+  def h2Transactor[F[_]: Async: ContextShift](implicit executionContext: ExecutionContext): F[Transactor.Aux[F, Unit]] =
+    MigrationApp
+      .migration(h2DatabaseConfiguration, blocker)
+      .productR(DoobieTransactor.create[F](h2DatabaseConfiguration, blocker))
 }

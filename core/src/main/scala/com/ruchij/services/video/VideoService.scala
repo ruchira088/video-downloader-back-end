@@ -1,12 +1,10 @@
 package com.ruchij.services.video
 
-import java.nio.file.Path
-
 import com.ruchij.daos.video.models.Video
 import com.ruchij.daos.videometadata.models.VideoMetadata
 
 trait VideoService[F[_]] {
-  def insert(videoMetadata: VideoMetadata, path: Path): F[Video]
+  def insert(videoMetadata: VideoMetadata, path: String): F[Video]
 
   def search(term: Option[String], pageNumber: Int, pageSize: Int): F[Seq[Video]]
 }

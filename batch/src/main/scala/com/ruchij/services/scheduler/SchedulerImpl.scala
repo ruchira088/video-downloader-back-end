@@ -7,10 +7,13 @@ import cats.effect.concurrent.Semaphore
 import cats.effect.{Concurrent, Sync, Timer}
 import cats.implicits._
 import com.ruchij.config.WorkerConfiguration
+import com.ruchij.services.scheduler.SchedulerImpl.MAX_DELAY
 import com.ruchij.services.scheduling.SchedulingService
 import com.ruchij.services.worker.WorkExecutor
 
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
+import scala.language.postfixOps
 import scala.util.Random
 
 class SchedulerImpl[F[_]: Concurrent: Timer](
@@ -27,8 +30,8 @@ class SchedulerImpl[F[_]: Concurrent: Timer](
   def runScheduler(semaphore: Semaphore[F]): F[Nothing] =
     semaphore.acquire
       .product {
-        Sync[F].delay(Random.nextInt(1000))
-          .flatMap { int => Timer[F].sleep(FiniteDuration(int, TimeUnit.MILLISECONDS)) }
+        Sync[F].delay(Random.nextLong(MAX_DELAY.toMillis))
+          .flatMap { long => Timer[F].sleep(FiniteDuration(long, TimeUnit.MILLISECONDS)) }
       }
       .product {
         Concurrent[F].start {
@@ -36,15 +39,19 @@ class SchedulerImpl[F[_]: Concurrent: Timer](
             .semiflatMap { task =>
               workExecutor.execute(task).productR(Applicative[F].unit)
             }
-            .getOrElseF {
-              Timer[F].sleep(workerConfiguration.idleTimeout)
+            .getOrElseF(Applicative[F].unit)
+            .productL(semaphore.release)
+            .recoverWith {
+              case _ => semaphore.release
             }
-            .product {
-              semaphore.release
-            }
+
         }
       }
       .productR[Nothing] {
         Sync[F].defer[Nothing](runScheduler(semaphore))
       }
+}
+
+object SchedulerImpl {
+  val MAX_DELAY: FiniteDuration = 20 seconds
 }

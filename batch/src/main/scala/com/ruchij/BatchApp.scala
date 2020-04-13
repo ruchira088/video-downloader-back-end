@@ -11,6 +11,7 @@ import com.ruchij.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.migration.MigrationApp
 import com.ruchij.services.download.Http4sDownloadService
 import com.ruchij.services.hashing.MurmurHash3Service
+import com.ruchij.services.repository.FileRepositoryService
 import com.ruchij.services.scheduler.{Scheduler, SchedulerImpl}
 import com.ruchij.services.scheduling.SchedulingServiceImpl
 import com.ruchij.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
@@ -54,10 +55,17 @@ object BatchApp extends IOApp {
       schedulingDao = new DoobieSchedulingDao[F](videoMetadataDao, transactor)
       videoDao = new DoobieVideoDao[F](transactor)
 
+      repositoryService = new FileRepositoryService[F](ioBlocker)
+      downloadService = new Http4sDownloadService[F](client, repositoryService)
       hashingService = new MurmurHash3Service[F](cpuBlocker)
-      videoAnalysisService = new VideoAnalysisServiceImpl[F](client, hashingService)
-      schedulingService = new SchedulingServiceImpl[F](videoAnalysisService, schedulingDao)
-      downloadService = new Http4sDownloadService[F](client, ioBlocker)
+      videoAnalysisService = new VideoAnalysisServiceImpl[F](client)
+      schedulingService = new SchedulingServiceImpl[F](
+        videoAnalysisService,
+        schedulingDao,
+        hashingService,
+        downloadService,
+        batchServiceConfiguration.downloadConfiguration
+      )
       videoService = new VideoServiceImpl[F](videoDao)
 
       workExecutor = new WorkExecutorImpl[F](
