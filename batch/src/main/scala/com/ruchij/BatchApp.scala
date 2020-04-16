@@ -66,7 +66,7 @@ object BatchApp extends IOApp {
         downloadService,
         batchServiceConfiguration.downloadConfiguration
       )
-      videoService = new VideoServiceImpl[F](videoDao)
+      videoService = new VideoServiceImpl[F](videoDao, repositoryService)
 
       workExecutor = new WorkExecutorImpl[F](
         schedulingService,

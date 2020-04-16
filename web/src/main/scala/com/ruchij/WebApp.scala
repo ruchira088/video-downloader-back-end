@@ -68,9 +68,9 @@ object WebApp extends IOApp {
       videoDao = new DoobieVideoDao[F](transactor)
 
       hashingService = new MurmurHash3Service[F](cpuBlocker)
-      videoService = new VideoServiceImpl[F](videoDao)
       videoAnalysisService = new VideoAnalysisServiceImpl[F](client)
       repositoryService = new FileRepositoryService[F](ioBlocker)
+      videoService = new VideoServiceImpl[F](videoDao, repositoryService)
       downloadService = new Http4sDownloadService[F](client, repositoryService)
       schedulingService = new SchedulingServiceImpl[F](
         videoAnalysisService,

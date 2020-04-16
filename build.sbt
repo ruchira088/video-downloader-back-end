@@ -28,7 +28,6 @@ lazy val core =
       libraryDependencies ++=
         Seq(
           catsEffect,
-          http4sDsl,
           http4sBlazeClient,
           h2,
           doobie,

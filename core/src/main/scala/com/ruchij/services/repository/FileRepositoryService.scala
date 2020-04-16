@@ -15,13 +15,17 @@ class FileRepositoryService[F[_]: Sync: ContextShift](ioBlocker: Blocker) extend
       .eval(Sync[F].delay(Paths.get(key)))
       .flatMap(path => writeAll(path, ioBlocker).apply(data))
 
-  override def read(key: String, start: Long, end: Long): F[Option[Stream[F, Byte]]] =
-    Sync[F].delay(Paths.get(key))
+  override def read(key: String, start: Option[Long], end: Option[Long]): F[Option[Stream[F, Byte]]] =
+    Sync[F]
+      .delay(Paths.get(key))
       .flatMap { path =>
-        Sync[F].delay(path.toFile.exists())
+        Sync[F]
+          .delay(path.toFile.exists())
           .flatMap { fileExists =>
             if (fileExists)
-              Sync[F].delay(Some(readRange(path, ioBlocker, __block_size, start, end)))
+              Sync[F].delay(
+                Some(readRange(path, ioBlocker, __block_size, start.getOrElse(0), end.getOrElse(Long.MaxValue)))
+              )
             else
               Applicative[F].pure(None)
           }

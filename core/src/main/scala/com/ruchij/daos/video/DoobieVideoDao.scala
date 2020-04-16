@@ -31,4 +31,7 @@ class DoobieVideoDao[F[_]: Bracket[*[_], Throwable]](transactor: Transactor.Aux[
     .query[Video]
     .to[Seq]
     .transact(transactor)
+
+  override def findByKey(key: String): F[Option[Video]] =
+    (SELECT_QUERY ++ sql"WHERE video.key = $key").query[Video].option.transact(transactor)
 }
