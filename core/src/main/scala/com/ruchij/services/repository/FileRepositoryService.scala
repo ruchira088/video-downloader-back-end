@@ -24,10 +24,14 @@ class FileRepositoryService[F[_]: Sync: ContextShift](ioBlocker: Blocker) extend
           .flatMap { fileExists =>
             if (fileExists)
               Sync[F].delay(
-                Some(readRange(path, ioBlocker, __block_size, start.getOrElse(0), end.getOrElse(Long.MaxValue)))
+                Some(readRange(path, ioBlocker, FileRepositoryService.CHUNK_SIZE, start.getOrElse(0), end.getOrElse(Long.MaxValue)))
               )
             else
               Applicative[F].pure(None)
           }
       }
+}
+
+object FileRepositoryService {
+  val CHUNK_SIZE: Int = 4096
 }

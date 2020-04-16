@@ -3,8 +3,10 @@ package com.ruchij.circe
 import java.nio.file.Path
 import java.time.Duration
 
+import cats.Show
 import enumeratum.EnumEntry
 import io.circe.Encoder
+import org.http4s.MediaType
 import org.joda.time.DateTime
 
 import scala.concurrent.duration.FiniteDuration
@@ -21,4 +23,6 @@ object Encoders {
     Encoder.encodeDuration.contramap[FiniteDuration](finiteDuration => Duration.ofSeconds(finiteDuration.toSeconds))
 
   implicit val pathEncoder: Encoder[Path] = Encoder.encodeString.contramap[Path](_.toAbsolutePath.toString)
+
+  implicit val mediaTypeEncoder: Encoder[MediaType] = Encoder.encodeString.contramap[MediaType](Show[MediaType].show)
 }

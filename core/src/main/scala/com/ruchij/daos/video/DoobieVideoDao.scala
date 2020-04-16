@@ -13,7 +13,7 @@ class DoobieVideoDao[F[_]: Bracket[*[_], Throwable]](transactor: Transactor.Aux[
     sql"""
        SELECT
         video.downloaded_at, video_metadata.url, video_metadata.key, video_metadata.video_site, video_metadata.title,
-        video_metadata.duration, video_metadata.size, video_metadata.thumbnail , video.path
+        video_metadata.duration, video_metadata.size, video_metadata.media_type, video_metadata.thumbnail , video.path
       FROM video
       JOIN video_metadata ON video.key = video_metadata.key
     """

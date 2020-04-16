@@ -7,6 +7,7 @@ CREATE TABLE video_metadata(
     title VARCHAR(255) NOT NULL,
     duration BIGINT NOT NULL,
     size BIGINT NOT NULL,
+    media_type VARCHAR(64) NOT NULL,
     thumbnail VARCHAR(2047) NOT NULL,
 
     PRIMARY KEY (key)

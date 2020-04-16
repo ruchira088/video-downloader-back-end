@@ -34,7 +34,7 @@ class VideoServiceImpl[F[_]: MonadError[*[_], Throwable]: Clock](
 
   override def fetchResourceByVideoKey(key: String, start: Option[Long], end: Option[Long]): F[(Video, Stream[F, Byte])] =
     fetchByKey(key).flatMap { video =>
-      OptionT(repositoryService.read(video.path, start, end))
+      OptionT(repositoryService.read(video.path, start, end.orElse(Some(video.videoMetadata.size))))
         .getOrElseF {
           MonadError[F, Throwable].raiseError(ResourceNotFoundException(s"Unable to find video file for video with key: $key"))
         }

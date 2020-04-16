@@ -10,7 +10,7 @@ class DoobieVideoMetadataDao[F[_]: Bracket[*[_], Throwable]](transactor: Transac
 
   override def insert(videoMetadata: VideoMetadata): F[Int] =
     sql"""
-      INSERT INTO video_metadata (url, key, video_site, title, duration, size, thumbnail)
+      INSERT INTO video_metadata (url, key, video_site, title, duration, size, media_type, thumbnail)
         VALUES (
           ${videoMetadata.url},
           ${videoMetadata.key},
@@ -18,6 +18,7 @@ class DoobieVideoMetadataDao[F[_]: Bracket[*[_], Throwable]](transactor: Transac
           ${videoMetadata.title},
           ${videoMetadata.duration},
           ${videoMetadata.size},
+          ${videoMetadata.mediaType},
           ${videoMetadata.thumbnail}
         )
     """

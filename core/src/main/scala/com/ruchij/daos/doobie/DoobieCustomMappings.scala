@@ -8,7 +8,7 @@ import cats.Show
 import doobie.implicits.javasql._
 import doobie.util.{Get, Put}
 import enumeratum.{Enum, EnumEntry}
-import org.http4s.Uri
+import org.http4s.{MediaType, Uri}
 import org.joda.time.DateTime
 
 import scala.concurrent.duration.FiniteDuration
@@ -16,7 +16,7 @@ import scala.reflect.runtime.universe.TypeTag
 import scala.util.Try
 
 object DoobieCustomMappings {
-  private implicit def stringShow[A]: Show[A] = Show.fromToString[A]
+  private implicit def stringShow: Show[String] = Show.fromToString
 
   implicit def enumPut[A <: EnumEntry]: Put[A] = Put[String].contramap[A](_.entryName)
 
@@ -40,4 +40,8 @@ object DoobieCustomMappings {
   implicit val pathPut: Put[Path] = Put[String].contramap[Path](_.toAbsolutePath.toString)
 
   implicit val pathGet: Get[Path] = Get[String].temap(text => Try(Paths.get(text)).toEither.left.map(_.getMessage))
+
+  implicit val mediaTypePut: Put[MediaType] = Put[String].contramap[MediaType](Show[MediaType].show)
+
+  implicit val mediaTypeGet: Get[MediaType] = Get[String].temap(value => MediaType.parse(value).left.map(_.message))
 }

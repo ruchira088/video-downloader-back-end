@@ -48,7 +48,7 @@ class DoobieSchedulingDao[F[_]: Bracket[*[_], Throwable]](
         SELECT
           scheduled_video.scheduled_at, scheduled_video.last_updated_at, scheduled_video.in_progress,
           video_metadata.url, video_metadata.key, video_metadata.video_site, video_metadata.title, video_metadata.duration,
-          video_metadata.size, video_metadata.thumbnail,
+          video_metadata.size, video_metadata.media_type, video_metadata.thumbnail,
           scheduled_video.downloaded_bytes, scheduled_video.completed_at
         FROM scheduled_video
         JOIN video_metadata ON scheduled_video.key = video_metadata.key

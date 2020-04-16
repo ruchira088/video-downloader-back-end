@@ -31,15 +31,15 @@ class SchedulingServiceImpl[F[_]: Sync: Timer](
 
   override def schedule(uri: Uri): F[ScheduledVideoDownload] =
     for {
-      VideoAnalysisResult(_, videoSite, title, duration, size, thumbnailUri) <- videoAnalysisService.metadata(uri)
+      VideoAnalysisResult(_, videoSite, title, duration, size, mediaType, thumbnailUri) <- videoAnalysisService.metadata(uri)
       timestamp <- Clock[F].realTime(TimeUnit.MILLISECONDS).map(milliseconds => new DateTime(milliseconds))
 
       videoKey <- hashingService.hash(uri.renderString)
       thumbnail <-
-        downloadService.download(thumbnailUri, downloadConfiguration.imageFolderKey)
+        downloadService.download(thumbnailUri, downloadConfiguration.imageFolder)
           .use { downloadResult => downloadResult.data.compile.drain.as(downloadResult.key) }
 
-      videoMetadata = VideoMetadata(uri, videoKey, videoSite, title, duration, size, thumbnail)
+      videoMetadata = VideoMetadata(uri, videoKey, videoSite, title, duration, size, mediaType, thumbnail)
 
       scheduledVideoDownload = ScheduledVideoDownload(timestamp, timestamp, false, videoMetadata, 0, None)
       _ <- schedulingDao.insert(scheduledVideoDownload)

@@ -85,7 +85,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
           videoAnalysisResult.title,
           videoAnalysisResult.duration,
           videoAnalysisResult.size,
-          s"${downloadConfiguration.imageFolderKey}/b81.jpg"
+          s"${downloadConfiguration.imageFolder}/b81.jpg"
         ),
         0,
         None
@@ -103,7 +103,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
 
 object SchedulingServiceImplSpec {
   val downloadConfiguration: DownloadConfiguration =
-    DownloadConfiguration(videoFolderKey = "videos", imageFolderKey = "images")
+    DownloadConfiguration(videoFolder = "videos", imageFolder = "images")
 
   def createSchedulingService[F[_]: Async: ContextShift: Timer](
     videoAnalysisService: VideoAnalysisService[F],

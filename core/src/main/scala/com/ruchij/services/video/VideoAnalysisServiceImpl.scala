@@ -6,6 +6,7 @@ import com.ruchij.daos.videometadata.models.VideoSite
 import com.ruchij.services.video.models.VideoAnalysisResult
 import com.ruchij.utils.Http4sUtils
 import org.http4s.client.Client
+import org.http4s.headers.{`Content-Length`, `Content-Type`}
 import org.http4s.{Method, Request, Uri}
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
@@ -22,9 +23,18 @@ class VideoAnalysisServiceImpl[F[_]: Sync](client: Client[F])
       duration <- videoSite.duration[F].apply(document)
 
       downloadUri <- videoSite.downloadUri[F].apply(document)
-      size <- client.run(Request[F](Method.HEAD, downloadUri)).use(Http4sUtils.contentLength[F])
+      (size, mediaType) <-
+        client.run(Request[F](Method.HEAD, downloadUri))
+          .use {
+            Http4sUtils.header[F](`Content-Length`)
+              .product(Http4sUtils.header[F](`Content-Type`))
+              .map {
+                case (contentLength, contentType) => (contentLength.length, contentType.mediaType)
+              }
+              .run
+        }
 
-    } yield VideoAnalysisResult(uri, videoSite, videoTitle, duration, size, thumbnailUri)
+    } yield VideoAnalysisResult(uri, videoSite, videoTitle, duration, size, mediaType, thumbnailUri)
 
   override def downloadUri(uri: Uri): F[Uri] =
     for {
