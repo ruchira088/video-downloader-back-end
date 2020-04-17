@@ -1,3 +1,5 @@
 package com.ruchij.config
 
-case class WorkerConfiguration(maxConcurrentDownloads: Int)
+import org.joda.time.LocalTime
+
+case class WorkerConfiguration(maxConcurrentDownloads: Int, startTime: LocalTime, endTime: LocalTime)

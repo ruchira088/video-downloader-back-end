@@ -2,6 +2,7 @@ package com.ruchij.config
 
 import cats.effect.Sync
 import cats.~>
+import com.ruchij.config.PureConfigReaders.localTimeReader
 import pureconfig.ConfigObjectSource
 import pureconfig.error.ConfigReaderException
 import pureconfig.generic.auto._
