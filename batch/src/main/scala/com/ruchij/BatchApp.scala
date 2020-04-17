@@ -33,10 +33,10 @@ object BatchApp extends IOApp {
 
   def program[F[_]: ConcurrentEffect: ContextShift: Timer](
     batchServiceConfiguration: BatchServiceConfiguration,
-    executionContext: ExecutionContext,
+    nonBlockingExecutionContext: ExecutionContext,
   ): Resource[F, Scheduler[F]] =
     for {
-      client <- BlazeClientBuilder[F](executionContext).resource
+      client <- BlazeClientBuilder[F](nonBlockingExecutionContext).resource
 
       ioThreadPool <- Resource.liftF(Sync[F].delay(Executors.newCachedThreadPool()))
       ioBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(ioThreadPool))
