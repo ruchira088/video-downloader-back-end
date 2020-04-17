@@ -7,6 +7,8 @@ import cats.effect.Sync
 import cats.implicits._
 import fs2.Stream
 
+import scala.util.Try
+
 class InMemoryRepositoryService[F[_]: Sync](concurrentHashMap: ConcurrentHashMap[String, List[Byte]])
     extends RepositoryService[F] {
 
@@ -19,11 +21,16 @@ class InMemoryRepositoryService[F[_]: Sync](concurrentHashMap: ConcurrentHashMap
         .as((): Unit)
     }
 
-  override def read(key: String, start: Long, end: Long): F[Option[Stream[F, Byte]]] =
+  override def read(key: String, start: Option[Long], end: Option[Long]): F[Option[Stream[F, Byte]]] =
     Sync[F].delay(Option(concurrentHashMap.get(key)))
       .flatMap {
         _.fold[F[Option[Stream[F, Byte]]]](Applicative[F].pure(None)) { bytes =>
-          Applicative[F].pure(Some(Stream.emits[F, Byte](bytes)))
+          val startIndex = start.flatMap(long => Try(long.toInt).toOption).getOrElse(0)
+          val length = end.flatMap(long => Try(long.toInt).toOption).getOrElse(bytes.length) - startIndex
+
+          Applicative[F].pure {
+            Some(Stream.emits[F, Byte](bytes.slice(startIndex, startIndex + length)))
+          }
         }
       }
 }

@@ -18,7 +18,7 @@ import com.ruchij.services.video.models.VideoAnalysisResult
 import com.ruchij.test.utils.Providers
 import com.ruchij.test.utils.Providers.{blocker, contextShift}
 import fs2.Stream
-import org.http4s.{Request, Response, Uri}
+import org.http4s.{MediaType, Request, Response, Uri}
 import org.http4s.headers.`Content-Length`
 import org.http4s.client.Client
 import org.http4s.implicits._
@@ -47,6 +47,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
         "Caught My Bbc Roommate Spying",
         204 seconds,
         1988,
+        MediaType.video.mp4,
         uri"https://th-eu3.vporn.com/t/28/276979928/b81.jpg"
       )
 
@@ -85,6 +86,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
           videoAnalysisResult.title,
           videoAnalysisResult.duration,
           videoAnalysisResult.size,
+          MediaType.video.mp4,
           s"${downloadConfiguration.imageFolder}/b81.jpg"
         ),
         0,
