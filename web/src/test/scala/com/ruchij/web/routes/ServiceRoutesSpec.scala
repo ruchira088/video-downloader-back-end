@@ -30,7 +30,7 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers {
         "serviceVersion": "0.0.1",
         "organization": "com.ruchij",
         "scalaVersion": "2.13.1",
-        "sbtVersion": "1.3.8",
+        "sbtVersion": "1.3.10",
         "javaVersion": ${Properties.javaVersion},
         "timestamp": $dateTime
       }"""
