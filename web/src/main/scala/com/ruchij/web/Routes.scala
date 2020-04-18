@@ -8,6 +8,7 @@ import com.ruchij.web.middleware.{ExceptionHandler, NotFoundHandler}
 import com.ruchij.web.routes.{SchedulingRoutes, ServiceRoutes, VideoRoutes}
 import org.http4s.{HttpApp, HttpRoutes}
 import org.http4s.dsl.Http4sDsl
+import org.http4s.server.middleware.CORS
 import org.http4s.server.Router
 
 object Routes {
@@ -25,8 +26,10 @@ object Routes {
         "/videos" -> VideoRoutes(videoService)
       )
 
-    ExceptionHandler {
-      NotFoundHandler(routes)
+    CORS {
+      ExceptionHandler {
+        NotFoundHandler(routes)
+      }
     }
   }
 }

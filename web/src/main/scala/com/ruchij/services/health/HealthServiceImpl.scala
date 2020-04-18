@@ -2,7 +2,6 @@ package com.ruchij.services.health
 
 import java.util.concurrent.TimeUnit
 
-import cats.Functor
 import cats.effect.{Clock, Sync}
 import cats.implicits._
 import com.ruchij.services.health.models.ServiceInformation
