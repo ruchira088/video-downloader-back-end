@@ -10,6 +10,7 @@ import com.ruchij.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.daos.videometadata.DoobieVideoMetadataDao
 import doobie.implicits._
 import doobie.util.fragment.Fragment
+import doobie.util.fragments.whereAndOpt
 import doobie.util.transactor.Transactor
 import org.joda.time.DateTime
 
@@ -83,6 +84,14 @@ class DoobieSchedulingDao[F[_]: Bracket[*[_], Throwable]](
       """.update.run.transact(transactor)
     }
       .productR(getByKey(key))
+
+
+  override def search(term: Option[String], pageNumber: Int, pageSize: Int): F[Seq[ScheduledVideoDownload]] =
+    (SELECT_QUERY ++ whereAndOpt(term.map(searchTerm => sql"title LIKE ${"%" + searchTerm + "%"}"))
+      ++ sql"OFFSET ${pageNumber * pageSize} LIMIT $pageSize")
+    .query[ScheduledVideoDownload]
+    .to[Seq]
+    .transact(transactor)
 
   override val retrieveNewTask: OptionT[F, ScheduledVideoDownload] =
     OptionT {

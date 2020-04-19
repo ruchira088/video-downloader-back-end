@@ -6,6 +6,8 @@ import com.ruchij.circe.Encoders._
 import com.ruchij.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.services.scheduling.SchedulingService
 import com.ruchij.web.requests.SchedulingRequest
+import com.ruchij.web.requests.queryparams.QueryParameter.SearchQuery
+import com.ruchij.web.responses.SearchResult
 import io.circe.Encoder
 import io.circe.generic.auto._
 import org.http4s.circe.CirceEntityEncoder.circeEntityEncoder
@@ -24,6 +26,16 @@ object SchedulingRoutes {
           scheduledVideoDownload <- schedulingService.schedule(scheduleRequest.url)
 
           response <- Ok(scheduledVideoDownload)
+        }
+        yield response
+
+      case GET -> Root :? queryParameters =>
+        for {
+          SearchQuery(term, pageSize, pageNumber) <- SearchQuery.fromQueryParameters[F].run(queryParameters)
+
+          scheduledVideoDownloads <- schedulingService.search(term, pageNumber, pageSize)
+
+          response <- Ok(SearchResult(scheduledVideoDownloads, pageNumber, pageSize, term))
         }
         yield response
 

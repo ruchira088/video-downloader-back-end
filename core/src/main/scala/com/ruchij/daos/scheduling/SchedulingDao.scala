@@ -17,5 +17,7 @@ trait SchedulingDao[F[_]] {
 
   def active(after: DateTime, before: DateTime): F[Seq[ScheduledVideoDownload]]
 
+  def search(term: Option[String], pageNumber: Int, pageSize: Int): F[Seq[ScheduledVideoDownload]]
+
   val retrieveNewTask: OptionT[F, ScheduledVideoDownload]
 }

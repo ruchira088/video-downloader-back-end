@@ -7,7 +7,7 @@ import cats.implicits._
 import com.ruchij.circe.Encoders._
 import com.ruchij.services.video.VideoService
 import com.ruchij.types.FunctionKTypes.eitherToF
-import com.ruchij.web.requests.queryparams.QueryParameter.{PageNumberQueryParameter, PageSizeQueryParameter, SearchTermQueryParameter}
+import com.ruchij.web.requests.queryparams.QueryParameter.SearchQuery
 import com.ruchij.web.responses.{SearchResult, VideoFileResponse}
 import com.ruchij.web.responses.VideoFileResponse.VideoFileResponseOps
 import io.circe.generic.auto._
@@ -24,12 +24,11 @@ object VideoRoutes {
     HttpRoutes.of {
       case GET -> Root / "search" :? queryParameters =>
         for {
-          pageNumber <- PageNumberQueryParameter.parse[F](queryParameters)
-          pageSize <- PageSizeQueryParameter.parse[F](queryParameters)
-          searchTerm <- SearchTermQueryParameter.parse[F](queryParameters)
+          SearchQuery(term, pageSize, pageNumber) <- SearchQuery.fromQueryParameters[F].run(queryParameters)
 
-          items <- videoService.search(searchTerm, pageNumber, pageSize)
-          response <- Ok(SearchResult(items, pageNumber, pageSize, searchTerm))
+          videos <- videoService.search(term, pageNumber, pageSize)
+
+          response <- Ok(SearchResult(videos, pageNumber, pageSize, term))
         }
         yield response
 

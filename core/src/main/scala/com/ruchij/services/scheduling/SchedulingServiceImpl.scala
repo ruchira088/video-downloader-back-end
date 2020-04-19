@@ -45,6 +45,9 @@ class SchedulingServiceImpl[F[_]: Sync: Timer](
       _ <- schedulingDao.insert(scheduledVideoDownload)
     } yield scheduledVideoDownload
 
+  override def search(term: Option[String], pageNumber: Int, pageSize: Int): F[Seq[ScheduledVideoDownload]] =
+    schedulingDao.search(term, pageNumber, pageSize)
+
   override def updateDownloadProgress(key: String, downloadedBytes: Long): F[Int] =
     for {
       timestamp <- Clock[F].realTime(TimeUnit.MILLISECONDS)

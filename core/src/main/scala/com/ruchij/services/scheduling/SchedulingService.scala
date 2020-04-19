@@ -8,6 +8,8 @@ import org.http4s.Uri
 trait SchedulingService[F[_]] {
   def schedule(uri: Uri): F[ScheduledVideoDownload]
 
+  def search(term: Option[String], pageNumber: Int, pageSize: Int): F[Seq[ScheduledVideoDownload]]
+
   def updateDownloadProgress(key: String, downloadedBytes: Long): F[Int]
 
   def completeTask(key: String): F[ScheduledVideoDownload]

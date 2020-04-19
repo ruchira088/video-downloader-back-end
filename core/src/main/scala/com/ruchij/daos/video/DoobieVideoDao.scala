@@ -26,7 +26,7 @@ class DoobieVideoDao[F[_]: Bracket[*[_], Throwable]](transactor: Transactor.Aux[
 
   override def search(term: Option[String], pageNumber: Int, pageSize: Int): F[Seq[Video]] =
     (SELECT_QUERY
-      ++ whereAndOpt(term.map(searchTerm => sql"title LIKE %{$searchTerm}%"))
+      ++ whereAndOpt(term.map(searchTerm => sql"title LIKE ${"%" + searchTerm + "%"}"))
       ++ sql"OFFSET ${pageSize * pageNumber} LIMIT $pageSize")
     .query[Video]
     .to[Seq]
