@@ -2,7 +2,7 @@ import sbt._
 
 object Dependencies
 {
-  val SCALA_VERSION = "2.13.1"
+  val SCALA_VERSION = "2.13.2"
   val HTTP4S_VERSION = "0.21.3"
   val CIRCE_VERSION = "0.13.0"
 

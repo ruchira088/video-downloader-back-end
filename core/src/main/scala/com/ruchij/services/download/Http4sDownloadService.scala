@@ -2,9 +2,9 @@ package com.ruchij.services.download
 
 import java.util.concurrent.TimeUnit
 
+import cats.Applicative
 import cats.effect.{Clock, Concurrent, ContextShift, Resource}
 import cats.implicits._
-import cats.{Applicative, MonadError}
 import com.ruchij.services.download.models.DownloadResult
 import com.ruchij.services.repository.RepositoryService
 import com.ruchij.utils.Http4sUtils
