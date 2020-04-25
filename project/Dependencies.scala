@@ -30,11 +30,11 @@ object Dependencies
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.13.1"
 
-  lazy val jodaTime = "joda-time" % "joda-time" % "2.10.5"
+  lazy val jodaTime = "joda-time" % "joda-time" % "2.10.6"
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.12.3"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "6.3.3"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "6.4.0"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.12"
 
