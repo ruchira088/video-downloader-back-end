@@ -9,7 +9,7 @@ import com.ruchij.services.download.models.DownloadResult
 import com.ruchij.services.repository.RepositoryService
 import com.ruchij.utils.Http4sUtils
 import org.http4s.client.Client
-import org.http4s.headers.`Content-Length`
+import org.http4s.headers.{`Content-Length`, `Content-Type`}
 import org.http4s.{Request, Uri}
 
 class Http4sDownloadService[F[_]: Concurrent: ContextShift: Clock](
@@ -34,9 +34,15 @@ class Http4sDownloadService[F[_]: Concurrent: ContextShift: Clock](
       }
       .evalMap {
         case (response, key) =>
-          Http4sUtils.header[F](`Content-Length`).map(_.length).run(response)
-            .map { fileSize =>
-              DownloadResult.create[F](key, fileSize) {
+          Http4sUtils.header[F](`Content-Length`)
+            .product(Http4sUtils.header[F](`Content-Type`))
+            .map {
+              case (contentLengthValue, contentTypeValue) =>
+                (contentLengthValue.length, contentTypeValue.mediaType)
+            }
+            .run(response)
+            .map { case (fileSize, mediaType) =>
+              DownloadResult.create[F](uri, key, fileSize, mediaType) {
                 response.body
                   .observe { data =>
                     repositoryService.write(key, data)

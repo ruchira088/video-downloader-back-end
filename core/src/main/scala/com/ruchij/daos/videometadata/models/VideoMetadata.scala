@@ -1,6 +1,7 @@
 package com.ruchij.daos.videometadata.models
 
-import org.http4s.{MediaType, Uri}
+import com.ruchij.daos.resource.models.FileResource
+import org.http4s.Uri
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -11,6 +12,5 @@ case class VideoMetadata(
   title: String,
   duration: FiniteDuration,
   size: Long,
-  mediaType: MediaType,
-  thumbnail: String
+  thumbnail: FileResource
 )

@@ -1,11 +1,11 @@
 package com.ruchij.services.video
 
+import com.ruchij.daos.resource.models.FileResource
 import com.ruchij.daos.video.models.Video
-import com.ruchij.daos.videometadata.models.VideoMetadata
 import fs2.Stream
 
 trait VideoService[F[_]] {
-  def insert(videoMetadata: VideoMetadata, path: String): F[Video]
+  def insert(videoMetadataKey: String, fileResource: FileResource): F[Video]
 
   def fetchByKey(key: String): F[Video]
 

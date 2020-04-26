@@ -5,6 +5,7 @@ import java.util.concurrent.Executors
 import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
 import com.ruchij.config.WebServiceConfiguration
 import com.ruchij.daos.doobie.DoobieTransactor
+import com.ruchij.daos.resource.DoobieFileResourceDao
 import com.ruchij.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.daos.video.DoobieVideoDao
 import com.ruchij.daos.videometadata.DoobieVideoMetadataDao
@@ -63,9 +64,10 @@ object WebApp extends IOApp {
         DoobieTransactor.create[F](serviceConfiguration.databaseConfiguration, ioBlocker)
       }
 
-      videoMetadataDao = new DoobieVideoMetadataDao[F](transactor)
+      fileResourceDao = new DoobieFileResourceDao[F](transactor)
+      videoMetadataDao = new DoobieVideoMetadataDao[F](fileResourceDao)
       schedulingDao = new DoobieSchedulingDao[F](videoMetadataDao, transactor)
-      videoDao = new DoobieVideoDao[F](transactor)
+      videoDao = new DoobieVideoDao[F](fileResourceDao, transactor)
 
       hashingService = new MurmurHash3Service[F](cpuBlocker)
       videoAnalysisService = new VideoAnalysisServiceImpl[F](client)

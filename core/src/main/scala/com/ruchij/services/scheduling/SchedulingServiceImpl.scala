@@ -7,6 +7,7 @@ import cats.effect.{Clock, Sync, Timer}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError}
 import com.ruchij.config.DownloadConfiguration
+import com.ruchij.daos.resource.models.FileResource
 import com.ruchij.daos.scheduling.SchedulingDao
 import com.ruchij.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.daos.videometadata.models.VideoMetadata
@@ -31,15 +32,22 @@ class SchedulingServiceImpl[F[_]: Sync: Timer](
 
   override def schedule(uri: Uri): F[ScheduledVideoDownload] =
     for {
-      VideoAnalysisResult(_, videoSite, title, duration, size, mediaType, thumbnailUri) <- videoAnalysisService.metadata(uri)
+      VideoAnalysisResult(_, videoSite, title, duration, size, thumbnailUri) <- videoAnalysisService.metadata(uri)
       timestamp <- Clock[F].realTime(TimeUnit.MILLISECONDS).map(milliseconds => new DateTime(milliseconds))
 
       videoKey <- hashingService.hash(uri.renderString)
+
       thumbnail <-
         downloadService.download(thumbnailUri, downloadConfiguration.imageFolder)
-          .use { downloadResult => downloadResult.data.compile.drain.as(downloadResult.key) }
+          .use { downloadResult =>
+            downloadResult.data.compile.drain
+              .productR(hashingService.hash(thumbnailUri.renderString))
+              .map { fileKey =>
+                FileResource(fileKey, timestamp, downloadResult.downloadedFileKey, downloadResult.mediaType, downloadResult.size)
+              }
+          }
 
-      videoMetadata = VideoMetadata(uri, videoKey, videoSite, title, duration, size, mediaType, thumbnail)
+      videoMetadata = VideoMetadata(uri, videoKey, videoSite, title, duration, size, thumbnail)
 
       scheduledVideoDownload = ScheduledVideoDownload(timestamp, timestamp, false, videoMetadata, 0, None)
       _ <- schedulingDao.insert(scheduledVideoDownload)

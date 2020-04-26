@@ -1,26 +1,29 @@
 package com.ruchij.daos.videometadata
 
-import cats.effect.Bracket
-import com.ruchij.daos.videometadata.models.VideoMetadata
+import cats.implicits._
 import com.ruchij.daos.doobie.DoobieCustomMappings._
+import com.ruchij.daos.resource.FileResourceDao
+import com.ruchij.daos.videometadata.models.VideoMetadata
+import doobie.ConnectionIO
 import doobie.implicits._
-import doobie.util.transactor.Transactor
 
-class DoobieVideoMetadataDao[F[_]: Bracket[*[_], Throwable]](transactor: Transactor.Aux[F, Unit]) extends VideoMetadataDao[F] {
+class DoobieVideoMetadataDao[F[_]](fileResourceDao: FileResourceDao[F]) extends VideoMetadataDao[F] {
 
-  override def insert(videoMetadata: VideoMetadata): F[Int] =
-    sql"""
-      INSERT INTO video_metadata (url, key, video_site, title, duration, size, media_type, thumbnail)
-        VALUES (
-          ${videoMetadata.url},
-          ${videoMetadata.key},
-          ${videoMetadata.videoSite},
-          ${videoMetadata.title},
-          ${videoMetadata.duration},
-          ${videoMetadata.size},
-          ${videoMetadata.mediaType},
-          ${videoMetadata.thumbnail}
-        )
-    """
-      .update.run.transact(transactor)
+  override def insert(videoMetadata: VideoMetadata): ConnectionIO[Int] =
+    fileResourceDao.insert(videoMetadata.thumbnail)
+      .product {
+        sql"""
+          INSERT INTO video_metadata (url, key, video_site, title, duration, size, thumbnail)
+            VALUES (
+              ${videoMetadata.url},
+              ${videoMetadata.key},
+              ${videoMetadata.videoSite},
+              ${videoMetadata.title},
+              ${videoMetadata.duration},
+              ${videoMetadata.size},
+              ${videoMetadata.thumbnail.id}
+            )
+        """.update.run
+      }
+      .map { case (resourceResult, metadataResult) =>  resourceResult + metadataResult }
 }

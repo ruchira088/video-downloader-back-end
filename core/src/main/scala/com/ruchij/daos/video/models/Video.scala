@@ -1,6 +1,6 @@
 package com.ruchij.daos.video.models
 
+import com.ruchij.daos.resource.models.FileResource
 import com.ruchij.daos.videometadata.models.VideoMetadata
-import org.joda.time.DateTime
 
-case class Video(downloadedAt: DateTime, videoMetadata: VideoMetadata, path: String)
+case class Video(videoMetadata: VideoMetadata, fileResource: FileResource)

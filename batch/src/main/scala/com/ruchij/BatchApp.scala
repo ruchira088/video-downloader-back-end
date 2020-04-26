@@ -5,6 +5,7 @@ import java.util.concurrent.Executors
 import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
 import com.ruchij.config.BatchServiceConfiguration
 import com.ruchij.daos.doobie.DoobieTransactor
+import com.ruchij.daos.resource.DoobieFileResourceDao
 import com.ruchij.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.daos.video.DoobieVideoDao
 import com.ruchij.daos.videometadata.DoobieVideoMetadataDao
@@ -51,9 +52,10 @@ object BatchApp extends IOApp {
 
       _ <- Resource.liftF(MigrationApp.migration[F](batchServiceConfiguration.databaseConfiguration, ioBlocker))
 
-      videoMetadataDao = new DoobieVideoMetadataDao[F](transactor)
+      fileResourceDao = new DoobieFileResourceDao[F](transactor)
+      videoMetadataDao = new DoobieVideoMetadataDao[F](fileResourceDao)
       schedulingDao = new DoobieSchedulingDao[F](videoMetadataDao, transactor)
-      videoDao = new DoobieVideoDao[F](transactor)
+      videoDao = new DoobieVideoDao[F](fileResourceDao, transactor)
 
       repositoryService = new FileRepositoryService[F](ioBlocker)
       downloadService = new Http4sDownloadService[F](client, repositoryService)
@@ -72,6 +74,7 @@ object BatchApp extends IOApp {
         schedulingService,
         videoAnalysisService,
         videoService,
+        hashingService,
         downloadService,
         batchServiceConfiguration.downloadConfiguration
       )

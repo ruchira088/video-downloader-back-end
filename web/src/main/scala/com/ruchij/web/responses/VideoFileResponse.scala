@@ -37,7 +37,7 @@ object VideoFileResponse {
               Headers.of(
                 contentLength,
                 `Accept-Ranges`.bytes,
-                `Content-Type`(videoFileResponse.video.videoMetadata.mediaType)
+                `Content-Type`(videoFileResponse.video.fileResource.mediaType)
               )
           }
           .withBodyStream(videoFileResponse.fileData)

@@ -34,7 +34,7 @@ class VideoAnalysisServiceImpl[F[_]: Sync](client: Client[F])
               .run
         }
 
-    } yield VideoAnalysisResult(uri, videoSite, videoTitle, duration, size, mediaType, thumbnailUri)
+    } yield VideoAnalysisResult(uri, videoSite, videoTitle, duration, size, thumbnailUri)
 
   override def downloadUri(uri: Uri): F[Uri] =
     for {

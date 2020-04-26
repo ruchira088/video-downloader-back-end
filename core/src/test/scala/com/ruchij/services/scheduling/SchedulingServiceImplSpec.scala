@@ -5,6 +5,8 @@ import java.util.concurrent.ConcurrentHashMap
 import cats.effect.{Async, ContextShift, IO, Resource, Timer}
 import cats.implicits._
 import com.ruchij.config.DownloadConfiguration
+import com.ruchij.daos.resource.DoobieFileResourceDao
+import com.ruchij.daos.resource.models.FileResource
 import com.ruchij.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.daos.videometadata.DoobieVideoMetadataDao
@@ -19,7 +21,7 @@ import com.ruchij.test.utils.Providers
 import com.ruchij.test.utils.Providers.{blocker, contextShift}
 import fs2.Stream
 import org.http4s.{MediaType, Request, Response, Uri}
-import org.http4s.headers.`Content-Length`
+import org.http4s.headers.{`Content-Length`, `Content-Type`}
 import org.http4s.client.Client
 import org.http4s.implicits._
 import org.joda.time.DateTime
@@ -47,7 +49,6 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
         "Caught My Bbc Roommate Spying",
         204 seconds,
         1988,
-        MediaType.video.mp4,
         uri"https://th-eu3.vporn.com/t/28/276979928/b81.jpg"
       )
 
@@ -65,7 +66,10 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
       .returns {
         Resource.pure[IO, Response[IO]] {
           Response[IO]()
-            .withHeaders(`Content-Length`.unsafeFromLong(videoAnalysisResult.size))
+            .withHeaders(
+              `Content-Length`.unsafeFromLong(videoAnalysisResult.size),
+              `Content-Type`(MediaType.image.jpeg)
+            )
             .withBodyStream(Stream.emits[IO, Byte](Seq.fill(videoAnalysisResult.size.toInt)(1)))
         }
       }
@@ -86,8 +90,13 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
           videoAnalysisResult.title,
           videoAnalysisResult.duration,
           videoAnalysisResult.size,
-          MediaType.video.mp4,
-          s"${downloadConfiguration.imageFolder}/b81.jpg"
+          FileResource(
+            hashingService.hash(videoAnalysisResult.thumbnail.renderString).unsafeRunSync(),
+            dateTime,
+            s"${downloadConfiguration.imageFolder}/b81.jpg",
+            MediaType.image.jpeg,
+            videoAnalysisResult.size
+          )
         ),
         0,
         None
@@ -114,7 +123,8 @@ object SchedulingServiceImplSpec {
   )(implicit executionContext: ExecutionContext): F[SchedulingService[F]] =
     Providers.h2Transactor
       .map { transactor =>
-        val videoMetadataDao = new DoobieVideoMetadataDao[F](transactor)
+        val fileResourceDao = new DoobieFileResourceDao[F](transactor)
+        val videoMetadataDao = new DoobieVideoMetadataDao[F](fileResourceDao)
         val schedulingDao = new DoobieSchedulingDao[F](videoMetadataDao, transactor)
 
         new SchedulingServiceImpl[F](

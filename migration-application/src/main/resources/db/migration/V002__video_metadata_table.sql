@@ -7,8 +7,8 @@ CREATE TABLE video_metadata(
     title VARCHAR(255) NOT NULL,
     duration BIGINT NOT NULL,
     size BIGINT NOT NULL,
-    media_type VARCHAR(64) NOT NULL,
-    thumbnail VARCHAR(2047) NOT NULL,
+    thumbnail VARCHAR(127) NOT NULL,
 
-    PRIMARY KEY (key)
+    PRIMARY KEY (key),
+    CONSTRAINT fk_video_metadata_thumbnail FOREIGN KEY (thumbnail) REFERENCES file_resource(id)
 );
