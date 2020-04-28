@@ -2,7 +2,6 @@ package com.ruchij.test.matchers
 
 import cats.effect.{Effect, Sync}
 import com.ruchij.test.utils.JsonUtils
-import com.ruchij.types.FunctionKTypes.eitherToF
 import io.circe.Json
 import org.http4s.Response
 import org.scalatest.matchers.{MatchResult, Matcher}

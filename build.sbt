@@ -61,7 +61,7 @@ lazy val web =
           logbackClassic
         ) ++ Seq(scalaTest, pegdown).map(_ % Test)
     )
-    .dependsOn(core)
+    .dependsOn(core % "compile->compile;test->test")
 
 lazy val batch =
   (project in file("./batch"))
