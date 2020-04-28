@@ -17,7 +17,6 @@ import com.ruchij.services.scheduler.{Scheduler, SchedulerImpl}
 import com.ruchij.services.scheduling.SchedulingServiceImpl
 import com.ruchij.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
 import com.ruchij.services.worker.WorkExecutorImpl
-import com.ruchij.types.FunctionKTypes.eitherToF
 import org.http4s.client.blaze.BlazeClientBuilder
 import pureconfig.ConfigSource
 

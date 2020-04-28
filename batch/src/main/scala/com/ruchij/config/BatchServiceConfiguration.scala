@@ -1,8 +1,8 @@
 package com.ruchij.config
 
-import cats.effect.Sync
-import cats.~>
+import cats.ApplicativeError
 import com.ruchij.config.PureConfigReaders.localTimeReader
+import com.ruchij.types.FunctionKTypes.eitherToF
 import pureconfig.ConfigObjectSource
 import pureconfig.error.ConfigReaderException
 import pureconfig.generic.auto._
@@ -14,12 +14,10 @@ case class BatchServiceConfiguration(
 )
 
 object BatchServiceConfiguration {
-  def parse[F[_]: Sync](
+  def parse[F[_]: ApplicativeError[*[_], Throwable]](
     configObjectSource: ConfigObjectSource
-  )(implicit functionK: Either[Throwable, *] ~> F): F[BatchServiceConfiguration] =
-    Sync[F].defer {
-      functionK {
-        configObjectSource.load[BatchServiceConfiguration].left.map(ConfigReaderException.apply)
-      }
+  ): F[BatchServiceConfiguration] =
+    eitherToF.apply {
+      configObjectSource.load[BatchServiceConfiguration].left.map(ConfigReaderException.apply)
     }
 }

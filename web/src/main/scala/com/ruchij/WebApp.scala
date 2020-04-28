@@ -16,7 +16,6 @@ import com.ruchij.services.health.HealthServiceImpl
 import com.ruchij.services.repository.FileRepositoryService
 import com.ruchij.services.scheduling.SchedulingServiceImpl
 import com.ruchij.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
-import com.ruchij.types.FunctionKTypes.eitherToF
 import com.ruchij.web.Routes
 import org.http4s.HttpApp
 import org.http4s.client.blaze.BlazeClientBuilder

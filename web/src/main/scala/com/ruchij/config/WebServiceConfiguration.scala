@@ -1,7 +1,7 @@
 package com.ruchij.config
 
-import cats.effect.Sync
-import cats.~>
+import cats.ApplicativeError
+import com.ruchij.types.FunctionKTypes.eitherToF
 import pureconfig.ConfigObjectSource
 import pureconfig.error.ConfigReaderException
 import pureconfig.generic.auto._
@@ -13,12 +13,13 @@ case class WebServiceConfiguration(
 )
 
 object WebServiceConfiguration {
-  def parse[F[_]: Sync](
+  def parse[F[_]: ApplicativeError[*[_], Throwable]](
     configObjectSource: ConfigObjectSource
-  )(implicit functionK: Either[Throwable, *] ~> F): F[WebServiceConfiguration] =
-    Sync[F].defer {
-      functionK {
-        configObjectSource.load[WebServiceConfiguration].left.map(ConfigReaderException.apply)
-      }
+  ): F[WebServiceConfiguration] =
+    eitherToF.apply {
+      configObjectSource
+        .load[WebServiceConfiguration]
+        .left
+        .map(failure => ConfigReaderException.apply[WebServiceConfiguration](failure))
     }
 }
