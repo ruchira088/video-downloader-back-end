@@ -27,9 +27,7 @@ class Http4sDownloadService[F[_]: Concurrent: ContextShift: Clock](
             .lastOption
             .fold[F[String]](Clock[F].realTime(TimeUnit.MILLISECONDS).map(_.toString)) {
               suffix => Applicative[F].pure(suffix) }
-            .map { fileName =>
-              (parent + "/" + fileName).split("/").filter(_.trim.nonEmpty).mkString("/")
-            }
+            .map { fileName => parent + (if (parent.endsWith("/")) "" else "/") + fileName }
         }
       }
       .evalMap {

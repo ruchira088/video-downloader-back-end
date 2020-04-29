@@ -28,11 +28,11 @@ object WebApp extends IOApp {
   override def run(args: List[String]): IO[ExitCode] =
     for {
       configObjectSource <- IO.delay(ConfigSource.defaultApplication)
-      webServiceConfiguration <- IO.suspend(WebServiceConfiguration.parse[IO](configObjectSource))
+      webServiceConfiguration <- WebServiceConfiguration.parse[IO](configObjectSource)
 
       _ <- program[IO](webServiceConfiguration, ExecutionContext.global)
         .use { httpApp =>
-          BlazeServerBuilder[IO]
+          BlazeServerBuilder.apply[IO](ExecutionContext.global)
             .withHttpApp(httpApp)
             .bindHttp(webServiceConfiguration.httpConfiguration.port, webServiceConfiguration.httpConfiguration.host)
             .serve

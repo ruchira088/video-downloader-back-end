@@ -3,7 +3,7 @@ import sbt._
 object Dependencies
 {
   val SCALA_VERSION = "2.13.2"
-  val HTTP4S_VERSION = "0.21.3"
+  val HTTP4S_VERSION = "0.21.4"
   val CIRCE_VERSION = "0.13.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % HTTP4S_VERSION
