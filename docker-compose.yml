@@ -17,8 +17,10 @@ services:
       - "~/.sbt:/root/.sbt"
       - "~/.coursier:/root/.coursier"
       - ".:/opt/video-downloader"
-      - "/opt/video-downloader/target"
       - "/opt/video-downloader/project/target"
+      - "/opt/video-downloader/migration-application/target"
+      - "/opt/video-downloader/core/target"
+      - "/opt/video-downloader/web/target"
       - "/root/.sbt/1.0/plugins"
 
   batch:
@@ -34,8 +36,10 @@ services:
       - "~/.sbt:/root/.sbt"
       - "~/.coursier:/root/.coursier"
       - ".:/opt/video-downloader"
-      - "/opt/video-downloader/target"
       - "/opt/video-downloader/project/target"
+      - "/opt/video-downloader/migration-application/target"
+      - "/opt/video-downloader/core/target"
+      - "/opt/video-downloader/batch/target"
       - "/root/.sbt/1.0/plugins"
 
   postgres:
