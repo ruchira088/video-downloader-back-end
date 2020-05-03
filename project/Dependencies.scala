@@ -24,7 +24,7 @@ object Dependencies
 
   lazy val circeLiteral = "io.circe" %% "circe-literal" % CIRCE_VERSION
 
-  lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.5.15"
+  lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.6.0"
 
   lazy val doobie = "org.tpolecat" %% "doobie-core" % "0.9.0"
 
@@ -34,7 +34,7 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.12.3"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "6.4.0"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "6.4.1"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.12"
 

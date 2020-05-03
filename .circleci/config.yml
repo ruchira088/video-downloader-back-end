@@ -1,19 +1,23 @@
-version: 2
+version: 2.1
+
+alias:
+  - &install-sbt
+    name: Install sbt
+    command: |
+      apt-get update && \
+      apt-get install apt-transport-https bc ca-certificates software-properties-common -y
+
+      echo "deb https://dl.bintray.com/sbt/debian /" | tee -a /etc/apt/sources.list.d/sbt.list && \
+      apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823 && \
+      apt-get update && \
+      apt-get install sbt -y
+
 jobs:
   build:
     docker:
-      - image: openjdk:8-jdk
+      - image: openjdk:11-jdk
     steps:
-      - run:
-          name: Install sbt
-          command: |
-            apt-get update && \
-            apt-get install apt-transport-https bc ca-certificates software-properties-common -y
-
-            echo "deb https://dl.bintray.com/sbt/debian /" | tee -a /etc/apt/sources.list.d/sbt.list && \
-            apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823 && \
-            apt-get update && \
-            apt-get install sbt -y
+      - run: *install-sbt
       - checkout
       - restore_cache:
           keys:
