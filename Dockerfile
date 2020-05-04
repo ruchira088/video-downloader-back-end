@@ -1,7 +1,6 @@
 FROM openjdk:11-jdk
 
 RUN apt-get update && \
-    apt-get upgrade -y && \
     apt-get install apt-transport-https bc ca-certificates software-properties-common -y
 
 RUN echo "deb https://dl.bintray.com/sbt/debian /" | tee -a /etc/apt/sources.list.d/sbt.list && \

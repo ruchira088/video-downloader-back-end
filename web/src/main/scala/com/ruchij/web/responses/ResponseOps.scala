@@ -12,7 +12,7 @@ object ResponseOps {
   def assetResponse[F[_]: ApplicativeError[*[_], Throwable]](asset: Asset[F]): F[Response[F]] =
     eitherToF[Throwable, F]
       .apply {
-        `Content-Length`.fromLong(asset.fileResource.size - asset.fileRange.map(_.start).getOrElse(0L))
+        `Content-Length`.fromLong(asset.fileRange.map(range => range.end - range.start).getOrElse(asset.fileResource.size))
       }
       .map { contentLength =>
         Response()
