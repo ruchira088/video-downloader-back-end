@@ -10,6 +10,7 @@ import com.ruchij.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.daos.video.DoobieVideoDao
 import com.ruchij.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.migration.MigrationApp
+import com.ruchij.services.asset.AssetServiceImpl
 import com.ruchij.services.download.Http4sDownloadService
 import com.ruchij.services.hashing.MurmurHash3Service
 import com.ruchij.services.health.HealthServiceImpl
@@ -71,8 +72,9 @@ object WebApp extends IOApp {
       hashingService = new MurmurHash3Service[F](cpuBlocker)
       videoAnalysisService = new VideoAnalysisServiceImpl[F](client)
       repositoryService = new FileRepositoryService[F](ioBlocker)
-      videoService = new VideoServiceImpl[F](videoDao, repositoryService)
+      videoService = new VideoServiceImpl[F](videoDao)
       downloadService = new Http4sDownloadService[F](client, repositoryService)
+      assetService = new AssetServiceImpl[F](fileResourceDao, repositoryService)
       schedulingService = new SchedulingServiceImpl[F](
         videoAnalysisService,
         schedulingDao,
@@ -82,5 +84,5 @@ object WebApp extends IOApp {
       )
       healthService = new HealthServiceImpl[F]
 
-    } yield Routes(videoService, schedulingService, healthService)
+    } yield Routes(videoService, schedulingService, assetService, healthService)
 }

@@ -29,7 +29,7 @@ object SchedulingRoutes {
         }
         yield response
 
-      case GET -> Root :? queryParameters =>
+      case GET -> Root / "search" :? queryParameters =>
         for {
           SearchQuery(term, pageSize, pageNumber) <- SearchQuery.fromQueryParameters[F].run(queryParameters)
 
