@@ -19,7 +19,7 @@ class DoobieVideoDao[F[_]: Bracket[*[_], Throwable]](
     sql"""
        SELECT
         video_metadata.url, 
-        video_metadata.key, 
+        video_metadata.id,
         video_metadata.video_site,
         video_metadata.title,
         video_metadata.duration, 
@@ -31,16 +31,16 @@ class DoobieVideoDao[F[_]: Bracket[*[_], Throwable]](
         video_file.media_type,
         video_file.size
       FROM video
-      JOIN video_metadata ON video.video_metadata_key = video_metadata.key
-      JOIN file_resource AS thumbnail ON video_metadata.thumbnail = thumbnail.id
+      JOIN video_metadata ON video.video_metadata_id = video_metadata.id
+      JOIN file_resource AS thumbnail ON video_metadata.thumbnail_id = thumbnail.id
       JOIN file_resource AS video_file ON video.file_resource_id = video_file.id
     """
 
-  override def insert(videoMetadataKey: String, fileResource: FileResource): F[Int] =
+  override def insert(videoMetadataId: String, fileResource: FileResource): F[Int] =
     fileResourceDao
       .insert(fileResource)
       .product {
-        sql"INSERT INTO video (video_metadata_key, file_resource_id) VALUES ($videoMetadataKey, ${fileResource.id})".update.run
+        sql"INSERT INTO video (video_metadata_id, file_resource_id) VALUES ($videoMetadataId, ${fileResource.id})".update.run
       }
       .map { case (fileInsertResult, videoInsertResult) => fileInsertResult + videoInsertResult }
       .transact(transactor)
@@ -53,6 +53,6 @@ class DoobieVideoDao[F[_]: Bracket[*[_], Throwable]](
       .to[Seq]
       .transact(transactor)
 
-  override def findByKey(key: String): F[Option[Video]] =
-    (SELECT_QUERY ++ sql"WHERE video_metadata_key = $key").query[Video].option.transact(transactor)
+  override def findById(id: String): F[Option[Video]] =
+    (SELECT_QUERY ++ sql"WHERE video_metadata_id = $id").query[Video].option.transact(transactor)
 }

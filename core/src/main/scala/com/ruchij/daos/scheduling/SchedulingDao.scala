@@ -7,13 +7,13 @@ import org.joda.time.DateTime
 trait SchedulingDao[F[_]] {
   def insert(scheduledVideoDownload: ScheduledVideoDownload): F[Int]
 
-  def updateDownloadProgress(key: String, downloadedBytes: Long, timestamp: DateTime): F[Int]
+  def updateDownloadProgress(id: String, downloadedBytes: Long, timestamp: DateTime): F[Int]
 
-  def getByKey(key: String): OptionT[F, ScheduledVideoDownload]
+  def getById(id: String): OptionT[F, ScheduledVideoDownload]
 
-  def setInProgress(key: String, inProgress: Boolean): OptionT[F, ScheduledVideoDownload]
+  def setInProgress(id: String, inProgress: Boolean): OptionT[F, ScheduledVideoDownload]
 
-  def completeTask(key: String, timestamp: DateTime): OptionT[F, ScheduledVideoDownload]
+  def completeTask(id: String, timestamp: DateTime): OptionT[F, ScheduledVideoDownload]
 
   def active(after: DateTime, before: DateTime): F[Seq[ScheduledVideoDownload]]
 

@@ -13,10 +13,10 @@ class DoobieVideoMetadataDao[F[_]](fileResourceDao: FileResourceDao[F]) extends 
     fileResourceDao.insert(videoMetadata.thumbnail)
       .product {
         sql"""
-          INSERT INTO video_metadata (url, key, video_site, title, duration, size, thumbnail)
+          INSERT INTO video_metadata (url, id, video_site, title, duration, size, thumbnail_id)
             VALUES (
               ${videoMetadata.url},
-              ${videoMetadata.key},
+              ${videoMetadata.id},
               ${videoMetadata.videoSite},
               ${videoMetadata.title},
               ${videoMetadata.duration},

@@ -27,7 +27,7 @@ object VideoRoutes {
         }
         yield response
 
-      case GET -> Root / "key" / videoKey => Ok(videoService.fetchByKey(videoKey))
+      case GET -> Root / "id" / videoKey => Ok(videoService.fetchById(videoKey))
     }
   }
 }

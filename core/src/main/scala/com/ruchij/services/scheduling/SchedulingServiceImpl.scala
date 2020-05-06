@@ -56,27 +56,27 @@ class SchedulingServiceImpl[F[_]: Sync: Timer](
   override def search(term: Option[String], pageNumber: Int, pageSize: Int): F[Seq[ScheduledVideoDownload]] =
     schedulingDao.search(term, pageNumber, pageSize)
 
-  override def updateDownloadProgress(key: String, downloadedBytes: Long): F[Int] =
+  override def updateDownloadProgress(id: String, downloadedBytes: Long): F[Int] =
     for {
       timestamp <- Clock[F].realTime(TimeUnit.MILLISECONDS)
-      result <- schedulingDao.updateDownloadProgress(key, downloadedBytes, new DateTime(timestamp))
+      result <- schedulingDao.updateDownloadProgress(id, downloadedBytes, new DateTime(timestamp))
 
-      _ <- if (result == 0) ApplicativeError[F, Throwable].raiseError(ResourceNotFoundException(s"Key not found: $key"))
+      _ <- if (result == 0) ApplicativeError[F, Throwable].raiseError(ResourceNotFoundException(s"ID not found: $id"))
       else Applicative[F].unit
     } yield result
 
-  override def completeTask(key: String): F[ScheduledVideoDownload] =
+  override def completeTask(id: String): F[ScheduledVideoDownload] =
     Clock[F]
       .realTime(TimeUnit.MILLISECONDS)
       .flatMap { timestamp =>
         schedulingDao
-          .completeTask(key, new DateTime(timestamp))
+          .completeTask(id, new DateTime(timestamp))
           .getOrElseF(ApplicativeError[F, Throwable].raiseError(InvalidConditionException))
       }
 
   override val acquireTask: OptionT[F, ScheduledVideoDownload] =
     schedulingDao.retrieveNewTask.flatMap { scheduledVideoDownload =>
-      schedulingDao.setInProgress(scheduledVideoDownload.videoMetadata.key, inProgress = true)
+      schedulingDao.setInProgress(scheduledVideoDownload.videoMetadata.id, inProgress = true)
     }
 
   override val active: Stream[F, ScheduledVideoDownload] =

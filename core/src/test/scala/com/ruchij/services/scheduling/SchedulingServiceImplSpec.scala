@@ -20,10 +20,10 @@ import com.ruchij.services.video.models.VideoAnalysisResult
 import com.ruchij.test.utils.Providers
 import com.ruchij.test.utils.Providers.{blocker, contextShift}
 import fs2.Stream
-import org.http4s.{MediaType, Request, Response, Uri}
-import org.http4s.headers.{`Content-Length`, `Content-Type`}
 import org.http4s.client.Client
+import org.http4s.headers.{`Content-Length`, `Content-Type`}
 import org.http4s.implicits._
+import org.http4s.{MediaType, Request, Response, Uri}
 import org.joda.time.DateTime
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.OptionValues

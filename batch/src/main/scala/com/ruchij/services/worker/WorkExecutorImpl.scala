@@ -32,7 +32,7 @@ class WorkExecutorImpl[F[_]: Sync: Clock](
           .use { downloadResult =>
             downloadResult.data
               .evalMap { bytes =>
-                schedulingService.updateDownloadProgress(scheduledVideoDownload.videoMetadata.key, bytes)
+                schedulingService.updateDownloadProgress(scheduledVideoDownload.videoMetadata.id, bytes)
               }
               .compile
               .drain
@@ -40,7 +40,7 @@ class WorkExecutorImpl[F[_]: Sync: Clock](
           }
       }
       .productL {
-        schedulingService.completeTask(scheduledVideoDownload.videoMetadata.key)
+        schedulingService.completeTask(scheduledVideoDownload.videoMetadata.id)
       }
       .flatMap {
         downloadResult =>
@@ -49,7 +49,7 @@ class WorkExecutorImpl[F[_]: Sync: Clock](
             fileKey <- hashingService.hash(downloadResult.uri.renderString)
             fileResource = FileResource(fileKey, new DateTime(timestamp), downloadResult.downloadedFileKey, downloadResult.mediaType, downloadResult.size)
 
-            video <- videoService.insert(scheduledVideoDownload.videoMetadata.key, fileResource)
+            video <- videoService.insert(scheduledVideoDownload.videoMetadata.id, fileResource)
           }
           yield video
       }

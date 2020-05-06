@@ -13,12 +13,12 @@ class VideoServiceImpl[F[_]: MonadError[*[_], Throwable]](videoDao: VideoDao[F])
   override def insert(videoMetadataKey: String, fileResource: FileResource): F[Video] =
     videoDao
       .insert(videoMetadataKey, fileResource)
-      .productR(fetchByKey(videoMetadataKey))
+      .productR(fetchById(videoMetadataKey))
 
-  override def fetchByKey(key: String): F[Video] =
-    OptionT(videoDao.findByKey(key))
+  override def fetchById(id: String): F[Video] =
+    OptionT(videoDao.findById(id))
       .getOrElseF {
-        MonadError[F, Throwable].raiseError(ResourceNotFoundException(s"Unable to find video with key: $key"))
+        MonadError[F, Throwable].raiseError(ResourceNotFoundException(s"Unable to find video with ID: $id"))
       }
 
   override def search(term: Option[String], pageNumber: Int, pageSize: Int): F[Seq[Video]] =

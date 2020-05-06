@@ -10,9 +10,9 @@ trait SchedulingService[F[_]] {
 
   def search(term: Option[String], pageNumber: Int, pageSize: Int): F[Seq[ScheduledVideoDownload]]
 
-  def updateDownloadProgress(key: String, downloadedBytes: Long): F[Int]
+  def updateDownloadProgress(id: String, downloadedBytes: Long): F[Int]
 
-  def completeTask(key: String): F[ScheduledVideoDownload]
+  def completeTask(id: String): F[ScheduledVideoDownload]
 
   val acquireTask: OptionT[F, ScheduledVideoDownload]
 
