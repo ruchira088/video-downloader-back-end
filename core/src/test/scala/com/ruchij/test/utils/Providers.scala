@@ -16,7 +16,7 @@ import scala.concurrent.duration.FiniteDuration
 object Providers {
   val h2DatabaseConfiguration: DatabaseConfiguration =
     DatabaseConfiguration(
-      "jdbc:h2:mem:weight-tracker;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false",
+      "jdbc:h2:mem:video-downloader;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false",
       "",
       ""
     )
@@ -47,5 +47,5 @@ object Providers {
   def h2Transactor[F[_]: Async: ContextShift](implicit executionContext: ExecutionContext): F[Transactor.Aux[F, Unit]] =
     MigrationApp
       .migration(h2DatabaseConfiguration, blocker)
-      .productR(DoobieTransactor.create[F](h2DatabaseConfiguration, blocker))
+      .productR(DoobieTransactor.create[F](h2DatabaseConfiguration))
 }

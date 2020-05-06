@@ -1,6 +1,6 @@
 package com.ruchij.daos.doobie
 
-import cats.effect.{Async, Blocker, ContextShift}
+import cats.effect.{Async, ContextShift}
 import cats.implicits._
 import cats.{Applicative, MonadError}
 import com.ruchij.config.DatabaseConfiguration
@@ -10,8 +10,7 @@ import org.flywaydb.core.internal.jdbc.DriverDataSource.DriverType
 
 object DoobieTransactor {
   def create[F[_]: Async: ContextShift](
-    databaseConfiguration: DatabaseConfiguration,
-    blocker: Blocker
+    databaseConfiguration: DatabaseConfiguration
   ): F[Aux[F, Unit]] =
     driverType[F](databaseConfiguration.url)
       .map { driver =>

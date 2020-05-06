@@ -45,11 +45,8 @@ object BatchApp extends IOApp {
       cpuBlockingThreadPool <- Resource.liftF(Sync[F].delay(Executors.newFixedThreadPool(processorCount)))
       cpuBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(cpuBlockingThreadPool))
 
-      transactor <- Resource.liftF {
-        DoobieTransactor.create[F](batchServiceConfiguration.databaseConfiguration, ioBlocker)
-      }
-
       _ <- Resource.liftF(MigrationApp.migration[F](batchServiceConfiguration.databaseConfiguration, ioBlocker))
+      transactor <- Resource.liftF(DoobieTransactor.create[F](batchServiceConfiguration.databaseConfiguration))
 
       fileResourceDao = new DoobieFileResourceDao[F](transactor)
       videoMetadataDao = new DoobieVideoMetadataDao[F](fileResourceDao)
