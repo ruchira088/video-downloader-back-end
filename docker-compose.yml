@@ -16,11 +16,11 @@ services:
     volumes:
       - "~/.sbt:/root/.sbt"
       - "~/.coursier:/root/.coursier"
-      - ".:/opt/video-downloader"
-      - "/opt/video-downloader/project/target"
-      - "/opt/video-downloader/migration-application/target"
-      - "/opt/video-downloader/core/target"
-      - "/opt/video-downloader/web/target"
+      - ".:/opt/video-downloader-api"
+      - "/opt/video-downloader-api/project/target"
+      - "/opt/video-downloader-api/migration-application/target"
+      - "/opt/video-downloader-api/core/target"
+      - "/opt/video-downloader-api/web/target"
       - "/root/.sbt/1.0/plugins"
 
   batch:
@@ -35,11 +35,11 @@ services:
     volumes:
       - "~/.sbt:/root/.sbt"
       - "~/.coursier:/root/.coursier"
-      - ".:/opt/video-downloader"
-      - "/opt/video-downloader/project/target"
-      - "/opt/video-downloader/migration-application/target"
-      - "/opt/video-downloader/core/target"
-      - "/opt/video-downloader/batch/target"
+      - ".:/opt/video-downloader-api"
+      - "/opt/video-downloader-api/project/target"
+      - "/opt/video-downloader-api/migration-application/target"
+      - "/opt/video-downloader-api/core/target"
+      - "/opt/video-downloader-api/batch/target"
       - "/root/.sbt/1.0/plugins"
 
   postgres:
