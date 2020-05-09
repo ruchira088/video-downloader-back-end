@@ -44,8 +44,10 @@ object Providers {
       override def sleep(duration: FiniteDuration): IO[Unit] = timer.sleep(duration)
     }
 
-  def h2Transactor[F[_]: Async: ContextShift](implicit executionContext: ExecutionContext): F[Transactor.Aux[F, Unit]] =
-    MigrationApp
-      .migration(h2DatabaseConfiguration, blocker)
-      .productR(DoobieTransactor.create[F](h2DatabaseConfiguration))
+  def h2Transactor[F[_]: Async: ContextShift]: F[Transactor.Aux[F, Unit]] =
+    Blocker[F].use { blocker =>
+      MigrationApp
+        .migration(h2DatabaseConfiguration, blocker)
+        .productR(DoobieTransactor.create[F](h2DatabaseConfiguration))
+    }
 }

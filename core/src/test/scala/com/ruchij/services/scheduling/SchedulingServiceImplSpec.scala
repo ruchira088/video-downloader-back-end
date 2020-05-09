@@ -120,7 +120,7 @@ object SchedulingServiceImplSpec {
     videoAnalysisService: VideoAnalysisService[F],
     hashingService: HashingService[F],
     downloadService: DownloadService[F]
-  )(implicit executionContext: ExecutionContext): F[SchedulingService[F]] =
+  ): F[SchedulingService[F]] =
     Providers.h2Transactor
       .map { transactor =>
         val fileResourceDao = new DoobieFileResourceDao[F](transactor)
