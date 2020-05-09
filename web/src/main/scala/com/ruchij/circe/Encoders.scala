@@ -20,7 +20,7 @@ object Encoders {
   implicit def enumEncoder[A <: EnumEntry]: Encoder[A] = Encoder.encodeString.contramap[A](_.entryName)
 
   implicit val finiteDurationEncoder: Encoder[FiniteDuration] =
-    Encoder.encodeDuration.contramap[FiniteDuration](finiteDuration => Duration.ofSeconds(finiteDuration.toSeconds))
+    Encoder.encodeLong.contramap[FiniteDuration](_.toSeconds)
 
   implicit val pathEncoder: Encoder[Path] = Encoder.encodeString.contramap[Path](_.toAbsolutePath.toString)
 

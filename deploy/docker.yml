@@ -10,22 +10,19 @@
       shell: cd ../ && sbt web/universal:packageZipTarball
 
     - name: Build Web Docker image
-      docker_image:
-        name: video-downloader-web
-        build:
-          dockerfile: deploy/docker/Dockerfile-prod-web
-          path: ../
-          pull: yes
-        source: build
+      shell: |
+        docker build \
+          -f docker/Dockerfile-prod-web \
+          -t video-downloader-web \
+          ../
 
     - name: Build production Batch application
       shell: cd ../ && sbt batch/universal:packageZipTarball
 
     - name: Build Batch Docker image
-      docker_image:
-        name: video-downloader-batch
-        build:
-          dockerfile: deploy/docker/Dockerfile-prod-batch
-          path: ../
-          pull: yes
-        source: build
+      shell: |
+        docker build \
+          -f docker/Dockerfile-prod-batch \
+          -t video-downloader-batch \
+          ../
+
