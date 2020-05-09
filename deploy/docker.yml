@@ -1,0 +1,31 @@
+---
+- hosts: localhost
+  connection: local
+
+  tasks:
+    - name: Clean and build sbt projects
+      shell: cd ../ && sbt refreshAll
+
+    - name: Build production Web application
+      shell: cd ../ && sbt web/universal:packageZipTarball
+
+    - name: Build Web Docker image
+      docker_image:
+        name: video-downloader-web
+        build:
+          dockerfile: deploy/docker/Dockerfile-prod-web
+          path: ../
+          pull: yes
+        source: build
+
+    - name: Build production Batch application
+      shell: cd ../ && sbt batch/universal:packageZipTarball
+
+    - name: Build Batch Docker image
+      docker_image:
+        name: video-downloader-batch
+        build:
+          dockerfile: deploy/docker/Dockerfile-prod-batch
+          path: ../
+          pull: yes
+        source: build
