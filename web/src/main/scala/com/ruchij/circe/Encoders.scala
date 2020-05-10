@@ -1,7 +1,6 @@
 package com.ruchij.circe
 
 import java.nio.file.Path
-import java.time.Duration
 
 import cats.Show
 import enumeratum.EnumEntry
