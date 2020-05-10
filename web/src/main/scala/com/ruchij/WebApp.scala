@@ -79,5 +79,5 @@ object WebApp extends IOApp {
       )
       healthService = new HealthServiceImpl[F]
 
-    } yield Routes(videoService, schedulingService, assetService, healthService)
+    } yield Routes(videoService, schedulingService, assetService, healthService, ioBlocker)
 }
