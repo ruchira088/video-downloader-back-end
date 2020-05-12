@@ -1,7 +1,7 @@
 package com.ruchij.config
 
 import cats.ApplicativeError
-import com.ruchij.config.PureConfigReaders.localTimeReader
+import com.ruchij.config.PureConfigReaders.localTimePureConfigReader
 import com.ruchij.types.FunctionKTypes.eitherToF
 import pureconfig.ConfigObjectSource
 import pureconfig.error.ConfigReaderException

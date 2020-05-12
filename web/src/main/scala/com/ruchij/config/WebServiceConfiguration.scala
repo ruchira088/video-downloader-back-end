@@ -1,6 +1,7 @@
 package com.ruchij.config
 
 import cats.ApplicativeError
+import com.ruchij.config.PureConfigReaders.dateTimePureConfigReader
 import com.ruchij.types.FunctionKTypes.eitherToF
 import pureconfig.ConfigObjectSource
 import pureconfig.error.ConfigReaderException
@@ -9,7 +10,8 @@ import pureconfig.generic.auto._
 case class WebServiceConfiguration(
   httpConfiguration: HttpConfiguration,
   downloadConfiguration: DownloadConfiguration,
-  databaseConfiguration: DatabaseConfiguration
+  databaseConfiguration: DatabaseConfiguration,
+  applicationInformation: ApplicationInformation
 )
 
 object WebServiceConfiguration {

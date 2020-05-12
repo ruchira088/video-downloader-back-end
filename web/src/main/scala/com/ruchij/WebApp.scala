@@ -77,7 +77,7 @@ object WebApp extends IOApp {
         downloadService,
         serviceConfiguration.downloadConfiguration
       )
-      healthService = new HealthServiceImpl[F]
+      healthService = new HealthServiceImpl[F](serviceConfiguration.applicationInformation)
 
     } yield Routes(videoService, schedulingService, assetService, healthService, ioBlocker)
 }
