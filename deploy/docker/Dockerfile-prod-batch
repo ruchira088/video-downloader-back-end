@@ -1,7 +1,0 @@
-FROM openjdk:11-jre-slim
-
-WORKDIR /opt/video-downloader-batch
-
-ADD batch/target/universal/video-downloader-batch-*.tgz .
-
-CMD [ "/opt/video-downloader-batch/bin/video-downloader-batch" ]

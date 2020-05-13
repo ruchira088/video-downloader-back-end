@@ -1,9 +1,0 @@
-FROM openjdk:11-jre-slim
-
-WORKDIR /opt/video-downloader-web
-
-ADD web/target/universal/video-downloader-web-*.tgz .
-
-EXPOSE 8000
-
-CMD [ "/opt/video-downloader-web/bin/video-downloader-web" ]

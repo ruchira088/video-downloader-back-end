@@ -1,0 +1,16 @@
+FROM openjdk:11-jre-slim
+
+ENV GIT_BRANCH {{ git_branch }}
+ENV GIT_COMMIT {{ git_commit }}
+ENV BUILD_TIMESTAMP {{ build_timestamp }}
+
+WORKDIR /opt/video-downloader-{{ app_name }}
+
+ADD video-downloader-{{ app_name }}-*.tgz .
+
+{% if ports is defined %}
+EXPOSE {{ ports }}
+{% else %}
+{% endif %}
+
+CMD [ "/opt/video-downloader-{{ app_name }}/bin/video-downloader-{{ app_name }}" ]
