@@ -22,32 +22,35 @@ class Http4sDownloadService[F[_]: Concurrent: ContextShift: Clock](
       .run(Request(uri = uri))
       .product {
         Resource.liftF {
-          uri.path
-            .split("/")
-            .lastOption
-            .fold[F[String]](Clock[F].realTime(TimeUnit.MILLISECONDS).map(_.toString)) {
-              suffix => Applicative[F].pure(suffix) }
-            .map { fileName => parent + (if (parent.endsWith("/")) "" else "/") + fileName }
+          Clock[F]
+            .realTime(TimeUnit.MILLISECONDS)
+            .map { prefix =>
+              val fileName = uri.path.split("/").lastOption.getOrElse("new-download")
+
+              parent + (if (parent.endsWith("/")) "" else "/") + s"$prefix-$fileName"
+            }
         }
       }
       .evalMap {
         case (response, key) =>
-          Http4sUtils.header[F](`Content-Length`)
+          Http4sUtils
+            .header[F](`Content-Length`)
             .product(Http4sUtils.header[F](`Content-Type`))
             .map {
               case (contentLengthValue, contentTypeValue) =>
                 (contentLengthValue.length, contentTypeValue.mediaType)
             }
             .run(response)
-            .map { case (fileSize, mediaType) =>
-              DownloadResult.create[F](uri, key, fileSize, mediaType) {
-                response.body
-                  .observe { data =>
-                    repositoryService.write(key, data)
-                  }
-                  .chunks
-                  .scan(0L) { case (total, chunk) => total + chunk.size }
-              }
+            .map {
+              case (fileSize, mediaType) =>
+                DownloadResult.create[F](uri, key, fileSize, mediaType) {
+                  response.body
+                    .observe { data =>
+                      repositoryService.write(key, data)
+                    }
+                    .chunks
+                    .scan(0L) { case (total, chunk) => total + chunk.size }
+                }
             }
       }
 
