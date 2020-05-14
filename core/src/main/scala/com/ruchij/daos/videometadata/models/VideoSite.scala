@@ -2,6 +2,7 @@ package com.ruchij.daos.videometadata.models
 
 import java.util.concurrent.TimeUnit
 
+import cats.data.Kleisli
 import cats.implicits._
 import cats.{Applicative, MonadError}
 import com.ruchij.daos.videometadata.models.VideoSite.Selector
@@ -30,53 +31,61 @@ sealed trait VideoSite extends EnumEntry {
 }
 
 object VideoSite extends Enum[VideoSite] {
-  type Selector[F[_], A] = Document => F[A]
+  type Selector[F[_], A] = Kleisli[F, Document, A]
 
   case object VPorn extends VideoSite {
     override val HOSTNAME: String = "vporn.com"
 
     override def title[F[_]: MonadError[*[_], Throwable]]: Selector[F, String] =
-      document => JsoupUtils.query[F](document, ".single-video .video-player-head h1").map(_.text())
+      Kleisli {
+        document => JsoupUtils.query[F](document, ".single-video .video-player-head h1").map(_.text())
+      }
 
     override def thumbnailUri[F[_]: MonadError[*[_], Throwable]]: Selector[F, Uri] =
-      document =>
-        JsoupUtils
-          .query[F](document, "#video_player video")
-          .map(_.attr("poster"))
-          .flatMap { urlString =>
-            FunctionKTypes.eitherToF[Throwable, F].apply(Uri.fromString(urlString))
-        }
+      Kleisli {
+        document =>
+          JsoupUtils
+            .query[F](document, "#video_player video")
+            .map(_.attr("poster"))
+            .flatMap { urlString =>
+              FunctionKTypes.eitherToF[Throwable, F].apply(Uri.fromString(urlString))
+            }
+      }
 
     private val lessThanHour = "(\\d+) min (\\d+) sec".r
     private val moreThanHour = "(\\d+) hours (\\d+) min (\\d+) sec".r
 
     override def duration[F[_]: MonadError[*[_], Throwable]]: Selector[F, FiniteDuration] =
-      document =>
-        JsoupUtils.query[F](document, "#video-info .video-duration")
-          .map(_.text().trim)
-          .flatMap {
-            case lessThanHour(IntNumber(minutes), IntNumber(seconds)) =>
-              Applicative[F].pure(FiniteDuration(minutes * 60 + seconds, TimeUnit.SECONDS))
+      Kleisli {
+        document =>
+          JsoupUtils.query[F](document, "#video-info .video-duration")
+            .map(_.text().trim)
+            .flatMap {
+              case lessThanHour(IntNumber(minutes), IntNumber(seconds)) =>
+                Applicative[F].pure(FiniteDuration(minutes * 60 + seconds, TimeUnit.SECONDS))
 
-            case moreThanHour(IntNumber(hours), IntNumber(minutes), IntNumber(seconds)) =>
-              Applicative[F].pure(FiniteDuration(hours * 3600 + minutes * 60 + seconds, TimeUnit.SECONDS))
+              case moreThanHour(IntNumber(hours), IntNumber(minutes), IntNumber(seconds)) =>
+                Applicative[F].pure(FiniteDuration(hours * 3600 + minutes * 60 + seconds, TimeUnit.SECONDS))
 
-            case duration =>
-              MonadError[F, Throwable].raiseError {
-                new IllegalArgumentException(s"""Unable to parse "$duration" as a duration""")
-              }
-          }
+              case duration =>
+                MonadError[F, Throwable].raiseError {
+                  new IllegalArgumentException(s"""Unable to parse "$duration" as a duration""")
+                }
+            }
+      }
 
     private val DOWNLOAD_URL_SELECTOR = "#video_player source"
 
     override def downloadUri[F[_]: MonadError[*[_], Throwable]]: Selector[F, Uri] =
-      document =>
-        Option(document.select(DOWNLOAD_URL_SELECTOR).first())
-          .fold[F[Uri]](
-            MonadError[F, Throwable].raiseError(NoMatchingElementsFoundException(document, DOWNLOAD_URL_SELECTOR))
-          ) { element =>
-            FunctionKTypes.eitherToF[Throwable, F].apply(Uri.fromString(element.attr("src")))
-        }
+      Kleisli {
+        document =>
+          Option(document.select(DOWNLOAD_URL_SELECTOR).first())
+            .fold[F[Uri]](
+              MonadError[F, Throwable].raiseError(NoMatchingElementsFoundException(document, DOWNLOAD_URL_SELECTOR))
+            ) { element =>
+              FunctionKTypes.eitherToF[Throwable, F].apply(Uri.fromString(element.attr("src")))
+            }
+      }
   }
 
   override def values: IndexedSeq[VideoSite] = findValues
