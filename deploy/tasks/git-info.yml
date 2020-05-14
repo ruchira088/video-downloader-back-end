@@ -1,0 +1,11 @@
+- name: Get the git commit tag
+  command: git rev-parse --short HEAD
+  register: git_commit_output
+
+- name: Get the git branch name
+  shell: git rev-parse --abbrev-ref HEAD | tr "[:upper:]" "[:lower]" | tr " /" "-"
+  register: git_branch_output
+
+- set_fact:
+    git_commit: "{{ git_commit_output.stdout }}"
+    git_branch: "{{ git_branch_output.stdout }}"

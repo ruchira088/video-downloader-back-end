@@ -1,0 +1,31 @@
+- name: Create output directory
+  file:
+    path: output
+    state: directory
+
+- name: Clean and build sbt project
+  shell: cd ../ && sbt cleanAll {{ app_name }}/universal:packageZipTarball
+
+- name: Gather git information
+  import_tasks: git-info.yml
+
+- name: Generate the Dockerfile
+  template:
+    src: docker/Dockerfile.j2
+    dest: output/Dockerfile-{{ app_name }}
+  vars:
+    build_timestamp: "{{ ansible_date_time.iso8601 }}"
+
+- name: Build Docker image
+  shell: |
+    docker build \
+      -f output/Dockerfile-{{ app_name }} \
+      -t video-downloader-{{ app_name }}:latest \
+      -t video-downloader-{{ app_name }}:{{ git_commit }} \
+      -t video-downloader-{{ app_name }}:{{ git_branch }}-{{ ansible_date_time.iso8601_basic_short }} \
+      ../{{ app_name }}/target/universal/
+
+- name: Delete output directory
+  file:
+    path: output
+    state: absent
