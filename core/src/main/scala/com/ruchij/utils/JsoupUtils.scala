@@ -1,17 +1,22 @@
 package com.ruchij.utils
 
-import cats.{Applicative, MonadError}
+import cats.data.Kleisli
+import cats.{Applicative, ApplicativeError}
+import com.ruchij.daos.videometadata.models.VideoSite.Selector
 import com.ruchij.exceptions.{MultipleElementsFoundException, NoMatchingElementsFoundException}
-import org.jsoup.nodes.{Document, Element}
+import org.jsoup.nodes.Element
 
 object JsoupUtils {
-  def query[F[_]: MonadError[*[_], Throwable]](document: Document, css: String): F[Element] = {
-    val elements = document.select(css)
 
-    elements.size() match {
-      case 0 => MonadError[F, Throwable].raiseError(NoMatchingElementsFoundException(document, css))
-      case 1 => Applicative[F].pure(elements.first())
-      case _ => MonadError[F, Throwable].raiseError(MultipleElementsFoundException(elements))
+  def query[F[_]: ApplicativeError[*[_], Throwable]](css: String): Selector[F, Element] =
+    Kleisli { document =>
+      val elements = document.select(css)
+
+      elements.size() match {
+        case 0 => ApplicativeError[F, Throwable].raiseError(NoMatchingElementsFoundException(document, css))
+        case 1 => Applicative[F].pure(elements.first())
+        case _ => ApplicativeError[F, Throwable].raiseError(MultipleElementsFoundException(elements))
+      }
     }
-  }
+
 }
