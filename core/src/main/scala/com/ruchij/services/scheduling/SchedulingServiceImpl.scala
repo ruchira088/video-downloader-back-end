@@ -49,7 +49,7 @@ class SchedulingServiceImpl[F[_]: Sync: Timer](
 
       videoMetadata = VideoMetadata(uri, videoKey, videoSite, title, duration, size, thumbnail)
 
-      scheduledVideoDownload = ScheduledVideoDownload(timestamp, timestamp, false, videoMetadata, 0, None)
+      scheduledVideoDownload = ScheduledVideoDownload(timestamp, timestamp, None, videoMetadata, 0, None)
       _ <- schedulingDao.insert(scheduledVideoDownload)
     } yield scheduledVideoDownload
 
@@ -75,9 +75,8 @@ class SchedulingServiceImpl[F[_]: Sync: Timer](
       }
 
   override val acquireTask: OptionT[F, ScheduledVideoDownload] =
-    schedulingDao.retrieveNewTask.flatMap { scheduledVideoDownload =>
-      schedulingDao.setInProgress(scheduledVideoDownload.videoMetadata.id, inProgress = true)
-    }
+    OptionT.liftF(Clock[F].realTime(TimeUnit.MILLISECONDS))
+      .flatMap { timestamp => schedulingDao.retrieveNewTask(new DateTime(timestamp)) }
 
   override val active: Stream[F, ScheduledVideoDownload] =
     Stream.awakeDelay[F](Duration.create(500, TimeUnit.MILLISECONDS))

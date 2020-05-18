@@ -11,13 +11,11 @@ trait SchedulingDao[F[_]] {
 
   def getById(id: String): OptionT[F, ScheduledVideoDownload]
 
-  def setInProgress(id: String, inProgress: Boolean): OptionT[F, ScheduledVideoDownload]
-
   def completeTask(id: String, timestamp: DateTime): OptionT[F, ScheduledVideoDownload]
 
   def active(after: DateTime, before: DateTime): F[Seq[ScheduledVideoDownload]]
 
   def search(term: Option[String], pageNumber: Int, pageSize: Int): F[Seq[ScheduledVideoDownload]]
 
-  val retrieveNewTask: OptionT[F, ScheduledVideoDownload]
+  def retrieveNewTask(timestamp: DateTime): OptionT[F, ScheduledVideoDownload]
 }

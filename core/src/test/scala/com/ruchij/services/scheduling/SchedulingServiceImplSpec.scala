@@ -82,7 +82,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
       ScheduledVideoDownload(
         dateTime,
         dateTime,
-        false,
+        None,
         VideoMetadata(
           videoAnalysisResult.url,
           hashingService.hash(videoUrl.renderString).unsafeRunSync(),
@@ -93,7 +93,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
           FileResource(
             hashingService.hash(videoAnalysisResult.thumbnail.renderString).unsafeRunSync(),
             dateTime,
-            s"${downloadConfiguration.imageFolder}/b81.jpg",
+            s"${downloadConfiguration.imageFolder}/${dateTime.getMillis}-b81.jpg",
             MediaType.image.jpeg,
             videoAnalysisResult.size
           )
