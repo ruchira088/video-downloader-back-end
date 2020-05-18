@@ -5,7 +5,6 @@ import java.util.concurrent.TimeUnit
 import cats.data.{Kleisli, NonEmptyList}
 import cats.{Applicative, ApplicativeError, MonadError}
 import com.ruchij.daos.videometadata.models.VideoSite.Selector
-import com.ruchij.exceptions.NoMatchingElementsFoundException
 import com.ruchij.types.FunctionKTypes
 import com.ruchij.utils.JsoupSelector
 import com.ruchij.utils.MatcherUtils.IntNumber
@@ -14,6 +13,7 @@ import org.http4s.Uri
 import org.jsoup.nodes.Document
 
 import scala.concurrent.duration.FiniteDuration
+import scala.util.matching.Regex
 
 sealed trait VideoSite extends EnumEntry {
   val HOSTNAME: String
@@ -36,24 +36,25 @@ object VideoSite extends Enum[VideoSite] {
   case object VPorn extends VideoSite {
     override val HOSTNAME: String = "vporn.com"
 
+    private val lessThanHour = "(\\d+) min (\\d+) sec".r
+    private val moreThanHour = "(\\d+) hours (\\d+) min (\\d+) sec".r
+
     override def title[F[_]: MonadError[*[_], Throwable]]: Selector[F, String] =
-      JsoupSelector.singleElement[F](".single-video .video-player-head h1").map(_.text())
+      JsoupSelector.singleElement[F](".single-video .video-player-head h1")
+        .flatMapF(JsoupSelector.text[F])
 
     override def thumbnailUri[F[_]: MonadError[*[_], Throwable]]: Selector[F, Uri] =
       JsoupSelector
         .singleElement[F]("#video_player video")
-        .map(_.attr("poster"))
+        .flatMapF(element => JsoupSelector.attribute[F](element, "poster"))
         .flatMapF { urlString =>
           FunctionKTypes.eitherToF[Throwable, F].apply(Uri.fromString(urlString))
         }
 
-    private val lessThanHour = "(\\d+) min (\\d+) sec".r
-    private val moreThanHour = "(\\d+) hours (\\d+) min (\\d+) sec".r
-
     override def duration[F[_]: MonadError[*[_], Throwable]]: Selector[F, FiniteDuration] =
       JsoupSelector
         .singleElement[F]("#video-info .video-duration")
-        .map(_.text().trim)
+        .flatMapF(JsoupSelector.text[F])
         .flatMapF {
           case lessThanHour(IntNumber(minutes), IntNumber(seconds)) =>
             Applicative[F].pure(FiniteDuration(minutes * 60 + seconds, TimeUnit.SECONDS))
@@ -62,7 +63,7 @@ object VideoSite extends Enum[VideoSite] {
             Applicative[F].pure(FiniteDuration(hours * 3600 + minutes * 60 + seconds, TimeUnit.SECONDS))
 
           case duration =>
-            MonadError[F, Throwable].raiseError {
+            ApplicativeError[F, Throwable].raiseError {
               new IllegalArgumentException(s"""Unable to parse "$duration" as a duration""")
             }
         }
@@ -71,18 +72,39 @@ object VideoSite extends Enum[VideoSite] {
       JsoupSelector
         .nonEmptyElementList[F]("#video_player source")
         .flatMapF {
-          case NonEmptyList(element, _) =>
-            Option(element.attr("src"))
-              .filter(_.trim.nonEmpty)
-              .fold[F[String]](
-                ApplicativeError[F, Throwable].raiseError(NoMatchingElementsFoundException(element, "[src]"))
-              ) { srcValue =>
-                Applicative[F].pure(srcValue)
-              }
+          case NonEmptyList(element, _) => JsoupSelector.src[F](element)
         }
-        .flatMapF { uri =>
-          FunctionKTypes.eitherToF.apply(Uri.fromString(uri))
+  }
+
+  case object SpankBang extends VideoSite {
+    override val HOSTNAME: String = "spankbang.com"
+
+    private val videoDuration: Regex = "(\\d+):(\\d+)".r
+
+    override def title[F[_] : MonadError[*[_], Throwable]]: Selector[F, String] =
+      JsoupSelector.singleElement[F]("#video div.left h1[title]")
+        .flatMapF(JsoupSelector.text[F])
+
+    override def thumbnailUri[F[_] : MonadError[*[_], Throwable]]: Selector[F, Uri] =
+      JsoupSelector.singleElement[F]("#player_wrapper_outer div.play_cover img.player_thumb")
+        .flatMapF(JsoupSelector.src[F])
+
+    override def duration[F[_] : MonadError[*[_], Throwable]]: Selector[F, FiniteDuration] =
+      JsoupSelector.singleElement[F]("#player_wrapper_outer .hd-time .i-length")
+        .flatMapF(JsoupSelector.text[F])
+        .flatMapF {
+          case videoDuration(IntNumber(minutes), IntNumber(seconds)) =>
+            Applicative[F].pure(FiniteDuration(minutes * 60 + seconds, TimeUnit.SECONDS))
+
+          case duration =>
+            ApplicativeError[F, Throwable].raiseError {
+              new IllegalArgumentException(s"""Unable to parse "$duration" as a duration""")
+            }
         }
+
+    override def downloadUri[F[_] : MonadError[*[_], Throwable]]: Selector[F, Uri] =
+      JsoupSelector.singleElement[F]("#video_container source")
+        .flatMapF(JsoupSelector.src[F])
   }
 
   override def values: IndexedSeq[VideoSite] = findValues

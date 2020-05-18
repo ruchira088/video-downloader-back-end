@@ -18,6 +18,7 @@ import com.ruchij.services.scheduling.SchedulingServiceImpl
 import com.ruchij.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
 import com.ruchij.services.worker.WorkExecutorImpl
 import org.http4s.client.blaze.BlazeClientBuilder
+import org.http4s.client.middleware.FollowRedirect
 import pureconfig.ConfigSource
 
 import scala.concurrent.ExecutionContext
@@ -36,7 +37,8 @@ object BatchApp extends IOApp {
     nonBlockingExecutionContext: ExecutionContext,
   ): Resource[F, Scheduler[F]] =
     for {
-      client <- BlazeClientBuilder[F](nonBlockingExecutionContext).resource
+      baseClient <- BlazeClientBuilder[F](nonBlockingExecutionContext).resource
+      httpClient = FollowRedirect(maxRedirects = 10)(baseClient)
 
       ioThreadPool <- Resource.liftF(Sync[F].delay(Executors.newCachedThreadPool()))
       ioBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(ioThreadPool))
@@ -54,9 +56,9 @@ object BatchApp extends IOApp {
       videoDao = new DoobieVideoDao[F](fileResourceDao, transactor)
 
       repositoryService = new FileRepositoryService[F](ioBlocker)
-      downloadService = new Http4sDownloadService[F](client, repositoryService)
+      downloadService = new Http4sDownloadService[F](httpClient, repositoryService)
       hashingService = new MurmurHash3Service[F](cpuBlocker)
-      videoAnalysisService = new VideoAnalysisServiceImpl[F](client)
+      videoAnalysisService = new VideoAnalysisServiceImpl[F](httpClient)
       schedulingService = new SchedulingServiceImpl[F](
         videoAnalysisService,
         schedulingDao,

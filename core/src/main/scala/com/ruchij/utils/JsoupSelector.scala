@@ -4,7 +4,9 @@ import cats.{Applicative, ApplicativeError, MonadError}
 import cats.data.{Kleisli, NonEmptyList}
 import cats.implicits._
 import com.ruchij.daos.videometadata.models.VideoSite.Selector
-import com.ruchij.exceptions.{MultipleElementsFoundException, NoMatchingElementsFoundException}
+import com.ruchij.exceptions.{AttributeNotFoundInElementException, MultipleElementsFoundException, NoMatchingElementsFoundException, TextNotFoundInElementException}
+import com.ruchij.types.FunctionKTypes
+import org.http4s.Uri
 import org.jsoup.nodes.Element
 
 import scala.jdk.CollectionConverters._
@@ -32,5 +34,21 @@ object JsoupSelector {
         .catchNonFatal(document.select(css))
         .map(_.asScala.toList)
     }
+
+  def text[F[_]: ApplicativeError[*[_], Throwable]](element: Element): F[String] =
+    parseProperty[Throwable, F](element.text(), TextNotFoundInElementException(element))
+
+  def src[F[_]: MonadError[*[_], Throwable]](element: Element): F[Uri] =
+    attribute[F](element, "src")
+      .flatMap { uri =>
+        FunctionKTypes.eitherToF[Throwable, F].apply(Uri.fromString(uri))
+      }
+
+  def attribute[F[_]: ApplicativeError[*[_], Throwable]](element: Element, attributeKey: String): F[String] =
+    parseProperty[Throwable, F](element.attr(attributeKey), AttributeNotFoundInElementException(element, attributeKey))
+
+  private def parseProperty[E, F[_]: ApplicativeError[*[_], E]](value: String,  onEmpty: => E): F[String] =
+    Option(value).map(_.trim).filter(_.nonEmpty)
+      .fold[F[String]](ApplicativeError[F, E].raiseError(onEmpty)) { string => Applicative[F].pure(string) }
 
 }

@@ -20,6 +20,7 @@ import com.ruchij.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
 import com.ruchij.web.Routes
 import org.http4s.HttpApp
 import org.http4s.client.blaze.BlazeClientBuilder
+import org.http4s.client.middleware.FollowRedirect
 import org.http4s.server.blaze.BlazeServerBuilder
 import pureconfig.ConfigSource
 
@@ -47,7 +48,8 @@ object WebApp extends IOApp {
     executionContext: ExecutionContext
   ): Resource[F, HttpApp[F]] =
     for {
-      client <- BlazeClientBuilder[F](executionContext).resource
+      baseClient <- BlazeClientBuilder[F](executionContext).resource
+      httpClient = FollowRedirect(maxRedirects = 10)(baseClient)
 
       ioThreadPool <- Resource.liftF(Sync[F].delay(Executors.newCachedThreadPool()))
       ioBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(ioThreadPool))
@@ -65,10 +67,10 @@ object WebApp extends IOApp {
       videoDao = new DoobieVideoDao[F](fileResourceDao, transactor)
 
       hashingService = new MurmurHash3Service[F](cpuBlocker)
-      videoAnalysisService = new VideoAnalysisServiceImpl[F](client)
+      videoAnalysisService = new VideoAnalysisServiceImpl[F](httpClient)
       repositoryService = new FileRepositoryService[F](ioBlocker)
       videoService = new VideoServiceImpl[F](videoDao)
-      downloadService = new Http4sDownloadService[F](client, repositoryService)
+      downloadService = new Http4sDownloadService[F](httpClient, repositoryService)
       assetService = new AssetServiceImpl[F](fileResourceDao, repositoryService)
       schedulingService = new SchedulingServiceImpl[F](
         videoAnalysisService,
