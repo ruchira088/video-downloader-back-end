@@ -15,4 +15,5 @@ object Http4sUtils {
           ExternalServiceException(s"""Response did not contain the "${headerKey.name}" header""")
         })(value => Applicative[F].pure(value))
     }
+
 }

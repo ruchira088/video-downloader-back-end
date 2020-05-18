@@ -24,7 +24,7 @@ object Dependencies
 
   lazy val circeLiteral = "io.circe" %% "circe-literal" % CIRCE_VERSION
 
-  lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.6.0"
+  lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.6.1"
 
   lazy val doobie = "org.tpolecat" %% "doobie-core" % "0.9.0"
 

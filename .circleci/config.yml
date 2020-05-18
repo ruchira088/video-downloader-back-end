@@ -15,7 +15,7 @@ alias:
 jobs:
   build:
     docker:
-      - image: openjdk:11-jdk
+      - image: openjdk:8-jdk
     steps:
       - run: *install-sbt
       - checkout
