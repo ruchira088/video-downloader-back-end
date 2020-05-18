@@ -73,7 +73,7 @@ class DoobieSchedulingDao[F[_]: Bracket[*[_], Throwable]](
 
   override def search(term: Option[String], pageNumber: Int, pageSize: Int): F[Seq[ScheduledVideoDownload]] =
     (SELECT_QUERY ++ whereAndOpt(term.map(searchTerm => sql"title LIKE ${"%" + searchTerm + "%"}"))
-      ++ sql"OFFSET ${pageNumber * pageSize} LIMIT $pageSize")
+      ++ sql"LIMIT $pageSize OFFSET ${pageNumber * pageSize}")
       .query[ScheduledVideoDownload]
       .to[Seq]
       .transact(transactor)
