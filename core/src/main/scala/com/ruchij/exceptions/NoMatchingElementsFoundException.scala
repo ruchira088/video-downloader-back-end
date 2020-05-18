@@ -1,5 +1,5 @@
 package com.ruchij.exceptions
 
-import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
 
-case class NoMatchingElementsFoundException(document: Document, css: String) extends Exception
+case class NoMatchingElementsFoundException(element: Element, css: String) extends Exception

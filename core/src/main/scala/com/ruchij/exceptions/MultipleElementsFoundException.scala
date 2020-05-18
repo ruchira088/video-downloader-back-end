@@ -1,5 +1,6 @@
 package com.ruchij.exceptions
 
-import org.jsoup.select.Elements
+import cats.data.NonEmptyList
+import org.jsoup.nodes.Element
 
-case class MultipleElementsFoundException(elements: Elements) extends Exception
+case class MultipleElementsFoundException(elements: NonEmptyList[Element]) extends Exception

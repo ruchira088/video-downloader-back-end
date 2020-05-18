@@ -2,11 +2,12 @@ package com.ruchij.daos.videometadata.models
 
 import java.util.concurrent.TimeUnit
 
-import cats.data.Kleisli
-import cats.{Applicative, MonadError}
+import cats.data.{Kleisli, NonEmptyList}
+import cats.{Applicative, ApplicativeError, MonadError}
 import com.ruchij.daos.videometadata.models.VideoSite.Selector
+import com.ruchij.exceptions.NoMatchingElementsFoundException
 import com.ruchij.types.FunctionKTypes
-import com.ruchij.utils.JsoupUtils
+import com.ruchij.utils.JsoupSelector
 import com.ruchij.utils.MatcherUtils.IntNumber
 import enumeratum.{Enum, EnumEntry}
 import org.http4s.Uri
@@ -36,11 +37,11 @@ object VideoSite extends Enum[VideoSite] {
     override val HOSTNAME: String = "vporn.com"
 
     override def title[F[_]: MonadError[*[_], Throwable]]: Selector[F, String] =
-      JsoupUtils.query[F](".single-video .video-player-head h1").map(_.text())
+      JsoupSelector.singleElement[F](".single-video .video-player-head h1").map(_.text())
 
     override def thumbnailUri[F[_]: MonadError[*[_], Throwable]]: Selector[F, Uri] =
-      JsoupUtils
-        .query[F]("#video_player video")
+      JsoupSelector
+        .singleElement[F]("#video_player video")
         .map(_.attr("poster"))
         .flatMapF { urlString =>
           FunctionKTypes.eitherToF[Throwable, F].apply(Uri.fromString(urlString))
@@ -50,8 +51,8 @@ object VideoSite extends Enum[VideoSite] {
     private val moreThanHour = "(\\d+) hours (\\d+) min (\\d+) sec".r
 
     override def duration[F[_]: MonadError[*[_], Throwable]]: Selector[F, FiniteDuration] =
-      JsoupUtils
-        .query[F]("#video-info .video-duration")
+      JsoupSelector
+        .singleElement[F]("#video-info .video-duration")
         .map(_.text().trim)
         .flatMapF {
           case lessThanHour(IntNumber(minutes), IntNumber(seconds)) =>
@@ -67,10 +68,20 @@ object VideoSite extends Enum[VideoSite] {
         }
 
     override def downloadUri[F[_]: MonadError[*[_], Throwable]]: Selector[F, Uri] =
-      JsoupUtils
-        .query[F]("#video_player source")
-        .flatMapF { element =>
-          FunctionKTypes.eitherToF[Throwable, F].apply(Uri.fromString(element.attr("src")))
+      JsoupSelector
+        .nonEmptyElementList[F]("#video_player source")
+        .flatMapF {
+          case NonEmptyList(element, _) =>
+            Option(element.attr("src"))
+              .filter(_.trim.nonEmpty)
+              .fold[F[String]](
+                ApplicativeError[F, Throwable].raiseError(NoMatchingElementsFoundException(element, "[src]"))
+              ) { srcValue =>
+                Applicative[F].pure(srcValue)
+              }
+        }
+        .flatMapF { uri =>
+          FunctionKTypes.eitherToF.apply(Uri.fromString(uri))
         }
   }
 

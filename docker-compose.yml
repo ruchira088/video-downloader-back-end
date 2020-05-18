@@ -13,8 +13,8 @@ services:
       - "./images:/opt/images"
     environment:
       DATABASE_URL: "jdbc:postgresql://postgres:5432/video-downloader"
-      DATABASE_USER: "yocEgxiJYtmeivUv"
-      DATABASE_PASSWORD: "X82z9_TTN^|2C#MxkP0^L88&1685aiR="
+      DATABASE_USER: "admin"
+      DATABASE_PASSWORD: "password"
       VIDEO_FOLDER: "/opt/videos"
       IMAGE_FOLDER: "/opt/images"
 
@@ -27,8 +27,8 @@ services:
       - "./images:/opt/images"
     environment:
       DATABASE_URL: "jdbc:postgresql://postgres:5432/video-downloader"
-      DATABASE_USER: "yocEgxiJYtmeivUv"
-      DATABASE_PASSWORD: "X82z9_TTN^|2C#MxkP0^L88&1685aiR="
+      DATABASE_USER: "admin"
+      DATABASE_PASSWORD: "password"
       VIDEO_FOLDER: "/opt/videos"
       IMAGE_FOLDER: "/opt/images"
 
@@ -38,5 +38,5 @@ services:
       - 5432:5432
     environment:
       POSTGRES_DB: "video-downloader"
-      POSTGRES_USER: "yocEgxiJYtmeivUv"
-      POSTGRES_PASSWORD: "X82z9_TTN^|2C#MxkP0^L88&1685aiR="
+      POSTGRES_USER: "admin"
+      POSTGRES_PASSWORD: "password"
