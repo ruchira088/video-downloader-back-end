@@ -10,7 +10,7 @@ object NotFoundHandler {
     HttpApp[F] {
       request => httpRoutes.run(request).getOrElseF {
         Sync[F].raiseError {
-          ResourceNotFoundException(s"Endpoint not found: request.method{request.uri}")
+          ResourceNotFoundException(s"Endpoint not found: ${request.method} ${request.uri}")
         }
       }
     }
