@@ -14,7 +14,7 @@ import fs2.Stream
 import io.circe.Encoder
 import io.circe.generic.auto._
 import io.circe.syntax._
-import org.http4s.circe.CirceEntityEncoder.circeEntityEncoder
+import org.http4s.circe.CirceEntityCodec.{circeEntityDecoder, circeEntityEncoder}
 import org.http4s.circe._
 import org.http4s.{HttpRoutes, ServerSentEvent}
 import org.http4s.dsl.Http4sDsl
