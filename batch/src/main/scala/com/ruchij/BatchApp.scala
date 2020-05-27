@@ -55,7 +55,7 @@ object BatchApp extends IOApp {
       videoMetadataDao = new DoobieVideoMetadataDao[F](fileResourceDao)
       schedulingDao = new DoobieSchedulingDao[F](videoMetadataDao, transactor)
       videoDao = new DoobieVideoDao[F](fileResourceDao, transactor)
-      workerLockDao = new DoobieWorkerLockDao[F](transactor)
+      workerLockDao = new DoobieWorkerLockDao[F](schedulingDao, transactor)
 
       repositoryService = new FileRepositoryService[F](ioBlocker)
       downloadService = new Http4sDownloadService[F](httpClient, repositoryService)

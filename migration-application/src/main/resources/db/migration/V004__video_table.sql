@@ -1,7 +1,7 @@
 CREATE TABLE video (
     index BIGSERIAL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    video_metadata_id VARCHAR(127),
+    video_metadata_id VARCHAR(127) NOT NULL,
     file_resource_id VARCHAR(127) NOT NULL,
 
     PRIMARY KEY (video_metadata_id),
