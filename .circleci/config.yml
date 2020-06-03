@@ -39,4 +39,4 @@ jobs:
           key: sbt-cache-{{ checksum "project/build.properties" }}-{{ checksum "project/plugins.sbt" }}-{{ checksum "project/Dependencies.scala" }}
           paths:
             - ~/.sbt
-            - ~/.coursier
+            - ~/.cache/coursier
