@@ -34,7 +34,7 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.12.3"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "6.4.2"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "6.4.3"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.12"
 
@@ -46,7 +46,7 @@ object Dependencies
 
   lazy val betterMonadicFor = "com.olegpy" %% "better-monadic-for" % "0.3.1"
 
-  lazy val scalaTypedHoles = "com.github.cb372" % "scala-typed-holes" % "0.1.3" cross CrossVersion.full
+  lazy val scalaTypedHoles = "com.github.cb372" % "scala-typed-holes" % "0.1.3.3" cross CrossVersion.full
 
   lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.1.2"
 

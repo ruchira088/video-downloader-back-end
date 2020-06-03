@@ -34,7 +34,6 @@ services:
 
   postgres:
     image: postgres
-    command: [ "postgres", "-c", "log_statement=all" ]
     ports:
       - 5432:5432
     environment:

@@ -16,7 +16,7 @@ import doobie.implicits._
 import doobie.util.transactor.Transactor
 import org.joda.time.DateTime
 
-class DoobieWorkerLockDao[F[_]: Clock: Sync](schedulingDao: SchedulingDao[F], transactor: Transactor.Aux[F, Unit])
+class DoobieWorkerDao[F[_]: Clock: Sync](schedulingDao: SchedulingDao[F], transactor: Transactor.Aux[F, Unit])
   extends WorkerDao[F] {
 
   override def insert(worker: Worker): F[Int] =
@@ -72,10 +72,9 @@ class DoobieWorkerLockDao[F[_]: Clock: Sync](schedulingDao: SchedulingDao[F], tr
         .flatMap { timestamp =>
           singleUpdate {
             sql"""
-              UPDATE worker_task
-                SET
-                  worker_id = $workerId AND scheduled_video_id = $scheduledVideoId AND created_at = ${new DateTime(timestamp)}
-              """.update.run
+              INSERT INTO worker_task(worker_id, scheduled_video_id, created_at)
+              VALUES ($workerId, $scheduledVideoId, ${new DateTime(timestamp)})
+            """.update.run
           }
             .product {
               singleUpdate {
@@ -95,7 +94,7 @@ class DoobieWorkerLockDao[F[_]: Clock: Sync](schedulingDao: SchedulingDao[F], tr
       .flatMap { timestamp =>
         singleUpdate { sql"UPDATE worker SET reserved_at = NULL, task_assigned_at = NULL WHERE id = $workerId".update.run }
           .productR {
-            singleUpdate {
+            OptionT.liftF {
               sql"""
                 UPDATE worker_task SET completed_at = ${new DateTime(timestamp)}
                 WHERE worker_id = $workerId AND completed_at IS NULL

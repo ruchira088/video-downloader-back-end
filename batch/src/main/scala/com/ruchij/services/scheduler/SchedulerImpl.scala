@@ -2,6 +2,7 @@ package com.ruchij.services.scheduler
 
 import java.util.concurrent.TimeUnit
 
+import cats.data.OptionT
 import cats.effect.{Bracket, Clock, Concurrent, Sync, Timer}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Monad}
@@ -9,7 +10,7 @@ import com.ruchij.config.WorkerConfiguration
 import com.ruchij.daos.workers.WorkerDao
 import com.ruchij.daos.workers.models.Worker
 import com.ruchij.exceptions.ResourceNotFoundException
-import com.ruchij.services.scheduler.SchedulerImpl.MAX_DELAY
+import com.ruchij.services.scheduler.SchedulerImpl.DELAY
 import com.ruchij.services.scheduling.SchedulingService
 import com.ruchij.services.worker.WorkExecutor
 import org.joda.time.{DateTime, LocalTime}
@@ -27,23 +28,23 @@ class SchedulerImpl[F[_]: Concurrent: Timer](
 
   override type Result = Nothing
 
-  val acquireLock: F[Worker] =
-    workerDao.idleWorker
-      .flatMap { workerLock =>
-        workerDao.reserveWorker(workerLock.id)
+  val idleWorker: F[Worker] =
+    Sync[F]
+      .delay(Random.nextLong(DELAY.toMillis))
+      .flatMap { sleepDuration =>
+        Timer[F].sleep(DELAY + FiniteDuration(sleepDuration, TimeUnit.MILLISECONDS))
       }
-      .getOrElseF {
-        Sync[F]
-          .delay(Random.nextLong(MAX_DELAY.toMillis))
-          .flatMap { sleepDuration =>
-            Timer[F].sleep(FiniteDuration(sleepDuration, TimeUnit.MILLISECONDS))
+      .productR {
+        workerDao.idleWorker
+          .flatMap { workerLock =>
+            workerDao.reserveWorker(workerLock.id)
           }
-          .productR(acquireLock)
+          .getOrElseF(idleWorker)
       }
 
   override val run: F[Nothing] =
-    acquireLock
-      .flatMap { workerLock =>
+    idleWorker
+      .flatMap { worker =>
         SchedulerImpl
           .isWorkPeriod[F](workerConfiguration.startTime, workerConfiguration.endTime)
           .flatMap { isWorkPeriod =>
@@ -51,18 +52,17 @@ class SchedulerImpl[F[_]: Concurrent: Timer](
               Concurrent[F]
                 .start {
                   Bracket[F, Throwable].guarantee {
-                    schedulingService.acquireTask.value
-                      .flatMap {
-                        _.fold(Applicative[F].unit) { task =>
-                          workExecutor.execute(task).productR(Applicative[F].unit)
-                        }
-                      }
+                    schedulingService.acquireTask
+                      .flatTap(task => workerDao.assignTask(worker.id, task.videoMetadata.id))
+                      .semiflatMap(workExecutor.execute)
+                      .productR(OptionT.liftF(Applicative[F].unit))
+                      .getOrElseF(Applicative[F].unit)
                   } {
                     workerDao
-                      .release(workerLock.id)
+                      .release(worker.id)
                       .getOrElseF {
                         ApplicativeError[F, Throwable].raiseError(
-                          ResourceNotFoundException(s"Worker lock not found. ID = ${workerLock.id}")
+                          ResourceNotFoundException(s"Worker not found. ID = ${worker.id}")
                         )
                       }
                       .productR(Applicative[F].unit)
@@ -79,7 +79,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer](
 }
 
 object SchedulerImpl {
-  val MAX_DELAY: FiniteDuration = 20 seconds
+  val DELAY: FiniteDuration = 10 seconds
 
   def isWorkPeriod[F[_]: Clock: Monad](start: LocalTime, end: LocalTime): F[Boolean] =
     Clock[F]
