@@ -6,7 +6,7 @@ import cats.effect.{Blocker, ContextShift, Sync}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError}
 import fs2.Stream
-import fs2.io.file.{readRange, writeAll, size => fileSize}
+import fs2.io.file.{readRange, writeAll, size => fileSize, walk}
 
 class FileRepositoryService[F[_]: Sync: ContextShift](ioBlocker: Blocker) extends RepositoryService[F] {
 
@@ -46,6 +46,12 @@ class FileRepositoryService[F[_]: Sync: ContextShift](ioBlocker: Blocker) extend
 
   def fileExists(path: Path): F[Boolean] =
     Sync[F].delay(path.toFile.exists())
+
+  override def list(key: Key): Stream[F, Key] =
+    Stream.eval(FileRepositoryService.parsePath[F](key))
+      .flatMap(path => walk(ioBlocker, path))
+      .drop(1) // drop the parent key
+      .map(_.toString)
 }
 
 object FileRepositoryService {

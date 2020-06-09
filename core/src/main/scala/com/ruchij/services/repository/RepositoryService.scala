@@ -3,9 +3,13 @@ package com.ruchij.services.repository
 import fs2.Stream
 
 trait RepositoryService[F[_]] {
-  def write(key: String, data: Stream[F, Byte]): Stream[F, Unit]
+  type Key = String
 
-  def read(key: String, start: Option[Long], end: Option[Long]): F[Option[Stream[F, Byte]]]
+  def write(key: Key, data: Stream[F, Byte]): Stream[F, Unit]
 
-  def size(key: String): F[Option[Long]]
+  def read(key: Key, start: Option[Long], end: Option[Long]): F[Option[Stream[F, Byte]]]
+
+  def size(key: Key): F[Option[Long]]
+
+  def list(key: Key): Stream[F, Key]
 }
