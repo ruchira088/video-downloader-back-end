@@ -26,4 +26,10 @@ class DoobieFileResourceDao[F[_]: Bracket[*[_], Throwable]](transactor: Transact
       .query[FileResource]
       .option
       .transact(transactor)
+
+  override def findByPath(path: String): F[Option[FileResource]] =
+    sql"SELECT id, created_at, path, media_type, size FROM file_resource WHERE path LIKE ${"%" + path}"
+      .query[FileResource]
+      .option
+      .transact(transactor)
 }

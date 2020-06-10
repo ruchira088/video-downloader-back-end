@@ -40,6 +40,10 @@ object Dependencies
 
   lazy val h2 = "com.h2database" % "h2" % "1.4.200"
 
+  lazy val jcodec = "org.jcodec" % "jcodec" % "0.2.5"
+
+  lazy val jcodecJavaSe = "org.jcodec" % "jcodec-javase" % "0.2.5"
+
   lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.3"
 
   lazy val kindProjector = "org.typelevel" %% "kind-projector" % "0.11.0" cross CrossVersion.full

@@ -69,7 +69,7 @@ lazy val batch =
       .settings(
         name := "video-downloader-batch",
         topLevelDirectory := None,
-        libraryDependencies ++= Seq(catsEffect, postgresql)
+        libraryDependencies ++= Seq(postgresql, jcodec, jcodecJavaSe)
       )
       .dependsOn(core)
 

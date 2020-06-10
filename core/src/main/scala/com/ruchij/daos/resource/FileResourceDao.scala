@@ -7,4 +7,6 @@ trait FileResourceDao[F[_]] {
   def insert(resource: FileResource): ConnectionIO[Int]
 
   def getById(id: String): F[Option[FileResource]]
+
+  def findByPath(path: String): F[Option[FileResource]]
 }
