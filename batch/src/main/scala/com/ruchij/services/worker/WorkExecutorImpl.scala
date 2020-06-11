@@ -9,6 +9,7 @@ import com.ruchij.daos.resource.models.FileResource
 import com.ruchij.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.daos.video.models.Video
 import com.ruchij.services.download.DownloadService
+import com.ruchij.services.enrichment.VideoEnrichmentService
 import com.ruchij.services.hashing.HashingService
 import com.ruchij.services.scheduling.SchedulingService
 import com.ruchij.services.video.{VideoAnalysisService, VideoService}
@@ -20,6 +21,7 @@ class WorkExecutorImpl[F[_]: Sync: Clock](
   videoService: VideoService[F],
   hashingService: HashingService[F],
   downloadService: DownloadService[F],
+  videoEnrichmentService: VideoEnrichmentService[F],
   downloadConfiguration: DownloadConfiguration
 ) extends WorkExecutor[F] {
 
@@ -53,4 +55,5 @@ class WorkExecutorImpl[F[_]: Sync: Clock](
           }
           yield video
       }
+      .flatTap(videoEnrichmentService.videoSnapshots)
 }

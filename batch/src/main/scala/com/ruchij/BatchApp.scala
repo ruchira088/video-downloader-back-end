@@ -1,5 +1,6 @@
 package com.ruchij
 
+import java.nio.file.Path
 import java.util.concurrent.Executors
 
 import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
@@ -7,11 +8,13 @@ import com.ruchij.config.BatchServiceConfiguration
 import com.ruchij.daos.doobie.DoobieTransactor
 import com.ruchij.daos.resource.DoobieFileResourceDao
 import com.ruchij.daos.scheduling.DoobieSchedulingDao
+import com.ruchij.daos.snapshot.DoobieSnapshotDao
 import com.ruchij.daos.video.DoobieVideoDao
 import com.ruchij.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.daos.workers.DoobieWorkerDao
 import com.ruchij.migration.MigrationApp
 import com.ruchij.services.download.Http4sDownloadService
+import com.ruchij.services.enrichment.VideoEnrichmentServiceImpl
 import com.ruchij.services.hashing.MurmurHash3Service
 import com.ruchij.services.repository.FileRepositoryService
 import com.ruchij.services.scheduler.{Scheduler, SchedulerImpl}
@@ -56,6 +59,7 @@ object BatchApp extends IOApp {
       schedulingDao = new DoobieSchedulingDao[F](videoMetadataDao, transactor)
       videoDao = new DoobieVideoDao[F](fileResourceDao, transactor)
       workerDao = new DoobieWorkerDao[F](schedulingDao, transactor)
+      snapshotDao = new DoobieSnapshotDao[F](fileResourceDao, transactor)
 
       repositoryService = new FileRepositoryService[F](ioBlocker)
       downloadService = new Http4sDownloadService[F](httpClient, repositoryService)
@@ -69,6 +73,13 @@ object BatchApp extends IOApp {
         batchServiceConfiguration.downloadConfiguration
       )
       videoService = new VideoServiceImpl[F](videoDao)
+      videoEnrichmentService =
+        new VideoEnrichmentServiceImpl[F, Path](
+          repositoryService,
+          snapshotDao,
+          ioBlocker,
+          batchServiceConfiguration.downloadConfiguration
+        )
 
       workExecutor = new WorkExecutorImpl[F](
         schedulingService,
@@ -76,6 +87,7 @@ object BatchApp extends IOApp {
         videoService,
         hashingService,
         downloadService,
+        videoEnrichmentService,
         batchServiceConfiguration.downloadConfiguration
       )
 

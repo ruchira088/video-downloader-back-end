@@ -8,7 +8,7 @@ import com.ruchij.daos.snapshot.models.Snapshot
 import doobie.util.transactor.Transactor
 import doobie.implicits._
 
-class DoobieSnapshotDao[F[_]: Sync](transactor: Transactor.Aux[F, Unit], fileResourceDao: FileResourceDao[F]) extends SnapshotDao[F] {
+class DoobieSnapshotDao[F[_]: Sync](fileResourceDao: FileResourceDao[F], transactor: Transactor.Aux[F, Unit]) extends SnapshotDao[F] {
 
   override def insert(snapshot: Snapshot): F[Int] =
     fileResourceDao.insert(snapshot.fileResource)

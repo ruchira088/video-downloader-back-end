@@ -11,10 +11,10 @@ import com.ruchij.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.daos.snapshot.DoobieSnapshotDao
 import com.ruchij.daos.video.DoobieVideoDao
+import com.ruchij.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.daos.videometadata.models.{VideoMetadata, VideoSite}
-import com.ruchij.daos.videometadata.{DoobieVideoMetadataDao, VideoMetadataDao}
 import com.ruchij.migration.MigrationApp
-import com.ruchij.services.enrichment.{VideoEnrichmentService, VideoEnrichmentServiceImpl}
+import com.ruchij.services.enrichment.VideoEnrichmentServiceImpl
 import com.ruchij.services.repository.FileRepositoryService
 import org.http4s.MediaType
 import org.http4s.implicits._
@@ -48,7 +48,7 @@ object BatchSandbox extends IOApp {
               videoId,
               VideoSite.VPorn,
               "Sample Title",
-              Duration(38, TimeUnit.MINUTES),
+              Duration(35, TimeUnit.MINUTES),
               10_000,
               thumbnail
             )
@@ -57,7 +57,7 @@ object BatchSandbox extends IOApp {
 
           transactor <- DoobieTransactor.create[IO](batchServiceConfiguration.databaseConfiguration)
           fileResourceDao = new DoobieFileResourceDao[IO](transactor)
-          snapshotDao = new DoobieSnapshotDao[IO](transactor, fileResourceDao)
+          snapshotDao = new DoobieSnapshotDao[IO](fileResourceDao, transactor)
           videoDao = new DoobieVideoDao[IO](fileResourceDao, transactor)
           videoMetadataDao = new DoobieVideoMetadataDao[IO](fileResourceDao)
           schedulingDao = new DoobieSchedulingDao[IO](videoMetadataDao, transactor)
