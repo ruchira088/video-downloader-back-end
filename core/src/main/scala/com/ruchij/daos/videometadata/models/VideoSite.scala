@@ -5,6 +5,7 @@ import java.util.concurrent.TimeUnit
 import cats.data.{Kleisli, NonEmptyList}
 import cats.{Applicative, ApplicativeError, MonadError}
 import com.ruchij.daos.videometadata.models.VideoSite.Selector
+import com.ruchij.exceptions.InvalidConditionException
 import com.ruchij.types.FunctionKTypes
 import com.ruchij.utils.JsoupSelector
 import com.ruchij.utils.MatcherUtils.IntNumber
@@ -32,6 +33,9 @@ sealed trait VideoSite extends EnumEntry {
 object VideoSite extends Enum[VideoSite] {
 
   type Selector[F[_], A] = Kleisli[F, Document, A]
+
+  def notApplicable[F[_], A](implicit applicativeError: ApplicativeError[F, Throwable]): Kleisli[F, Document, A] =
+    Kleisli.liftF[F, Document, A](applicativeError.raiseError[A](InvalidConditionException))
 
   case object VPorn extends VideoSite {
     override val HOSTNAME: String = "vporn.com"
@@ -105,6 +109,18 @@ object VideoSite extends Enum[VideoSite] {
     override def downloadUri[F[_] : MonadError[*[_], Throwable]]: Selector[F, Uri] =
       JsoupSelector.singleElement[F]("#video_container source")
         .flatMapF(JsoupSelector.src[F])
+  }
+
+  case object Local extends VideoSite {
+    override val HOSTNAME: String = "localhost"
+
+    override def title[F[_] : MonadError[*[_], Throwable]]: Selector[F, String] = notApplicable
+
+    override def thumbnailUri[F[_] : MonadError[*[_], Throwable]]: Selector[F, Uri] = notApplicable
+
+    override def duration[F[_] : MonadError[*[_], Throwable]]: Selector[F, FiniteDuration] = notApplicable
+
+    override def downloadUri[F[_] : MonadError[*[_], Throwable]]: Selector[F, Uri] = notApplicable
   }
 
   override def values: IndexedSeq[VideoSite] = findValues

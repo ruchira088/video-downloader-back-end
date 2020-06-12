@@ -31,50 +31,75 @@ class VideoEnrichmentServiceImpl[F[_]: Sync: Clock: ContextShift, A](
 )(implicit seekableByteChannelConverter: SeekableByteChannelConverter[F, A])
     extends VideoEnrichmentService[F] {
 
+  override val snapshotMediaType: MediaType = MediaType.image.png
+
   override def videoSnapshots(video: Video): F[Seq[Snapshot]] =
-    ioBlocker.blockOn(snapshots(video))
+    ioBlocker.blockOn {
+      for {
+        frameGrab <- createFrameGrab(video.fileResource.path)
 
-  def snapshots(video: Video): F[Seq[Snapshot]] =
+        snapshots <- VideoEnrichmentService
+          .snapshotTimestamps(video, VideoEnrichmentServiceImpl.SNAPSHOT_COUNT)
+          .toList
+          .traverse(createSnapshot(video, frameGrab, _))
+      } yield snapshots
+    }
+
+  override def snapshotFileResource(
+    videoPath: String,
+    snapshotPath: String,
+    videoTimestamp: FiniteDuration
+  ): F[FileResource] =
+    ioBlocker.blockOn {
+      for {
+        frameGrab <- createFrameGrab(videoPath)
+        snapshot <- snapshotFileResource(snapshotPath, frameGrab, videoTimestamp)
+      }
+      yield snapshot
+    }
+
+  def createFrameGrab(videoPath: String): F[FrameGrab] =
     for {
-      backedType <- fileRepository.backedType(video.fileResource.path)
+      backedType <- fileRepository.backedType(videoPath)
       seekableByteChannel <- seekableByteChannelConverter.convert(backedType)
-      frameGrab = FrameGrab.createFrameGrab(seekableByteChannel)
-
-      snapshots <- VideoEnrichmentService
-        .snapshotTimestamps(video, VideoEnrichmentServiceImpl.SNAPSHOT_COUNT)
-        .toList
-        .traverse(createSnapshot(video, frameGrab, _))
-    } yield snapshots
+    } yield FrameGrab.createFrameGrab(seekableByteChannel)
 
   def createSnapshot(video: Video, frameGrab: FrameGrab, videoTimestamp: FiniteDuration): F[Snapshot] = {
     val key =
-      s"${downloadConfiguration.imageFolder}/${video.videoMetadata.id}-${videoTimestamp.toSeconds}.${VideoEnrichmentServiceImpl.SNAPSHOT_FORMAT.subType}"
+      s"${downloadConfiguration.imageFolder}/${video.videoMetadata.id}-${videoTimestamp.toSeconds}.${snapshotMediaType.subType}"
 
+    snapshotFileResource(key, frameGrab, videoTimestamp)
+      .flatMap { fileResource =>
+        val snapshot = Snapshot(video.videoMetadata.id, fileResource, videoTimestamp)
+
+        snapshotDao.insert(snapshot).as(snapshot)
+      }
+  }
+
+  def snapshotFileResource(
+    snapshotPath: String,
+    frameGrab: FrameGrab,
+    videoTimestamp: FiniteDuration
+  ): F[FileResource] =
     fileRepository
-      .write(key, grabSnapshot(frameGrab, videoTimestamp))
+      .write(snapshotPath, grabSnapshot(frameGrab, videoTimestamp))
       .compile
       .drain
       .productR {
         for {
           timestamp <- Clock[F].realTime(TimeUnit.MILLISECONDS)
-          size <-
-            OptionT(fileRepository.size(key))
-              .getOrElseF(ApplicativeError[F, Throwable].raiseError(InvalidConditionException))
+          size <- OptionT(fileRepository.size(snapshotPath))
+            .getOrElseF(ApplicativeError[F, Throwable].raiseError(InvalidConditionException))
 
           fileResource = FileResource(
-            s"${video.videoMetadata.id}-$timestamp",
+            s"snapshot-$timestamp-$size",
             new DateTime(timestamp),
-            key,
-            VideoEnrichmentServiceImpl.SNAPSHOT_FORMAT,
+            snapshotPath,
+            snapshotMediaType,
             size
           )
-
-          snapshot = Snapshot(video.videoMetadata.id, fileResource, videoTimestamp)
-
-          _ <- snapshotDao.insert(snapshot)
-        } yield snapshot
+        } yield fileResource
       }
-  }
 
   def grabSnapshot(frameGrab: FrameGrab, videoTimestamp: FiniteDuration): Stream[F, Byte] =
     Stream
@@ -83,7 +108,7 @@ class VideoEnrichmentServiceImpl[F[_]: Sync: Clock: ContextShift, A](
         Sync[F].delay {
           ImageIO.write(
             AWTUtil.toBufferedImage(frameGrab.seekToSecondSloppy(videoTimestamp.toSeconds.toDouble).getNativeFrame),
-            VideoEnrichmentServiceImpl.SNAPSHOT_FORMAT.subType,
+            snapshotMediaType.subType,
             outputStream
           )
         }
@@ -92,7 +117,5 @@ class VideoEnrichmentServiceImpl[F[_]: Sync: Clock: ContextShift, A](
 }
 
 object VideoEnrichmentServiceImpl {
-  val SNAPSHOT_FORMAT: MediaType = MediaType.image.png
-
   val SNAPSHOT_COUNT = 10
 }
