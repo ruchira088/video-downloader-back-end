@@ -10,6 +10,7 @@ import com.ruchij.config.DownloadConfiguration
 import com.ruchij.daos.resource.FileResourceDao
 import com.ruchij.daos.resource.models.FileResource
 import com.ruchij.daos.video.models.Video
+import com.ruchij.daos.videometadata.VideoMetadataDao
 import com.ruchij.daos.videometadata.models.{VideoMetadata, VideoSite}
 import com.ruchij.exceptions.ResourceNotFoundException
 import com.ruchij.services.enrichment.{SeekableByteChannelConverter, VideoEnrichmentService}
@@ -17,6 +18,7 @@ import com.ruchij.services.hashing.HashingService
 import com.ruchij.services.repository.FileRepositoryService.FileRepository
 import com.ruchij.services.sync.SynchronizationServiceImpl.FileName
 import com.ruchij.services.sync.models.SyncResult
+import com.ruchij.services.video.VideoService
 import com.ruchij.types.FunctionKTypes.eitherToF
 import org.http4s.{MediaType, Uri}
 import org.jcodec.api.FrameGrab
@@ -27,6 +29,8 @@ import scala.concurrent.duration.FiniteDuration
 class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A](
   fileRepositoryService: FileRepository[F, A],
   fileResourceDao: FileResourceDao[F],
+  videoMetadataDao: VideoMetadataDao[F],
+  videoService: VideoService[F],
   videoEnrichmentService: VideoEnrichmentService[F],
   hashingService: HashingService[F],
   ioBlocker: Blocker,
@@ -46,14 +50,14 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A](
             }
       }
       .collect { case Some(video) => video }
-      .evalTap { video => Sync[F].delay(println(video)) }
+      .evalMap(saveVideo)
+      .evalTap { video => Sync[F].delay(println(video.fileResource.path)) }
       .compile
       .drain
       .as(SyncResult())
 
   def add(videoPath: String): F[Video] =
     for {
-      _ <- Sync[F].delay(println(videoPath))
       duration <- videoDuration(videoPath)
 
       (size, mediaType) <-
@@ -76,6 +80,13 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A](
       videoFileResource = FileResource(videoId, new DateTime(currentTimestamp), videoPath, mediaType, size)
 
     } yield Video(videoMetadata, videoFileResource)
+
+  def saveVideo(video: Video): F[Video] =
+    for {
+      _ <- videoMetadataDao.add(video.videoMetadata)
+      video <- videoService.insert(video.videoMetadata.id, video.fileResource)
+    }
+    yield video
 
   def videoDuration(videoPath: String): F[FiniteDuration] =
     ioBlocker.blockOn {

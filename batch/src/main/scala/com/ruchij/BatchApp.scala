@@ -1,6 +1,5 @@
 package com.ruchij
 
-import java.nio.file.Path
 import java.util.concurrent.Executors
 
 import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
@@ -19,6 +18,7 @@ import com.ruchij.services.hashing.MurmurHash3Service
 import com.ruchij.services.repository.FileRepositoryService
 import com.ruchij.services.scheduler.{Scheduler, SchedulerImpl}
 import com.ruchij.services.scheduling.SchedulingServiceImpl
+import com.ruchij.services.sync.SynchronizationServiceImpl
 import com.ruchij.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
 import com.ruchij.services.worker.WorkExecutorImpl
 import org.http4s.client.blaze.BlazeClientBuilder
@@ -33,7 +33,10 @@ object BatchApp extends IOApp {
       configObjectSource <- IO.delay(ConfigSource.defaultApplication)
       batchServiceConfiguration <- BatchServiceConfiguration.parse[IO](configObjectSource)
 
-      _ <- program[IO](batchServiceConfiguration, ExecutionContext.global).use(_.run)
+      _ <- program[IO](batchServiceConfiguration, ExecutionContext.global)
+        .use { scheduler =>
+          scheduler.init *> scheduler.run
+        }
     } yield ExitCode.Success
 
   def program[F[_]: ConcurrentEffect: ContextShift: Timer](
@@ -55,7 +58,7 @@ object BatchApp extends IOApp {
       transactor <- Resource.liftF(DoobieTransactor.create[F](batchServiceConfiguration.databaseConfiguration))
 
       fileResourceDao = new DoobieFileResourceDao[F](transactor)
-      videoMetadataDao = new DoobieVideoMetadataDao[F](fileResourceDao)
+      videoMetadataDao = new DoobieVideoMetadataDao[F](fileResourceDao, transactor)
       schedulingDao = new DoobieSchedulingDao[F](videoMetadataDao, transactor)
       videoDao = new DoobieVideoDao[F](fileResourceDao, transactor)
       workerDao = new DoobieWorkerDao[F](schedulingDao, transactor)
@@ -73,13 +76,23 @@ object BatchApp extends IOApp {
         batchServiceConfiguration.downloadConfiguration
       )
       videoService = new VideoServiceImpl[F](videoDao)
-      videoEnrichmentService =
-        new VideoEnrichmentServiceImpl[F, Path](
-          repositoryService,
-          snapshotDao,
-          ioBlocker,
-          batchServiceConfiguration.downloadConfiguration
-        )
+      videoEnrichmentService = new VideoEnrichmentServiceImpl[F, repositoryService.BackedType](
+        repositoryService,
+        snapshotDao,
+        ioBlocker,
+        batchServiceConfiguration.downloadConfiguration
+      )
+
+      synchronizationService = new SynchronizationServiceImpl[F, repositoryService.BackedType](
+        repositoryService,
+        fileResourceDao,
+        videoMetadataDao,
+        videoService,
+        videoEnrichmentService,
+        hashingService,
+        ioBlocker,
+        batchServiceConfiguration.downloadConfiguration
+      )
 
       workExecutor = new WorkExecutorImpl[F](
         schedulingService,
@@ -91,6 +104,12 @@ object BatchApp extends IOApp {
         batchServiceConfiguration.downloadConfiguration
       )
 
-      scheduler = new SchedulerImpl(schedulingService, workExecutor, workerDao, batchServiceConfiguration.workerConfiguration)
+      scheduler = new SchedulerImpl(
+        schedulingService,
+        synchronizationService,
+        workExecutor,
+        workerDao,
+        batchServiceConfiguration.workerConfiguration
+      )
     } yield scheduler
 }

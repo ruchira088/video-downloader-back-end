@@ -12,6 +12,8 @@ import com.ruchij.daos.workers.models.Worker
 import com.ruchij.exceptions.ResourceNotFoundException
 import com.ruchij.services.scheduler.SchedulerImpl.DELAY
 import com.ruchij.services.scheduling.SchedulingService
+import com.ruchij.services.sync.SynchronizationService
+import com.ruchij.services.sync.models.SyncResult
 import com.ruchij.services.worker.WorkExecutor
 import org.joda.time.{DateTime, LocalTime}
 
@@ -21,6 +23,7 @@ import scala.util.Random
 
 class SchedulerImpl[F[_]: Concurrent: Timer](
   schedulingService: SchedulingService[F],
+  synchronizationService: SynchronizationService[F],
   workExecutor: WorkExecutor[F],
   workerDao: WorkerDao[F],
   workerConfiguration: WorkerConfiguration
@@ -28,6 +31,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer](
 
   override type Result = Nothing
 
+  override type InitializationResult = SyncResult
   val idleWorker: F[Worker] =
     Sync[F]
       .delay(Random.nextLong(DELAY.toMillis))
@@ -76,6 +80,8 @@ class SchedulerImpl[F[_]: Concurrent: Timer](
       .productR[Nothing] {
         Sync[F].defer[Nothing](run)
       }
+
+  override val init: F[SyncResult] = synchronizationService.sync
 }
 
 object SchedulerImpl {

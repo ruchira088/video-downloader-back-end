@@ -62,7 +62,7 @@ object WebApp extends IOApp {
       transactor <- Resource.liftF(DoobieTransactor.create[F](serviceConfiguration.databaseConfiguration))
 
       fileResourceDao = new DoobieFileResourceDao[F](transactor)
-      videoMetadataDao = new DoobieVideoMetadataDao[F](fileResourceDao)
+      videoMetadataDao = new DoobieVideoMetadataDao[F](fileResourceDao, transactor)
       schedulingDao = new DoobieSchedulingDao[F](videoMetadataDao, transactor)
       videoDao = new DoobieVideoDao[F](fileResourceDao, transactor)
 
