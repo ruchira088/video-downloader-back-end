@@ -3,7 +3,7 @@ package com.ruchij.services.enrichment
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
 
-import cats.{Applicative, ApplicativeError}
+import cats.ApplicativeError
 import cats.data.OptionT
 import cats.effect.{Blocker, Clock, ContextShift, Sync}
 import cats.implicits._
@@ -12,7 +12,7 @@ import com.ruchij.daos.resource.models.FileResource
 import com.ruchij.daos.snapshot.SnapshotDao
 import com.ruchij.daos.snapshot.models.Snapshot
 import com.ruchij.daos.video.models.Video
-import com.ruchij.exceptions.InvalidConditionException
+import com.ruchij.exceptions.{CorruptedFrameGrabException, InvalidConditionException}
 import com.ruchij.services.repository.FileRepositoryService.FileRepository
 import fs2.Stream
 import javax.imageio.ImageIO
@@ -54,8 +54,7 @@ class VideoEnrichmentServiceImpl[F[_]: Sync: Clock: ContextShift, A](
       for {
         frameGrab <- createFrameGrab(videoPath)
         snapshot <- snapshotFileResource(snapshotPath, frameGrab, videoTimestamp)
-      }
-      yield snapshot
+      } yield snapshot
     }
 
   def createFrameGrab(videoPath: String): F[FrameGrab] =
@@ -103,15 +102,17 @@ class VideoEnrichmentServiceImpl[F[_]: Sync: Clock: ContextShift, A](
 
   def grabSnapshot(frameGrab: FrameGrab, videoTimestamp: FiniteDuration): Stream[F, Byte] =
     Stream
-      .eval(Applicative[F].pure(new ByteArrayOutputStream()))
-      .evalTap { outputStream =>
-        Sync[F].delay {
-          ImageIO.write(
-            AWTUtil.toBufferedImage(frameGrab.seekToSecondSloppy(videoTimestamp.toSeconds.toDouble).getNativeFrame),
-            snapshotMediaType.subType,
-            outputStream
-          )
-        }
+      .eval {
+        OptionT(Sync[F].delay(Option(frameGrab.seekToSecondSloppy(videoTimestamp.toSeconds.toDouble).getNativeFrame)))
+          .getOrElseF(ApplicativeError[F, Throwable].raiseError(CorruptedFrameGrabException))
+      }
+      .evalMap { picture =>
+        val outputStream = new ByteArrayOutputStream()
+
+        Sync[F]
+          .delay(ImageIO.write(AWTUtil.toBufferedImage(picture), snapshotMediaType.subType, outputStream))
+          .as(outputStream)
+
       }
       .flatMap(outputStream => Stream.emits[F, Byte](outputStream.toByteArray))
 }

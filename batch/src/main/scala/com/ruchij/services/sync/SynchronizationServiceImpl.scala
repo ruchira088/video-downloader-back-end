@@ -12,7 +12,7 @@ import com.ruchij.daos.resource.models.FileResource
 import com.ruchij.daos.video.models.Video
 import com.ruchij.daos.videometadata.VideoMetadataDao
 import com.ruchij.daos.videometadata.models.{VideoMetadata, VideoSite}
-import com.ruchij.exceptions.ResourceNotFoundException
+import com.ruchij.exceptions.{CorruptedFrameGrabException, ResourceNotFoundException}
 import com.ruchij.services.enrichment.{SeekableByteChannelConverter, VideoEnrichmentService}
 import com.ruchij.services.hashing.HashingService
 import com.ruchij.services.repository.FileRepositoryService.FileRepository
@@ -46,19 +46,24 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A](
         case path @ FileName(fileName) =>
           fileResourceDao.findByPath(fileName)
             .flatMap {
-              _.fold[F[Option[Video]]](add(path).map(Some.apply))(_ => Applicative[F].pure(None))
+              _.fold[F[Option[Video]]](add(path))(_ => Applicative[F].pure(None))
             }
       }
       .collect { case Some(video) => video }
       .evalMap(saveVideo)
+      .collect { case Some(video) => video }
       .evalTap { video => Sync[F].delay(println(s"Completed: ${video.fileResource.path}")) }
       .compile
       .drain
       .as(SyncResult())
 
-  def add(videoPath: String): F[Video] =
+  def add(videoPath: String): F[Option[Video]] =
+    addVideo(videoPath).map[Option[Video]](Some.apply)
+      .recoverWith(deleteCorruptedVideoFile(videoPath))
+
+  def addVideo(videoPath: String): F[Video] =
     for {
-      _ <- Sync[F].delay(println(s"Syncing $videoPath..."))
+      _ <- Sync[F].delay(println(s"Syncing $videoPath"))
       duration <- videoDuration(videoPath)
 
       (size, mediaType) <-
@@ -82,13 +87,12 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A](
 
     } yield Video(videoMetadata, videoFileResource)
 
-  def saveVideo(video: Video): F[Video] =
-    for {
-      _ <- videoMetadataDao.add(video.videoMetadata)
-      savedVideo <- videoService.insert(video.videoMetadata.id, video.fileResource)
-      _ <- videoEnrichmentService.videoSnapshots(savedVideo)
-    }
-    yield savedVideo
+  def saveVideo(video: Video): F[Option[Video]] =
+    videoMetadataDao.add(video.videoMetadata)
+      .productR(videoService.insert(video.videoMetadata.id, video.fileResource))
+      .flatTap(videoEnrichmentService.videoSnapshots)
+      .map[Option[Video]](Some.apply)
+      .recoverWith(deleteCorruptedVideoFile(video.fileResource.path))
 
   def videoDuration(videoPath: String): F[FiniteDuration] =
     ioBlocker.blockOn {
@@ -100,6 +104,15 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A](
         seconds <- Sync[F].delay(frameGrab.getVideoTrack.getMeta.getTotalDuration)
       } yield FiniteDuration(math.floor(seconds).toLong, TimeUnit.SECONDS)
     }
+
+  def deleteCorruptedVideoFile[B](videoPath: String): PartialFunction[Throwable, F[Option[B]]] = {
+    case CorruptedFrameGrabException =>
+      Sync[F].delay(println(s"$videoPath is corrupted. Deleting file"))
+        .productR(fileRepositoryService.delete(videoPath))
+        .productR(Sync[F].delay(println(s"$videoPath was deleted.")))
+        .as[Option[B]](None)
+  }
+
 }
 
 object SynchronizationServiceImpl {
