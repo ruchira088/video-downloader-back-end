@@ -41,7 +41,7 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A](
   override val sync: F[SyncResult] =
     fileRepositoryService
       .list(downloadConfiguration.videoFolder)
-      .filter(!_.endsWith("ignore"))
+      .filter(path => !List(".gitignore", ".DS_Store").exists(path.endsWith))
       .evalMap {
         case path @ FileName(fileName) =>
           fileResourceDao.findByPath(fileName)
@@ -51,13 +51,14 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A](
       }
       .collect { case Some(video) => video }
       .evalMap(saveVideo)
-      .evalTap { video => Sync[F].delay(println(video.fileResource.path)) }
+      .evalTap { video => Sync[F].delay(println(s"Completed: ${video.fileResource.path}")) }
       .compile
       .drain
       .as(SyncResult())
 
   def add(videoPath: String): F[Video] =
     for {
+      _ <- Sync[F].delay(println(s"Syncing $videoPath..."))
       duration <- videoDuration(videoPath)
 
       (size, mediaType) <-
@@ -84,9 +85,10 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A](
   def saveVideo(video: Video): F[Video] =
     for {
       _ <- videoMetadataDao.add(video.videoMetadata)
-      video <- videoService.insert(video.videoMetadata.id, video.fileResource)
+      savedVideo <- videoService.insert(video.videoMetadata.id, video.fileResource)
+      _ <- videoEnrichmentService.videoSnapshots(savedVideo)
     }
-    yield video
+    yield savedVideo
 
   def videoDuration(videoPath: String): F[FiniteDuration] =
     ioBlocker.blockOn {

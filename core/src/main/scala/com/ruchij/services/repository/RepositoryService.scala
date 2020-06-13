@@ -19,4 +19,6 @@ trait RepositoryService[F[_]] {
   def backedType(key: Key): F[BackedType]
 
   def mediaType(key: Key): F[Option[MediaType]]
+
+  def delete(key: Key): F[Boolean]
 }
