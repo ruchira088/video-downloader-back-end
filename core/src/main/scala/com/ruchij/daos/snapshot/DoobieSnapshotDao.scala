@@ -23,7 +23,7 @@ class DoobieSnapshotDao[F[_]: Sync](fileResourceDao: FileResourceDao[F], transac
       .map { case (fileResourceResult, videoSnapshotResult) => fileResourceResult + videoSnapshotResult }
       .transact(transactor)
 
-  override def findByVideoId(videoId: String): F[Seq[Snapshot]] =
+  override def findByVideo(videoId: String): F[Seq[Snapshot]] =
     sql"""
        SELECT video_snapshot.video_id,
               file_resource.id, file_resource.created_at, file_resource.path,

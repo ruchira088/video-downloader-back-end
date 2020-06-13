@@ -75,7 +75,7 @@ object BatchApp extends IOApp {
         downloadService,
         batchServiceConfiguration.downloadConfiguration
       )
-      videoService = new VideoServiceImpl[F](videoDao)
+      videoService = new VideoServiceImpl[F](videoDao, snapshotDao)
       videoEnrichmentService = new VideoEnrichmentServiceImpl[F, repositoryService.BackedType](
         repositoryService,
         snapshotDao,

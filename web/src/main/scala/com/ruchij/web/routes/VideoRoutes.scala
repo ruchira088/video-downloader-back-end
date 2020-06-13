@@ -6,7 +6,7 @@ import com.ruchij.circe.Encoders._
 import com.ruchij.services.video.{VideoAnalysisService, VideoService}
 import com.ruchij.web.requests.VideoAnalyzeRequest
 import com.ruchij.web.requests.queryparams.QueryParameter.SearchQuery
-import com.ruchij.web.responses.SearchResult
+import com.ruchij.web.responses.{IterableResponse, SearchResult}
 import io.circe.generic.auto._
 import org.http4s.HttpRoutes
 import org.http4s.circe.CirceEntityCodec.{circeEntityDecoder, circeEntityEncoder}
@@ -39,7 +39,12 @@ object VideoRoutes {
         yield response
 
 
-      case GET -> Root / "id" / videoKey => Ok(videoService.fetchById(videoKey))
+      case GET -> Root / "id" / videoId => Ok(videoService.fetchById(videoId))
+
+      case GET -> Root / "id" / videoId / "snapshots" =>
+        videoService.fetchById(videoId)
+          .productR(videoService.fetchVideoSnapshots(videoId))
+          .flatMap(snapshots => Ok(IterableResponse(snapshots)))
     }
   }
 }

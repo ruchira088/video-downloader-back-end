@@ -7,6 +7,7 @@ import com.ruchij.config.WebServiceConfiguration
 import com.ruchij.daos.doobie.DoobieTransactor
 import com.ruchij.daos.resource.DoobieFileResourceDao
 import com.ruchij.daos.scheduling.DoobieSchedulingDao
+import com.ruchij.daos.snapshot.DoobieSnapshotDao
 import com.ruchij.daos.video.DoobieVideoDao
 import com.ruchij.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.migration.MigrationApp
@@ -65,11 +66,12 @@ object WebApp extends IOApp {
       videoMetadataDao = new DoobieVideoMetadataDao[F](fileResourceDao, transactor)
       schedulingDao = new DoobieSchedulingDao[F](videoMetadataDao, transactor)
       videoDao = new DoobieVideoDao[F](fileResourceDao, transactor)
+      snapshotDao = new DoobieSnapshotDao[F](fileResourceDao, transactor)
 
       hashingService = new MurmurHash3Service[F](cpuBlocker)
       videoAnalysisService = new VideoAnalysisServiceImpl[F](httpClient)
       repositoryService = new FileRepositoryService[F](ioBlocker)
-      videoService = new VideoServiceImpl[F](videoDao)
+      videoService = new VideoServiceImpl[F](videoDao, snapshotDao)
       downloadService = new Http4sDownloadService[F](httpClient, repositoryService)
       assetService = new AssetServiceImpl[F](fileResourceDao, repositoryService)
       schedulingService = new SchedulingServiceImpl[F](
