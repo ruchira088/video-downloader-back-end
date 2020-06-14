@@ -18,7 +18,7 @@ lazy val migrationApplication =
     .enablePlugins(JavaAppPackaging)
     .settings(
       name := "video-downloader-migration",
-      libraryDependencies ++= Seq(catsEffect, flywayCore, h2, postgresql, pureconfig),
+      libraryDependencies ++= Seq(catsEffect, flywayCore, h2, postgresql, pureconfig, scalaLogging, logbackClassic),
       topLevelDirectory := None
     )
 
@@ -35,6 +35,7 @@ lazy val core =
           jodaTime,
           enumeratum,
           jsoup,
+          scalaLogging,
           logbackClassic
         ) ++ Seq(scalaTest, scalaMock).map(_ % Test)
     )

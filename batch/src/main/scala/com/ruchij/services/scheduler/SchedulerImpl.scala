@@ -11,6 +11,7 @@ import com.ruchij.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.daos.workers.WorkerDao
 import com.ruchij.daos.workers.models.Worker
 import com.ruchij.exceptions.ResourceNotFoundException
+import com.ruchij.logging.Logger
 import com.ruchij.services.scheduler.SchedulerImpl.DELAY
 import com.ruchij.services.scheduling.SchedulingService
 import com.ruchij.services.sync.SynchronizationService
@@ -34,6 +35,8 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
   override type Result = Nothing
 
   override type InitializationResult = SyncResult
+
+  private val logger = Logger[F, SchedulerImpl[F, T]]
 
   val idleWorker: F[Worker] =
     Sync[F]
@@ -95,7 +98,11 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
         Sync[F].defer[Nothing](run)
       }
 
-  override val init: F[SyncResult] = synchronizationService.sync
+  override val init: F[SyncResult] =
+    logger.infoF("Batch initialization started")
+      .productR(synchronizationService.sync)
+      .productL(logger.infoF("Batch initialization completed"))
+
 }
 
 object SchedulerImpl {

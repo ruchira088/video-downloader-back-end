@@ -11,6 +11,7 @@ import com.ruchij.daos.snapshot.DoobieSnapshotDao
 import com.ruchij.daos.video.DoobieVideoDao
 import com.ruchij.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.daos.workers.DoobieWorkerDao
+import com.ruchij.logging.Logger
 import com.ruchij.migration.MigrationApp
 import com.ruchij.services.download.Http4sDownloadService
 import com.ruchij.services.enrichment.VideoEnrichmentServiceImpl
@@ -30,6 +31,9 @@ import pureconfig.ConfigSource
 import scala.concurrent.ExecutionContext
 
 object BatchApp extends IOApp {
+
+  private val logger = Logger[IO, BatchApp.type]
+
   override def run(args: List[String]): IO[ExitCode] =
     for {
       configObjectSource <- IO.delay(ConfigSource.defaultApplication)
@@ -37,7 +41,9 @@ object BatchApp extends IOApp {
 
       _ <- program[IO](batchServiceConfiguration, ExecutionContext.global)
         .use { scheduler =>
-          scheduler.init *> scheduler.run
+          scheduler.init *>
+            logger.infoF("Scheduler has started") *>
+            scheduler.run
         }
     } yield ExitCode.Success
 

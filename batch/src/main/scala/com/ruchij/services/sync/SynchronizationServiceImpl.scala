@@ -13,6 +13,7 @@ import com.ruchij.daos.video.models.Video
 import com.ruchij.daos.videometadata.VideoMetadataDao
 import com.ruchij.daos.videometadata.models.{VideoMetadata, VideoSite}
 import com.ruchij.exceptions.{CorruptedFrameGrabException, ResourceNotFoundException}
+import com.ruchij.logging.Logger
 import com.ruchij.services.enrichment.{SeekableByteChannelConverter, VideoEnrichmentService}
 import com.ruchij.services.hashing.HashingService
 import com.ruchij.services.repository.FileRepositoryService.FileRepository
@@ -38,6 +39,8 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
 )(implicit seekableByteChannelConverter: SeekableByteChannelConverter[F, A], transaction: T ~> F)
     extends SynchronizationService[F] {
 
+  private val logger = Logger[F, SynchronizationServiceImpl[F, A, T]]
+
   override val sync: F[SyncResult] =
     fileRepositoryService
       .list(downloadConfiguration.videoFolder)
@@ -52,9 +55,7 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
       .collect { case Some(video) => video }
       .evalMap(saveVideo)
       .collect { case Some(video) => video }
-      .evalTap { video =>
-        Sync[F].delay(println(s"Completed: ${video.fileResource.path}"))
-      }
+      .evalTap { video => logger.infoF(s"Sync completed for ${video.fileResource.path}") }
       .compile
       .drain
       .as(SyncResult())
@@ -66,7 +67,7 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
 
   def addVideo(videoPath: String): F[Video] =
     for {
-      _ <- Sync[F].delay(println(s"Syncing $videoPath"))
+      _ <- logger.infoF(s"Sync started for $videoPath")
       duration <- videoDuration(videoPath)
 
       (size, mediaType) <- OptionT(fileRepositoryService.size(videoPath))
@@ -115,9 +116,9 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
   def deleteCorruptedVideoFile[B](videoPath: String): PartialFunction[Throwable, F[Option[B]]] = {
     case CorruptedFrameGrabException =>
       Sync[F]
-        .delay(println(s"$videoPath is corrupted. Deleting file"))
+        .delay(logger.warnF(s"File at $videoPath is corrupted. The file will be deleted"))
         .productR(fileRepositoryService.delete(videoPath))
-        .productR(Sync[F].delay(println(s"$videoPath was deleted.")))
+        .productR(Sync[F].delay(logger.infoF(s"File deleted at $videoPath")))
         .as[Option[B]](None)
   }
 
