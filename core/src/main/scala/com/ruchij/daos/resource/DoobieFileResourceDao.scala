@@ -1,14 +1,12 @@
 package com.ruchij.daos.resource
 
-import cats.effect.Bracket
 import com.ruchij.daos.resource.models.FileResource
 import com.ruchij.daos.doobie.DoobieCustomMappings._
 import doobie.ConnectionIO
 import doobie.implicits._
-import doobie.util.transactor.Transactor
 
-class DoobieFileResourceDao[F[_]: Bracket[*[_], Throwable]](transactor: Transactor.Aux[F, Unit])
-    extends FileResourceDao[F] {
+object DoobieFileResourceDao extends FileResourceDao[ConnectionIO] {
+
   override def insert(fileResource: FileResource): ConnectionIO[Int] =
     sql"""
       INSERT INTO file_resource (id, created_at, path, media_type, size)
@@ -21,15 +19,13 @@ class DoobieFileResourceDao[F[_]: Bracket[*[_], Throwable]](transactor: Transact
         )
     """.update.run
 
-  override def getById(id: String): F[Option[FileResource]] =
+  override def getById(id: String): ConnectionIO[Option[FileResource]] =
     sql"SELECT id, created_at, path, media_type, size FROM file_resource WHERE id = $id"
       .query[FileResource]
       .option
-      .transact(transactor)
 
-  override def findByPath(path: String): F[Option[FileResource]] =
+  override def findByPath(path: String): ConnectionIO[Option[FileResource]] =
     sql"SELECT id, created_at, path, media_type, size FROM file_resource WHERE path LIKE ${"%" + path}"
       .query[FileResource]
       .option
-      .transact(transactor)
 }

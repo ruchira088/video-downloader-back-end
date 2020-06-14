@@ -21,6 +21,8 @@ import com.ruchij.services.scheduling.SchedulingServiceImpl
 import com.ruchij.services.sync.SynchronizationServiceImpl
 import com.ruchij.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
 import com.ruchij.services.worker.WorkExecutorImpl
+import com.ruchij.types.FunctionKTypes
+import doobie.free.connection.ConnectionIO
 import org.http4s.client.blaze.BlazeClientBuilder
 import org.http4s.client.middleware.FollowRedirect
 import pureconfig.ConfigSource
@@ -43,73 +45,76 @@ object BatchApp extends IOApp {
     batchServiceConfiguration: BatchServiceConfiguration,
     nonBlockingExecutionContext: ExecutionContext,
   ): Resource[F, Scheduler[F]] =
-    for {
-      baseClient <- BlazeClientBuilder[F](nonBlockingExecutionContext).resource
-      httpClient = FollowRedirect(maxRedirects = 10)(baseClient)
+    Resource.liftF(DoobieTransactor.create[F](batchServiceConfiguration.databaseConfiguration))
+    .map(FunctionKTypes.transaction[F])
+    .flatMap { implicit transaction =>
+      for {
+        baseClient <- BlazeClientBuilder[F](nonBlockingExecutionContext).resource
+        httpClient = FollowRedirect(maxRedirects = 10)(baseClient)
 
-      ioThreadPool <- Resource.liftF(Sync[F].delay(Executors.newCachedThreadPool()))
-      ioBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(ioThreadPool))
+        ioThreadPool <- Resource.liftF(Sync[F].delay(Executors.newCachedThreadPool()))
+        ioBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(ioThreadPool))
 
-      processorCount <- Resource.liftF(Sync[F].delay(Runtime.getRuntime.availableProcessors()))
-      cpuBlockingThreadPool <- Resource.liftF(Sync[F].delay(Executors.newFixedThreadPool(processorCount)))
-      cpuBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(cpuBlockingThreadPool))
+        processorCount <- Resource.liftF(Sync[F].delay(Runtime.getRuntime.availableProcessors()))
+        cpuBlockingThreadPool <- Resource.liftF(Sync[F].delay(Executors.newFixedThreadPool(processorCount)))
+        cpuBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(cpuBlockingThreadPool))
 
-      _ <- Resource.liftF(MigrationApp.migration[F](batchServiceConfiguration.databaseConfiguration, ioBlocker))
-      transactor <- Resource.liftF(DoobieTransactor.create[F](batchServiceConfiguration.databaseConfiguration))
+        _ <- Resource.liftF(MigrationApp.migration[F](batchServiceConfiguration.databaseConfiguration, ioBlocker))
 
-      fileResourceDao = new DoobieFileResourceDao[F](transactor)
-      videoMetadataDao = new DoobieVideoMetadataDao[F](fileResourceDao, transactor)
-      schedulingDao = new DoobieSchedulingDao[F](videoMetadataDao, transactor)
-      videoDao = new DoobieVideoDao[F](fileResourceDao, transactor)
-      workerDao = new DoobieWorkerDao[F](schedulingDao, transactor)
-      snapshotDao = new DoobieSnapshotDao[F](fileResourceDao, transactor)
+        workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
 
-      repositoryService = new FileRepositoryService[F](ioBlocker)
-      downloadService = new Http4sDownloadService[F](httpClient, repositoryService)
-      hashingService = new MurmurHash3Service[F](cpuBlocker)
-      videoAnalysisService = new VideoAnalysisServiceImpl[F](httpClient)
-      schedulingService = new SchedulingServiceImpl[F](
-        videoAnalysisService,
-        schedulingDao,
-        hashingService,
-        downloadService,
-        batchServiceConfiguration.downloadConfiguration
-      )
-      videoService = new VideoServiceImpl[F](videoDao, snapshotDao)
-      videoEnrichmentService = new VideoEnrichmentServiceImpl[F, repositoryService.BackedType](
-        repositoryService,
-        snapshotDao,
-        ioBlocker,
-        batchServiceConfiguration.downloadConfiguration
-      )
+        repositoryService = new FileRepositoryService[F](ioBlocker)
+        downloadService = new Http4sDownloadService[F](httpClient, repositoryService)
+        hashingService = new MurmurHash3Service[F](cpuBlocker)
+        videoAnalysisService = new VideoAnalysisServiceImpl[F](httpClient)
+        schedulingService = new SchedulingServiceImpl[F, ConnectionIO](
+          videoAnalysisService,
+          DoobieSchedulingDao,
+          DoobieVideoMetadataDao,
+          DoobieFileResourceDao,
+          hashingService,
+          downloadService,
+          batchServiceConfiguration.downloadConfiguration
+        )
 
-      synchronizationService = new SynchronizationServiceImpl[F, repositoryService.BackedType](
-        repositoryService,
-        fileResourceDao,
-        videoMetadataDao,
-        videoService,
-        videoEnrichmentService,
-        hashingService,
-        ioBlocker,
-        batchServiceConfiguration.downloadConfiguration
-      )
+        videoService = new VideoServiceImpl[F, ConnectionIO](DoobieVideoDao, DoobieSnapshotDao, DoobieFileResourceDao)
 
-      workExecutor = new WorkExecutorImpl[F](
-        schedulingService,
-        videoAnalysisService,
-        videoService,
-        hashingService,
-        downloadService,
-        videoEnrichmentService,
-        batchServiceConfiguration.downloadConfiguration
-      )
+        videoEnrichmentService = new VideoEnrichmentServiceImpl[F, repositoryService.BackedType, ConnectionIO](
+          repositoryService,
+          DoobieSnapshotDao,
+          DoobieFileResourceDao,
+          ioBlocker,
+          batchServiceConfiguration.downloadConfiguration
+        )
 
-      scheduler = new SchedulerImpl(
-        schedulingService,
-        synchronizationService,
-        workExecutor,
-        workerDao,
-        batchServiceConfiguration.workerConfiguration
-      )
-    } yield scheduler
+        synchronizationService = new SynchronizationServiceImpl[F, repositoryService.BackedType, ConnectionIO](
+          repositoryService,
+          DoobieFileResourceDao,
+          DoobieVideoMetadataDao,
+          videoService,
+          videoEnrichmentService,
+          hashingService,
+          ioBlocker,
+          batchServiceConfiguration.downloadConfiguration
+        )
+
+        workExecutor = new WorkExecutorImpl[F](
+          schedulingService,
+          videoAnalysisService,
+          videoService,
+          hashingService,
+          downloadService,
+          videoEnrichmentService,
+          batchServiceConfiguration.downloadConfiguration
+        )
+
+        scheduler = new SchedulerImpl(
+          schedulingService,
+          synchronizationService,
+          workExecutor,
+          workerDao,
+          batchServiceConfiguration.workerConfiguration
+        )
+      } yield scheduler
+    }
 }

@@ -1,19 +1,12 @@
 package com.ruchij.daos.video
 
-import cats.effect.Bracket
-import cats.implicits._
 import com.ruchij.daos.video.models.Video
 import com.ruchij.daos.doobie.DoobieCustomMappings._
-import com.ruchij.daos.resource.FileResourceDao
-import com.ruchij.daos.resource.models.FileResource
 import doobie.implicits._
-import doobie.util.transactor.Transactor
 import doobie.Fragments.whereAndOpt
+import doobie.free.connection.ConnectionIO
 
-class DoobieVideoDao[F[_]: Bracket[*[_], Throwable]](
-  fileResourceDao: FileResourceDao[F],
-  transactor: Transactor.Aux[F, Unit]
-) extends VideoDao[F] {
+object DoobieVideoDao extends VideoDao[ConnectionIO] {
 
   val SELECT_QUERY =
     sql"""
@@ -36,23 +29,16 @@ class DoobieVideoDao[F[_]: Bracket[*[_], Throwable]](
       JOIN file_resource AS video_file ON video.file_resource_id = video_file.id
     """
 
-  override def insert(videoMetadataId: String, fileResource: FileResource): F[Int] =
-    fileResourceDao
-      .insert(fileResource)
-      .product {
-        sql"INSERT INTO video (video_metadata_id, file_resource_id) VALUES ($videoMetadataId, ${fileResource.id})".update.run
-      }
-      .map { case (fileInsertResult, videoInsertResult) => fileInsertResult + videoInsertResult }
-      .transact(transactor)
+  override def insert(videoMetadataId: String, videoFileResourceId: String): ConnectionIO[Int] =
+    sql"INSERT INTO video (video_metadata_id, file_resource_id) VALUES ($videoMetadataId, $videoFileResourceId)".update.run
 
-  override def search(term: Option[String], pageNumber: Int, pageSize: Int): F[Seq[Video]] =
+  override def search(term: Option[String], pageNumber: Int, pageSize: Int): ConnectionIO[Seq[Video]] =
     (SELECT_QUERY
       ++ whereAndOpt(term.map(searchTerm => sql"video_metadata.title LIKE ${"%" + searchTerm + "%"}"))
       ++ sql"LIMIT $pageSize OFFSET ${pageSize * pageNumber}")
       .query[Video]
       .to[Seq]
-      .transact(transactor)
 
-  override def findById(id: String): F[Option[Video]] =
-    (SELECT_QUERY ++ sql"WHERE video_metadata_id = $id").query[Video].option.transact(transactor)
+  override def findById(id: String): ConnectionIO[Option[Video]] =
+    (SELECT_QUERY ++ sql"WHERE video_metadata_id = $id").query[Video].option
 }

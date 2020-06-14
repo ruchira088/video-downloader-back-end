@@ -1,29 +1,19 @@
 package com.ruchij.daos.snapshot
 
-import cats.effect.Sync
-import cats.implicits._
 import com.ruchij.daos.doobie.DoobieCustomMappings._
-import com.ruchij.daos.resource.FileResourceDao
 import com.ruchij.daos.snapshot.models.Snapshot
-import doobie.util.transactor.Transactor
+import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 
-class DoobieSnapshotDao[F[_]: Sync](fileResourceDao: FileResourceDao[F], transactor: Transactor.Aux[F, Unit]) extends SnapshotDao[F] {
+object DoobieSnapshotDao extends SnapshotDao[ConnectionIO] {
 
-  override def insert(snapshot: Snapshot): F[Int] =
-    fileResourceDao.insert(snapshot.fileResource)
-      .product {
-        sql"""
-        INSERT INTO video_snapshot(video_id, file_resource_id, video_timestamp)
-          VALUES (${snapshot.videoId}, ${snapshot.fileResource.id}, ${snapshot.videoTimestamp})
-        """
-          .update
-          .run
-      }
-      .map { case (fileResourceResult, videoSnapshotResult) => fileResourceResult + videoSnapshotResult }
-      .transact(transactor)
+  override def insert(snapshot: Snapshot): ConnectionIO[Int] =
+    sql"""
+      INSERT INTO video_snapshot(video_id, file_resource_id, video_timestamp)
+        VALUES (${snapshot.videoId}, ${snapshot.fileResource.id}, ${snapshot.videoTimestamp})
+    """.update.run
 
-  override def findByVideo(videoId: String): F[Seq[Snapshot]] =
+  override def findByVideo(videoId: String): ConnectionIO[Seq[Snapshot]] =
     sql"""
        SELECT video_snapshot.video_id,
               file_resource.id, file_resource.created_at, file_resource.path,
@@ -35,6 +25,5 @@ class DoobieSnapshotDao[F[_]: Sync](fileResourceDao: FileResourceDao[F], transac
      """
       .query[Snapshot]
       .to[Seq]
-      .transact(transactor)
 
 }

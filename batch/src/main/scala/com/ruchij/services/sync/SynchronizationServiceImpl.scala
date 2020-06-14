@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit
 import cats.data.OptionT
 import cats.effect.{Blocker, Clock, ContextShift, Sync}
 import cats.implicits._
-import cats.{Applicative, ApplicativeError}
+import cats.{Applicative, ApplicativeError, Monad, ~>}
 import com.ruchij.config.DownloadConfiguration
 import com.ruchij.daos.resource.FileResourceDao
 import com.ruchij.daos.resource.models.FileResource
@@ -26,16 +26,16 @@ import org.joda.time.DateTime
 
 import scala.concurrent.duration.FiniteDuration
 
-class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A](
+class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad](
   fileRepositoryService: FileRepository[F, A],
-  fileResourceDao: FileResourceDao[F],
-  videoMetadataDao: VideoMetadataDao[F],
+  fileResourceDao: FileResourceDao[T],
+  videoMetadataDao: VideoMetadataDao[T],
   videoService: VideoService[F],
   videoEnrichmentService: VideoEnrichmentService[F],
   hashingService: HashingService[F],
   ioBlocker: Blocker,
   downloadConfiguration: DownloadConfiguration
-)(implicit seekableByteChannelConverter: SeekableByteChannelConverter[F, A])
+)(implicit seekableByteChannelConverter: SeekableByteChannelConverter[F, A], transaction: T ~> F)
     extends SynchronizationService[F] {
 
   override val sync: F[SyncResult] =
@@ -44,7 +44,7 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A](
       .filter(path => !List(".gitignore", ".DS_Store").exists(path.endsWith))
       .evalMap {
         case path @ FileName(fileName) =>
-          fileResourceDao.findByPath(fileName)
+          transaction(fileResourceDao.findByPath(fileName))
             .flatMap {
               _.fold[F[Option[Video]]](add(path))(_ => Applicative[F].pure(None))
             }
@@ -52,13 +52,16 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A](
       .collect { case Some(video) => video }
       .evalMap(saveVideo)
       .collect { case Some(video) => video }
-      .evalTap { video => Sync[F].delay(println(s"Completed: ${video.fileResource.path}")) }
+      .evalTap { video =>
+        Sync[F].delay(println(s"Completed: ${video.fileResource.path}"))
+      }
       .compile
       .drain
       .as(SyncResult())
 
   def add(videoPath: String): F[Option[Video]] =
-    addVideo(videoPath).map[Option[Video]](Some.apply)
+    addVideo(videoPath)
+      .map[Option[Video]](Some.apply)
       .recoverWith(deleteCorruptedVideoFile(videoPath))
 
   def addVideo(videoPath: String): F[Video] =
@@ -66,10 +69,11 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A](
       _ <- Sync[F].delay(println(s"Syncing $videoPath"))
       duration <- videoDuration(videoPath)
 
-      (size, mediaType) <-
-        OptionT(fileRepositoryService.size(videoPath))
-          .product(OptionT.pure.apply(MediaType.video.mp4))
-          .getOrElseF(ApplicativeError[F, Throwable].raiseError(ResourceNotFoundException(s"File not found at $videoPath")))
+      (size, mediaType) <- OptionT(fileRepositoryService.size(videoPath))
+        .product(OptionT.pure.apply(MediaType.video.mp4))
+        .getOrElseF(
+          ApplicativeError[F, Throwable].raiseError(ResourceNotFoundException(s"File not found at $videoPath"))
+        )
 
       currentTimestamp <- Clock[F].realTime(TimeUnit.MILLISECONDS)
 
@@ -88,8 +92,11 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A](
     } yield Video(videoMetadata, videoFileResource)
 
   def saveVideo(video: Video): F[Option[Video]] =
-    videoMetadataDao.add(video.videoMetadata)
-      .productR(videoService.insert(video.videoMetadata.id, video.fileResource))
+    transaction {
+      fileResourceDao
+        .insert(video.videoMetadata.thumbnail)
+        .productR(videoMetadataDao.insert(video.videoMetadata))
+    }.productR(videoService.insert(video.videoMetadata.id, video.fileResource))
       .flatTap(videoEnrichmentService.videoSnapshots)
       .map[Option[Video]](Some.apply)
       .recoverWith(deleteCorruptedVideoFile(video.fileResource.path))
@@ -107,7 +114,8 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A](
 
   def deleteCorruptedVideoFile[B](videoPath: String): PartialFunction[Throwable, F[Option[B]]] = {
     case CorruptedFrameGrabException =>
-      Sync[F].delay(println(s"$videoPath is corrupted. Deleting file"))
+      Sync[F]
+        .delay(println(s"$videoPath is corrupted. Deleting file"))
         .productR(fileRepositoryService.delete(videoPath))
         .productR(Sync[F].delay(println(s"$videoPath was deleted.")))
         .as[Option[B]](None)

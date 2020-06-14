@@ -14,7 +14,9 @@ import org.http4s.circe.{decodeUri, encodeUri}
 import org.http4s.dsl.Http4sDsl
 
 object VideoRoutes {
-  def apply[F[_]: Sync](videoService: VideoService[F], videoAnalysisService: VideoAnalysisService[F])(implicit dsl: Http4sDsl[F]): HttpRoutes[F] = {
+  def apply[F[_]: Sync](videoService: VideoService[F], videoAnalysisService: VideoAnalysisService[F])(
+    implicit dsl: Http4sDsl[F]
+  ): HttpRoutes[F] = {
     import dsl._
 
     HttpRoutes.of {
@@ -25,8 +27,7 @@ object VideoRoutes {
           videos <- videoService.search(term, pageNumber, pageSize)
 
           response <- Ok(SearchResult(videos, pageNumber, pageSize, term))
-        }
-        yield response
+        } yield response
 
       case request @ POST -> Root / "analyze" =>
         for {
@@ -35,14 +36,13 @@ object VideoRoutes {
           result <- videoAnalysisService.metadata(videoAnalyzeRequest.url)
 
           response <- Ok(result)
-        }
-        yield response
-
+        } yield response
 
       case GET -> Root / "id" / videoId => Ok(videoService.fetchById(videoId))
 
       case GET -> Root / "id" / videoId / "snapshots" =>
-        videoService.fetchById(videoId)
+        videoService
+          .fetchById(videoId)
           .productR(videoService.fetchVideoSnapshots(videoId))
           .flatMap(snapshots => Ok(IterableResponse(snapshots)))
     }

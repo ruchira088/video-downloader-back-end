@@ -2,47 +2,35 @@ package com.ruchij.daos.scheduling
 
 import cats.ApplicativeError
 import cats.data.OptionT
-import cats.effect.Bracket
 import cats.implicits._
 import com.ruchij.daos.doobie.singleUpdate
 import com.ruchij.daos.doobie.DoobieCustomMappings._
 import com.ruchij.daos.scheduling.models.ScheduledVideoDownload
-import com.ruchij.daos.videometadata.DoobieVideoMetadataDao
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import doobie.util.fragment.Fragment
 import doobie.util.fragments.whereAndOpt
-import doobie.util.transactor.Transactor
 import org.joda.time.DateTime
 
-class DoobieSchedulingDao[F[_]: Bracket[*[_], Throwable]](
-  doobieVideoMetadataDao: DoobieVideoMetadataDao[F],
-  transactor: Transactor.Aux[F, Unit]
-) extends SchedulingDao[F] {
+object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
 
-  override def insert(scheduledVideoDownload: ScheduledVideoDownload): F[Int] =
-    doobieVideoMetadataDao
-      .insert(scheduledVideoDownload.videoMetadata)
-      .product {
-        sql"""
-          INSERT INTO scheduled_video (scheduled_at, last_updated_at, video_metadata_id, downloaded_bytes, completed_at)
-            VALUES (
-              ${scheduledVideoDownload.scheduledAt},
-              ${scheduledVideoDownload.lastUpdatedAt},
-              ${scheduledVideoDownload.videoMetadata.id},
-              ${scheduledVideoDownload.downloadedBytes},
-              ${scheduledVideoDownload.completedAt}
-              )
-         """.update.run
-      }
-      .map { case (metadataResult, scheduledVideoResult) => metadataResult + scheduledVideoResult }
-      .transact(transactor)
+  override def insert(scheduledVideoDownload: ScheduledVideoDownload): ConnectionIO[Int] =
+    sql"""
+      INSERT INTO scheduled_video (scheduled_at, last_updated_at, video_metadata_id, downloaded_bytes, completed_at)
+        VALUES (
+          ${scheduledVideoDownload.scheduledAt},
+          ${scheduledVideoDownload.lastUpdatedAt},
+          ${scheduledVideoDownload.videoMetadata.id},
+          ${scheduledVideoDownload.downloadedBytes},
+          ${scheduledVideoDownload.completedAt}
+          )
+     """.update.run
 
-  override def updateDownloadProgress(id: String, downloadedBytes: Long, timestamp: DateTime): F[Int] =
+  override def updateDownloadProgress(id: String, downloadedBytes: Long, timestamp: DateTime): ConnectionIO[Int] =
     sql"""
       UPDATE scheduled_video SET downloaded_bytes = $downloadedBytes, last_updated_at = $timestamp
         WHERE video_metadata_id = $id
-    """.update.run.transact(transactor)
+    """.update.run
 
   val SELECT_QUERY: Fragment =
     sql"""
@@ -56,9 +44,9 @@ class DoobieSchedulingDao[F[_]: Bracket[*[_], Throwable]](
         JOIN file_resource ON video_metadata.thumbnail_id = file_resource.id
       """
 
-  override def getById(id: String): OptionT[F, ScheduledVideoDownload] = findById(id).transact(transactor)
+  override def getById(id: String): ConnectionIO[Option[ScheduledVideoDownload]] = findById(id)
 
-  override def completeTask(id: String, timestamp: DateTime): OptionT[F, ScheduledVideoDownload] =
+  override def completeTask(id: String, timestamp: DateTime): ConnectionIO[Option[ScheduledVideoDownload]] =
     singleUpdate[ConnectionIO] {
       sql"""
         UPDATE scheduled_video
@@ -67,18 +55,15 @@ class DoobieSchedulingDao[F[_]: Bracket[*[_], Throwable]](
             completed_at IS NULL AND
             video_metadata_id = $id
       """.update.run
-    }
-    .productR(findById(id))
-    .transact(transactor)
+    }.productR(OptionT(findById(id))).value
 
-  override def search(term: Option[String], pageNumber: Int, pageSize: Int): F[Seq[ScheduledVideoDownload]] =
+  override def search(term: Option[String], pageNumber: Int, pageSize: Int): ConnectionIO[Seq[ScheduledVideoDownload]] =
     (SELECT_QUERY ++ whereAndOpt(term.map(searchTerm => sql"title LIKE ${"%" + searchTerm + "%"}"))
       ++ sql"LIMIT $pageSize OFFSET ${pageNumber * pageSize}")
       .query[ScheduledVideoDownload]
       .to[Seq]
-      .transact(transactor)
 
-  override def retrieveNewTask(timestamp: DateTime): OptionT[F, ScheduledVideoDownload] =
+  override def retrieveNewTask(timestamp: DateTime): ConnectionIO[Option[ScheduledVideoDownload]] =
     OptionT[ConnectionIO, String] {
       sql"SELECT video_metadata_id FROM scheduled_video WHERE download_started_at IS NULL LIMIT 1"
         .query[String]
@@ -90,21 +75,17 @@ class DoobieSchedulingDao[F[_]: Bracket[*[_], Throwable]](
           sql"UPDATE scheduled_video SET download_started_at = $timestamp WHERE video_metadata_id = $id".update.run
         }
       }
-      .flatMap(findById)
-      .transact(transactor)
+      .flatMapF(findById)
+      .value
 
-  override def active(after: DateTime, before: DateTime): F[Seq[ScheduledVideoDownload]] =
+  override def active(after: DateTime, before: DateTime): ConnectionIO[Seq[ScheduledVideoDownload]] =
     if (after.isBefore(before))
       (SELECT_QUERY ++ sql"WHERE scheduled_video.last_updated_at >= $after AND scheduled_video.last_updated_at < $before")
         .query[ScheduledVideoDownload]
         .to[Seq]
-        .transact(transactor)
     else
-      ApplicativeError[F, Throwable].raiseError(new IllegalArgumentException(s"$after is After $before"))
+      ApplicativeError[ConnectionIO, Throwable].raiseError(new IllegalArgumentException(s"$after is After $before"))
 
-  def findById(id: String): OptionT[ConnectionIO, ScheduledVideoDownload] =
-    OptionT {
-      (SELECT_QUERY ++ sql"WHERE scheduled_video.video_metadata_id = $id").query[ScheduledVideoDownload]
-        .option
-    }
+  def findById(id: String): ConnectionIO[Option[ScheduledVideoDownload]] =
+    (SELECT_QUERY ++ sql"WHERE scheduled_video.video_metadata_id = $id").query[ScheduledVideoDownload].option
 }

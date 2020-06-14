@@ -5,11 +5,13 @@ import java.util.concurrent.TimeUnit
 import cats.data.OptionT
 import cats.effect.{Clock, Sync, Timer}
 import cats.implicits._
-import cats.{Applicative, ApplicativeError}
+import cats.{Applicative, ApplicativeError, Monad, ~>}
 import com.ruchij.config.DownloadConfiguration
+import com.ruchij.daos.resource.FileResourceDao
 import com.ruchij.daos.resource.models.FileResource
 import com.ruchij.daos.scheduling.SchedulingDao
 import com.ruchij.daos.scheduling.models.ScheduledVideoDownload
+import com.ruchij.daos.videometadata.VideoMetadataDao
 import com.ruchij.daos.videometadata.models.VideoMetadata
 import com.ruchij.exceptions.{InvalidConditionException, ResourceNotFoundException}
 import com.ruchij.services.download.DownloadService
@@ -22,13 +24,15 @@ import org.joda.time.DateTime
 
 import scala.concurrent.duration.Duration
 
-class SchedulingServiceImpl[F[_]: Sync: Timer](
+class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
   videoAnalysisService: VideoAnalysisService[F],
-  schedulingDao: SchedulingDao[F],
+  schedulingDao: SchedulingDao[T],
+  videoMetadataDao: VideoMetadataDao[T],
+  fileResourceDao: FileResourceDao[T],
   hashingService: HashingService[F],
   downloadService: DownloadService[F],
   downloadConfiguration: DownloadConfiguration
-) extends SchedulingService[F] {
+)(implicit transaction: T ~> F) extends SchedulingService[F] {
 
   override def schedule(uri: Uri): F[ScheduledVideoDownload] =
     for {
@@ -50,16 +54,27 @@ class SchedulingServiceImpl[F[_]: Sync: Timer](
       videoMetadata = VideoMetadata(uri, videoKey, videoSite, title, duration, size, thumbnail)
 
       scheduledVideoDownload = ScheduledVideoDownload(timestamp, timestamp, None, videoMetadata, 0, None)
-      _ <- schedulingDao.insert(scheduledVideoDownload)
+
+      _ <-
+        transaction {
+          fileResourceDao.insert(thumbnail)
+            .productR(videoMetadataDao.insert(videoMetadata))
+            .productR(schedulingDao.insert(scheduledVideoDownload))
+        }
     } yield scheduledVideoDownload
 
   override def search(term: Option[String], pageNumber: Int, pageSize: Int): F[Seq[ScheduledVideoDownload]] =
-    schedulingDao.search(term, pageNumber, pageSize)
+    transaction {
+      schedulingDao.search(term, pageNumber, pageSize)
+    }
 
   override def updateDownloadProgress(id: String, downloadedBytes: Long): F[Int] =
     for {
       timestamp <- Clock[F].realTime(TimeUnit.MILLISECONDS)
-      result <- schedulingDao.updateDownloadProgress(id, downloadedBytes, new DateTime(timestamp))
+      result <-
+        transaction {
+          schedulingDao.updateDownloadProgress(id, downloadedBytes, new DateTime(timestamp))
+        }
 
       _ <- if (result == 0) ApplicativeError[F, Throwable].raiseError(ResourceNotFoundException(s"ID not found: $id"))
       else Applicative[F].unit
@@ -69,14 +84,15 @@ class SchedulingServiceImpl[F[_]: Sync: Timer](
     Clock[F]
       .realTime(TimeUnit.MILLISECONDS)
       .flatMap { timestamp =>
-        schedulingDao
-          .completeTask(id, new DateTime(timestamp))
+        OptionT(transaction(schedulingDao.completeTask(id, new DateTime(timestamp))))
           .getOrElseF(ApplicativeError[F, Throwable].raiseError(InvalidConditionException))
       }
 
   override val acquireTask: OptionT[F, ScheduledVideoDownload] =
     OptionT.liftF(Clock[F].realTime(TimeUnit.MILLISECONDS))
-      .flatMap { timestamp => schedulingDao.retrieveNewTask(new DateTime(timestamp)) }
+      .flatMapF { timestamp =>
+        transaction(schedulingDao.retrieveNewTask(new DateTime(timestamp)))
+      }
 
   override val active: Stream[F, ScheduledVideoDownload] =
     Stream.awakeDelay[F](Duration.create(500, TimeUnit.MILLISECONDS))
@@ -91,7 +107,7 @@ class SchedulingServiceImpl[F[_]: Sync: Timer](
         case (Some(start), Some(end)) => (start, end)
       }
       .evalMap {
-        case (start, end) => schedulingDao.active(start, end)
+        case (start, end) => transaction(schedulingDao.active(start, end))
       }
       .flatMap {
         scheduledDownloads => Stream.emits(scheduledDownloads)

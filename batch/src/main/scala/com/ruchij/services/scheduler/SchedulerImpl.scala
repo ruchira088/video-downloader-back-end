@@ -5,8 +5,9 @@ import java.util.concurrent.TimeUnit
 import cats.data.OptionT
 import cats.effect.{Bracket, Clock, Concurrent, Sync, Timer}
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, Monad}
+import cats.{Applicative, ApplicativeError, Monad, ~>}
 import com.ruchij.config.WorkerConfiguration
+import com.ruchij.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.daos.workers.WorkerDao
 import com.ruchij.daos.workers.models.Worker
 import com.ruchij.exceptions.ResourceNotFoundException
@@ -21,29 +22,34 @@ import scala.concurrent.duration.{FiniteDuration, _}
 import scala.language.postfixOps
 import scala.util.Random
 
-class SchedulerImpl[F[_]: Concurrent: Timer](
+class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
   schedulingService: SchedulingService[F],
   synchronizationService: SynchronizationService[F],
   workExecutor: WorkExecutor[F],
-  workerDao: WorkerDao[F],
+  workerDao: WorkerDao[T],
   workerConfiguration: WorkerConfiguration
-) extends Scheduler[F] {
+)(implicit transaction: T ~> F)
+    extends Scheduler[F] {
 
   override type Result = Nothing
 
   override type InitializationResult = SyncResult
+
   val idleWorker: F[Worker] =
     Sync[F]
       .delay(Random.nextLong(DELAY.toMillis))
       .flatMap { sleepDuration =>
         Timer[F].sleep(DELAY + FiniteDuration(sleepDuration, TimeUnit.MILLISECONDS))
       }
-      .productR {
-        workerDao.idleWorker
-          .flatMap { workerLock =>
-            workerDao.reserveWorker(workerLock.id)
+      .productR(Clock[F].realTime(TimeUnit.MILLISECONDS))
+      .flatMap { timestamp =>
+        OptionT {
+          transaction {
+            OptionT(workerDao.idleWorker).flatMap { worker =>
+              OptionT(workerDao.reserveWorker(worker.id, new DateTime(timestamp)))
+            }.value
           }
-          .getOrElseF(idleWorker)
+        }.getOrElseF(idleWorker)
       }
 
   override val run: F[Nothing] =
@@ -57,17 +63,25 @@ class SchedulerImpl[F[_]: Concurrent: Timer](
                 .start {
                   Bracket[F, Throwable].guarantee {
                     schedulingService.acquireTask
-                      .flatTap(task => workerDao.assignTask(worker.id, task.videoMetadata.id))
+                      .product(OptionT.liftF(Clock[F].realTime(TimeUnit.MILLISECONDS)))
+                      .flatMapF {
+                        case (task, timestamp) =>
+                          transaction(workerDao.assignTask(worker.id, task.videoMetadata.id, new DateTime(timestamp)))
+                            .as[Option[ScheduledVideoDownload]](Some(task))
+                      }
                       .semiflatMap(workExecutor.execute)
                       .productR(OptionT.liftF(Applicative[F].unit))
                       .getOrElseF(Applicative[F].unit)
                   } {
-                    workerDao
-                      .release(worker.id)
-                      .getOrElseF {
-                        ApplicativeError[F, Throwable].raiseError(
-                          ResourceNotFoundException(s"Worker not found. ID = ${worker.id}")
-                        )
+                    Clock[F]
+                      .realTime(TimeUnit.MILLISECONDS)
+                      .flatMap { timestamp =>
+                        OptionT(transaction(workerDao.release(worker.id, new DateTime(timestamp))))
+                          .getOrElseF {
+                            ApplicativeError[F, Throwable].raiseError(
+                              ResourceNotFoundException(s"Worker not found. ID = ${worker.id}")
+                            )
+                          }
                       }
                       .productR(Applicative[F].unit)
                   }

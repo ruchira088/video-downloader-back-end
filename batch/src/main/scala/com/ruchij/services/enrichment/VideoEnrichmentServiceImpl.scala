@@ -3,11 +3,12 @@ package com.ruchij.services.enrichment
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
 
-import cats.ApplicativeError
+import cats.{ApplicativeError, Monad, ~>}
 import cats.data.OptionT
 import cats.effect.{Blocker, Clock, ContextShift, Sync}
 import cats.implicits._
 import com.ruchij.config.DownloadConfiguration
+import com.ruchij.daos.resource.FileResourceDao
 import com.ruchij.daos.resource.models.FileResource
 import com.ruchij.daos.snapshot.SnapshotDao
 import com.ruchij.daos.snapshot.models.Snapshot
@@ -23,12 +24,13 @@ import org.joda.time.DateTime
 
 import scala.concurrent.duration.FiniteDuration
 
-class VideoEnrichmentServiceImpl[F[_]: Sync: Clock: ContextShift, A](
+class VideoEnrichmentServiceImpl[F[_]: Sync: Clock: ContextShift, A, T[_]: Monad](
   fileRepository: FileRepository[F, A],
-  snapshotDao: SnapshotDao[F],
+  snapshotDao: SnapshotDao[T],
+  fileResourceDao: FileResourceDao[T],
   ioBlocker: Blocker,
   downloadConfiguration: DownloadConfiguration
-)(implicit seekableByteChannelConverter: SeekableByteChannelConverter[F, A])
+)(implicit seekableByteChannelConverter: SeekableByteChannelConverter[F, A], transaction: T ~> F)
     extends VideoEnrichmentService[F] {
 
   override val snapshotMediaType: MediaType = MediaType.image.png
@@ -71,7 +73,11 @@ class VideoEnrichmentServiceImpl[F[_]: Sync: Clock: ContextShift, A](
       .flatMap { fileResource =>
         val snapshot = Snapshot(video.videoMetadata.id, fileResource, videoTimestamp)
 
-        snapshotDao.insert(snapshot).as(snapshot)
+        transaction {
+          fileResourceDao.insert(fileResource)
+            .productR(snapshotDao.insert(snapshot))
+        }
+            .as(snapshot)
       }
   }
 
