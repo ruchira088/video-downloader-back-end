@@ -71,7 +71,7 @@ object WebApp extends IOApp {
           hashingService = new MurmurHash3Service[F](cpuBlocker)
           videoAnalysisService = new VideoAnalysisServiceImpl[F](httpClient)
           repositoryService = new FileRepositoryService[F](ioBlocker)
-          videoService = new VideoServiceImpl[F, ConnectionIO](DoobieVideoDao, DoobieSnapshotDao, DoobieFileResourceDao)
+          videoService = new VideoServiceImpl[F, ConnectionIO](DoobieVideoDao, DoobieVideoMetadataDao, DoobieSnapshotDao, DoobieFileResourceDao)
           downloadService = new Http4sDownloadService[F](httpClient, repositoryService)
           assetService = new AssetServiceImpl[F, ConnectionIO](DoobieFileResourceDao, repositoryService)
           schedulingService = new SchedulingServiceImpl[F, ConnectionIO](

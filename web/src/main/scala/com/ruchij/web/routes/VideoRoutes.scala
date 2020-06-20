@@ -4,7 +4,7 @@ import cats.effect.Sync
 import cats.implicits._
 import com.ruchij.circe.Encoders._
 import com.ruchij.services.video.{VideoAnalysisService, VideoService}
-import com.ruchij.web.requests.VideoAnalyzeRequest
+import com.ruchij.web.requests.{VideoAnalyzeRequest, VideoMetadataUpdateRequest}
 import com.ruchij.web.requests.queryparams.QueryParameter.SearchQuery
 import com.ruchij.web.responses.{IterableResponse, SearchResult}
 import io.circe.generic.auto._
@@ -39,6 +39,16 @@ object VideoRoutes {
         } yield response
 
       case GET -> Root / "id" / videoId => Ok(videoService.fetchById(videoId))
+
+      case request @ PATCH -> Root / "id" / videoId / "metadata" =>
+        for {
+          videoMetadataUpdateRequest <- request.as[VideoMetadataUpdateRequest]
+
+          updatedVideo <- videoService.update(videoId, videoMetadataUpdateRequest.title)
+
+          response <- Ok(updatedVideo)
+        }
+        yield response
 
       case GET -> Root / "id" / videoId / "snapshots" =>
         videoService

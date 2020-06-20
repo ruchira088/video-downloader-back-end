@@ -1,18 +1,20 @@
 package com.ruchij.services.video
 
-import cats.{Monad, MonadError, ~>}
 import cats.data.OptionT
 import cats.implicits._
+import cats.{Monad, MonadError, ~>}
 import com.ruchij.daos.resource.FileResourceDao
 import com.ruchij.daos.resource.models.FileResource
 import com.ruchij.daos.snapshot.SnapshotDao
 import com.ruchij.daos.snapshot.models.Snapshot
 import com.ruchij.daos.video.VideoDao
 import com.ruchij.daos.video.models.Video
+import com.ruchij.daos.videometadata.VideoMetadataDao
 import com.ruchij.exceptions.ResourceNotFoundException
 
 class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: Monad](
   videoDao: VideoDao[T],
+  videoMetadataDao: VideoMetadataDao[T],
   snapshotDao: SnapshotDao[T],
   fileResourceDao: FileResourceDao[T]
 )(implicit transaction: T ~> F)
@@ -41,4 +43,7 @@ class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: Monad](
       snapshotDao.findByVideo(videoId)
     }
 
+  override def update(videoId: String, title: Option[String]): F[Video] =
+    transaction(videoMetadataDao.update(videoId, title))
+      .productR(fetchById(videoId))
 }

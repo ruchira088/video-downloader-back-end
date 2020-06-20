@@ -83,7 +83,7 @@ object BatchApp extends IOApp {
           batchServiceConfiguration.downloadConfiguration
         )
 
-        videoService = new VideoServiceImpl[F, ConnectionIO](DoobieVideoDao, DoobieSnapshotDao, DoobieFileResourceDao)
+        videoService = new VideoServiceImpl[F, ConnectionIO](DoobieVideoDao, DoobieVideoMetadataDao, DoobieSnapshotDao, DoobieFileResourceDao)
 
         videoEnrichmentService = new VideoEnrichmentServiceImpl[F, repositoryService.BackedType, ConnectionIO](
           repositoryService,
