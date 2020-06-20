@@ -124,5 +124,5 @@ class VideoEnrichmentServiceImpl[F[_]: Sync: Clock: ContextShift, A, T[_]: Monad
 }
 
 object VideoEnrichmentServiceImpl {
-  val SNAPSHOT_COUNT = 10
+  val SNAPSHOT_COUNT = 12
 }
