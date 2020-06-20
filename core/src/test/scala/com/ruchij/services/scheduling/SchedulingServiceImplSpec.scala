@@ -45,7 +45,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
     val videoAnalysisResult =
       VideoAnalysisResult(
         videoUrl,
-        VideoSite.VPorn,
+        VideoSite.PornOne,
         "Caught My Bbc Roommate Spying",
         204 seconds,
         1988,

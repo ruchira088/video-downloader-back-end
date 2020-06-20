@@ -37,8 +37,8 @@ object VideoSite extends Enum[VideoSite] {
   def notApplicable[F[_], A](implicit applicativeError: ApplicativeError[F, Throwable]): Kleisli[F, Document, A] =
     Kleisli.liftF[F, Document, A](applicativeError.raiseError[A](InvalidConditionException))
 
-  case object VPorn extends VideoSite {
-    override val HOSTNAME: String = "vporn.com"
+  case object PornOne extends VideoSite {
+    override val HOSTNAME: String = "pornone.com"
 
     private val lessThanHour = "(\\d+) min (\\d+) sec".r
     private val moreThanHour = "(\\d+) hours (\\d+) min (\\d+) sec".r
