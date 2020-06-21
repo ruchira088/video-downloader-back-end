@@ -22,11 +22,11 @@ object VideoRoutes {
     HttpRoutes.of {
       case GET -> Root / "search" :? queryParameters =>
         for {
-          SearchQuery(term, pageSize, pageNumber) <- SearchQuery.fromQueryParameters[F].run(queryParameters)
+          SearchQuery(term, pageSize, pageNumber, sortBy) <- SearchQuery.fromQueryParameters[F].run(queryParameters)
 
-          videos <- videoService.search(term, pageNumber, pageSize)
+          videos <- videoService.search(term, pageNumber, pageSize, sortBy)
 
-          response <- Ok(SearchResult(videos, pageNumber, pageSize, term))
+          response <- Ok(SearchResult(videos, pageNumber, pageSize, term, sortBy))
         } yield response
 
       case request @ POST -> Root / "analyze" =>

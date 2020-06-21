@@ -6,6 +6,7 @@ import cats.implicits._
 import com.ruchij.daos.doobie.singleUpdate
 import com.ruchij.daos.doobie.DoobieCustomMappings._
 import com.ruchij.daos.scheduling.models.ScheduledVideoDownload
+import com.ruchij.services.models.SortBy
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import doobie.util.fragment.Fragment
@@ -57,8 +58,9 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       """.update.run
     }.productR(OptionT(findById(id))).value
 
-  override def search(term: Option[String], pageNumber: Int, pageSize: Int): ConnectionIO[Seq[ScheduledVideoDownload]] =
+  override def search(term: Option[String], pageNumber: Int, pageSize: Int, sortBy: SortBy): ConnectionIO[Seq[ScheduledVideoDownload]] =
     (SELECT_QUERY ++ whereAndOpt(term.map(searchTerm => sql"title LIKE ${"%" + searchTerm + "%"}"))
+      ++ sql"ORDER BY ${sortByFiledName(sortBy)}"
       ++ sql"LIMIT $pageSize OFFSET ${pageNumber * pageSize}")
       .query[ScheduledVideoDownload]
       .to[Seq]
@@ -88,4 +90,9 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
 
   def findById(id: String): ConnectionIO[Option[ScheduledVideoDownload]] =
     (SELECT_QUERY ++ sql"WHERE scheduled_video.video_metadata_id = $id").query[ScheduledVideoDownload].option
+
+  val sortByFiledName: SortBy => String = {
+    case SortBy.Date => "scheduled_video.scheduled_at"
+    case sortBy => s"video_metadata.${sortBy.entryName}"
+  }
 }
