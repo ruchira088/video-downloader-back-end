@@ -3,8 +3,8 @@ package com.ruchij.daos.workers
 import cats.{Applicative, ApplicativeError}
 import cats.data.OptionT
 import cats.implicits._
-import com.ruchij.daos.doobie.singleUpdate
 import com.ruchij.daos.doobie.DoobieCustomMappings._
+import com.ruchij.daos.doobie.DoobieUtils.singleUpdate
 import com.ruchij.daos.scheduling.SchedulingDao
 import com.ruchij.daos.workers.models.Worker
 import com.ruchij.exceptions.ResourceNotFoundException

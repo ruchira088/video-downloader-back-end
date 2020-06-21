@@ -16,7 +16,7 @@ import com.ruchij.daos.videometadata.models.VideoMetadata
 import com.ruchij.exceptions.{InvalidConditionException, ResourceNotFoundException}
 import com.ruchij.services.download.DownloadService
 import com.ruchij.services.hashing.HashingService
-import com.ruchij.services.models.SortBy
+import com.ruchij.services.models.{Order, SortBy}
 import com.ruchij.services.video.VideoAnalysisService
 import com.ruchij.services.video.models.VideoAnalysisResult
 import fs2.Stream
@@ -64,9 +64,9 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
         }
     } yield scheduledVideoDownload
 
-  override def search(term: Option[String], pageNumber: Int, pageSize: Int, sortBy: SortBy): F[Seq[ScheduledVideoDownload]] =
+  override def search(term: Option[String], pageNumber: Int, pageSize: Int, sortBy: SortBy, order: Order): F[Seq[ScheduledVideoDownload]] =
     transaction {
-      schedulingDao.search(term, pageNumber, pageSize, sortBy)
+      schedulingDao.search(term, pageNumber, pageSize, sortBy, order)
     }
 
   override def updateDownloadProgress(id: String, downloadedBytes: Long): F[Int] =

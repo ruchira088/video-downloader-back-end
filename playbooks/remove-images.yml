@@ -4,3 +4,4 @@
 
   tasks:
     - name: Remove all images
+      shell: cd ../images && ls | grep png$ | xargs rm

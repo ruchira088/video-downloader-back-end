@@ -38,11 +38,11 @@ object SchedulingRoutes {
 
       case GET -> Root / "search" :? queryParameters =>
         for {
-          SearchQuery(term, pageSize, pageNumber, sortBy) <- SearchQuery.fromQueryParameters[F].run(queryParameters)
+          SearchQuery(term, pageSize, pageNumber, sortBy, order) <- SearchQuery.fromQueryParameters[F].run(queryParameters)
 
-          scheduledVideoDownloads <- schedulingService.search(term, pageNumber, pageSize, sortBy)
+          scheduledVideoDownloads <- schedulingService.search(term, pageNumber, pageSize, sortBy, order)
 
-          response <- Ok(SearchResult(scheduledVideoDownloads, pageNumber, pageSize, term, sortBy))
+          response <- Ok(SearchResult(scheduledVideoDownloads, pageNumber, pageSize, term, sortBy, order))
         }
         yield response
 

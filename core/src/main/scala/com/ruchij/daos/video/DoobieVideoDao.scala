@@ -2,22 +2,24 @@ package com.ruchij.daos.video
 
 import com.ruchij.daos.video.models.Video
 import com.ruchij.daos.doobie.DoobieCustomMappings._
-import com.ruchij.services.models.SortBy
+import com.ruchij.daos.doobie.DoobieUtils.{ordering, sortByFieldName}
+import com.ruchij.services.models.{Order, SortBy}
 import doobie.implicits._
 import doobie.Fragments.whereAndOpt
 import doobie.free.connection.ConnectionIO
+import doobie.util.fragment.Fragment
 
 object DoobieVideoDao extends VideoDao[ConnectionIO] {
 
-  val SELECT_QUERY =
-    sql"""
+  val selectQuery =
+    fr"""
        SELECT
-        video_metadata.url, 
+        video_metadata.url,
         video_metadata.id,
         video_metadata.video_site,
         video_metadata.title,
-        video_metadata.duration, 
-        video_metadata.size, 
+        video_metadata.duration,
+        video_metadata.size,
         thumbnail.id, thumbnail.created_at, thumbnail.path, thumbnail.media_type, thumbnail.size,
         video_file.id,
         video_file.created_at,
@@ -33,19 +35,21 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
   override def insert(videoMetadataId: String, videoFileResourceId: String): ConnectionIO[Int] =
     sql"INSERT INTO video (video_metadata_id, file_resource_id) VALUES ($videoMetadataId, $videoFileResourceId)".update.run
 
-  override def search(term: Option[String], pageNumber: Int, pageSize: Int, sortBy: SortBy): ConnectionIO[Seq[Video]] =
-    (SELECT_QUERY
-      ++ whereAndOpt(term.map(searchTerm => sql"video_metadata.title LIKE ${"%" + searchTerm + "%"}"))
-      ++ sql"ORDER BY ${sortByFieldName(sortBy)}"
-      ++ sql"LIMIT $pageSize OFFSET ${pageSize * pageNumber}")
+  override def search(term: Option[String], pageNumber: Int, pageSize: Int, sortBy: SortBy, order: Order): ConnectionIO[Seq[Video]] =
+    (selectQuery
+      ++ fr"ORDER BY"
+      ++ videoSortByFieldName(sortBy)
+      ++ ordering(order)
+      ++ whereAndOpt(term.map(searchTerm => fr"video_metadata.title LIKE ${"%" + searchTerm + "%"}"))
+      ++ fr"LIMIT $pageSize OFFSET ${pageSize * pageNumber}")
       .query[Video]
       .to[Seq]
 
   override def findById(id: String): ConnectionIO[Option[Video]] =
-    (SELECT_QUERY ++ sql"WHERE video_metadata_id = $id").query[Video].option
+    (selectQuery ++ fr"WHERE video_metadata_id = $id").query[Video].option
 
-  val sortByFieldName: SortBy => String = {
-    case SortBy.Date => "video_file.created_at"
-    case sortBy => s"video_metadata.${sortBy.entryName}"
-  }
+  val videoSortByFieldName: SortBy => Fragment =
+    sortByFieldName.orElse {
+      case SortBy.Date => fr"video_file.created_at"
+    }
 }

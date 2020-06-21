@@ -22,5 +22,5 @@ object SortBy extends Enum[SortBy] {
     override val entryName: String = "title"
   }
 
-  override def values: IndexedSeq[SortBy] = findValues
+  override val values: IndexedSeq[SortBy] = findValues
 }
