@@ -2,7 +2,8 @@ package com.ruchij.services.video
 
 import cats.data.OptionT
 import cats.implicits._
-import cats.{Monad, MonadError, ~>}
+import cats.{ApplicativeError, MonadError, ~>}
+import com.ruchij.daos.doobie.DoobieUtils.singleUpdate
 import com.ruchij.daos.resource.FileResourceDao
 import com.ruchij.daos.resource.models.FileResource
 import com.ruchij.daos.snapshot.SnapshotDao
@@ -13,7 +14,7 @@ import com.ruchij.daos.videometadata.VideoMetadataDao
 import com.ruchij.exceptions.ResourceNotFoundException
 import com.ruchij.services.models.{Order, SortBy}
 
-class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: Monad](
+class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: MonadError[*[_], Throwable]](
   videoDao: VideoDao[T],
   videoMetadataDao: VideoMetadataDao[T],
   snapshotDao: SnapshotDao[T],
@@ -47,4 +48,20 @@ class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: Monad](
   override def update(videoId: String, title: Option[String]): F[Video] =
     transaction(videoMetadataDao.update(videoId, title))
       .productR(fetchById(videoId))
+
+  override def deleteById(videoId: String): F[Video] =
+    fetchById(videoId)
+        .flatMap { video =>
+          transaction {
+            singleUpdate(videoDao.deleteById(videoId))
+              .productR(singleUpdate(videoMetadataDao.deleteById(video.videoMetadata.id)))
+              .productR(singleUpdate(fileResourceDao.deleteById(video.videoMetadata.thumbnail.id)))
+              .productR(singleUpdate(fileResourceDao.deleteById(video.fileResource.id)))
+              .getOrElseF {
+                ApplicativeError[T, Throwable].raiseError(new InternalError(s"Unable to delete video with ID = $videoId"))
+              }
+              .as(video)
+          }
+        }
+
 }

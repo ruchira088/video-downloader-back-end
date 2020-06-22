@@ -63,7 +63,10 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
   def add(videoPath: String): F[Option[Video]] =
     addVideo(videoPath)
       .map[Option[Video]](Some.apply)
-      .recoverWith(deleteCorruptedVideoFile(videoPath))
+      .recoverWith {
+        case CorruptedFrameGrabException =>
+          deleteCorruptedVideoFile(videoPath).as(None)
+      }
 
   def addVideo(videoPath: String): F[Video] =
     for {
@@ -101,7 +104,12 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
     }.productR(videoService.insert(video.videoMetadata.id, video.fileResource))
       .flatTap(videoEnrichmentService.videoSnapshots)
       .map[Option[Video]](Some.apply)
-      .recoverWith(deleteCorruptedVideoFile(video.fileResource.path))
+      .recoverWith {
+        case CorruptedFrameGrabException =>
+          deleteCorruptedVideoFile[Video](video.fileResource.path)
+            .productR(videoService.deleteById(video.videoMetadata.id))
+            .as(None)
+      }
 
   def videoDuration(videoPath: String): F[FiniteDuration] =
     ioBlocker.blockOn {
@@ -114,15 +122,11 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
       } yield FiniteDuration(math.floor(seconds).toLong, TimeUnit.SECONDS)
     }
 
-  def deleteCorruptedVideoFile[B](videoPath: String): PartialFunction[Throwable, F[Option[B]]] = {
-    case CorruptedFrameGrabException =>
+  def deleteCorruptedVideoFile[B](videoPath: String): F[Boolean] =
       Sync[F]
         .delay(logger.warnF(s"File at $videoPath is corrupted. The file will be deleted"))
         .productR(fileRepositoryService.delete(videoPath))
-        .productR(Sync[F].delay(logger.infoF(s"File deleted at $videoPath")))
-        .as[Option[B]](None)
-  }
-
+        .productL(Sync[F].delay(logger.infoF(s"File deleted at $videoPath")))
 }
 
 object SynchronizationServiceImpl {

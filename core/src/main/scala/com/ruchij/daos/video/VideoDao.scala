@@ -8,5 +8,7 @@ trait VideoDao[F[_]] {
 
   def search(term: Option[String], pageNumber: Int, pageSize: Int, sortBy: SortBy, order: Order): F[Seq[Video]]
 
-  def findById(id: String): F[Option[Video]]
+  def findById(videoId: String): F[Option[Video]]
+
+  def deleteById(videoId: String): F[Int]
 }

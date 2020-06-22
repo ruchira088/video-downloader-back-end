@@ -28,4 +28,9 @@ object DoobieFileResourceDao extends FileResourceDao[ConnectionIO] {
     sql"SELECT id, created_at, path, media_type, size FROM file_resource WHERE path LIKE ${"%" + path}"
       .query[FileResource]
       .option
+
+  override def deleteById(id: String): ConnectionIO[Int] =
+    sql"DELETE FROM file_resource WHERE id = $id"
+      .update
+      .run
 }

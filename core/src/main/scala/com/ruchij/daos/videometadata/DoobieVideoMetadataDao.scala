@@ -22,16 +22,16 @@ object DoobieVideoMetadataDao extends VideoMetadataDao[ConnectionIO] {
         )
     """.update.run
 
-  override def update(videoId: String, title: Option[String]): ConnectionIO[Int] =
-    OptionT(getById(videoId))
+  override def update(videoMetadataId: String, title: Option[String]): ConnectionIO[Int] =
+    OptionT(getById(videoMetadataId))
       .semiflatMap { videoMetadata =>
-        sql"UPDATE video_metadata SET title = ${title.getOrElse[String](videoMetadata.title)} WHERE id = $videoId"
+        sql"UPDATE video_metadata SET title = ${title.getOrElse[String](videoMetadata.title)} WHERE id = $videoMetadataId"
           .update
           .run
       }
       .getOrElse(0)
 
-  override def getById(videoId: String): ConnectionIO[Option[VideoMetadata]] =
+  override def getById(videoMetadataId: String): ConnectionIO[Option[VideoMetadata]] =
     sql"""
         SELECT
           video_metadata.url,
@@ -43,8 +43,13 @@ object DoobieVideoMetadataDao extends VideoMetadataDao[ConnectionIO] {
           file_resource.id, file_resource.created_at, file_resource.path, file_resource.media_type, file_resource.size
         FROM video_metadata
         JOIN file_resource ON video_metadata.thumbnail_id = file_resource.id
-        WHERE video_metadata.id = $videoId
+        WHERE video_metadata.id = $videoMetadataId
     """
       .query[VideoMetadata]
       .option
+
+  override def deleteById(videoMetadataId: String): ConnectionIO[Int] =
+    sql"DELETE FROM video_metadata WHERE id = $videoMetadataId"
+      .update
+      .run
 }

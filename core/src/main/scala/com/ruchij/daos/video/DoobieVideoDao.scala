@@ -52,4 +52,9 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
     sortByFieldName.orElse {
       case SortBy.Date => fr"video_file.created_at"
     }
+
+  override def deleteById(videoId: String): ConnectionIO[Int] =
+    sql"DELETE FROM video WHERE video_metadata_id = $videoId"
+      .update
+      .run
 }

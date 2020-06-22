@@ -8,4 +8,6 @@ trait FileResourceDao[F[_]] {
   def getById(id: String): F[Option[FileResource]]
 
   def findByPath(path: String): F[Option[FileResource]]
+
+  def deleteById(id: String): F[Int]
 }
