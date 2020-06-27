@@ -106,8 +106,8 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
       .map[Option[Video]](Some.apply)
       .recoverWith {
         case CorruptedFrameGrabException =>
-          deleteCorruptedVideoFile[Video](video.fileResource.path)
-            .productR(videoService.deleteById(video.videoMetadata.id))
+          videoService.deleteById(video.videoMetadata.id)
+            .productR(deleteCorruptedVideoFile[Video](video.fileResource.path))
             .as(None)
       }
 
@@ -123,10 +123,9 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
     }
 
   def deleteCorruptedVideoFile[B](videoPath: String): F[Boolean] =
-      Sync[F]
-        .delay(logger.warnF(s"File at $videoPath is corrupted. The file will be deleted"))
+      logger.warnF(s"File at $videoPath is corrupted. The file will be deleted")
         .productR(fileRepositoryService.delete(videoPath))
-        .productL(Sync[F].delay(logger.infoF(s"File deleted at $videoPath")))
+        .productL(logger.infoF(s"File deleted at $videoPath"))
 }
 
 object SynchronizationServiceImpl {

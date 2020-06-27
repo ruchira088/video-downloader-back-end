@@ -53,12 +53,15 @@ class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: MonadError[*[_],
     fetchById(videoId)
         .flatMap { video =>
           transaction {
-            singleUpdate(videoDao.deleteById(videoId))
+            OptionT.liftF(snapshotDao.deleteByVideo(video.videoMetadata.id))
+              .productR(singleUpdate(videoDao.deleteById(videoId)))
               .productR(singleUpdate(videoMetadataDao.deleteById(video.videoMetadata.id)))
               .productR(singleUpdate(fileResourceDao.deleteById(video.videoMetadata.thumbnail.id)))
               .productR(singleUpdate(fileResourceDao.deleteById(video.fileResource.id)))
               .getOrElseF {
-                ApplicativeError[T, Throwable].raiseError(new InternalError(s"Unable to delete video with ID = $videoId"))
+                ApplicativeError[T, Throwable].raiseError {
+                  new InternalError(s"Unable to delete video with ID = $videoId")
+                }
               }
               .as(video)
           }

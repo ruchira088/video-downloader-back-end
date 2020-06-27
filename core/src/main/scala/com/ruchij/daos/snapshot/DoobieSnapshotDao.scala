@@ -26,4 +26,8 @@ object DoobieSnapshotDao extends SnapshotDao[ConnectionIO] {
       .query[Snapshot]
       .to[Seq]
 
+  override def deleteByVideo(videoId: String): ConnectionIO[Int] =
+    sql"DELETE FROM video_snapshot WHERE video_id = $videoId"
+      .update
+      .run
 }
