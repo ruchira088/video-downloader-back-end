@@ -3,7 +3,7 @@ import sbt._
 object Dependencies
 {
   val SCALA_VERSION = "2.13.2"
-  val HTTP4S_VERSION = "0.21.5"
+  val HTTP4S_VERSION = "0.21.6"
   val CIRCE_VERSION = "0.13.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % HTTP4S_VERSION
@@ -32,7 +32,7 @@ object Dependencies
 
   lazy val jodaTime = "joda-time" % "joda-time" % "2.10.6"
 
-  lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.12.3"
+  lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.13.0"
 
   lazy val flywayCore = "org.flywaydb" % "flyway-core" % "6.5.0"
 
@@ -43,6 +43,8 @@ object Dependencies
   lazy val jcodec = "org.jcodec" % "jcodec" % "0.2.5"
 
   lazy val jcodecJavaSe = "org.jcodec" % "jcodec-javase" % "0.2.5"
+
+  lazy val thumbnailator = "net.coobird" % "thumbnailator" % "0.4.11"
 
   lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.3"
 

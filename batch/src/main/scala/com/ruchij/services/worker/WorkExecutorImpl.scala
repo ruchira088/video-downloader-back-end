@@ -8,6 +8,7 @@ import com.ruchij.config.DownloadConfiguration
 import com.ruchij.daos.resource.models.FileResource
 import com.ruchij.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.daos.video.models.Video
+import com.ruchij.logging.Logger
 import com.ruchij.services.download.DownloadService
 import com.ruchij.services.enrichment.VideoEnrichmentService
 import com.ruchij.services.hashing.HashingService
@@ -25,35 +26,47 @@ class WorkExecutorImpl[F[_]: Sync: Clock](
   downloadConfiguration: DownloadConfiguration
 ) extends WorkExecutor[F] {
 
-  override def execute(scheduledVideoDownload: ScheduledVideoDownload): F[Video] =
-    videoAnalysisService
-      .downloadUri(scheduledVideoDownload.videoMetadata.url)
-      .flatMap { downloadUri =>
-        downloadService
-          .download(downloadUri, downloadConfiguration.videoFolder)
-          .use { downloadResult =>
-            downloadResult.data
-              .evalMap { bytes =>
-                schedulingService.updateDownloadProgress(scheduledVideoDownload.videoMetadata.id, bytes)
-              }
-              .compile
-              .drain
-              .as(downloadResult)
-          }
-      }
-      .productL {
-        schedulingService.completeTask(scheduledVideoDownload.videoMetadata.id)
-      }
-      .flatMap {
-        downloadResult =>
-          for {
-            timestamp <- Clock[F].realTime(TimeUnit.MILLISECONDS)
-            fileKey <- hashingService.hash(downloadResult.uri.renderString)
-            fileResource = FileResource(fileKey, new DateTime(timestamp), downloadResult.downloadedFileKey, downloadResult.mediaType, downloadResult.size)
+  private val logger = Logger[F, WorkExecutorImpl[F]]
 
-            video <- videoService.insert(scheduledVideoDownload.videoMetadata.id, fileResource)
+  override def execute(scheduledVideoDownload: ScheduledVideoDownload): F[Video] =
+    logger.infoF(s"Worker started download for ${scheduledVideoDownload.videoMetadata.url}")
+      .productR {
+        videoAnalysisService
+          .downloadUri(scheduledVideoDownload.videoMetadata.url)
+          .flatMap { downloadUri =>
+            downloadService
+              .download(downloadUri, downloadConfiguration.videoFolder)
+              .use { downloadResult =>
+                downloadResult.data
+                  .evalMap { bytes =>
+                    schedulingService.updateDownloadProgress(scheduledVideoDownload.videoMetadata.id, bytes)
+                  }
+                  .compile
+                  .drain
+                  .as(downloadResult)
+              }
           }
-          yield video
+          .productL {
+            schedulingService.completeTask(scheduledVideoDownload.videoMetadata.id)
+          }
+          .flatMap { downloadResult =>
+            for {
+              timestamp <- Clock[F].realTime(TimeUnit.MILLISECONDS)
+              fileKey <- hashingService.hash(downloadResult.uri.renderString)
+              fileResource = FileResource(
+                fileKey,
+                new DateTime(timestamp),
+                downloadResult.downloadedFileKey,
+                downloadResult.mediaType,
+                downloadResult.size
+              )
+
+              video <- videoService.insert(scheduledVideoDownload.videoMetadata.id, fileResource)
+            } yield video
+          }
+          .flatTap(videoEnrichmentService.videoSnapshots)
       }
-      .flatTap(videoEnrichmentService.videoSnapshots)
+    .productL {
+      logger.infoF(s"Worker completed download for ${scheduledVideoDownload.videoMetadata.url}")
+    }
 }

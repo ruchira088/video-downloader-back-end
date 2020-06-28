@@ -1,5 +1,6 @@
 package com.ruchij.services.enrichment
 
+import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
 
@@ -17,6 +18,7 @@ import com.ruchij.exceptions.{CorruptedFrameGrabException, InvalidConditionExcep
 import com.ruchij.services.repository.FileRepositoryService.FileRepository
 import fs2.Stream
 import javax.imageio.ImageIO
+import net.coobird.thumbnailator.Thumbnails
 import org.http4s.MediaType
 import org.jcodec.api.FrameGrab
 import org.jcodec.scale.AWTUtil
@@ -41,7 +43,7 @@ class VideoEnrichmentServiceImpl[F[_]: Sync: Clock: ContextShift, A, T[_]: Monad
         frameGrab <- createFrameGrab(video.fileResource.path)
 
         snapshots <- VideoEnrichmentService
-          .snapshotTimestamps(video, VideoEnrichmentServiceImpl.SNAPSHOT_COUNT)
+          .snapshotTimestamps(video, VideoEnrichmentServiceImpl.snapshotCount)
           .toList
           .traverse(createSnapshot(video, frameGrab, _))
       } yield snapshots
@@ -116,13 +118,27 @@ class VideoEnrichmentServiceImpl[F[_]: Sync: Clock: ContextShift, A, T[_]: Monad
         val outputStream = new ByteArrayOutputStream()
 
         Sync[F]
-          .delay(ImageIO.write(AWTUtil.toBufferedImage(picture), snapshotMediaType.subType, outputStream))
+          .delay {
+            ImageIO.write(
+              scaleImage(
+                AWTUtil.toBufferedImage(picture),
+                VideoEnrichmentServiceImpl.scaledImageWidth,
+                VideoEnrichmentServiceImpl.scaledImageHeight
+              ),
+              snapshotMediaType.subType,
+              outputStream)
+          }
           .as(outputStream)
 
       }
       .flatMap(outputStream => Stream.emits[F, Byte](outputStream.toByteArray))
+
+  def scaleImage(bufferedImage: BufferedImage, width: Int, height: Int): BufferedImage =
+    Thumbnails.of(bufferedImage).size(width, height).asBufferedImage()
 }
 
 object VideoEnrichmentServiceImpl {
-  val SNAPSHOT_COUNT = 12
+  val snapshotCount = 12
+  val scaledImageWidth = 640
+  val scaledImageHeight = 360
 }
