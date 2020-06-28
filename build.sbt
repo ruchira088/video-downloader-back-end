@@ -6,10 +6,9 @@ inThisBuild {
     version := "0.0.1",
     scalaVersion := SCALA_VERSION,
     maintainer := "me@ruchij.com",
-    scalacOptions ++= Seq("-Xlint", "-feature"),
+    scalacOptions ++= Seq("-feature", "-Xlint", "-Wconf:cat=lint-byname-implicit:s"),
     addCompilerPlugin(kindProjector),
-    addCompilerPlugin(betterMonadicFor),
-    addCompilerPlugin(scalaTypedHoles)
+    addCompilerPlugin(betterMonadicFor)
   )
 }
 

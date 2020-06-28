@@ -2,7 +2,7 @@ import sbt._
 
 object Dependencies
 {
-  val SCALA_VERSION = "2.13.2"
+  val SCALA_VERSION = "2.13.3"
   val HTTP4S_VERSION = "0.21.6"
   val CIRCE_VERSION = "0.13.0"
 
@@ -53,8 +53,6 @@ object Dependencies
   lazy val kindProjector = "org.typelevel" %% "kind-projector" % "0.11.0" cross CrossVersion.full
 
   lazy val betterMonadicFor = "com.olegpy" %% "better-monadic-for" % "0.3.1"
-
-  lazy val scalaTypedHoles = "com.github.cb372" % "scala-typed-holes" % "0.1.3.3" cross CrossVersion.full
 
   lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.0"
 
