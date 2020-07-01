@@ -8,7 +8,8 @@ inThisBuild {
     maintainer := "me@ruchij.com",
     scalacOptions ++= Seq("-feature", "-Xlint", "-Wconf:cat=lint-byname-implicit:s"),
     addCompilerPlugin(kindProjector),
-    addCompilerPlugin(betterMonadicFor)
+    addCompilerPlugin(betterMonadicFor),
+    addCompilerPlugin(scalaTypedHoles)
   )
 }
 

@@ -29,8 +29,8 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers {
         "serviceName": "my-http4s-project",
         "serviceVersion": "0.0.1",
         "organization": "com.ruchij",
-        "scalaVersion": "2.13.1",
-        "sbtVersion": "1.3.10",
+        "scalaVersion": "2.13.3",
+        "sbtVersion": "1.3.12",
         "javaVersion": ${Properties.javaVersion},
         "timestamp": $dateTime
       }"""
