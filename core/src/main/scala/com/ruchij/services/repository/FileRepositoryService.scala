@@ -1,6 +1,6 @@
 package com.ruchij.services.repository
 
-import java.nio.file.{Files, Path, Paths, StandardOpenOption}
+import java.nio.file.{FileVisitOption, Files, Path, Paths, StandardOpenOption}
 
 import cats.effect.{Blocker, ContextShift, Sync}
 import cats.implicits._
@@ -58,7 +58,7 @@ class FileRepositoryService[F[_]: Sync: ContextShift](ioBlocker: Blocker) extend
   override def list(key: Key): Stream[F, Key] =
     Stream
       .eval(backedType(key))
-      .flatMap(path => walk(ioBlocker, path))
+      .flatMap(path => walk(ioBlocker, path, Seq(FileVisitOption.FOLLOW_LINKS)))
       .drop(1) // drop the parent key
       .map(_.toString)
 

@@ -17,7 +17,7 @@ import com.ruchij.logging.Logger
 import com.ruchij.services.enrichment.{SeekableByteChannelConverter, VideoEnrichmentService}
 import com.ruchij.services.hashing.HashingService
 import com.ruchij.services.repository.FileRepositoryService.FileRepository
-import com.ruchij.services.sync.SynchronizationServiceImpl.{FileName, ignoreFileList}
+import com.ruchij.services.sync.SynchronizationServiceImpl.{FileName, supportedFileTypes}
 import com.ruchij.services.sync.models.SyncResult
 import com.ruchij.services.video.VideoService
 import com.ruchij.types.FunctionKTypes.eitherToF
@@ -44,7 +44,7 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
   override val sync: F[SyncResult] =
     fileRepositoryService
       .list(downloadConfiguration.videoFolder)
-      .filter(path => !ignoreFileList.exists(path.endsWith))
+      .filter(path => supportedFileTypes.exists(mediaType => path.endsWith(mediaType.subType)))
       .evalMap {
         case path @ FileName(fileName) =>
           transaction(fileResourceDao.findByPath(fileName))
@@ -90,7 +90,7 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
       videoId <- hashingService.hash(videoPath)
       uri <- eitherToF[Throwable, F].apply(Uri.fromString(videoPath))
 
-      videoTitle = videoPath.split("/|\\\\").lastOption.getOrElse(videoPath)
+      videoTitle = FileName.unapply(videoPath).getOrElse(videoPath)
       videoMetadata = VideoMetadata(uri, videoId, VideoSite.Local, videoTitle, duration, size, snapshot)
       videoFileResource = FileResource(videoId, new DateTime(currentTimestamp), videoPath, mediaType, size)
 
@@ -130,7 +130,7 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
 
 object SynchronizationServiceImpl {
   val thumbnailTimestamp = 0.1
-  val ignoreFileList = List(".gitignore", ".DS_Store")
+  val supportedFileTypes: List[MediaType] = List(MediaType.video.mp4)
 
   object FileName {
     def unapply(path: String): Option[String] =
