@@ -18,7 +18,7 @@ import com.ruchij.services.enrichment.{SeekableByteChannelConverter, VideoEnrich
 import com.ruchij.services.hashing.HashingService
 import com.ruchij.services.repository.FileRepositoryService.FileRepository
 import com.ruchij.services.repository.FileTypeDetector
-import com.ruchij.services.sync.SynchronizationServiceImpl.{FileName, supportedFileTypes}
+import com.ruchij.services.sync.SynchronizationServiceImpl.{fileName, supportedFileTypes}
 import com.ruchij.services.sync.models.SyncResult
 import com.ruchij.services.video.VideoService
 import com.ruchij.types.FunctionKTypes.eitherToF
@@ -59,8 +59,8 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
           yield isSupported
       }
       .evalMap {
-        case path @ FileName(fileName) =>
-          transaction(fileResourceDao.findByPath(fileName))
+        path =>
+          transaction(fileResourceDao.findByPath(path))
             .flatMap {
               _.fold[F[Option[Video]]](add(path))(_ => Applicative[F].pure(None))
             }
@@ -103,7 +103,7 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
       videoId <- hashingService.hash(videoPath)
       uri <- eitherToF[Throwable, F].apply(Uri.fromString(Uri.encode(videoPath)))
 
-      videoTitle = FileName.unapply(videoPath).getOrElse(videoPath)
+      videoTitle = fileName(videoPath)
       videoMetadata = VideoMetadata(uri, videoId, VideoSite.Local, videoTitle, duration, size, snapshot)
       videoFileResource = FileResource(videoId, new DateTime(currentTimestamp), videoPath, mediaType, size)
 
@@ -146,8 +146,6 @@ object SynchronizationServiceImpl {
   val supportedFileTypes: List[MediaType] = List(MediaType.video.mp4)
   val pathDelimiter = "[/\\\\]"
 
-  object FileName {
-    def unapply(path: String): Some[String] =
-      Some(path.split(pathDelimiter).lastOption.getOrElse(path))
-  }
+  def fileName(path: String): String =
+    path.split(pathDelimiter).lastOption.getOrElse(path)
 }
