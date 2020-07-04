@@ -34,6 +34,7 @@ lazy val core =
           pureconfig,
           jodaTime,
           enumeratum,
+          apacheTika,
           jsoup,
           scalaLogging,
           logbackClassic

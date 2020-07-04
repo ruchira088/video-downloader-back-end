@@ -16,7 +16,7 @@ import com.ruchij.migration.MigrationApp
 import com.ruchij.services.download.Http4sDownloadService
 import com.ruchij.services.enrichment.VideoEnrichmentServiceImpl
 import com.ruchij.services.hashing.MurmurHash3Service
-import com.ruchij.services.repository.FileRepositoryService
+import com.ruchij.services.repository.{FileRepositoryService, PathFileTypeDetector}
 import com.ruchij.services.scheduler.{Scheduler, SchedulerImpl}
 import com.ruchij.services.scheduling.SchedulingServiceImpl
 import com.ruchij.services.sync.SynchronizationServiceImpl
@@ -24,6 +24,7 @@ import com.ruchij.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
 import com.ruchij.services.worker.WorkExecutorImpl
 import com.ruchij.types.FunctionKTypes
 import doobie.free.connection.ConnectionIO
+import org.apache.tika.Tika
 import org.http4s.client.blaze.BlazeClientBuilder
 import org.http4s.client.middleware.FollowRedirect
 import pureconfig.ConfigSource
@@ -83,6 +84,8 @@ object BatchApp extends IOApp {
           batchServiceConfiguration.downloadConfiguration
         )
 
+        fileTypeDetector = new PathFileTypeDetector[F](new Tika(), ioBlocker)
+
         videoService = new VideoServiceImpl[F, ConnectionIO](DoobieVideoDao, DoobieVideoMetadataDao, DoobieSnapshotDao, DoobieFileResourceDao)
 
         videoEnrichmentService = new VideoEnrichmentServiceImpl[F, repositoryService.BackedType, ConnectionIO](
@@ -100,6 +103,7 @@ object BatchApp extends IOApp {
           videoService,
           videoEnrichmentService,
           hashingService,
+          fileTypeDetector,
           ioBlocker,
           batchServiceConfiguration.downloadConfiguration
         )

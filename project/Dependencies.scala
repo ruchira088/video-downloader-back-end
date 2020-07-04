@@ -46,6 +46,8 @@ object Dependencies
 
   lazy val thumbnailator = "net.coobird" % "thumbnailator" % "0.4.11"
 
+  lazy val apacheTika = "org.apache.tika" % "tika-core" % "1.24.1"
+
   lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.3"
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"

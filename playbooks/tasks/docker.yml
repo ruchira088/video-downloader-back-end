@@ -1,3 +1,7 @@
+- name: Print start message
+  debug:
+    msg: Started building {{ app_name }}
+
 - name: Create output directory
   file:
     path: output
@@ -29,3 +33,7 @@
   file:
     path: output
     state: absent
+
+- name: Print finish message
+  debug:
+    msg: Completed building {{ app_name }}

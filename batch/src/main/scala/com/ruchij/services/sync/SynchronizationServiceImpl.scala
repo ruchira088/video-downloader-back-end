@@ -17,6 +17,7 @@ import com.ruchij.logging.Logger
 import com.ruchij.services.enrichment.{SeekableByteChannelConverter, VideoEnrichmentService}
 import com.ruchij.services.hashing.HashingService
 import com.ruchij.services.repository.FileRepositoryService.FileRepository
+import com.ruchij.services.repository.FileTypeDetector
 import com.ruchij.services.sync.SynchronizationServiceImpl.{FileName, supportedFileTypes}
 import com.ruchij.services.sync.models.SyncResult
 import com.ruchij.services.video.VideoService
@@ -34,6 +35,7 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
   videoService: VideoService[F],
   videoEnrichmentService: VideoEnrichmentService[F],
   hashingService: HashingService[F],
+  fileTypeDetector: FileTypeDetector[F, A],
   ioBlocker: Blocker,
   downloadConfiguration: DownloadConfiguration
 )(implicit seekableByteChannelConverter: SeekableByteChannelConverter[F, A], transaction: T ~> F)
@@ -44,7 +46,15 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
   override val sync: F[SyncResult] =
     fileRepositoryService
       .list(downloadConfiguration.videoFolder)
-      .filter(path => supportedFileTypes.exists(mediaType => path.endsWith(mediaType.subType)))
+      .evalFilter {
+        key =>
+          for {
+            path <- fileRepositoryService.backedType(key)
+            fileType <- fileTypeDetector.detect(path)
+            isSupported = supportedFileTypes.contains(fileType)
+          }
+          yield isSupported
+      }
       .evalMap {
         case path @ FileName(fileName) =>
           transaction(fileResourceDao.findByPath(fileName))
