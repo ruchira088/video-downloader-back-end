@@ -69,7 +69,7 @@ class VideoEnrichmentServiceImpl[F[_]: Sync: Clock: ContextShift, A, T[_]: Monad
 
   def createSnapshot(video: Video, frameGrab: FrameGrab, videoTimestamp: FiniteDuration): F[Snapshot] = {
     val key =
-      s"${downloadConfiguration.imageFolder}/${video.videoMetadata.id}-${videoTimestamp.toSeconds}.${snapshotMediaType.subType}"
+      s"${downloadConfiguration.imageFolder}/${video.videoMetadata.id}-${videoTimestamp.toMillis}.${snapshotMediaType.subType}"
 
     snapshotFileResource(key, frameGrab, videoTimestamp)
       .flatMap { fileResource =>

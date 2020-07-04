@@ -88,7 +88,7 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
       )
 
       videoId <- hashingService.hash(videoPath)
-      uri <- eitherToF[Throwable, F].apply(Uri.fromString(videoPath))
+      uri <- eitherToF[Throwable, F].apply(Uri.fromString(Uri.encode(videoPath)))
 
       videoTitle = FileName.unapply(videoPath).getOrElse(videoPath)
       videoMetadata = VideoMetadata(uri, videoId, VideoSite.Local, videoTitle, duration, size, snapshot)
@@ -131,9 +131,10 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
 object SynchronizationServiceImpl {
   val thumbnailTimestamp = 0.1
   val supportedFileTypes: List[MediaType] = List(MediaType.video.mp4)
+  val pathDelimiter = "[/\\\\]"
 
   object FileName {
-    def unapply(path: String): Option[String] =
-      path.split("[/\\\\]").lastOption
+    def unapply(path: String): Some[String] =
+      Some(path.split(pathDelimiter).lastOption.getOrElse(path))
   }
 }
