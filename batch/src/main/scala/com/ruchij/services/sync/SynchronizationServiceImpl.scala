@@ -46,6 +46,9 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
   override val sync: F[SyncResult] =
     fileRepositoryService
       .list(downloadConfiguration.videoFolder)
+      .filter { path =>
+        supportedFileTypes.exists(fileType => path.endsWith(fileType.subType))
+      }
       .evalFilter {
         key =>
           for {
