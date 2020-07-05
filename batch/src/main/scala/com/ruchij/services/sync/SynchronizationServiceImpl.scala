@@ -23,7 +23,7 @@ import com.ruchij.services.sync.models.SyncResult
 import com.ruchij.services.video.VideoService
 import com.ruchij.types.FunctionKTypes.eitherToF
 import org.http4s.{MediaType, Uri}
-import org.jcodec.api.FrameGrab
+import org.jcodec.api.{FrameGrab, UnsupportedFormatException}
 import org.joda.time.DateTime
 
 import scala.concurrent.duration.FiniteDuration
@@ -78,7 +78,11 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
       .map[Option[Video]](Some.apply)
       .recoverWith {
         case CorruptedFrameGrabException =>
-          deleteCorruptedVideoFile(videoPath).as(None)
+          logger.warnF(s"Unable to create thumbnail snapshot for video file at $videoPath").as(None)
+
+        case _: UnsupportedFormatException =>
+          logger.warnF(s"$videoPath contains a video with an unsupported format")
+            .as(None)
       }
 
   def addVideo(videoPath: String): F[Video] =
@@ -120,7 +124,7 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
       .recoverWith {
         case CorruptedFrameGrabException =>
           videoService.deleteById(video.videoMetadata.id)
-            .productR(deleteCorruptedVideoFile[Video](video.fileResource.path))
+            .productR(logger.warnF(s"Unable to create video snapshots for video file at ${video.fileResource.path}"))
             .as(None)
       }
 
@@ -134,11 +138,6 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
         seconds <- Sync[F].delay(frameGrab.getVideoTrack.getMeta.getTotalDuration)
       } yield FiniteDuration(math.floor(seconds).toLong, TimeUnit.SECONDS)
     }
-
-  def deleteCorruptedVideoFile[B](videoPath: String): F[Boolean] =
-      logger.warnF(s"File at $videoPath is corrupted. The file will be deleted")
-        .productR(fileRepositoryService.delete(videoPath))
-        .productL(logger.infoF(s"File deleted at $videoPath"))
 }
 
 object SynchronizationServiceImpl {
