@@ -47,7 +47,7 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
     fileRepositoryService
       .list(downloadConfiguration.videoFolder)
       .filter { path =>
-        supportedFileTypes.exists(fileType => path.endsWith(fileType.subType))
+        supportedFileTypes.exists(fileType => path.endsWith("." + fileType.subType))
       }
       .evalFilter {
         key =>
