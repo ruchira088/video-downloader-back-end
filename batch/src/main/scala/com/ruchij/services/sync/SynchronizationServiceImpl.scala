@@ -83,6 +83,10 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
         case _: UnsupportedFormatException =>
           logger.warnF(s"$videoPath contains a video with an unsupported format")
             .as(None)
+
+        case throwable =>
+          logger.warnF(s"Unable to add video file at: $videoPath. Reason: ${throwable.getMessage}")
+            .as(None)
       }
 
   def addVideo(videoPath: String): F[Video] =
