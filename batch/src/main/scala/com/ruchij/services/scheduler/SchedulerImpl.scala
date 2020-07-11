@@ -15,7 +15,7 @@ import com.ruchij.logging.Logger
 import com.ruchij.services.scheduler.SchedulerImpl.DELAY
 import com.ruchij.services.scheduling.SchedulingService
 import com.ruchij.services.sync.SynchronizationService
-import com.ruchij.services.sync.models.SyncResult
+import com.ruchij.services.sync.models.SynchronizationResult
 import com.ruchij.services.worker.WorkExecutor
 import org.joda.time.{DateTime, LocalTime}
 
@@ -34,7 +34,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
 
   override type Result = Nothing
 
-  override type InitializationResult = SyncResult
+  override type InitializationResult = SynchronizationResult
 
   private val logger = Logger[F, SchedulerImpl[F, T]]
 
@@ -98,9 +98,10 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
         Sync[F].defer[Nothing](run)
       }
 
-  override val init: F[SyncResult] =
+  override val init: F[SynchronizationResult] =
     logger.infoF("Batch initialization started")
       .productR(synchronizationService.sync)
+      .flatTap(result => logger.infoF(result.prettyPrint))
       .productL(logger.infoF("Batch initialization completed"))
 
 }

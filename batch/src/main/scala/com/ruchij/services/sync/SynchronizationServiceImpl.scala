@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit
 import cats.data.OptionT
 import cats.effect.{Blocker, Clock, Concurrent, ContextShift, Sync}
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, Monad, ~>}
+import cats.{Applicative, ApplicativeError, Functor, Monad, ~>}
 import com.ruchij.config.DownloadConfiguration
 import com.ruchij.daos.resource.FileResourceDao
 import com.ruchij.daos.resource.models.FileResource
@@ -18,8 +18,9 @@ import com.ruchij.services.enrichment.{SeekableByteChannelConverter, VideoEnrich
 import com.ruchij.services.hashing.HashingService
 import com.ruchij.services.repository.FileRepositoryService.FileRepository
 import com.ruchij.services.repository.FileTypeDetector
-import com.ruchij.services.sync.SynchronizationServiceImpl.{fileName, maxConcurrentSyncCount, supportedFileTypes}
-import com.ruchij.services.sync.models.SyncResult
+import com.ruchij.services.sync.SynchronizationServiceImpl.{errorHandler, fileName, maxConcurrentSyncCount, supportedFileTypes}
+import com.ruchij.services.sync.models.{FileSyncResult, SynchronizationResult}
+import com.ruchij.services.sync.models.FileSyncResult.{ExistingVideo, IgnoredFile, SyncError, VideoSynced}
 import com.ruchij.services.video.VideoService
 import com.ruchij.types.FunctionKTypes.eitherToF
 import org.http4s.{MediaType, Uri}
@@ -28,7 +29,7 @@ import org.joda.time.DateTime
 
 import scala.concurrent.duration.FiniteDuration
 
-class SynchronizationServiceImpl[F[_]: Concurrent: ContextShift: Clock, A, T[_]: Monad](
+class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_]: Monad](
   fileRepositoryService: FileRepository[F, A],
   fileResourceDao: FileResourceDao[T],
   videoMetadataDao: VideoMetadataDao[T],
@@ -43,22 +44,25 @@ class SynchronizationServiceImpl[F[_]: Concurrent: ContextShift: Clock, A, T[_]:
 
   private val logger = Logger[F, SynchronizationServiceImpl[F, A, T]]
 
-  override val sync: F[SyncResult] =
+  override val sync: F[SynchronizationResult] =
     fileRepositoryService
       .list(downloadConfiguration.videoFolder)
       .mapAsyncUnordered(maxConcurrentSyncCount) { filePath =>
         isFileSupported(filePath)
           .flatMap { isVideoFilePath =>
-            if (isVideoFilePath) syncVideo(filePath) else Applicative[F].pure[Option[Video]](None)
+            if (isVideoFilePath) syncVideo(filePath) else Applicative[F].pure(IgnoredFile(filePath))
           }
       }
-      .collect { case Some(video) => video }
-      .evalTap { video =>
-        logger.infoF(s"Sync completed for ${video.fileResource.path}")
+      .evalTap {
+        case VideoSynced(video) =>
+          logger.infoF(s"Sync completed for ${video.fileResource.path}")
+
+        case _ => Applicative[F].unit
       }
+      .fold(SynchronizationResult.zero)(_ + _)
       .compile
-      .drain
-      .as(SyncResult())
+      .lastOrError
+
 
   def isFileSupported(filePath: String): F[Boolean] =
     if (supportedFileTypes.exists(fileType => filePath.endsWith("." + fileType.subType)))
@@ -70,29 +74,29 @@ class SynchronizationServiceImpl[F[_]: Concurrent: ContextShift: Clock, A, T[_]:
     else
       Applicative[F].pure(false)
 
-  def syncVideo(videoPath: String): F[Option[Video]] =
+  def syncVideo(videoPath: String): F[FileSyncResult] =
     transaction(fileResourceDao.findByPath(videoPath))
       .flatMap {
-        _.fold[F[Option[Video]]](addVideo(videoPath))(_ => Applicative[F].pure(None))
+        _.fold[F[FileSyncResult]](addVideo(videoPath))(_ => Applicative[F].pure(ExistingVideo(videoPath)))
       }
 
-  def addVideo(videoPath: String): F[Option[Video]] =
+  def addVideo(videoPath: String): F[FileSyncResult] =
     videoFromPath(videoPath)
       .flatMap(saveVideo)
-      .map[Option[Video]](Some.apply)
+      .map[FileSyncResult](VideoSynced)
       .recoverWith {
-        case CorruptedFrameGrabException =>
-          logger.warnF(s"Unable to create thumbnail snapshots for video file at $videoPath").as(None)
+        errorHandler[F](videoPath) {
+          case CorruptedFrameGrabException =>
+            logger.warnF(s"Unable to create thumbnail snapshots for video file at $videoPath")
 
-        case _: UnsupportedFormatException =>
-          logger
-            .warnF(s"$videoPath contains a video with an unsupported format")
-            .as(None)
+          case _: UnsupportedFormatException =>
+            logger
+              .warnF(s"$videoPath contains a video with an unsupported format")
 
-        case throwable =>
-          logger
-            .warnF(s"Unable to add video file at: $videoPath. Reason: ${throwable.getMessage}")
-            .as(None)
+          case throwable =>
+            logger
+              .warnF(s"Unable to add video file at: $videoPath. Reason: ${throwable.getMessage}")
+        }
       }
 
   def videoFromPath(videoPath: String): F[Video] =
@@ -128,8 +132,7 @@ class SynchronizationServiceImpl[F[_]: Concurrent: ContextShift: Clock, A, T[_]:
       fileResourceDao
         .insert(video.videoMetadata.thumbnail)
         .productR(videoMetadataDao.insert(video.videoMetadata))
-    }
-      .productR(videoService.insert(video.videoMetadata.id, video.fileResource))
+    }.productR(videoService.insert(video.videoMetadata.id, video.fileResource))
       .flatTap(videoEnrichmentService.videoSnapshots)
 
   def videoDuration(videoPath: String): F[FiniteDuration] =
@@ -149,6 +152,13 @@ object SynchronizationServiceImpl {
   val supportedFileTypes: List[MediaType] = List(MediaType.video.mp4)
   val pathDelimiter = "[/\\\\]"
   val maxConcurrentSyncCount = 8
+
+  def errorHandler[F[_]: Functor](
+    videoPath: String
+  )(handler: PartialFunction[Throwable, F[_]]): PartialFunction[Throwable, F[SyncError]] = {
+    case throwable =>
+      handler(throwable).as(SyncError(throwable, videoPath))
+  }
 
   def fileName(path: String): String =
     path.split(pathDelimiter).lastOption.getOrElse(path)

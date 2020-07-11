@@ -48,7 +48,7 @@ object BatchApp extends IOApp {
         }
     } yield ExitCode.Success
 
-  def program[F[_]: ConcurrentEffect: ContextShift: Timer](
+  def program[F[+ _]: ConcurrentEffect: ContextShift: Timer](
     batchServiceConfiguration: BatchServiceConfiguration,
     nonBlockingExecutionContext: ExecutionContext,
   ): Resource[F, Scheduler[F]] =
