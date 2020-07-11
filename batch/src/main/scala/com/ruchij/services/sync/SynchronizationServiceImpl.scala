@@ -49,26 +49,25 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
       .filter { path =>
         supportedFileTypes.exists(fileType => path.endsWith("." + fileType.subType))
       }
-      .evalFilter {
-        key =>
-          for {
-            path <- fileRepositoryService.backedType(key)
-            fileType <- fileTypeDetector.detect(path)
-            isSupported = supportedFileTypes.contains(fileType)
-          }
-          yield isSupported
+      .evalFilter { key =>
+        for {
+          path <- fileRepositoryService.backedType(key)
+          fileType <- fileTypeDetector.detect(path)
+          isSupported = supportedFileTypes.contains(fileType)
+        } yield isSupported
       }
-      .evalMap {
-        path =>
-          transaction(fileResourceDao.findByPath(path))
-            .flatMap {
-              _.fold[F[Option[Video]]](add(path))(_ => Applicative[F].pure(None))
-            }
+      .evalMap { path =>
+        transaction(fileResourceDao.findByPath(path))
+          .flatMap {
+            _.fold[F[Option[Video]]](add(path))(_ => Applicative[F].pure(None))
+          }
       }
       .collect { case Some(video) => video }
       .evalMap(saveVideo)
       .collect { case Some(video) => video }
-      .evalTap { video => logger.infoF(s"Sync completed for ${video.fileResource.path}") }
+      .evalTap { video =>
+        logger.infoF(s"Sync completed for ${video.fileResource.path}")
+      }
       .compile
       .drain
       .as(SyncResult())
@@ -81,11 +80,13 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
           logger.warnF(s"Unable to create thumbnail snapshot for video file at $videoPath").as(None)
 
         case _: UnsupportedFormatException =>
-          logger.warnF(s"$videoPath contains a video with an unsupported format")
+          logger
+            .warnF(s"$videoPath contains a video with an unsupported format")
             .as(None)
 
         case throwable =>
-          logger.warnF(s"Unable to add video file at: $videoPath. Reason: ${throwable.getMessage}")
+          logger
+            .warnF(s"Unable to add video file at: $videoPath. Reason: ${throwable.getMessage}")
             .as(None)
       }
 
@@ -126,9 +127,14 @@ class SynchronizationServiceImpl[F[_]: Sync: ContextShift: Clock, A, T[_]: Monad
       .flatTap(videoEnrichmentService.videoSnapshots)
       .map[Option[Video]](Some.apply)
       .recoverWith {
-        case CorruptedFrameGrabException =>
-          videoService.deleteById(video.videoMetadata.id)
-            .productR(logger.warnF(s"Unable to create video snapshots for video file at ${video.fileResource.path}"))
+        case throwable =>
+          videoService
+            .deleteById(video.videoMetadata.id)
+            .productR(
+              logger.warnF {
+                s"Unable to create video snapshots for video file at ${video.fileResource.path}. Reason: ${throwable.getMessage}"
+              }
+            )
             .as(None)
       }
 
