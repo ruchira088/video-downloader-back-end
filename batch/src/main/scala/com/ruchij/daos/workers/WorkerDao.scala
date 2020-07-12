@@ -8,6 +8,8 @@ trait WorkerDao[F[_]] {
 
   def insert(worker: Worker): F[Int]
 
+  def getById(workerId: String): F[Option[Worker]]
+
   def reserveWorker(workerId: String, timestamp: DateTime): F[Option[Worker]]
 
   def assignTask(workerId: String, scheduledVideoId: String, timestamp: DateTime): F[Option[Worker]]

@@ -98,8 +98,30 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
         Sync[F].defer[Nothing](run)
       }
 
+  val syncWorkers: F[Int] =
+    Range(0, workerConfiguration.maxConcurrentDownloads).toList
+      .traverse { index =>
+        transaction(workerDao.getById(Worker.workerIdFromIndex(index))).map(index -> _)
+      }
+      .map {
+        _.collect {
+          case (index, None) => index
+        }
+      }
+      .flatMap {
+        _.traverse { index =>
+          transaction {
+            workerDao.insert(Worker(Worker.workerIdFromIndex(index), None, None))
+          }
+        }
+      }
+      .map(_.sum)
+
   override val init: F[SynchronizationResult] =
-    logger.infoF("Batch initialization started")
+    logger
+      .infoF("Batch initialization started")
+      .productR(syncWorkers)
+      .flatMap(count => logger.infoF(s"New workers created: $count"))
       .productR(synchronizationService.sync)
       .flatTap(result => logger.infoF(result.prettyPrint))
       .productL(logger.infoF("Batch initialization completed"))

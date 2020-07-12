@@ -17,23 +17,23 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
 
   override def insert(worker: Worker): ConnectionIO[Int] =
     sql"INSERT INTO worker(id, reserved_at) VALUES(${worker.id}, ${worker.reservedAt})".update.run
-      .productR {
-        worker.scheduledVideoDownload.fold(connection.pure(0)) { scheduledVideoDownload =>
+      .flatMap { result =>
+        worker.scheduledVideoDownload.fold(connection.pure(result)) { scheduledVideoDownload =>
           sql"""
-          INSERT INTO worker_task(worker_id, scheduled_video_id)
-          VALUES(${worker.id}, ${scheduledVideoDownload.videoMetadata.id})
-        """.update.run
+            INSERT INTO worker_task(worker_id, scheduled_video_id)
+            VALUES(${worker.id}, ${scheduledVideoDownload.videoMetadata.id})
+          """.update.run.map(_ + result)
         }
       }
 
-  def getById(workerId: String): ConnectionIO[Worker] =
+  override def getById(workerId: String): ConnectionIO[Option[Worker]] =
     sql"SELECT id, reserved_at, task_assigned_at FROM worker WHERE id = $workerId"
       .query[(String, Option[DateTime], Option[DateTime])]
-      .unique
+      .option
       .flatMap {
-        case (id, reservedAt, None) => Applicative[ConnectionIO].pure(Worker(id, reservedAt, None))
+        case Some((id, reservedAt, None)) => Applicative[ConnectionIO].pure(Some(Worker(id, reservedAt, None)))
 
-        case (id, reservedAt, Some(taskAssignedAt)) =>
+        case Some((id, reservedAt, Some(taskAssignedAt))) =>
           sql"SELECT scheduled_video_id FROM worker_task WHERE worker_id = $workerId AND created_at = $taskAssignedAt"
             .query[String]
             .unique
@@ -44,18 +44,20 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
                 )
               }
             }
-            .map(scheduledVideoDownload => Worker(id, reservedAt, Some(scheduledVideoDownload)))
+            .map(scheduledVideoDownload => Some(Worker(id, reservedAt, Some(scheduledVideoDownload))))
+
+        case None => Applicative[ConnectionIO].pure(None)
       }
 
   override val idleWorker: ConnectionIO[Option[Worker]] =
     OptionT { sql"SELECT id FROM worker WHERE reserved_at IS NULL LIMIT 1".query[String].option }
-      .semiflatMap(getById)
+      .flatMapF(getById)
       .value
 
   def reserveWorker(workerId: String, timestamp: DateTime): ConnectionIO[Option[Worker]] =
     singleUpdate {
       sql"UPDATE worker SET reserved_at = ${new DateTime(timestamp)} WHERE id = $workerId".update.run
-    }.productR(OptionT.liftF(getById(workerId)))
+    }.productR(OptionT(getById(workerId)))
       .value
 
   override def assignTask(
@@ -76,7 +78,7 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
           """.update.run
         }
       }
-      .productR(OptionT.liftF(getById(workerId)))
+      .productR(OptionT(getById(workerId)))
       .value
 
   override def release(workerId: String, timestamp: DateTime): ConnectionIO[Option[Worker]] =
@@ -89,8 +91,7 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
               """.update.run
         }
       }
-      .productR {
-        OptionT.liftF(getById(workerId))
-      }
+      .productR(OptionT(getById(workerId)))
       .value
+
 }

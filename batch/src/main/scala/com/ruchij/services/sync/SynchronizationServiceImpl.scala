@@ -91,7 +91,7 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
 
           case _: UnsupportedFormatException =>
             logger
-              .warnF(s"$videoPath contains a video with an unsupported format")
+              .warnF(s"Video with an unsupported format at $videoPath")
 
           case throwable =>
             logger
