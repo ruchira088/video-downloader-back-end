@@ -94,8 +94,10 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
               .warnF(s"Video with an unsupported format at $videoPath")
 
           case throwable =>
-            logger
-              .warnF(s"Unable to add video file at: $videoPath. Reason: ${throwable.getMessage}")
+            Sync[F].delay(throwable.getClass.getCanonicalName)
+              .flatMap { throwableType =>
+                logger.warnF(s"Unable to add video file at: $videoPath. Type: $throwableType; Reason: ${throwable.getMessage}")
+              }
         }
       }
 
