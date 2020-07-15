@@ -65,7 +65,8 @@ class VideoEnrichmentServiceImpl[F[_]: Sync: Clock: ContextShift, A, T[_]: Monad
     for {
       backedType <- fileRepository.backedType(videoPath)
       seekableByteChannel <- seekableByteChannelConverter.convert(backedType)
-    } yield FrameGrab.createFrameGrab(seekableByteChannel)
+      frameGrab <- Sync[F].delay(FrameGrab.createFrameGrab(seekableByteChannel))
+    } yield frameGrab
 
   def createSnapshot(video: Video, frameGrab: FrameGrab, videoTimestamp: FiniteDuration): F[Snapshot] = {
     val key =

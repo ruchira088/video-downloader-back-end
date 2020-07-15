@@ -142,7 +142,7 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
       for {
         backedType <- fileRepositoryService.backedType(videoPath)
         seekableByteChannel <- seekableByteChannelConverter.convert(backedType)
-        frameGrab = FrameGrab.createFrameGrab(seekableByteChannel)
+        frameGrab <- Sync[F].delay(FrameGrab.createFrameGrab(seekableByteChannel))
 
         seconds <- Sync[F].delay(frameGrab.getVideoTrack.getMeta.getTotalDuration)
       } yield FiniteDuration(math.floor(seconds).toLong, TimeUnit.SECONDS)
