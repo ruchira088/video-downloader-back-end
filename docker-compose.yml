@@ -9,7 +9,7 @@ services:
     ports:
       - 8000:8000
     volumes:
-      - "./videos:/opt/videos"
+      - "/media/ruchira/Data:/opt/videos"
       - "./images:/opt/images"
     environment:
       DATABASE_URL: "jdbc:postgresql://postgres:5432/video-downloader"
@@ -23,7 +23,7 @@ services:
     depends_on:
       - postgres
     volumes:
-      - "./videos:/opt/videos"
+      - "/media/ruchira/Data:/opt/videos"
       - "./images:/opt/images"
     environment:
       DATABASE_URL: "jdbc:postgresql://postgres:5432/video-downloader"

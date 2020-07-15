@@ -14,7 +14,7 @@ object Dependencies
 
   lazy val http4sCirce = "org.http4s" %% "http4s-circe" % HTTP4S_VERSION
 
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "2.1.3"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "2.1.4"
 
   lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.3.0"
 
@@ -34,7 +34,7 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.13.0"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "6.5.0"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "6.5.1"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.14"
 
@@ -54,7 +54,7 @@ object Dependencies
 
   lazy val kindProjector = "org.typelevel" %% "kind-projector" % "0.11.0" cross CrossVersion.full
 
-  lazy val scalaTypedHoles = "com.github.cb372" % "scala-typed-holes" % "0.1.4" cross CrossVersion.full
+  lazy val scalaTypedHoles = "com.github.cb372" % "scala-typed-holes" % "0.1.5" cross CrossVersion.full
 
   lazy val betterMonadicFor = "com.olegpy" %% "better-monadic-for" % "0.3.1"
 
