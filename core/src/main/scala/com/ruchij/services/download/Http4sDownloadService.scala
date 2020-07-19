@@ -1,8 +1,5 @@
 package com.ruchij.services.download
 
-import java.util.concurrent.TimeUnit
-
-import cats.Functor
 import cats.effect.{Clock, Concurrent, ContextShift, Resource}
 import cats.implicits._
 import com.ruchij.services.download.models.{DownloadResult, RangeFrom}
@@ -46,19 +43,6 @@ class Http4sDownloadService[F[_]: Concurrent: ContextShift: Clock](
                     .scan(start) { case (total, chunk) => total + chunk.size }
                 }
             }
-      }
-
-}
-
-object Http4sDownloadService {
-
-  def filePath[F[_]: Clock: Functor](uri: Uri, parent: String): F[String] =
-    Clock[F]
-      .realTime(TimeUnit.MILLISECONDS)
-      .map { prefix =>
-        val fileName = uri.path.split("/").lastOption.getOrElse("new-download")
-
-        parent + (if (parent.endsWith("/")) "" else "/") + s"$prefix-$fileName"
       }
 
 }
