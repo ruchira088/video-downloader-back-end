@@ -34,8 +34,11 @@ class WorkExecutorImpl[F[_]: Sync: Clock](
         videoAnalysisService
           .downloadUri(scheduledVideoDownload.videoMetadata.url)
           .flatMap { downloadUri =>
+            val videoFileName = downloadUri.path.split("/").lastOption.getOrElse("video.unknown")
+            val videoPath = s"${downloadConfiguration.videoFolder}/${scheduledVideoDownload.videoMetadata.id}-$videoFileName"
+
             downloadService
-              .download(downloadUri, downloadConfiguration.videoFolder)
+              .download(downloadUri, videoPath)
               .use { downloadResult =>
                 downloadResult.data
                   .evalMap { bytes =>

@@ -42,8 +42,11 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
 
       videoKey <- hashingService.hash(uri.renderString)
 
+      thumbnailFileName = uri.path.split("/").lastOption.getOrElse("thumbnail.unknown")
+      filePath = s"${downloadConfiguration.imageFolder}/$videoKey-$thumbnailFileName"
+
       thumbnail <-
-        downloadService.download(thumbnailUri, downloadConfiguration.imageFolder)
+        downloadService.download(thumbnailUri, filePath)
           .use { downloadResult =>
             downloadResult.data.compile.drain
               .productR(hashingService.hash(thumbnailUri.renderString))

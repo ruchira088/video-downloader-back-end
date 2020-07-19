@@ -17,20 +17,16 @@ class Http4sDownloadService[F[_]: Concurrent: ContextShift: Clock](
   repositoryService: RepositoryService[F]
 ) extends DownloadService[F] {
 
-  override def download(uri: Uri, parent: String): Resource[F, DownloadResult[F]] =
+  override def download(uri: Uri, fileKey: String): Resource[F, DownloadResult[F]] =
     Resource
-      .liftF(Http4sDownloadService.filePath(uri, parent))
-      .evalMap { path =>
-        repositoryService.size(path).map(size => path -> size.getOrElse(0L))
-      }
-      .flatMap {
-        case (path, start) =>
-          client
-            .run(Request(uri = uri, headers = Headers.of(RangeFrom(start))))
-            .map(response => (response, path, start))
+      .liftF { repositoryService.size(fileKey).map(_.getOrElse(0L)) }
+      .flatMap { start =>
+        client
+          .run(Request(uri = uri, headers = Headers.of(RangeFrom(start))))
+          .map(_ -> start)
       }
       .evalMap {
-        case (response, path, start) =>
+        case (response, start) =>
           Http4sUtils
             .header[F](`Content-Length`)
             .product(Http4sUtils.header[F](`Content-Type`))
@@ -41,10 +37,10 @@ class Http4sDownloadService[F[_]: Concurrent: ContextShift: Clock](
             .run(response)
             .map {
               case (fileSize, mediaType) =>
-                DownloadResult.create[F](uri, path, fileSize, mediaType) {
+                DownloadResult.create[F](uri, fileKey, fileSize, mediaType) {
                   response.body
                     .observe { data =>
-                      repositoryService.write(path, data)
+                      repositoryService.write(fileKey, data)
                     }
                     .chunks
                     .scan(start) { case (total, chunk) => total + chunk.size }

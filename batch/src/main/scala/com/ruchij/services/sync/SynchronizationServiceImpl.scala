@@ -106,11 +106,14 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
       _ <- logger.infoF(s"Sync started for $videoPath")
       duration <- videoDuration(videoPath)
 
-      (size, mediaType) <- OptionT(fileRepositoryService.size(videoPath))
-        .product(OptionT.pure.apply(MediaType.video.mp4))
-        .getOrElseF(
-          ApplicativeError[F, Throwable].raiseError(ResourceNotFoundException(s"File not found at $videoPath"))
-        )
+      size <-
+        OptionT(fileRepositoryService.size(videoPath))
+          .getOrElseF {
+            ApplicativeError[F, Throwable].raiseError(ResourceNotFoundException(s"File not found at $videoPath"))
+          }
+
+      path <- fileRepositoryService.backedType(videoPath)
+      mediaType <- fileTypeDetector.detect(path)
 
       currentTimestamp <- Clock[F].realTime(TimeUnit.MILLISECONDS)
 
