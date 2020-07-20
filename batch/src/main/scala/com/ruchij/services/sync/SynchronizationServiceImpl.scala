@@ -82,7 +82,13 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
 
   def addVideo(videoPath: String): F[FileSyncResult] =
     videoFromPath(videoPath)
-      .flatMap(saveVideo)
+      .flatMap { video =>
+        saveVideo(video).recoverWith {
+          case throwable =>
+            videoService.deleteById(video.videoMetadata.id)
+              .productR(ApplicativeError[F, Throwable].raiseError(throwable))
+        }
+      }
       .map[FileSyncResult](VideoSynced)
       .recoverWith {
         errorHandler[F](videoPath) {
@@ -94,10 +100,7 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
               .warnF(s"Video with an unsupported format at $videoPath")
 
           case throwable =>
-            Sync[F].delay(throwable.getClass.getCanonicalName)
-              .flatMap { throwableType =>
-                logger.warnF(s"Unable to add video file at: $videoPath. Type: $throwableType; Reason: ${throwable.getMessage}")
-              }
+            logger.errorF(s"Unable to add video file at: $videoPath", throwable)
         }
       }
 
@@ -115,16 +118,17 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
       path <- fileRepositoryService.backedType(videoPath)
       mediaType <- fileTypeDetector.detect(path)
 
-      currentTimestamp <- Clock[F].realTime(TimeUnit.MILLISECONDS)
+      videoId <- hashingService.hash(videoPath)
 
       snapshot <- videoEnrichmentService.snapshotFileResource(
         videoPath,
-        s"${downloadConfiguration.imageFolder}/$currentTimestamp-$size.${videoEnrichmentService.snapshotMediaType.subType}",
+        s"${downloadConfiguration.imageFolder}/thumbnail-$videoId.${videoEnrichmentService.snapshotMediaType.subType}",
         FiniteDuration((duration * SynchronizationServiceImpl.thumbnailTimestamp).toMillis, TimeUnit.MILLISECONDS)
       )
 
-      videoId <- hashingService.hash(videoPath)
       uri <- eitherToF[Throwable, F].apply(Uri.fromString(Uri.encode(videoPath)))
+
+      currentTimestamp <- Clock[F].realTime(TimeUnit.MILLISECONDS)
 
       videoTitle = fileName(videoPath)
       videoMetadata = VideoMetadata(uri, videoId, VideoSite.Local, videoTitle, duration, size, snapshot)

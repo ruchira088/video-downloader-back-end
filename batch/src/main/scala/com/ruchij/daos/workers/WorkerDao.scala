@@ -15,4 +15,6 @@ trait WorkerDao[F[_]] {
   def assignTask(workerId: String, scheduledVideoId: String, timestamp: DateTime): F[Option[Worker]]
 
   def release(workerId: String, timestamp: DateTime): F[Option[Worker]]
+
+  val resetWorkers: F[Int]
 }

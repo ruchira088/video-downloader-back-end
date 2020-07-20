@@ -54,6 +54,10 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
           }
         }.getOrElseF(idleWorker)
       }
+      .recoverWith {
+        case throwable =>
+          logger.errorF("Error occurred when fetching idle worker", throwable).productR(idleWorker)
+      }
 
   override val run: F[Nothing] =
     idleWorker
@@ -81,9 +85,9 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
                       .flatMap { timestamp =>
                         OptionT(transaction(workerDao.release(worker.id, new DateTime(timestamp))))
                           .getOrElseF {
-                            ApplicativeError[F, Throwable].raiseError(
+                            ApplicativeError[F, Throwable].raiseError {
                               ResourceNotFoundException(s"Worker not found. ID = ${worker.id}")
-                            )
+                            }
                           }
                       }
                       .productR(Applicative[F].unit)
@@ -94,11 +98,15 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
               Applicative[F].unit
           }
       }
+      .recoverWith {
+        case throwable =>
+          logger.errorF("Error occurred in work scheduler", throwable)
+      }
       .productR[Nothing] {
         Sync[F].defer[Nothing](run)
       }
 
-  val syncWorkers: F[Int] =
+  val newWorkers: F[Int] =
     Range(0, workerConfiguration.maxConcurrentDownloads).toList
       .traverse { index =>
         transaction(workerDao.getById(Worker.workerIdFromIndex(index))).map(index -> _)
@@ -117,11 +125,15 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       }
       .map(_.sum)
 
+  val resetWorkers: F[Int] = transaction(workerDao.resetWorkers)
+
   override val init: F[SynchronizationResult] =
     logger
       .infoF("Batch initialization started")
-      .productR(syncWorkers)
+      .productR(newWorkers)
       .flatMap(count => logger.infoF(s"New workers created: $count"))
+      .productR(resetWorkers)
+      .productR(logger.infoF("Workers have been reset"))
       .productR(synchronizationService.sync)
       .flatTap(result => logger.infoF(result.prettyPrint))
       .productL(logger.infoF("Batch initialization completed"))

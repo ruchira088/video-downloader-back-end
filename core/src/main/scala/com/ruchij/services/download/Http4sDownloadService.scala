@@ -34,7 +34,7 @@ class Http4sDownloadService[F[_]: Concurrent: ContextShift: Clock](
             .run(response)
             .map {
               case (fileSize, mediaType) =>
-                DownloadResult.create[F](uri, fileKey, fileSize, mediaType) {
+                DownloadResult.create[F](uri, fileKey, fileSize + start, mediaType) {
                   response.body
                     .observe { data =>
                       repositoryService.write(fileKey, data)

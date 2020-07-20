@@ -95,7 +95,11 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
   override val acquireTask: OptionT[F, ScheduledVideoDownload] =
     OptionT.liftF(Clock[F].realTime(TimeUnit.MILLISECONDS))
       .flatMapF { timestamp =>
-        transaction(schedulingDao.retrieveNewTask(new DateTime(timestamp)))
+        transaction {
+          OptionT(schedulingDao.retrieveNewTask(new DateTime(timestamp)))
+            .orElseF(schedulingDao.retrieveStaledTask(new DateTime(timestamp)))
+            .value
+        }
       }
 
   override val active: Stream[F, ScheduledVideoDownload] =

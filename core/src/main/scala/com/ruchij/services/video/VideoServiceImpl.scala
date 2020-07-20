@@ -2,8 +2,7 @@ package com.ruchij.services.video
 
 import cats.data.OptionT
 import cats.implicits._
-import cats.{ApplicativeError, MonadError, ~>}
-import com.ruchij.daos.doobie.DoobieUtils.singleUpdate
+import cats.{MonadError, ~>}
 import com.ruchij.daos.resource.FileResourceDao
 import com.ruchij.daos.resource.models.FileResource
 import com.ruchij.daos.snapshot.SnapshotDao
@@ -51,19 +50,15 @@ class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: MonadError[*[_],
 
   override def deleteById(videoId: String): F[Video] =
     fetchById(videoId)
-        .flatMap { video =>
+        .flatTap { video =>
           transaction {
-            OptionT.liftF(snapshotDao.deleteByVideo(video.videoMetadata.id))
-              .productR(singleUpdate(videoDao.deleteById(videoId)))
-              .productR(singleUpdate(videoMetadataDao.deleteById(video.videoMetadata.id)))
-              .productR(singleUpdate(fileResourceDao.deleteById(video.videoMetadata.thumbnail.id)))
-              .productR(singleUpdate(fileResourceDao.deleteById(video.fileResource.id)))
-              .getOrElseF {
-                ApplicativeError[T, Throwable].raiseError {
-                  new InternalError(s"Unable to delete video with ID = $videoId")
-                }
-              }
-              .as(video)
+            snapshotDao.findByVideo(videoId)
+              .productL(snapshotDao.deleteByVideo(videoId))
+              .flatMap(_.toList.traverse(snapshot => fileResourceDao.deleteById(snapshot.fileResource.id)))
+              .productR(videoDao.deleteById(videoId))
+              .productR(videoMetadataDao.deleteById(videoId))
+              .productR(fileResourceDao.deleteById(video.videoMetadata.thumbnail.id))
+              .productR(fileResourceDao.deleteById(video.fileResource.id))
           }
         }
 

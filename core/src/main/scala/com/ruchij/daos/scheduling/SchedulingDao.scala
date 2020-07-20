@@ -18,4 +18,6 @@ trait SchedulingDao[F[_]] {
   def search(term: Option[String], pageNumber: Int, pageSize: Int, sortBy: SortBy, order: Order): F[Seq[ScheduledVideoDownload]]
 
   def retrieveNewTask(timestamp: DateTime): F[Option[ScheduledVideoDownload]]
+
+  def retrieveStaledTask(timestamp: DateTime): F[Option[ScheduledVideoDownload]]
 }

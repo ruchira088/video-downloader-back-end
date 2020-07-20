@@ -58,7 +58,13 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       """.update.run
     }.productR(OptionT(findById(id))).value
 
-  override def search(term: Option[String], pageNumber: Int, pageSize: Int, sortBy: SortBy, order: Order): ConnectionIO[Seq[ScheduledVideoDownload]] =
+  override def search(
+    term: Option[String],
+    pageNumber: Int,
+    pageSize: Int,
+    sortBy: SortBy,
+    order: Order
+  ): ConnectionIO[Seq[ScheduledVideoDownload]] =
     (selectQuery
       ++ fr"ORDER BY"
       ++ schedulingSortByFiledName(sortBy)
@@ -74,10 +80,29 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
         .query[String]
         .to[Seq]
         .map(_.headOption)
-    }
-      .flatTap { id =>
+    }.flatTap { id =>
         singleUpdate {
           sql"UPDATE scheduled_video SET download_started_at = $timestamp WHERE video_metadata_id = $id".update.run
+        }
+      }
+      .flatMapF(findById)
+      .value
+
+  override def retrieveStaledTask(timestamp: DateTime): ConnectionIO[Option[ScheduledVideoDownload]] =
+    OptionT {
+      sql"""
+        SELECT video_metadata_id FROM scheduled_video
+          WHERE
+            last_updated_at < ${timestamp.minusSeconds(30)} AND
+            download_started_at IS NOT NULL AND
+            completed_at IS NULL
+          LIMIT 1
+      """
+        .query[String]
+        .option
+    }.flatTap { id =>
+        singleUpdate {
+          sql"UPDATE scheduled_video SET last_updated_at = $timestamp WHERE video_metadata_id = $id".update.run
         }
       }
       .flatMapF(findById)
