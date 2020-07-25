@@ -1,7 +1,5 @@
 package com.ruchij.services.worker
 
-import java.util.concurrent.TimeUnit
-
 import cats.effect.{Clock, Sync}
 import cats.implicits._
 import com.ruchij.config.DownloadConfiguration
@@ -14,7 +12,7 @@ import com.ruchij.services.enrichment.VideoEnrichmentService
 import com.ruchij.services.hashing.HashingService
 import com.ruchij.services.scheduling.SchedulingService
 import com.ruchij.services.video.{VideoAnalysisService, VideoService}
-import org.joda.time.DateTime
+import com.ruchij.types.JodaClock
 
 class WorkExecutorImpl[F[_]: Sync: Clock](
   schedulingService: SchedulingService[F],
@@ -54,11 +52,11 @@ class WorkExecutorImpl[F[_]: Sync: Clock](
           }
           .flatMap { downloadResult =>
             for {
-              timestamp <- Clock[F].realTime(TimeUnit.MILLISECONDS)
+              timestamp <- JodaClock[F].timestamp
               fileKey <- hashingService.hash(downloadResult.uri.renderString)
               fileResource = FileResource(
                 fileKey,
-                new DateTime(timestamp),
+                timestamp,
                 downloadResult.downloadedFileKey,
                 downloadResult.mediaType,
                 downloadResult.size

@@ -19,13 +19,13 @@ import com.ruchij.services.hashing.HashingService
 import com.ruchij.services.repository.FileRepositoryService.FileRepository
 import com.ruchij.services.repository.FileTypeDetector
 import com.ruchij.services.sync.SynchronizationServiceImpl.{errorHandler, fileName, maxConcurrentSyncCount, supportedFileTypes}
-import com.ruchij.services.sync.models.{FileSyncResult, SynchronizationResult}
 import com.ruchij.services.sync.models.FileSyncResult.{ExistingVideo, IgnoredFile, SyncError, VideoSynced}
+import com.ruchij.services.sync.models.{FileSyncResult, SynchronizationResult}
 import com.ruchij.services.video.VideoService
 import com.ruchij.types.FunctionKTypes.eitherToF
+import com.ruchij.types.JodaClock
 import org.http4s.{MediaType, Uri}
 import org.jcodec.api.{FrameGrab, UnsupportedFormatException}
-import org.joda.time.DateTime
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -128,11 +128,11 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
 
       uri <- eitherToF[Throwable, F].apply(Uri.fromString(Uri.encode(videoPath)))
 
-      currentTimestamp <- Clock[F].realTime(TimeUnit.MILLISECONDS)
+      timestamp <- JodaClock[F].timestamp
 
       videoTitle = fileName(videoPath)
       videoMetadata = VideoMetadata(uri, videoId, VideoSite.Local, videoTitle, duration, size, snapshot)
-      videoFileResource = FileResource(videoId, new DateTime(currentTimestamp), videoPath, mediaType, size)
+      videoFileResource = FileResource(videoId, timestamp, videoPath, mediaType, size)
 
     } yield Video(videoMetadata, videoFileResource)
 

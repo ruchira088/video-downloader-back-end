@@ -1,13 +1,12 @@
 package com.ruchij.services.health.models
 
-import java.util.concurrent.TimeUnit
-
 import cats.Applicative
 import cats.effect.{Clock, Sync}
 import cats.implicits._
 import com.eed3si9n.ruchij.BuildInfo
 import com.ruchij.circe.Encoders.dateTimeEncoder
 import com.ruchij.config.ApplicationInformation
+import com.ruchij.types.JodaClock
 import io.circe.generic.auto._
 import org.http4s.EntityEncoder
 import org.http4s.circe.jsonEncoderOf
@@ -34,7 +33,7 @@ object ServiceInformation {
 
   def create[F[_]: Sync: Clock](applicationInformation: ApplicationInformation): F[ServiceInformation] =
     for {
-      timestamp <- Clock[F].realTime(TimeUnit.MILLISECONDS)
+      timestamp <- JodaClock[F].timestamp
       javaVersion <- Sync[F].delay(Properties.javaVersion)
 
     } yield

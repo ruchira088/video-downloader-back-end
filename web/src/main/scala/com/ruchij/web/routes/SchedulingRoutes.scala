@@ -2,11 +2,12 @@ package com.ruchij.web.routes
 
 import java.util.concurrent.TimeUnit
 
-import cats.effect.{Clock, Concurrent, Timer}
+import cats.effect.{Concurrent, Timer}
 import cats.implicits._
 import com.ruchij.circe.Encoders._
 import com.ruchij.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.services.scheduling.SchedulingService
+import com.ruchij.types.JodaClock
 import com.ruchij.web.requests.SchedulingRequest
 import com.ruchij.web.requests.queryparams.QueryParameter.SearchQuery
 import com.ruchij.web.responses.{EventStreamEventType, EventStreamHeartBeat, SearchResult}
@@ -18,7 +19,6 @@ import org.http4s.circe.CirceEntityCodec.{circeEntityDecoder, circeEntityEncoder
 import org.http4s.circe._
 import org.http4s.{HttpRoutes, ServerSentEvent}
 import org.http4s.dsl.Http4sDsl
-import org.joda.time.DateTime
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -58,11 +58,11 @@ object SchedulingRoutes {
             }
             .merge {
               Stream.fixedRate[F](FiniteDuration(10, TimeUnit.SECONDS))
-                .zipRight(Stream.eval(Clock[F].realTime(TimeUnit.MILLISECONDS)).repeat)
+                .zipRight(Stream.eval(JodaClock[F].timestamp).repeat)
                 .map {
                   timestamp =>
                     ServerSentEvent(
-                      EventStreamHeartBeat(new DateTime(timestamp)).asJson.noSpaces,
+                      EventStreamHeartBeat(timestamp).asJson.noSpaces,
                       EventStreamEventType.HeartBeat
                     )
                 }

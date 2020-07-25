@@ -17,7 +17,8 @@ import com.ruchij.services.scheduling.SchedulingService
 import com.ruchij.services.sync.SynchronizationService
 import com.ruchij.services.sync.models.SynchronizationResult
 import com.ruchij.services.worker.WorkExecutor
-import org.joda.time.{DateTime, LocalTime}
+import com.ruchij.types.JodaClock
+import org.joda.time.LocalTime
 
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.language.postfixOps
@@ -44,12 +45,12 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       .flatMap { sleepDuration =>
         Timer[F].sleep(DELAY + FiniteDuration(sleepDuration, TimeUnit.MILLISECONDS))
       }
-      .productR(Clock[F].realTime(TimeUnit.MILLISECONDS))
+      .productR(JodaClock[F].timestamp)
       .flatMap { timestamp =>
         OptionT {
           transaction {
             OptionT(workerDao.idleWorker).flatMap { worker =>
-              OptionT(workerDao.reserveWorker(worker.id, new DateTime(timestamp)))
+              OptionT(workerDao.reserveWorker(worker.id, timestamp))
             }.value
           }
         }.getOrElseF(idleWorker)
@@ -70,20 +71,19 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
                 .start {
                   Bracket[F, Throwable].guarantee {
                     schedulingService.acquireTask
-                      .product(OptionT.liftF(Clock[F].realTime(TimeUnit.MILLISECONDS)))
+                      .product(OptionT.liftF(JodaClock[F].timestamp))
                       .flatMapF {
                         case (task, timestamp) =>
-                          transaction(workerDao.assignTask(worker.id, task.videoMetadata.id, new DateTime(timestamp)))
+                          transaction(workerDao.assignTask(worker.id, task.videoMetadata.id, timestamp))
                             .as[Option[ScheduledVideoDownload]](Some(task))
                       }
                       .semiflatMap(workExecutor.execute)
                       .productR(OptionT.liftF(Applicative[F].unit))
                       .getOrElseF(Applicative[F].unit)
                   } {
-                    Clock[F]
-                      .realTime(TimeUnit.MILLISECONDS)
+                    JodaClock[F].timestamp
                       .flatMap { timestamp =>
-                        OptionT(transaction(workerDao.release(worker.id, new DateTime(timestamp))))
+                        OptionT(transaction(workerDao.release(worker.id, timestamp)))
                           .getOrElseF {
                             ApplicativeError[F, Throwable].raiseError {
                               ResourceNotFoundException(s"Worker not found. ID = ${worker.id}")
@@ -144,10 +144,9 @@ object SchedulerImpl {
   val DELAY: FiniteDuration = 10 seconds
 
   def isWorkPeriod[F[_]: Clock: Monad](start: LocalTime, end: LocalTime): F[Boolean] =
-    Clock[F]
-      .realTime(TimeUnit.MILLISECONDS)
+    JodaClock[F].timestamp
       .map { timestamp =>
-        val localTime = new DateTime(timestamp).toLocalTime
+        val localTime = timestamp.toLocalTime
 
         if (start.isBefore(end))
           localTime.isAfter(start) && localTime.isBefore(end)

@@ -2,7 +2,6 @@ package com.ruchij.services.enrichment
 
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
-import java.util.concurrent.TimeUnit
 
 import cats.{ApplicativeError, Monad, ~>}
 import cats.data.OptionT
@@ -16,13 +15,13 @@ import com.ruchij.daos.snapshot.models.Snapshot
 import com.ruchij.daos.video.models.Video
 import com.ruchij.exceptions.{CorruptedFrameGrabException, InvalidConditionException}
 import com.ruchij.services.repository.FileRepositoryService.FileRepository
+import com.ruchij.types.JodaClock
 import fs2.Stream
 import javax.imageio.ImageIO
 import net.coobird.thumbnailator.Thumbnails
 import org.http4s.MediaType
 import org.jcodec.api.FrameGrab
 import org.jcodec.scale.AWTUtil
-import org.joda.time.DateTime
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -95,13 +94,13 @@ class VideoEnrichmentServiceImpl[F[_]: Sync: Clock: ContextShift, A, T[_]: Monad
       .drain
       .productR {
         for {
-          timestamp <- Clock[F].realTime(TimeUnit.MILLISECONDS)
+          timestamp <- JodaClock[F].timestamp
           size <- OptionT(fileRepository.size(snapshotPath))
             .getOrElseF(ApplicativeError[F, Throwable].raiseError(InvalidConditionException))
 
           fileResource = FileResource(
-            s"snapshot-$timestamp-$size",
-            new DateTime(timestamp),
+            s"snapshot-${timestamp.getMillis}-$size",
+            timestamp,
             snapshotPath,
             snapshotMediaType,
             size
