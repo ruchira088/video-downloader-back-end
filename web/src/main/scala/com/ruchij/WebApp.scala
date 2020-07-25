@@ -71,7 +71,12 @@ object WebApp extends IOApp {
           hashingService = new MurmurHash3Service[F](cpuBlocker)
           videoAnalysisService = new VideoAnalysisServiceImpl[F](httpClient)
           repositoryService = new FileRepositoryService[F](ioBlocker)
-          videoService = new VideoServiceImpl[F, ConnectionIO](DoobieVideoDao, DoobieVideoMetadataDao, DoobieSnapshotDao, DoobieFileResourceDao)
+          videoService = new VideoServiceImpl[F, ConnectionIO](
+            DoobieVideoDao,
+            DoobieVideoMetadataDao,
+            DoobieSnapshotDao,
+            DoobieFileResourceDao
+          )
           downloadService = new Http4sDownloadService[F](httpClient, repositoryService)
           assetService = new AssetServiceImpl[F, ConnectionIO](DoobieFileResourceDao, repositoryService)
           schedulingService = new SchedulingServiceImpl[F, ConnectionIO](
@@ -83,7 +88,11 @@ object WebApp extends IOApp {
             downloadService,
             serviceConfiguration.downloadConfiguration
           )
-          healthService = new HealthServiceImpl[F](serviceConfiguration.applicationInformation)
+          healthService = new HealthServiceImpl[F](
+            serviceConfiguration.applicationInformation,
+            repositoryService,
+            serviceConfiguration.downloadConfiguration
+          )
 
         } yield Routes(videoService, videoAnalysisService, schedulingService, assetService, healthService, ioBlocker)
       }
