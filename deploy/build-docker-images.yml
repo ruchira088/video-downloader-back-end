@@ -1,0 +1,7 @@
+---
+- hosts: localhost
+  connection: local
+
+  tasks:
+    - name: Build Docker-Compose images
+      import_tasks: tasks/build-docker-images.yml

@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: video-downloader-web-service
+  namespace: video-downloader-{{ git_branch }}
+spec:
+  selector:
+    app: video-downloader-web
+    branch: {{ git_branch }}
+  ports:
+    - port: 8000
+

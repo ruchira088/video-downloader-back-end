@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: video-downloader-web-deployment
+  namespace: video-downloader-{{ git_branch }}
+spec:
+  selector:
+    matchLabels:
+      app: video-downloader-web
+      branch: {{ git_branch }}
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: video-downloader-web
+        branch: {{ git_branch }}
+    spec:
+      containers:
+        - name: video-downloader-web-container
+          image: {{ docker_registry }}/video-downloader-web:{{ git_commit }}
+          readinessProbe:
+            httpGet:
+              port: httpPort
+              path: /service/info
+              httpHeaders:
+                - name: X-Correlation-ID
+                  value: k8s-readiness-probe
+          startupProbe:
+            httpGet:
+              port: httpPort
+              path: /service/info
+              httpHeaders:
+                - name: X-Correlation-ID
+                  value: k8s-startup-probe
+          ports:
+            - name: httpPort
+              containerPort: 8000

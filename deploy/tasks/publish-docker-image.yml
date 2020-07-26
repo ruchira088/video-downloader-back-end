@@ -1,0 +1,4 @@
+- name: Publish Docker image
+  shell: |
+    docker tag video-downloader-{{ app_name }}:{{ git_commit }} {{ docker_registry }}/video-downloader-{{ app_name }}:{{ git_commit }} && \
+    docker push {{ docker_registry }}/video-downloader-{{ app_name }}:{{ git_commit }}
