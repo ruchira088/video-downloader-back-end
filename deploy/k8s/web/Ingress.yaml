@@ -1,0 +1,13 @@
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: video-downloader-ingress
+  namespace: video-downloader-api-{{ git_branch }}
+spec:
+  rules:
+    - host: web.video.ruchij.com
+      http:
+        paths:
+          - backend:
+              serviceName: video-downloader-web-service
+              servicePort: http4s-port

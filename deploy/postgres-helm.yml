@@ -1,0 +1,16 @@
+---
+- hosts: localhost
+  connection: local
+
+  tasks:
+    - name: Install Postgres helm chart
+      helm:
+        chart:
+          name: postgres
+          version: 9.1.2
+          source:
+            type: repo
+            location: https://charts.bitnami.com/bitnami
+        state: present
+        name: postgres
+        namespace: video-downloader-api-master

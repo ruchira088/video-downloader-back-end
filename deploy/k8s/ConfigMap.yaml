@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: common-config-map
+  namespace: video-downloader-api-{{ git_branch }}
+data:
+{% for key, value in config_values.common.items() %}
+  {{ key }}: "{{ value }}"
+{% endfor %}

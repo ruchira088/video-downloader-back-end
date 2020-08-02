@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: video-downloader-web-deployment
-  namespace: video-downloader-{{ git_branch }}
+  namespace: video-downloader-api-{{ git_branch }}
 spec:
   selector:
     matchLabels:
@@ -18,20 +18,37 @@ spec:
       containers:
         - name: video-downloader-web-container
           image: {{ docker_registry }}/video-downloader-web:{{ git_commit }}
+          envFrom:
+            - configMapRef:
+                name: common-config-map
           readinessProbe:
             httpGet:
-              port: httpPort
+              port: http4s-port
               path: /service/info
               httpHeaders:
                 - name: X-Correlation-ID
                   value: k8s-readiness-probe
           startupProbe:
             httpGet:
-              port: httpPort
+              port: http4s-port
               path: /service/info
               httpHeaders:
                 - name: X-Correlation-ID
                   value: k8s-startup-probe
           ports:
-            - name: httpPort
+            - name: http4s-port
               containerPort: 8000
+          volumeMounts:
+            - mountPath: {{ config_values.common.VIDEO_FOLDER }}
+              name: video-folder
+            - mountPath: {{ config_values.common.IMAGE_FOLDER }}
+              name: image-folder
+      volumes:
+        - name: video-folder
+          hostPath:
+            path: {{ host_video_folder }}
+            type: Directory
+        - name: image-folder
+          hostPath:
+            path: {{ host_image_folder }}
+            type: Directory

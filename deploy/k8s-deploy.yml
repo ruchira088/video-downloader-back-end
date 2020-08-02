@@ -4,6 +4,8 @@
 
   vars:
     docker_registry: localhost:32000
+    host_video_folder: /home/ruchira/Videos
+    host_image_folder: /home/ruchira/Pictures
 
   tasks:
     - name: Create output directories
@@ -31,12 +33,17 @@
     - name: Gather git information
       import_tasks: tasks/git-info.yml
 
+    - name: Set config values and secrets
+      import_tasks: tasks/configs-and-secrets.yml
+
     - name: Render K8s resource files
       block:
-        - name: Render K8s Namespace resource file
+        - name: Render K8s common resource files
           template:
-            src: k8s/Namespace.yaml
-            dest: k8s-output/Namespace.yaml
+            src: "{{ item }}"
+            dest: k8s-output/{{ item | basename }}
+          with_fileglob:
+            - k8s/*.yaml
 
         - name: Render K8s resource files - web
           template:
