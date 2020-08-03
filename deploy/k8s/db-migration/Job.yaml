@@ -1,0 +1,18 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  namespace: video-downloader-api-{{ git_branch }}
+  name: database-migration-job-{{ git_commit }}
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: database-migration-containter
+          image: {{ docker_registry }}/video-downloader-migrationApplication:{{ git_commit }}
+          envFrom:
+            - configMapRef:
+                name: db-migration-config-map
+            - secretRef:
+                name: db-migration-secrets

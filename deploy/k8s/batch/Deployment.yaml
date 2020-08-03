@@ -1,32 +1,32 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: video-downloader-batch-deploymeny
+  name: batch-deployment
   namespace: video-downloader-api-{{ git_branch }}
 spec:
   selector:
     matchLabels:
-      app: video-downloader-batch
+      app: batch
       branch: {{ git_branch }}
   replicas: 1
   template:
     metadata:
       labels:
-        app: video-downloader-batch
+        app: batch
         branch: {{ git_branch }}
     spec:
       containers:
-        - name: video-downloader-batch-container
+        - name: batch-container
           image: {{ docker_registry }}/video-downloader-batch:{{ git_commit }}
           envFrom:
             - configMapRef:
-                name: common-config-map
+                name: batch-config-map
             - secretRef:
-                name: common-secrets
+                name: batch-secrets
           volumeMounts:
-            - mountPath: {{ config_values.common.VIDEO_FOLDER }}
+            - mountPath: {{ batch.config_values.VIDEO_FOLDER }}
               name: video-folder
-            - mountPath: {{ config_values.common.IMAGE_FOLDER }}
+            - mountPath: {{ batch.config_values.IMAGE_FOLDER }}
               name: image-folder
       volumes:
         - name: video-folder

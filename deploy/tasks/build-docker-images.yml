@@ -1,10 +1,15 @@
-- name: Build Web application Docker image
+- name: Build web Docker image
   import_tasks: build-docker.yml
   vars:
     app_name: web
     ports: 8000
 
-- name: Build Batch application Docker image
+- name: Build batch Docker image
   import_tasks: build-docker.yml
   vars:
     app_name: batch
+
+- name: Build DB migration Docker image
+  import_tasks: build-docker.yml
+  vars:
+    app_name: migrationApplication

@@ -2,7 +2,7 @@
 - hosts: localhost
   connection: local
   vars:
-    KUBECONFIG: /Users/ruchira/Development/k8s-config/ubuntu-vm.yaml
+    kube_config: /Users/ruchira/Development/k8s-config/ubuntu-vm.yaml
 
   tasks:
     - name: Gather git information
@@ -16,9 +16,9 @@
 
     - name: Install Postgres helm chart
       shell: |
-        KUBECONFIG={{ KUBECONFIG }} helm install postgresql \
-          --set postgresqlUsername="{{ secrets.common.DATABASE_USER }}" \
-          --set postgresqlPassword="{{ secrets.common.DATABASE_PASSWORD }}" \
+        KUBECONFIG={{ kube_config }} helm install postgresql \
+          --set postgresqlUsername="{{ secrets.DATABASE_USER }}" \
+          --set postgresqlPassword="{{ secrets.DATABASE_PASSWORD }}" \
           --set postgresqlDatabase=video-downloader \
           --namespace video-downloader-api-{{ git_branch }} \
           --create-namespace \

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-migration-config-map
+  namespace: video-downloader-api-{{ git_branch }}
+data:
+{% for key, value in db_migration.config_values.items() %}
+  {{ key }}: "{{ value }}"
+{% endfor %}
