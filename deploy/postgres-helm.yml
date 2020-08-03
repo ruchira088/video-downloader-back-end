@@ -1,16 +1,25 @@
 ---
 - hosts: localhost
   connection: local
+  vars:
+    KUBECONFIG: /Users/ruchira/Development/k8s-config/ubuntu-vm.yaml
 
   tasks:
+    - name: Gather git information
+      import_tasks: tasks/git-info.yml
+
+    - name: Set config values and secrets
+      import_tasks: tasks/configs-and-secrets.yml
+
+    - name: Add Bitnami Helm charts repository
+      command: helm repo add bitnami https://charts.bitnami.com/bitnami
+
     - name: Install Postgres helm chart
-      helm:
-        chart:
-          name: postgres
-          version: 9.1.2
-          source:
-            type: repo
-            location: https://charts.bitnami.com/bitnami
-        state: present
-        name: postgres
-        namespace: video-downloader-api-master
+      shell: |
+        KUBECONFIG={{ KUBECONFIG }} helm install postgresql \
+          --set postgresqlUsername="{{ secrets.common.DATABASE_USER }}" \
+          --set postgresqlPassword="{{ secrets.common.DATABASE_PASSWORD }}" \
+          --set postgresqlDatabase=video-downloader \
+          --namespace video-downloader-api-{{ git_branch }} \
+          --create-namespace \
+          bitnami/postgresql
