@@ -1,15 +1,18 @@
 - name: Build web Docker image
   import_tasks: build-docker.yml
   vars:
+    sbt_project: web
     app_name: web
     ports: 8000
 
 - name: Build batch Docker image
   import_tasks: build-docker.yml
   vars:
+    sbt_project: batch
     app_name: batch
 
 - name: Build DB migration Docker image
   import_tasks: build-docker.yml
   vars:
-    app_name: migrationApplication
+    sbt_project: migrationApplication
+    app_name: migration-application

@@ -17,7 +17,7 @@ lazy val migrationApplication =
   (project in file("./migration-application"))
     .enablePlugins(JavaAppPackaging)
     .settings(
-      name := "video-downloader-migration",
+      name := "video-downloader-migration-application",
       libraryDependencies ++= Seq(catsEffect, flywayCore, h2, postgresql, pureconfig, scalaLogging, logbackClassic),
       topLevelDirectory := None
     )

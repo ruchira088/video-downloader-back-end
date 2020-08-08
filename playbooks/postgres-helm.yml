@@ -1,8 +1,6 @@
 ---
 - hosts: localhost
   connection: local
-  vars:
-    kube_config: /Users/ruchira/Development/k8s-config/ubuntu-vm.yaml
 
   tasks:
     - name: Gather git information
@@ -10,6 +8,9 @@
 
     - name: Set config values and secrets
       import_tasks: tasks/configs-and-secrets.yml
+
+    - name: Set kube_config
+      import_tasks: tasks/k8s-config.yml
 
     - name: Add Bitnami Helm charts repository
       command: helm repo add bitnami https://charts.bitnami.com/bitnami

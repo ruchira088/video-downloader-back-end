@@ -1,0 +1,12 @@
+- name: Create output directory
+  file:
+    path: k8s-output
+    state: directory
+
+- name: Create K8s config file
+  copy:
+    dest: k8s-output/kubeconfig
+    content: "{{ lookup('aws_ssm', '/k8s/config/ubuntu-vm', region='ap-southeast-2', aws_profile='personal')}}"
+
+- set_fact:
+    kube_config: k8s-output/kubeconfig
