@@ -1,3 +1,9 @@
+- name: Build DB migration Docker image
+  import_tasks: build-docker.yml
+  vars:
+    sbt_project: migrationApplication
+    app_name: migration-application
+
 - name: Build web Docker image
   import_tasks: build-docker.yml
   vars:
@@ -10,9 +16,3 @@
   vars:
     sbt_project: batch
     app_name: batch
-
-- name: Build DB migration Docker image
-  import_tasks: build-docker.yml
-  vars:
-    sbt_project: migrationApplication
-    app_name: migration-application

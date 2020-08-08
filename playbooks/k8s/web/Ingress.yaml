@@ -5,7 +5,7 @@ metadata:
   namespace: video-downloader-api-{{ git_branch }}
 spec:
   rules:
-    - host: web.video.ruchij.com
+    - host: web.{{ git_branch }}.video.local.ruchij.com
       http:
         paths:
           - backend:

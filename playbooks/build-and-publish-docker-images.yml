@@ -3,7 +3,7 @@
   connection: local
 
   vars:
-    docker_registry: ubuntu-vm:32000
+    docker_registry: local.ruchij.com:32000
 
   tasks:
     - name: Build Docker images

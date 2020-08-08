@@ -18,8 +18,8 @@
     - name: Install Postgres helm chart
       shell: |
         KUBECONFIG={{ kube_config }} helm install postgresql \
-          --set postgresqlUsername="{{ secrets.DATABASE_USER }}" \
-          --set postgresqlPassword="{{ secrets.DATABASE_PASSWORD }}" \
+          --set postgresqlUsername="{{ secrets.database_user }}" \
+          --set postgresqlPassword="{{ secrets.database_password }}" \
           --set postgresqlDatabase=video-downloader \
           --namespace video-downloader-api-{{ git_branch }} \
           --create-namespace \
