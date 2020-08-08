@@ -90,6 +90,7 @@ object BatchApp extends IOApp {
 
         videoEnrichmentService = new VideoEnrichmentServiceImpl[F, repositoryService.BackedType, ConnectionIO](
           repositoryService,
+          hashingService,
           DoobieSnapshotDao,
           DoobieFileResourceDao,
           ioBlocker,

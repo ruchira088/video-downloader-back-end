@@ -14,6 +14,7 @@ import com.ruchij.daos.snapshot.SnapshotDao
 import com.ruchij.daos.snapshot.models.Snapshot
 import com.ruchij.daos.video.models.Video
 import com.ruchij.exceptions.{CorruptedFrameGrabException, InvalidConditionException}
+import com.ruchij.services.hashing.HashingService
 import com.ruchij.services.repository.FileRepositoryService.FileRepository
 import com.ruchij.types.JodaClock
 import fs2.Stream
@@ -27,6 +28,7 @@ import scala.concurrent.duration.FiniteDuration
 
 class VideoEnrichmentServiceImpl[F[_]: Sync: Clock: ContextShift, A, T[_]: Monad](
   fileRepository: FileRepository[F, A],
+  hashingService: HashingService[F],
   snapshotDao: SnapshotDao[T],
   fileResourceDao: FileResourceDao[T],
   ioBlocker: Blocker,
@@ -95,11 +97,14 @@ class VideoEnrichmentServiceImpl[F[_]: Sync: Clock: ContextShift, A, T[_]: Monad
       .productR {
         for {
           timestamp <- JodaClock[F].timestamp
+
           size <- OptionT(fileRepository.size(snapshotPath))
             .getOrElseF(ApplicativeError[F, Throwable].raiseError(InvalidConditionException))
 
+          hashedPath <- hashingService.hash(snapshotPath)
+
           fileResource = FileResource(
-            s"snapshot-${timestamp.getMillis}-$size",
+            s"snapshot-$hashedPath-${videoTimestamp.toMillis}",
             timestamp,
             snapshotPath,
             snapshotMediaType,
