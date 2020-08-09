@@ -15,9 +15,9 @@
         path: k8s-output/db-migration
         state: directory
 
-    - name: Create output directory - web
+    - name: Create output directory - api
       file:
-        path: k8s-output/web
+        path: k8s-output/api
         state: directory
 
     - name: Create output directory - batch
@@ -47,12 +47,12 @@
       with_fileglob:
         - k8s/db-migration/*.yaml
 
-    - name: Render K8s resource files - web
+    - name: Render K8s resource files - api
       template:
         src: "{{ item }}"
-        dest: k8s-output/web/{{ item | basename }}
+        dest: k8s-output/api/{{ item | basename }}
       with_fileglob:
-        - k8s/web/*.yaml
+        - k8s/api/*.yaml
 
     - name: Render K8s resource files - batch
       template:

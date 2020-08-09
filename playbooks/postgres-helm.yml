@@ -21,6 +21,6 @@
           --set postgresqlUsername="{{ secrets.database_user }}" \
           --set postgresqlPassword="{{ secrets.database_password }}" \
           --set postgresqlDatabase=video-downloader \
-          --namespace video-downloader-api-{{ git_branch }} \
+          --namespace video-downloader-back-end-{{ git_branch }} \
           --create-namespace \
           bitnami/postgresql

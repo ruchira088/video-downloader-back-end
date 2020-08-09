@@ -42,11 +42,11 @@ lazy val core =
     )
     .dependsOn(migrationApplication)
 
-lazy val web =
-  (project in file("./web"))
+lazy val api =
+  (project in file("./api"))
     .enablePlugins(BuildInfoPlugin, JavaAppPackaging)
     .settings(
-      name := "video-downloader-web",
+      name := "video-downloader-api",
       buildInfoKeys := BuildInfoKey.ofN(name, organization, version, scalaVersion, sbtVersion),
       buildInfoPackage := "com.eed3si9n.ruchij",
       topLevelDirectory := None,
@@ -75,10 +75,10 @@ lazy val batch =
       )
       .dependsOn(core)
 
-addCommandAlias("compileAll", "; migrationApplication/compile; core/compile; web/compile; batch/compile")
+addCommandAlias("compileAll", "; migrationApplication/compile; core/compile; api/compile; batch/compile")
 
-addCommandAlias("cleanAll", "; batch/clean; web/clean; core/clean; migrationApplication/clean")
+addCommandAlias("cleanAll", "; batch/clean; api/clean; core/clean; migrationApplication/clean")
 
-addCommandAlias("testAll", "; migrationApplication/test; core/test; web/test; batch/test")
+addCommandAlias("testAll", "; migrationApplication/test; core/test; api/test; batch/test")
 
 addCommandAlias("refreshAll", "; cleanAll; compileAll")

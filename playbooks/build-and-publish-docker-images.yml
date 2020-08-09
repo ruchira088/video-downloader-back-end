@@ -16,10 +16,10 @@
           vars:
             app_name: migration-application
 
-        - name: Publish Docker image - web
+        - name: Publish Docker image - api
           import_tasks: tasks/publish-docker-image.yml
           vars:
-            app_name: web
+            app_name: api
 
         - name: Publish Docker image - batch
           import_tasks: tasks/publish-docker-image.yml

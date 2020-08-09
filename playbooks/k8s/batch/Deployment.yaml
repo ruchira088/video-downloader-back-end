@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: batch-deployment
-  namespace: video-downloader-api-{{ git_branch }}
+  namespace: video-downloader-back-end-{{ git_branch }}
 spec:
   selector:
     matchLabels:

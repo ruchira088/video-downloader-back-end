@@ -2,8 +2,8 @@ version: "3"
 
 services:
 
-  web:
-    image: video-downloader-web:latest
+  api:
+    image: video-downloader-api:latest
     depends_on:
       - postgres
     ports:

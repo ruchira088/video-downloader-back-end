@@ -4,11 +4,11 @@
     sbt_project: migrationApplication
     app_name: migration-application
 
-- name: Build web Docker image
+- name: Build api Docker image
   import_tasks: build-docker.yml
   vars:
-    sbt_project: web
-    app_name: web
+    sbt_project: api
+    app_name: api
     ports: 8000
 
 - name: Build batch Docker image

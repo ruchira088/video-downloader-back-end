@@ -31,18 +31,18 @@
               command: kubectl apply -f k8s-output/db-migration --kubeconfig {{ kube_config }}
 
             - name: Wait Job to complete
-              command: kubectl wait --for=condition=complete job/database-migration-job-{{ git_commit }} --kubeconfig {{ kube_config }} -n video-downloader-api-{{ git_branch }} --timeout=120s
+              command: kubectl wait --for=condition=complete job/database-migration-job-{{ git_commit }} --kubeconfig {{ kube_config }} -n video-downloader-back-end-{{ git_branch }} --timeout=120s
 
-        - name: Deploy web
+        - name: Deploy api
           block:
             - name: Create ConfigMap
-              command: kubectl apply -f k8s-output/web/ConfigMap.yaml --kubeconfig {{ kube_config }}
+              command: kubectl apply -f k8s-output/api/ConfigMap.yaml --kubeconfig {{ kube_config }}
 
             - name: Create Secrets
-              command: kubectl apply -f k8s-output/web/Secrets.yaml --kubeconfig {{ kube_config }}
+              command: kubectl apply -f k8s-output/api/Secrets.yaml --kubeconfig {{ kube_config }}
 
             - name: Deploy application
-              command: kubectl apply -f k8s-output/web --kubeconfig {{ kube_config }}
+              command: kubectl apply -f k8s-output/api --kubeconfig {{ kube_config }}
 
         - name: Deploy batch
           block:
@@ -55,11 +55,11 @@
             - name: Deploy application
               command: kubectl apply -f k8s-output/batch --kubeconfig {{ kube_config }}
 
-        - name: Wait for successful web deployment
-          command: kubectl rollout status deployment web-deployment --kubeconfig {{ kube_config }} -n video-downloader-api-{{ git_branch }}
+        - name: Wait for successful api deployment
+          command: kubectl rollout status deployment api-deployment --kubeconfig {{ kube_config }} -n video-downloader-back-end-{{ git_branch }}
 
         - name: Wait for successful batch deployment
-          command: kubectl rollout status deployment batch-deployment --kubeconfig {{ kube_config }} -n video-downloader-api-{{ git_branch }}
+          command: kubectl rollout status deployment batch-deployment --kubeconfig {{ kube_config }} -n video-downloader-back-end-{{ git_branch }}
 
     - name: Clean up output directory
       file:

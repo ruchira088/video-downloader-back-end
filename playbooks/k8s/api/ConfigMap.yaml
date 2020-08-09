@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: batch-config-map
+  name: api-config-map
   namespace: video-downloader-back-end-{{ git_branch }}
 data:
-{% for key, value in batch.config_values.items() %}
+{% for key, value in api.config_values.items() %}
   {{ key }}: "{{ value }}"
 {% endfor %}
