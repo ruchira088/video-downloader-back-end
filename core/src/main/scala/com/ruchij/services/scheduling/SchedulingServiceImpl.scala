@@ -42,19 +42,19 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
       VideoAnalysisResult(_, videoSite, title, duration, size, thumbnailUri) <- videoAnalysisService.metadata(uri)
       timestamp <- JodaClock[F].timestamp
 
-      videoKey <- hashingService.hash(uri.renderString)
+      videoId <- hashingService.hash(uri.renderString)
 
       thumbnailFileName = thumbnailUri.path.split("/").lastOption.getOrElse("thumbnail.unknown")
-      filePath = s"${downloadConfiguration.imageFolder}/$videoKey-$thumbnailFileName"
+      filePath = s"${downloadConfiguration.imageFolder}/thumbnail-$videoId-$thumbnailFileName"
 
       thumbnail <- downloadService
         .download(thumbnailUri, filePath)
         .use { downloadResult =>
           downloadResult.data.compile.drain
             .productR(hashingService.hash(thumbnailUri.renderString))
-            .map { fileKey =>
+            .map { fileId =>
               FileResource(
-                fileKey,
+                fileId,
                 timestamp,
                 downloadResult.downloadedFileKey,
                 downloadResult.mediaType,
@@ -63,7 +63,7 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
             }
         }
 
-      videoMetadata = VideoMetadata(uri, videoKey, videoSite, title, duration, size, thumbnail)
+      videoMetadata = VideoMetadata(uri, videoId, videoSite, title, duration, size, thumbnail)
 
       scheduledVideoDownload = ScheduledVideoDownload(timestamp, timestamp, None, videoMetadata, 0, None)
 

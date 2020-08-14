@@ -97,7 +97,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
           FileResource(
             hashingService.hash(videoAnalysisResult.thumbnail.renderString).unsafeRunSync(),
             dateTime,
-            s"${downloadConfiguration.imageFolder}/$videoId-b81.jpg",
+            s"${downloadConfiguration.imageFolder}/thumbnail-$videoId-b81.jpg",
             MediaType.image.jpeg,
             videoAnalysisResult.size
           )
