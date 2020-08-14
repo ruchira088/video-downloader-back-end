@@ -1,14 +1,12 @@
 package com.ruchij.services.repository
 
-import java.nio.file.{FileVisitOption, Files, Path, Paths, StandardOpenOption}
+import java.nio.file.{FileVisitOption, Path, Paths, StandardOpenOption}
 
 import cats.effect.{Blocker, ContextShift, Sync}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError}
-import com.ruchij.types.FunctionKTypes.eitherToF
 import fs2.Stream
 import fs2.io.file.{deleteIfExists, exists, readRange, walk, writeAll, size => fileSize}
-import org.http4s.MediaType
 
 class FileRepositoryService[F[_]: Sync: ContextShift](ioBlocker: Blocker) extends RepositoryService[F] {
 
@@ -61,22 +59,6 @@ class FileRepositoryService[F[_]: Sync: ContextShift](ioBlocker: Blocker) extend
       .flatMap(path => walk(ioBlocker, path, Seq(FileVisitOption.FOLLOW_LINKS)))
       .drop(1) // drop the parent key
       .map(_.toString)
-
-  override def mediaType(key: Key): F[Option[MediaType]] =
-    for {
-      path <- backedType(key)
-      fileExists <- exists(ioBlocker, path)
-
-      mediaType <- if (fileExists)
-        ioBlocker
-          .delay(Files.probeContentType(path))
-          .flatMap { contentType =>
-            eitherToF[Throwable, F].apply(MediaType.parse(contentType))
-          }
-          .map(Some.apply)
-      else
-        Applicative[F].pure(None)
-    } yield mediaType
 
   override def backedType(key: Key): F[Path] = FileRepositoryService.parsePath[F](key)
 

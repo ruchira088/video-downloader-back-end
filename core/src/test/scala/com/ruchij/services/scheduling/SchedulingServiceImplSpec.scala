@@ -19,6 +19,8 @@ import com.ruchij.services.video.VideoAnalysisService
 import com.ruchij.services.video.models.VideoAnalysisResult
 import com.ruchij.test.utils.Providers
 import com.ruchij.test.utils.Providers.{blocker, contextShift}
+import com.ruchij.types.FunctionKTypes
+import doobie.ConnectionIO
 import fs2.Stream
 import org.http4s.client.Client
 import org.http4s.headers.{`Content-Length`, `Content-Type`}
@@ -78,6 +80,8 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
     val repositoryService = new InMemoryRepositoryService[IO](new ConcurrentHashMap())
     val downloadService = new Http4sDownloadService[IO](client, repositoryService)
 
+    val videoId = hashingService.hash(videoUrl.renderString).unsafeRunSync()
+
     val expectedScheduledDownloadVideo =
       ScheduledVideoDownload(
         dateTime,
@@ -85,7 +89,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
         None,
         VideoMetadata(
           videoAnalysisResult.url,
-          hashingService.hash(videoUrl.renderString).unsafeRunSync(),
+          videoId,
           videoAnalysisResult.videoSite,
           videoAnalysisResult.title,
           videoAnalysisResult.duration,
@@ -93,7 +97,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
           FileResource(
             hashingService.hash(videoAnalysisResult.thumbnail.renderString).unsafeRunSync(),
             dateTime,
-            s"${downloadConfiguration.imageFolder}/${dateTime.getMillis}-b81.jpg",
+            s"${downloadConfiguration.imageFolder}/$videoId-b81.jpg",
             MediaType.image.jpeg,
             videoAnalysisResult.size
           )
@@ -122,14 +126,13 @@ object SchedulingServiceImplSpec {
     downloadService: DownloadService[F]
   ): F[SchedulingService[F]] =
     Providers.h2Transactor
-      .map { transactor =>
-        val fileResourceDao = new DoobieFileResourceDao[F](transactor)
-        val videoMetadataDao = new DoobieVideoMetadataDao[F](fileResourceDao)
-        val schedulingDao = new DoobieSchedulingDao[F](videoMetadataDao, transactor)
-
-        new SchedulingServiceImpl[F](
+      .map(FunctionKTypes.transaction[F])
+      .map { implicit transaction =>
+        new SchedulingServiceImpl[F, ConnectionIO](
           videoAnalysisService,
-          schedulingDao,
+          DoobieSchedulingDao,
+          DoobieVideoMetadataDao,
+          DoobieFileResourceDao,
           hashingService,
           downloadService,
           downloadConfiguration
