@@ -25,7 +25,7 @@ import fs2.Stream
 import org.http4s.client.Client
 import org.http4s.headers.{`Content-Length`, `Content-Type`}
 import org.http4s.implicits._
-import org.http4s.{MediaType, Request, Response, Uri}
+import org.http4s.{MediaType, Response, Uri}
 import org.joda.time.DateTime
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.OptionValues
@@ -61,19 +61,20 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
     val dateTime = DateTime.now()
     implicit val timer: Timer[IO] = Providers.stubTimer(dateTime)
 
-    val client = mock[Client[IO]]
-
-    (client.run _)
-      .expects(argThat { request: Request[IO] => request.uri == videoAnalysisResult.thumbnail })
-      .returns {
-        Resource.pure[IO, Response[IO]] {
-          Response[IO]()
-            .withHeaders(
-              `Content-Length`.unsafeFromLong(videoAnalysisResult.size),
-              `Content-Type`(MediaType.image.jpeg)
-            )
-            .withBodyStream(Stream.emits[IO, Byte](Seq.fill(videoAnalysisResult.size.toInt)(1)))
-        }
+    val client =
+      Client[IO] {
+        request =>
+          Resource.liftF(IO.delay(request.uri mustBe videoAnalysisResult.thumbnail))
+            .productR {
+              Resource.pure[IO, Response[IO]] {
+                Response[IO]()
+                  .withHeaders(
+                    `Content-Length`.unsafeFromLong(videoAnalysisResult.size),
+                    `Content-Type`(MediaType.image.jpeg)
+                  )
+                  .withBodyStream(Stream.emits[IO, Byte](Seq.fill(videoAnalysisResult.size.toInt)(1)))
+              }
+            }
       }
 
     val hashingService = new MurmurHash3Service[IO](blocker)
