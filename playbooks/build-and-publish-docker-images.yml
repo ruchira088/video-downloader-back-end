@@ -2,14 +2,13 @@
 - hosts: localhost
   connection: local
 
-  vars:
-    docker_registry: local.ruchij.com:32000
-
   tasks:
     - name: Build Docker images
       import_tasks: tasks/build-docker-images.yml
 
     - name: Publish Docker images
+      vars:
+        docker_registry: local.ruchij.com:32000
       block:
         - name: Publish Docker image - DB migration
           import_tasks: tasks/publish-docker-image.yml

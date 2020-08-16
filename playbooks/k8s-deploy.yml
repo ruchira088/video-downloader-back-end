@@ -2,64 +2,68 @@
 - hosts: localhost
   connection: local
 
-  vars:
-    docker_registry: localhost:32000
-    host_video_folder: /home/ruchira/Videos
-    host_image_folder: /home/ruchira/Pictures
-
   tasks:
+    - name: Gather git information
+      import_tasks: tasks/git-info.yml
+
     - name: Render K8s resource files
       import_tasks: tasks/k8s-resource-files.yml
+      vars:
+        docker_registry: localhost:32000
+        host_video_folder: /home/ruchira/Videos
+        host_image_folder: /home/ruchira/Pictures
 
     - name: Set kube_config
       import_tasks: tasks/k8s-config.yml
+      vars:
+        aws_ssm_k8s_config_path: /k8s/config/ubuntu-vm
 
     - name: Deploy K8s resources
       block:
         - name: Create Namespace
-          command: kubectl apply -f k8s-output/Namespace.yaml --kubeconfig {{ kube_config }}
+          command: kubectl apply -f k8s-output/Namespace.yaml --kubeconfig k8s-output/kubeconfig
 
         - name: Deploy DB migration
           block:
             - name: Create ConfigMap
-              command: kubectl apply -f k8s-output/db-migration/ConfigMap.yaml --kubeconfig {{ kube_config }}
+              command: kubectl apply -f k8s-output/db-migration/ConfigMap.yaml --kubeconfig k8s-output/kubeconfig
 
             - name: Create Secrets
-              command: kubectl apply -f k8s-output/db-migration/Secrets.yaml --kubeconfig {{ kube_config }}
+              command: kubectl apply -f k8s-output/db-migration/Secrets.yaml --kubeconfig k8s-output/kubeconfig
 
             - name: Deploy Job
-              command: kubectl apply -f k8s-output/db-migration --kubeconfig {{ kube_config }}
+              command: kubectl apply -f k8s-output/db-migration --kubeconfig k8s-output/kubeconfig
 
             - name: Wait Job to complete
-              command: kubectl wait --for=condition=complete job/database-migration-job-{{ git_commit }} --kubeconfig {{ kube_config }} -n video-downloader-back-end-{{ git_branch }} --timeout=120s
+              command: kubectl wait --for=condition=complete job/database-migration-job-{{ git_commit }} --kubeconfig k8s-output/kubeconfig -n video-downloader-back-end-{{ git_branch }} --timeout=120s
 
         - name: Deploy api
           block:
             - name: Create ConfigMap
-              command: kubectl apply -f k8s-output/api/ConfigMap.yaml --kubeconfig {{ kube_config }}
+              command: kubectl apply -f k8s-output/api/ConfigMap.yaml --kubeconfig k8s-output/kubeconfig
 
             - name: Create Secrets
-              command: kubectl apply -f k8s-output/api/Secrets.yaml --kubeconfig {{ kube_config }}
+              command: kubectl apply -f k8s-output/api/Secrets.yaml --kubeconfig k8s-output/kubeconfig
 
             - name: Deploy application
-              command: kubectl apply -f k8s-output/api --kubeconfig {{ kube_config }}
+              command: kubectl apply -f k8s-output/api --kubeconfig k8s-output/kubeconfig
 
         - name: Deploy batch
           block:
             - name: Create ConfigMap
-              command: kubectl apply -f k8s-output/batch/ConfigMap.yaml --kubeconfig {{ kube_config }}
+              command: kubectl apply -f k8s-output/batch/ConfigMap.yaml --kubeconfig k8s-output/kubeconfig
 
             - name: Create Secrets
-              command: kubectl apply -f k8s-output/batch/Secrets.yaml --kubeconfig {{ kube_config }}
+              command: kubectl apply -f k8s-output/batch/Secrets.yaml --kubeconfig k8s-output/kubeconfig
 
             - name: Deploy application
-              command: kubectl apply -f k8s-output/batch --kubeconfig {{ kube_config }}
+              command: kubectl apply -f k8s-output/batch --kubeconfig k8s-output/kubeconfig
 
         - name: Wait for successful api deployment
-          command: kubectl rollout status deployment api-deployment --kubeconfig {{ kube_config }} -n video-downloader-back-end-{{ git_branch }}
+          command: kubectl rollout status deployment api-deployment --kubeconfig k8s-output/kubeconfig -n video-downloader-back-end-{{ git_branch }}
 
         - name: Wait for successful batch deployment
-          command: kubectl rollout status deployment batch-deployment --kubeconfig {{ kube_config }} -n video-downloader-back-end-{{ git_branch }}
+          command: kubectl rollout status deployment batch-deployment --kubeconfig k8s-output/kubeconfig -n video-downloader-back-end-{{ git_branch }}
 
     - name: Clean up output directory
       file:
