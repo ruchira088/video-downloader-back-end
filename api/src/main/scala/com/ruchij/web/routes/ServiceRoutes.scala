@@ -2,6 +2,7 @@ package com.ruchij.web.routes
 
 import cats.effect.Sync
 import cats.implicits._
+import com.ruchij.circe.Encoders.dateTimeEncoder
 import com.ruchij.circe.Encoders.enumEncoder
 import com.ruchij.services.health.HealthService
 import io.circe.generic.auto._

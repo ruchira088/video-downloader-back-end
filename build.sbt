@@ -48,7 +48,7 @@ lazy val api =
     .settings(
       name := "video-downloader-api",
       buildInfoKeys := BuildInfoKey.ofN(name, organization, version, scalaVersion, sbtVersion),
-      buildInfoPackage := "com.eed3si9n.ruchij",
+      buildInfoPackage := "com.eed3si9n.ruchij.api",
       topLevelDirectory := None,
       libraryDependencies ++=
         Seq(

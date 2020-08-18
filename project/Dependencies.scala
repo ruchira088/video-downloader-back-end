@@ -36,7 +36,7 @@ object Dependencies
 
   lazy val flywayCore = "org.flywaydb" % "flyway-core" % "6.5.4"
 
-  lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.14"
+  lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.15"
 
   lazy val h2 = "com.h2database" % "h2" % "1.4.200"
 
@@ -44,7 +44,7 @@ object Dependencies
 
   lazy val jcodecJavaSe = "org.jcodec" % "jcodec-javase" % "0.2.5"
 
-  lazy val thumbnailator = "net.coobird" % "thumbnailator" % "0.4.11"
+  lazy val thumbnailator = "net.coobird" % "thumbnailator" % "0.4.12"
 
   lazy val apacheTika = "org.apache.tika" % "tika-core" % "1.24.1"
 

@@ -6,7 +6,7 @@ import cats.data.OptionT
 import cats.effect.{Concurrent, Timer}
 import cats.implicits._
 import cats.~>
-import com.eed3si9n.ruchij.BuildInfo
+import com.eed3si9n.ruchij.api.BuildInfo
 import com.ruchij.config.{ApplicationInformation, DownloadConfiguration}
 import com.ruchij.logging.Logger
 import com.ruchij.services.health.models.{HealthCheck, HealthStatus, ServiceInformation}
