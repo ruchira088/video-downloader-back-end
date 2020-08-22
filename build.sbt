@@ -3,7 +3,6 @@ import Dependencies._
 inThisBuild {
   Seq(
     organization := "com.ruchij",
-    version := "0.0.1",
     scalaVersion := SCALA_VERSION,
     maintainer := "me@ruchij.com",
     scalacOptions ++= Seq("-feature", "-Xlint", "-Wconf:cat=lint-byname-implicit:s"),
@@ -18,8 +17,9 @@ lazy val migrationApplication =
     .enablePlugins(JavaAppPackaging)
     .settings(
       name := "video-downloader-migration-application",
-      libraryDependencies ++= Seq(catsEffect, flywayCore, h2, postgresql, pureconfig, scalaLogging, logbackClassic),
-      topLevelDirectory := None
+      version := "0.0.1",
+      topLevelDirectory := None,
+      libraryDependencies ++= Seq(catsEffect, flywayCore, h2, postgresql, pureconfig, scalaLogging, logbackClassic)
     )
 
 lazy val core =
@@ -47,6 +47,7 @@ lazy val api =
     .enablePlugins(BuildInfoPlugin, JavaAppPackaging)
     .settings(
       name := "video-downloader-api",
+      version := "0.0.1",
       buildInfoKeys := BuildInfoKey.ofN(name, organization, version, scalaVersion, sbtVersion),
       buildInfoPackage := "com.eed3si9n.ruchij.api",
       topLevelDirectory := None,
@@ -70,6 +71,7 @@ lazy val batch =
       .enablePlugins(JavaAppPackaging)
       .settings(
         name := "video-downloader-batch",
+        version := "0.0.1",
         topLevelDirectory := None,
         libraryDependencies ++= Seq(postgresql, jcodec, jcodecJavaSe, thumbnailator)
       )
