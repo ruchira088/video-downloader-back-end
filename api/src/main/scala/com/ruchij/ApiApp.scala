@@ -29,7 +29,7 @@ import pureconfig.ConfigSource
 
 import scala.concurrent.ExecutionContext
 
-object WebApp extends IOApp {
+object ApiApp extends IOApp {
   override def run(args: List[String]): IO[ExitCode] =
     for {
       configObjectSource <- IO.delay(ConfigSource.defaultApplication)
