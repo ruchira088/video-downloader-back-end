@@ -2,7 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: database-migration-job-{{ git_commit }}
-  namespace: video-downloader-back-end-{{ git_branch }}
+  namespace: {{ namespace }}
 spec:
   backoffLimit: 2
   template:
