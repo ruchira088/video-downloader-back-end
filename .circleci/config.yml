@@ -13,9 +13,9 @@ alias:
     name: Install Ansible
     command: |
       sudo apt update && \
-      sudo apt install software-properties-common python-pip -y
+      sudo apt install software-properties-common python3-pip -y
 
-      pip install ansible boto3 botocore
+      pip3 install ansible boto3 botocore
 
   - &install-kubectl
     name: Install kubectl
