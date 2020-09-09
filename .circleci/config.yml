@@ -15,7 +15,7 @@ alias:
       sudo apt update && \
       sudo apt install software-properties-common python3-pip -y
 
-      pip3 install ansible boto3 botocore
+      pip3 install ansible boto3 botocore openshift
 
   - &install-kubectl
     name: Install kubectl
