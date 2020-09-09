@@ -81,19 +81,28 @@ jobs:
           name: Deploy applications to K8s
           command: ansible-playbook playbooks/k8s-deploy.yml
 
+orbs:
+  slack: circleci/slack@3
+
 workflows:
   version: 2
 
   video-downloader-back-end:
     jobs:
-      - build-and-test
+      - build-and-test:
+          post-steps:
+            - slack/status
 
       - build-and-publish-docker-images:
           context: aws-credentials
           requires:
             - build-and-test
+          post-steps:
+            - slack/status
 
       - deploy-to-k8s:
           context: aws-credentials
           requires:
             - build-and-publish-docker-images
+          post-steps:
+            - slack/status
