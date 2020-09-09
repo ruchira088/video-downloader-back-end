@@ -9,14 +9,11 @@
     - name: Render K8s resource files
       import_tasks: tasks/k8s-resource-files.yml
       vars:
-        docker_registry: localhost:32000
-        host_video_folder: /home/ruchira/Videos
+        host_video_folder: /media/ruchira/Data/Others
         host_image_folder: /home/ruchira/Pictures
 
     - name: Set kube_config
       import_tasks: tasks/k8s-config.yml
-      vars:
-        aws_ssm_k8s_config_path: /k8s/config/local
 
     - name: Deploy K8s resources
       block:

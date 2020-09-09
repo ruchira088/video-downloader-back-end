@@ -14,7 +14,7 @@ object Dependencies
 
   lazy val http4sCirce = "org.http4s" %% "http4s-circe" % HTTP4S_VERSION
 
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "2.1.4"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "2.2.0"
 
   lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.3.0"
 
@@ -26,7 +26,7 @@ object Dependencies
 
   lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.6.1"
 
-  lazy val doobie = "org.tpolecat" %% "doobie-core" % "0.9.0"
+  lazy val doobie = "org.tpolecat" %% "doobie-core" % "0.9.2"
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.13.1"
 

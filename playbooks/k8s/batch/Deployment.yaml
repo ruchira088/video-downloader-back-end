@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: batch-container
-          image: {{ docker_registry }}/video-downloader-batch:{{ git_commit }}
+          image: ruchira088/video-downloader-batch:{{ git_commit }}
           envFrom:
             - configMapRef:
                 name: batch-config-map

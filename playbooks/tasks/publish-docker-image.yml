@@ -1,4 +1,26 @@
+- name: Gather git information
+  import_tasks: git-info.yml
+
+- name: Verify Docker Hub repository
+  block:
+    - uri:
+        url: https://hub.docker.com/v2/repositories/ruchira088/video-downloader-{{ app_name }}/
+        status_code:
+          - 200
+          - 404
+      register: response
+
+    - fail:
+        msg: Unable to find Docker Hub repository for video-downloader-{{ app_name }}
+      when: response.status != 200
+
+- name: Login to Docker Hub
+  command: docker login -u {{ docker_username }} -p {{ docker_password }}
+  vars:
+    docker_username: "{{ lookup('aws_ssm', '/docker-hub/credentials/username', region='ap-southeast-2') }}"
+    docker_password: "{{ lookup('aws_ssm', '/docker-hub/credentials/password', region='ap-southeast-2') }}"
+
 - name: Publish Docker image
   shell: |
-    docker tag video-downloader-{{ app_name }}:{{ git_commit }} {{ docker_registry }}/video-downloader-{{ app_name }}:{{ git_commit }} && \
-    docker push {{ docker_registry }}/video-downloader-{{ app_name }}:{{ git_commit }}
+    docker tag video-downloader-{{ app_name }}:{{ git_commit }} ruchira088/video-downloader-{{ app_name }}:{{ git_commit }} && \
+    docker push ruchira088/video-downloader-{{ app_name }}:{{ git_commit }}
