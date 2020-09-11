@@ -17,7 +17,7 @@ import scala.concurrent.duration.FiniteDuration
 import scala.util.matching.Regex
 
 sealed trait VideoSite extends EnumEntry {
-  val HOSTNAME: String
+  val hostname: String
 
   def title[F[_]: MonadError[*[_], Throwable]]: Selector[F, String]
 
@@ -27,7 +27,7 @@ sealed trait VideoSite extends EnumEntry {
 
   def downloadUri[F[_]: MonadError[*[_], Throwable]]: Selector[F, Uri]
 
-  def test(uri: Uri): Boolean = uri.host.exists(hostname => hostname.value.toLowerCase.contains(HOSTNAME.toLowerCase))
+  def test(uri: Uri): Boolean = uri.host.exists(_.value.toLowerCase.contains(hostname.toLowerCase))
 }
 
 object VideoSite extends Enum[VideoSite] {
@@ -38,7 +38,7 @@ object VideoSite extends Enum[VideoSite] {
     Kleisli.liftF[F, Document, A](applicativeError.raiseError[A](InvalidConditionException))
 
   case object PornOne extends VideoSite {
-    override val HOSTNAME: String = "pornone.com"
+    override val hostname: String = "pornone.com"
 
     private val lessThanHour = "(\\d+) min (\\d+) sec".r
     private val moreThanHour = "(\\d+) hours (\\d+) min (\\d+) sec".r
@@ -81,7 +81,7 @@ object VideoSite extends Enum[VideoSite] {
   }
 
   case object SpankBang extends VideoSite {
-    override val HOSTNAME: String = "spankbang.com"
+    override val hostname: String = "spankbang.com"
 
     private val videoDuration: Regex = "(\\d+):(\\d+)".r
 
@@ -112,7 +112,7 @@ object VideoSite extends Enum[VideoSite] {
   }
 
   case object Local extends VideoSite {
-    override val HOSTNAME: String = "localhost"
+    override val hostname: String = "localhost"
 
     override def title[F[_] : MonadError[*[_], Throwable]]: Selector[F, String] = notApplicable
 
