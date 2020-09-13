@@ -40,8 +40,8 @@ object VideoSite extends Enum[VideoSite] {
   case object PornOne extends VideoSite {
     override val hostname: String = "pornone.com"
 
-    private val lessThanHour = "(\\d+) min (\\d+) sec".r
-    private val moreThanHour = "(\\d+) hours (\\d+) min (\\d+) sec".r
+    private val LessThanHour = "(\\d+) min (\\d+) sec".r
+    private val MoreThanHour = "(\\d+) hours (\\d+) min (\\d+) sec".r
 
     override def title[F[_]: MonadError[*[_], Throwable]]: Selector[F, String] =
       JsoupSelector.singleElement[F](".single-video .video-player-head h1")
@@ -60,10 +60,10 @@ object VideoSite extends Enum[VideoSite] {
         .singleElement[F]("#video-info .video-duration")
         .flatMapF(JsoupSelector.text[F])
         .flatMapF {
-          case lessThanHour(IntNumber(minutes), IntNumber(seconds)) =>
+          case LessThanHour(IntNumber(minutes), IntNumber(seconds)) =>
             Applicative[F].pure(FiniteDuration(minutes * 60 + seconds, TimeUnit.SECONDS))
 
-          case moreThanHour(IntNumber(hours), IntNumber(minutes), IntNumber(seconds)) =>
+          case MoreThanHour(IntNumber(hours), IntNumber(minutes), IntNumber(seconds)) =>
             Applicative[F].pure(FiniteDuration(hours * 3600 + minutes * 60 + seconds, TimeUnit.SECONDS))
 
           case duration =>
@@ -83,7 +83,7 @@ object VideoSite extends Enum[VideoSite] {
   case object SpankBang extends VideoSite {
     override val hostname: String = "spankbang.com"
 
-    private val videoDuration: Regex = "(\\d+):(\\d+)".r
+    private val VideoDuration: Regex = "(\\d+):(\\d+)".r
 
     override def title[F[_] : MonadError[*[_], Throwable]]: Selector[F, String] =
       JsoupSelector.singleElement[F]("#video div.left h1[title]")
@@ -97,7 +97,7 @@ object VideoSite extends Enum[VideoSite] {
       JsoupSelector.singleElement[F]("#player_wrapper_outer .hd-time .i-length")
         .flatMapF(JsoupSelector.text[F])
         .flatMapF {
-          case videoDuration(IntNumber(minutes), IntNumber(seconds)) =>
+          case VideoDuration(IntNumber(minutes), IntNumber(seconds)) =>
             Applicative[F].pure(FiniteDuration(minutes * 60 + seconds, TimeUnit.SECONDS))
 
           case duration =>
