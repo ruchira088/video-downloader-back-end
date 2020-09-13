@@ -109,7 +109,8 @@ object BatchApp extends IOApp {
           batchServiceConfiguration.downloadConfiguration
         )
 
-        workExecutor = new WorkExecutorImpl[F](
+        workExecutor = new WorkExecutorImpl[F, ConnectionIO](
+          DoobieFileResourceDao,
           schedulingService,
           videoAnalysisService,
           videoService,

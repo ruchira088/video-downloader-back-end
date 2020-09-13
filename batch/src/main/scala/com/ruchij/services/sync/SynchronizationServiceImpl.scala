@@ -141,7 +141,8 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
       fileResourceDao
         .insert(video.videoMetadata.thumbnail)
         .productR(videoMetadataDao.insert(video.videoMetadata))
-    }.productR(videoService.insert(video.videoMetadata.id, video.fileResource))
+        .productR(fileResourceDao.insert(video.fileResource))
+    }.productR(videoService.insert(video.videoMetadata.id, video.fileResource.id))
       .flatTap(videoEnrichmentService.videoSnapshots)
 
   def videoDuration(videoPath: String): F[FiniteDuration] =

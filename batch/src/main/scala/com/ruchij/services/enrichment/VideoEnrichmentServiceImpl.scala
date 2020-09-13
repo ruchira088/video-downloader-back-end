@@ -44,7 +44,7 @@ class VideoEnrichmentServiceImpl[F[_]: Sync: Clock: ContextShift, A, T[_]: Monad
         frameGrab <- createFrameGrab(video.fileResource.path)
 
         snapshots <- VideoEnrichmentService
-          .snapshotTimestamps(video, VideoEnrichmentServiceImpl.snapshotCount)
+          .snapshotTimestamps(video, VideoEnrichmentServiceImpl.SnapshotCount)
           .toList
           .traverse(createSnapshot(video, frameGrab, _))
       } yield snapshots
@@ -127,8 +127,8 @@ class VideoEnrichmentServiceImpl[F[_]: Sync: Clock: ContextShift, A, T[_]: Monad
             ImageIO.write(
               scaleImage(
                 AWTUtil.toBufferedImage(picture),
-                VideoEnrichmentServiceImpl.scaledImageWidth,
-                VideoEnrichmentServiceImpl.scaledImageHeight
+                VideoEnrichmentServiceImpl.ScaledImageWidth,
+                VideoEnrichmentServiceImpl.ScaledImageHeight
               ),
               snapshotMediaType.subType,
               outputStream)
@@ -143,7 +143,7 @@ class VideoEnrichmentServiceImpl[F[_]: Sync: Clock: ContextShift, A, T[_]: Monad
 }
 
 object VideoEnrichmentServiceImpl {
-  val snapshotCount = 12
-  val scaledImageWidth = 640
-  val scaledImageHeight = 360
+  val SnapshotCount = 12
+  val ScaledImageWidth = 640
+  val ScaledImageHeight = 360
 }

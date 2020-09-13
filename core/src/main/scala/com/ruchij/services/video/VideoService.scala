@@ -1,14 +1,13 @@
 package com.ruchij.services.video
 
 import cats.data.NonEmptyList
-import com.ruchij.daos.resource.models.FileResource
 import com.ruchij.daos.snapshot.models.Snapshot
 import com.ruchij.daos.video.models.Video
 import com.ruchij.services.models.{Order, SortBy}
 import org.http4s.Uri
 
 trait VideoService[F[_]] {
-  def insert(videoMetadataKey: String, fileResource: FileResource): F[Video]
+  def insert(videoMetadataKey: String, fileResourceKey: String): F[Video]
 
   def fetchById(videoId: String): F[Video]
 
