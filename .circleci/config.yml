@@ -48,8 +48,8 @@ jobs:
           name: Fetch compile dependencies
           command: sbt update
       - run:
-          name: Clean build all sbt projects
-          command: sbt refreshAll
+          name: Clean compile all sbt projects
+          command: sbt cleanCompile
       - save_cache:
           key: sbt-cache-{{ checksum "project/build.properties" }}-{{ checksum "project/plugins.sbt" }}-{{ checksum "project/Dependencies.scala" }}
           paths:
