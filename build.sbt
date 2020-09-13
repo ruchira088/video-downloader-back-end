@@ -68,19 +68,28 @@ lazy val api =
 
 lazy val batch =
   (project in file("./batch"))
-      .enablePlugins(JavaAppPackaging)
-      .settings(
-        name := "video-downloader-batch",
-        version := "0.0.1",
-        topLevelDirectory := None,
-        libraryDependencies ++= Seq(postgresql, jcodec, jcodecJavaSe, thumbnailator)
-      )
-      .dependsOn(core)
+    .enablePlugins(JavaAppPackaging)
+    .settings(
+      name := "video-downloader-batch",
+      version := "0.0.1",
+      topLevelDirectory := None,
+      libraryDependencies ++= Seq(postgresql, jcodec, jcodecJavaSe, thumbnailator)
+    )
+    .dependsOn(core)
 
-addCommandAlias("compileAll", "; migrationApplication/compile; core/compile; api/compile; batch/compile")
+val compileAll = taskKey[Unit]("Compile all projects")
+compileAll :=
+  Def
+    .sequential(
+      migrationApplication / Compile / compile,
+      core / Compile / compile,
+      api / Compile / compile,
+      batch / Compile / compile
+    )
+    .value
 
-addCommandAlias("cleanAll", "; batch/clean; api/clean; core/clean; migrationApplication/clean")
+val cleanAll = taskKey[Unit]("Clean all projects")
+cleanAll := clean.all(ScopeFilter(inAnyProject)).value
 
-addCommandAlias("testAll", "; migrationApplication/test; core/test; api/test; batch/test")
-
-addCommandAlias("refreshAll", "; cleanAll; compileAll")
+val cleanCompile = taskKey[Unit]("Clean compile all projects")
+cleanCompile := Def.sequential(cleanAll, compileAll).value

@@ -1,7 +1,7 @@
 package com.ruchij.daos.scheduling
 
 import cats.ApplicativeError
-import cats.data.OptionT
+import cats.data.{NonEmptyList, OptionT}
 import cats.implicits._
 import com.ruchij.daos.doobie.DoobieCustomMappings._
 import com.ruchij.daos.doobie.DoobieUtils.{ordering, singleUpdate, sortByFieldName}
@@ -10,7 +10,8 @@ import com.ruchij.services.models.{Order, SortBy}
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import doobie.util.fragment.Fragment
-import doobie.util.fragments.whereAndOpt
+import doobie.util.fragments.{in, whereAndOpt}
+import org.http4s.Uri
 import org.joda.time.DateTime
 
 object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
@@ -60,16 +61,21 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
 
   override def search(
     term: Option[String],
+    videoUrls: Option[NonEmptyList[Uri]],
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,
     order: Order
   ): ConnectionIO[Seq[ScheduledVideoDownload]] =
     (selectQuery
+      ++
+        whereAndOpt(
+          term.map(searchTerm => fr"title LIKE ${"%" + searchTerm + "%"}"),
+          videoUrls.map(urls => in(fr"video_metadata.url", urls))
+        )
       ++ fr"ORDER BY"
       ++ schedulingSortByFiledName(sortBy)
       ++ ordering(order)
-      ++ whereAndOpt(term.map(searchTerm => fr"title LIKE ${"%" + searchTerm + "%"}"))
       ++ fr"LIMIT $pageSize OFFSET ${pageNumber * pageSize}")
       .query[ScheduledVideoDownload]
       .to[Seq]

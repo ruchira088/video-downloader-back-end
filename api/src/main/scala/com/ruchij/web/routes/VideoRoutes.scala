@@ -5,7 +5,7 @@ import cats.implicits._
 import com.ruchij.circe.Encoders._
 import com.ruchij.services.video.{VideoAnalysisService, VideoService}
 import com.ruchij.web.requests.{VideoAnalyzeRequest, VideoMetadataUpdateRequest}
-import com.ruchij.web.requests.queryparams.QueryParameter.SearchQuery
+import com.ruchij.web.requests.queryparams.SearchQuery
 import com.ruchij.web.responses.{IterableResponse, SearchResult}
 import io.circe.generic.auto._
 import org.http4s.HttpRoutes
@@ -22,12 +22,12 @@ object VideoRoutes {
     HttpRoutes.of {
       case GET -> Root / "search" :? queryParameters =>
         for {
-          SearchQuery(term, pageSize, pageNumber, sortBy, order) <-
+          SearchQuery(term, videoUrls, pageSize, pageNumber, sortBy, order) <-
             SearchQuery.fromQueryParameters[F].run(queryParameters)
 
-          videos <- videoService.search(term, pageNumber, pageSize, sortBy, order)
+          videos <- videoService.search(term, videoUrls, pageNumber, pageSize, sortBy, order)
 
-          response <- Ok(SearchResult(videos, pageNumber, pageSize, term, sortBy, order))
+          response <- Ok(SearchResult(videos, pageNumber, pageSize, term, videoUrls, sortBy, order))
         } yield response
 
       case request @ POST -> Root / "analyze" =>

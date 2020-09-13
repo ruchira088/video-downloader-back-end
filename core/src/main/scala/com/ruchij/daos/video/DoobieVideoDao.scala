@@ -1,13 +1,15 @@
 package com.ruchij.daos.video
 
+import cats.data.NonEmptyList
 import com.ruchij.daos.video.models.Video
 import com.ruchij.daos.doobie.DoobieCustomMappings._
 import com.ruchij.daos.doobie.DoobieUtils.{ordering, sortByFieldName}
 import com.ruchij.services.models.{Order, SortBy}
 import doobie.implicits._
-import doobie.Fragments.whereAndOpt
+import doobie.Fragments.{in, whereAndOpt}
 import doobie.free.connection.ConnectionIO
 import doobie.util.fragment.Fragment
+import org.http4s.Uri
 
 object DoobieVideoDao extends VideoDao[ConnectionIO] {
 
@@ -35,12 +37,23 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
   override def insert(videoMetadataId: String, videoFileResourceId: String): ConnectionIO[Int] =
     sql"INSERT INTO video (video_metadata_id, file_resource_id) VALUES ($videoMetadataId, $videoFileResourceId)".update.run
 
-  override def search(term: Option[String], pageNumber: Int, pageSize: Int, sortBy: SortBy, order: Order): ConnectionIO[Seq[Video]] =
+  override def search(
+    term: Option[String],
+    videoUrls: Option[NonEmptyList[Uri]],
+    pageNumber: Int,
+    pageSize: Int,
+    sortBy: SortBy,
+    order: Order
+  ): ConnectionIO[Seq[Video]] =
     (selectQuery
       ++ fr"ORDER BY"
       ++ videoSortByFieldName(sortBy)
       ++ ordering(order)
-      ++ whereAndOpt(term.map(searchTerm => fr"video_metadata.title LIKE ${"%" + searchTerm + "%"}"))
+      ++
+        whereAndOpt(
+          term.map(searchTerm => fr"video_metadata.title LIKE ${"%" + searchTerm + "%"}"),
+          videoUrls.map(urls => in(fr"video_metadata.url", urls))
+        )
       ++ fr"LIMIT $pageSize OFFSET ${pageSize * pageNumber}")
       .query[Video]
       .to[Seq]
@@ -54,7 +67,5 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
     }
 
   override def deleteById(videoId: String): ConnectionIO[Int] =
-    sql"DELETE FROM video WHERE video_metadata_id = $videoId"
-      .update
-      .run
+    sql"DELETE FROM video WHERE video_metadata_id = $videoId".update.run
 }

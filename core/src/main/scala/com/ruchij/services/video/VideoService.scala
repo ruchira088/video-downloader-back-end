@@ -1,9 +1,11 @@
 package com.ruchij.services.video
 
+import cats.data.NonEmptyList
 import com.ruchij.daos.resource.models.FileResource
 import com.ruchij.daos.snapshot.models.Snapshot
 import com.ruchij.daos.video.models.Video
 import com.ruchij.services.models.{Order, SortBy}
+import org.http4s.Uri
 
 trait VideoService[F[_]] {
   def insert(videoMetadataKey: String, fileResource: FileResource): F[Video]
@@ -16,5 +18,12 @@ trait VideoService[F[_]] {
 
   def deleteById(videoId: String): F[Video]
 
-  def search(term: Option[String], pageNumber: Int, pageSize: Int, sortBy: SortBy, order: Order): F[Seq[Video]]
+  def search(
+    term: Option[String],
+    videoUrls: Option[NonEmptyList[Uri]],
+    pageNumber: Int,
+    pageSize: Int,
+    sortBy: SortBy,
+    order: Order
+  ): F[Seq[Video]]
 }

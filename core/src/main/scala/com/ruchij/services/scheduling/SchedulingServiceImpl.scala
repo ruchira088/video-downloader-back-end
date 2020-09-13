@@ -2,7 +2,7 @@ package com.ruchij.services.scheduling
 
 import java.util.concurrent.TimeUnit
 
-import cats.data.OptionT
+import cats.data.{NonEmptyList, OptionT}
 import cats.effect.{Sync, Timer}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Monad, ~>}
@@ -77,13 +77,14 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
 
   override def search(
     term: Option[String],
+    videoUrls: Option[NonEmptyList[Uri]],
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,
     order: Order
   ): F[Seq[ScheduledVideoDownload]] =
     transaction {
-      schedulingDao.search(term, pageNumber, pageSize, sortBy, order)
+      schedulingDao.search(term, videoUrls, pageNumber, pageSize, sortBy, order)
     }
 
   override def updateDownloadProgress(id: String, downloadedBytes: Long): F[Int] =

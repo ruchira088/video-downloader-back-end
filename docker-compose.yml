@@ -5,7 +5,7 @@ services:
   api:
     image: video-downloader-api:latest
     depends_on:
-      - postgres
+      - migration-application
     ports:
       - 8000:8000
     volumes:
@@ -21,7 +21,7 @@ services:
   batch:
     image: video-downloader-batch:latest
     depends_on:
-      - postgres
+      - migration-application
     volumes:
       - "./videos:/opt/videos"
       - "./images:/opt/images"
@@ -31,6 +31,15 @@ services:
       DATABASE_PASSWORD: "password"
       VIDEO_FOLDER: "/opt/videos"
       IMAGE_FOLDER: "/opt/images"
+
+  migration-application:
+    image: video-downloader-migration-application:latest
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: "jdbc:postgresql://postgres:5432/video-downloader"
+      DATABASE_USER: "admin"
+      DATABASE_PASSWORD: "password"
 
   postgres:
     image: postgres

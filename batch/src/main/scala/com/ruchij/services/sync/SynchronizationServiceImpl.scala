@@ -18,7 +18,7 @@ import com.ruchij.services.enrichment.{SeekableByteChannelConverter, VideoEnrich
 import com.ruchij.services.hashing.HashingService
 import com.ruchij.services.repository.FileRepositoryService.FileRepository
 import com.ruchij.services.repository.FileTypeDetector
-import com.ruchij.services.sync.SynchronizationServiceImpl.{errorHandler, fileName, maxConcurrentSyncCount, supportedFileTypes}
+import com.ruchij.services.sync.SynchronizationServiceImpl.{errorHandler, fileName, MaxConcurrentSyncCount, SupportedFileTypes}
 import com.ruchij.services.sync.models.FileSyncResult.{ExistingVideo, IgnoredFile, SyncError, VideoSynced}
 import com.ruchij.services.sync.models.{FileSyncResult, SynchronizationResult}
 import com.ruchij.services.video.VideoService
@@ -47,7 +47,7 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
   override val sync: F[SynchronizationResult] =
     fileRepositoryService
       .list(downloadConfiguration.videoFolder)
-      .mapAsyncUnordered(maxConcurrentSyncCount) { filePath =>
+      .mapAsyncUnordered(MaxConcurrentSyncCount) { filePath =>
         isFileSupported(filePath)
           .flatMap { isVideoFilePath =>
             if (isVideoFilePath) syncVideo(filePath) else Applicative[F].pure(IgnoredFile(filePath))
@@ -65,11 +65,11 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
 
 
   def isFileSupported(filePath: String): F[Boolean] =
-    if (supportedFileTypes.exists(fileType => filePath.endsWith("." + fileType.subType)))
+    if (SupportedFileTypes.exists(fileType => filePath.endsWith("." + fileType.subType)))
       for {
         path <- fileRepositoryService.backedType(filePath)
         fileType <- fileTypeDetector.detect(path)
-        isSupported = supportedFileTypes.contains(fileType)
+        isSupported = SupportedFileTypes.contains(fileType)
       } yield isSupported
     else
       Applicative[F].pure(false)
@@ -123,7 +123,7 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
       snapshot <- videoEnrichmentService.snapshotFileResource(
         videoPath,
         s"${downloadConfiguration.imageFolder}/thumbnail-$videoId.${videoEnrichmentService.snapshotMediaType.subType}",
-        FiniteDuration((duration * SynchronizationServiceImpl.thumbnailTimestamp).toMillis, TimeUnit.MILLISECONDS)
+        FiniteDuration((duration * SynchronizationServiceImpl.ThumbnailTimestamp).toMillis, TimeUnit.MILLISECONDS)
       )
 
       uri <- eitherToF[Throwable, F].apply(Uri.fromString(Uri.encode(videoPath)))
@@ -157,10 +157,10 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
 }
 
 object SynchronizationServiceImpl {
-  val thumbnailTimestamp = 0.1
-  val supportedFileTypes: List[MediaType] = List(MediaType.video.mp4)
-  val pathDelimiter = "[/\\\\]"
-  val maxConcurrentSyncCount = 8
+  val ThumbnailTimestamp = 0.1
+  val SupportedFileTypes: List[MediaType] = List(MediaType.video.mp4)
+  val PathDelimiter = "[/\\\\]"
+  val MaxConcurrentSyncCount = 8
 
   def errorHandler[F[_]: Functor](
     videoPath: String
@@ -170,5 +170,5 @@ object SynchronizationServiceImpl {
   }
 
   def fileName(path: String): String =
-    path.split(pathDelimiter).lastOption.getOrElse(path)
+    path.split(PathDelimiter).lastOption.getOrElse(path)
 }

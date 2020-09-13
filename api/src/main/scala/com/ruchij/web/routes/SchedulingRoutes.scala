@@ -9,7 +9,7 @@ import com.ruchij.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.services.scheduling.SchedulingService
 import com.ruchij.types.JodaClock
 import com.ruchij.web.requests.SchedulingRequest
-import com.ruchij.web.requests.queryparams.QueryParameter.SearchQuery
+import com.ruchij.web.requests.queryparams.SearchQuery
 import com.ruchij.web.responses.{EventStreamEventType, EventStreamHeartBeat, SearchResult}
 import fs2.Stream
 import io.circe.Encoder
@@ -38,11 +38,11 @@ object SchedulingRoutes {
 
       case GET -> Root / "search" :? queryParameters =>
         for {
-          SearchQuery(term, pageSize, pageNumber, sortBy, order) <- SearchQuery.fromQueryParameters[F].run(queryParameters)
+          SearchQuery(term, videoUrls, pageSize, pageNumber, sortBy, order) <- SearchQuery.fromQueryParameters[F].run(queryParameters)
 
-          scheduledVideoDownloads <- schedulingService.search(term, pageNumber, pageSize, sortBy, order)
+          scheduledVideoDownloads <- schedulingService.search(term, videoUrls, pageNumber, pageSize, sortBy, order)
 
-          response <- Ok(SearchResult(scheduledVideoDownloads, pageNumber, pageSize, term, sortBy, order))
+          response <- Ok(SearchResult(scheduledVideoDownloads, pageNumber, pageSize, term, videoUrls, sortBy, order))
         }
         yield response
 
