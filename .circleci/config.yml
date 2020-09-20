@@ -100,9 +100,9 @@ workflows:
           post-steps:
             - slack/status
 
-      - deploy-to-k8s:
-          context: aws-credentials
-          requires:
-            - build-and-publish-docker-images
-          post-steps:
-            - slack/status
+#      - deploy-to-k8s:
+#          context: aws-credentials
+#          requires:
+#            - build-and-publish-docker-images
+#          post-steps:
+#            - slack/status
