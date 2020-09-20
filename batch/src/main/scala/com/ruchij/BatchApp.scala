@@ -11,6 +11,7 @@ import com.ruchij.daos.snapshot.DoobieSnapshotDao
 import com.ruchij.daos.video.DoobieVideoDao
 import com.ruchij.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.daos.workers.DoobieWorkerDao
+import com.ruchij.kv.RedisKeyValueStore
 import com.ruchij.logging.Logger
 import com.ruchij.migration.MigrationApp
 import com.ruchij.services.download.Http4sDownloadService
@@ -23,6 +24,8 @@ import com.ruchij.services.sync.SynchronizationServiceImpl
 import com.ruchij.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
 import com.ruchij.services.worker.WorkExecutorImpl
 import com.ruchij.types.FunctionKTypes
+import dev.profunktor.redis4cats.Redis
+import dev.profunktor.redis4cats.effect.Log.Stdout.instance
 import doobie.free.connection.ConnectionIO
 import org.apache.tika.Tika
 import org.http4s.client.blaze.BlazeClientBuilder
@@ -66,6 +69,9 @@ object BatchApp extends IOApp {
         cpuBlockingThreadPool <- Resource.liftF(Sync[F].delay(Executors.newFixedThreadPool(processorCount)))
         cpuBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(cpuBlockingThreadPool))
 
+        redisCommands <- Redis[F].utf8(batchServiceConfiguration.redisConfiguration.uri)
+        keyValueStore = new RedisKeyValueStore[F](redisCommands)
+
         _ <- Resource.liftF(MigrationApp.migration[F](batchServiceConfiguration.databaseConfiguration, ioBlocker))
 
         workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
@@ -79,6 +85,7 @@ object BatchApp extends IOApp {
           DoobieSchedulingDao,
           DoobieVideoMetadataDao,
           DoobieFileResourceDao,
+          keyValueStore,
           hashingService,
           downloadService,
           batchServiceConfiguration.downloadConfiguration

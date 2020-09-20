@@ -10,6 +10,7 @@ import pureconfig.generic.auto._
 case class BatchServiceConfiguration(
   downloadConfiguration: DownloadConfiguration,
   workerConfiguration: WorkerConfiguration,
+  redisConfiguration: RedisConfiguration,
   databaseConfiguration: DatabaseConfiguration
 )
 

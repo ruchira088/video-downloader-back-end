@@ -6,8 +6,9 @@ services:
     image: video-downloader-api:latest
     depends_on:
       - migration-application
+      - redis
     ports:
-      - 8000:8000
+      - 8000
     volumes:
       - "./videos:/opt/videos"
       - "./images:/opt/images"
@@ -15,6 +16,9 @@ services:
       DATABASE_URL: "jdbc:postgresql://postgres:5432/video-downloader"
       DATABASE_USER: "admin"
       DATABASE_PASSWORD: "password"
+      REDIS_HOSTNAME: "redis"
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: "redis-password"
       VIDEO_FOLDER: "/opt/videos"
       IMAGE_FOLDER: "/opt/images"
 
@@ -22,6 +26,7 @@ services:
     image: video-downloader-batch:latest
     depends_on:
       - migration-application
+      - redis
     volumes:
       - "./videos:/opt/videos"
       - "./images:/opt/images"
@@ -29,6 +34,9 @@ services:
       DATABASE_URL: "jdbc:postgresql://postgres:5432/video-downloader"
       DATABASE_USER: "admin"
       DATABASE_PASSWORD: "password"
+      REDIS_HOSTNAME: "redis"
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: "redis-password"
       VIDEO_FOLDER: "/opt/videos"
       IMAGE_FOLDER: "/opt/images"
 
@@ -45,8 +53,15 @@ services:
     image: postgres
 #    command: ["postgres", "-c", "log_statement=all"]
     ports:
-      - 5432:5432
+      - 5432
     environment:
       POSTGRES_DB: "video-downloader"
       POSTGRES_USER: "admin"
       POSTGRES_PASSWORD: "password"
+
+  redis:
+    image: bitnami/redis
+    ports:
+      - 6378:6379
+    environment:
+      REDIS_PASSWORD: "redis-password"

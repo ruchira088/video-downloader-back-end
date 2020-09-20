@@ -14,6 +14,7 @@ import com.ruchij.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.daos.videometadata.VideoMetadataDao
 import com.ruchij.daos.videometadata.models.VideoMetadata
 import com.ruchij.exceptions.{InvalidConditionException, ResourceNotFoundException}
+import com.ruchij.kv.KeyValueStore
 import com.ruchij.services.download.DownloadService
 import com.ruchij.services.hashing.HashingService
 import com.ruchij.services.models.{Order, SortBy}
@@ -31,6 +32,7 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
   schedulingDao: SchedulingDao[T],
   videoMetadataDao: VideoMetadataDao[T],
   fileResourceDao: FileResourceDao[T],
+  keyValueStore: KeyValueStore[F],
   hashingService: HashingService[F],
   downloadService: DownloadService[F],
   downloadConfiguration: DownloadConfiguration

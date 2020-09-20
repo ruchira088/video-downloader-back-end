@@ -11,6 +11,7 @@ case class WebServiceConfiguration(
   httpConfiguration: HttpConfiguration,
   downloadConfiguration: DownloadConfiguration,
   databaseConfiguration: DatabaseConfiguration,
+  redisConfiguration: RedisConfiguration,
   applicationInformation: ApplicationInformation
 )
 

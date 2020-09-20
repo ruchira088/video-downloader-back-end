@@ -10,6 +10,7 @@ import com.ruchij.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.daos.snapshot.DoobieSnapshotDao
 import com.ruchij.daos.video.DoobieVideoDao
 import com.ruchij.daos.videometadata.DoobieVideoMetadataDao
+import com.ruchij.kv.RedisKeyValueStore
 import com.ruchij.migration.MigrationApp
 import com.ruchij.services.asset.AssetServiceImpl
 import com.ruchij.services.download.Http4sDownloadService
@@ -20,6 +21,8 @@ import com.ruchij.services.scheduling.SchedulingServiceImpl
 import com.ruchij.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
 import com.ruchij.types.FunctionKTypes
 import com.ruchij.web.Routes
+import dev.profunktor.redis4cats.Redis
+import dev.profunktor.redis4cats.effect.Log.Stdout.instance
 import doobie.free.connection.ConnectionIO
 import org.http4s.HttpApp
 import org.http4s.client.blaze.BlazeClientBuilder
@@ -48,11 +51,11 @@ object ApiApp extends IOApp {
     } yield ExitCode.Success
 
   def program[F[_]: ConcurrentEffect: Timer: ContextShift](
-    serviceConfiguration: WebServiceConfiguration,
+    webServiceConfiguration: WebServiceConfiguration,
     executionContext: ExecutionContext
   ): Resource[F, HttpApp[F]] =
     Resource
-      .liftF(DoobieTransactor.create[F](serviceConfiguration.databaseConfiguration))
+      .liftF(DoobieTransactor.create[F](webServiceConfiguration.databaseConfiguration))
       .map(FunctionKTypes.transaction[F])
       .flatMap { implicit transaction =>
         for {
@@ -66,7 +69,10 @@ object ApiApp extends IOApp {
           cpuBlockingThreadPool <- Resource.liftF(Sync[F].delay(Executors.newFixedThreadPool(processorCount)))
           cpuBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(cpuBlockingThreadPool))
 
-          _ <- Resource.liftF(MigrationApp.migration[F](serviceConfiguration.databaseConfiguration, ioBlocker))
+          redisCommands <- Redis[F].utf8(webServiceConfiguration.redisConfiguration.uri)
+          keyValueStore = new RedisKeyValueStore[F](redisCommands)
+
+          _ <- Resource.liftF(MigrationApp.migration[F](webServiceConfiguration.databaseConfiguration, ioBlocker))
 
           hashingService = new MurmurHash3Service[F](cpuBlocker)
           videoAnalysisService = new VideoAnalysisServiceImpl[F](httpClient)
@@ -84,14 +90,15 @@ object ApiApp extends IOApp {
             DoobieSchedulingDao,
             DoobieVideoMetadataDao,
             DoobieFileResourceDao,
+            keyValueStore,
             hashingService,
             downloadService,
-            serviceConfiguration.downloadConfiguration
+            webServiceConfiguration.downloadConfiguration
           )
           healthService = new HealthServiceImpl[F](
-            serviceConfiguration.applicationInformation,
+            webServiceConfiguration.applicationInformation,
             repositoryService,
-            serviceConfiguration.downloadConfiguration
+            webServiceConfiguration.downloadConfiguration
           )
 
         } yield Routes(videoService, videoAnalysisService, schedulingService, assetService, healthService, ioBlocker)
