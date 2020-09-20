@@ -48,6 +48,8 @@ object Dependencies
 
   lazy val apacheTika = "org.apache.tika" % "tika-core" % "1.24.1"
 
+  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "0.10.3"
+
   lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.3"
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"

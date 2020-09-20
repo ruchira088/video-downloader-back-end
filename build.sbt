@@ -35,6 +35,7 @@ lazy val core =
           jodaTime,
           enumeratum,
           apacheTika,
+          redis4CatsEffects,
           jsoup,
           scalaLogging,
           logbackClassic
