@@ -15,6 +15,7 @@ import com.ruchij.daos.videometadata.VideoMetadataDao
 import com.ruchij.daos.videometadata.models.VideoMetadata
 import com.ruchij.exceptions.{InvalidConditionException, ResourceNotFoundException}
 import com.ruchij.kv.KeyValueStore
+import com.ruchij.kv.keys.KVStoreKey.DownloadProgressKey
 import com.ruchij.services.download.DownloadService
 import com.ruchij.services.hashing.HashingService
 import com.ruchij.services.models.{Order, SortBy}
@@ -92,6 +93,9 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
   override def updateDownloadProgress(id: String, downloadedBytes: Long): F[Int] =
     for {
       timestamp <- JodaClock[F].timestamp
+
+      _ <- keyValueStore.put(DownloadProgressKey(id), downloadedBytes)
+
       result <- transaction {
         schedulingDao.updateDownloadProgress(id, downloadedBytes, timestamp)
       }

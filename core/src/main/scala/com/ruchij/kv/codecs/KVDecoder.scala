@@ -2,6 +2,8 @@ package com.ruchij.kv.codecs
 
 import cats.{Applicative, ApplicativeError, Functor, Monad, MonadError}
 import cats.implicits._
+import com.ruchij.kv.keys.KVStoreKey.{KeyList, KeySeparator}
+import shapeless.{::, Generic, HList, HNil}
 
 trait KVDecoder[F[_], A] { self =>
   def decode(value: String): F[A]
@@ -35,4 +37,29 @@ object KVDecoder {
     stringKVDecoder[F].mapEither { value =>
       value.toLongOption.fold[Either[String, Long]](Left(s"""Unable to parse "$value" as a Long"""))(Right.apply)
     }
+
+  implicit def genericKVDecoder[F[_]: MonadError[*[_], Throwable], A, Repr <: HList](
+    implicit generic: Generic.Aux[A, Repr],
+    decoder: KVDecoder[F, Repr]
+  ): KVDecoder[F, A] =
+    (value: String) => decoder.decode(value).map(generic.from)
+
+  implicit def reprKVDecoder[F[_]: MonadError[*[_], Throwable], H, T <: HList](
+    implicit headKVDecoder: KVDecoder[F, H],
+    tailKVDecoder: KVDecoder[F, T]
+  ): KVDecoder[F, H :: T] = {
+    case KeyList() => ApplicativeError[F, Throwable].raiseError(new IllegalArgumentException("Key is too short"))
+
+    case KeyList(head, tail @ _*) =>
+      headKVDecoder.decode(head).flatMap { value =>
+        tailKVDecoder.decode(tail.mkString(KeySeparator)).map(value :: _)
+      }
+  }
+
+  implicit def hNilKVDecoder[F[_]: ApplicativeError[*[_], Throwable]]: KVDecoder[F, HNil] =
+    (value: String) =>
+      if (value.trim.nonEmpty)
+        ApplicativeError[F, Throwable].raiseError(new IllegalArgumentException("Key contains extra terms"))
+      else Applicative[F].pure(HNil)
+
 }

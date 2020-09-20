@@ -1,7 +1,11 @@
 package com.ruchij.kv.codecs
 
-import cats.{Applicative, Monad}
+import cats.{Applicative, ApplicativeError, Monad, MonadError}
 import cats.implicits._
+import com.ruchij.exceptions.InvalidConditionException
+import com.ruchij.kv.keys.KVStoreKey
+import com.ruchij.kv.keys.KVStoreKey.KeySeparator
+import shapeless.{::, Generic, HList, HNil}
 
 trait KVEncoder[F[_], -A] { self =>
   def encode(value: A): F[String]
@@ -20,4 +24,27 @@ object KVEncoder {
     (value: String) => Applicative[F].pure(value)
 
   implicit def longKVEncoder[F[_]: Monad]: KVEncoder[F, Long] = stringKVEncoder[F].coMap[Long](_.toString)
+
+  implicit def genericKVEncoder[F[_]: Applicative, A <: KVStoreKey, Repr](
+    implicit generic: Generic.Aux[A, Repr],
+    encoder: KVEncoder[F, Repr]
+  ): KVEncoder[F, A] =
+    (kvStoreKey: A) => encoder.encode(generic.to(kvStoreKey)).map(kvStoreKey.keySpace.name + KeySeparator + _)
+
+  implicit def reprEncoder[F[_]: MonadError[*[_], Throwable], H, T <: HList](
+    implicit headEncoder: KVEncoder[F, H],
+    tailEncoder: KVEncoder[F, T]
+  ): KVEncoder[F, H :: T] = {
+    case head :: HNil => headEncoder.encode(head)
+
+    case head :: tail =>
+      headEncoder
+        .encode(head)
+        .flatMap { value =>
+          tailEncoder.encode(tail).map(value + KeySeparator + _)
+        }
+  }
+
+  implicit def hNilKVEncoder[F[_]: ApplicativeError[*[_], Throwable]]: KVEncoder[F, HNil] =
+    (_: HNil) => ApplicativeError[F, Throwable].raiseError(InvalidConditionException)
 }
