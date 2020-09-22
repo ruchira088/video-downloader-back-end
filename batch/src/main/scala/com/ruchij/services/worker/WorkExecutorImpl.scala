@@ -61,6 +61,7 @@ class WorkExecutorImpl[F[_]: Sync: Clock, T[_]](
                   .product {
                     downloadResult.data
                       .evalMap { bytes =>
+                        println(bytes)
                         schedulingService.updateDownloadProgress(scheduledVideoDownload.videoMetadata.id, bytes)
                       }
                       .compile

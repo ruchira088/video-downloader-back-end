@@ -3,7 +3,11 @@ package com.ruchij.kv.codecs
 import cats.{Applicative, ApplicativeError, Functor, Monad, MonadError}
 import cats.implicits._
 import com.ruchij.kv.keys.KVStoreKey.{KeyList, KeySeparator}
+import org.joda.time.DateTime
 import shapeless.{::, Generic, HList, HNil}
+
+import scala.util.Try
+
 
 trait KVDecoder[F[_], A] { self =>
   def decode(value: String): F[A]
@@ -38,6 +42,11 @@ object KVDecoder {
       value.toLongOption.fold[Either[String, Long]](Left(s"""Unable to parse "$value" as a Long"""))(Right.apply)
     }
 
+  implicit def dateTimeKVDecoder[F[_]: MonadError[*[_], Throwable]]: KVDecoder[F, DateTime] =
+    stringKVDecoder[F].mapEither { value =>
+      Try(DateTime.parse(value)).toEither.left.map(_.getMessage)
+    }
+
   implicit def genericKVDecoder[F[_]: MonadError[*[_], Throwable], A, Repr <: HList](
     implicit generic: Generic.Aux[A, Repr],
     decoder: KVDecoder[F, Repr]
@@ -59,7 +68,7 @@ object KVDecoder {
   implicit def hNilKVDecoder[F[_]: ApplicativeError[*[_], Throwable]]: KVDecoder[F, HNil] =
     (value: String) =>
       if (value.trim.nonEmpty)
-        ApplicativeError[F, Throwable].raiseError(new IllegalArgumentException("Key contains extra terms"))
+        ApplicativeError[F, Throwable].raiseError(new IllegalArgumentException(s"Key contains extra terms: $value"))
       else Applicative[F].pure(HNil)
 
 }

@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit
 import cats.data.{NonEmptyList, OptionT}
 import cats.effect.{Sync, Timer}
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, Monad, ~>}
+import cats.{ApplicativeError, Monad, ~>}
 import com.ruchij.config.DownloadConfiguration
 import com.ruchij.daos.resource.FileResourceDao
 import com.ruchij.daos.resource.models.FileResource
@@ -14,11 +14,12 @@ import com.ruchij.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.daos.videometadata.VideoMetadataDao
 import com.ruchij.daos.videometadata.models.VideoMetadata
 import com.ruchij.exceptions.{InvalidConditionException, ResourceNotFoundException}
-import com.ruchij.kv.KeyValueStore
+import com.ruchij.kv.KeySpacedKeyValueStore
 import com.ruchij.kv.keys.KVStoreKey.DownloadProgressKey
 import com.ruchij.services.download.DownloadService
 import com.ruchij.services.hashing.HashingService
 import com.ruchij.services.models.{Order, SortBy}
+import com.ruchij.services.scheduling.models.DownloadProgress
 import com.ruchij.services.video.VideoAnalysisService
 import com.ruchij.services.video.models.VideoAnalysisResult
 import com.ruchij.types.JodaClock
@@ -33,7 +34,7 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
   schedulingDao: SchedulingDao[T],
   videoMetadataDao: VideoMetadataDao[T],
   fileResourceDao: FileResourceDao[T],
-  keyValueStore: KeyValueStore[F],
+  keySpacedKeyValueStore: KeySpacedKeyValueStore[F, DownloadProgressKey, DownloadProgress],
   hashingService: HashingService[F],
   downloadService: DownloadService[F],
   downloadConfiguration: DownloadConfiguration
@@ -68,7 +69,7 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
 
       videoMetadata = VideoMetadata(uri, videoId, videoSite, title, duration, size, thumbnail)
 
-      scheduledVideoDownload = ScheduledVideoDownload(timestamp, timestamp, None, videoMetadata, 0, None)
+      scheduledVideoDownload = ScheduledVideoDownload(timestamp, timestamp, None, videoMetadata, None)
 
       _ <- transaction {
         fileResourceDao
@@ -90,18 +91,17 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
       schedulingDao.search(term, videoUrls, pageNumber, pageSize, sortBy, order)
     }
 
-  override def updateDownloadProgress(id: String, downloadedBytes: Long): F[Int] =
+  override def getById(id: String): F[ScheduledVideoDownload] =
+    OptionT(transaction(schedulingDao.getById(id)))
+      .getOrElseF {
+        ApplicativeError[F, Throwable].raiseError(ResourceNotFoundException(s"Unable to find scheduled video download with ID = $id"))
+      }
+
+  override def updateDownloadProgress(id: String, downloadedBytes: Long): F[Unit] =
     for {
       timestamp <- JodaClock[F].timestamp
 
-      _ <- keyValueStore.put(DownloadProgressKey(id), downloadedBytes)
-
-      result <- transaction {
-        schedulingDao.updateDownloadProgress(id, downloadedBytes, timestamp)
-      }
-
-      _ <- if (result == 0) ApplicativeError[F, Throwable].raiseError(ResourceNotFoundException(s"ID not found: $id"))
-      else Applicative[F].unit
+      result <- keySpacedKeyValueStore.put(DownloadProgressKey(id), DownloadProgress(id, timestamp, downloadedBytes))
     } yield result
 
   override def completeTask(id: String): F[ScheduledVideoDownload] =
@@ -110,21 +110,16 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
         OptionT(transaction(schedulingDao.completeTask(id, timestamp)))
           .getOrElseF(ApplicativeError[F, Throwable].raiseError(InvalidConditionException))
       }
+      .productL(keySpacedKeyValueStore.remove(DownloadProgressKey(id)))
 
   override val acquireTask: OptionT[F, ScheduledVideoDownload] =
-    OptionT
-      .liftF(JodaClock[F].timestamp)
-      .flatMapF { timestamp =>
-        transaction {
-          OptionT(schedulingDao.retrieveStaledTask(timestamp))
-            .orElseF(schedulingDao.retrieveNewTask(timestamp))
-            .value
-        }
-      }
+    OptionT {
+      transaction(schedulingDao.retrieveTask)
+    }
 
-  override val active: Stream[F, ScheduledVideoDownload] =
+  override val active: Stream[F, DownloadProgress] =
     Stream
-      .awakeDelay[F](Duration.create(500, TimeUnit.MILLISECONDS))
+      .awakeDelay[F](Duration.create(1, TimeUnit.SECONDS))
       .productR {
         Stream.eval(JodaClock[F].timestamp)
       }
@@ -136,9 +131,17 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
         case (Some(start), Some(end)) => (start, end)
       }
       .evalMap {
-        case (start, end) => transaction(schedulingDao.active(start, end))
+        case (start, end) =>
+          keySpacedKeyValueStore.allKeys
+            .flatMap(_.traverse(keySpacedKeyValueStore.get))
+            .map {
+              _.collect { case Some(value) => value }
+                .filter {
+                  case DownloadProgress(_, updatedAt, _) => updatedAt.isAfter(start) && updatedAt.isBefore(end)
+                }
+            }
       }
-      .flatMap { scheduledDownloads =>
-        Stream.emits(scheduledDownloads)
+      .flatMap { results =>
+        Stream.emits(results)
       }
 }

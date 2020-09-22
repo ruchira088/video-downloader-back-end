@@ -2,6 +2,7 @@ package com.ruchij.services.download
 
 import cats.effect.{Clock, Concurrent, ContextShift, Resource}
 import cats.implicits._
+import com.ruchij.services.download.Http4sDownloadService.MinChunkUpdateSize
 import com.ruchij.services.download.models.{DownloadResult, RangeFrom}
 import com.ruchij.services.repository.RepositoryService
 import com.ruchij.utils.Http4sUtils
@@ -39,10 +40,14 @@ class Http4sDownloadService[F[_]: Concurrent: ContextShift: Clock](
                     .observe { data =>
                       repositoryService.write(fileKey, data)
                     }
-                    .chunks
+                    .chunkMin(MinChunkUpdateSize)
                     .scan(start) { case (total, chunk) => total + chunk.size }
                 }
             }
       }
 
+}
+
+object Http4sDownloadService {
+  val MinChunkUpdateSize: Int = 100 * 1000 // 100KB
 }

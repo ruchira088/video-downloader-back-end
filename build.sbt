@@ -31,6 +31,7 @@ lazy val core =
           http4sBlazeClient,
           h2,
           doobie,
+          shapeless,
           pureconfig,
           jodaTime,
           enumeratum,

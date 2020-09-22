@@ -26,15 +26,17 @@ object Dependencies
 
   lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.6.1"
 
+  lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.3"
+
   lazy val doobie = "org.tpolecat" %% "doobie-core" % "0.9.2"
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.13.1"
 
   lazy val jodaTime = "joda-time" % "joda-time" % "2.10.6"
 
-  lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.13.0"
+  lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.14.0"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "6.5.5"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "6.5.6"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.16"
 

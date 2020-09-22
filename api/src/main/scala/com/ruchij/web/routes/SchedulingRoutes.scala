@@ -5,8 +5,8 @@ import java.util.concurrent.TimeUnit
 import cats.effect.{Concurrent, Timer}
 import cats.implicits._
 import com.ruchij.circe.Encoders._
-import com.ruchij.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.services.scheduling.SchedulingService
+import com.ruchij.services.scheduling.models.DownloadProgress
 import com.ruchij.types.JodaClock
 import com.ruchij.web.requests.SchedulingRequest
 import com.ruchij.web.requests.queryparams.SearchQuery
@@ -46,13 +46,16 @@ object SchedulingRoutes {
         }
         yield response
 
+      case GET -> Root / "videoId" / videoId =>
+        schedulingService.getById(videoId).flatMap(scheduledVideoDownload => Ok(scheduledVideoDownload))
+
       case GET -> Root / "active" =>
         Ok {
           schedulingService.active
             .map {
-              scheduledVideoDownload =>
+              downloadProgress =>
                 ServerSentEvent(
-                  Encoder[ScheduledVideoDownload].apply(scheduledVideoDownload).noSpaces,
+                  Encoder[DownloadProgress].apply(downloadProgress).noSpaces,
                   EventStreamEventType.ActiveDownload
                 )
             }

@@ -4,7 +4,6 @@ CREATE TABLE scheduled_video(
     download_started_at TIMESTAMP NULL,
     last_updated_at TIMESTAMP NOT NULL,
     video_metadata_id VARCHAR(127),
-    downloaded_bytes BIGINT,
     completed_at TIMESTAMP NULL,
 
     PRIMARY KEY (video_metadata_id),

@@ -8,6 +8,5 @@ case class ScheduledVideoDownload(
   lastUpdatedAt: DateTime,
   downloadStartedAt: Option[DateTime],
   videoMetadata: VideoMetadata,
-  downloadedBytes: Long,
   completedAt: Option[DateTime]
 )

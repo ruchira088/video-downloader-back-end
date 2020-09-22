@@ -3,8 +3,8 @@ package com.ruchij.kv.codecs
 import cats.{Applicative, ApplicativeError, Monad, MonadError}
 import cats.implicits._
 import com.ruchij.exceptions.InvalidConditionException
-import com.ruchij.kv.keys.KVStoreKey
 import com.ruchij.kv.keys.KVStoreKey.KeySeparator
+import org.joda.time.DateTime
 import shapeless.{::, Generic, HList, HNil}
 
 trait KVEncoder[F[_], -A] { self =>
@@ -25,11 +25,14 @@ object KVEncoder {
 
   implicit def longKVEncoder[F[_]: Monad]: KVEncoder[F, Long] = stringKVEncoder[F].coMap[Long](_.toString)
 
-  implicit def genericKVEncoder[F[_]: Applicative, A <: KVStoreKey, Repr](
+  implicit def dateTimeKVEncoder[F[_]: Applicative]: KVEncoder[F, DateTime] =
+    stringKVEncoder[F].coMap[DateTime](_.toString)
+
+  implicit def genericKVEncoder[F[_]: Applicative, A, Repr](
     implicit generic: Generic.Aux[A, Repr],
     encoder: KVEncoder[F, Repr]
   ): KVEncoder[F, A] =
-    (kvStoreKey: A) => encoder.encode(generic.to(kvStoreKey)).map(kvStoreKey.keySpace.name + KeySeparator + _)
+    (kvStoreKey: A) => encoder.encode(generic.to(kvStoreKey))
 
   implicit def reprEncoder[F[_]: MonadError[*[_], Throwable], H, T <: HList](
     implicit headEncoder: KVEncoder[F, H],

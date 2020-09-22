@@ -10,7 +10,9 @@ import com.ruchij.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.daos.snapshot.DoobieSnapshotDao
 import com.ruchij.daos.video.DoobieVideoDao
 import com.ruchij.daos.videometadata.DoobieVideoMetadataDao
-import com.ruchij.kv.RedisKeyValueStore
+import com.ruchij.kv.keys.KVStoreKey._
+import com.ruchij.kv.keys.KeySpace
+import com.ruchij.kv.{KeySpacedKeyValueStore, RedisKeyValueStore}
 import com.ruchij.migration.MigrationApp
 import com.ruchij.services.asset.AssetServiceImpl
 import com.ruchij.services.download.Http4sDownloadService
@@ -71,6 +73,7 @@ object ApiApp extends IOApp {
 
           redisCommands <- Redis[F].utf8(webServiceConfiguration.redisConfiguration.uri)
           keyValueStore = new RedisKeyValueStore[F](redisCommands)
+          downloadProgressKeyStore = new KeySpacedKeyValueStore(KeySpace.DownloadProgress, keyValueStore)
 
           _ <- Resource.liftF(MigrationApp.migration[F](webServiceConfiguration.databaseConfiguration, ioBlocker))
 
@@ -90,7 +93,7 @@ object ApiApp extends IOApp {
             DoobieSchedulingDao,
             DoobieVideoMetadataDao,
             DoobieFileResourceDao,
-            keyValueStore,
+            downloadProgressKeyStore,
             hashingService,
             downloadService,
             webServiceConfiguration.downloadConfiguration

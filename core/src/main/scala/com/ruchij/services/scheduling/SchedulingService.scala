@@ -4,6 +4,7 @@ import cats.data.{NonEmptyList, OptionT}
 import fs2.Stream
 import com.ruchij.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.services.models.{Order, SortBy}
+import com.ruchij.services.scheduling.models.DownloadProgress
 import org.http4s.Uri
 
 trait SchedulingService[F[_]] {
@@ -18,11 +19,13 @@ trait SchedulingService[F[_]] {
     order: Order
   ): F[Seq[ScheduledVideoDownload]]
 
-  def updateDownloadProgress(id: String, downloadedBytes: Long): F[Int]
+  def updateDownloadProgress(id: String, downloadedBytes: Long): F[Unit]
+
+  def getById(id: String): F[ScheduledVideoDownload]
 
   def completeTask(id: String): F[ScheduledVideoDownload]
 
   val acquireTask: OptionT[F, ScheduledVideoDownload]
 
-  val active: Stream[F, ScheduledVideoDownload]
+  val active: Stream[F, DownloadProgress]
 }

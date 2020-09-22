@@ -1,13 +1,17 @@
 package com.ruchij.kv.keys
 
+import com.ruchij.kv.keys.KVStoreKey.DownloadProgressKey
+import com.ruchij.services.scheduling.models.DownloadProgress
 import enumeratum.{Enum, EnumEntry}
 
-sealed abstract class KeySpace(val name: String) extends EnumEntry
+sealed abstract class KeySpace[K <: KVStoreKey[K], V](val name: String) extends EnumEntry
 
-object KeySpace extends Enum[KeySpace] {
-  def unapply(input: String): Option[KeySpace] = values.find(_.name.equalsIgnoreCase(input.trim))
+object KeySpace extends Enum[KeySpace[_, _]] {
+  def apply[A <: KVStoreKey[A]](implicit keySpace: KeySpace[A, _]): KeySpace[A, _] = keySpace
 
-  case object DownloadProgress extends KeySpace("download-progress")
+  def unapply(input: String): Option[KeySpace[_, _]] = values.find(_.name.equalsIgnoreCase(input.trim))
 
-  override def values: IndexedSeq[KeySpace] = findValues
+  implicit case object DownloadProgress extends KeySpace[DownloadProgressKey, DownloadProgress]("download-progress")
+
+  override def values: IndexedSeq[KeySpace[_, _]] = findValues
 }
