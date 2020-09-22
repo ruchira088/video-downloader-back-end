@@ -17,10 +17,9 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
 
   override def insert(scheduledVideoDownload: ScheduledVideoDownload): ConnectionIO[Int] =
     sql"""
-      INSERT INTO scheduled_video (scheduled_at, last_updated_at, video_metadata_id, completed_at)
+      INSERT INTO scheduled_video (scheduled_at, video_metadata_id, completed_at)
         VALUES (
           ${scheduledVideoDownload.scheduledAt},
-          ${scheduledVideoDownload.lastUpdatedAt},
           ${scheduledVideoDownload.videoMetadata.id},
           ${scheduledVideoDownload.completedAt}
           )
@@ -29,8 +28,8 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
   val selectQuery: Fragment =
     fr"""
       SELECT
-        scheduled_video.scheduled_at, scheduled_video.last_updated_at, scheduled_video.download_started_at,
-        video_metadata.url, video_metadata.id, video_metadata.video_site, video_metadata.title, video_metadata.duration,
+        scheduled_video.scheduled_at, video_metadata.url, video_metadata.id,
+        video_metadata.video_site, video_metadata.title, video_metadata.duration,
         video_metadata.size, file_resource.id, file_resource.created_at, file_resource.path,
         file_resource.media_type, file_resource.size, scheduled_video.completed_at
       FROM scheduled_video
@@ -38,18 +37,19 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       JOIN file_resource ON video_metadata.thumbnail_id = file_resource.id
     """
 
-  override def getById(id: String): ConnectionIO[Option[ScheduledVideoDownload]] = findById(id)
+  override def getById(id: String): ConnectionIO[Option[ScheduledVideoDownload]] =
+    (selectQuery ++ fr"WHERE scheduled_video.video_metadata_id = $id").query[ScheduledVideoDownload].option
 
   override def completeTask(id: String, timestamp: DateTime): ConnectionIO[Option[ScheduledVideoDownload]] =
     singleUpdate[ConnectionIO] {
       sql"""
         UPDATE scheduled_video
-          SET completed_at = $timestamp, last_updated_at = $timestamp
+          SET completed_at = $timestamp
           WHERE
             completed_at IS NULL AND
             video_metadata_id = $id
       """.update.run
-    }.productR(OptionT(findById(id))).value
+    }.productR(OptionT(getById(id))).value
 
   override def search(
     term: Option[String],
@@ -78,7 +78,6 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
         SELECT scheduled_video.video_metadata_id FROM scheduled_video
           LEFT JOIN worker_task ON scheduled_video.video_metadata_id = worker_task.scheduled_video_id
           WHERE
-            scheduled_video.download_started_at IS NOT NULL AND
             scheduled_video.completed_at IS NULL AND
             worker_task.scheduled_video_id IS NULL
           ORDER BY scheduled_video.scheduled_at
@@ -87,11 +86,8 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
         .query[String]
         .option
     }
-      .flatMapF(findById)
+      .flatMapF(getById)
       .value
-
-  def findById(id: String): ConnectionIO[Option[ScheduledVideoDownload]] =
-    (selectQuery ++ fr"WHERE scheduled_video.video_metadata_id = $id").query[ScheduledVideoDownload].option
 
   val schedulingSortByFiledName: SortBy => Fragment =
     sortByFieldName.orElse {

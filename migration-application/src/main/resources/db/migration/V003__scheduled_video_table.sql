@@ -1,8 +1,6 @@
 CREATE TABLE scheduled_video(
     index BIGSERIAL,
     scheduled_at TIMESTAMP NOT NULL,
-    download_started_at TIMESTAMP NULL,
-    last_updated_at TIMESTAMP NOT NULL,
     video_metadata_id VARCHAR(127),
     completed_at TIMESTAMP NULL,
 

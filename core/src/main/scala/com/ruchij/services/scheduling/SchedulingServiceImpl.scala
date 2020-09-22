@@ -69,7 +69,7 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
 
       videoMetadata = VideoMetadata(uri, videoId, videoSite, title, duration, size, thumbnail)
 
-      scheduledVideoDownload = ScheduledVideoDownload(timestamp, timestamp, None, videoMetadata, None)
+      scheduledVideoDownload = ScheduledVideoDownload(timestamp, videoMetadata, None)
 
       _ <- transaction {
         fileResourceDao
@@ -119,7 +119,7 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
 
   override val active: Stream[F, DownloadProgress] =
     Stream
-      .awakeDelay[F](Duration.create(1, TimeUnit.SECONDS))
+      .awakeDelay[F](Duration.create(500, TimeUnit.MILLISECONDS))
       .productR {
         Stream.eval(JodaClock[F].timestamp)
       }
