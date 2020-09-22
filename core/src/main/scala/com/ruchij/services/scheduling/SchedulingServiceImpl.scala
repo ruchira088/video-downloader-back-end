@@ -110,7 +110,6 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
         OptionT(transaction(schedulingDao.completeTask(id, timestamp)))
           .getOrElseF(ApplicativeError[F, Throwable].raiseError(InvalidConditionException))
       }
-      .productL(keySpacedKeyValueStore.remove(DownloadProgressKey(id)))
 
   override val acquireTask: OptionT[F, ScheduledVideoDownload] =
     OptionT {

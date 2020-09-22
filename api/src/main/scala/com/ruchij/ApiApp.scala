@@ -72,7 +72,7 @@ object ApiApp extends IOApp {
           cpuBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(cpuBlockingThreadPool))
 
           redisCommands <- Redis[F].utf8(webServiceConfiguration.redisConfiguration.uri)
-          keyValueStore = new RedisKeyValueStore[F](redisCommands)
+          keyValueStore = new RedisKeyValueStore[F](redisCommands, RedisKeyValueStore.Ttl)
           downloadProgressKeyStore = new KeySpacedKeyValueStore(KeySpace.DownloadProgress, keyValueStore)
 
           _ <- Resource.liftF(MigrationApp.migration[F](webServiceConfiguration.databaseConfiguration, ioBlocker))
