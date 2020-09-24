@@ -1,13 +1,12 @@
 package com.ruchij.kv.keys
 
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, MonadError}
+import cats.{ApplicativeError, Monad, MonadError}
 import com.ruchij.kv.codecs.{KVDecoder, KVEncoder}
+import org.joda.time.DateTime
 import shapeless.{Generic, HList}
 
-sealed trait KVStoreKey[A <: KVStoreKey[A]] {
-  val keyName: String
-}
+sealed trait KVStoreKey[A <: KVStoreKey[A]]
 
 object KVStoreKey {
   val KeySeparator: String = "::"
@@ -17,12 +16,18 @@ object KVStoreKey {
       if (key.trim.isEmpty) Some(Nil) else Some(key.split(KeySeparator).toList)
   }
 
-  case class DownloadProgressKey(videoId: String) extends KVStoreKey[DownloadProgressKey] {
-    override val keyName: String = KeySpace[DownloadProgressKey].name + KeySeparator + videoId
-  }
+  case class DownloadProgressKey(videoId: String) extends KVStoreKey[DownloadProgressKey]
 
-  implicit def kvStoreKeyEncoder[F[_]: Applicative, A <: KVStoreKey[A]]: KVEncoder[F, A] =
-    KVEncoder[F, String].coMap[KVStoreKey[A]](_.keyName)
+  case class HealthCheckKey(dateTime: DateTime) extends KVStoreKey[HealthCheckKey]
+
+  implicit def kvStoreKeyEncoder[F[_]: Monad, A <: KVStoreKey[A], Repr](
+    implicit generic: Generic.Aux[A, Repr],
+    encoder: KVEncoder[F, Repr],
+    keySpace: KeySpace[A, _]
+  ): KVEncoder[F, A] =
+    KVEncoder[F, String].coMapF[A, String] {
+      value => encoder.encode(generic.to(value)).map(keySpace.name + KeySeparator + _)
+    }
 
   implicit def kvStoreKeyDecoder[F[_]: MonadError[*[_], Throwable], A <: KVStoreKey[A], Repr <: HList](
     implicit generic: Generic.Aux[A, Repr],

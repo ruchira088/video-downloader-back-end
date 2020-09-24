@@ -73,7 +73,9 @@ object ApiApp extends IOApp {
 
           redisCommands <- Redis[F].utf8(webServiceConfiguration.redisConfiguration.uri)
           keyValueStore = new RedisKeyValueStore[F](redisCommands, RedisKeyValueStore.Ttl)
+
           downloadProgressKeyStore = new KeySpacedKeyValueStore(KeySpace.DownloadProgress, keyValueStore)
+          healthCheckKeyStore = new KeySpacedKeyValueStore(KeySpace.HealthCheck, keyValueStore)
 
           _ <- Resource.liftF(MigrationApp.migration[F](webServiceConfiguration.databaseConfiguration, ioBlocker))
 
@@ -99,8 +101,9 @@ object ApiApp extends IOApp {
             webServiceConfiguration.downloadConfiguration
           )
           healthService = new HealthServiceImpl[F](
-            webServiceConfiguration.applicationInformation,
             repositoryService,
+            healthCheckKeyStore,
+            webServiceConfiguration.applicationInformation,
             webServiceConfiguration.downloadConfiguration
           )
 

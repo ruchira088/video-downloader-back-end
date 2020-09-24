@@ -8,6 +8,8 @@ import cats.implicits._
 import cats.~>
 import com.eed3si9n.ruchij.api.BuildInfo
 import com.ruchij.config.{ApplicationInformation, DownloadConfiguration}
+import com.ruchij.kv.KeySpacedKeyValueStore
+import com.ruchij.kv.keys.KVStoreKey.HealthCheckKey
 import com.ruchij.logging.Logger
 import com.ruchij.services.health.models.{HealthCheck, HealthStatus, ServiceInformation}
 import com.ruchij.services.repository.FileRepositoryService
@@ -15,17 +17,33 @@ import com.ruchij.types.JodaClock
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import fs2.Stream
+import org.joda.time.DateTime
 
 import scala.concurrent.duration.FiniteDuration
 
 class HealthServiceImpl[F[_]: Timer: Concurrent](
-  applicationInformation: ApplicationInformation,
   fileRepositoryService: FileRepositoryService[F],
+  keySpacedKeyValueStore: KeySpacedKeyValueStore[F, HealthCheckKey, DateTime],
+  applicationInformation: ApplicationInformation,
   downloadConfiguration: DownloadConfiguration
 )(implicit transaction: ConnectionIO ~> F)
     extends HealthService[F] {
 
   private val logger = Logger[F, HealthServiceImpl[F]]
+
+  val keyValueStoreCheck: F[HealthStatus] =
+    JodaClock[F].timestamp
+      .flatMap { timestamp =>
+        keySpacedKeyValueStore
+          .put(HealthCheckKey(timestamp), timestamp)
+          .productR(keySpacedKeyValueStore.get(HealthCheckKey(timestamp)))
+          .map {
+            _.filter(_.getMillis == timestamp.getMillis)
+              .as(HealthStatus.Healthy)
+              .getOrElse[HealthStatus](HealthStatus.Unhealthy)
+          }
+          .productL(keySpacedKeyValueStore.remove(HealthCheckKey(timestamp)))
+      }
 
   val databaseCheck: F[HealthStatus] =
     transaction {
@@ -68,23 +86,29 @@ class HealthServiceImpl[F[_]: Timer: Concurrent](
       .getOrElse(HealthStatus.Unhealthy)
 
   def check(serviceHealthCheck: F[HealthStatus]): F[HealthStatus] =
-    Concurrent[F].race(serviceHealthCheck, timeout).map(_.merge)
+    Concurrent[F]
+      .race(serviceHealthCheck, timeout)
+      .map(_.merge)
       .recoverWith {
         case throwable =>
           logger.errorF("Health check error", throwable).as(HealthStatus.Unhealthy)
       }
 
-
   val timeout: F[HealthStatus.Unhealthy.type] =
-    Timer[F].sleep(FiniteDuration(10, TimeUnit.SECONDS)).as(HealthStatus.Unhealthy)
+    Timer[F].sleep(FiniteDuration(5, TimeUnit.SECONDS)).as(HealthStatus.Unhealthy)
 
   override val serviceInformation: F[ServiceInformation] =
     ServiceInformation.create[F](applicationInformation)
 
   override val healthCheck: F[HealthCheck] =
     for {
-      database <- check(databaseCheck)
-      fileRepository <- check(fileRepositoryCheck)
-    } yield HealthCheck(database, fileRepository)
+      databaseStatusFiber <- Concurrent[F].start(check(databaseCheck))
+      fileRepositoryStatusFiber <- Concurrent[F].start(check(fileRepositoryCheck))
+      keyValueStoreStatusFiber <- Concurrent[F].start(check(keyValueStoreCheck))
+
+      databaseStatus <- databaseStatusFiber.join
+      fileRepositoryStatus <- fileRepositoryStatusFiber.join
+      keyValueStoreStatus <- keyValueStoreStatusFiber.join
+    } yield HealthCheck(databaseStatus, fileRepositoryStatus, keyValueStoreStatus)
 
 }
