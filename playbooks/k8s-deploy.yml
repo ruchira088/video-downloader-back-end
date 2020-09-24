@@ -13,7 +13,7 @@
       import_tasks: tasks/k8s-resource-files.yml
       vars:
         host_video_folder: /mnt/Data/Videos
-        host_image_folder: /mnt/Data/Images
+        host_image_folder: /home/ruchira/Images
         hostname: "{{ 'api.video.home.ruchij.com' if git_branch == 'master' else 'api.' + git_branch + '.video.home.ruchij.com' }}"
 
     - name: Set kube_config
@@ -24,28 +24,48 @@
         - name: Create Namespace
           command: kubectl apply -f k8s-output/Namespace.yaml --kubeconfig k8s-output/kubeconfig
 
-        - name: Deploy PostgreSQL Helm chart
+        - name: Deploy Helm charts
           block:
             - name: Add Bitnami Helm charts repository
               command: helm repo add bitnami https://charts.bitnami.com/bitnami
 
-            - name: Check Postgresql service in K8s
-              k8s_info:
-                kind: Service
-                namespace: "{{ namespace }}"
-                name: postgresql
-                kubeconfig: k8s-output/kubeconfig
-              register: output
+            - name: Deploy PostgreSQL
+              block:
+                - name: Check Postgresql service in K8s
+                  k8s_info:
+                    kind: Service
+                    namespace: "{{ namespace }}"
+                    name: postgresql
+                    kubeconfig: k8s-output/kubeconfig
+                  register: postgresql_output
 
-            - name: Install Postgres helm chart
-              shell: |
-                KUBECONFIG=k8s-output/kubeconfig helm install postgresql \
-                  --set postgresqlUsername="{{ secrets.database_user }}" \
-                  --set postgresqlPassword="{{ secrets.database_password }}" \
-                  --set postgresqlDatabase=video-downloader \
-                  --namespace {{ namespace }} \
-                  bitnami/postgresql
-              when: output.resources | length == 0
+                - name: Install Postgres Helm chart
+                  shell: |
+                    KUBECONFIG=k8s-output/kubeconfig helm install postgresql \
+                      --set postgresqlUsername="{{ secrets.database_user }}" \
+                      --set postgresqlPassword="{{ secrets.database_password }}" \
+                      --set postgresqlDatabase=video-downloader \
+                      --namespace {{ namespace }} \
+                      bitnami/postgresql
+                  when: postgresql_output.resources | length == 0
+
+            - name: Deploy Redis Helm chart
+              block:
+                - name: Check Redis service in K8s
+                  k8s_info:
+                    kind: Service
+                    namespace: "{{ namespace }}"
+                    name: redis-master
+                    kubeconfig: k8s-output/kubeconfig
+                  register: redis_output
+
+                - name: Install Redis Helm chart
+                  shell: |
+                    KUBECONFIG=k8s-output/kubeconfig helm install redis \
+                    --set password="{{ secrets.redis_password }}" \
+                    --set cluster.enabled=false \
+                    bitname/redis
+                  when: redis_output.resources | length == 0
 
         - name: Deploy DB migration
           block:
