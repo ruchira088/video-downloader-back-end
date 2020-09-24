@@ -64,7 +64,8 @@
                     KUBECONFIG=k8s-output/kubeconfig helm install redis \
                     --set password="{{ secrets.redis_password }}" \
                     --set cluster.enabled=false \
-                    bitname/redis
+                    --namespace {{ namespace }} \
+                    bitnami/redis
                   when: redis_output.resources | length == 0
 
         - name: Deploy DB migration
