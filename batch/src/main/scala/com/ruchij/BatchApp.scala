@@ -11,8 +11,6 @@ import com.ruchij.daos.snapshot.DoobieSnapshotDao
 import com.ruchij.daos.video.DoobieVideoDao
 import com.ruchij.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.daos.workers.DoobieWorkerDao
-import com.ruchij.kv.keys.KVStoreKey._
-import com.ruchij.kv.keys.KeySpace
 import com.ruchij.kv.{KeySpacedKeyValueStore, RedisKeyValueStore}
 import com.ruchij.logging.Logger
 import com.ruchij.migration.MigrationApp
@@ -23,6 +21,7 @@ import com.ruchij.services.repository.{FileRepositoryService, PathFileTypeDetect
 import com.ruchij.services.scheduler.{Scheduler, SchedulerImpl}
 import com.ruchij.services.scheduling.SchedulingServiceImpl
 import com.ruchij.services.scheduling.models.DownloadProgress
+import com.ruchij.services.scheduling.models.DownloadProgress.{DownloadProgressKey, DownloadProgressKeySpace}
 import com.ruchij.services.sync.SynchronizationServiceImpl
 import com.ruchij.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
 import com.ruchij.services.worker.WorkExecutorImpl
@@ -75,7 +74,7 @@ object BatchApp extends IOApp {
 
           redisCommands <- Redis[F].utf8(batchServiceConfiguration.redisConfiguration.uri)
           keyValueStore = new RedisKeyValueStore[F](redisCommands, RedisKeyValueStore.Ttl)
-          downloadProgressKeyStore = new KeySpacedKeyValueStore[F, DownloadProgressKey, DownloadProgress](KeySpace.DownloadProgress, keyValueStore)
+          downloadProgressKeyStore = new KeySpacedKeyValueStore[F, DownloadProgressKey, DownloadProgress](DownloadProgressKeySpace, keyValueStore)
 
           _ <- Resource.liftF(MigrationApp.migration[F](batchServiceConfiguration.databaseConfiguration, ioBlocker))
 

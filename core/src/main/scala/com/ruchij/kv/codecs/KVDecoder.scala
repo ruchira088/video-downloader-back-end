@@ -2,9 +2,10 @@ package com.ruchij.kv.codecs
 
 import cats.{Applicative, ApplicativeError, Functor, Monad, MonadError}
 import cats.implicits._
+import com.ruchij.kv.keys.KVStoreKey
 import com.ruchij.kv.keys.KVStoreKey.{KeyList, KeySeparator}
 import org.joda.time.DateTime
-import shapeless.{::, Generic, HList, HNil}
+import shapeless.{::, <:!<, Generic, HList, HNil}
 
 import scala.util.Try
 
@@ -47,7 +48,7 @@ object KVDecoder {
       Try(DateTime.parse(value)).toEither.left.map(_.getMessage)
     }
 
-  implicit def genericKVDecoder[F[_]: MonadError[*[_], Throwable], A, Repr <: HList](
+  implicit def genericKVDecoder[F[_]: MonadError[*[_], Throwable], A: * <:!< KVStoreKey, Repr <: HList](
     implicit generic: Generic.Aux[A, Repr],
     decoder: KVDecoder[F, Repr]
   ): KVDecoder[F, A] =

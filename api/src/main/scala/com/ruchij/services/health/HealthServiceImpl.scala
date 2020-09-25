@@ -9,8 +9,8 @@ import cats.~>
 import com.eed3si9n.ruchij.api.BuildInfo
 import com.ruchij.config.{ApplicationInformation, DownloadConfiguration}
 import com.ruchij.kv.KeySpacedKeyValueStore
-import com.ruchij.kv.keys.KVStoreKey.HealthCheckKey
 import com.ruchij.logging.Logger
+import com.ruchij.services.health.models.HealthCheck.HealthCheckKey
 import com.ruchij.services.health.models.{HealthCheck, HealthStatus, ServiceInformation}
 import com.ruchij.services.repository.FileRepositoryService
 import com.ruchij.types.JodaClock

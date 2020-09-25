@@ -15,11 +15,11 @@ import com.ruchij.daos.videometadata.VideoMetadataDao
 import com.ruchij.daos.videometadata.models.VideoMetadata
 import com.ruchij.exceptions.{InvalidConditionException, ResourceNotFoundException}
 import com.ruchij.kv.KeySpacedKeyValueStore
-import com.ruchij.kv.keys.KVStoreKey.DownloadProgressKey
 import com.ruchij.services.download.DownloadService
 import com.ruchij.services.hashing.HashingService
 import com.ruchij.services.models.{Order, SortBy}
 import com.ruchij.services.scheduling.models.DownloadProgress
+import com.ruchij.services.scheduling.models.DownloadProgress.DownloadProgressKey
 import com.ruchij.services.video.VideoAnalysisService
 import com.ruchij.services.video.models.VideoAnalysisResult
 import com.ruchij.types.JodaClock

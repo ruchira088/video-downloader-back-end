@@ -10,16 +10,17 @@ import com.ruchij.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.daos.snapshot.DoobieSnapshotDao
 import com.ruchij.daos.video.DoobieVideoDao
 import com.ruchij.daos.videometadata.DoobieVideoMetadataDao
-import com.ruchij.kv.keys.KVStoreKey._
-import com.ruchij.kv.keys.KeySpace
 import com.ruchij.kv.{KeySpacedKeyValueStore, RedisKeyValueStore}
+import com.ruchij.kv.keys.KVStoreKey.{kvStoreKeyDecoder, kvStoreKeyEncoder}
 import com.ruchij.migration.MigrationApp
 import com.ruchij.services.asset.AssetServiceImpl
 import com.ruchij.services.download.Http4sDownloadService
 import com.ruchij.services.hashing.MurmurHash3Service
 import com.ruchij.services.health.HealthServiceImpl
+import com.ruchij.services.health.models.HealthCheck.HealthCheckKeySpace
 import com.ruchij.services.repository.FileRepositoryService
 import com.ruchij.services.scheduling.SchedulingServiceImpl
+import com.ruchij.services.scheduling.models.DownloadProgress.DownloadProgressKeySpace
 import com.ruchij.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
 import com.ruchij.types.FunctionKTypes
 import com.ruchij.web.Routes
@@ -74,8 +75,8 @@ object ApiApp extends IOApp {
           redisCommands <- Redis[F].utf8(webServiceConfiguration.redisConfiguration.uri)
           keyValueStore = new RedisKeyValueStore[F](redisCommands, RedisKeyValueStore.Ttl)
 
-          downloadProgressKeyStore = new KeySpacedKeyValueStore(KeySpace.DownloadProgress, keyValueStore)
-          healthCheckKeyStore = new KeySpacedKeyValueStore(KeySpace.HealthCheck, keyValueStore)
+          downloadProgressKeyStore = new KeySpacedKeyValueStore(DownloadProgressKeySpace, keyValueStore)
+          healthCheckKeyStore = new KeySpacedKeyValueStore(HealthCheckKeySpace, keyValueStore)
 
           _ <- Resource.liftF(MigrationApp.migration[F](webServiceConfiguration.databaseConfiguration, ioBlocker))
 
