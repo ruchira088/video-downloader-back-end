@@ -2,15 +2,16 @@ package com.ruchij.api.web.middleware
 
 import java.time.Instant
 
-import cats.{Applicative, ApplicativeError, MonadError}
 import cats.data.{Kleisli, OptionT}
 import cats.implicits._
+import cats.{Applicative, ApplicativeError, MonadError}
 import com.ruchij.api.exceptions.AuthenticationException
 import com.ruchij.api.services.authentication.AuthenticationService
 import com.ruchij.api.services.authentication.AuthenticationService.Secret
 import com.ruchij.api.services.authentication.models.AuthenticationToken
 import com.ruchij.core.types.FunctionKTypes
-import org.http4s.{HttpDate, HttpRoutes, Request, Response, ResponseCookie, SameSite}
+import org.http4s.server.HttpMiddleware
+import org.http4s._
 
 object Authenticator {
   val CookieName = "authentication"
@@ -26,22 +27,24 @@ object Authenticator {
         }
     }
 
-  def secure[F[_]: MonadError[*[_], Throwable]](authenticationService: AuthenticationService[F], strict: Boolean)(
-    httpRoutes: HttpRoutes[F]
-  ): HttpRoutes[F] =
-    authenticationCookie(authenticationService)
-      .mapF(_.value)
-      .flatMapF {
-        _.fold[F[Option[AuthenticationToken]]](onFailure[F](strict).map(identity[Option[AuthenticationToken]])) {
-          authenticationToken =>
-            Applicative[F].pure(Some(authenticationToken))
+  def middleware[F[_]: MonadError[*[_], Throwable]](
+    authenticationService: AuthenticationService[F],
+    strict: Boolean
+  ): HttpMiddleware[F] =
+    httpRoutes =>
+      authenticationCookie(authenticationService)
+        .mapF(_.value)
+        .flatMapF {
+          _.fold[F[Option[AuthenticationToken]]](onFailure[F](strict).map(identity[Option[AuthenticationToken]])) {
+            authenticationToken =>
+              Applicative[F].pure(Some(authenticationToken))
+          }
         }
-      }
-      .mapF(OptionT.apply[F, AuthenticationToken])
-      .flatMap { authenticationToken =>
-        httpRoutes.flatMapF { result =>
-          OptionT.liftF(addCookie[F](authenticationToken, result))
-        }
+        .mapF(OptionT.apply[F, AuthenticationToken])
+        .flatMap { authenticationToken =>
+          httpRoutes.flatMapF { result =>
+            OptionT.liftF(addCookie[F](authenticationToken, result))
+          }
       }
 
   def onFailure[F[_]: ApplicativeError[*[_], Throwable]](strict: Boolean): F[None.type] =
@@ -65,7 +68,7 @@ object Authenticator {
             authenticationToken.secret.value,
             Some(httpDate),
             path = Some("/"),
-//            sameSite = SameSite.None
+            sameSite = SameSite.None
           )
         }
       }
