@@ -52,6 +52,8 @@ object Dependencies
 
   lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "0.10.3"
 
+  lazy val jbcrypt = "org.mindrot" % "jbcrypt" % "0.4"
+
   lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.3"
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"

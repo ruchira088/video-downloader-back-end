@@ -63,6 +63,7 @@ lazy val api =
           circeLiteral,
           postgresql,
           pureconfig,
+          jbcrypt,
           logbackClassic
         ) ++ Seq(scalaTest, pegdown).map(_ % Test)
     )
