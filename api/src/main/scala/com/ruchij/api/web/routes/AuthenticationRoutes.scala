@@ -1,7 +1,5 @@
 package com.ruchij.api.web.routes
 
-import java.time.Instant
-
 import cats.effect.Sync
 import cats.implicits._
 import com.ruchij.api.services.authentication.AuthenticationService
@@ -12,8 +10,7 @@ import io.circe.generic.auto._
 import com.ruchij.api.circe.Decoders.stringWrapperDecoder
 import com.ruchij.api.circe.Encoders.{dateTimeEncoder, stringWrapperEncoder}
 import com.ruchij.api.web.middleware.Authenticator
-import com.ruchij.core.types.FunctionKTypes
-import org.http4s.{HttpDate, HttpRoutes, ResponseCookie, SameSite}
+import org.http4s.HttpRoutes
 import org.http4s.dsl.Http4sDsl
 
 object AuthenticationRoutes {
@@ -27,24 +24,18 @@ object AuthenticationRoutes {
 
           authenticationToken <- authenticationService.login(loginRequest.password)
 
-          httpDate <- FunctionKTypes.eitherToF[Throwable, F].apply {
-            HttpDate.fromInstant(Instant.ofEpochMilli(authenticationToken.expiresAt.getMillis))
-          }
-
-          response <-
-            Created(authenticationToken).map {
-              _.addCookie {
-                ResponseCookie(
-                  Authenticator.CookieName,
-                  authenticationToken.secret.value,
-                  Some(httpDate),
-                  path = Some("/"),
-                  sameSite = SameSite.None
-                )
-              }
-            }
+          response <- Created(authenticationToken).flatMap(Authenticator.addCookie[F](authenticationToken, _))
         }
         yield response
+
+      case request @ DELETE -> Root / "logout" =>
+        Authenticator.authenticationCookie(authenticationService)
+          .run(request)
+          .semiflatMap(token => authenticationService.logout(token.secret))
+          .semiflatMap(token => Ok(token))
+          .getOrElseF(NoContent())
+          .map(_.removeCookie(Authenticator.CookieName))
+
     }
   }
 }
