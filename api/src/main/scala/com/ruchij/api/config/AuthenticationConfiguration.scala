@@ -13,7 +13,7 @@ object AuthenticationConfiguration {
   case class HashedPassword(value: String) extends AnyVal
 
   implicit val hashedPasswordPureConfigReader: ConfigReader[HashedPassword] =
-    PureConfigReaders.tryConfigParser[HashedPassword] {
+    PureConfigReaders.stringConfigParserTry[HashedPassword] {
       input => Success(HashedPassword(input))
     }
 }

@@ -9,16 +9,16 @@ import scala.util.Try
 
 object PureConfigReaders {
   implicit val localTimePureConfigReader: ConfigReader[LocalTime] =
-    tryConfigParser {
+    stringConfigParserTry {
       localTime => Try(LocalTime.parse(localTime))
     }
 
   implicit val dateTimePureConfigReader: ConfigReader[DateTime] =
-    tryConfigParser {
+    stringConfigParserTry {
       dateTime => Try(DateTime.parse(dateTime))
     }
 
-  def tryConfigParser[A](parser: String => Try[A])(implicit classTag: ClassTag[A]): ConfigReader[A] =
+  def stringConfigParserTry[A](parser: String => Try[A])(implicit classTag: ClassTag[A]): ConfigReader[A] =
     ConfigReader.fromNonEmptyString {
       value =>
         parser(value).toEither.left.map {

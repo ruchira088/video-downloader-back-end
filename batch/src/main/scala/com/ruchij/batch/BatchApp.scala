@@ -84,6 +84,7 @@ object BatchApp extends IOApp {
           downloadService = new Http4sDownloadService[F](httpClient, repositoryService)
           hashingService = new MurmurHash3Service[F](cpuBlocker)
           videoAnalysisService = new VideoAnalysisServiceImpl[F](httpClient)
+
           schedulingService = new SchedulingServiceImpl[F, ConnectionIO](
             videoAnalysisService,
             DoobieSchedulingDao,

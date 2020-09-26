@@ -2,6 +2,7 @@ package com.ruchij.api.web
 
 import cats.effect.{Blocker, Concurrent, ContextShift, Timer}
 import cats.implicits._
+import com.ruchij.api.services.authentication.AuthenticationService
 import com.ruchij.api.services.health.HealthService
 import com.ruchij.api.web.middleware.{ExceptionHandler, NotFoundHandler}
 import com.ruchij.api.web.routes._
@@ -20,6 +21,7 @@ object Routes {
     schedulingService: SchedulingService[F],
     assetService: AssetService[F],
     healthService: HealthService[F],
+    authenticationService: AuthenticationService[F],
     ioBlocker: Blocker
   ): HttpApp[F] = {
     implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
@@ -27,6 +29,7 @@ object Routes {
     val routes: HttpRoutes[F] =
       WebServerRoutes(ioBlocker) <+>
         Router(
+          "/authenticate" -> AuthenticationRoutes(authenticationService),
           "/schedule" -> SchedulingRoutes(schedulingService),
           "/videos" -> VideoRoutes(videoService, videoAnalysisService),
           "/assets" -> AssetRoutes(assetService),
