@@ -18,5 +18,5 @@ case class SynchronizationResult(existingVideoFiles: Long, syncedVideos: Long, s
 }
 
 object SynchronizationResult {
-  val zero: SynchronizationResult = SynchronizationResult(0, 0, 0, 0)
+  val Zero: SynchronizationResult = SynchronizationResult(0, 0, 0, 0)
 }

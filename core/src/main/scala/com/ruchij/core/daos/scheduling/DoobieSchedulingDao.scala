@@ -25,7 +25,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
           )
      """.update.run
 
-  val selectQuery: Fragment =
+  val SelectQuery: Fragment =
     fr"""
       SELECT
         scheduled_video.scheduled_at, video_metadata.url, video_metadata.id,
@@ -38,7 +38,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
     """
 
   override def getById(id: String): ConnectionIO[Option[ScheduledVideoDownload]] =
-    (selectQuery ++ fr"WHERE scheduled_video.video_metadata_id = $id").query[ScheduledVideoDownload].option
+    (SelectQuery ++ fr"WHERE scheduled_video.video_metadata_id = $id").query[ScheduledVideoDownload].option
 
   override def completeTask(id: String, timestamp: DateTime): ConnectionIO[Option[ScheduledVideoDownload]] =
     singleUpdate[ConnectionIO] {
@@ -59,7 +59,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
     sortBy: SortBy,
     order: Order
   ): ConnectionIO[Seq[ScheduledVideoDownload]] =
-    (selectQuery
+    (SelectQuery
       ++
         whereAndOpt(
           term.map(searchTerm => fr"title LIKE ${"%" + searchTerm + "%"}"),

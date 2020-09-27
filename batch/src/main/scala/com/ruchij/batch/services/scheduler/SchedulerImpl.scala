@@ -7,7 +7,7 @@ import cats.effect.{Bracket, Clock, Concurrent, Sync, Timer}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Monad, ~>}
 import com.ruchij.batch.config.WorkerConfiguration
-import com.ruchij.batch.services.scheduler.SchedulerImpl.DELAY
+import com.ruchij.batch.services.scheduler.SchedulerImpl.Delay
 import com.ruchij.batch.services.sync.SynchronizationService
 import com.ruchij.batch.services.sync.models.SynchronizationResult
 import com.ruchij.batch.services.worker.WorkExecutor
@@ -41,9 +41,9 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
 
   val idleWorker: F[Worker] =
     Sync[F]
-      .delay(Random.nextLong(DELAY.toMillis))
+      .delay(Random.nextLong(Delay.toMillis))
       .flatMap { sleepDuration =>
-        Timer[F].sleep(DELAY + FiniteDuration(sleepDuration, TimeUnit.MILLISECONDS))
+        Timer[F].sleep(Delay + FiniteDuration(sleepDuration, TimeUnit.MILLISECONDS))
       }
       .productR(JodaClock[F].timestamp)
       .flatMap { timestamp =>
@@ -141,7 +141,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
 }
 
 object SchedulerImpl {
-  val DELAY: FiniteDuration = 10 seconds
+  val Delay: FiniteDuration = 10 seconds
 
   def isWorkPeriod[F[_]: Clock: Monad](start: LocalTime, end: LocalTime): F[Boolean] =
     JodaClock[F].timestamp

@@ -63,7 +63,7 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
 
         case _ => Applicative[F].unit
       }
-      .fold(SynchronizationResult.zero)(_ + _)
+      .fold(SynchronizationResult.Zero)(_ + _)
       .compile
       .lastOrError
 
@@ -126,7 +126,7 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
       snapshot <- videoEnrichmentService.snapshotFileResource(
         videoPath,
         s"${downloadConfiguration.imageFolder}/thumbnail-$videoId.${videoEnrichmentService.snapshotMediaType.subType}",
-        FiniteDuration((duration * SynchronizationServiceImpl.ThumbnailTimestamp).toMillis, TimeUnit.MILLISECONDS)
+        FiniteDuration((duration * SynchronizationServiceImpl.VideoThumbnailSnapshotTimestamp).toMillis, TimeUnit.MILLISECONDS)
       )
 
       uri <- FunctionKTypes.eitherToF[Throwable, F].apply(Uri.fromString(Uri.encode(videoPath)))
@@ -161,7 +161,7 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
 }
 
 object SynchronizationServiceImpl {
-  val ThumbnailTimestamp = 0.1
+  val VideoThumbnailSnapshotTimestamp = 0.1
   val SupportedFileTypes: List[MediaType] = List(MediaType.video.mp4)
   val PathDelimiter = "[/\\\\]"
   val MaxConcurrentSyncCount = 8

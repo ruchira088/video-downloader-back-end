@@ -13,7 +13,7 @@ import org.http4s.Uri
 
 object DoobieVideoDao extends VideoDao[ConnectionIO] {
 
-  val selectQuery =
+  val SelectQuery =
     fr"""
        SELECT
         video_metadata.url,
@@ -45,7 +45,7 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
     sortBy: SortBy,
     order: Order
   ): ConnectionIO[Seq[Video]] =
-    (selectQuery
+    (SelectQuery
       ++ fr"ORDER BY"
       ++ videoSortByFieldName(sortBy)
       ++ ordering(order)
@@ -59,7 +59,7 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
       .to[Seq]
 
   override def findById(id: String): ConnectionIO[Option[Video]] =
-    (selectQuery ++ fr"WHERE video_metadata_id = $id").query[Video].option
+    (SelectQuery ++ fr"WHERE video_metadata_id = $id").query[Video].option
 
   val videoSortByFieldName: SortBy => Fragment =
     sortByFieldName.orElse {
