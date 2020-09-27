@@ -68,6 +68,7 @@ object Authenticator {
             authenticationToken.secret.value,
             Some(httpDate),
             path = Some("/"),
+            secure = true,
             sameSite = SameSite.None
           )
         }
