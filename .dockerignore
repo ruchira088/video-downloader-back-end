@@ -1,2 +1,11 @@
-/.idea
+.idea
+.git
+
 .DS_Store
+
+.circleci
+
+videos
+images
+
+playbooks
