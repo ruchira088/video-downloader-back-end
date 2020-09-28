@@ -1,4 +1,4 @@
-package com.ruchij.batch.services.repository
+package com.ruchij.core.services.repository
 
 import java.util.concurrent.ConcurrentHashMap
 

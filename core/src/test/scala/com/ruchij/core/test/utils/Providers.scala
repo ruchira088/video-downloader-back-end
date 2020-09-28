@@ -1,10 +1,10 @@
-package com.ruchij.batch.test.utils
+package com.ruchij.core.test.utils
 
 import java.util.concurrent.TimeUnit
 
 import cats.effect.{Async, Blocker, Clock, ContextShift, IO, Sync, Timer}
 import cats.implicits._
-import com.ruchij.batch.daos.doobie.DoobieTransactor
+import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.migration.MigrationApp
 import com.ruchij.migration.config.DatabaseConfiguration
 import doobie.util.transactor.Transactor

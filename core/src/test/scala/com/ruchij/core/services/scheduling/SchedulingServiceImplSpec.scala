@@ -1,27 +1,25 @@
-package com.ruchij.batch.services.scheduling
+package com.ruchij.core.services.scheduling
 
 import java.util.concurrent.ConcurrentHashMap
 
 import cats.effect.{Async, ContextShift, IO, Resource, Timer}
 import cats.implicits._
-import com.ruchij.batch.daos.resource.models.FileResource
-import com.ruchij.batch.daos.scheduling.models.ScheduledVideoDownload
-import com.ruchij.batch.services.download.{DownloadService, Http4sDownloadService}
-import com.ruchij.batch.services.hashing.{HashingService, MurmurHash3Service}
-import com.ruchij.batch.services.repository.InMemoryRepositoryService
-import com.ruchij.batch.services.video.VideoAnalysisService
-import com.ruchij.batch.services.video.models.VideoAnalysisResult
-import com.ruchij.daos.videometadata.models.VideoMetadata
-import com.ruchij.services.download.Http4sDownloadService
-import com.ruchij.services.hashing.HashingService
-import SchedulingServiceImplSpec.{createSchedulingService, downloadConfiguration}
-import com.ruchij.batch.daos.resource.DoobieFileResourceDao
-import com.ruchij.batch.daos.scheduling.DoobieSchedulingDao
-import com.ruchij.batch.daos.videometadata.DoobieVideoMetadataDao
-import com.ruchij.batch.test.utils.Providers
-import Providers.{blocker, contextShift}
-import com.ruchij.batch.daos.videometadata.models.{VideoMetadata, VideoSite}
-import com.ruchij.batch.types.FunctionKTypes
+import com.ruchij.core.config.DownloadConfiguration
+import com.ruchij.core.daos.resource.DoobieFileResourceDao
+import com.ruchij.core.daos.resource.models.FileResource
+import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
+import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
+import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
+import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
+import com.ruchij.core.services.download.{DownloadService, Http4sDownloadService}
+import com.ruchij.core.services.hashing.{HashingService, MurmurHash3Service}
+import com.ruchij.core.services.repository.InMemoryRepositoryService
+import com.ruchij.core.services.scheduling.SchedulingServiceImplSpec.{createSchedulingService, downloadConfiguration}
+import com.ruchij.core.services.video.VideoAnalysisService
+import com.ruchij.core.services.video.models.VideoAnalysisResult
+import com.ruchij.core.test.utils.Providers
+import com.ruchij.core.test.utils.Providers.{blocker, contextShift}
+import com.ruchij.core.types.FunctionKTypes
 import doobie.ConnectionIO
 import fs2.Stream
 import org.http4s.client.Client
@@ -88,8 +86,6 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
     val expectedScheduledDownloadVideo =
       ScheduledVideoDownload(
         dateTime,
-        dateTime,
-        None,
         VideoMetadata(
           videoAnalysisResult.url,
           videoId,
@@ -105,7 +101,6 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
             videoAnalysisResult.size
           )
         ),
-        0,
         None
       )
 
@@ -136,6 +131,7 @@ object SchedulingServiceImplSpec {
           DoobieSchedulingDao,
           DoobieVideoMetadataDao,
           DoobieFileResourceDao,
+          ???,
           hashingService,
           downloadService,
           downloadConfiguration

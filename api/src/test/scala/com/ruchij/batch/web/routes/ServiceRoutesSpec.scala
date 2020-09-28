@@ -3,7 +3,6 @@ package com.ruchij.batch.web.routes
 import cats.effect.{Clock, IO}
 import com.ruchij.api.circe.Encoders.dateTimeEncoder
 import com.ruchij.batch.test.HttpTestApp
-import com.ruchij.batch.test.utils.Providers.stubClock
 import com.ruchij.test.matchers._
 import io.circe.literal._
 import org.http4s.{Request, Status, Uri}
