@@ -73,7 +73,7 @@ object BatchApp extends IOApp {
           cpuBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(cpuBlockingThreadPool))
 
           redisCommands <- Redis[F].utf8(batchServiceConfiguration.redisConfiguration.uri)
-          keyValueStore = new RedisKeyValueStore[F](redisCommands, RedisKeyValueStore.Ttl)
+          keyValueStore = new RedisKeyValueStore[F](redisCommands)
           downloadProgressKeyStore = new KeySpacedKeyValueStore[F, DownloadProgressKey, DownloadProgress](DownloadProgressKeySpace, keyValueStore)
 
           _ <- Resource.liftF(MigrationApp.migration[F](batchServiceConfiguration.databaseConfiguration, ioBlocker))

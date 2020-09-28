@@ -1,7 +1,5 @@
 package com.ruchij.core.kv
 
-import java.util.concurrent.TimeUnit
-
 import cats.implicits._
 import cats.{Applicative, Monad}
 import com.ruchij.core.kv.codecs.{KVDecoder, KVEncoder}
@@ -9,7 +7,7 @@ import dev.profunktor.redis4cats.RedisCommands
 
 import scala.concurrent.duration.FiniteDuration
 
-class RedisKeyValueStore[F[_]: Monad](redisCommands: RedisCommands[F, String, String], ttl: FiniteDuration) extends KeyValueStore[F] {
+class RedisKeyValueStore[F[_]: Monad](redisCommands: RedisCommands[F, String, String]) extends KeyValueStore[F] {
   override type InsertionResult = Unit
   override type DeletionResult = Unit
 
@@ -22,7 +20,7 @@ class RedisKeyValueStore[F[_]: Monad](redisCommands: RedisCommands[F, String, St
       }
     } yield value
 
-  override def put[K: KVEncoder[F, *], V: KVEncoder[F, *]](key: K, value: V): F[InsertionResult] =
+  override def put[K: KVEncoder[F, *], V: KVEncoder[F, *]](key: K, value: V, ttl: FiniteDuration): F[InsertionResult] =
     for {
       encodedKey <- KVEncoder[F, K].encode(key)
       encodedValue <- KVEncoder[F, V].encode(value)
@@ -42,8 +40,4 @@ class RedisKeyValueStore[F[_]: Monad](redisCommands: RedisCommands[F, String, St
       encodedKeys <- redisCommands.keys("*" + term + "*")
       keys <- encodedKeys.traverse(KVDecoder[F, K].decode)
     } yield keys
-}
-
-object RedisKeyValueStore {
-  val Ttl: FiniteDuration = FiniteDuration(1, TimeUnit.MINUTES)
 }

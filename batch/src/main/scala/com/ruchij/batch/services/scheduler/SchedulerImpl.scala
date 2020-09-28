@@ -141,7 +141,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
 }
 
 object SchedulerImpl {
-  val Delay: FiniteDuration = 10 seconds
+  val Delay: FiniteDuration = 5 seconds
 
   def isWorkPeriod[F[_]: Clock: Monad](start: LocalTime, end: LocalTime): F[Boolean] =
     JodaClock[F].timestamp

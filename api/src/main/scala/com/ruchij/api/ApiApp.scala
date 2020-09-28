@@ -75,7 +75,7 @@ object ApiApp extends IOApp {
           cpuBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(cpuBlockingThreadPool))
 
           redisCommands <- Redis[F].utf8(apiServiceConfiguration.redisConfiguration.uri)
-          keyValueStore = new RedisKeyValueStore[F](redisCommands, RedisKeyValueStore.Ttl)
+          keyValueStore = new RedisKeyValueStore[F](redisCommands)
 
           downloadProgressKeyStore = new KeySpacedKeyValueStore(DownloadProgressKeySpace, keyValueStore)
           healthCheckKeyStore = new KeySpacedKeyValueStore(HealthCheckKeySpace, keyValueStore)

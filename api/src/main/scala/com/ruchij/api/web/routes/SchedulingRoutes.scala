@@ -1,7 +1,5 @@
 package com.ruchij.api.web.routes
 
-import java.util.concurrent.TimeUnit
-
 import cats.effect.{Concurrent, Timer}
 import cats.implicits._
 import com.ruchij.api.web.requests.SchedulingRequest
@@ -21,7 +19,8 @@ import org.http4s.circe._
 import org.http4s.{HttpRoutes, ServerSentEvent}
 import org.http4s.dsl.Http4sDsl
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
+import scala.language.postfixOps
 
 object SchedulingRoutes {
   def apply[F[_]: Concurrent: Timer](schedulingService: SchedulingService[F])(implicit dsl: Http4sDsl[F]): HttpRoutes[F] = {
@@ -61,7 +60,7 @@ object SchedulingRoutes {
                 )
             }
             .merge {
-              Stream.fixedRate[F](FiniteDuration(10, TimeUnit.SECONDS))
+              Stream.fixedRate[F](10 seconds)
                 .zipRight(Stream.eval(JodaClock[F].timestamp).repeat)
                 .map {
                   timestamp =>

@@ -1,7 +1,5 @@
 package com.ruchij.core.services.scheduling
 
-import java.util.concurrent.TimeUnit
-
 import cats.data.{NonEmptyList, OptionT}
 import cats.effect.{Sync, Timer}
 import cats.implicits._
@@ -27,7 +25,8 @@ import fs2.Stream
 import org.http4s.Uri
 import org.joda.time.DateTime
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
+import scala.language.postfixOps
 
 class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
   videoAnalysisService: VideoAnalysisService[F],
@@ -118,7 +117,7 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
 
   override val active: Stream[F, DownloadProgress] =
     Stream
-      .awakeDelay[F](Duration.create(500, TimeUnit.MILLISECONDS))
+      .awakeDelay[F](500 milliseconds)
       .productR {
         Stream.eval(JodaClock[F].timestamp)
       }

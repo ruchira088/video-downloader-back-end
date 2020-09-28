@@ -1,7 +1,5 @@
 package com.ruchij.api.services.health
 
-import java.util.concurrent.TimeUnit
-
 import cats.data.OptionT
 import cats.effect.{Concurrent, Timer}
 import cats.implicits._
@@ -19,7 +17,8 @@ import doobie.implicits._
 import fs2.Stream
 import org.joda.time.DateTime
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
+import scala.language.postfixOps
 
 class HealthServiceImpl[F[_]: Timer: Concurrent](
   fileRepositoryService: FileRepositoryService[F],
@@ -95,7 +94,7 @@ class HealthServiceImpl[F[_]: Timer: Concurrent](
       }
 
   val timeout: F[HealthStatus.Unhealthy.type] =
-    Timer[F].sleep(FiniteDuration(5, TimeUnit.SECONDS)).as(HealthStatus.Unhealthy)
+    Timer[F].sleep(5 seconds).as(HealthStatus.Unhealthy)
 
   override val serviceInformation: F[ServiceInformation] =
     ServiceInformation.create[F](applicationInformation)
