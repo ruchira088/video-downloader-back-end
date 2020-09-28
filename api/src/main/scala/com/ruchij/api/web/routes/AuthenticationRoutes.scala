@@ -29,7 +29,7 @@ object AuthenticationRoutes {
         yield response
 
       case request @ DELETE -> Root / "logout" =>
-        Authenticator.authenticationCookie(authenticationService)
+        Authenticator.authenticationToken(authenticationService)
           .run(request)
           .semiflatMap(token => authenticationService.logout(token.secret))
           .semiflatMap(token => Ok(token))

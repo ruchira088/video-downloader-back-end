@@ -4,35 +4,50 @@ import java.time.Instant
 
 import cats.data.{Kleisli, OptionT}
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, MonadError}
+import cats.{Applicative, ApplicativeError, Monad, MonadError}
 import com.ruchij.api.exceptions.AuthenticationException
 import com.ruchij.api.services.authentication.AuthenticationService
 import com.ruchij.api.services.authentication.AuthenticationService.Secret
 import com.ruchij.api.services.authentication.models.AuthenticationToken
 import com.ruchij.core.types.FunctionKTypes
-import org.http4s.server.HttpMiddleware
 import org.http4s._
+import org.http4s.headers.Authorization
+import org.http4s.server.HttpMiddleware
 
 object Authenticator {
   val CookieName = "authentication"
 
-  def authenticationCookie[F[_]: Applicative](
+  def bearerToken[F[_]](request: Request[F]): Option[Secret] =
+    request.headers
+      .get(Authorization)
+      .map(_.credentials)
+      .collect {
+        case Credentials.Token(AuthScheme.Bearer, bearerToken) => Secret(bearerToken)
+      }
+
+  def authenticationCookie[F[_]](request: Request[F]): Option[RequestCookie] =
+    request.cookies.find(_.name == CookieName).filter(_.content.trim.nonEmpty)
+
+  def authenticationToken[F[_]: Monad](
     authenticationService: AuthenticationService[F]
   ): Kleisli[OptionT[F, *], Request[F], AuthenticationToken] =
-    Kleisli[OptionT[F, *], Request[F], AuthenticationToken] { request =>
-      request.cookies
-        .find(_.name == CookieName)
-        .fold[OptionT[F, AuthenticationToken]](OptionT.none[F, AuthenticationToken]) { cookie =>
-          OptionT.liftF(authenticationService.authenticate(Secret(cookie.content)))
+    Kleisli { request =>
+      OptionT
+        .fromOption[F] {
+          authenticationCookie(request)
+            .map(cookie => Secret(cookie.content))
+            .orElse(bearerToken(request))
         }
+        .semiflatMap(authenticationService.authenticate)
     }
+
 
   def middleware[F[_]: MonadError[*[_], Throwable]](
     authenticationService: AuthenticationService[F],
     strict: Boolean
   ): HttpMiddleware[F] =
     httpRoutes =>
-      authenticationCookie(authenticationService)
+      authenticationToken(authenticationService)
         .mapF(_.value)
         .flatMapF {
           _.fold[F[Option[AuthenticationToken]]](onFailure[F](strict).map(identity[Option[AuthenticationToken]])) {
@@ -52,7 +67,7 @@ object Authenticator {
       ApplicativeError[F, Throwable].raiseError(AuthenticationException("Authentication cookie not found"))
     else Applicative[F].pure(None)
 
-  def addCookie[F[_]: MonadError[*[_], Throwable]](
+  def addCookie[F[_]: ApplicativeError[*[_], Throwable]](
     authenticationToken: AuthenticationToken,
     response: Response[F]
   ): F[Response[F]] =
