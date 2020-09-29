@@ -42,7 +42,7 @@ object Authenticator {
     }
 
 
-  def middleware[F[_]: MonadError[*[_], Throwable]](
+  def middleware[F[+ _]: MonadError[*[_], Throwable]](
     authenticationService: AuthenticationService[F],
     strict: Boolean
   ): HttpMiddleware[F] =
@@ -50,7 +50,7 @@ object Authenticator {
       authenticationToken(authenticationService)
         .mapF(_.value)
         .flatMapF {
-          _.fold[F[Option[AuthenticationToken]]](onFailure[F](strict).map(identity[Option[AuthenticationToken]])) {
+          _.fold[F[Option[AuthenticationToken]]](onFailure[F](strict)) {
             authenticationToken =>
               Applicative[F].pure(Some(authenticationToken))
           }
@@ -64,7 +64,7 @@ object Authenticator {
 
   def onFailure[F[_]: ApplicativeError[*[_], Throwable]](strict: Boolean): F[None.type] =
     if (strict)
-      ApplicativeError[F, Throwable].raiseError(AuthenticationException("Authentication cookie not found"))
+      ApplicativeError[F, Throwable].raiseError(AuthenticationException.MissingAuthenticationToken)
     else Applicative[F].pure(None)
 
   def addCookie[F[_]: ApplicativeError[*[_], Throwable]](

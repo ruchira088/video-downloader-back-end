@@ -1,5 +1,6 @@
 package com.ruchij.api.web.routes
 
+import cats.ApplicativeError
 import cats.effect.Sync
 import cats.implicits._
 import com.ruchij.api.services.authentication.AuthenticationService
@@ -9,6 +10,7 @@ import org.http4s.circe.CirceEntityEncoder.circeEntityEncoder
 import io.circe.generic.auto._
 import com.ruchij.api.circe.Decoders.stringWrapperDecoder
 import com.ruchij.api.circe.Encoders.{dateTimeEncoder, stringWrapperEncoder}
+import com.ruchij.api.exceptions.AuthenticationException
 import com.ruchij.api.web.middleware.Authenticator
 import org.http4s.HttpRoutes
 import org.http4s.dsl.Http4sDsl
@@ -27,6 +29,15 @@ object AuthenticationRoutes {
           response <- Created(authenticationToken).flatMap(Authenticator.addCookie[F](authenticationToken, _))
         }
         yield response
+
+      case request @ GET -> Root / "token" =>
+        Authenticator.authenticationToken(authenticationService).run(request)
+          .semiflatMap {
+            token => Ok(token).flatMap(Authenticator.addCookie[F](token, _))
+          }
+          .getOrElseF {
+            ApplicativeError[F, Throwable].raiseError(AuthenticationException.MissingAuthenticationToken)
+          }
 
       case request @ DELETE -> Root / "logout" =>
         Authenticator.authenticationToken(authenticationService)

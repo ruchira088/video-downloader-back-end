@@ -52,7 +52,7 @@ class AuthenticationServiceImpl[F[+ _]: Sync: ContextShift: Clock](
           } yield authenticationToken
       }
       .getOrElseF[AuthenticationToken] {
-        ApplicativeError[F, Throwable].raiseError(AuthenticationException("Authentication token not found"))
+        ApplicativeError[F, Throwable].raiseError(AuthenticationException.MissingAuthenticationToken)
       }
 
   override def logout(secret: Secret): F[AuthenticationToken] =
@@ -61,6 +61,6 @@ class AuthenticationServiceImpl[F[+ _]: Sync: ContextShift: Clock](
         _ => keySpacedKeyValueStore.remove(AuthenticationTokenKey(secret))
       }
       .getOrElseF[AuthenticationToken] {
-        ApplicativeError[F, Throwable].raiseError(AuthenticationException("Authentication token not found"))
+        ApplicativeError[F, Throwable].raiseError(AuthenticationException.MissingAuthenticationToken)
       }
 }

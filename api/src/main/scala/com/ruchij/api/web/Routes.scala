@@ -15,7 +15,7 @@ import org.http4s.server.{HttpMiddleware, Router}
 import org.http4s.{HttpApp, HttpRoutes}
 
 object Routes {
-  def apply[F[_]: Concurrent: Timer: ContextShift](
+  def apply[F[+ _]: Concurrent: Timer: ContextShift](
     videoService: VideoService[F],
     videoAnalysisService: VideoAnalysisService[F],
     schedulingService: SchedulingService[F],
@@ -31,7 +31,7 @@ object Routes {
     val routes: HttpRoutes[F] =
       WebServerRoutes(ioBlocker) <+>
         Router(
-          "/authenticate" -> AuthenticationRoutes(authenticationService),
+          "/authentication" -> AuthenticationRoutes(authenticationService),
           "/schedule" -> authMiddleware(SchedulingRoutes(schedulingService)),
           "/videos" -> authMiddleware(VideoRoutes(videoService, videoAnalysisService)),
           "/assets" -> authMiddleware(AssetRoutes(assetService)),
