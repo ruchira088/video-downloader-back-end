@@ -1,17 +1,21 @@
 version: "3"
 
+#x-volumes: &docker-volumes
+#  - "~/.sbt:/root/.sbt"
+#  - "~/Library/Caches/Coursier:/root/.cache/coursier" # MacOS Coursier cache
+#  #      - "~/.cache/coursier:/root/.cache/coursier" # Linux Coursier cache
+#  #      - "~/AppData/Local/Coursier/Cache:/root/.cache/coursier" # Windows Coursier cache
+#  - ".:/opt/video-downloader-back-end"
+#  - "/opt/video-downloader-back-end/project/target"
+#  - "/opt/video-downloader-back-end/migration-application/target"
+#  - "/opt/video-downloader-back-end/core/target"
+#  - "/opt/video-downloader-back-end/api/target"
+#  - "/opt/video-downloader-back-end/batch/target"
+#  - "/root/.sbt/1.0/plugins"
+#  - "./videos:/opt/videos"
+#  - "./images:/opt/images"
+
 x-volumes: &docker-volumes
-  - "~/.sbt:/root/.sbt"
-  - "~/Library/Caches/Coursier:/root/.cache/coursier" # MacOS Coursier cache
-  #      - "~/.cache/coursier:/root/.cache/coursier" # Linux Coursier cache
-  #      - "~/AppData/Local/Coursier/Cache:/root/.cache/coursier" # Windows Coursier cache
-  - ".:/opt/video-downloader-back-end"
-  - "/opt/video-downloader-back-end/project/target"
-  - "/opt/video-downloader-back-end/migration-application/target"
-  - "/opt/video-downloader-back-end/core/target"
-  - "/opt/video-downloader-back-end/api/target"
-  - "/opt/video-downloader-back-end/batch/target"
-  - "/root/.sbt/1.0/plugins"
   - "./videos:/opt/videos"
   - "./images:/opt/images"
 
@@ -27,9 +31,9 @@ services:
       - "./nginx/default.conf:/etc/nginx/conf.d/default.conf"
 
   api:
-#    image: video-downloader-api:latest
-    build: .
-    command: api/run
+    image: video-downloader-api:latest
+#    build: .
+#    command: api/run
     depends_on:
       - postgres
       - redis
@@ -49,9 +53,9 @@ services:
       IMAGE_FOLDER: "/opt/images"
 
   batch:
-#    image: video-downloader-batch:latest
-    build: .
-    command: batch/run
+    image: video-downloader-batch:latest
+#    build: .
+#    command: batch/run
     depends_on:
       - postgres
       - redis
@@ -70,9 +74,9 @@ services:
       IMAGE_FOLDER: "/opt/images"
 
   migration-application:
-#    image: video-downloader-migration-application:latest
-    build: .
-    command: migrationApplication/run
+    image: video-downloader-migration-application:latest
+#    build: .
+#    command: migrationApplication/run
     depends_on:
       - postgres
     ports:

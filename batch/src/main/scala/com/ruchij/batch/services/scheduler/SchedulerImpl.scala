@@ -78,7 +78,19 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
                             .as[Option[ScheduledVideoDownload]](Some(task))
                       }
                       .semiflatMap(workExecutor.execute)
-                      .productR(OptionT.liftF(Applicative[F].unit))
+                      .semiflatMap { video =>
+                        JodaClock[F].timestamp.flatMap { timestamp =>
+                          OptionT(transaction(workerDao.completeTask(worker.id, video.videoMetadata.id, timestamp)))
+                            .getOrElseF {
+                              ApplicativeError[F, Throwable].raiseError {
+                                ResourceNotFoundException(
+                                  s"Unable to complete worker task workerId = ${worker.id}, taskId = ${video.videoMetadata.id}"
+                                )
+                              }
+                            }
+                            .productR(Applicative[F].unit)
+                        }
+                      }
                       .getOrElseF(Applicative[F].unit)
                   } {
                     JodaClock[F].timestamp

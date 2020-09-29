@@ -79,23 +79,28 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
       .productR(OptionT(getById(workerId)))
       .value
 
+  override def completeTask(
+    workerId: String,
+    scheduledVideoId: String,
+    timestamp: DateTime
+  ): ConnectionIO[Option[Worker]] =
+    singleUpdate {
+      sql"""
+          UPDATE worker_task SET completed_at = ${new DateTime(timestamp)}
+          WHERE worker_id = $workerId AND scheduled_video_id = $scheduledVideoId
+      """.update.run
+    }.productR(OptionT(getById(workerId)))
+      .value
+
   override def release(workerId: String, timestamp: DateTime): ConnectionIO[Option[Worker]] =
     singleUpdate { sql"UPDATE worker SET reserved_at = NULL, task_assigned_at = NULL WHERE id = $workerId".update.run }
-      .productR {
-        singleUpdate {
-          sql"""
-                UPDATE worker_task SET completed_at = ${new DateTime(timestamp)}
-                WHERE worker_id = $workerId AND completed_at IS NULL
-              """.update.run
-        }
-      }
       .productR(OptionT(getById(workerId)))
       .value
 
   override val resetWorkers: ConnectionIO[Int] =
     sql"UPDATE worker SET reserved_at = NULL, task_assigned_at = NULL".update.run
-      .flatMap {
-        result => sql"DELETE FROM worker_task WHERE completed_at IS NULL".update.run.map(_ + result)
+      .flatMap { result =>
+        sql"DELETE FROM worker_task WHERE completed_at IS NULL".update.run.map(_ + result)
       }
 
 }
