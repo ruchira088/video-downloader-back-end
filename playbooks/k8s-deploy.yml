@@ -2,19 +2,33 @@
 - hosts: localhost
   connection: local
 
+  vars:
+
   tasks:
     - name: Gather git information
       import_tasks: tasks/git-info.yml
 
     - set_fact:
-        namespace: "{{ 'video-downloader-back-end' if git_branch == 'master' else 'video-downloader-back-end-' + git_branch }}"
+        k8s_vars:
+          production:
+            namespace: video-downloader-back-end
+            hostname: api.video.home.ruchij.com
+            host_video_folder: /mnt/Data/Videos
+            host_image_folder: /home/ruchira/Images
+          development:
+            namespace: video-downloader-back-end-{{ git_branch }}
+            hostname: api.{{ git_branch }}.video.home.ruchij.com
+            host_video_folder: /home/ruchira/video-downloader/videos
+            host_image_folder: /home/ruchira/video-downloader/images
+
+    - set_fact:
+        namespace: "{{ k8s_vars[env].namespace }}"
+        hostname: "{{ k8s_vars[env].hostname }}"
+        host_video_folder: "{{ k8s_vars[env].host_video_folder }}"
+        host_image_folder: "{{ k8s_vars[env].host_image_folder }}"
 
     - name: Render K8s resource files
       import_tasks: tasks/k8s-resource-files.yml
-      vars:
-        host_video_folder: /mnt/Data/Videos
-        host_image_folder: /home/ruchira/Images
-        hostname: "{{ 'api.video.home.ruchij.com' if git_branch == 'master' else 'api.' + git_branch + '.video.home.ruchij.com' }}"
 
     - name: Set kube_config
       import_tasks: tasks/k8s-config.yml
