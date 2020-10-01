@@ -10,12 +10,15 @@ import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.daos.video.models.Video
+import com.ruchij.core.daos.workers.models.Worker
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.download.DownloadService
+import com.ruchij.core.services.download.models.DownloadResult
 import com.ruchij.core.services.hashing.HashingService
 import com.ruchij.core.services.scheduling.SchedulingService
 import com.ruchij.core.services.video.{VideoAnalysisService, VideoService}
 import com.ruchij.core.types.JodaClock
+import org.http4s.Uri
 
 class WorkExecutorImpl[F[_]: Sync: Clock, T[_]](
   fileResourceDao: FileResourceDao[T],
@@ -31,44 +34,46 @@ class WorkExecutorImpl[F[_]: Sync: Clock, T[_]](
 
   private val logger = Logger[F, WorkExecutorImpl[F, T]]
 
-  override def execute(scheduledVideoDownload: ScheduledVideoDownload): F[Video] =
+  def downloadVideo(videoId: String, downloadUri: Uri): F[(FileResource, DownloadResult[F])] = {
+    val videoFileName = downloadUri.path.split("/").lastOption.getOrElse("video.unknown")
+    val videoPath =
+      s"${downloadConfiguration.videoFolder}/$videoId-$videoFileName"
+
+    downloadService
+      .download(downloadUri, videoPath)
+      .use { downloadResult =>
+        OptionT(transaction(fileResourceDao.findByPath(videoPath)))
+          .getOrElseF {
+            hashingService
+              .hash(downloadResult.uri.renderString)
+              .product(JodaClock[F].timestamp)
+              .flatMap {
+                case (fileKey, timestamp) =>
+                  val fileResource =
+                    FileResource(fileKey, timestamp, videoPath, downloadResult.mediaType, downloadResult.size)
+
+                  transaction(fileResourceDao.insert(fileResource)).as(fileResource)
+              }
+          }
+          .product {
+            downloadResult.data
+              .evalMap { bytes =>
+                schedulingService.updateDownloadProgress(videoId, bytes)
+              }
+              .compile
+              .drain
+              .as(downloadResult)
+          }
+      }
+  }
+
+  override def execute(scheduledVideoDownload: ScheduledVideoDownload, worker: Worker): F[Video] =
     logger
-      .infoF(s"Worker started download for ${scheduledVideoDownload.videoMetadata.url}")
+      .infoF(s"Worker ${worker.id} started download for ${scheduledVideoDownload.videoMetadata.url}")
       .productR {
         videoAnalysisService
           .downloadUri(scheduledVideoDownload.videoMetadata.url)
-          .flatMap { downloadUri =>
-            val videoFileName = downloadUri.path.split("/").lastOption.getOrElse("video.unknown")
-            val videoPath =
-              s"${downloadConfiguration.videoFolder}/${scheduledVideoDownload.videoMetadata.id}-$videoFileName"
-
-            downloadService
-              .download(downloadUri, videoPath)
-              .use { downloadResult =>
-                OptionT(transaction(fileResourceDao.findByPath(videoPath)))
-                  .getOrElseF {
-                    hashingService
-                      .hash(downloadResult.uri.renderString)
-                      .product(JodaClock[F].timestamp)
-                      .flatMap {
-                        case (fileKey, timestamp) =>
-                          val fileResource =
-                            FileResource(fileKey, timestamp, videoPath, downloadResult.mediaType, downloadResult.size)
-
-                          transaction(fileResourceDao.insert(fileResource)).as(fileResource)
-                      }
-                  }
-                  .product {
-                    downloadResult.data
-                      .evalMap { bytes =>
-                        schedulingService.updateDownloadProgress(scheduledVideoDownload.videoMetadata.id, bytes)
-                      }
-                      .compile
-                      .drain
-                      .as(downloadResult)
-                  }
-              }
-          }
+          .flatMap { downloadUri =>downloadVideo(scheduledVideoDownload.videoMetadata.id, downloadUri) }
           .productL {
             schedulingService.completeTask(scheduledVideoDownload.videoMetadata.id)
           }
@@ -79,6 +84,6 @@ class WorkExecutorImpl[F[_]: Sync: Clock, T[_]](
           .flatTap(videoEnrichmentService.videoSnapshots)
       }
       .productL {
-        logger.infoF(s"Worker completed download for ${scheduledVideoDownload.videoMetadata.url}")
+        logger.infoF(s"Worker ${worker.id} completed download for ${scheduledVideoDownload.videoMetadata.url}")
       }
 }

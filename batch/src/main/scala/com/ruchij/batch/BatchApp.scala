@@ -3,6 +3,7 @@ package com.ruchij.batch
 import java.util.concurrent.Executors
 
 import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
+import cats.implicits._
 import com.ruchij.batch.config.BatchServiceConfiguration
 import com.ruchij.batch.services.enrichment.VideoEnrichmentServiceImpl
 import com.ruchij.batch.services.scheduler.{Scheduler, SchedulerImpl}
@@ -47,9 +48,16 @@ object BatchApp extends IOApp {
 
       _ <- program[IO](batchServiceConfiguration, ExecutionContext.global)
         .use { scheduler =>
-          scheduler.init *>
-            logger.infoF("Scheduler has started") *>
-            scheduler.run
+          scheduler.init
+            .productR(logger.infoF("Scheduler has started"))
+            .productR {
+              scheduler.run
+                .evalMap { video => logger.infoF(s"Download completed for videoId = ${video.videoMetadata.id}")
+                }
+                .compile
+                .drain
+            }
+
         }
     } yield ExitCode.Success
 

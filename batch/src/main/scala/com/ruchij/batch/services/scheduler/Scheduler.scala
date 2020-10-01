@@ -1,11 +1,12 @@
 package com.ruchij.batch.services.scheduler
 
-trait Scheduler[F[_]] {
-  type Result
+import com.ruchij.core.daos.video.models.Video
+import fs2.Stream
 
+trait Scheduler[F[_]] {
   type InitializationResult
 
-  val run: F[Result]
+  val run: Stream[F, Video]
 
   val init: F[InitializationResult]
 }
