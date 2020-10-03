@@ -22,5 +22,5 @@
 
 - name: Publish Docker image
   shell: |
-    docker tag video-downloader-{{ app_name }}:{{ git_commit }} ruchira088/video-downloader-{{ app_name }}:{{ git_commit }} && \
-    docker push ruchira088/video-downloader-{{ app_name }}:{{ git_commit }}
+    docker tag video-downloader-{{ app_name }}:{{ git_branch }}-{{ git_commit }} ruchira088/video-downloader-{{ app_name }}:{{ git_branch }}-{{ git_commit }} && \
+    docker push ruchira088/video-downloader-{{ app_name }}:{{ git_branch }}-{{ git_commit }}

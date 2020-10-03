@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: api-container
-          image: ruchira088/video-downloader-api:{{ git_commit }}
+          image: ruchira088/video-downloader-api:{{ git_branch }}-{{ git_commit }}
           envFrom:
             - configMapRef:
                 name: api-config-map
