@@ -17,7 +17,7 @@ lazy val migrationApplication =
     .enablePlugins(JavaAppPackaging)
     .settings(
       name := "video-downloader-migration-application",
-      version := "0.0.1",
+      version := "0.0.2-SNAPSHOT",
       topLevelDirectory := None,
       libraryDependencies ++= Seq(catsEffect, flywayCore, h2, postgresql, pureconfig, scalaLogging, logbackClassic)
     )
@@ -49,7 +49,7 @@ lazy val api =
     .enablePlugins(BuildInfoPlugin, JavaAppPackaging)
     .settings(
       name := "video-downloader-api",
-      version := "0.0.1",
+      version := "0.0.2-SNAPSHOT",
       buildInfoKeys := BuildInfoKey.ofN(name, organization, version, scalaVersion, sbtVersion),
       buildInfoPackage := "com.eed3si9n.ruchij.api",
       topLevelDirectory := None,
@@ -74,7 +74,7 @@ lazy val batch =
     .enablePlugins(JavaAppPackaging)
     .settings(
       name := "video-downloader-batch",
-      version := "0.0.1",
+      version := "0.0.2-SNAPSHOT",
       topLevelDirectory := None,
       libraryDependencies ++= Seq(postgresql, jcodec, jcodecJavaSe, thumbnailator)
     )
