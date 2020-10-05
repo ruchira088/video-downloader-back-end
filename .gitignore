@@ -4,3 +4,6 @@
 target
 
 .DS_Store
+
+playbooks/k8s-output
+playbooks/docker-output
