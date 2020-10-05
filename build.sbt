@@ -1,4 +1,8 @@
 import Dependencies._
+import sbtrelease.Git
+import sbtrelease.ReleaseStateTransformations._
+
+val ReleaseBranch = "dev"
 
 inThisBuild {
   Seq(
@@ -17,7 +21,6 @@ lazy val migrationApplication =
     .enablePlugins(JavaAppPackaging)
     .settings(
       name := "video-downloader-migration-application",
-      version := "0.0.3-SNAPSHOT",
       topLevelDirectory := None,
       libraryDependencies ++= Seq(catsEffect, flywayCore, h2, postgresql, pureconfig, scalaLogging, logbackClassic)
     )
@@ -49,7 +52,6 @@ lazy val api =
     .enablePlugins(BuildInfoPlugin, JavaAppPackaging)
     .settings(
       name := "video-downloader-api",
-      version := "0.0.3-SNAPSHOT",
       buildInfoKeys := BuildInfoKey.ofN(name, organization, version, scalaVersion, sbtVersion),
       buildInfoPackage := "com.eed3si9n.ruchij.api",
       topLevelDirectory := None,
@@ -74,7 +76,6 @@ lazy val batch =
     .enablePlugins(JavaAppPackaging)
     .settings(
       name := "video-downloader-batch",
-      version := "0.0.3-SNAPSHOT",
       topLevelDirectory := None,
       libraryDependencies ++= Seq(postgresql, jcodec, jcodecJavaSe, thumbnailator)
     )
@@ -96,3 +97,24 @@ cleanAll := clean.all(ScopeFilter(inAnyProject)).value
 
 val cleanCompile = taskKey[Unit]("Clean compile all projects")
 cleanCompile := Def.sequential(cleanAll, compileAll).value
+
+val verifyReleaseBranch = taskKey[Unit]("Verifies the release git branch")
+verifyReleaseBranch := {
+  val git = Git.mkVcs(baseDirectory.value)
+  val branch = git.currentBranch
+
+  if (branch != ReleaseBranch) sys.error(s"The release branch is $ReleaseBranch, but the current branch is set to $branch") else (): Unit
+}
+
+releaseProcess := Seq(
+  releaseStepTask(verifyReleaseBranch),
+  checkSnapshotDependencies,
+  inquireVersions,
+  releaseStepTask(cleanCompile),
+  setReleaseVersion,
+  commitReleaseVersion,
+  tagRelease,
+  setNextVersion,
+  commitNextVersion,
+  pushChanges
+)
