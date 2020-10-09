@@ -4,26 +4,30 @@ import cats.data.{Kleisli, NonEmptyList}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadError}
 import com.ruchij.core.daos.videometadata.models.VideoSite.Selector
-import com.ruchij.core.exceptions.{AttributeNotFoundInElementException, MultipleElementsFoundException, NoMatchingElementsFoundException, TextNotFoundInElementException}
+import com.ruchij.core.exceptions.JSoupException._
 import com.ruchij.core.types.FunctionKTypes
 import org.http4s.Uri
-import org.jsoup.nodes.Element
+import org.jsoup.nodes.{Document, Element}
 
 import scala.jdk.CollectionConverters._
 
 object JsoupSelector {
 
   def singleElement[F[_]: MonadError[*[_], Throwable]](css: String): Selector[F, Element] =
-    nonEmptyElementList[F](css).flatMapF {
-      case NonEmptyList(head, Nil) => Applicative[F].pure(head)
-      case elements => ApplicativeError[F, Throwable].raiseError(MultipleElementsFoundException(elements))
+    nonEmptyElementList[F](css).flatMap {
+      case NonEmptyList(head, Nil) => Kleisli.pure(head)
+      case elements =>
+        Kleisli.ask[F, Document].flatMapF { document =>
+          ApplicativeError[F, Throwable].raiseError(MultipleElementsFoundException(document, css, elements))
+        }
     }
 
   def nonEmptyElementList[F[_]: MonadError[*[_], Throwable]](css: String): Selector[F, NonEmptyList[Element]] =
     select[F](css).flatMap {
-      case Nil => Kleisli {
-        document => ApplicativeError[F, Throwable].raiseError(NoMatchingElementsFoundException(document, css))
-      }
+      case Nil =>
+        Kleisli { document =>
+          ApplicativeError[F, Throwable].raiseError(NoMatchingElementsFoundException(document, css))
+        }
 
       case head :: tail => Kleisli(_ => Applicative[F].pure(NonEmptyList(head, tail)))
     }
@@ -47,8 +51,12 @@ object JsoupSelector {
   def attribute[F[_]: ApplicativeError[*[_], Throwable]](element: Element, attributeKey: String): F[String] =
     parseProperty[Throwable, F](element.attr(attributeKey), AttributeNotFoundInElementException(element, attributeKey))
 
-  private def parseProperty[E, F[_]: ApplicativeError[*[_], E]](value: String,  onEmpty: => E): F[String] =
-    Option(value).map(_.trim).filter(_.nonEmpty)
-      .fold[F[String]](ApplicativeError[F, E].raiseError(onEmpty)) { string => Applicative[F].pure(string) }
+  private def parseProperty[E, F[_]: ApplicativeError[*[_], E]](value: String, onEmpty: => E): F[String] =
+    Option(value)
+      .map(_.trim)
+      .filter(_.nonEmpty)
+      .fold[F[String]](ApplicativeError[F, E].raiseError(onEmpty)) { string =>
+        Applicative[F].pure(string)
+      }
 
 }

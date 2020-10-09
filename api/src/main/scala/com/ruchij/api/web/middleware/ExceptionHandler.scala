@@ -6,7 +6,7 @@ import cats.effect.Sync
 import cats.implicits._
 import com.ruchij.api.exceptions.AuthenticationException
 import com.ruchij.api.web.responses.ErrorResponse
-import com.ruchij.core.exceptions.{AggregatedException, ResourceConflictException, ResourceNotFoundException}
+import com.ruchij.core.exceptions.{AggregatedException, ExternalServiceException, JSoupException, ResourceConflictException, ResourceNotFoundException}
 import com.ruchij.core.types.FunctionKTypes
 import io.circe.DecodingFailure
 import org.http4s.dsl.impl.EntityResponseGenerator
@@ -27,6 +27,8 @@ object ExceptionHandler {
     case _: AuthenticationException => Status.Unauthorized
 
     case _: DecodingFailure | _: IllegalArgumentException => Status.BadRequest
+
+    case _: JSoupException | _: ExternalServiceException => Status.BadGateway
 
     case _: ResourceConflictException => Status.Conflict
 
