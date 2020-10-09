@@ -3,23 +3,15 @@ package com.ruchij.core.services.scheduling
 import cats.data.{NonEmptyList, OptionT}
 import cats.effect.{Sync, Timer}
 import cats.implicits._
-import cats.{ApplicativeError, Monad, ~>}
-import com.ruchij.core.config.DownloadConfiguration
-import com.ruchij.core.daos.resource.FileResourceDao
-import com.ruchij.core.daos.resource.models.FileResource
+import cats.{Applicative, ApplicativeError, Monad, ~>}
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
-import com.ruchij.core.daos.videometadata.VideoMetadataDao
-import com.ruchij.core.daos.videometadata.models.VideoMetadata
-import com.ruchij.core.exceptions.{InvalidConditionException, ResourceNotFoundException}
+import com.ruchij.core.exceptions.{InvalidConditionException, ResourceConflictException, ResourceNotFoundException}
 import com.ruchij.core.kv.KeySpacedKeyValueStore
-import com.ruchij.core.services.download.DownloadService
-import com.ruchij.core.services.hashing.HashingService
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.services.scheduling.models.DownloadProgress.DownloadProgressKey
 import com.ruchij.core.services.video.VideoAnalysisService
-import com.ruchij.core.services.video.models.VideoAnalysisResult
 import com.ruchij.core.types.JodaClock
 import fs2.Stream
 import org.http4s.Uri
@@ -31,51 +23,27 @@ import scala.language.postfixOps
 class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
   videoAnalysisService: VideoAnalysisService[F],
   schedulingDao: SchedulingDao[T],
-  videoMetadataDao: VideoMetadataDao[T],
-  fileResourceDao: FileResourceDao[T],
   keySpacedKeyValueStore: KeySpacedKeyValueStore[F, DownloadProgressKey, DownloadProgress],
-  hashingService: HashingService[F],
-  downloadService: DownloadService[F],
-  downloadConfiguration: DownloadConfiguration
 )(implicit transaction: T ~> F)
     extends SchedulingService[F] {
 
   override def schedule(uri: Uri): F[ScheduledVideoDownload] =
     for {
-      VideoAnalysisResult(_, videoSite, title, duration, size, thumbnailUri) <- videoAnalysisService.metadata(uri)
+      searchResult <- transaction {
+        schedulingDao.search(None, Some(NonEmptyList.of(uri)), 0, 1, SortBy.Date, Order.Descending)
+      }
+
+      _ <-
+        if (searchResult.nonEmpty)
+          ApplicativeError[F, Throwable].raiseError(ResourceConflictException(s"$uri has already been scheduled"))
+        else Applicative[F].unit
+
+      videoMetadataResult <- videoAnalysisService.metadata(uri)
       timestamp <- JodaClock[F].timestamp
 
-      videoId <- hashingService.hash(uri.renderString)
+      scheduledVideoDownload = ScheduledVideoDownload(timestamp, videoMetadataResult.value, None)
 
-      thumbnailFileName = thumbnailUri.path.split("/").lastOption.getOrElse("thumbnail.unknown")
-      filePath = s"${downloadConfiguration.imageFolder}/thumbnail-$videoId-$thumbnailFileName"
-
-      thumbnail <- downloadService
-        .download(thumbnailUri, filePath)
-        .use { downloadResult =>
-          downloadResult.data.compile.drain
-            .productR(hashingService.hash(thumbnailUri.renderString))
-            .map { fileId =>
-              FileResource(
-                fileId,
-                timestamp,
-                downloadResult.downloadedFileKey,
-                downloadResult.mediaType,
-                downloadResult.size
-              )
-            }
-        }
-
-      videoMetadata = VideoMetadata(uri, videoId, videoSite, title, duration, size, thumbnail)
-
-      scheduledVideoDownload = ScheduledVideoDownload(timestamp, videoMetadata, None)
-
-      _ <- transaction {
-        fileResourceDao
-          .insert(thumbnail)
-          .productR(videoMetadataDao.insert(videoMetadata))
-          .productR(schedulingDao.insert(scheduledVideoDownload))
-      }
+      _ <- transaction(schedulingDao.insert(scheduledVideoDownload))
     } yield scheduledVideoDownload
 
   override def search(
@@ -93,7 +61,9 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
   override def getById(id: String): F[ScheduledVideoDownload] =
     OptionT(transaction(schedulingDao.getById(id)))
       .getOrElseF {
-        ApplicativeError[F, Throwable].raiseError(ResourceNotFoundException(s"Unable to find scheduled video download with ID = $id"))
+        ApplicativeError[F, Throwable].raiseError(
+          ResourceNotFoundException(s"Unable to find scheduled video download with ID = $id")
+        )
       }
 
   override def updateDownloadProgress(id: String, downloadedBytes: Long): F[Unit] =

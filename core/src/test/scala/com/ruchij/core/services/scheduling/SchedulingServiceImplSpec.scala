@@ -54,7 +54,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
         uri"https://th-eu3.vporn.com/t/28/276979928/b81.jpg"
       )
 
-    (videoAnalysisService.metadata _)
+    (videoAnalysisService.analyze _)
       .expects(videoUrl)
       .returns(IO.pure(videoAnalysisResult))
 

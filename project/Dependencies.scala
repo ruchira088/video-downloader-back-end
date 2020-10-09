@@ -2,27 +2,27 @@ import sbt._
 
 object Dependencies
 {
-  val SCALA_VERSION = "2.13.3"
-  val HTTP4S_VERSION = "0.21.7"
-  val CIRCE_VERSION = "0.13.0"
+  val ScalaVersion = "2.13.3"
+  val Http4sVersion = "0.21.7"
+  val CirceVersion = "0.13.0"
 
-  lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % HTTP4S_VERSION
+  lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
-  lazy val http4sBlazeServer = "org.http4s" %% "http4s-blaze-server" % HTTP4S_VERSION
+  lazy val http4sBlazeServer = "org.http4s" %% "http4s-blaze-server" % Http4sVersion
 
-  lazy val http4sBlazeClient = "org.http4s" %% "http4s-blaze-client" % HTTP4S_VERSION
+  lazy val http4sBlazeClient = "org.http4s" %% "http4s-blaze-client" % Http4sVersion
 
-  lazy val http4sCirce = "org.http4s" %% "http4s-circe" % HTTP4S_VERSION
+  lazy val http4sCirce = "org.http4s" %% "http4s-circe" % Http4sVersion
 
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "2.2.0"
 
   lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.3.0"
 
-  lazy val circeGeneric = "io.circe" %% "circe-generic" % CIRCE_VERSION
+  lazy val circeGeneric = "io.circe" %% "circe-generic" % CirceVersion
 
-  lazy val circeParser = "io.circe" %% "circe-parser" % CIRCE_VERSION
+  lazy val circeParser = "io.circe" %% "circe-parser" % CirceVersion
 
-  lazy val circeLiteral = "io.circe" %% "circe-literal" % CIRCE_VERSION
+  lazy val circeLiteral = "io.circe" %% "circe-literal" % CirceVersion
 
   lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.6.1"
 
@@ -36,9 +36,9 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.14.0"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "7.0.1"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "7.0.2"
 
-  lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.16"
+  lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.17"
 
   lazy val h2 = "com.h2database" % "h2" % "1.4.200"
 

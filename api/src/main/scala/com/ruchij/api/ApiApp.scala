@@ -83,9 +83,18 @@ object ApiApp extends IOApp {
 
           _ <- Resource.liftF(MigrationApp.migration[F](apiServiceConfiguration.databaseConfiguration, ioBlocker))
 
-          hashingService = new MurmurHash3Service[F](cpuBlocker)
-          videoAnalysisService = new VideoAnalysisServiceImpl[F](httpClient)
           repositoryService = new FileRepositoryService[F](ioBlocker)
+          downloadService = new Http4sDownloadService[F](httpClient, repositoryService)
+
+          hashingService = new MurmurHash3Service[F](cpuBlocker)
+          videoAnalysisService = new VideoAnalysisServiceImpl[F, ConnectionIO](
+            hashingService,
+            downloadService,
+            httpClient,
+            DoobieVideoMetadataDao,
+            DoobieFileResourceDao,
+            apiServiceConfiguration.downloadConfiguration
+          )
 
           videoService = new VideoServiceImpl[F, ConnectionIO](
             DoobieVideoDao,
@@ -94,18 +103,12 @@ object ApiApp extends IOApp {
             DoobieFileResourceDao
           )
 
-          downloadService = new Http4sDownloadService[F](httpClient, repositoryService)
           assetService = new AssetServiceImpl[F, ConnectionIO](DoobieFileResourceDao, repositoryService)
 
           schedulingService = new SchedulingServiceImpl[F, ConnectionIO](
             videoAnalysisService,
             DoobieSchedulingDao,
-            DoobieVideoMetadataDao,
-            DoobieFileResourceDao,
-            downloadProgressKeyStore,
-            hashingService,
-            downloadService,
-            apiServiceConfiguration.downloadConfiguration
+            downloadProgressKeyStore
           )
 
           healthService = new HealthServiceImpl[F](

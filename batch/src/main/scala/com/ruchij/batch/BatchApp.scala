@@ -52,7 +52,8 @@ object BatchApp extends IOApp {
             .productR(logger.infoF("Scheduler has started"))
             .productR {
               scheduler.run
-                .evalMap { video => logger.infoF(s"Download completed for videoId = ${video.videoMetadata.id}")
+                .evalMap { video =>
+                  logger.infoF(s"Download completed for videoId = ${video.videoMetadata.id}")
                 }
                 .compile
                 .drain
@@ -82,7 +83,10 @@ object BatchApp extends IOApp {
 
           redisCommands <- Redis[F].utf8(batchServiceConfiguration.redisConfiguration.uri)
           keyValueStore = new RedisKeyValueStore[F](redisCommands)
-          downloadProgressKeyStore = new KeySpacedKeyValueStore[F, DownloadProgressKey, DownloadProgress](DownloadProgressKeySpace, keyValueStore)
+          downloadProgressKeyStore = new KeySpacedKeyValueStore[F, DownloadProgressKey, DownloadProgress](
+            DownloadProgressKeySpace,
+            keyValueStore
+          )
 
           _ <- Resource.liftF(MigrationApp.migration[F](batchServiceConfiguration.databaseConfiguration, ioBlocker))
 
@@ -91,17 +95,19 @@ object BatchApp extends IOApp {
           repositoryService = new FileRepositoryService[F](ioBlocker)
           downloadService = new Http4sDownloadService[F](httpClient, repositoryService)
           hashingService = new MurmurHash3Service[F](cpuBlocker)
-          videoAnalysisService = new VideoAnalysisServiceImpl[F](httpClient)
+          videoAnalysisService = new VideoAnalysisServiceImpl[F, ConnectionIO](
+            hashingService,
+            downloadService,
+            httpClient,
+            DoobieVideoMetadataDao,
+            DoobieFileResourceDao,
+            batchServiceConfiguration.downloadConfiguration
+          )
 
           schedulingService = new SchedulingServiceImpl[F, ConnectionIO](
             videoAnalysisService,
             DoobieSchedulingDao,
-            DoobieVideoMetadataDao,
-            DoobieFileResourceDao,
             downloadProgressKeyStore,
-            hashingService,
-            downloadService,
-            batchServiceConfiguration.downloadConfiguration
           )
 
           fileTypeDetector = new PathFileTypeDetector[F](new Tika(), ioBlocker)

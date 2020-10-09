@@ -7,7 +7,7 @@ val ReleaseBranch = "dev"
 inThisBuild {
   Seq(
     organization := "com.ruchij",
-    scalaVersion := SCALA_VERSION,
+    scalaVersion := Dependencies.ScalaVersion,
     maintainer := "me@ruchij.com",
     scalacOptions ++= Seq("-feature", "-Xlint", "-Wconf:cat=lint-byname-implicit:s"),
     addCompilerPlugin(kindProjector),

@@ -2,11 +2,12 @@ package com.ruchij.api.web.routes
 
 import cats.effect.Sync
 import cats.implicits._
-import com.ruchij.api.web.requests.{VideoAnalyzeRequest, VideoMetadataUpdateRequest}
+import com.ruchij.api.web.requests.{VideoMetadataRequest, VideoMetadataUpdateRequest}
 import com.ruchij.api.web.requests.queryparams.SearchQuery
 import com.ruchij.core.services.video.{VideoAnalysisService, VideoService}
 import com.ruchij.api.circe.Encoders._
 import com.ruchij.api.web.responses.{IterableResponse, SearchResult}
+import com.ruchij.core.services.video.VideoAnalysisService.{NewlyCreated, Existing}
 import io.circe.generic.auto._
 import org.http4s.HttpRoutes
 import org.http4s.circe.CirceEntityCodec.{circeEntityDecoder, circeEntityEncoder}
@@ -30,13 +31,16 @@ object VideoRoutes {
           response <- Ok(SearchResult(videos, pageNumber, pageSize, term, videoUrls, sortBy, order))
         } yield response
 
-      case request @ POST -> Root / "analyze" =>
+      case request @ POST -> Root / "metadata" =>
         for {
-          videoAnalyzeRequest <- request.as[VideoAnalyzeRequest]
+          videoMetadataRequest <- request.as[VideoMetadataRequest]
 
-          result <- videoAnalysisService.metadata(videoAnalyzeRequest.url)
+          result <- videoAnalysisService.metadata(videoMetadataRequest.url)
 
-          response <- Ok(result)
+          response <- result match {
+            case Existing(videoMetadata) => Ok(videoMetadata)
+            case NewlyCreated(videoMetadata) => Created(videoMetadata)
+          }
         } yield response
 
       case GET -> Root / "id" / videoId => Ok(videoService.fetchById(videoId))
