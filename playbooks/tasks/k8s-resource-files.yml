@@ -10,6 +10,11 @@
         path: k8s-output
         state: directory
 
+    - name: Create output directory - pgadmin
+      file:
+        path: k8s-output/pgadmin
+        state: directory
+
     - name: Create output directory - DB migration
       file:
         path: k8s-output/db-migration
@@ -39,6 +44,13 @@
         dest: k8s-output/{{ item | basename }}
       with_fileglob:
         - k8s/*.yaml
+
+    - name: Render K8s resource files - pgadmin
+      template:
+        src: "{{ item }}"
+        dest: k8s-output/pgadmin/{{ item | basename }}
+      with_fileglob:
+        - k8s/pgadmin/*.yaml
 
     - name: Render K8s resource files - DB migration
       template:

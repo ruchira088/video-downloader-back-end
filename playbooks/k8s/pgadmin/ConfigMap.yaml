@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pgadmin-config-map
+  namespace: {{ namespace }}
+data:
+{% for key, value in pgadmin.config_values.items() %}
+  {{ key }}: "{{ value }}"
+{% endfor %}

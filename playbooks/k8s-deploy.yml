@@ -13,17 +13,20 @@
           production:
             namespace: video-downloader-back-end
             hostname: api.video.home.ruchij.com
+            pgadmin_hostname: pgadmin.video.home.ruchij.com
             host_video_folder: /mnt/Data/Videos
             host_image_folder: /home/ruchira/Images
           development:
             namespace: video-downloader-back-end-{{ git_branch }}
             hostname: api.{{ git_branch }}.video.home.ruchij.com
+            pgadmin_hostname: pgadmin.{{ git_branch }}.video.home.ruchij.com
             host_video_folder: /home/ruchira/video-downloader/videos
             host_image_folder: /home/ruchira/video-downloader/images
 
     - set_fact:
         namespace: "{{ k8s_vars[env].namespace }}"
         hostname: "{{ k8s_vars[env].hostname }}"
+        pgadmin_hostname: "{{ k8s_vars[env].pgadmin_hostname }}"
         host_video_folder: "{{ k8s_vars[env].host_video_folder }}"
         host_image_folder: "{{ k8s_vars[env].host_image_folder }}"
 
@@ -45,23 +48,36 @@
 
             - name: Deploy PostgreSQL
               block:
-                - name: Check Postgresql service in K8s
-                  k8s_info:
-                    kind: Service
-                    namespace: "{{ namespace }}"
-                    name: postgresql
-                    kubeconfig: k8s-output/kubeconfig
-                  register: postgresql_output
+                - name: Deploy database
+                  block:
+                    - name: Check Postgresql service in K8s
+                      k8s_info:
+                        kind: Service
+                        namespace: "{{ namespace }}"
+                        name: postgresql
+                        kubeconfig: k8s-output/kubeconfig
+                      register: postgresql_output
 
-                - name: Install Postgres Helm chart
-                  shell: |
-                    KUBECONFIG=k8s-output/kubeconfig helm install postgresql \
-                      --set postgresqlUsername="{{ secrets.database_user }}" \
-                      --set postgresqlPassword="{{ secrets.database_password }}" \
-                      --set postgresqlDatabase=video-downloader \
-                      --namespace {{ namespace }} \
-                      bitnami/postgresql
-                  when: postgresql_output.resources | length == 0
+                    - name: Install Postgres Helm chart
+                      shell: |
+                        KUBECONFIG=k8s-output/kubeconfig helm install postgresql \
+                          --set postgresqlUsername="{{ secrets.database_user }}" \
+                          --set postgresqlPassword="{{ secrets.database_password }}" \
+                          --set postgresqlDatabase=video-downloader \
+                          --namespace {{ namespace }} \
+                          bitnami/postgresql
+                      when: postgresql_output.resources | length == 0
+
+                - name: Deploy pgadmin
+                  block:
+                    - name: Create ConfigMap
+                      command: kubectl apply -f k8s-output/pgadmin/ConfigMap.yaml --kubeconfig k8s-output/kubeconfig
+
+                    - name: Create Secrets
+                      command: kubectl apply -f k8s-output/pgadmin/Secrets.yaml --kubeconfig k8s-output/kubeconfig
+
+                    - name: Deploy application
+                      command: kubectl apply -f k8s-output/pgadmin --kubeconfig k8s-output/kubeconfig
 
             - name: Deploy Redis Helm chart
               block:

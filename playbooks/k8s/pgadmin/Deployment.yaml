@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgadmin-deployment
+  namespace: {{ namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: pgadmin
+      branch: {{ git_branch }}
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: pgadmin
+        branch: {{ git_branch }}
+    spec:
+      containers:
+        - name: pgadmin-container
+          image: dpage/pgadmin4:latest
+          envFrom:
+            - configMapRef:
+                name: pgadmin-config-map
+            - secretRef:
+                name: pgadmin-secrets
+          readinessProbe:
+            httpGet:
+              port: http-port
+              path: /login
+          livenessProbe:
+            httpGet:
+              port: http-port
+              path: /login
+          startupProbe:
+            periodSeconds: 5
+            failureThreshold: 10
+            httpGet:
+              port: http-port
+              path: /login
+          ports:
+            - name: http-port
+              containerPort: 80
