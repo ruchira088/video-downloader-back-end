@@ -86,8 +86,7 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
     }
 
   override val active: Stream[F, DownloadProgress] =
-    Stream
-      .awakeDelay[F](500 milliseconds)
+    Stream.fixedRate[F](500 milliseconds)
       .productR {
         Stream.eval(JodaClock[F].timestamp)
       }
