@@ -104,6 +104,14 @@ services:
     environment:
       REDIS_PASSWORD: "redis-password"
 
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    ports:
+      - 8001:80
+    environment:
+      PGADMIN_DEFAULT_EMAIL: "me@ruchij.com"
+      PGADMIN_DEFAULT_PASSWORD: "password"
+
 #  front-end:
 #    image: video-downloader-front-end:latest
 #    ports:
