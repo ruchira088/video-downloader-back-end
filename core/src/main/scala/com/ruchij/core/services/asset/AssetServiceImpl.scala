@@ -19,9 +19,7 @@ class AssetServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]](
         val fileRange = start.map(first => FileRange(first, end.getOrElse(fileResource.size)))
 
         OptionT(repositoryService.read(fileResource.path, fileRange.map(_.start), fileRange.map(_.end)))
-          .map { stream =>
-            models.Asset[F](fileResource, stream, fileRange)
-          }
+          .map { stream => Asset[F](fileResource, stream, fileRange) }
       }
       .getOrElseF {
         ApplicativeError[F, Throwable].raiseError(ResourceNotFoundException("Asset not found"))

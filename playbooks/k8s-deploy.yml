@@ -2,8 +2,6 @@
 - hosts: localhost
   connection: local
 
-  vars:
-
   tasks:
     - name: Gather git information
       import_tasks: tasks/git-info.yml
