@@ -36,7 +36,7 @@ object ServiceInformation {
         BuildInfo.scalaVersion,
         BuildInfo.sbtVersion,
         javaVersion,
-        new DateTime(timestamp),
+        timestamp,
         applicationInformation.gitBranch,
         applicationInformation.gitCommit,
         applicationInformation.buildTimestamp

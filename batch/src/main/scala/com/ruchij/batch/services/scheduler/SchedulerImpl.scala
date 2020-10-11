@@ -86,14 +86,11 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
     }(postWorkTask(worker))
 
   def postWorkTask(worker: Worker): F[Unit] =
-    JodaClock[F].timestamp
-      .flatMap { timestamp =>
-        OptionT(transaction(workerDao.release(worker.id, timestamp)))
-          .getOrElseF {
-            ApplicativeError[F, Throwable].raiseError {
-              ResourceNotFoundException(s"Worker not found. ID = ${worker.id}")
-            }
-          }
+    OptionT(transaction(workerDao.release(worker.id)))
+      .getOrElseF {
+        ApplicativeError[F, Throwable].raiseError {
+          ResourceNotFoundException(s"Worker not found. ID = ${worker.id}")
+        }
       }
       .productR(Applicative[F].unit)
 
@@ -108,8 +105,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
                 case throwable =>
                   logger.errorF("Error occurred in work scheduler", throwable).as(None)
               }
-          else
-            Applicative[F].pure[Option[Video]](None)
+          else postWorkTask(worker).as[Option[Video]](None)
         }
     }
       .collect {

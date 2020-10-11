@@ -56,7 +56,7 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
 
   def reserveWorker(workerId: String, timestamp: DateTime): ConnectionIO[Option[Worker]] =
     singleUpdate {
-      sql"UPDATE worker SET reserved_at = ${new DateTime(timestamp)} WHERE id = $workerId".update.run
+      sql"UPDATE worker SET reserved_at = $timestamp WHERE id = $workerId".update.run
     }.productR(OptionT(getById(workerId))).value
 
   override def assignTask(
@@ -67,12 +67,12 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
     singleUpdate {
       sql"""
         INSERT INTO worker_task(worker_id, scheduled_video_id, created_at)
-        VALUES ($workerId, $scheduledVideoId, ${new DateTime(timestamp)})
+        VALUES ($workerId, $scheduledVideoId, $timestamp)
       """.update.run
     }.productR {
         singleUpdate {
           sql"""
-            UPDATE worker SET task_assigned_at = ${new DateTime(timestamp)} WHERE id = $workerId
+            UPDATE worker SET task_assigned_at = $timestamp WHERE id = $workerId
           """.update.run
         }
       }
@@ -86,13 +86,13 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
   ): ConnectionIO[Option[Worker]] =
     singleUpdate {
       sql"""
-          UPDATE worker_task SET completed_at = ${new DateTime(timestamp)}
+          UPDATE worker_task SET completed_at = $timestamp
           WHERE worker_id = $workerId AND scheduled_video_id = $scheduledVideoId
       """.update.run
     }.productR(OptionT(getById(workerId)))
       .value
 
-  override def release(workerId: String, timestamp: DateTime): ConnectionIO[Option[Worker]] =
+  override def release(workerId: String): ConnectionIO[Option[Worker]] =
     singleUpdate { sql"UPDATE worker SET reserved_at = NULL, task_assigned_at = NULL WHERE id = $workerId".update.run }
       .productR(OptionT(getById(workerId)))
       .value
