@@ -10,7 +10,7 @@ import com.ruchij.core.exceptions.{AggregatedException, ExternalServiceException
 import com.ruchij.core.types.FunctionKTypes
 import io.circe.DecodingFailure
 import org.http4s.dsl.impl.EntityResponseGenerator
-import org.http4s.{HttpApp, Request, Response, Status}
+import org.http4s.{HttpApp, MessageFailure, Request, Response, Status}
 
 object ExceptionHandler {
   def apply[F[_]: Sync](httpApp: HttpApp[F]): HttpApp[F] =
@@ -26,7 +26,7 @@ object ExceptionHandler {
 
     case _: AuthenticationException => Status.Unauthorized
 
-    case _: DecodingFailure | _: IllegalArgumentException => Status.BadRequest
+    case _: DecodingFailure | _: IllegalArgumentException | _: MessageFailure => Status.BadRequest
 
     case _: JSoupException | _: ExternalServiceException => Status.BadGateway
 

@@ -1,6 +1,6 @@
 package com.ruchij.core.services.video
 
-import cats.data.{NonEmptyList, OptionT}
+import cats.data.OptionT
 import cats.implicits._
 import cats.{MonadError, ~>}
 import com.ruchij.core.daos.resource.FileResourceDao
@@ -11,8 +11,7 @@ import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.services.models.{Order, SortBy}
-import com.ruchij.core.services.video.models.VideoServiceSummary
-import org.http4s.Uri
+import com.ruchij.core.services.video.models.{DurationRange, VideoServiceSummary}
 
 class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: MonadError[*[_], Throwable]](
   videoDao: VideoDao[T],
@@ -32,9 +31,9 @@ class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: MonadError[*[_],
         MonadError[F, Throwable].raiseError(ResourceNotFoundException(s"Unable to find video with ID: $videoId"))
       }
 
-  override def search(term: Option[String], videoUrls: Option[NonEmptyList[Uri]], pageNumber: Int, pageSize: Int, sortBy: SortBy, order: Order): F[Seq[Video]] =
+  override def search(term: Option[String], durationRange: DurationRange, pageNumber: Int, pageSize: Int, sortBy: SortBy, order: Order): F[Seq[Video]] =
     transaction {
-      videoDao.search(term, videoUrls, pageNumber, pageSize, sortBy, order)
+      videoDao.search(term, durationRange, pageNumber, pageSize, sortBy, order)
     }
 
   override def fetchVideoSnapshots(videoId: String): F[Seq[Snapshot]] =

@@ -2,9 +2,10 @@ package com.ruchij.api.web.requests.queryparams
 
 import cats.ApplicativeError
 import cats.data.Kleisli
-import QueryParameter.{enumQueryParamDecoder, optionQueryParamDecoder}
+import QueryParameter.{durationRangeQueryParamDecoder, enumQueryParamDecoder, optionQueryParamDecoder}
 import QueryParameter.QueryParameters
 import com.ruchij.core.services.models.{Order, SortBy}
+import com.ruchij.core.services.video.models.DurationRange
 import org.http4s.QueryParamDecoder
 
 abstract class SingleValueQueryParameter[A: QueryParamDecoder](key: String, defaultValue: A)
@@ -17,6 +18,8 @@ object SingleValueQueryParameter {
   case object PageNumberQueryParameter extends SingleValueQueryParameter(key = "page-number", defaultValue = 0)
 
   case object PageSizeQueryParameter extends SingleValueQueryParameter(key = "page-size", defaultValue = 10)
+
+  case object DurationRangeQueryParameter extends SingleValueQueryParameter[DurationRange](key = "duration", defaultValue = DurationRange.All)
 
   case object SearchTermQueryParameter extends SingleValueQueryParameter[Option[String]](key = "search-term", defaultValue = None)
 

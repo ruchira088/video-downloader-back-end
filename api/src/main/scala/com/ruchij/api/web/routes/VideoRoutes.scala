@@ -23,12 +23,12 @@ object VideoRoutes {
     HttpRoutes.of {
       case GET -> Root / "search" :? queryParameters =>
         for {
-          SearchQuery(term, videoUrls, pageSize, pageNumber, sortBy, order) <-
+          SearchQuery(term, durationRange, _, pageSize, pageNumber, sortBy, order) <-
             SearchQuery.fromQueryParameters[F].run(queryParameters)
 
-          videos <- videoService.search(term, videoUrls, pageNumber, pageSize, sortBy, order)
+          videos <- videoService.search(term, durationRange, pageNumber, pageSize, sortBy, order)
 
-          response <- Ok(SearchResult(videos, pageNumber, pageSize, term, videoUrls, sortBy, order))
+          response <- Ok(SearchResult(videos, pageNumber, pageSize, term, None, durationRange, sortBy, order))
         } yield response
 
       case GET -> Root / "summary" =>

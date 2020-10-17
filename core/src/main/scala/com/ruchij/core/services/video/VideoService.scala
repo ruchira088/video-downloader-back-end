@@ -1,11 +1,9 @@
 package com.ruchij.core.services.video
 
-import cats.data.NonEmptyList
 import com.ruchij.core.daos.snapshot.models.Snapshot
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.services.models.{Order, SortBy}
-import com.ruchij.core.services.video.models.VideoServiceSummary
-import org.http4s.Uri
+import com.ruchij.core.services.video.models.{DurationRange, VideoServiceSummary}
 
 trait VideoService[F[_]] {
   def insert(videoMetadataKey: String, fileResourceKey: String): F[Video]
@@ -20,7 +18,7 @@ trait VideoService[F[_]] {
 
   def search(
     term: Option[String],
-    videoUrls: Option[NonEmptyList[Uri]],
+    durationRange: DurationRange,
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,

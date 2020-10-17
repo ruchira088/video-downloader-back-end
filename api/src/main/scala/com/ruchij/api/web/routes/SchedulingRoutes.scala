@@ -10,6 +10,7 @@ import com.ruchij.core.types.JodaClock
 import com.ruchij.api.web.responses.EventStreamEventType.{ActiveDownload, HeartBeat}
 import com.ruchij.api.circe.Encoders._
 import com.ruchij.api.web.responses.{EventStreamHeartBeat, SearchResult}
+import com.ruchij.core.services.video.models.DurationRange
 import fs2.Stream
 import io.circe.Encoder
 import io.circe.generic.auto._
@@ -38,11 +39,11 @@ object SchedulingRoutes {
 
       case GET -> Root / "search" :? queryParameters =>
         for {
-          SearchQuery(term, videoUrls, pageSize, pageNumber, sortBy, order) <- SearchQuery.fromQueryParameters[F].run(queryParameters)
+          SearchQuery(term, _, videoUrls, pageSize, pageNumber, sortBy, order) <- SearchQuery.fromQueryParameters[F].run(queryParameters)
 
           scheduledVideoDownloads <- schedulingService.search(term, videoUrls, pageNumber, pageSize, sortBy, order)
 
-          response <- Ok(SearchResult(scheduledVideoDownloads, pageNumber, pageSize, term, videoUrls, sortBy, order))
+          response <- Ok(SearchResult(scheduledVideoDownloads, pageNumber, pageSize, term, videoUrls, DurationRange.All, sortBy, order))
         }
         yield response
 

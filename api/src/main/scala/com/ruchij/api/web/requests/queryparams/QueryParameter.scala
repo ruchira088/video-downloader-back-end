@@ -1,14 +1,18 @@
 package com.ruchij.api.web.requests.queryparams
 
+import java.util.concurrent.TimeUnit
+
 import cats.data.Validated.{Invalid, Valid}
 import cats.data.{Kleisli, NonEmptyList, ValidatedNel}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError}
 import QueryParameter.QueryParameters
 import com.ruchij.core.exceptions.AggregatedException
+import com.ruchij.core.services.video.models.DurationRange
 import enumeratum.{Enum, EnumEntry}
 import org.http4s.{ParseFailure, QueryParamDecoder, QueryParameterValue}
 
+import scala.concurrent.duration.FiniteDuration
 import scala.reflect.ClassTag
 
 abstract class QueryParameter[A] {
@@ -32,6 +36,31 @@ object QueryParameter {
             )
         }
     }
+
+  implicit val durationRangeQueryParamDecoder: QueryParamDecoder[DurationRange] = {
+    case QueryParameterValue(value) =>
+      value
+        .split("-")
+        .toList
+        .take(2)
+        .traverse { value =>
+          if (value.trim.isEmpty) None.validNel[ParseFailure]
+          else
+            value.trim.toLongOption.fold[ValidatedNel[ParseFailure, Some[FiniteDuration]]](
+              ParseFailure(value, s"""Unable to parse $value as a Long""").invalidNel[Some[FiniteDuration]]
+            )(number => Some(FiniteDuration(number, TimeUnit.MINUTES)).validNel[ParseFailure])
+        }
+        .andThen {
+          case min :: max :: Nil =>
+            DurationRange
+              .create(min, max)
+              .left
+              .map(throwable => ParseFailure(value, throwable.getMessage))
+              .toValidatedNel
+          case min :: Nil => DurationRange(min, None).validNel
+          case _ => DurationRange.All.validNel
+        }
+  }
 
   implicit def optionQueryParamDecoder[A: QueryParamDecoder]: QueryParamDecoder[Option[A]] =
     (value: QueryParameterValue) => QueryParamDecoder[A].decode(value).map(Some.apply)
