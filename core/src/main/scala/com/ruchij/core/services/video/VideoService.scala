@@ -4,6 +4,7 @@ import cats.data.NonEmptyList
 import com.ruchij.core.daos.snapshot.models.Snapshot
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.services.models.{Order, SortBy}
+import com.ruchij.core.services.video.models.VideoServiceSummary
 import org.http4s.Uri
 
 trait VideoService[F[_]] {
@@ -25,4 +26,6 @@ trait VideoService[F[_]] {
     sortBy: SortBy,
     order: Order
   ): F[Seq[Video]]
+
+  val summary: F[VideoServiceSummary]
 }

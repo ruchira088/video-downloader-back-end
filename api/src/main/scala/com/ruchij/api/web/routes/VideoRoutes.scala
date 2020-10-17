@@ -31,6 +31,9 @@ object VideoRoutes {
           response <- Ok(SearchResult(videos, pageNumber, pageSize, term, videoUrls, sortBy, order))
         } yield response
 
+      case GET -> Root / "summary" =>
+        videoService.summary.flatMap(videoServiceSummary => Ok(videoServiceSummary))
+
       case request @ POST -> Root / "metadata" =>
         for {
           videoMetadataRequest <- request.as[VideoMetadataRequest]

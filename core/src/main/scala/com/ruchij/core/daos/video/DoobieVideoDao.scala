@@ -11,6 +11,8 @@ import doobie.implicits._
 import doobie.util.fragment.Fragment
 import org.http4s.Uri
 
+import scala.concurrent.duration.FiniteDuration
+
 object DoobieVideoDao extends VideoDao[ConnectionIO] {
 
   val SelectQuery =
@@ -68,4 +70,25 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
 
   override def deleteById(videoId: String): ConnectionIO[Int] =
     sql"DELETE FROM video WHERE video_metadata_id = $videoId".update.run
+
+  override val count: ConnectionIO[Int] =
+    sql"SELECT COUNT(*) FROM video".query[Int].unique
+
+  override val duration: ConnectionIO[FiniteDuration] =
+    sql"""
+      SELECT SUM(video_metadata.duration)
+      FROM video
+      JOIN video_metadata ON video.video_metadata_id = video_metadata.id
+    """
+      .query[FiniteDuration]
+      .unique
+
+  override val size: ConnectionIO[Long] =
+    sql"""
+      SELECT SUM(file_resource.size)
+      FROM video
+      JOIN file_resource ON video.file_resource_id = file_resource.id
+    """
+      .query[Long]
+      .unique
 }

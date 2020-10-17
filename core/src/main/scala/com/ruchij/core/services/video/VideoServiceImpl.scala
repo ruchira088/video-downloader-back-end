@@ -11,6 +11,7 @@ import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.services.models.{Order, SortBy}
+import com.ruchij.core.services.video.models.VideoServiceSummary
 import org.http4s.Uri
 
 class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: MonadError[*[_], Throwable]](
@@ -59,4 +60,13 @@ class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: MonadError[*[_],
           }
         }
 
+  override val summary: F[VideoServiceSummary] =
+    transaction {
+      for {
+        count <- videoDao.count
+        size <- videoDao.size
+        duration <- videoDao.duration
+      }
+      yield VideoServiceSummary(count, size, duration)
+    }
 }
