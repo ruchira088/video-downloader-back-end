@@ -72,7 +72,7 @@ jobs:
 
   deploy-to-k8s:
     docker:
-      - image: cimg/base:stable
+      - image: cimg/openjdk:8.0
     steps:
       - run: *install-ansible
       - run: *install-kubectl
