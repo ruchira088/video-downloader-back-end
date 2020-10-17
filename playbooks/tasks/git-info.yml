@@ -3,7 +3,7 @@
   register: git_commit_output
 
 - name: Get the git branch name
-  shell: git rev-parse --abbrev-ref HEAD | tr "[:upper:]" "[:lower]" | tr " /" "-"
+  shell: git rev-parse --abbrev-ref HEAD | tr "[:upper:]" "[:lower:]" | tr " /" "-"
   register: git_branch_output
 
 - set_fact:
