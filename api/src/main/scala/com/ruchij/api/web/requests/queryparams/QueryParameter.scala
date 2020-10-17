@@ -6,7 +6,7 @@ import cats.data.Validated.{Invalid, Valid}
 import cats.data.{Kleisli, NonEmptyList, ValidatedNel}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError}
-import QueryParameter.QueryParameters
+import com.ruchij.api.web.requests.queryparams.QueryParameter.QueryParameters
 import com.ruchij.core.exceptions.AggregatedException
 import com.ruchij.core.services.video.models.DurationRange
 import enumeratum.{Enum, EnumEntry}
@@ -31,15 +31,23 @@ object QueryParameter {
           QueryParamDecoder[A]
             .decode(QueryParameterValue(rawValue))
             .fold(
-              errors => ApplicativeError[F, Throwable].raiseError(AggregatedException[ParseFailure](errors)),
+              errors =>
+                ApplicativeError[F, Throwable].raiseError(
+                  AggregatedException(
+                    errors.map(
+                      parseFailure =>
+                        new IllegalArgumentException(s"Query parameter parse error: $key - ${parseFailure.sanitized}")
+                    )
+                  )
+              ),
               parsedValue => Applicative[F].pure(parsedValue)
             )
         }
     }
 
   implicit val durationRangeQueryParamDecoder: QueryParamDecoder[DurationRange] = {
-    case QueryParameterValue(value) =>
-      value
+    case QueryParameterValue(inputValue) =>
+      inputValue
         .split("-")
         .toList
         .take(2)
@@ -47,7 +55,7 @@ object QueryParameter {
           if (value.trim.isEmpty) None.validNel[ParseFailure]
           else
             value.trim.toLongOption.fold[ValidatedNel[ParseFailure, Some[FiniteDuration]]](
-              ParseFailure(value, s"""Unable to parse $value as a Long""").invalidNel[Some[FiniteDuration]]
+              ParseFailure(s"""Unable to parse "$value" as a Long""", "").invalidNel[Some[FiniteDuration]]
             )(number => Some(FiniteDuration(number, TimeUnit.MINUTES)).validNel[ParseFailure])
         }
         .andThen {
@@ -55,7 +63,7 @@ object QueryParameter {
             DurationRange
               .create(min, max)
               .left
-              .map(throwable => ParseFailure(value, throwable.getMessage))
+              .map(throwable => ParseFailure(inputValue, throwable.getMessage))
               .toValidatedNel
           case min :: Nil => DurationRange(min, None).validNel
           case _ => DurationRange.All.validNel
@@ -76,8 +84,10 @@ object QueryParameter {
           Invalid(
             NonEmptyList.of(
               ParseFailure(
-                s"Possible values are [${enumValue.values.map(_.entryName).mkString(", ")}]. Unable to parse value as ${classTag.runtimeClass.getSimpleName}",
-                queryParameterValue.value
+                s"""Unable to parse "${queryParameterValue.value}" as ${classTag.runtimeClass.getSimpleName}. Possible values are [${enumValue.values
+                  .map(_.entryName)
+                  .mkString(", ")}]""",
+                ""
               )
             )
           )

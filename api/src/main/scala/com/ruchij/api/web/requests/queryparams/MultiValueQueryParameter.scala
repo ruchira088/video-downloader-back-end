@@ -2,7 +2,7 @@ package com.ruchij.api.web.requests.queryparams
 
 import cats.ApplicativeError
 import cats.data.{Kleisli, NonEmptyList}
-import QueryParameter.QueryParameters
+import com.ruchij.api.web.requests.queryparams.QueryParameter.QueryParameters
 import org.http4s.{QueryParamDecoder, Uri}
 
 abstract class MultiValueQueryParameter[A: QueryParamDecoder](key: String) extends QueryParameter[Option[NonEmptyList[A]]] {

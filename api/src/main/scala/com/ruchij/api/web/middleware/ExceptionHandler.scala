@@ -1,7 +1,7 @@
 package com.ruchij.api.web.middleware
 
 import cats.arrow.FunctionK
-import cats.data.Kleisli
+import cats.data.{Kleisli, NonEmptyList}
 import cats.effect.Sync
 import cats.implicits._
 import com.ruchij.api.exceptions.AuthenticationException
@@ -31,6 +31,8 @@ object ExceptionHandler {
     case _: JSoupException | _: ExternalServiceException => Status.BadGateway
 
     case _: ResourceConflictException => Status.Conflict
+
+    case AggregatedException(NonEmptyList(exception, _)) => throwableStatusMapper(exception)
 
     case _ => Status.InternalServerError
   }
