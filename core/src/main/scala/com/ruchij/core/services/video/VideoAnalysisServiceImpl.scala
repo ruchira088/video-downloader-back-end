@@ -12,7 +12,7 @@ import com.ruchij.core.daos.videometadata.models.VideoSite.Selector
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
 import com.ruchij.core.services.download.DownloadService
 import com.ruchij.core.services.hashing.HashingService
-import com.ruchij.core.services.video.VideoAnalysisService.{NewlyCreated, VideoMetadataResult}
+import com.ruchij.core.services.video.VideoAnalysisService.{Existing, NewlyCreated, VideoMetadataResult}
 import com.ruchij.core.services.video.models.VideoAnalysisResult
 import com.ruchij.core.types.JodaClock
 import com.ruchij.core.utils.Http4sUtils
@@ -39,7 +39,7 @@ class VideoAnalysisServiceImpl[F[_]: Sync: Clock, T[_]: Monad](
       videoMetadataOpt <- transaction(videoMetadataDao.getById(videoId))
 
       result <- videoMetadataOpt.fold[F[VideoMetadataResult]](createMetadata(uri, videoId).map(NewlyCreated)) {
-        videoMetadata => Applicative[F].pure[VideoMetadataResult](NewlyCreated(videoMetadata))
+        videoMetadata => Applicative[F].pure[VideoMetadataResult](Existing(videoMetadata))
       }
 
     } yield result
