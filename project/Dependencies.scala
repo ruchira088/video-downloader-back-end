@@ -32,7 +32,7 @@ object Dependencies
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.13.1"
 
-  lazy val jodaTime = "joda-time" % "joda-time" % "2.10.6"
+  lazy val jodaTime = "joda-time" % "joda-time" % "2.10.8"
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.14.0"
 
@@ -46,7 +46,7 @@ object Dependencies
 
   lazy val jcodecJavaSe = "org.jcodec" % "jcodec-javase" % "0.2.5"
 
-  lazy val thumbnailator = "net.coobird" % "thumbnailator" % "0.4.12"
+  lazy val thumbnailator = "net.coobird" % "thumbnailator" % "0.4.13"
 
   lazy val apacheTika = "org.apache.tika" % "tika-core" % "1.24.1"
 
