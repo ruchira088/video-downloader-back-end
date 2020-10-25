@@ -5,10 +5,11 @@ import cats.effect.{Sync, Timer}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Monad, ~>}
 import com.ruchij.core.daos.scheduling.SchedulingDao
-import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
-import com.ruchij.core.exceptions.{InvalidConditionException, ResourceConflictException, ResourceNotFoundException}
+import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
+import com.ruchij.core.exceptions.{ResourceConflictException, ResourceNotFoundException}
 import com.ruchij.core.kv.KeySpacedKeyValueStore
 import com.ruchij.core.services.models.{Order, SortBy}
+import com.ruchij.core.services.scheduling.SchedulingServiceImpl.notFound
 import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.services.scheduling.models.DownloadProgress.DownloadProgressKey
 import com.ruchij.core.services.video.VideoAnalysisService
@@ -41,7 +42,7 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
       videoMetadataResult <- videoAnalysisService.metadata(uri)
       timestamp <- JodaClock[F].timestamp
 
-      scheduledVideoDownload = ScheduledVideoDownload(timestamp, videoMetadataResult.value, None)
+      scheduledVideoDownload = ScheduledVideoDownload(timestamp, timestamp, SchedulingStatus.Queued, videoMetadataResult.value, None)
 
       _ <- transaction(schedulingDao.insert(scheduledVideoDownload))
     } yield scheduledVideoDownload
@@ -61,9 +62,7 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
   override def getById(id: String): F[ScheduledVideoDownload] =
     OptionT(transaction(schedulingDao.getById(id)))
       .getOrElseF {
-        ApplicativeError[F, Throwable].raiseError(
-          ResourceNotFoundException(s"Unable to find scheduled video download with ID = $id")
-        )
+        ApplicativeError[F, Throwable].raiseError(notFound(id))
       }
 
   override def updateDownloadProgress(id: String, downloadedBytes: Long): F[Unit] =
@@ -77,8 +76,24 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
     JodaClock[F].timestamp
       .flatMap { timestamp =>
         OptionT(transaction(schedulingDao.completeTask(id, timestamp)))
-          .getOrElseF(ApplicativeError[F, Throwable].raiseError(InvalidConditionException))
+          .getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
       }
+
+  override def updateStatus(id: String, status: SchedulingStatus): F[ScheduledVideoDownload] =
+    for {
+      timestamp <- JodaClock[F].timestamp
+      scheduledVideoDownload <- getById(id)
+
+      _ <-
+        if (scheduledVideoDownload.status == SchedulingStatus.Completed)
+          ApplicativeError[F, Throwable].raiseError(new IllegalArgumentException("Unable to update the status of a completed scheduled video"))
+        else Applicative[F].unit
+
+      updatedScheduledVideoDownload <-
+        OptionT(transaction(schedulingDao.updateStatus(id, status, timestamp)))
+                .getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
+    }
+    yield updatedScheduledVideoDownload
 
   override val acquireTask: OptionT[F, ScheduledVideoDownload] =
     OptionT {
@@ -111,4 +126,9 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
       .flatMap { results =>
         Stream.emits(results)
       }
+}
+
+object SchedulingServiceImpl {
+  def notFound(id: String): ResourceNotFoundException =
+    ResourceNotFoundException(s"Unable to find scheduled video download with ID = $id")
 }

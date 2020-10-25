@@ -1,7 +1,7 @@
 package com.ruchij.core.services.scheduling
 
 import cats.data.{NonEmptyList, OptionT}
-import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
+import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.scheduling.models.DownloadProgress
 import fs2.Stream
@@ -24,6 +24,8 @@ trait SchedulingService[F[_]] {
   def getById(id: String): F[ScheduledVideoDownload]
 
   def completeTask(id: String): F[ScheduledVideoDownload]
+
+  def updateStatus(id: String, status: SchedulingStatus): F[ScheduledVideoDownload]
 
   val acquireTask: OptionT[F, ScheduledVideoDownload]
 

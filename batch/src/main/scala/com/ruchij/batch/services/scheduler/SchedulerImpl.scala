@@ -9,6 +9,7 @@ import com.ruchij.batch.services.scheduler.SchedulerImpl.WorkerPollPeriod
 import com.ruchij.batch.services.sync.SynchronizationService
 import com.ruchij.batch.services.sync.models.SynchronizationResult
 import com.ruchij.batch.services.worker.WorkExecutor
+import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.workers.WorkerDao
 import com.ruchij.core.daos.workers.models.Worker
@@ -67,6 +68,9 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
           case (task, timestamp) =>
             transaction(workerDao.assignTask(worker.id, task.videoMetadata.id, timestamp))
               .as(Option(task))
+        }
+        .semiflatMap { scheduledVideoDownload =>
+          schedulingService.updateStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Active)
         }
         .semiflatMap(scheduledVideoDownload => workExecutor.execute(scheduledVideoDownload, worker))
         .semiflatMap { video =>

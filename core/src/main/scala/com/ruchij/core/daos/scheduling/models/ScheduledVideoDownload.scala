@@ -5,6 +5,8 @@ import org.joda.time.DateTime
 
 case class ScheduledVideoDownload(
   scheduledAt: DateTime,
+  lastUpdatedAt: DateTime,
+  status: SchedulingStatus,
   videoMetadata: VideoMetadata,
   completedAt: Option[DateTime]
 )

@@ -2,12 +2,15 @@ package com.ruchij.api.web.routes
 
 import cats.effect.{Concurrent, Timer}
 import cats.implicits._
-import com.ruchij.api.web.requests.SchedulingRequest
+import com.ruchij.api.web.requests.{SchedulingRequest, UpdateScheduledVideoRequest}
+import com.ruchij.api.web.requests.UpdateScheduledVideoRequest.updateScheduledVideoRequestValidator
+import com.ruchij.api.web.requests.RequestOps.RequestOpsSyntax
 import com.ruchij.api.web.requests.queryparams.SearchQuery
 import com.ruchij.core.services.scheduling.SchedulingService
 import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.types.JodaClock
 import com.ruchij.api.web.responses.EventStreamEventType.{ActiveDownload, HeartBeat}
+import com.ruchij.api.circe.Decoders._
 import com.ruchij.api.circe.Encoders._
 import com.ruchij.api.web.responses.{EventStreamHeartBeat, SearchResult}
 import com.ruchij.core.services.video.models.DurationRange
@@ -49,6 +52,16 @@ object SchedulingRoutes {
 
       case GET -> Root / "videoId" / videoId =>
         schedulingService.getById(videoId).flatMap(scheduledVideoDownload => Ok(scheduledVideoDownload))
+
+      case request @ PUT -> Root / "videoId" / videoId =>
+        for {
+          UpdateScheduledVideoRequest(schedulingStatus) <- request.to[UpdateScheduledVideoRequest]
+
+          updatedScheduledVideoDownload <- schedulingService.updateStatus(videoId, schedulingStatus)
+
+          response <- Ok(updatedScheduledVideoDownload)
+        }
+        yield response
 
       case GET -> Root / "active" =>
         Ok {
