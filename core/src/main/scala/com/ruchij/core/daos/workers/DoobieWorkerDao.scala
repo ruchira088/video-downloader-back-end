@@ -6,6 +6,7 @@ import cats.{Applicative, ApplicativeError}
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 import com.ruchij.core.daos.doobie.DoobieUtils.singleUpdate
 import com.ruchij.core.daos.scheduling.SchedulingDao
+import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 import com.ruchij.core.daos.workers.models.Worker
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import doobie.free.connection
@@ -71,8 +72,15 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
       """.update.run
     }.productR {
         singleUpdate {
+          sql"UPDATE worker SET task_assigned_at = $timestamp WHERE id = $workerId".update.run
+        }
+      }
+      .productR {
+        singleUpdate {
           sql"""
-            UPDATE worker SET task_assigned_at = $timestamp WHERE id = $workerId
+            UPDATE scheduled_video 
+            SET status = ${SchedulingStatus.Active}, last_updated_at = $timestamp
+            WHERE video_metadata_id = $scheduledVideoId
           """.update.run
         }
       }
@@ -89,10 +97,19 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
           UPDATE worker_task SET completed_at = $timestamp
           WHERE worker_id = $workerId AND scheduled_video_id = $scheduledVideoId
       """.update.run
-    }.productR(OptionT(getById(workerId)))
+    }.productR {
+        singleUpdate {
+          sql"""
+              UPDATE scheduled_video 
+              SET status = ${SchedulingStatus.Completed}, last_updated_at = $timestamp
+              WHERE video_metadata_id = $scheduledVideoId
+          """.update.run
+        }
+      }
+      .productR(OptionT(getById(workerId)))
       .value
 
-  override def release(workerId: String): ConnectionIO[Option[Worker]] =
+  override def releaseWorker(workerId: String): ConnectionIO[Option[Worker]] =
     singleUpdate { sql"UPDATE worker SET reserved_at = NULL, task_assigned_at = NULL WHERE id = $workerId".update.run }
       .productR(OptionT(getById(workerId)))
       .value

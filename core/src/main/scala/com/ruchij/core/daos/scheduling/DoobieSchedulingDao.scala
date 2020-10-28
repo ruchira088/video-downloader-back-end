@@ -90,20 +90,21 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       .query[ScheduledVideoDownload]
       .to[Seq]
 
-  override val retrieveTask: ConnectionIO[Option[ScheduledVideoDownload]] =
+  def getByStatus(status: SchedulingStatus): OptionT[ConnectionIO, String] =
     OptionT {
       sql"""
         SELECT scheduled_video.video_metadata_id FROM scheduled_video
-          LEFT JOIN worker_task ON scheduled_video.video_metadata_id = worker_task.scheduled_video_id
-          WHERE
-            scheduled_video.completed_at IS NULL AND
-            worker_task.scheduled_video_id IS NULL
+          WHERE status = $status
           ORDER BY scheduled_video.scheduled_at
           LIMIT 1
       """
         .query[String]
         .option
     }
+
+  override val retrieveTask: ConnectionIO[Option[ScheduledVideoDownload]] =
+    getByStatus(SchedulingStatus.Queued)
+      .orElse(getByStatus(SchedulingStatus.Error))
       .flatMapF(getById)
       .value
 

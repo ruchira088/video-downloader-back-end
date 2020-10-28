@@ -1,7 +1,7 @@
 package com.ruchij.batch.services.scheduler
 
 import cats.data.OptionT
-import cats.effect.{Bracket, Clock, Concurrent, Timer}
+import cats.effect.{Bracket, Clock, Concurrent, ExitCase, Timer}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Monad, ~>}
 import com.ruchij.batch.config.WorkerConfiguration
@@ -60,9 +60,9 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       }
       .collect { case Some(worker) => worker }
 
-  def performWork(worker: Worker): F[Option[Video]] =
-    Bracket[F, Throwable].guarantee {
-      schedulingService.acquireTask
+  def performWork(worker: Worker): F[Option[Video]] = {
+    Bracket[F, Throwable].bracketCase(schedulingService.acquireTask.value) { taskOpt =>
+      OptionT.fromOption[F](taskOpt)
         .product(OptionT.liftF(JodaClock[F].timestamp))
         .flatMapF {
           case (task, timestamp) =>
@@ -87,10 +87,18 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
             .as(video)
         }
         .value
-    }(postWorkTask(worker))
+    } {
+      case (Some(scheduledVideoDownload), ExitCase.Error(_)) =>
+        schedulingService.updateStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Error)
+          .productR(releaseWorker(worker))
 
-  def postWorkTask(worker: Worker): F[Unit] =
-    OptionT(transaction(workerDao.release(worker.id)))
+      case (_, _) => releaseWorker(worker)
+    }
+  }
+
+
+  def releaseWorker(worker: Worker): F[Unit] =
+    OptionT(transaction(workerDao.releaseWorker(worker.id)))
       .getOrElseF {
         ApplicativeError[F, Throwable].raiseError {
           ResourceNotFoundException(s"Worker not found. ID = ${worker.id}")
@@ -109,7 +117,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
                 case throwable =>
                   logger.errorF("Error occurred in work scheduler", throwable).as(None)
               }
-          else postWorkTask(worker).as[Option[Video]](None)
+          else releaseWorker(worker).as[Option[Video]](None)
         }
     }
       .collect {
