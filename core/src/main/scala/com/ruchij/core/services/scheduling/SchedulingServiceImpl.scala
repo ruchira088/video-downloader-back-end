@@ -65,13 +65,6 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
         ApplicativeError[F, Throwable].raiseError(notFound(id))
       }
 
-  override def updateDownloadProgress(id: String, downloadedBytes: Long): F[Unit] =
-    for {
-      timestamp <- JodaClock[F].timestamp
-
-      result <- keySpacedKeyValueStore.put(DownloadProgressKey(id), DownloadProgress(id, timestamp, downloadedBytes))
-    } yield result
-
   override def completeTask(id: String): F[ScheduledVideoDownload] =
     JodaClock[F].timestamp
       .flatMap { timestamp =>
@@ -100,32 +93,42 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
       transaction(schedulingDao.retrieveTask)
     }
 
-  override val active: Stream[F, DownloadProgress] =
-    Stream.fixedRate[F](500 milliseconds)
-      .productR {
-        Stream.eval(JodaClock[F].timestamp)
-      }
-      .scan[(Option[DateTime], Option[DateTime])]((None, None)) {
-        case ((_, Some(previous)), timestamp) => (Some(previous), Some(timestamp))
-        case (_, timestamp) => (None, Some(timestamp))
-      }
-      .collect {
-        case (Some(start), Some(end)) => (start, end)
-      }
+  override val updates: Stream[F, ScheduledVideoDownload] =
+    timeInterval(1 second)
+      .zipWithNext
+      .collect { case (start, Some(end)) => start -> end }
+      .evalMap { case (start, end) => transaction(schedulingDao.updatedBetween(start, end)) }
+      .flatMap(Stream.emits[F, ScheduledVideoDownload])
+
+  override def updateDownloadProgress(id: String, downloadedBytes: Long): F[Unit] =
+    for {
+      timestamp <- JodaClock[F].timestamp
+
+      result <- keySpacedKeyValueStore.put(DownloadProgressKey(id), DownloadProgress(id, timestamp, downloadedBytes))
+    } yield result
+
+  override val downloadProgress: Stream[F, DownloadProgress] =
+    timeInterval(500 milliseconds)
       .evalMap {
-        case (start, end) =>
+        start =>
           keySpacedKeyValueStore.allKeys
             .flatMap(_.traverse(keySpacedKeyValueStore.get))
             .map {
               _.collect { case Some(value) => value }
                 .filter {
-                  case DownloadProgress(_, updatedAt, _) => updatedAt.isAfter(start) && updatedAt.isBefore(end)
+                  case DownloadProgress(_, updatedAt, _) => updatedAt.isAfter(start)
                 }
             }
       }
       .flatMap { results =>
         Stream.emits(results)
       }
+
+  def timeInterval(interval: FiniteDuration): Stream[F, DateTime] =
+    Stream.fixedRate[F](interval)
+      .productR(Stream.eval(JodaClock[F].timestamp))
+      .map(_.minus(2 * interval.toMillis))
+
 }
 
 object SchedulingServiceImpl {

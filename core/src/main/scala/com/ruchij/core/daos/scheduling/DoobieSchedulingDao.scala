@@ -54,6 +54,11 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
     }
       .productR(OptionT(getById(id))).value
 
+  override def updatedBetween(start: DateTime, end: DateTime): ConnectionIO[Seq[ScheduledVideoDownload]] =
+    (SelectQuery ++ fr"WHERE scheduled_video.last_updated_at >= $start AND scheduled_video.last_updated_at < $end")
+      .query[ScheduledVideoDownload]
+      .to[Seq]
+
   override def updateStatus(id: String, status: SchedulingStatus, timestamp: DateTime): ConnectionIO[Option[ScheduledVideoDownload]] =
     singleUpdate[ConnectionIO] {
       sql"""

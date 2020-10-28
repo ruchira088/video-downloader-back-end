@@ -36,7 +36,7 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.14.0"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "7.0.4"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "7.1.0"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.18"
 

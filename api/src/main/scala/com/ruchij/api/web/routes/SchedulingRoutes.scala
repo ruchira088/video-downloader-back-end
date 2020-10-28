@@ -65,7 +65,7 @@ object SchedulingRoutes {
 
       case GET -> Root / "active" =>
         Ok {
-          schedulingService.active
+          schedulingService.downloadProgress
             .map {
               downloadProgress =>
                 ServerSentEvent(
