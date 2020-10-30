@@ -1,8 +1,8 @@
-package com.ruchij.batch.test.utils
+package com.ruchij.api.test.utils
 
 import cats.effect.Sync
 import cats.implicits._
-import com.ruchij.batch.types.FunctionKTypes.eitherToF
+import com.ruchij.core.types.FunctionKTypes.eitherToF
 import io.circe.Json
 import io.circe.parser.{parse => parseJson}
 import org.http4s.Response

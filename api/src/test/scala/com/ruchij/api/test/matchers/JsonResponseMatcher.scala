@@ -1,6 +1,7 @@
-package com.ruchij.batch.test.matchers
+package com.ruchij.api.test.matchers
 
 import cats.effect.{Effect, Sync}
+import com.ruchij.api.test.utils.JsonUtils
 import io.circe.Json
 import org.http4s.Response
 import org.scalatest.matchers.{MatchResult, Matcher}

@@ -1,4 +1,4 @@
-package com.ruchij.batch.test.matchers
+package com.ruchij.api.test.matchers
 
 import org.http4s.headers.`Content-Type`
 import org.http4s.{MediaType, Response}

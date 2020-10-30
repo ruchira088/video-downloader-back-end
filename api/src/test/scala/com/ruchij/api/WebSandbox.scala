@@ -1,4 +1,4 @@
-package com.ruchij.batch
+package com.ruchij.api
 
 import cats.effect.{ExitCode, IO, IOApp}
 
