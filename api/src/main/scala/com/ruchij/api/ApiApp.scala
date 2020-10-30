@@ -45,8 +45,7 @@ object ApiApp extends IOApp {
 
       _ <- program[IO](webServiceConfiguration, ExecutionContext.global)
         .use { httpApp =>
-          BlazeServerBuilder
-            .apply[IO](ExecutionContext.global)
+          BlazeServerBuilder[IO](ExecutionContext.global)
             .withHttpApp(httpApp)
             .bindHttp(webServiceConfiguration.httpConfiguration.port, webServiceConfiguration.httpConfiguration.host)
             .serve

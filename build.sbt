@@ -81,6 +81,14 @@ lazy val batch =
     )
     .dependsOn(core)
 
+lazy val development =
+  (project in file("./development"))
+    .settings(
+      name := "video-downloader-development",
+      libraryDependencies ++= Seq(embeddedRedis)
+    )
+    .dependsOn(migrationApplication, api, batch)
+
 val compileAll = taskKey[Unit]("Compile all projects")
 compileAll :=
   Def
@@ -88,7 +96,8 @@ compileAll :=
       migrationApplication / Compile / compile,
       core / Compile / compile,
       api / Compile / compile,
-      batch / Compile / compile
+      batch / Compile / compile,
+      development / Compile / compile
     )
     .value
 

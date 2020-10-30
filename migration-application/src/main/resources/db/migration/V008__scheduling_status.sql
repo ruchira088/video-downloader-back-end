@@ -1,6 +1,8 @@
 
 ALTER TABLE scheduled_video
-    ADD COLUMN last_updated_at TIMESTAMP NULL,
+    ADD COLUMN last_updated_at TIMESTAMP NULL;
+
+ALTER TABLE scheduled_video
     ADD COLUMN status VARCHAR(16) DEFAULT 'Completed' NOT NULL;
 
 UPDATE scheduled_video

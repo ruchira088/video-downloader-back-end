@@ -43,13 +43,10 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
         Stream.repeatEval {
           JodaClock[F].timestamp.flatMap { timestamp =>
             transaction {
-              OptionT(workerDao.idleWorker)
-                .flatMap { worker =>
-                  OptionT(workerDao.reserveWorker(worker.id, timestamp))
-                }
-                .value
-            }
-              .recoverWith {
+              OptionT(workerDao.idleWorker).flatMap { worker =>
+                OptionT(workerDao.reserveWorker(worker.id, timestamp))
+              }.value
+            }.recoverWith {
                 case throwable =>
                   logger
                     .errorF("Error occurred when fetching idle worker", throwable)
@@ -62,7 +59,8 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
 
   def performWork(worker: Worker): F[Option[Video]] = {
     Bracket[F, Throwable].bracketCase(schedulingService.acquireTask.value) { taskOpt =>
-      OptionT.fromOption[F](taskOpt)
+      OptionT
+        .fromOption[F](taskOpt)
         .product(OptionT.liftF(JodaClock[F].timestamp))
         .flatMapF {
           case (task, timestamp) =>
@@ -74,28 +72,29 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
         }
         .semiflatMap(scheduledVideoDownload => workExecutor.execute(scheduledVideoDownload, worker))
         .semiflatMap { video =>
-          JodaClock[F].timestamp.flatMap { timestamp =>
-            OptionT(transaction(workerDao.completeTask(worker.id, video.videoMetadata.id, timestamp)))
-              .getOrElseF {
-                ApplicativeError[F, Throwable].raiseError {
-                  ResourceNotFoundException(
-                    s"Unable to complete worker task workerId = ${worker.id}, taskId = ${video.videoMetadata.id}"
-                  )
+          JodaClock[F].timestamp
+            .flatMap { timestamp =>
+              OptionT(transaction(workerDao.completeTask(worker.id, video.videoMetadata.id, timestamp)))
+                .getOrElseF {
+                  ApplicativeError[F, Throwable].raiseError {
+                    ResourceNotFoundException(
+                      s"Unable to complete worker task workerId = ${worker.id}, taskId = ${video.videoMetadata.id}"
+                    )
+                  }
                 }
-              }
-          }
+            }
             .as(video)
         }
         .value
     } {
       case (Some(scheduledVideoDownload), ExitCase.Error(_)) =>
-        schedulingService.updateStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Error)
+        schedulingService
+          .updateStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Error)
           .productR(releaseWorker(worker))
 
       case (_, _) => releaseWorker(worker)
     }
   }
-
 
   def releaseWorker(worker: Worker): F[Unit] =
     OptionT(transaction(workerDao.releaseWorker(worker.id)))
@@ -107,19 +106,19 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       .productR(Applicative[F].unit)
 
   override val run: Stream[F, Video] =
-    idleWorkers.parEvalMapUnordered(workerConfiguration.maxConcurrentDownloads) { worker =>
-      SchedulerImpl
-        .isWorkPeriod[F](workerConfiguration.startTime, workerConfiguration.endTime)
-        .flatMap { isWorkPeriod =>
-          if (isWorkPeriod)
-            performWork(worker)
-              .recoverWith {
-                case throwable =>
-                  logger.errorF("Error occurred in work scheduler", throwable).as(None)
-              }
-          else releaseWorker(worker).as[Option[Video]](None)
-        }
-    }
+    idleWorkers
+      .parEvalMapUnordered(workerConfiguration.maxConcurrentDownloads) { worker =>
+        SchedulerImpl
+          .isWorkPeriod[F](workerConfiguration.startTime, workerConfiguration.endTime)
+          .flatMap { isWorkPeriod =>
+            if (isWorkPeriod)
+              performWork(worker)
+                .recoverWith {
+                  case throwable =>
+                    logger.errorF("Error occurred in work scheduler", throwable).as(None)
+                } else releaseWorker(worker).as[Option[Video]](None)
+          }
+      }
       .collect {
         case Some(video) => video
       }
@@ -161,14 +160,18 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
 object SchedulerImpl {
   val WorkerPollPeriod: FiniteDuration = 1 second
 
-  def isWorkPeriod[F[_]: Clock: Monad](start: LocalTime, end: LocalTime): F[Boolean] =
-    JodaClock[F].timestamp
-      .map { timestamp =>
-        val localTime = timestamp.toLocalTime
+  def isWorkPeriod[F[_]: Clock: Monad](start: LocalTime, end: LocalTime): F[Boolean] = {
+    if (start == end)
+      Applicative[F].pure(true)
+    else
+      JodaClock[F].timestamp
+        .map { timestamp =>
+          val localTime = timestamp.toLocalTime
 
-        if (start.isBefore(end))
-          localTime.isAfter(start) && localTime.isBefore(end)
-        else
-          localTime.isAfter(start) || localTime.isBefore(end)
-      }
+          if (start.isBefore(end))
+            localTime.isAfter(start) && localTime.isBefore(end)
+          else
+            localTime.isAfter(start) || localTime.isBefore(end)
+        }
+  }
 }
