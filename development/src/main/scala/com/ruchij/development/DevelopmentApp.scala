@@ -1,5 +1,7 @@
 package com.ruchij.development
 
+import java.security.KeyStore
+
 import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
 import cats.implicits._
 import com.ruchij.api.ApiApp
@@ -11,6 +13,7 @@ import com.ruchij.batch.services.scheduler.Scheduler
 import com.ruchij.core.config.{ApplicationInformation, DownloadConfiguration, RedisConfiguration}
 import com.ruchij.migration.MigrationApp
 import com.ruchij.migration.config.DatabaseConfiguration
+import javax.net.ssl.{KeyManagerFactory, SSLContext}
 import org.http4s.HttpApp
 import org.http4s.server.blaze.BlazeServerBuilder
 import org.joda.time.LocalTime
@@ -40,7 +43,7 @@ object DevelopmentApp extends IOApp {
   val WorkerConfig: WorkerConfiguration =
     WorkerConfiguration(2, LocalTime.MIDNIGHT, LocalTime.MIDNIGHT)
 
-  val HttpConfig: HttpConfiguration = HttpConfiguration("0.0.0.0", 8000)
+  val HttpConfig: HttpConfiguration = HttpConfiguration("0.0.0.0", 443)
 
   val AuthenticationConfig: AuthenticationConfiguration =
     AuthenticationConfiguration(
@@ -61,14 +64,17 @@ object DevelopmentApp extends IOApp {
   val BatchConfig: BatchServiceConfiguration =
     BatchServiceConfiguration(DownloadConfig, WorkerConfig, RedisConfig, DatabaseConfig)
 
+  val KeyStorePassword = "changeit"
+
   override def run(args: List[String]): IO[ExitCode] =
     program[IO].use {
-      case (api, batch) =>
+      case (api, batch, sslContext) =>
         for {
           _ <-
             BlazeServerBuilder[IO](ExecutionContext.global)
               .withHttpApp(api)
               .bindHttp(HttpConfig.port, HttpConfig.host)
+              .withSslContext(sslContext)
               .serve
               .compile
               .drain
@@ -80,14 +86,17 @@ object DevelopmentApp extends IOApp {
         yield ExitCode.Success
     }
 
-  def program[F[+ _]: ConcurrentEffect: Timer: ContextShift]: Resource[F, (HttpApp[F], Scheduler[F])] =
+  def program[F[+ _]: ConcurrentEffect: Timer: ContextShift]: Resource[F, (HttpApp[F], Scheduler[F], SSLContext)] =
     for {
       _ <- startEmbeddedRedis[F]
-      _ <- Resource.liftF(MigrationApp.migration[F](DatabaseConfig, Blocker.liftExecutionContext(ExecutionContext.global)))
+      blocker <- Blocker[F]
+      sslContext <- Resource.liftF(blocker.blockOn(createSslContext[F]))
+
+      _ <- Resource.liftF(MigrationApp.migration[F](DatabaseConfig, blocker))
 
       api <- ApiApp.program[F](ApiConfig, ExecutionContext.global)
       batch <- BatchApp.program[F](BatchConfig, ExecutionContext.global)
-    } yield (api, batch)
+    } yield (api, batch, sslContext)
 
   def startEmbeddedRedis[F[_]: Sync]: Resource[F, RedisServer] =
     Resource
@@ -95,5 +104,21 @@ object DevelopmentApp extends IOApp {
       .flatTap { redisServer =>
         Resource.make(Sync[F].delay(redisServer.start()))(_ => Sync[F].delay(redisServer.stop()))
       }
+
+  def createSslContext[F[_]: Sync]: F[SSLContext] =
+    for {
+      keyStore <- Sync[F].delay(KeyStore.getInstance("JKS"))
+      keyInputStream <- Sync[F].delay(getClass.getResourceAsStream("/localhost.jks"))
+      _ = keyStore.load(keyInputStream, KeyStorePassword.toCharArray)
+      _ <- Sync[F].delay(keyInputStream.close())
+
+      algorithm <- Sync[F].delay(KeyManagerFactory.getDefaultAlgorithm)
+      keyManagerFactory <- Sync[F].delay(KeyManagerFactory.getInstance(algorithm))
+      _ = keyManagerFactory.init(keyStore, KeyStorePassword.toCharArray)
+
+      sslContext <- Sync[F].delay(SSLContext.getInstance("TLS"))
+      _ = sslContext.init(keyManagerFactory.getKeyManagers, null, null)
+    }
+    yield sslContext
 
 }
