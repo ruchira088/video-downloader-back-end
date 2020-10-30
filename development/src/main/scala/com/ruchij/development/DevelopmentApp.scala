@@ -26,7 +26,7 @@ import scala.language.postfixOps
 object DevelopmentApp extends IOApp {
   val DatabaseConfig: DatabaseConfiguration =
     DatabaseConfiguration(
-      "jdbc:h2:mem:video-downloader;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false",
+      "jdbc:h2:./video-downloader;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false",
       "",
       ""
     )
