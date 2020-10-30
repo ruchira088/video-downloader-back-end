@@ -7,3 +7,5 @@ target
 
 playbooks/k8s-output
 playbooks/docker-output
+
+video-downloader.mv.db
