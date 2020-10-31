@@ -111,8 +111,3 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: "me@ruchij.com"
       PGADMIN_DEFAULT_PASSWORD: "password"
-
-#  front-end:
-#    image: video-downloader-front-end:latest
-#    ports:
-#      - 80:80

@@ -5,11 +5,12 @@ import cats.effect.{Bracket, Clock, Concurrent, ExitCase, Timer}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Monad, ~>}
 import com.ruchij.batch.config.WorkerConfiguration
-import com.ruchij.batch.services.scheduler.SchedulerImpl.WorkerPollPeriod
+import com.ruchij.batch.services.scheduler.Scheduler.PausedVideoDownload
+import com.ruchij.batch.services.scheduler.SchedulerImpl.{TopicMaxQueued, WorkerPollPeriod}
 import com.ruchij.batch.services.sync.SynchronizationService
 import com.ruchij.batch.services.sync.models.SynchronizationResult
 import com.ruchij.batch.services.worker.WorkExecutor
-import com.ruchij.core.daos.scheduling.models.SchedulingStatus
+import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.workers.WorkerDao
 import com.ruchij.core.daos.workers.models.Worker
@@ -18,6 +19,7 @@ import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.scheduling.SchedulingService
 import com.ruchij.core.types.JodaClock
 import fs2.Stream
+import fs2.concurrent.Topic
 import org.joda.time.LocalTime
 
 import scala.concurrent.duration.{FiniteDuration, _}
@@ -57,7 +59,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       }
       .collect { case Some(worker) => worker }
 
-  def performWork(worker: Worker): F[Option[Video]] = {
+  def performWork(worker: Worker, topic: Topic[F, Option[ScheduledVideoDownload]]): F[Option[Video]] =
     Bracket[F, Throwable].bracketCase(schedulingService.acquireTask.value) { taskOpt =>
       OptionT
         .fromOption[F](taskOpt)
@@ -70,7 +72,26 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
         .semiflatMap { scheduledVideoDownload =>
           schedulingService.updateStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Active)
         }
-        .semiflatMap(scheduledVideoDownload => workExecutor.execute(scheduledVideoDownload, worker))
+        .flatMapF {
+          scheduledVideoDownload =>
+            ApplicativeError[F, Throwable].recoverWith {
+              workExecutor.execute(
+                scheduledVideoDownload,
+                worker,
+                topic.subscribe(TopicMaxQueued)
+                  .collect { case Some(value) => value }
+                  .filter { value: ScheduledVideoDownload =>
+                    value.videoMetadata.id == scheduledVideoDownload.videoMetadata.id &&
+                      List(SchedulingStatus.Cancelled, SchedulingStatus.Paused).contains(value.status)
+                  }
+                  .productR[Boolean](Stream.raiseError[F](PausedVideoDownload))
+              )
+                .map[Option[Video]](Some.apply)
+            } {
+              case PausedVideoDownload =>
+                logger.infoF(s"${scheduledVideoDownload.videoMetadata.url} has been paused").as(None)
+            }
+        }
         .semiflatMap { video =>
           JodaClock[F].timestamp
             .flatMap { timestamp =>
@@ -94,7 +115,6 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
 
       case (_, _) => releaseWorker(worker)
     }
-  }
 
   def releaseWorker(worker: Worker): F[Unit] =
     OptionT(transaction(workerDao.releaseWorker(worker.id)))
@@ -106,21 +126,26 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       .productR(Applicative[F].unit)
 
   override val run: Stream[F, Video] =
-    idleWorkers
-      .parEvalMapUnordered(workerConfiguration.maxConcurrentDownloads) { worker =>
-        SchedulerImpl
-          .isWorkPeriod[F](workerConfiguration.startTime, workerConfiguration.endTime)
-          .flatMap { isWorkPeriod =>
-            if (isWorkPeriod)
-              performWork(worker)
-                .recoverWith {
-                  case throwable =>
-                    logger.errorF("Error occurred in work scheduler", throwable).as(None)
-                } else releaseWorker(worker).as[Option[Video]](None)
-          }
-      }
-      .collect {
-        case Some(video) => video
+    Stream.eval(Topic[F, Option[ScheduledVideoDownload]](None))
+      .flatMap {
+        topic =>
+          idleWorkers
+            .concurrently(topic.publish(schedulingService.updates.map(Some.apply)))
+            .parEvalMapUnordered(workerConfiguration.maxConcurrentDownloads) { worker =>
+              SchedulerImpl
+                .isWorkPeriod[F](workerConfiguration.startTime, workerConfiguration.endTime)
+                .flatMap { isWorkPeriod =>
+                  if (isWorkPeriod)
+                    performWork(worker, topic)
+                      .recoverWith {
+                        case throwable =>
+                          logger.errorF("Error occurred in work scheduler", throwable).as(None)
+                      } else releaseWorker(worker).as[Option[Video]](None)
+                }
+            }
+            .collect {
+              case Some(video) => video
+            }
       }
 
   val newWorkers: F[Int] =
@@ -154,11 +179,11 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       .productR(synchronizationService.sync)
       .flatTap(result => logger.infoF(result.prettyPrint))
       .productL(logger.infoF("Batch initialization completed"))
-
 }
 
 object SchedulerImpl {
   val WorkerPollPeriod: FiniteDuration = 1 second
+  val TopicMaxQueued = 100
 
   def isWorkPeriod[F[_]: Clock: Monad](start: LocalTime, end: LocalTime): F[Boolean] = {
     if (start == end)

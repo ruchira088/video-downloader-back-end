@@ -10,3 +10,7 @@ trait Scheduler[F[_]] {
 
   val init: F[InitializationResult]
 }
+
+object Scheduler {
+  case object PausedVideoDownload extends Exception
+}

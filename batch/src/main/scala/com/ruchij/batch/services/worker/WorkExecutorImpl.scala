@@ -1,7 +1,7 @@
 package com.ruchij.batch.services.worker
 
 import cats.data.OptionT
-import cats.effect.{Clock, Sync}
+import cats.effect.{Clock, Concurrent}
 import cats.implicits._
 import cats.~>
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService
@@ -18,9 +18,10 @@ import com.ruchij.core.services.hashing.HashingService
 import com.ruchij.core.services.scheduling.SchedulingService
 import com.ruchij.core.services.video.{VideoAnalysisService, VideoService}
 import com.ruchij.core.types.JodaClock
+import fs2.Stream
 import org.http4s.Uri
 
-class WorkExecutorImpl[F[_]: Sync: Clock, T[_]](
+class WorkExecutorImpl[F[_]: Concurrent: Clock, T[_]](
   fileResourceDao: FileResourceDao[T],
   schedulingService: SchedulingService[F],
   videoAnalysisService: VideoAnalysisService[F],
@@ -34,7 +35,7 @@ class WorkExecutorImpl[F[_]: Sync: Clock, T[_]](
 
   private val logger = Logger[F, WorkExecutorImpl[F, T]]
 
-  def downloadVideo(videoId: String, downloadUri: Uri): F[(FileResource, DownloadResult[F])] = {
+  def downloadVideo(videoId: String, downloadUri: Uri, interrupt: Stream[F, Boolean]): F[(FileResource, DownloadResult[F])] = {
     val videoFileName = downloadUri.path.split("/").lastOption.getOrElse("video.unknown")
     val videoPath =
       s"${downloadConfiguration.videoFolder}/$videoId-$videoFileName"
@@ -60,6 +61,7 @@ class WorkExecutorImpl[F[_]: Sync: Clock, T[_]](
               .evalMap { bytes =>
                 schedulingService.updateDownloadProgress(videoId, bytes)
               }
+              .interruptWhen(interrupt)
               .compile
               .drain
               .as(downloadResult)
@@ -67,13 +69,13 @@ class WorkExecutorImpl[F[_]: Sync: Clock, T[_]](
       }
   }
 
-  override def execute(scheduledVideoDownload: ScheduledVideoDownload, worker: Worker): F[Video] =
+  override def execute(scheduledVideoDownload: ScheduledVideoDownload, worker: Worker, interrupt: Stream[F, Boolean]): F[Video] =
     logger
       .infoF(s"Worker ${worker.id} started download for ${scheduledVideoDownload.videoMetadata.url}")
       .productR {
         videoAnalysisService
           .downloadUri(scheduledVideoDownload.videoMetadata.url)
-          .flatMap { downloadUri =>downloadVideo(scheduledVideoDownload.videoMetadata.id, downloadUri) }
+          .flatMap { downloadUri => downloadVideo(scheduledVideoDownload.videoMetadata.id, downloadUri, interrupt) }
           .productL {
             schedulingService.completeTask(scheduledVideoDownload.videoMetadata.id)
           }

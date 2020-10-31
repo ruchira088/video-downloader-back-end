@@ -2,6 +2,8 @@ package com.ruchij.development
 
 import java.security.KeyStore
 
+import cats.ApplicativeError
+import cats.data.OptionT
 import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
 import cats.implicits._
 import com.ruchij.api.ApiApp
@@ -11,6 +13,7 @@ import com.ruchij.batch.BatchApp
 import com.ruchij.batch.config.{BatchServiceConfiguration, WorkerConfiguration}
 import com.ruchij.batch.services.scheduler.Scheduler
 import com.ruchij.core.config.{ApplicationInformation, DownloadConfiguration, RedisConfiguration}
+import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.migration.MigrationApp
 import com.ruchij.migration.config.DatabaseConfiguration
 import javax.net.ssl.{KeyManagerFactory, SSLContext}
@@ -64,6 +67,8 @@ object DevelopmentApp extends IOApp {
   val BatchConfig: BatchServiceConfiguration =
     BatchServiceConfiguration(DownloadConfig, WorkerConfig, RedisConfig, DatabaseConfig)
 
+  val KeyStoreResource = "/localhost.jks"
+
   val KeyStorePassword = "changeit"
 
   override def run(args: List[String]): IO[ExitCode] =
@@ -108,9 +113,19 @@ object DevelopmentApp extends IOApp {
   def createSslContext[F[_]: Sync]: F[SSLContext] =
     for {
       keyStore <- Sync[F].delay(KeyStore.getInstance("JKS"))
-      keyInputStream <- Sync[F].delay(getClass.getResourceAsStream("/localhost.jks"))
-      _ = keyStore.load(keyInputStream, KeyStorePassword.toCharArray)
-      _ <- Sync[F].delay(keyInputStream.close())
+
+      _ <-
+        Resource.make {
+          OptionT(Sync[F].delay(Option(getClass.getResourceAsStream(KeyStoreResource))))
+            .getOrElseF {
+              ApplicativeError[F, Throwable].raiseError {
+                ResourceNotFoundException(s"Unable to find KeyStore at $KeyStoreResource")
+              }
+            }
+        }(inputStream => Sync[F].delay(inputStream.close()))
+          .use {
+            inputStream => Sync[F].delay(keyStore.load(inputStream, KeyStorePassword.toCharArray))
+          }
 
       algorithm <- Sync[F].delay(KeyManagerFactory.getDefaultAlgorithm)
       keyManagerFactory <- Sync[F].delay(KeyManagerFactory.getInstance(algorithm))
