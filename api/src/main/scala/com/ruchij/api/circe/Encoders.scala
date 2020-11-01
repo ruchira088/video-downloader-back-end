@@ -3,6 +3,7 @@ package com.ruchij.api.circe
 import java.nio.file.Path
 
 import cats.Show
+import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload.Progress
 import enumeratum.EnumEntry
 import io.circe.{Encoder, Json}
 import org.http4s.MediaType
@@ -29,6 +30,9 @@ object Encoders {
   implicit val pathEncoder: Encoder[Path] = Encoder.encodeString.contramap[Path](_.toAbsolutePath.toString)
 
   implicit val mediaTypeEncoder: Encoder[MediaType] = Encoder.encodeString.contramap[MediaType](Show[MediaType].show)
+
+  implicit def valueWithProgress[A, B](implicit encoderA: Encoder[A], encoderB: Encoder[B]): Encoder[A with Progress[B]] =
+    (value: A with Progress[B]) => encoderA(value).deepMerge(Json.obj("progress" -> encoderB(value.progress)))
 
   implicit def stringWrapperEncoder[A](implicit generic: Generic.Aux[A, String :: HNil]): Encoder[A] =
     Encoder[String].contramap[A](value => generic.to(value).head)

@@ -14,6 +14,6 @@ object DownloadProgress {
   implicit case object DownloadProgressKeySpace extends KeySpace[DownloadProgressKey, DownloadProgress] {
     override val name: String = "download-progress"
 
-    override val ttl: FiniteDuration = 2 minutes
+    override val ttl: FiniteDuration = 45 days
   }
 }

@@ -10,3 +10,9 @@ case class ScheduledVideoDownload(
   videoMetadata: VideoMetadata,
   completedAt: Option[DateTime]
 )
+
+object ScheduledVideoDownload {
+  trait Progress[+A] {
+    val progress: A
+  }
+}

@@ -1,6 +1,7 @@
 package com.ruchij.core.services.scheduling
 
 import cats.data.{NonEmptyList, OptionT}
+import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload.Progress
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.scheduling.models.DownloadProgress
@@ -17,9 +18,9 @@ trait SchedulingService[F[_]] {
     pageSize: Int,
     sortBy: SortBy,
     order: Order
-  ): F[Seq[ScheduledVideoDownload]]
+  ): F[Seq[ScheduledVideoDownload with Progress[Long]]]
 
-  def getById(id: String): F[ScheduledVideoDownload]
+  def getById(id: String): F[ScheduledVideoDownload with Progress[Long]]
 
   def completeTask(id: String): F[ScheduledVideoDownload]
 

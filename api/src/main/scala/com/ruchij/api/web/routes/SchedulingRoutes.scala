@@ -13,6 +13,7 @@ import com.ruchij.api.web.responses.EventStreamEventType.{ActiveDownload, HeartB
 import com.ruchij.api.circe.Decoders._
 import com.ruchij.api.circe.Encoders._
 import com.ruchij.api.web.responses.{EventStreamHeartBeat, SearchResult}
+import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.services.video.models.DurationRange
 import fs2.Stream
 import io.circe.Encoder
@@ -27,7 +28,9 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 
 object SchedulingRoutes {
-  def apply[F[_]: Concurrent: Timer](schedulingService: SchedulingService[F])(implicit dsl: Http4sDsl[F]): HttpRoutes[F] = {
+  def apply[F[_]: Concurrent: Timer](
+    schedulingService: SchedulingService[F]
+  )(implicit dsl: Http4sDsl[F]): HttpRoutes[F] = {
     import dsl._
 
     HttpRoutes.of[F] {
@@ -37,21 +40,36 @@ object SchedulingRoutes {
           scheduledVideoDownload <- schedulingService.schedule(scheduleRequest.url)
 
           response <- Ok(scheduledVideoDownload)
-        }
-        yield response
+        } yield response
 
       case GET -> Root / "search" :? queryParameters =>
         for {
-          SearchQuery(term, _, videoUrls, pageSize, pageNumber, sortBy, order) <- SearchQuery.fromQueryParameters[F].run(queryParameters)
+          SearchQuery(term, _, videoUrls, pageSize, pageNumber, sortBy, order) <- SearchQuery
+            .fromQueryParameters[F]
+            .run(queryParameters)
 
           scheduledVideoDownloads <- schedulingService.search(term, videoUrls, pageNumber, pageSize, sortBy, order)
 
-          response <- Ok(SearchResult(scheduledVideoDownloads, pageNumber, pageSize, term, videoUrls, DurationRange.All, sortBy, order))
-        }
-        yield response
+          response <- Ok {
+            SearchResult(
+              scheduledVideoDownloads.map(_.asJson(valueWithProgress[ScheduledVideoDownload, Long])),
+              pageNumber,
+              pageSize,
+              term,
+              videoUrls,
+              DurationRange.All,
+              sortBy,
+              order
+            )
+          }
+        } yield response
 
       case GET -> Root / "videoId" / videoId =>
-        schedulingService.getById(videoId).flatMap(scheduledVideoDownload => Ok(scheduledVideoDownload))
+        schedulingService.getById(videoId)
+          .flatMap {
+            scheduledVideoDownload =>
+              Ok(scheduledVideoDownload.asJson(valueWithProgress[ScheduledVideoDownload, Long]))
+          }
 
       case request @ PUT -> Root / "videoId" / videoId =>
         for {
@@ -60,28 +78,20 @@ object SchedulingRoutes {
           updatedScheduledVideoDownload <- schedulingService.updateStatus(videoId, schedulingStatus)
 
           response <- Ok(updatedScheduledVideoDownload)
-        }
-        yield response
+        } yield response
 
       case GET -> Root / "active" =>
         Ok {
           schedulingService.downloadProgress
-            .map {
-              downloadProgress =>
-                ServerSentEvent(
-                  Encoder[DownloadProgress].apply(downloadProgress).noSpaces,
-                  ActiveDownload
-                )
+            .map { downloadProgress =>
+              ServerSentEvent(Encoder[DownloadProgress].apply(downloadProgress).noSpaces, ActiveDownload)
             }
             .merge {
-              Stream.fixedRate[F](10 seconds)
+              Stream
+                .fixedRate[F](10 seconds)
                 .zipRight(Stream.eval(JodaClock[F].timestamp).repeat)
-                .map {
-                  timestamp =>
-                    ServerSentEvent(
-                      EventStreamHeartBeat(timestamp).asJson.noSpaces,
-                      HeartBeat
-                    )
+                .map { timestamp =>
+                  ServerSentEvent(EventStreamHeartBeat(timestamp).asJson.noSpaces, HeartBeat)
                 }
             }
         }

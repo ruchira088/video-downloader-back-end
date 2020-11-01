@@ -5,6 +5,7 @@ import cats.effect.{Sync, Timer}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Monad, ~>}
 import com.ruchij.core.daos.scheduling.SchedulingDao
+import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload.Progress
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.exceptions.{ResourceConflictException, ResourceNotFoundException}
 import com.ruchij.core.kv.KeySpacedKeyValueStore
@@ -21,12 +22,34 @@ import org.joda.time.DateTime
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
+class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
   videoAnalysisService: VideoAnalysisService[F],
   schedulingDao: SchedulingDao[T],
   keySpacedKeyValueStore: KeySpacedKeyValueStore[F, DownloadProgressKey, DownloadProgress],
 )(implicit transaction: T ~> F)
     extends SchedulingService[F] {
+
+  def decorateWithProgress(
+    scheduledVideoDownload: ScheduledVideoDownload
+  ): F[ScheduledVideoDownload with Progress[Long]] =
+    for {
+      downloadedBytes <- if (scheduledVideoDownload.completedAt.nonEmpty)
+        Applicative[F].pure[Long](scheduledVideoDownload.videoMetadata.size)
+      else
+        keySpacedKeyValueStore
+          .get(DownloadProgressKey(scheduledVideoDownload.videoMetadata.id))
+          .map(_.map(_.bytes).getOrElse[Long](0))
+
+      decorated = new ScheduledVideoDownload(
+        scheduledVideoDownload.scheduledAt,
+        scheduledVideoDownload.lastUpdatedAt,
+        scheduledVideoDownload.status,
+        scheduledVideoDownload.videoMetadata,
+        scheduledVideoDownload.completedAt
+      ) with Progress[Long] {
+        override val progress: Long = downloadedBytes
+      }
+    } yield decorated
 
   override def schedule(uri: Uri): F[ScheduledVideoDownload] =
     for {
@@ -59,13 +82,13 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
     pageSize: Int,
     sortBy: SortBy,
     order: Order
-  ): F[Seq[ScheduledVideoDownload]] =
-    transaction {
-      schedulingDao.search(term, videoUrls, pageNumber, pageSize, sortBy, order)
-    }
+  ): F[Seq[ScheduledVideoDownload with Progress[Long]]] =
+    transaction(schedulingDao.search(term, videoUrls, pageNumber, pageSize, sortBy, order))
+      .flatMap(_.toList.traverse(decorateWithProgress))
 
-  override def getById(id: String): F[ScheduledVideoDownload] =
+  override def getById(id: String): F[ScheduledVideoDownload with Progress[Long]] =
     OptionT(transaction(schedulingDao.getById(id)))
+      .semiflatMap(decorateWithProgress)
       .getOrElseF {
         ApplicativeError[F, Throwable].raiseError(notFound(id))
       }
