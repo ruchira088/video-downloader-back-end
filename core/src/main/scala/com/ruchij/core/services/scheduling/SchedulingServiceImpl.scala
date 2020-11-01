@@ -34,15 +34,20 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
         schedulingDao.search(None, Some(NonEmptyList.of(uri)), 0, 1, SortBy.Date, Order.Descending)
       }
 
-      _ <-
-        if (searchResult.nonEmpty)
-          ApplicativeError[F, Throwable].raiseError(ResourceConflictException(s"$uri has already been scheduled"))
-        else Applicative[F].unit
+      _ <- if (searchResult.nonEmpty)
+        ApplicativeError[F, Throwable].raiseError(ResourceConflictException(s"$uri has already been scheduled"))
+      else Applicative[F].unit
 
       videoMetadataResult <- videoAnalysisService.metadata(uri)
       timestamp <- JodaClock[F].timestamp
 
-      scheduledVideoDownload = ScheduledVideoDownload(timestamp, timestamp, SchedulingStatus.Queued, videoMetadataResult.value, None)
+      scheduledVideoDownload = ScheduledVideoDownload(
+        timestamp,
+        timestamp,
+        SchedulingStatus.Queued,
+        videoMetadataResult.value,
+        None
+      )
 
       _ <- transaction(schedulingDao.insert(scheduledVideoDownload))
     } yield scheduledVideoDownload
@@ -77,16 +82,16 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
       timestamp <- JodaClock[F].timestamp
       scheduledVideoDownload <- getById(id)
 
-      _ <-
-        if (scheduledVideoDownload.status == SchedulingStatus.Completed)
-          ApplicativeError[F, Throwable].raiseError(new IllegalArgumentException("Unable to update the status of a completed scheduled video"))
-        else Applicative[F].unit
+      _ <- if (scheduledVideoDownload.status.validTransitionStatuses.contains(status))
+        Applicative[F].unit
+      else
+        ApplicativeError[F, Throwable].raiseError {
+          new IllegalArgumentException(s"Transition not valid: ${scheduledVideoDownload.status} -> $status")
+        }
 
-      updatedScheduledVideoDownload <-
-        OptionT(transaction(schedulingDao.updateStatus(id, status, timestamp)))
-                .getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
-    }
-    yield updatedScheduledVideoDownload
+      updatedScheduledVideoDownload <- OptionT(transaction(schedulingDao.updateStatus(id, status, timestamp)))
+        .getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
+    } yield updatedScheduledVideoDownload
 
   override val acquireTask: OptionT[F, ScheduledVideoDownload] =
     OptionT {
@@ -94,8 +99,7 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
     }
 
   override val updates: Stream[F, ScheduledVideoDownload] =
-    timeInterval(1 second)
-      .zipWithNext
+    timeInterval(1 second).zipWithNext
       .collect { case (start, Some(end)) => start -> end }
       .evalMap { case (start, end) => transaction(schedulingDao.updatedBetween(start, end)) }
       .flatMap(Stream.emits[F, ScheduledVideoDownload])
@@ -109,23 +113,23 @@ class SchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
 
   override val downloadProgress: Stream[F, DownloadProgress] =
     timeInterval(500 milliseconds)
-      .evalMap {
-        start =>
-          keySpacedKeyValueStore.allKeys
-            .flatMap(_.traverse(keySpacedKeyValueStore.get))
-            .map {
-              _.collect { case Some(value) => value }
-                .filter {
-                  case DownloadProgress(_, updatedAt, _) => updatedAt.isAfter(start)
-                }
-            }
+      .evalMap { start =>
+        keySpacedKeyValueStore.allKeys
+          .flatMap(_.traverse(keySpacedKeyValueStore.get))
+          .map {
+            _.collect { case Some(value) => value }
+              .filter {
+                case DownloadProgress(_, updatedAt, _) => updatedAt.isAfter(start)
+              }
+          }
       }
       .flatMap { results =>
         Stream.emits(results)
       }
 
   def timeInterval(interval: FiniteDuration): Stream[F, DateTime] =
-    Stream.fixedRate[F](interval)
+    Stream
+      .fixedRate[F](interval)
       .productR(Stream.eval(JodaClock[F].timestamp))
       .map(_.minus(2 * interval.toMillis))
 

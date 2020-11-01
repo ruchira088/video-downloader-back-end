@@ -104,7 +104,6 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
 
   override val retrieveTask: ConnectionIO[Option[ScheduledVideoDownload]] =
     getByStatus(SchedulingStatus.Queued)
-      .orElse(getByStatus(SchedulingStatus.Error))
       .flatMapF(getById)
       .value
 

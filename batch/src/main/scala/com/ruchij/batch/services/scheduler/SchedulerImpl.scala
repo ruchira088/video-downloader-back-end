@@ -69,9 +69,6 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
             transaction(workerDao.assignTask(worker.id, task.videoMetadata.id, timestamp))
               .as(Option(task))
         }
-        .semiflatMap { scheduledVideoDownload =>
-          schedulingService.updateStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Active)
-        }
         .flatMapF {
           scheduledVideoDownload =>
             ApplicativeError[F, Throwable].recoverWith {
@@ -82,7 +79,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
                   .collect { case Some(value) => value }
                   .filter { value: ScheduledVideoDownload =>
                     value.videoMetadata.id == scheduledVideoDownload.videoMetadata.id &&
-                      List(SchedulingStatus.Cancelled, SchedulingStatus.Paused).contains(value.status)
+                      List(SchedulingStatus.SchedulerPaused, SchedulingStatus.Paused).contains(value.status)
                   }
                   .productR[Boolean](Stream.raiseError[F](PausedVideoDownload))
               )
