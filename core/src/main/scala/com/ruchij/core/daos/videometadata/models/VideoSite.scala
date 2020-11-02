@@ -34,8 +34,14 @@ object VideoSite extends Enum[VideoSite] {
 
   type Selector[F[_], A] = Kleisli[F, Document, A]
 
-  def notApplicable[F[_], A](implicit applicativeError: ApplicativeError[F, Throwable]): Kleisli[F, Document, A] =
-    Kleisli.liftF[F, Document, A](applicativeError.raiseError[A](InvalidConditionException))
+  def notApplicable[F[_]: ApplicativeError[*[_], Throwable], A]: Kleisli[F, Document, A] =
+    Kleisli.liftF[F, Document, A] {
+      ApplicativeError[F, Throwable].raiseError[A] {
+        InvalidConditionException {
+          "Unable to gather site metadata for local video"
+        }
+      }
+    }
 
   case object PornOne extends VideoSite {
     override val hostname: String = "pornone.com"

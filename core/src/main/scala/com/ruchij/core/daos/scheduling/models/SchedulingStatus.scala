@@ -16,6 +16,10 @@ object SchedulingStatus extends Enum[SchedulingStatus] {
     override lazy val validTransitionStatuses: Set[SchedulingStatus] = Set.empty
   }
 
+  case object Downloaded extends SchedulingStatus {
+    override lazy val validTransitionStatuses: Set[SchedulingStatus] = Set(Completed, Error)
+  }
+
   case object Error extends SchedulingStatus {
     override lazy val validTransitionStatuses: Set[SchedulingStatus] = Set(Queued)
   }

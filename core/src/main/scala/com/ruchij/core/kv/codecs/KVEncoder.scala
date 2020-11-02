@@ -50,5 +50,9 @@ object KVEncoder {
   }
 
   implicit def hNilKVEncoder[F[_]: ApplicativeError[*[_], Throwable]]: KVEncoder[F, HNil] =
-    (_: HNil) => ApplicativeError[F, Throwable].raiseError(InvalidConditionException)
+    (_: HNil) => ApplicativeError[F, Throwable].raiseError {
+      InvalidConditionException {
+        "Unable to encode HNil for KVEncoder"
+      }
+    }
 }

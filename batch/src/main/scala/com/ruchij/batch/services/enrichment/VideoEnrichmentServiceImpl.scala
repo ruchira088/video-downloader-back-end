@@ -13,7 +13,7 @@ import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.snapshot.SnapshotDao
 import com.ruchij.core.daos.snapshot.models.Snapshot
 import com.ruchij.core.daos.video.models.Video
-import com.ruchij.core.exceptions.{CorruptedFrameGrabException, InvalidConditionException}
+import com.ruchij.core.exceptions.{CorruptedFrameGrabException, ResourceNotFoundException}
 import com.ruchij.core.services.hashing.HashingService
 import com.ruchij.core.services.repository.FileRepositoryService.FileRepository
 import com.ruchij.core.types.JodaClock
@@ -99,7 +99,13 @@ class VideoEnrichmentServiceImpl[F[_]: Sync: Clock: ContextShift, A, T[_]: Monad
           timestamp <- JodaClock[F].timestamp
 
           size <- OptionT(fileRepository.size(snapshotPath))
-            .getOrElseF(ApplicativeError[F, Throwable].raiseError(InvalidConditionException))
+            .getOrElseF {
+              ApplicativeError[F, Throwable].raiseError {
+                ResourceNotFoundException {
+                  s"Unable deduce the file size. File not found at: $snapshotPath"
+                }
+              }
+            }
 
           hashedPath <- hashingService.hash(snapshotPath)
 

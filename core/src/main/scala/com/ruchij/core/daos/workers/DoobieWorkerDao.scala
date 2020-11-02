@@ -97,15 +97,7 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
           UPDATE worker_task SET completed_at = $timestamp
           WHERE worker_id = $workerId AND scheduled_video_id = $scheduledVideoId
       """.update.run
-    }.productR {
-        singleUpdate {
-          sql"""
-              UPDATE scheduled_video 
-              SET status = ${SchedulingStatus.Completed}, last_updated_at = $timestamp
-              WHERE video_metadata_id = $scheduledVideoId
-          """.update.run
-        }
-      }
+    }
       .productR(OptionT(getById(workerId)))
       .value
 

@@ -108,9 +108,9 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       case (Some(scheduledVideoDownload), ExitCase.Error(_)) =>
         schedulingService
           .updateStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Error)
-          .productR(releaseWorker(worker))
+          .productR(Applicative[F].unit)
 
-      case (_, _) => releaseWorker(worker)
+      case (_, _) => Applicative[F].unit
     }
 
   def releaseWorker(worker: Worker): F[Unit] =
@@ -129,16 +129,20 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
           idleWorkers
             .concurrently(topic.publish(schedulingService.updates.map(Some.apply)))
             .parEvalMapUnordered(workerConfiguration.maxConcurrentDownloads) { worker =>
-              SchedulerImpl
-                .isWorkPeriod[F](workerConfiguration.startTime, workerConfiguration.endTime)
-                .flatMap { isWorkPeriod =>
-                  if (isWorkPeriod)
-                    performWork(worker, topic)
-                      .recoverWith {
-                        case throwable =>
-                          logger.errorF("Error occurred in work scheduler", throwable).as(None)
-                      } else releaseWorker(worker).as[Option[Video]](None)
-                }
+              Bracket[F, Throwable].guarantee {
+                SchedulerImpl
+                  .isWorkPeriod[F](workerConfiguration.startTime, workerConfiguration.endTime)
+                  .flatMap { isWorkPeriod =>
+                    if (isWorkPeriod)
+                      performWork(worker, topic)
+                        .recoverWith {
+                          case throwable =>
+                            logger.errorF("Error occurred in work scheduler", throwable).as(None)
+                        }
+                    else OptionT.none[F, Video].value
+                  }
+              }(releaseWorker(worker))
+
             }
             .collect {
               case Some(video) => video

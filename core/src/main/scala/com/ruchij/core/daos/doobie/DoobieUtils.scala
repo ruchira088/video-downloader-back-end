@@ -14,7 +14,11 @@ object DoobieUtils {
       result.flatMap[Option[Unit]] {
         case 0 => Applicative[F].pure(None)
         case 1 => Applicative[F].pure(Some((): Unit))
-        case _ => ApplicativeError[F, Throwable].raiseError(InvalidConditionException)
+        case count => ApplicativeError[F, Throwable].raiseError {
+          InvalidConditionException {
+            s"0 or 1 row was expected to be updated, but $count rows were updated"
+          }
+        }
       }
     }
 

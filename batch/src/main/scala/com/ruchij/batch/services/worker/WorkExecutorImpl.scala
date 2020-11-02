@@ -8,7 +8,7 @@ import com.ruchij.batch.services.enrichment.VideoEnrichmentService
 import com.ruchij.core.config.DownloadConfiguration
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
-import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
+import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.workers.models.Worker
 import com.ruchij.core.logging.Logger
@@ -77,13 +77,14 @@ class WorkExecutorImpl[F[_]: Concurrent: Clock, T[_]](
           .downloadUri(scheduledVideoDownload.videoMetadata.url)
           .flatMap { downloadUri => downloadVideo(scheduledVideoDownload.videoMetadata.id, downloadUri, interrupt) }
           .productL {
-            schedulingService.completeTask(scheduledVideoDownload.videoMetadata.id)
+            schedulingService.updateStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Downloaded)
           }
           .flatMap {
             case (fileResource, _) =>
               videoService.insert(scheduledVideoDownload.videoMetadata.id, fileResource.id)
           }
           .flatTap(videoEnrichmentService.videoSnapshots)
+          .productL(schedulingService.completeTask(scheduledVideoDownload.videoMetadata.id))
       }
       .productL {
         logger.infoF(s"Worker ${worker.id} completed download for ${scheduledVideoDownload.videoMetadata.url}")
