@@ -129,10 +129,10 @@ object DevelopmentApp extends IOApp {
 
       algorithm <- Sync[F].delay(KeyManagerFactory.getDefaultAlgorithm)
       keyManagerFactory <- Sync[F].delay(KeyManagerFactory.getInstance(algorithm))
-      _ = keyManagerFactory.init(keyStore, KeyStorePassword.toCharArray)
+      _ <- Sync[F].delay(keyManagerFactory.init(keyStore, KeyStorePassword.toCharArray))
 
       sslContext <- Sync[F].delay(SSLContext.getInstance("TLS"))
-      _ = sslContext.init(keyManagerFactory.getKeyManagers, null, null)
+      _ <- Sync[F].delay(sslContext.init(keyManagerFactory.getKeyManagers, null, null))
     }
     yield sslContext
 
