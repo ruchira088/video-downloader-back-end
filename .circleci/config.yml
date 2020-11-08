@@ -22,7 +22,7 @@ jobs:
 
   build-and-test:
     docker:
-      - image: ruchira088/docker-ci:vd-be-ci-latest
+      - image: ruchira088/docker-ci:vdbe
     steps:
       - checkout
       - restore_cache: &dependency-cache-keys
@@ -43,7 +43,7 @@ jobs:
 
   build-and-publish-docker-images:
     docker:
-      - image: ruchira088/docker-ci:vd-be-ci-latest
+      - image: ruchira088/docker-ci:vdbe
     steps:
       - setup_remote_docker
       - checkout
@@ -54,7 +54,7 @@ jobs:
 
   deploy-to-k8s:
     docker:
-      - image: ruchira088/docker-ci:vd-be-ci-latest
+      - image: ruchira088/docker-ci:vdbe
     steps:
       - checkout
       - run:

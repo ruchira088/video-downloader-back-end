@@ -11,7 +11,8 @@
         docker build \
           -t video-downloader-back-end-ci:latest \
           -t video-downloader-back-end-ci:{{ git_commit }} \
-          -f ../.circleci/Dockerfile .
+          -f ../.circleci/Dockerfile . \
+          --no-cache
 
     - name: Login to Docker Hub
       command: docker login -u {{ docker_username }} -p {{ docker_password }}
@@ -21,9 +22,9 @@
 
     - name: Publish Docker image
       shell: |
-        docker tag video-downloader-back-end-ci:{{ git_commit }} ruchira088/docker-ci:vd-be-ci-{{ date }} && \
-        docker tag video-downloader-back-end-ci:{{ git_commit }} ruchira088/docker-ci:vd-be-ci-latest && \
-        docker push ruchira088/docker-ci:vd-be-ci-{{ date }} && \
-        docker push ruchira088/docker-ci:vd-be-ci-latest
+        docker tag video-downloader-back-end-ci:{{ git_commit }} ruchira088/docker-ci:vdbe-{{ date }} && \
+        docker tag video-downloader-back-end-ci:{{ git_commit }} ruchira088/docker-ci:vdbe && \
+        docker push ruchira088/docker-ci:vdbe-{{ date }} && \
+        docker push ruchira088/docker-ci:vdbe
       vars:
         date: "{{ ansible_date_time.date }}"
