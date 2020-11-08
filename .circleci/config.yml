@@ -18,7 +18,7 @@ jobs:
       - checkout
       - run:
           name: Build and publish Docker CI image
-          command: ansible-playbook playbooks/build-docker-ci.yml
+          command: ansible-playbook playbooks/build-and-publish-docker-ci.yml
 
   build-and-test:
     docker:
