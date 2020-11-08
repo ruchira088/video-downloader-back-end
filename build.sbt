@@ -1,8 +1,10 @@
 import Dependencies._
 import sbtrelease.Git
 import sbtrelease.ReleaseStateTransformations._
+import sbtrelease.Utilities.stateW
 
 val ReleaseBranch = "dev"
+val ProductionBranch = "master"
 
 inThisBuild {
   Seq(
@@ -107,22 +109,45 @@ cleanAll := clean.all(ScopeFilter(inAnyProject)).value
 val cleanCompile = taskKey[Unit]("Clean compile all projects")
 cleanCompile := Def.sequential(cleanAll, compileAll).value
 
-val verifyReleaseBranch = taskKey[Unit]("Verifies the release git branch")
-verifyReleaseBranch := {
-  val git = Git.mkVcs(baseDirectory.value)
+val verifyReleaseBranch = { state: State =>
+  val git = Git.mkVcs(state.extract.get(baseDirectory))
   val branch = git.currentBranch
 
-  if (branch != ReleaseBranch) sys.error(s"The release branch is $ReleaseBranch, but the current branch is set to $branch") else (): Unit
+  if (branch != ReleaseBranch) {
+    sys.error {
+      s"The release branch is $ReleaseBranch, but the current branch is set to $branch"
+    }
+  } else state
+}
+
+val mergeReleaseToMaster = { state: State =>
+  val git = Git.mkVcs(state.extract.get(baseDirectory))
+
+  val (updatedState, releaseTag) = state.extract.runTask(releaseTagName, state)
+
+  val actions =
+    git.cmd("checkout", ProductionBranch) #&&
+      git.cmd("merge", releaseTag) #&&
+      git.cmd("checkout", ReleaseBranch)
+
+  updatedState.log.info(s"Merging $releaseTag to $ProductionBranch...")
+
+  actions !!
+
+  updatedState.log.info(s"Successfully merged $releaseTag to $ProductionBranch")
+
+  updatedState
 }
 
 releaseProcess := Seq(
-  releaseStepTask(verifyReleaseBranch),
+  ReleaseStep(verifyReleaseBranch),
   checkSnapshotDependencies,
   inquireVersions,
   releaseStepTask(cleanCompile),
   setReleaseVersion,
   commitReleaseVersion,
   tagRelease,
+  ReleaseStep(mergeReleaseToMaster),
   setNextVersion,
   commitNextVersion,
   pushChanges
