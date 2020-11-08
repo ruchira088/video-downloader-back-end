@@ -75,13 +75,15 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,
-    order: Order
+    order: Order,
+    schedulingStatus: Option[SchedulingStatus]
   ): ConnectionIO[Seq[ScheduledVideoDownload]] =
     (SelectQuery
       ++
         whereAndOpt(
-          term.map(searchTerm => fr"title LIKE ${"%" + searchTerm + "%"}"),
-          videoUrls.map(urls => in(fr"video_metadata.url", urls))
+          term.map(searchTerm => fr"video_metadata.title LIKE ${"%" + searchTerm + "%"}"),
+          videoUrls.map(urls => in(fr"video_metadata.url", urls)),
+          schedulingStatus.map(status => fr"scheduled_video.status = $status")
         )
       ++ fr"ORDER BY"
       ++ schedulingSortByFiledName(sortBy)
@@ -89,23 +91,6 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       ++ fr"LIMIT $pageSize OFFSET ${pageNumber * pageSize}")
       .query[ScheduledVideoDownload]
       .to[Seq]
-
-  def getByStatus(status: SchedulingStatus): OptionT[ConnectionIO, String] =
-    OptionT {
-      sql"""
-        SELECT scheduled_video.video_metadata_id FROM scheduled_video
-          WHERE status = $status
-          ORDER BY scheduled_video.scheduled_at
-          LIMIT 1
-      """
-        .query[String]
-        .option
-    }
-
-  override val retrieveTask: ConnectionIO[Option[ScheduledVideoDownload]] =
-    getByStatus(SchedulingStatus.Queued)
-      .flatMapF(getById)
-      .value
 
   val schedulingSortByFiledName: SortBy => Fragment =
     sortByFieldName.orElse {

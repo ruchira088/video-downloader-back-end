@@ -44,7 +44,7 @@ object DevelopmentApp extends IOApp {
     ApplicationInformation(Some("N/A"), Some("N/A"), None)
 
   val WorkerConfig: WorkerConfiguration =
-    WorkerConfiguration(2, LocalTime.MIDNIGHT, LocalTime.MIDNIGHT)
+    WorkerConfiguration("localhost", 2, LocalTime.MIDNIGHT, LocalTime.MIDNIGHT)
 
   val HttpConfig: HttpConfiguration = HttpConfiguration("0.0.0.0", 443)
 

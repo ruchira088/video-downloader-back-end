@@ -54,7 +54,7 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
   override def schedule(uri: Uri): F[ScheduledVideoDownload] =
     for {
       searchResult <- transaction {
-        schedulingDao.search(None, Some(NonEmptyList.of(uri)), 0, 1, SortBy.Date, Order.Descending)
+        schedulingDao.search(None, Some(NonEmptyList.of(uri)), 0, 1, SortBy.Date, Order.Descending, None)
       }
 
       _ <- if (searchResult.nonEmpty)
@@ -81,9 +81,10 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,
-    order: Order
+    order: Order,
+    schedulingStatus: Option[SchedulingStatus]
   ): F[Seq[ScheduledVideoDownload with Progress[Long]]] =
-    transaction(schedulingDao.search(term, videoUrls, pageNumber, pageSize, sortBy, order))
+    transaction(schedulingDao.search(term, videoUrls, pageNumber, pageSize, sortBy, order, schedulingStatus))
       .flatMap(_.toList.traverse(decorateWithProgress))
 
   override def getById(id: String): F[ScheduledVideoDownload with Progress[Long]] =
@@ -118,7 +119,10 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
 
   override val acquireTask: OptionT[F, ScheduledVideoDownload] =
     OptionT {
-      transaction(schedulingDao.retrieveTask)
+      transaction {
+        schedulingDao.search(None, None, 0, 1, SortBy.Date, Order.Ascending, Some(SchedulingStatus.Queued))
+          .map(_.headOption)
+      }
     }
 
   override val updates: Stream[F, ScheduledVideoDownload] =

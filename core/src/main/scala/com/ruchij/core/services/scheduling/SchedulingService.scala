@@ -17,7 +17,8 @@ trait SchedulingService[F[_]] {
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,
-    order: Order
+    order: Order,
+    schedulingStatus: Option[SchedulingStatus]
   ): F[Seq[ScheduledVideoDownload with Progress[Long]]]
 
   def getById(id: String): F[ScheduledVideoDownload with Progress[Long]]

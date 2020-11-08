@@ -48,7 +48,7 @@ object SchedulingRoutes {
             .fromQueryParameters[F]
             .run(queryParameters)
 
-          scheduledVideoDownloads <- schedulingService.search(term, videoUrls, pageNumber, pageSize, sortBy, order)
+          scheduledVideoDownloads <- schedulingService.search(term, videoUrls, pageNumber, pageSize, sortBy, order, None)
 
           response <- Ok {
             SearchResult(

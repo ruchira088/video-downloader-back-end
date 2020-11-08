@@ -17,7 +17,13 @@ trait SchedulingDao[F[_]] {
 
   def updateStatus(id: String, status: SchedulingStatus, timestamp: DateTime): F[Option[ScheduledVideoDownload]]
 
-  def search(term: Option[String], videoUrls: Option[NonEmptyList[Uri]], pageNumber: Int, pageSize: Int, sortBy: SortBy, order: Order): F[Seq[ScheduledVideoDownload]]
-
-  val retrieveTask: F[Option[ScheduledVideoDownload]]
+  def search(
+    term: Option[String],
+    videoUrls: Option[NonEmptyList[Uri]],
+    pageNumber: Int,
+    pageSize: Int,
+    sortBy: SortBy,
+    order: Order,
+    schedulingStatus: Option[SchedulingStatus]
+  ): F[Seq[ScheduledVideoDownload]]
 }
