@@ -2,9 +2,6 @@
 - hosts: localhost
   connection: local
 
-  vars:
-    date: "{{ ansible_date_time.date }}"
-
   tasks:
     - name: Gather git information
       import_tasks: tasks/git-info.yml
@@ -28,3 +25,5 @@
         docker tag video-downloader-back-end-ci:{{ git_commit }} ruchira088/docker-ci:vd-be-ci-latest && \
         docker push ruchira088/docker-ci:vd-be-ci-{{ date }} && \
         docker push ruchira088/docker-ci:vd-be-ci-latest
+      vars:
+        date: "{{ ansible_date_time.date }}"
