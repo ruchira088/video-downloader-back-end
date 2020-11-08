@@ -1,45 +1,29 @@
 version: 2.1
 
 alias:
-  - &install-sbt
-    name: Install sbt
-    command: |
-      echo "deb https://dl.bintray.com/sbt/debian /" | sudo tee -a /etc/apt/sources.list.d/sbt.list && \
-      sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823 && \
-      sudo apt-get update && \
-      sudo apt-get install sbt -y
-
   - &install-ansible
     name: Install Ansible
     command: |
       sudo apt update && \
-      sudo apt install software-properties-common && \
-      sudo apt-add-repository -y -u ppa:ansible/ansible && \
-      sudo apt install ansible python-pip -y && \
-      pip install boto3 botocore openshift
-
-  - &install-kubectl
-    name: Install kubectl
-    command: |
-      curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add - && \
-      echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list && \
-      sudo apt update && \
-      sudo apt install kubectl -y
-
-  - &install-helm
-    name: Install Helm
-    command: |
-      curl https://baltocdn.com/helm/signing.asc | sudo apt-key add - && \
-      echo "deb https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list && \
-      sudo apt update && \
-      sudo apt install helm -y
+      sudo apt install python3-pip -y && \
+      pip3 install boto3 botocore openshift ansible
 
 jobs:
+  build-ci-docker-image:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - setup_remote_docker
+      - run: *install-ansible
+      - checkout
+      - run:
+          name: Build and publish Docker CI image
+          command: ansible-playbook playbooks/build-docker-ci.yml
+
   build-and-test:
     docker:
-      - image: cimg/openjdk:8.0
+      - image: ruchira088/docker-ci:vd-be-ci-latest
     steps:
-      - run: *install-sbt
       - checkout
       - restore_cache: &dependency-cache-keys
           keys:
@@ -59,11 +43,9 @@ jobs:
 
   build-and-publish-docker-images:
     docker:
-      - image: cimg/openjdk:8.0
+      - image: ruchira088/docker-ci:vd-be-ci-latest
     steps:
       - setup_remote_docker
-      - run: *install-sbt
-      - run: *install-ansible
       - checkout
       - restore_cache: *dependency-cache-keys
       - run:
@@ -72,11 +54,8 @@ jobs:
 
   deploy-to-k8s:
     docker:
-      - image: cimg/openjdk:8.0
+      - image: ruchira088/docker-ci:vd-be-ci-latest
     steps:
-      - run: *install-ansible
-      - run: *install-kubectl
-      - run: *install-helm
       - checkout
       - run:
           name: Deploy applications to K8s
@@ -107,3 +86,16 @@ workflows:
             - build-and-publish-docker-images
           post-steps:
             - slack/status
+
+  docker-ci:
+    jobs:
+      - build-ci-docker-image:
+          post-steps:
+            - slack/status
+    triggers:
+      - schedule:
+          cron: "0 4 1,15 * *"
+          filters:
+            branches:
+              only:
+                - dev
