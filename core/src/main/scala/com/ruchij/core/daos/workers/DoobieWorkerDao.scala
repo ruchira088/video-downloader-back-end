@@ -9,7 +9,6 @@ import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 import com.ruchij.core.daos.workers.models.Worker
 import com.ruchij.core.exceptions.ResourceNotFoundException
-import doobie.free.connection
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import org.joda.time.DateTime
@@ -17,9 +16,13 @@ import org.joda.time.DateTime
 class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends WorkerDao[ConnectionIO] {
 
   override def insert(worker: Worker): ConnectionIO[Int] =
-    sql"INSERT INTO worker(id, reserved_at) VALUES(${worker.id}, ${worker.reservedAt})".update.run
+    sql"""
+      INSERT INTO worker(id, reserved_at, instance_id)
+        VALUES (${worker.id}, ${worker.reservedAt}, ${worker.instanceId})
+    """
+      .update.run
       .flatMap { result =>
-        worker.scheduledVideoDownload.fold(connection.pure(result)) { scheduledVideoDownload =>
+        worker.scheduledVideoDownload.fold(Applicative[ConnectionIO].pure(result)) { scheduledVideoDownload =>
           sql"""
             INSERT INTO worker_task(worker_id, scheduled_video_id)
             VALUES(${worker.id}, ${scheduledVideoDownload.videoMetadata.id})
@@ -28,13 +31,11 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
       }
 
   override def getById(workerId: String): ConnectionIO[Option[Worker]] =
-    sql"SELECT reserved_at, task_assigned_at FROM worker WHERE id = $workerId"
-      .query[(Option[DateTime], Option[DateTime])]
+    sql"SELECT reserved_at, task_assigned_at, instance_id FROM worker WHERE id = $workerId"
+      .query[(Option[DateTime], Option[DateTime], Option[String])]
       .option
       .flatMap {
-        case Some((reservedAt, None)) => Applicative[ConnectionIO].pure(Some(Worker(workerId, reservedAt, None)))
-
-        case Some((reservedAt, Some(taskAssignedAt))) =>
+        case Some((Some(reservedAt), Some(taskAssignedAt), Some(instanceId))) =>
           sql"SELECT scheduled_video_id FROM worker_task WHERE worker_id = $workerId AND created_at = $taskAssignedAt"
             .query[String]
             .unique
@@ -45,19 +46,37 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
                 }
               }
             }
-            .map(scheduledVideoDownload => Some(Worker(workerId, reservedAt, Some(scheduledVideoDownload))))
+            .map {
+              scheduledVideoDownload =>
+                Some(Worker(workerId, Some(instanceId), Some(reservedAt), Some(scheduledVideoDownload)))
+            }
+
+        case Some((reservedAt, _, instanceId)) =>
+          Applicative[ConnectionIO].pure(Some(Worker(workerId, instanceId, reservedAt, None)))
 
         case None => Applicative[ConnectionIO].pure(None)
       }
+
+  override def getByInstanceId(instanceId: String): ConnectionIO[List[Worker]] =
+    sql"SELECT id FROM worker WHERE instance_id = $instanceId"
+      .query[String]
+      .to[Seq]
+      .flatMap(_.toList.traverse(getById))
+      .map(_.flatMap(_.toList))
 
   override val idleWorker: ConnectionIO[Option[Worker]] =
     OptionT { sql"SELECT id FROM worker WHERE reserved_at IS NULL LIMIT 1".query[String].option }
       .flatMapF(getById)
       .value
 
-  def reserveWorker(workerId: String, timestamp: DateTime): ConnectionIO[Option[Worker]] =
+  def reserveWorker(workerId: String, instanceId: String, timestamp: DateTime): ConnectionIO[Option[Worker]] =
     singleUpdate {
-      sql"UPDATE worker SET reserved_at = $timestamp WHERE id = $workerId".update.run
+      sql"""
+        UPDATE worker
+          SET reserved_at = $timestamp, instance_id = $instanceId
+          WHERE id = $workerId AND reserved_at IS NULL AND instance_id IS NULL
+      """
+      .update.run
     }.productR(OptionT(getById(workerId))).value
 
   override def assignTask(
@@ -67,21 +86,24 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
   ): ConnectionIO[Option[Worker]] =
     singleUpdate {
       sql"""
-        INSERT INTO worker_task(worker_id, scheduled_video_id, created_at)
-        VALUES ($workerId, $scheduledVideoId, $timestamp)
-      """.update.run
-    }.productR {
+          UPDATE scheduled_video
+          SET status = ${SchedulingStatus.Active}, last_updated_at = $timestamp
+          WHERE video_metadata_id = $scheduledVideoId AND status != ${SchedulingStatus.Active}
+        """.update.run
+    }
+      .productR {
         singleUpdate {
-          sql"UPDATE worker SET task_assigned_at = $timestamp WHERE id = $workerId".update.run
+          sql"UPDATE worker SET task_assigned_at = $timestamp WHERE id = $workerId AND task_assigned_at IS NULL"
+            .update.run
         }
       }
       .productR {
         singleUpdate {
           sql"""
-            UPDATE scheduled_video 
-            SET status = ${SchedulingStatus.Active}, last_updated_at = $timestamp
-            WHERE video_metadata_id = $scheduledVideoId
-          """.update.run
+            INSERT INTO worker_task(worker_id, scheduled_video_id, created_at)
+            VALUES ($workerId, $scheduledVideoId, $timestamp)
+            """
+            .update.run
         }
       }
       .productR(OptionT(getById(workerId)))
@@ -102,14 +124,10 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
       .value
 
   override def releaseWorker(workerId: String): ConnectionIO[Option[Worker]] =
-    singleUpdate { sql"UPDATE worker SET reserved_at = NULL, task_assigned_at = NULL WHERE id = $workerId".update.run }
+    singleUpdate {
+      sql"UPDATE worker SET instance_id = NULL, reserved_at = NULL, task_assigned_at = NULL WHERE id = $workerId"
+        .update.run
+    }
       .productR(OptionT(getById(workerId)))
       .value
-
-  override val resetWorkers: ConnectionIO[Int] =
-    sql"UPDATE worker SET reserved_at = NULL, task_assigned_at = NULL".update.run
-      .flatMap { result =>
-        sql"DELETE FROM worker_task WHERE completed_at IS NULL".update.run.map(_ + result)
-      }
-
 }

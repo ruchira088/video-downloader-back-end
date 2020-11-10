@@ -46,14 +46,14 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
           JodaClock[F].timestamp.flatMap { timestamp =>
             transaction {
               OptionT(workerDao.idleWorker).flatMap { worker =>
-                OptionT(workerDao.reserveWorker(worker.id, timestamp))
+                OptionT(workerDao.reserveWorker(worker.id, workerConfiguration.instanceId, timestamp))
               }.value
             }.recoverWith {
-                case throwable =>
-                  logger
-                    .errorF("Error occurred when fetching idle worker", throwable)
-                    .productR(Applicative[F].pure(None))
-              }
+              case throwable =>
+                logger
+                  .errorF("Error occurred when fetching idle worker", throwable)
+                  .productR(Applicative[F].pure(None))
+            }
           }
         }
       }
@@ -69,25 +69,26 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
             transaction(workerDao.assignTask(worker.id, task.videoMetadata.id, timestamp))
               .as(Option(task))
         }
-        .flatMapF {
-          scheduledVideoDownload =>
-            ApplicativeError[F, Throwable].recoverWith {
-              workExecutor.execute(
+        .flatMapF { scheduledVideoDownload =>
+          ApplicativeError[F, Throwable].recoverWith {
+            workExecutor
+              .execute(
                 scheduledVideoDownload,
                 worker,
-                topic.subscribe(TopicMaxQueued)
+                topic
+                  .subscribe(TopicMaxQueued)
                   .collect { case Some(value) => value }
                   .filter { value: ScheduledVideoDownload =>
                     value.videoMetadata.id == scheduledVideoDownload.videoMetadata.id &&
-                      List(SchedulingStatus.SchedulerPaused, SchedulingStatus.Paused).contains(value.status)
+                    List(SchedulingStatus.SchedulerPaused, SchedulingStatus.Paused).contains(value.status)
                   }
                   .productR[Boolean](Stream.raiseError[F](PausedVideoDownload))
               )
-                .map[Option[Video]](Some.apply)
-            } {
-              case PausedVideoDownload =>
-                logger.infoF(s"${scheduledVideoDownload.videoMetadata.url} has been paused").as(None)
-            }
+              .map[Option[Video]](Some.apply)
+          } {
+            case PausedVideoDownload =>
+              logger.infoF(s"${scheduledVideoDownload.videoMetadata.url} has been paused").as(None)
+          }
         }
         .semiflatMap { video =>
           JodaClock[F].timestamp
@@ -123,30 +124,29 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       .productR(Applicative[F].unit)
 
   override val run: Stream[F, Video] =
-    Stream.eval(Topic[F, Option[ScheduledVideoDownload]](None))
-      .flatMap {
-        topic =>
-          idleWorkers
-            .concurrently(topic.publish(schedulingService.updates.map(Some.apply)))
-            .parEvalMapUnordered(workerConfiguration.maxConcurrentDownloads) { worker =>
-              Bracket[F, Throwable].guarantee {
-                SchedulerImpl
-                  .isWorkPeriod[F](workerConfiguration.startTime, workerConfiguration.endTime)
-                  .flatMap { isWorkPeriod =>
-                    if (isWorkPeriod)
-                      performWork(worker, topic)
-                        .recoverWith {
-                          case throwable =>
-                            logger.errorF("Error occurred in work scheduler", throwable).as(None)
-                        }
-                    else OptionT.none[F, Video].value
-                  }
-              }(releaseWorker(worker))
+    Stream
+      .eval(Topic[F, Option[ScheduledVideoDownload]](None))
+      .flatMap { topic =>
+        idleWorkers
+          .concurrently(topic.publish(schedulingService.updates.map(Some.apply)))
+          .parEvalMapUnordered(workerConfiguration.maxConcurrentDownloads) { worker =>
+            Bracket[F, Throwable].guarantee {
+              SchedulerImpl
+                .isWorkPeriod[F](workerConfiguration.startTime, workerConfiguration.endTime)
+                .flatMap { isWorkPeriod =>
+                  if (isWorkPeriod)
+                    performWork(worker, topic)
+                      .recoverWith {
+                        case throwable =>
+                          logger.errorF("Error occurred in work scheduler", throwable).as(None)
+                      } else OptionT.none[F, Video].value
+                }
+            }(releaseWorker(worker))
 
-            }
-            .collect {
-              case Some(video) => video
-            }
+          }
+          .collect {
+            case Some(video) => video
+          }
       }
 
   val newWorkers: F[Int] =
@@ -162,24 +162,39 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       .flatMap {
         _.traverse { index =>
           transaction {
-            workerDao.insert(Worker(Worker.workerIdFromIndex(index), None, None))
+            workerDao.insert(Worker(Worker.workerIdFromIndex(index), None, None, None))
           }
         }
       }
       .map(_.sum)
-
-  val resetWorkers: F[Int] = transaction(workerDao.resetWorkers)
 
   override val init: F[SynchronizationResult] =
     logger
       .infoF("Batch initialization started")
       .productR(newWorkers)
       .flatMap(count => logger.infoF(s"New workers created: $count"))
-      .productR(resetWorkers)
-      .productR(logger.infoF("Workers have been reset"))
       .productR(synchronizationService.sync)
       .flatTap(result => logger.infoF(result.prettyPrint))
       .productL(logger.infoF("Batch initialization completed"))
+
+  override val shutdownHook: F[Unit] =
+    logger.infoF("Executing shutdown hook...")
+      .productR(transaction(workerDao.getByInstanceId(workerConfiguration.instanceId)))
+      .flatTap {
+        _.traverse {
+          _.scheduledVideoDownload.fold(Applicative[F].unit) { scheduledVideoDownload =>
+            schedulingService.updateStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Queued)
+              .productR(Applicative[F].unit)
+          }
+        }
+      }
+      .flatMap {
+        workers =>
+          transaction {
+            workers.traverse { worker => workerDao.releaseWorker(worker.id) }
+          }
+      }
+      .productR(logger.infoF("Shutdown hook completed"))
 }
 
 object SchedulerImpl {

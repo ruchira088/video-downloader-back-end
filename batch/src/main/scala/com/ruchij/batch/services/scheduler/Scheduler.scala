@@ -9,6 +9,8 @@ trait Scheduler[F[_]] {
   val run: Stream[F, Video]
 
   val init: F[InitializationResult]
+
+  val shutdownHook: F[Unit]
 }
 
 object Scheduler {
