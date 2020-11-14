@@ -10,6 +10,7 @@ import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.VideoSite.Selector
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
+import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.download.DownloadService
 import com.ruchij.core.services.hashing.HashingService
 import com.ruchij.core.services.video.VideoAnalysisService.{Existing, NewlyCreated, VideoMetadataResult}
@@ -32,6 +33,8 @@ class VideoAnalysisServiceImpl[F[_]: Sync: Clock, T[_]: Monad](
 )(implicit transaction: T ~> F)
     extends VideoAnalysisService[F] {
 
+  private val logger: Logger[F] = Logger[F, VideoAnalysisServiceImpl[F, T]]
+
   override def metadata(uri: Uri): F[VideoMetadataResult] =
     for {
       videoId <- hashingService.hash(uri.renderString)
@@ -46,7 +49,9 @@ class VideoAnalysisServiceImpl[F[_]: Sync: Clock, T[_]: Monad](
 
   def createMetadata(uri: Uri, videoId: String): F[VideoMetadata] =
     for {
-      VideoAnalysisResult(_, videoSite, title, duration, size, thumbnailUri) <- analyze(uri)
+      videoAnalysisResult @ VideoAnalysisResult(_, videoSite, title, duration, size, thumbnailUri) <- analyze(uri)
+      _ <- logger.infoF(s"Uri=${uri.renderString} Result=$videoAnalysisResult")
+
       timestamp <- JodaClock[F].timestamp
 
       thumbnailFileName = thumbnailUri.path.split("/").lastOption.getOrElse("thumbnail.unknown")
@@ -110,5 +115,5 @@ class VideoAnalysisServiceImpl[F[_]: Sync: Clock, T[_]: Monad](
           .run(Request[F](Method.HEAD, downloadUri))
           .use(Http4sUtils.header[F](`Content-Length`).map(_.length).run)
       }
-    } yield models.VideoAnalysisResult(uri, videoSite, videoTitle, duration, size, thumbnailUri)
+    } yield VideoAnalysisResult(uri, videoSite, videoTitle, duration, size, thumbnailUri)
 }
