@@ -1,7 +1,6 @@
 package com.ruchij.batch.services.scheduler
 
 import cats.data.OptionT
-import cats.effect.ExitCase.Canceled
 import cats.effect.{Bracket, Clock, Concurrent, ExitCase, Timer}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Monad, ~>}
@@ -47,7 +46,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
           JodaClock[F].timestamp.flatMap { timestamp =>
             transaction {
               OptionT(workerDao.idleWorker).flatMap { worker =>
-                OptionT(workerDao.reserveWorker(worker.id, workerConfiguration.instanceId, timestamp))
+                OptionT(workerDao.reserveWorker(worker.id, timestamp))
               }.value
             }.recoverWith {
               case throwable =>
@@ -112,6 +111,10 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
           .updateStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Error)
           .productR(Applicative[F].unit)
 
+      case (Some(scheduledVideoDownload), ExitCase.Canceled) =>
+        schedulingService.updateStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Queued)
+          .productR(Applicative[F].unit)
+
       case (_, _) => Applicative[F].unit
     }
 
@@ -131,7 +134,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
         idleWorkers
           .concurrently(topic.publish(schedulingService.updates.map(Some.apply)))
           .parEvalMapUnordered(workerConfiguration.maxConcurrentDownloads) { worker =>
-            Bracket[F, Throwable].guaranteeCase {
+            Bracket[F, Throwable].guarantee {
               SchedulerImpl
                 .isWorkPeriod[F](workerConfiguration.startTime, workerConfiguration.endTime)
                 .flatMap { isWorkPeriod =>
@@ -142,13 +145,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
                           logger.errorF("Error occurred in work scheduler", throwable).as(None)
                       } else OptionT.none[F, Video].value
                 }
-            } {
-              case Canceled =>
-                logger.warnF("Task canceled")
-
-              case _ => releaseWorker(worker)
-            }
-
+            }(releaseWorker(worker))
           }
           .collect {
             case Some(video) => video
@@ -168,7 +165,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       .flatMap {
         _.traverse { index =>
           transaction {
-            workerDao.insert(Worker(Worker.workerIdFromIndex(index), None, None, None))
+            workerDao.insert(Worker(Worker.workerIdFromIndex(index), None, None))
           }
         }
       }
@@ -182,25 +179,6 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       .productR(synchronizationService.sync)
       .flatTap(result => logger.infoF(result.prettyPrint))
       .productL(logger.infoF("Batch initialization completed"))
-
-  override val shutdownHook: F[Unit] =
-    logger.infoF("Executing shutdown hook...")
-      .productR(transaction(workerDao.getByInstanceId(workerConfiguration.instanceId)))
-      .flatTap {
-        _.traverse {
-          _.scheduledVideoDownload.fold(Applicative[F].unit) { scheduledVideoDownload =>
-            schedulingService.updateStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Queued)
-              .productR(Applicative[F].unit)
-          }
-        }
-      }
-      .flatMap {
-        workers =>
-          transaction {
-            workers.traverse { worker => workerDao.releaseWorker(worker.id) }
-          }
-      }
-      .productR(logger.infoF("Shutdown hook completed"))
 }
 
 object SchedulerImpl {

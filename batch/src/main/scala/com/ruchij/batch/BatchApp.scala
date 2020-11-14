@@ -2,7 +2,6 @@ package com.ruchij.batch
 
 import java.util.concurrent.Executors
 
-import cats.Applicative
 import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
 import cats.implicits._
 import com.ruchij.batch.config.BatchServiceConfiguration
@@ -159,8 +158,6 @@ object BatchApp extends IOApp {
             workerDao,
             batchServiceConfiguration.workerConfiguration
           )
-
-          _ <- Resource.make(Applicative[F].unit)(_ => scheduler.shutdownHook)
         } yield scheduler
       }
 }

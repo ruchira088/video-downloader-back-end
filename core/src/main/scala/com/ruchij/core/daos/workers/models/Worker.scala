@@ -5,7 +5,6 @@ import org.joda.time.DateTime
 
 case class Worker(
   id: String,
-  instanceId: Option[String],
   reservedAt: Option[DateTime],
   scheduledVideoDownload: Option[ScheduledVideoDownload]
 )
