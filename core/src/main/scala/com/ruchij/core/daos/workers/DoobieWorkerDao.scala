@@ -16,7 +16,10 @@ import org.joda.time.DateTime
 class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends WorkerDao[ConnectionIO] {
 
   override def insert(worker: Worker): ConnectionIO[Int] =
-    sql"INSERT INTO worker(id, reserved_at) VALUES (${worker.id}, ${worker.reservedAt})"
+    sql"""
+      INSERT INTO worker(id, reserved_at, task_assigned_at)
+        VALUES (${worker.id}, ${worker.reservedAt}, ${worker.taskAssignedAt})
+    """
       .update.run
       .flatMap { result =>
         worker.scheduledVideoDownload.fold(Applicative[ConnectionIO].pure(result)) { scheduledVideoDownload =>
@@ -45,11 +48,11 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
             }
             .map {
               scheduledVideoDownload =>
-                Some(Worker(workerId, Some(reservedAt), Some(scheduledVideoDownload)))
+                Some(Worker(workerId, Some(reservedAt), Some(taskAssignedAt), Some(scheduledVideoDownload)))
             }
 
         case Some((reservedAt, _)) =>
-          Applicative[ConnectionIO].pure(Some(Worker(workerId, reservedAt, None)))
+          Applicative[ConnectionIO].pure(Some(Worker(workerId, reservedAt, None, None)))
 
         case None => Applicative[ConnectionIO].pure(None)
       }
@@ -104,12 +107,19 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
     scheduledVideoId: String,
     timestamp: DateTime
   ): ConnectionIO[Option[Worker]] =
-    singleUpdate {
-      sql"""
-          UPDATE worker_task SET completed_at = $timestamp
-          WHERE worker_id = $workerId AND scheduled_video_id = $scheduledVideoId
-      """.update.run
+    OptionT {
+      sql"SELECT task_assigned_at FROM worker WHERE id = $workerId"
+        .query[DateTime]
+        .option
     }
+      .flatMap { taskCreatedAt =>
+        singleUpdate {
+          sql"""
+          UPDATE worker_task SET completed_at = $timestamp
+          WHERE worker_id = $workerId AND scheduled_video_id = $scheduledVideoId AND created_at = $taskCreatedAt
+      """.update.run
+        }
+      }
       .productR(OptionT(getById(workerId)))
       .value
 
