@@ -30,8 +30,8 @@ import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.effect.Log.Stdout.instance
 import doobie.free.connection.ConnectionIO
 import org.http4s.HttpApp
-import org.http4s.client.blaze.BlazeClientBuilder
 import org.http4s.client.middleware.FollowRedirect
+import org.http4s.ember.client.EmberClientBuilder
 import org.http4s.server.blaze.BlazeServerBuilder
 import pureconfig.ConfigSource
 
@@ -63,8 +63,7 @@ object ApiApp extends IOApp {
       .map(FunctionKTypes.transaction[F])
       .flatMap { implicit transaction =>
         for {
-          baseClient <- BlazeClientBuilder[F](executionContext).resource
-          httpClient = FollowRedirect(maxRedirects = 10)(baseClient)
+          httpClient <- EmberClientBuilder.default[F].build.map(FollowRedirect(maxRedirects = 10))
 
           ioThreadPool <- Resource.liftF(Sync[F].delay(Executors.newCachedThreadPool()))
           ioBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(ioThreadPool))
