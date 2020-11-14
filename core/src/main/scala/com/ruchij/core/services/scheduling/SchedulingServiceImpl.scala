@@ -104,7 +104,9 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
   override def updateStatus(id: String, status: SchedulingStatus): F[ScheduledVideoDownload] =
     for {
       timestamp <- JodaClock[F].timestamp
-      scheduledVideoDownload <- getById(id)
+      scheduledVideoDownload <-
+        OptionT(transaction(schedulingDao.getById(id)))
+          .getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
 
       _ <- if (scheduledVideoDownload.status.validTransitionStatuses.contains(status))
         Applicative[F].unit

@@ -1,6 +1,7 @@
 package com.ruchij.batch.services.scheduler
 
 import cats.data.OptionT
+import cats.effect.ExitCase.Canceled
 import cats.effect.{Bracket, Clock, Concurrent, ExitCase, Timer}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Monad, ~>}
@@ -130,7 +131,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
         idleWorkers
           .concurrently(topic.publish(schedulingService.updates.map(Some.apply)))
           .parEvalMapUnordered(workerConfiguration.maxConcurrentDownloads) { worker =>
-            Bracket[F, Throwable].guarantee {
+            Bracket[F, Throwable].guaranteeCase {
               SchedulerImpl
                 .isWorkPeriod[F](workerConfiguration.startTime, workerConfiguration.endTime)
                 .flatMap { isWorkPeriod =>
@@ -141,7 +142,12 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
                           logger.errorF("Error occurred in work scheduler", throwable).as(None)
                       } else OptionT.none[F, Video].value
                 }
-            }(releaseWorker(worker))
+            } {
+              case Canceled =>
+                logger.warnF("Task canceled")
+
+              case _ => releaseWorker(worker)
+            }
 
           }
           .collect {
