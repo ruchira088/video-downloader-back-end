@@ -12,6 +12,7 @@ inThisBuild {
     scalaVersion := Dependencies.ScalaVersion,
     maintainer := "me@ruchij.com",
     scalacOptions ++= Seq("-feature", "-Xlint", "-Wconf:cat=lint-byname-implicit:s"),
+    resolvers += "Confluent" at "https://packages.confluent.io/maven/",
     addCompilerPlugin(kindProjector),
     addCompilerPlugin(betterMonadicFor),
     addCompilerPlugin(scalaTypedHoles)
@@ -34,6 +35,9 @@ lazy val core =
         Seq(
           catsEffect,
           http4sAsyncHttpClient,
+          fs2Kafka,
+          fs2KafkaVulkan,
+          vulkanGeneric,
           h2,
           doobie,
           shapeless,

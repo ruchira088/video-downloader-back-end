@@ -18,6 +18,12 @@ object Dependencies
 
   lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.3.0"
 
+  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "1.1.0"
+
+  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "1.1.0"
+
+  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.2.0"
+
   lazy val circeGeneric = "io.circe" %% "circe-generic" % CirceVersion
 
   lazy val circeParser = "io.circe" %% "circe-parser" % CirceVersion
