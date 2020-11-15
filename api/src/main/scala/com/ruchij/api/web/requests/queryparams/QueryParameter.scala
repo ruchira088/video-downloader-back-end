@@ -17,6 +17,9 @@ import scala.reflect.ClassTag
 
 abstract class QueryParameter[A] {
   def parse[F[_]: ApplicativeError[*[_], Throwable]]: Kleisli[F, QueryParameters, A]
+
+  def unapply(params: QueryParameters): Option[A] =
+    parse[Either[Throwable, *]].run(params).toOption
 }
 
 object QueryParameter {

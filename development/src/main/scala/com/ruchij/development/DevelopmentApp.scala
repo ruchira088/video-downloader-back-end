@@ -41,7 +41,7 @@ object DevelopmentApp extends IOApp {
     RedisConfiguration("localhost", 6300, None)
 
   val ApplicationInfo: ApplicationInformation =
-    ApplicationInformation(Some("N/A"), Some("N/A"), None)
+    ApplicationInformation("localhost", Some("N/A"), Some("N/A"), None)
 
   val WorkerConfig: WorkerConfiguration =
     WorkerConfiguration(2, LocalTime.MIDNIGHT, LocalTime.MIDNIGHT)
@@ -66,7 +66,7 @@ object DevelopmentApp extends IOApp {
     )
 
   val BatchConfig: BatchServiceConfiguration =
-    BatchServiceConfiguration(DownloadConfig, WorkerConfig, RedisConfig, DatabaseConfig, ???)
+    BatchServiceConfiguration(DownloadConfig, WorkerConfig, RedisConfig, DatabaseConfig, ???, ApplicationInfo)
 
   val KeyStoreResource = "/localhost.jks"
 

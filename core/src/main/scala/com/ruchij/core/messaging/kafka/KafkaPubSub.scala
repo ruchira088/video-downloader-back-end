@@ -11,7 +11,7 @@ object KafkaPubSub {
   ): Resource[F, PubSub[F, CommittableRecord[F, *], A]] =
     for {
       publisher <- KafkaPublisher[F, A](kafkaConfiguration)
-      subscriber <- KafkaSubscriber[F, A](kafkaConfiguration)
+      subscriber = new KafkaSubscriber[F, A](kafkaConfiguration)
     }
     yield PubSub.from(publisher, subscriber)
 }

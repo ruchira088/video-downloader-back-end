@@ -131,8 +131,8 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
       }
     }
 
-  override val updates: Stream[F, ScheduledVideoDownload] =
-    scheduledVideoDownloadPubSub.subscribe.map {
+  override def updates(groupId: String): Stream[F, ScheduledVideoDownload] =
+    scheduledVideoDownloadPubSub.subscribe(groupId).map {
       case CommittableRecord(value, _) => value
     }
 
@@ -143,8 +143,8 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
     } yield result
   }
 
-  override val downloadProgress: Stream[F, DownloadProgress] =
-    downloadProgressPubSub.subscribe.map {
+  override def downloadProgress(groupId: String): Stream[F, DownloadProgress] =
+    downloadProgressPubSub.subscribe(groupId).map {
       case CommittableRecord(value, _) => value
     }
 }

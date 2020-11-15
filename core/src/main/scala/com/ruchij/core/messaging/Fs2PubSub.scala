@@ -12,7 +12,7 @@ class Fs2PubSub[F[_], A] private (topic: Topic[F, Option[A]]) extends PubSub[F, 
 
   override def publish(input: A): F[Unit] = topic.publish1(Some(input))
 
-  override val subscribe: Stream[F, A] =
+  override def subscribe(groupId: String): Stream[F, A] =
     topic.subscribe(Int.MaxValue).collect { case Some(value) => value }
 }
 

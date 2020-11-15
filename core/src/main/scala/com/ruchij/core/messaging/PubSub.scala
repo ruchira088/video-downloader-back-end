@@ -11,6 +11,6 @@ object PubSub {
 
       override def publish(input: A): F[Unit] = publisher.publish(input)
 
-      override val subscribe: Stream[F, G[A]] = subscriber.subscribe
+      override def subscribe(groupId: String): Stream[F, G[A]] = subscriber.subscribe(groupId)
     }
 }

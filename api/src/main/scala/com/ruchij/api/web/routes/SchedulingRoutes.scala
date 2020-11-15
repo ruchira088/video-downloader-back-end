@@ -12,6 +12,7 @@ import com.ruchij.core.types.JodaClock
 import com.ruchij.api.web.responses.EventStreamEventType.{ActiveDownload, HeartBeat}
 import com.ruchij.api.circe.Decoders._
 import com.ruchij.api.circe.Encoders._
+import com.ruchij.api.web.requests.queryparams.SingleValueQueryParameter.SubscriberGroupIdQueryParameter
 import com.ruchij.api.web.responses.{EventStreamHeartBeat, SearchResult}
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.services.video.models.DurationRange
@@ -80,9 +81,9 @@ object SchedulingRoutes {
           response <- Ok(updatedScheduledVideoDownload)
         } yield response
 
-      case GET -> Root / "active" =>
+      case GET -> Root / "active" :? SubscriberGroupIdQueryParameter(groupId) =>
         Ok {
-          schedulingService.downloadProgress
+          schedulingService.downloadProgress(groupId)
             .map { downloadProgress =>
               ServerSentEvent(Encoder[DownloadProgress].apply(downloadProgress).noSpaces, ActiveDownload)
             }

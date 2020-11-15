@@ -164,7 +164,8 @@ object BatchApp extends IOApp {
             synchronizationService,
             workExecutor,
             workerDao,
-            batchServiceConfiguration.workerConfiguration
+            batchServiceConfiguration.workerConfiguration,
+            batchServiceConfiguration.applicationInformation.instanceId
           )
         } yield scheduler
       }
