@@ -36,6 +36,8 @@ import org.http4s.client.middleware.FollowRedirect
 import pureconfig.ConfigSource
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.DurationInt
+import scala.language.postfixOps
 
 object BatchApp extends IOApp {
 
@@ -58,7 +60,6 @@ object BatchApp extends IOApp {
                 .compile
                 .drain
             }
-
         }
     } yield ExitCode.Success
 
@@ -70,7 +71,9 @@ object BatchApp extends IOApp {
       .map(FunctionKTypes.transaction[F])
       .flatMap { implicit transaction =>
         for {
-          httpClient <- AsyncHttpClient.resource().map(FollowRedirect(maxRedirects = 10))
+          httpClient <-
+            AsyncHttpClient.resource { AsyncHttpClient.configure(_.setRequestTimeout((6 hours).toMillis.toInt)) }
+              .map(FollowRedirect(maxRedirects = 10))
 
           ioThreadPool <- Resource.liftF(Sync[F].delay(Executors.newCachedThreadPool()))
           ioBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(ioThreadPool))
