@@ -90,6 +90,7 @@ workflows:
   docker-ci:
     jobs:
       - build-ci-docker-image:
+          context: aws-credentials
           post-steps:
             - slack/status
     triggers:
