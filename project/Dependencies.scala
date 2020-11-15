@@ -10,7 +10,7 @@ object Dependencies
 
   lazy val http4sBlazeServer = "org.http4s" %% "http4s-blaze-server" % Http4sVersion
 
-  lazy val http4sEmberClient = "org.http4s" %% "http4s-ember-client" % Http4sVersion
+  lazy val http4sAsyncHttpClient = "org.http4s" %% "http4s-async-http-client" % Http4sVersion
 
   lazy val http4sCirce = "org.http4s" %% "http4s-circe" % Http4sVersion
 

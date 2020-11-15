@@ -33,7 +33,7 @@ lazy val core =
       libraryDependencies ++=
         Seq(
           catsEffect,
-          http4sEmberClient,
+          http4sAsyncHttpClient,
           h2,
           doobie,
           shapeless,

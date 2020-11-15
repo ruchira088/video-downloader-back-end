@@ -31,8 +31,8 @@ import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.effect.Log.Stdout.instance
 import doobie.free.connection.ConnectionIO
 import org.apache.tika.Tika
+import org.http4s.client.asynchttpclient.AsyncHttpClient
 import org.http4s.client.middleware.FollowRedirect
-import org.http4s.ember.client.EmberClientBuilder
 import pureconfig.ConfigSource
 
 import scala.concurrent.ExecutionContext
@@ -46,7 +46,7 @@ object BatchApp extends IOApp {
       configObjectSource <- IO.delay(ConfigSource.defaultApplication)
       batchServiceConfiguration <- BatchServiceConfiguration.parse[IO](configObjectSource)
 
-      _ <- program[IO](batchServiceConfiguration, ExecutionContext.global)
+      _ <- program[IO](batchServiceConfiguration)
         .use { scheduler =>
           scheduler.init
             .productR(logger.infoF("Scheduler has started"))
@@ -63,15 +63,14 @@ object BatchApp extends IOApp {
     } yield ExitCode.Success
 
   def program[F[+ _]: ConcurrentEffect: ContextShift: Timer](
-    batchServiceConfiguration: BatchServiceConfiguration,
-    nonBlockingExecutionContext: ExecutionContext,
+    batchServiceConfiguration: BatchServiceConfiguration
   ): Resource[F, Scheduler[F]] =
     Resource
       .liftF(DoobieTransactor.create[F](batchServiceConfiguration.databaseConfiguration))
       .map(FunctionKTypes.transaction[F])
       .flatMap { implicit transaction =>
         for {
-          httpClient <- EmberClientBuilder.default[F].build.map(FollowRedirect(maxRedirects = 10))
+          httpClient <- AsyncHttpClient.resource().map(FollowRedirect(maxRedirects = 10))
 
           ioThreadPool <- Resource.liftF(Sync[F].delay(Executors.newCachedThreadPool()))
           ioBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(ioThreadPool))

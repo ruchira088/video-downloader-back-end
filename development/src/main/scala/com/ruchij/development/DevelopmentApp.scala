@@ -99,8 +99,8 @@ object DevelopmentApp extends IOApp {
 
       _ <- Resource.liftF(MigrationApp.migration[F](DatabaseConfig, blocker))
 
-      api <- ApiApp.program[F](ApiConfig, ExecutionContext.global)
-      batch <- BatchApp.program[F](BatchConfig, ExecutionContext.global)
+      api <- ApiApp.program[F](ApiConfig)
+      batch <- BatchApp.program[F](BatchConfig)
     } yield (api, batch, sslContext)
 
   def startEmbeddedRedis[F[_]: Sync]: Resource[F, RedisServer] =

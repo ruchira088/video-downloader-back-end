@@ -6,7 +6,7 @@ import cats.implicits._
 import cats.{Applicative, ApplicativeError, Monad, ~>}
 import com.ruchij.batch.config.WorkerConfiguration
 import com.ruchij.batch.services.scheduler.Scheduler.PausedVideoDownload
-import com.ruchij.batch.services.scheduler.SchedulerImpl.{TopicMaxQueued, WorkerPollPeriod}
+import com.ruchij.batch.services.scheduler.SchedulerImpl.WorkerPollPeriod
 import com.ruchij.batch.services.sync.SynchronizationService
 import com.ruchij.batch.services.sync.models.SynchronizationResult
 import com.ruchij.batch.services.worker.WorkExecutor
@@ -16,10 +16,10 @@ import com.ruchij.core.daos.workers.WorkerDao
 import com.ruchij.core.daos.workers.models.Worker
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.logging.Logger
+import com.ruchij.core.messaging.{Fs2PubSub, Subscriber}
 import com.ruchij.core.services.scheduling.SchedulingService
 import com.ruchij.core.types.JodaClock
 import fs2.Stream
-import fs2.concurrent.Topic
 import org.joda.time.LocalTime
 
 import scala.concurrent.duration.{FiniteDuration, _}
@@ -59,7 +59,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       }
       .collect { case Some(worker) => worker }
 
-  def performWork(worker: Worker, topic: Topic[F, Option[ScheduledVideoDownload]]): F[Option[Video]] =
+  def performWork(worker: Worker, topicUpdates: Subscriber[F, ScheduledVideoDownload]): F[Option[Video]] =
     Bracket[F, Throwable].bracketCase(schedulingService.acquireTask.value) { taskOpt =>
       OptionT
         .fromOption[F](taskOpt)
@@ -75,9 +75,8 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
               .execute(
                 scheduledVideoDownload,
                 worker,
-                topic
-                  .subscribe(TopicMaxQueued)
-                  .collect { case Some(value) => value }
+                topicUpdates
+                  .subscribe
                   .filter { value: ScheduledVideoDownload =>
                     value.videoMetadata.id == scheduledVideoDownload.videoMetadata.id &&
                     List(SchedulingStatus.SchedulerPaused, SchedulingStatus.Paused).contains(value.status) &&
@@ -130,10 +129,10 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
 
   override val run: Stream[F, Video] =
     Stream
-      .eval(Topic[F, Option[ScheduledVideoDownload]](None))
+      .eval(Fs2PubSub[F, ScheduledVideoDownload])
       .flatMap { topic =>
         idleWorkers
-          .concurrently(topic.publish(schedulingService.updates.map(Some.apply)))
+          .concurrently(topic.publish(schedulingService.updates))
           .parEvalMapUnordered(workerConfiguration.maxConcurrentDownloads) { worker =>
             Bracket[F, Throwable].guarantee {
               SchedulerImpl
@@ -184,7 +183,6 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
 
 object SchedulerImpl {
   val WorkerPollPeriod: FiniteDuration = 1 second
-  val TopicMaxQueued = 100
 
   def isWorkPeriod[F[_]: Clock: Monad](start: LocalTime, end: LocalTime): F[Boolean] = {
     if (start == end)

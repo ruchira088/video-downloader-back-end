@@ -30,8 +30,8 @@ import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.effect.Log.Stdout.instance
 import doobie.free.connection.ConnectionIO
 import org.http4s.HttpApp
+import org.http4s.client.asynchttpclient.AsyncHttpClient
 import org.http4s.client.middleware.FollowRedirect
-import org.http4s.ember.client.EmberClientBuilder
 import org.http4s.server.blaze.BlazeServerBuilder
 import pureconfig.ConfigSource
 
@@ -43,7 +43,7 @@ object ApiApp extends IOApp {
       configObjectSource <- IO.delay(ConfigSource.defaultApplication)
       webServiceConfiguration <- ApiServiceConfiguration.parse[IO](configObjectSource)
 
-      _ <- program[IO](webServiceConfiguration, ExecutionContext.global)
+      _ <- program[IO](webServiceConfiguration)
         .use { httpApp =>
           BlazeServerBuilder[IO](ExecutionContext.global)
             .withHttpApp(httpApp)
@@ -55,15 +55,14 @@ object ApiApp extends IOApp {
     } yield ExitCode.Success
 
   def program[F[+ _]: ConcurrentEffect: Timer: ContextShift](
-    apiServiceConfiguration: ApiServiceConfiguration,
-    executionContext: ExecutionContext
+    apiServiceConfiguration: ApiServiceConfiguration
   ): Resource[F, HttpApp[F]] =
     Resource
       .liftF(DoobieTransactor.create[F](apiServiceConfiguration.databaseConfiguration))
       .map(FunctionKTypes.transaction[F])
       .flatMap { implicit transaction =>
         for {
-          httpClient <- EmberClientBuilder.default[F].build.map(FollowRedirect(maxRedirects = 10))
+          httpClient <- AsyncHttpClient.resource().map(FollowRedirect(maxRedirects = 10))
 
           ioThreadPool <- Resource.liftF(Sync[F].delay(Executors.newCachedThreadPool()))
           ioBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(ioThreadPool))
