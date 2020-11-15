@@ -2,6 +2,6 @@ package com.ruchij.core.messaging
 
 import fs2.Stream
 
-trait Subscriber[F[_], A] {
-  val subscribe: Stream[F, A]
+trait Subscriber[F[_], G[_], A] {
+  val subscribe: Stream[F, G[A]]
 }

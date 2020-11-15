@@ -72,7 +72,7 @@ object BatchApp extends IOApp {
       .flatMap { implicit transaction =>
         for {
           httpClient <-
-            AsyncHttpClient.resource { AsyncHttpClient.configure(_.setRequestTimeout((6 hours).toMillis.toInt)) }
+            AsyncHttpClient.resource { AsyncHttpClient.configure(_.setRequestTimeout((24 hours).toMillis.toInt)) }
               .map(FollowRedirect(maxRedirects = 10))
 
           ioThreadPool <- Resource.liftF(Sync[F].delay(Executors.newCachedThreadPool()))

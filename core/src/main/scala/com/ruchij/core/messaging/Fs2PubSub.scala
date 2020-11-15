@@ -1,11 +1,12 @@
 package com.ruchij.core.messaging
 
+import cats.Id
 import cats.effect.Concurrent
 import cats.implicits._
 import fs2.concurrent.Topic
 import fs2.{Pipe, Stream}
 
-class Fs2PubSub[F[_], A] private (topic: Topic[F, Option[A]]) extends Publisher[F, A] with Subscriber[F, A] {
+class Fs2PubSub[F[_], A] private (topic: Topic[F, Option[A]]) extends Publisher[F, A] with Subscriber[F, Id, A] {
 
   override val publish: Pipe[F, A, Unit] = input => topic.publish(input.map(Some.apply))
 

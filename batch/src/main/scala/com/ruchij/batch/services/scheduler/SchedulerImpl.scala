@@ -3,7 +3,7 @@ package com.ruchij.batch.services.scheduler
 import cats.data.OptionT
 import cats.effect.{Bracket, Clock, Concurrent, ExitCase, Timer}
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, Monad, ~>}
+import cats.{Applicative, ApplicativeError, Id, Monad, ~>}
 import com.ruchij.batch.config.WorkerConfiguration
 import com.ruchij.batch.services.scheduler.Scheduler.PausedVideoDownload
 import com.ruchij.batch.services.scheduler.SchedulerImpl.WorkerPollPeriod
@@ -59,7 +59,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       }
       .collect { case Some(worker) => worker }
 
-  def performWork(worker: Worker, topicUpdates: Subscriber[F, ScheduledVideoDownload]): F[Option[Video]] =
+  def performWork(worker: Worker, topicUpdates: Subscriber[F, Id, ScheduledVideoDownload]): F[Option[Video]] =
     Bracket[F, Throwable].bracketCase(schedulingService.acquireTask.value) { taskOpt =>
       OptionT
         .fromOption[F](taskOpt)

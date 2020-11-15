@@ -1,11 +1,11 @@
-package com.ruchij.core.messaging
+package com.ruchij.core.messaging.kafka
 
 import cats.effect.{ConcurrentEffect, ContextShift, Resource, Sync}
 import cats.implicits._
 import com.ruchij.core.config.KafkaConfiguration
-import com.ruchij.core.messaging.kafka.Topic
+import com.ruchij.core.messaging.Publisher
+import fs2.kafka._
 import fs2.{Pipe, Stream}
-import fs2.kafka.{KafkaProducer, ProducerRecord, ProducerRecords, ProducerSettings, RecordSerializer, producerResource}
 
 class KafkaPublisher[F[_]: Sync, A](topicName: String, kafkaProducer: KafkaProducer.Metrics[F, Unit, A])
     extends Publisher[F, A] {
@@ -31,10 +31,10 @@ class KafkaPublisher[F[_]: Sync, A](topicName: String, kafkaProducer: KafkaProdu
 
 object KafkaPublisher {
   def apply[F[_]: ConcurrentEffect: ContextShift, A](kafkaConfiguration: KafkaConfiguration)(
-    implicit topic: Topic[F, A]
+    implicit topic: Topic[A]
   ): Resource[F, KafkaPublisher[F, A]] =
     producerResource {
-      ProducerSettings[F, Unit, A](RecordSerializer[F, Unit], topic.serializer(kafkaConfiguration))
+      ProducerSettings[F, Unit, A](RecordSerializer[F, Unit], topic.serializer[F](kafkaConfiguration))
         .withBootstrapServers(kafkaConfiguration.bootstrapServers)
     }
       .map { producer =>
