@@ -12,16 +12,20 @@ import com.ruchij.api.web.Routes
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
+import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.daos.snapshot.DoobieSnapshotDao
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.kv.{KeySpacedKeyValueStore, RedisKeyValueStore}
 import com.ruchij.core.kv.keys.KVStoreKey.{kvStoreKeyDecoder, kvStoreKeyEncoder}
+import com.ruchij.core.messaging.kafka.KafkaPubSub
+import com.ruchij.core.messaging.kafka.KafkaSubscriber.CommittableRecord
 import com.ruchij.core.services.asset.AssetServiceImpl
 import com.ruchij.core.services.download.Http4sDownloadService
 import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.repository.FileRepositoryService
 import com.ruchij.core.services.scheduling.SchedulingServiceImpl
+import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.services.scheduling.models.DownloadProgress.DownloadProgressKeySpace
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
 import com.ruchij.core.types.FunctionKTypes
@@ -102,9 +106,14 @@ object ApiApp extends IOApp {
 
           assetService = new AssetServiceImpl[F, ConnectionIO](DoobieFileResourceDao, repositoryService)
 
+          downloadProgressPubSub <- KafkaPubSub[F, DownloadProgress](apiServiceConfiguration.kafkaConfiguration)
+          scheduledVideoDownloadPubSub <- KafkaPubSub[F, ScheduledVideoDownload](apiServiceConfiguration.kafkaConfiguration)
+
           schedulingService = new SchedulingServiceImpl[F, ConnectionIO](
             videoAnalysisService,
             DoobieSchedulingDao,
+            downloadProgressPubSub,
+            scheduledVideoDownloadPubSub,
             downloadProgressKeyStore
           )
 

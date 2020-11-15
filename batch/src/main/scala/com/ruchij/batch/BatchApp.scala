@@ -12,12 +12,14 @@ import com.ruchij.batch.services.worker.WorkExecutorImpl
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
+import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.daos.snapshot.DoobieSnapshotDao
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.workers.DoobieWorkerDao
 import com.ruchij.core.kv.{KeySpacedKeyValueStore, RedisKeyValueStore}
 import com.ruchij.core.logging.Logger
+import com.ruchij.core.messaging.kafka.KafkaPubSub
 import com.ruchij.core.services.download.Http4sDownloadService
 import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector}
@@ -105,10 +107,15 @@ object BatchApp extends IOApp {
             batchServiceConfiguration.downloadConfiguration
           )
 
+          downloadProgressPubSub <- KafkaPubSub[F, DownloadProgress](batchServiceConfiguration.kafkaConfiguration)
+          scheduledVideoDownloadPubSub <- KafkaPubSub[F, ScheduledVideoDownload](batchServiceConfiguration.kafkaConfiguration)
+
           schedulingService = new SchedulingServiceImpl[F, ConnectionIO](
             videoAnalysisService,
             DoobieSchedulingDao,
-            downloadProgressKeyStore,
+            downloadProgressPubSub,
+            scheduledVideoDownloadPubSub,
+            downloadProgressKeyStore
           )
 
           fileTypeDetector = new PathFileTypeDetector[F](new Tika(), ioBlocker)

@@ -6,7 +6,6 @@ import cats.{Applicative, ApplicativeError}
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 import com.ruchij.core.daos.doobie.DoobieUtils.singleUpdate
 import com.ruchij.core.daos.scheduling.SchedulingDao
-import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 import com.ruchij.core.daos.workers.models.Worker
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import doobie.free.connection.ConnectionIO
@@ -78,18 +77,9 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
     timestamp: DateTime
   ): ConnectionIO[Option[Worker]] =
     singleUpdate {
-      sql"""
-          UPDATE scheduled_video
-          SET status = ${SchedulingStatus.Active}, last_updated_at = $timestamp
-          WHERE video_metadata_id = $scheduledVideoId AND status != ${SchedulingStatus.Active}
-        """.update.run
+      sql"UPDATE worker SET task_assigned_at = $timestamp WHERE id = $workerId AND task_assigned_at IS NULL"
+        .update.run
     }
-      .productR {
-        singleUpdate {
-          sql"UPDATE worker SET task_assigned_at = $timestamp WHERE id = $workerId AND task_assigned_at IS NULL"
-            .update.run
-        }
-      }
       .productR {
         singleUpdate {
           sql"""

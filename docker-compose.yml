@@ -38,6 +38,8 @@ services:
       - postgres
       - redis
       - migration-application
+      - kafka-broker
+      - schema-registry
     ports:
       - 8000:8000
       - 5005:5005
@@ -49,6 +51,8 @@ services:
       REDIS_HOSTNAME: "redis"
       REDIS_PORT: "6379"
       REDIS_PASSWORD: "redis-password"
+      KAFKA_BROKERS: "kafka-broker:9092"
+      SCHEMA_REGISTRY: "http://schema-registry:8081"
       VIDEO_FOLDER: "/opt/videos"
       IMAGE_FOLDER: "/opt/images"
 
@@ -60,6 +64,8 @@ services:
       - postgres
       - redis
       - migration-application
+      - kafka-broker
+      - schema-registry
     ports:
       - 5006:5005
     volumes: *docker-volumes
@@ -70,6 +76,8 @@ services:
       REDIS_HOSTNAME: "redis"
       REDIS_PORT: "6379"
       REDIS_PASSWORD: "redis-password"
+      KAFKA_BROKERS: "kafka-broker:9092"
+      SCHEMA_REGISTRY: "http://schema-registry:8081"
       VIDEO_FOLDER: "/opt/videos"
       IMAGE_FOLDER: "/opt/images"
 
@@ -104,10 +112,44 @@ services:
     environment:
       REDIS_PASSWORD: "redis-password"
 
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    ports:
-      - 8001:80
+#  pgadmin:
+#    image: dpage/pgadmin4:latest
+#    ports:
+#      - 8001:80
+#    environment:
+#      PGADMIN_DEFAULT_EMAIL: "me@ruchij.com"
+#      PGADMIN_DEFAULT_PASSWORD: "password"
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper
     environment:
-      PGADMIN_DEFAULT_EMAIL: "me@ruchij.com"
-      PGADMIN_DEFAULT_PASSWORD: "password"
+      ZOOKEEPER_CLIENT_PORT: 2181
+
+  kafka-broker:
+    image: confluentinc/cp-kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-broker:9092
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry
+    depends_on:
+      - zookeeper
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: zookeeper:2181
+
+  schema-registry-ui:
+    image: landoop/schema-registry-ui
+    depends_on:
+      - schema-registry
+    ports:
+      - 8001:8000
+    environment:
+      SCHEMAREGISTRY_URL: http://schema-registry:8081
+      PROXY: "true"

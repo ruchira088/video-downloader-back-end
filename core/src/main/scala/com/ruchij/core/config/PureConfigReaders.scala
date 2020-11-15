@@ -1,5 +1,6 @@
 package com.ruchij.core.config
 
+import org.http4s.Uri
 import org.joda.time.{DateTime, LocalTime}
 import pureconfig.ConfigReader
 import pureconfig.error.CannotConvert
@@ -16,6 +17,11 @@ object PureConfigReaders {
   implicit val dateTimePureConfigReader: ConfigReader[DateTime] =
     stringConfigParserTry {
       dateTime => Try(DateTime.parse(dateTime))
+    }
+
+  implicit val uriPureConfigReader: ConfigReader[Uri] =
+    ConfigReader.fromNonEmptyString { input =>
+      Uri.fromString(input).left.map(error => CannotConvert(input, classOf[Uri].getSimpleName, error.message))
     }
 
   def stringConfigParserTry[A](parser: String => Try[A])(implicit classTag: ClassTag[A]): ConfigReader[A] =

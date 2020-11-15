@@ -66,7 +66,8 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
         .product(OptionT.liftF(JodaClock[F].timestamp))
         .flatMapF {
           case (task, timestamp) =>
-            transaction(workerDao.assignTask(worker.id, task.videoMetadata.id, timestamp))
+            schedulingService.updateStatus(task.videoMetadata.id, SchedulingStatus.Active)
+              .product(transaction(workerDao.assignTask(worker.id, task.videoMetadata.id, timestamp)))
               .as(Option(timestamp -> task))
         }
         .flatMapF { case (timestamp, scheduledVideoDownload) =>

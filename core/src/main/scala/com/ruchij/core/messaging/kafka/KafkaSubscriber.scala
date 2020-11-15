@@ -27,7 +27,7 @@ object KafkaSubscriber {
 
   def apply[F[_]: ConcurrentEffect: ContextShift: Timer, A](
     kafkaConfiguration: KafkaConfiguration
-  )(implicit topic: Topic[A]): Resource[F, KafkaSubscriber[F, A]] =
+  )(implicit topic: KafkaTopic[A]): Resource[F, KafkaSubscriber[F, A]] =
     consumerResource {
       ConsumerSettings[F, Unit, A](RecordDeserializer[F, Unit], topic.deserializer[F](kafkaConfiguration))
         .withBootstrapServers(kafkaConfiguration.bootstrapServers)

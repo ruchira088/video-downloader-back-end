@@ -1,7 +1,7 @@
 package com.ruchij.api.config
 
 import cats.ApplicativeError
-import com.ruchij.core.config.{ApplicationInformation, DownloadConfiguration, RedisConfiguration}
+import com.ruchij.core.config.{ApplicationInformation, DownloadConfiguration, KafkaConfiguration, RedisConfiguration}
 import com.ruchij.core.config.PureConfigReaders._
 import com.ruchij.core.types.FunctionKTypes
 import com.ruchij.migration.config.DatabaseConfiguration
@@ -15,6 +15,7 @@ case class ApiServiceConfiguration(
   databaseConfiguration: DatabaseConfiguration,
   redisConfiguration: RedisConfiguration,
   authenticationConfiguration: AuthenticationConfiguration,
+  kafkaConfiguration: KafkaConfiguration,
   applicationInformation: ApplicationInformation
 )
 

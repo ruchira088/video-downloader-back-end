@@ -31,7 +31,7 @@ class KafkaPublisher[F[_]: Sync, A](topicName: String, kafkaProducer: KafkaProdu
 
 object KafkaPublisher {
   def apply[F[_]: ConcurrentEffect: ContextShift, A](kafkaConfiguration: KafkaConfiguration)(
-    implicit topic: Topic[A]
+    implicit topic: KafkaTopic[A]
   ): Resource[F, KafkaPublisher[F, A]] =
     producerResource {
       ProducerSettings[F, Unit, A](RecordSerializer[F, Unit], topic.serializer[F](kafkaConfiguration))

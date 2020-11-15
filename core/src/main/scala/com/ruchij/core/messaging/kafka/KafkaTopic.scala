@@ -10,7 +10,7 @@ import fs2.kafka.{RecordDeserializer, RecordSerializer}
 import vulcan.Codec
 import vulcan.generic._
 
-trait Topic[A] {
+trait KafkaTopic[A] {
   val name: String
 
   val codec: Codec[A]
@@ -26,17 +26,16 @@ trait Topic[A] {
     }
 }
 
-object Topic {
-  case object ScheduledVideoDownloadTopic extends Topic[ScheduledVideoDownload] {
+object KafkaTopic {
+  implicit case object ScheduledVideoDownloadTopic extends KafkaTopic[ScheduledVideoDownload] {
     override val name: String = "scheduled-video-downloads"
 
     override val codec: Codec[ScheduledVideoDownload] = Codec.derive[ScheduledVideoDownload]
   }
 
-  case object DownloadProgressTopic extends Topic[DownloadProgress] {
+  implicit case object DownloadProgressTopic extends KafkaTopic[DownloadProgress] {
     override val name: String = "download-progress-topic"
 
     override val codec: Codec[DownloadProgress] = Codec.derive[DownloadProgress]
   }
-
 }
