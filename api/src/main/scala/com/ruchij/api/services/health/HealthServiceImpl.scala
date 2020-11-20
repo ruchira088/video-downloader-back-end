@@ -5,11 +5,14 @@ import cats.effect.{Concurrent, Timer}
 import cats.implicits._
 import cats.~>
 import com.eed3si9n.ruchij.api.BuildInfo
-import com.ruchij.api.services.health.models.HealthCheck.HealthCheckKey
+import com.ruchij.api.services.health.models.kv.HealthCheckKey
+import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.api.services.health.models.{HealthCheck, HealthStatus, ServiceInformation}
 import com.ruchij.core.config.{ApplicationInformation, DownloadConfiguration}
 import com.ruchij.core.kv.KeySpacedKeyValueStore
 import com.ruchij.core.logging.Logger
+import com.ruchij.core.messaging.PubSub
+import com.ruchij.core.messaging.kafka.KafkaSubscriber.CommittableRecord
 import com.ruchij.core.services.repository.FileRepositoryService
 import com.ruchij.core.types.JodaClock
 import doobie.free.connection.ConnectionIO
@@ -23,6 +26,7 @@ import scala.language.postfixOps
 class HealthServiceImpl[F[_]: Timer: Concurrent](
   fileRepositoryService: FileRepositoryService[F],
   keySpacedKeyValueStore: KeySpacedKeyValueStore[F, HealthCheckKey, DateTime],
+  pubSub: PubSub[F, CommittableRecord[F, *], HealthCheckMessage],
   applicationInformation: ApplicationInformation,
   downloadConfiguration: DownloadConfiguration
 )(implicit transaction: ConnectionIO ~> F)
@@ -51,6 +55,33 @@ class HealthServiceImpl[F[_]: Timer: Concurrent](
         case _ => HealthStatus.Unhealthy
       }
     }
+
+  val pubSubCheck: F[HealthStatus] =
+    JodaClock[F].timestamp
+      .flatMap { dateTime =>
+        Concurrent[F]
+          .start {
+            pubSub
+              .subscribe(s"${applicationInformation.instanceId}-${dateTime.getMillis}")
+              .filter {
+                case CommittableRecord(HealthCheckMessage(instanceId, messageDateTime), _) =>
+                  instanceId == applicationInformation.instanceId && dateTime.isEqual(messageDateTime)
+              }
+              .take(1)
+              .compile
+              .drain
+          }
+          .flatMap { fiber =>
+            Stream.emit[F, HealthCheckMessage](HealthCheckMessage(applicationInformation.instanceId, dateTime))
+              .repeat
+              .metered[F](1 second)
+              .evalMap(message => pubSub.publish(message))
+              .interruptWhen[F](fiber.join.map[Either[Throwable, Unit]](Right.apply))
+              .compile
+              .drain
+              .as(HealthStatus.Healthy)
+          }
+      }
 
   val fileRepositoryCheck: F[HealthStatus] =
     for {
@@ -94,7 +125,7 @@ class HealthServiceImpl[F[_]: Timer: Concurrent](
       }
 
   val timeout: F[HealthStatus.Unhealthy.type] =
-    Timer[F].sleep(5 seconds).as(HealthStatus.Unhealthy)
+    Timer[F].sleep(20 seconds).as(HealthStatus.Unhealthy)
 
   override val serviceInformation: F[ServiceInformation] =
     ServiceInformation.create[F](applicationInformation)
@@ -104,10 +135,12 @@ class HealthServiceImpl[F[_]: Timer: Concurrent](
       databaseStatusFiber <- Concurrent[F].start(check(databaseCheck))
       fileRepositoryStatusFiber <- Concurrent[F].start(check(fileRepositoryCheck))
       keyValueStoreStatusFiber <- Concurrent[F].start(check(keyValueStoreCheck))
+      pubSubStatusFiber <- Concurrent[F].start(check(pubSubCheck))
 
       databaseStatus <- databaseStatusFiber.join
       fileRepositoryStatus <- fileRepositoryStatusFiber.join
       keyValueStoreStatus <- keyValueStoreStatusFiber.join
-    } yield HealthCheck(databaseStatus, fileRepositoryStatus, keyValueStoreStatus)
+      pubSubStatus <- pubSubStatusFiber.join
+    } yield HealthCheck(databaseStatus, fileRepositoryStatus, keyValueStoreStatus, pubSubStatus)
 
 }

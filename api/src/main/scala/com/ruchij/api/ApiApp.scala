@@ -7,7 +7,8 @@ import com.ruchij.api.config.ApiServiceConfiguration
 import com.ruchij.api.services.authentication.AuthenticationServiceImpl
 import com.ruchij.api.services.authentication.models.AuthenticationToken.AuthenticationKeySpace
 import com.ruchij.api.services.health.HealthServiceImpl
-import com.ruchij.api.services.health.models.HealthCheck.HealthCheckKeySpace
+import com.ruchij.api.services.health.models.kv.HealthCheckKey.HealthCheckKeySpace
+import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.api.web.Routes
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
@@ -107,6 +108,7 @@ object ApiApp extends IOApp {
 
           downloadProgressPubSub <- KafkaPubSub[F, DownloadProgress](apiServiceConfiguration.kafkaConfiguration)
           scheduledVideoDownloadPubSub <- KafkaPubSub[F, ScheduledVideoDownload](apiServiceConfiguration.kafkaConfiguration)
+          healthCheckPubSub <- KafkaPubSub[F, HealthCheckMessage](apiServiceConfiguration.kafkaConfiguration)
 
           schedulingService = new SchedulingServiceImpl[F, ConnectionIO](
             videoAnalysisService,
@@ -119,6 +121,7 @@ object ApiApp extends IOApp {
           healthService = new HealthServiceImpl[F](
             repositoryService,
             healthCheckKeyStore,
+            healthCheckPubSub,
             apiServiceConfiguration.applicationInformation,
             apiServiceConfiguration.downloadConfiguration
           )
