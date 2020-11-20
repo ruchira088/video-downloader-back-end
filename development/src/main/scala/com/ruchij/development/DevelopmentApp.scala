@@ -12,13 +12,16 @@ import com.ruchij.api.config.{ApiServiceConfiguration, AuthenticationConfigurati
 import com.ruchij.batch.BatchApp
 import com.ruchij.batch.config.{BatchServiceConfiguration, WorkerConfiguration}
 import com.ruchij.batch.services.scheduler.Scheduler
-import com.ruchij.core.config.{ApplicationInformation, DownloadConfiguration, RedisConfiguration}
+import com.ruchij.core.config.{ApplicationInformation, DownloadConfiguration, KafkaConfiguration, RedisConfiguration}
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.migration.MigrationApp
 import com.ruchij.migration.config.DatabaseConfiguration
 import javax.net.ssl.{KeyManagerFactory, SSLContext}
-import org.http4s.HttpApp
+import net.manub.embeddedkafka.EmbeddedKafkaConfig
+import net.manub.embeddedkafka.schemaregistry.{EmbeddedKWithSR, EmbeddedKafka, EmbeddedKafkaConfig => EmbeddedKafkaSchemaRegistryConfig}
+import org.http4s.Uri.Scheme
 import org.http4s.server.blaze.BlazeServerBuilder
+import org.http4s.{HttpApp, Uri}
 import org.joda.time.LocalTime
 import redis.embedded.RedisServer
 
@@ -54,6 +57,15 @@ object DevelopmentApp extends IOApp {
       30 days
     )
 
+  val KafkaConfig: KafkaConfiguration =
+    KafkaConfiguration(
+      s"localhost:${EmbeddedKafkaConfig.defaultKafkaPort}",
+      Uri(
+        Some(Scheme.http),
+        Some(Uri.Authority(port = Some(EmbeddedKafkaSchemaRegistryConfig.defaultSchemaRegistryPort)))
+      )
+    )
+
   val ApiConfig: ApiServiceConfiguration =
     ApiServiceConfiguration(
       HttpConfig,
@@ -61,12 +73,12 @@ object DevelopmentApp extends IOApp {
       DatabaseConfig,
       RedisConfig,
       AuthenticationConfig,
-      ???,
+      KafkaConfig,
       ApplicationInfo
     )
 
   val BatchConfig: BatchServiceConfiguration =
-    BatchServiceConfiguration(DownloadConfig, WorkerConfig, RedisConfig, DatabaseConfig, ???, ApplicationInfo)
+    BatchServiceConfiguration(DownloadConfig, WorkerConfig, RedisConfig, DatabaseConfig, KafkaConfig, ApplicationInfo)
 
   val KeyStoreResource = "/localhost.jks"
 
@@ -76,25 +88,24 @@ object DevelopmentApp extends IOApp {
     program[IO].use {
       case (api, batch, sslContext) =>
         for {
-          _ <-
-            BlazeServerBuilder[IO](ExecutionContext.global)
-              .withHttpApp(api)
-              .bindHttp(HttpConfig.port, HttpConfig.host)
-              .withSslContext(sslContext)
-              .serve
-              .compile
-              .drain
-              .start
+          _ <- BlazeServerBuilder[IO](ExecutionContext.global)
+            .withHttpApp(api)
+            .bindHttp(HttpConfig.port, HttpConfig.host)
+            .withSslContext(sslContext)
+            .serve
+            .compile
+            .drain
+            .start
 
           _ <- batch.init
           _ <- batch.run.compile.drain
-        }
-        yield ExitCode.Success
+        } yield ExitCode.Success
     }
 
   def program[F[+ _]: ConcurrentEffect: Timer: ContextShift]: Resource[F, (HttpApp[F], Scheduler[F], SSLContext)] =
     for {
       _ <- startEmbeddedRedis[F]
+      _ <- startEmbeddedKafkaAndSchemaRegistry[F]
       blocker <- Blocker[F]
       sslContext <- Resource.liftF(blocker.blockOn(createSslContext[F]))
 
@@ -111,12 +122,19 @@ object DevelopmentApp extends IOApp {
         Resource.make(Sync[F].delay(redisServer.start()))(_ => Sync[F].delay(redisServer.stop()))
       }
 
+  def startEmbeddedKafkaAndSchemaRegistry[F[_]: Sync](
+    implicit embeddedKafkaConfig: EmbeddedKafkaSchemaRegistryConfig
+  ): Resource[F, EmbeddedKWithSR] =
+    Resource.make(Sync[F].delay(EmbeddedKafka.start())) { kafka =>
+      Sync[F].delay(kafka.stop(false))
+    }
+
   def createSslContext[F[_]: Sync]: F[SSLContext] =
     for {
       keyStore <- Sync[F].delay(KeyStore.getInstance("JKS"))
 
-      _ <-
-        Resource.make {
+      _ <- Resource
+        .make {
           OptionT(Sync[F].delay(Option(getClass.getResourceAsStream(KeyStoreResource))))
             .getOrElseF {
               ApplicativeError[F, Throwable].raiseError {
@@ -124,9 +142,9 @@ object DevelopmentApp extends IOApp {
               }
             }
         }(inputStream => Sync[F].delay(inputStream.close()))
-          .use {
-            inputStream => Sync[F].delay(keyStore.load(inputStream, KeyStorePassword.toCharArray))
-          }
+        .use { inputStream =>
+          Sync[F].delay(keyStore.load(inputStream, KeyStorePassword.toCharArray))
+        }
 
       algorithm <- Sync[F].delay(KeyManagerFactory.getDefaultAlgorithm)
       keyManagerFactory <- Sync[F].delay(KeyManagerFactory.getInstance(algorithm))
@@ -134,7 +152,6 @@ object DevelopmentApp extends IOApp {
 
       sslContext <- Sync[F].delay(SSLContext.getInstance("TLS"))
       _ <- Sync[F].delay(sslContext.init(keyManagerFactory.getKeyManagers, null, null))
-    }
-    yield sslContext
+    } yield sslContext
 
 }

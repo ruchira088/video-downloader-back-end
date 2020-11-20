@@ -17,6 +17,7 @@ case class ServiceInformation(
   sbtVersion: String,
   javaVersion: String,
   currentTimestamp: DateTime,
+  instanceId: String,
   gitBranch: Option[String],
   gitCommit: Option[String],
   buildTimestamp: Option[DateTime]
@@ -37,6 +38,7 @@ object ServiceInformation {
         BuildInfo.sbtVersion,
         javaVersion,
         timestamp,
+        applicationInformation.instanceId,
         applicationInformation.gitBranch,
         applicationInformation.gitCommit,
         applicationInformation.buildTimestamp
