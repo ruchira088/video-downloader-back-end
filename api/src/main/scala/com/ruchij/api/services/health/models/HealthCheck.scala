@@ -3,8 +3,6 @@ package com.ruchij.api.services.health.models
 import shapeless.Generic.Aux
 import shapeless.{::, Generic, HNil}
 
-import scala.language.postfixOps
-
 case class HealthCheck(
   database: HealthStatus,
   fileRepository: HealthStatus,

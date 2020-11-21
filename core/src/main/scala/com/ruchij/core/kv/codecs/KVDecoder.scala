@@ -58,12 +58,12 @@ object KVDecoder {
     implicit headKVDecoder: KVDecoder[F, H],
     tailKVDecoder: KVDecoder[F, T]
   ): KVDecoder[F, H :: T] = {
-    case KeyList() => ApplicativeError[F, Throwable].raiseError(new IllegalArgumentException("Key is too short"))
-
     case KeyList(head, tail @ _*) =>
       headKVDecoder.decode(head).flatMap { value =>
         tailKVDecoder.decode(tail.mkString(KeySeparator)).map(value :: _)
       }
+
+    case _ => ApplicativeError[F, Throwable].raiseError(new IllegalArgumentException("Key is too short"))
   }
 
   implicit def hNilKVDecoder[F[_]: ApplicativeError[*[_], Throwable]]: KVDecoder[F, HNil] =

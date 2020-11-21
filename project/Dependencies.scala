@@ -2,8 +2,8 @@ import sbt._
 
 object Dependencies
 {
-  val ScalaVersion = "2.13.3"
-  val Http4sVersion = "0.21.9"
+  val ScalaVersion = "2.13.4"
+  val Http4sVersion = "0.21.11"
   val CirceVersion = "0.13.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
@@ -70,7 +70,7 @@ object Dependencies
 
   lazy val kindProjector = "org.typelevel" %% "kind-projector" % "0.11.1" cross CrossVersion.full
 
-  lazy val scalaTypedHoles = "com.github.cb372" % "scala-typed-holes" % "0.1.5" cross CrossVersion.full
+  lazy val scalaTypedHoles = "com.github.cb372" % "scala-typed-holes" % "0.1.6" cross CrossVersion.full
 
   lazy val betterMonadicFor = "com.olegpy" %% "better-monadic-for" % "0.3.1"
 

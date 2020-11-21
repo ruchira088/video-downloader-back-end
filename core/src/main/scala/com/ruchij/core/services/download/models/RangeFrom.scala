@@ -28,6 +28,8 @@ object RangeFrom extends Singleton {
   val fromRange: Range => Option[RangeFrom] = {
     case Range(unit, NonEmptyList(head, tail)) =>
       if (unit == RangeUnit.Bytes && head.second.isEmpty && tail.isEmpty) Some(RangeFrom(head.first)) else None
+
+    case _ => None
   }
 }
 
