@@ -44,6 +44,12 @@
             - name: Add Bitnami Helm charts repository
               command: helm repo add bitnami https://charts.bitnami.com/bitnami
 
+            - name: Add ConfluentInc Helm charts repository
+              command: helm repo add confluentinc https://confluentinc.github.io/cp-helm-charts/
+
+            - name: Update Helm repositories
+              command: helm repo update
+
             - name: Deploy PostgreSQL
               block:
                 - name: Deploy database
@@ -90,11 +96,32 @@
                 - name: Install Redis Helm chart
                   shell: |
                     KUBECONFIG=k8s-output/kubeconfig helm install redis \
-                    --set password="{{ secrets.redis_password }}" \
-                    --set cluster.enabled=false \
-                    --namespace {{ namespace }} \
-                    bitnami/redis
+                      --set password="{{ secrets.redis_password }}" \
+                      --set cluster.enabled=false \
+                      --namespace {{ namespace }} \
+                      bitnami/redis
                   when: redis_output.resources | length == 0
+
+            - name: Deploy Kafka and Schema Registry
+              block:
+                - name: Check Zookeeper service in K8s
+                  k8s_info:
+                    kind: Service
+                    namespace: "{{ namespace }}"
+                    name: confluent-cp-zookeeper
+                    kubeconfig: k8s-output/kubeconfig
+                  register: zookeeper_output
+
+                - name: Install Confluent Helm chart
+                  shell: |
+                    KUBECONFIG=k8s-output/kubeconfig helm install confluent \
+                      --set cp-kafka-rest.enabled=false \
+                      --set cp-kafka-connect.enabled=false \
+                      --set cp-control-center.enabled=false \
+                      --set cp-ksql-server.enabled=false \
+                      --namespace {{ namespace }} \
+                      confluentinc/cp-helm-charts
+                  when: zookeeper_output.resources | length == 0
 
         - name: Deploy DB migration
           block:
