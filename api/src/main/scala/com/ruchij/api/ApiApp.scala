@@ -27,7 +27,6 @@ import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.repository.FileRepositoryService
 import com.ruchij.core.services.scheduling.SchedulingServiceImpl
 import com.ruchij.core.services.scheduling.models.DownloadProgress
-import com.ruchij.core.services.scheduling.models.DownloadProgress.DownloadProgressKeySpace
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
 import com.ruchij.core.types.FunctionKTypes
 import com.ruchij.migration.MigrationApp
@@ -79,7 +78,6 @@ object ApiApp extends IOApp {
           redisCommands <- Redis[F].utf8(apiServiceConfiguration.redisConfiguration.uri)
           keyValueStore = new RedisKeyValueStore[F](redisCommands)
 
-          downloadProgressKeyStore = new KeySpacedKeyValueStore(DownloadProgressKeySpace, keyValueStore)
           healthCheckKeyStore = new KeySpacedKeyValueStore(HealthCheckKeySpace, keyValueStore)
           authenticationKeyStore = new KeySpacedKeyValueStore(AuthenticationKeySpace, keyValueStore)
 
@@ -115,8 +113,7 @@ object ApiApp extends IOApp {
             videoAnalysisService,
             DoobieSchedulingDao,
             downloadProgressPubSub,
-            scheduledVideoDownloadPubSub,
-            downloadProgressKeyStore
+            scheduledVideoDownloadPubSub
           )
 
           healthService = new HealthServiceImpl[F](

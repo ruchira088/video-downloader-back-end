@@ -7,13 +7,11 @@ import cats.{Applicative, ApplicativeError, Monad, ~>}
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.exceptions.{ResourceConflictException, ResourceNotFoundException}
-import com.ruchij.core.kv.KeySpacedKeyValueStore
 import com.ruchij.core.messaging.PubSub
 import com.ruchij.core.messaging.kafka.KafkaSubscriber.CommittableRecord
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.scheduling.SchedulingServiceImpl.notFound
 import com.ruchij.core.services.scheduling.models.DownloadProgress
-import com.ruchij.core.services.scheduling.models.DownloadProgress.DownloadProgressKey
 import com.ruchij.core.services.video.VideoAnalysisService
 import com.ruchij.core.types.JodaClock
 import fs2.Stream
@@ -23,8 +21,7 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
   videoAnalysisService: VideoAnalysisService[F],
   schedulingDao: SchedulingDao[T],
   downloadProgressPubSub: PubSub[F, CommittableRecord[F, *], DownloadProgress],
-  scheduledVideoDownloadPubSub: PubSub[F, CommittableRecord[F, *], ScheduledVideoDownload],
-  keySpacedKeyValueStore: KeySpacedKeyValueStore[F, DownloadProgressKey, DownloadProgress]
+  scheduledVideoDownloadPubSub: PubSub[F, CommittableRecord[F, *], ScheduledVideoDownload]
 )(implicit transaction: T ~> F)
     extends SchedulingService[F] {
 

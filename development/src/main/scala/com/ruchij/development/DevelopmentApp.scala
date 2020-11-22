@@ -78,7 +78,7 @@ object DevelopmentApp extends IOApp {
     )
 
   val BatchConfig: BatchServiceConfiguration =
-    BatchServiceConfiguration(DownloadConfig, WorkerConfig, RedisConfig, DatabaseConfig, KafkaConfig, ApplicationInfo)
+    BatchServiceConfiguration(DownloadConfig, WorkerConfig, DatabaseConfig, KafkaConfig, ApplicationInfo)
 
   val KeyStoreResource = "/localhost.jks"
 

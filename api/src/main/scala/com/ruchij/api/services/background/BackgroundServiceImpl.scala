@@ -33,7 +33,7 @@ class BackgroundServiceImpl[F[_]: Timer: Concurrent](
           .toList
           .traverse {
             case DownloadProgress(videoId, _, bytes) =>
-              schedulingService.publishDownloadProgress(videoId, bytes)
+              schedulingService.updateDownloadProgress(videoId, bytes)
           }
       }
       .compile

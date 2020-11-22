@@ -17,7 +17,6 @@ import com.ruchij.core.daos.snapshot.DoobieSnapshotDao
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.workers.DoobieWorkerDao
-import com.ruchij.core.kv.{KeySpacedKeyValueStore, RedisKeyValueStore}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.kafka.KafkaPubSub
 import com.ruchij.core.services.download.Http4sDownloadService
@@ -25,12 +24,9 @@ import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector}
 import com.ruchij.core.services.scheduling.SchedulingServiceImpl
 import com.ruchij.core.services.scheduling.models.DownloadProgress
-import com.ruchij.core.services.scheduling.models.DownloadProgress.{DownloadProgressKey, DownloadProgressKeySpace}
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
 import com.ruchij.core.types.FunctionKTypes
 import com.ruchij.migration.MigrationApp
-import dev.profunktor.redis4cats.Redis
-import dev.profunktor.redis4cats.effect.Log.Stdout.instance
 import doobie.free.connection.ConnectionIO
 import org.apache.tika.Tika
 import org.http4s.client.asynchttpclient.AsyncHttpClient
@@ -84,13 +80,6 @@ object BatchApp extends IOApp {
           cpuBlockingThreadPool <- Resource.liftF(Sync[F].delay(Executors.newFixedThreadPool(processorCount)))
           cpuBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(cpuBlockingThreadPool))
 
-          redisCommands <- Redis[F].utf8(batchServiceConfiguration.redisConfiguration.uri)
-          keyValueStore = new RedisKeyValueStore[F](redisCommands)
-          downloadProgressKeyStore = new KeySpacedKeyValueStore[F, DownloadProgressKey, DownloadProgress](
-            DownloadProgressKeySpace,
-            keyValueStore
-          )
-
           _ <- Resource.liftF(MigrationApp.migration[F](batchServiceConfiguration.databaseConfiguration, ioBlocker))
 
           workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
@@ -114,8 +103,7 @@ object BatchApp extends IOApp {
             videoAnalysisService,
             DoobieSchedulingDao,
             downloadProgressPubSub,
-            scheduledVideoDownloadPubSub,
-            downloadProgressKeyStore
+            scheduledVideoDownloadPubSub
           )
 
           fileTypeDetector = new PathFileTypeDetector[F](new Tika(), ioBlocker)

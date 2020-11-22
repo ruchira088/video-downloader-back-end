@@ -32,7 +32,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
     fr"""
       SELECT
         scheduled_video.scheduled_at, scheduled_video.last_updated_at, scheduled_video.status,
-        scheduled_vide.downloaded_bytes, video_metadata.url, video_metadata.id, video_metadata.video_site,
+        scheduled_video.downloaded_bytes, video_metadata.url, video_metadata.id, video_metadata.video_site,
         video_metadata.title, video_metadata.duration,video_metadata.size, file_resource.id,
         file_resource.created_at, file_resource.path, file_resource.media_type, file_resource.size,
         scheduled_video.completed_at

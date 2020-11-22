@@ -1,7 +1,7 @@
 package com.ruchij.batch.config
 
 import cats.ApplicativeError
-import com.ruchij.core.config.{ApplicationInformation, DownloadConfiguration, KafkaConfiguration, RedisConfiguration}
+import com.ruchij.core.config.{ApplicationInformation, DownloadConfiguration, KafkaConfiguration}
 import com.ruchij.core.config.PureConfigReaders._
 import com.ruchij.core.types.FunctionKTypes
 import com.ruchij.migration.config.DatabaseConfiguration
@@ -12,7 +12,6 @@ import pureconfig.generic.auto._
 case class BatchServiceConfiguration(
   downloadConfiguration: DownloadConfiguration,
   workerConfiguration: WorkerConfiguration,
-  redisConfiguration: RedisConfiguration,
   databaseConfiguration: DatabaseConfiguration,
   kafkaConfiguration: KafkaConfiguration,
   applicationInformation: ApplicationInformation
