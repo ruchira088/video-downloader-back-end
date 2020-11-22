@@ -17,11 +17,12 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
 
   override def insert(scheduledVideoDownload: ScheduledVideoDownload): ConnectionIO[Int] =
     sql"""
-      INSERT INTO scheduled_video (scheduled_at, last_updated_at, status, video_metadata_id, completed_at)
+      INSERT INTO scheduled_video (scheduled_at, last_updated_at, status, downloaded_bytes, video_metadata_id, completed_at)
         VALUES (
           ${scheduledVideoDownload.scheduledAt},
           ${scheduledVideoDownload.lastUpdatedAt},
           ${scheduledVideoDownload.status},
+          ${scheduledVideoDownload.downloadedBytes},
           ${scheduledVideoDownload.videoMetadata.id},
           ${scheduledVideoDownload.completedAt}
           )
@@ -31,9 +32,10 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
     fr"""
       SELECT
         scheduled_video.scheduled_at, scheduled_video.last_updated_at, scheduled_video.status,
-        video_metadata.url, video_metadata.id,video_metadata.video_site, video_metadata.title,
-        video_metadata.duration,video_metadata.size, file_resource.id, file_resource.created_at,
-        file_resource.path, file_resource.media_type, file_resource.size, scheduled_video.completed_at
+        scheduled_vide.downloaded_bytes, video_metadata.url, video_metadata.id, video_metadata.video_site,
+        video_metadata.title, video_metadata.duration,video_metadata.size, file_resource.id,
+        file_resource.created_at, file_resource.path, file_resource.media_type, file_resource.size,
+        scheduled_video.completed_at
       FROM scheduled_video
       JOIN video_metadata ON scheduled_video.video_metadata_id = video_metadata.id
       JOIN file_resource ON video_metadata.thumbnail_id = file_resource.id
@@ -51,23 +53,38 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
             completed_at IS NULL AND
             video_metadata_id = $id
       """.update.run
-    }
-      .productR(OptionT(getById(id))).value
+    }.productR(OptionT(getById(id)))
+      .value
 
-  override def updatedBetween(start: DateTime, end: DateTime): ConnectionIO[Seq[ScheduledVideoDownload]] =
-    (SelectQuery ++ fr"WHERE scheduled_video.last_updated_at >= $start AND scheduled_video.last_updated_at < $end")
-      .query[ScheduledVideoDownload]
-      .to[Seq]
-
-  override def updateStatus(id: String, status: SchedulingStatus, timestamp: DateTime): ConnectionIO[Option[ScheduledVideoDownload]] =
+  override def updateStatus(
+    id: String,
+    status: SchedulingStatus,
+    timestamp: DateTime
+  ): ConnectionIO[Option[ScheduledVideoDownload]] =
     singleUpdate[ConnectionIO] {
       sql"""
         UPDATE scheduled_video
           SET status = $status, last_updated_at = $timestamp
           WHERE video_metadata_id = $id
-       """.update.run
-    }
-      .productR(OptionT(getById(id))).value
+       """
+        .update.run
+    }.productR(OptionT(getById(id)))
+      .value
+
+  override def updatedDownloadProgress(
+    id: String,
+    downloadedBytes: Long,
+    timestamp: DateTime
+  ): ConnectionIO[Option[ScheduledVideoDownload]] =
+    singleUpdate[ConnectionIO] {
+      sql"""
+        UPDATE scheduled_video
+          SET downloaded_bytes = $downloadedBytes, last_updated_at = $timestamp
+          WHERE video_metadata_id = $id
+      """
+        .update.run
+    }.productR(OptionT(getById(id)))
+      .value
 
   override def search(
     term: Option[String],

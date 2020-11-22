@@ -14,7 +14,6 @@ import com.ruchij.api.circe.Decoders._
 import com.ruchij.api.circe.Encoders._
 import com.ruchij.api.web.requests.queryparams.SingleValueQueryParameter.SubscriberGroupIdQueryParameter
 import com.ruchij.api.web.responses.{EventStreamHeartBeat, SearchResult}
-import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.services.video.models.DurationRange
 import fs2.Stream
 import io.circe.Encoder
@@ -49,11 +48,19 @@ object SchedulingRoutes {
             .fromQueryParameters[F]
             .run(queryParameters)
 
-          scheduledVideoDownloads <- schedulingService.search(term, videoUrls, pageNumber, pageSize, sortBy, order, None)
+          scheduledVideoDownloads <- schedulingService.search(
+            term,
+            videoUrls,
+            pageNumber,
+            pageSize,
+            sortBy,
+            order,
+            None
+          )
 
           response <- Ok {
             SearchResult(
-              scheduledVideoDownloads.map(_.asJson(valueWithProgress[ScheduledVideoDownload, Long])),
+              scheduledVideoDownloads,
               pageNumber,
               pageSize,
               term,
@@ -66,10 +73,10 @@ object SchedulingRoutes {
         } yield response
 
       case GET -> Root / "videoId" / videoId =>
-        schedulingService.getById(videoId)
-          .flatMap {
-            scheduledVideoDownload =>
-              Ok(scheduledVideoDownload.asJson(valueWithProgress[ScheduledVideoDownload, Long]))
+        schedulingService
+          .getById(videoId)
+          .flatMap { scheduledVideoDownload =>
+            Ok(scheduledVideoDownload)
           }
 
       case request @ PUT -> Root / "videoId" / videoId =>
@@ -83,7 +90,8 @@ object SchedulingRoutes {
 
       case GET -> Root / "active" :? SubscriberGroupIdQueryParameter(groupId) =>
         Ok {
-          schedulingService.downloadProgress(groupId)
+          schedulingService
+            .subscribeToDownloadProgress(groupId)
             .map { downloadProgress =>
               ServerSentEvent(Encoder[DownloadProgress].apply(downloadProgress).noSpaces, ActiveDownload)
             }

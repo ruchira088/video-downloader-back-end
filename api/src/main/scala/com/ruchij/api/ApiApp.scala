@@ -2,10 +2,11 @@ package com.ruchij.api
 
 import java.util.concurrent.Executors
 
-import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
+import cats.effect.{Blocker, Concurrent, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
 import com.ruchij.api.config.ApiServiceConfiguration
 import com.ruchij.api.services.authentication.AuthenticationServiceImpl
 import com.ruchij.api.services.authentication.models.AuthenticationToken.AuthenticationKeySpace
+import com.ruchij.api.services.background.BackgroundServiceImpl
 import com.ruchij.api.services.health.HealthServiceImpl
 import com.ruchij.api.services.health.models.kv.HealthCheckKey.HealthCheckKeySpace
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
@@ -131,6 +132,15 @@ object ApiApp extends IOApp {
             apiServiceConfiguration.authenticationConfiguration,
             cpuBlocker
           )
+
+          backgroundService =
+            new BackgroundServiceImpl[F](
+              downloadProgressPubSub,
+              schedulingService,
+              s"background-${apiServiceConfiguration.applicationInformation.instanceId}"
+            )
+
+          _ <- Resource.liftF(Concurrent[F].start(backgroundService.run))
 
         } yield
           Routes(

@@ -1,7 +1,6 @@
 package com.ruchij.core.services.scheduling
 
 import cats.data.{NonEmptyList, OptionT}
-import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload.Progress
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.scheduling.models.DownloadProgress
@@ -19,9 +18,9 @@ trait SchedulingService[F[_]] {
     sortBy: SortBy,
     order: Order,
     schedulingStatus: Option[SchedulingStatus]
-  ): F[Seq[ScheduledVideoDownload with Progress[Long]]]
+  ): F[Seq[ScheduledVideoDownload]]
 
-  def getById(id: String): F[ScheduledVideoDownload with Progress[Long]]
+  def getById(id: String): F[ScheduledVideoDownload]
 
   def completeTask(id: String): F[ScheduledVideoDownload]
 
@@ -29,9 +28,11 @@ trait SchedulingService[F[_]] {
 
   val acquireTask: OptionT[F, ScheduledVideoDownload]
 
-  def updates(groupId: String): Stream[F, ScheduledVideoDownload]
+  def updateDownloadProgress(id: String, downloadedBytes: Long): F[ScheduledVideoDownload]
 
-  def updateDownloadProgress(id: String, downloadedBytes: Long): F[Unit]
+  def subscribeToUpdates(groupId: String): Stream[F, ScheduledVideoDownload]
 
-  def downloadProgress(groupId: String): Stream[F, DownloadProgress]
+  def publishDownloadProgress(id: String, downloadedBytes: Long): F[Unit]
+
+  def subscribeToDownloadProgress(groupId: String): Stream[F, DownloadProgress]
 }

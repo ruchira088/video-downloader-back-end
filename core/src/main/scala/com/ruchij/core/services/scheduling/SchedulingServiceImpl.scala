@@ -5,7 +5,6 @@ import cats.effect.{Sync, Timer}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Monad, ~>}
 import com.ruchij.core.daos.scheduling.SchedulingDao
-import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload.Progress
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.exceptions.{ResourceConflictException, ResourceNotFoundException}
 import com.ruchij.core.kv.KeySpacedKeyValueStore
@@ -29,28 +28,6 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
 )(implicit transaction: T ~> F)
     extends SchedulingService[F] {
 
-  def decorateWithProgress(
-    scheduledVideoDownload: ScheduledVideoDownload
-  ): F[ScheduledVideoDownload with Progress[Long]] =
-    for {
-      downloadedBytes <- if (scheduledVideoDownload.completedAt.nonEmpty)
-        Applicative[F].pure[Long](scheduledVideoDownload.videoMetadata.size)
-      else
-        keySpacedKeyValueStore
-          .get(DownloadProgressKey(scheduledVideoDownload.videoMetadata.id))
-          .map(_.map(_.bytes).getOrElse[Long](0))
-
-      decorated = new ScheduledVideoDownload(
-        scheduledVideoDownload.scheduledAt,
-        scheduledVideoDownload.lastUpdatedAt,
-        scheduledVideoDownload.status,
-        scheduledVideoDownload.videoMetadata,
-        scheduledVideoDownload.completedAt
-      ) with Progress[Long] {
-        override val progress: Long = downloadedBytes
-      }
-    } yield decorated
-
   override def schedule(uri: Uri): F[ScheduledVideoDownload] =
     for {
       searchResult <- transaction {
@@ -68,6 +45,7 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
         timestamp,
         timestamp,
         SchedulingStatus.Queued,
+        0,
         videoMetadataResult.value,
         None
       )
@@ -84,13 +62,11 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
     sortBy: SortBy,
     order: Order,
     schedulingStatus: Option[SchedulingStatus]
-  ): F[Seq[ScheduledVideoDownload with Progress[Long]]] =
+  ): F[Seq[ScheduledVideoDownload]] =
     transaction(schedulingDao.search(term, videoUrls, pageNumber, pageSize, sortBy, order, schedulingStatus))
-      .flatMap(_.toList.traverse(decorateWithProgress))
 
-  override def getById(id: String): F[ScheduledVideoDownload with Progress[Long]] =
+  override def getById(id: String): F[ScheduledVideoDownload] =
     OptionT(transaction(schedulingDao.getById(id)))
-      .semiflatMap(decorateWithProgress)
       .getOrElseF {
         ApplicativeError[F, Throwable].raiseError(notFound(id))
       }
@@ -131,22 +107,34 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
       }
     }
 
-  override def updates(groupId: String): Stream[F, ScheduledVideoDownload] =
+  override def subscribeToUpdates(groupId: String): Stream[F, ScheduledVideoDownload] =
     scheduledVideoDownloadPubSub.subscribe(groupId).map {
       case CommittableRecord(value, _) => value
     }
 
-  override def updateDownloadProgress(id: String, downloadedBytes: Long): F[Unit] = {
+  override def publishDownloadProgress(id: String, downloadedBytes: Long): F[Unit] = {
     for {
       timestamp <- JodaClock[F].timestamp
       result <- downloadProgressPubSub.publish(DownloadProgress(id, timestamp, downloadedBytes))
     } yield result
   }
 
-  override def downloadProgress(groupId: String): Stream[F, DownloadProgress] =
+  override def subscribeToDownloadProgress(groupId: String): Stream[F, DownloadProgress] =
     downloadProgressPubSub.subscribe(groupId).map {
       case CommittableRecord(value, _) => value
     }
+
+  override def updateDownloadProgress(id: String, downloadedBytes: Long): F[ScheduledVideoDownload] =
+    for {
+      timestamp <- JodaClock[F].timestamp
+      result <-
+        OptionT {
+          transaction {
+            schedulingDao.updatedDownloadProgress(id, downloadedBytes, timestamp)
+          }
+        }
+          .getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
+    } yield result
 }
 
 object SchedulingServiceImpl {

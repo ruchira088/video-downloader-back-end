@@ -59,7 +59,7 @@ class WorkExecutorImpl[F[_]: Concurrent: Clock, T[_]](
           .product {
             downloadResult.data
               .evalMap { bytes =>
-                schedulingService.updateDownloadProgress(videoId, bytes)
+                schedulingService.publishDownloadProgress(videoId, bytes)
               }
               .interruptWhen(interrupt)
               .compile

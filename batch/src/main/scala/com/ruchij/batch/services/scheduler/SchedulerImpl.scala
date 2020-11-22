@@ -134,7 +134,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
     Stream.eval(Topic[F, Option[ScheduledVideoDownload]](None))
       .flatMap { topic =>
         idleWorkers
-          .concurrently(topic.publish(schedulingService.updates(s"batch-$instanceId").map(Some.apply)))
+          .concurrently(topic.publish(schedulingService.subscribeToUpdates(s"scheduler-$instanceId").map(Some.apply)))
           .parEvalMapUnordered(workerConfiguration.maxConcurrentDownloads) { worker =>
             Bracket[F, Throwable].guarantee {
               SchedulerImpl

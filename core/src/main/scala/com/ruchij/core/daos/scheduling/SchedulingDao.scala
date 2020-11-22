@@ -13,9 +13,9 @@ trait SchedulingDao[F[_]] {
 
   def completeTask(id: String, timestamp: DateTime): F[Option[ScheduledVideoDownload]]
 
-  def updatedBetween(start: DateTime, end: DateTime): F[Seq[ScheduledVideoDownload]]
-
   def updateStatus(id: String, status: SchedulingStatus, timestamp: DateTime): F[Option[ScheduledVideoDownload]]
+
+  def updatedDownloadProgress(id: String, downloadedBytes: Long, timestamp: DateTime): F[Option[ScheduledVideoDownload]]
 
   def search(
     term: Option[String],
