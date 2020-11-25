@@ -3,8 +3,9 @@ package com.ruchij.api
 import java.util.concurrent.Executors
 
 import cats.effect.{Blocker, Concurrent, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
-import com.ruchij.api.config.ApiServiceConfiguration
-import com.ruchij.api.services.authentication.AuthenticationServiceImpl
+import com.ruchij.api.config.{ApiServiceConfiguration, AuthenticationConfiguration}
+import com.ruchij.api.config.AuthenticationConfiguration.PasswordAuthenticationConfiguration
+import com.ruchij.api.services.authentication.{AuthenticationServiceImpl, NoAuthenticationService}
 import com.ruchij.api.services.authentication.models.AuthenticationToken.AuthenticationKeySpace
 import com.ruchij.api.services.background.BackgroundServiceImpl
 import com.ruchij.api.services.health.HealthServiceImpl
@@ -126,11 +127,18 @@ object ApiApp extends IOApp {
             apiServiceConfiguration.downloadConfiguration
           )
 
-          authenticationService = new AuthenticationServiceImpl[F](
-            authenticationKeyStore,
-            apiServiceConfiguration.authenticationConfiguration,
-            cpuBlocker
-          )
+          authenticationService =
+            apiServiceConfiguration.authenticationConfiguration match {
+              case AuthenticationConfiguration.NoAuthenticationConfiguration =>
+                new NoAuthenticationService[F]
+
+              case passwordAuthenticationConfiguration: PasswordAuthenticationConfiguration =>
+                new AuthenticationServiceImpl[F](
+                  authenticationKeyStore,
+                  passwordAuthenticationConfiguration,
+                  cpuBlocker
+                )
+            }
 
           backgroundService =
             new BackgroundServiceImpl[F](

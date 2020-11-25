@@ -28,7 +28,8 @@ object Routes {
   ): HttpApp[F] = {
     implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
 
-    val authMiddleware: HttpMiddleware[F] = Authenticator.middleware[F](authenticationService, strict = true)
+    val authMiddleware: HttpMiddleware[F] =
+      if (authenticationService.enabled) Authenticator.middleware[F](authenticationService, strict = true) else identity
 
     val routes: HttpRoutes[F] =
       WebServerRoutes(ioBlocker) <+>

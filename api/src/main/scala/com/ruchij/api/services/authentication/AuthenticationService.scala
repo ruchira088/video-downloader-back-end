@@ -14,6 +14,8 @@ trait AuthenticationService[F[_]] {
   def authenticate(secret: Secret): F[AuthenticationToken]
 
   def logout(secret: Secret): F[AuthenticationToken]
+
+  val enabled: Boolean
 }
 
 object AuthenticationService {

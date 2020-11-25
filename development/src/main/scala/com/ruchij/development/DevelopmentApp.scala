@@ -7,8 +7,8 @@ import cats.data.OptionT
 import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
 import cats.implicits._
 import com.ruchij.api.ApiApp
-import com.ruchij.api.config.AuthenticationConfiguration.HashedPassword
-import com.ruchij.api.config.{ApiServiceConfiguration, AuthenticationConfiguration, HttpConfiguration}
+import com.ruchij.api.config.AuthenticationConfiguration.{HashedPassword, NoAuthenticationConfiguration, PasswordAuthenticationConfiguration}
+import com.ruchij.api.config.{ApiServiceConfiguration, HttpConfiguration}
 import com.ruchij.batch.BatchApp
 import com.ruchij.batch.config.{BatchServiceConfiguration, WorkerConfiguration}
 import com.ruchij.batch.services.scheduler.Scheduler
@@ -51,8 +51,8 @@ object DevelopmentApp extends IOApp {
 
   val HttpConfig: HttpConfiguration = HttpConfiguration("0.0.0.0", 443)
 
-  val AuthenticationConfig: AuthenticationConfiguration =
-    AuthenticationConfiguration(
+  val PasswordAuthenticationConfig: PasswordAuthenticationConfiguration =
+    PasswordAuthenticationConfiguration(
       HashedPassword("$2a$10$m5CQAirrrJKRqG3oalNSU.TUOn56v88isxMbNPi8cXXI35gY20hO."), // The password is "top-secret"
       30 days
     )
@@ -72,7 +72,7 @@ object DevelopmentApp extends IOApp {
       DownloadConfig,
       DatabaseConfig,
       RedisConfig,
-      AuthenticationConfig,
+      NoAuthenticationConfiguration,
       KafkaConfig,
       ApplicationInfo
     )

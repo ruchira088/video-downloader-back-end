@@ -4,7 +4,7 @@ import cats.data.OptionT
 import cats.effect.{Blocker, Clock, ContextShift, Sync}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError}
-import com.ruchij.api.config.AuthenticationConfiguration
+import com.ruchij.api.config.AuthenticationConfiguration.PasswordAuthenticationConfiguration
 import com.ruchij.api.exceptions.AuthenticationException
 import com.ruchij.api.services.authentication.AuthenticationService.{Password, Secret}
 import com.ruchij.api.services.authentication.models.AuthenticationToken
@@ -15,23 +15,28 @@ import org.mindrot.jbcrypt.BCrypt
 
 class AuthenticationServiceImpl[F[+ _]: Sync: ContextShift: Clock](
   keySpacedKeyValueStore: KeySpacedKeyValueStore[F, AuthenticationTokenKey, AuthenticationToken],
-  authenticationConfiguration: AuthenticationConfiguration,
+  passwordAuthenticationConfiguration: PasswordAuthenticationConfiguration,
   blocker: Blocker
 ) extends AuthenticationService[F] {
   override def login(password: Password): F[AuthenticationToken] =
-    blocker.delay {
-      BCrypt.checkpw(password.value, authenticationConfiguration.hashedPassword.value)
-    }
+    blocker
+      .delay {
+        BCrypt.checkpw(password.value, passwordAuthenticationConfiguration.hashedPassword.value)
+      }
       .flatMap { isAuthenticated =>
         if (isAuthenticated)
           for {
             timestamp <- JodaClock[F].timestamp
             secret <- RandomGenerator[F, Secret].generate
 
-            authenticationToken = AuthenticationToken(secret, timestamp.plus(authenticationConfiguration.sessionDuration.toMillis), timestamp, 0)
+            authenticationToken = AuthenticationToken(
+              secret,
+              timestamp.plus(passwordAuthenticationConfiguration.sessionDuration.toMillis),
+              timestamp,
+              0
+            )
             _ <- keySpacedKeyValueStore.put(AuthenticationTokenKey(secret), authenticationToken)
-          }
-          yield authenticationToken
+          } yield authenticationToken
         else ApplicativeError[F, Throwable].raiseError(AuthenticationException("Invalid password"))
       }
 
@@ -47,7 +52,12 @@ class AuthenticationServiceImpl[F[+ _]: Sync: ContextShift: Clock](
                 AuthenticationException(s"Authentication token expired at $expiresAt")
               }
 
-            authenticationToken = AuthenticationToken(secret, timestamp.plus(authenticationConfiguration.sessionDuration.toMillis), issuedAt, renewals + 1)
+            authenticationToken = AuthenticationToken(
+              secret,
+              timestamp.plus(passwordAuthenticationConfiguration.sessionDuration.toMillis),
+              issuedAt,
+              renewals + 1
+            )
             _ <- keySpacedKeyValueStore.put(AuthenticationTokenKey(secret), authenticationToken)
           } yield authenticationToken
       }
@@ -57,10 +67,12 @@ class AuthenticationServiceImpl[F[+ _]: Sync: ContextShift: Clock](
 
   override def logout(secret: Secret): F[AuthenticationToken] =
     OptionT(keySpacedKeyValueStore.get(AuthenticationTokenKey(secret)))
-      .semiflatTap {
-        _ => keySpacedKeyValueStore.remove(AuthenticationTokenKey(secret))
+      .semiflatTap { _ =>
+        keySpacedKeyValueStore.remove(AuthenticationTokenKey(secret))
       }
       .getOrElseF[AuthenticationToken] {
         ApplicativeError[F, Throwable].raiseError(AuthenticationException.MissingAuthenticationToken)
       }
+
+  override val enabled: Boolean = true
 }
