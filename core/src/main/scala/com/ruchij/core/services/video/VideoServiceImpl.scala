@@ -4,6 +4,7 @@ import cats.data.OptionT
 import cats.implicits._
 import cats.{MonadError, ~>}
 import com.ruchij.core.daos.resource.FileResourceDao
+import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.snapshot.SnapshotDao
 import com.ruchij.core.daos.snapshot.models.Snapshot
 import com.ruchij.core.daos.video.VideoDao
@@ -17,6 +18,7 @@ class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: MonadError[*[_],
   videoDao: VideoDao[T],
   videoMetadataDao: VideoMetadataDao[T],
   snapshotDao: SnapshotDao[T],
+  schedulingDao: SchedulingDao[T],
   fileResourceDao: FileResourceDao[T]
 )(implicit transaction: T ~> F)
     extends VideoService[F] {
@@ -53,6 +55,7 @@ class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: MonadError[*[_],
               .productL(snapshotDao.deleteByVideo(videoId))
               .flatMap(_.toList.traverse(snapshot => fileResourceDao.deleteById(snapshot.fileResource.id)))
               .productR(videoDao.deleteById(videoId))
+              .productR(schedulingDao.deleteById(videoId))
               .productR(videoMetadataDao.deleteById(videoId))
               .productR(fileResourceDao.deleteById(video.videoMetadata.thumbnail.id))
               .productR(fileResourceDao.deleteById(video.fileResource.id))

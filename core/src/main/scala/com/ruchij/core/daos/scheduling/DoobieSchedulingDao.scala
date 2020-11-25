@@ -86,6 +86,15 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
     }.productR(OptionT(getById(id)))
       .value
 
+  override def deleteById(id: String): ConnectionIO[Option[ScheduledVideoDownload]] =
+    OptionT(getById(id))
+      .productL {
+        singleUpdate[ConnectionIO] {
+          sql"DELETE FROM scheduled_video WHERE video_metadata_id = $id".update.run
+        }
+      }
+      .value
+
   override def search(
     term: Option[String],
     videoUrls: Option[NonEmptyList[Uri]],

@@ -112,6 +112,7 @@ object BatchApp extends IOApp {
             DoobieVideoDao,
             DoobieVideoMetadataDao,
             DoobieSnapshotDao,
+            DoobieSchedulingDao,
             DoobieFileResourceDao
           )
 

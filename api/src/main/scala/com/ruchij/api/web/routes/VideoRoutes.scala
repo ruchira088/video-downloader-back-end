@@ -48,6 +48,8 @@ object VideoRoutes {
 
       case GET -> Root / "id" / videoId => Ok(videoService.fetchById(videoId))
 
+      case DELETE -> Root / "id" / videoId => Ok(videoService.deleteById(videoId))
+
       case request @ PATCH -> Root / "id" / videoId / "metadata" =>
         for {
           videoMetadataUpdateRequest <- request.as[VideoMetadataUpdateRequest]

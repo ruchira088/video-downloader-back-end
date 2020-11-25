@@ -101,6 +101,7 @@ object ApiApp extends IOApp {
             DoobieVideoDao,
             DoobieVideoMetadataDao,
             DoobieSnapshotDao,
+            DoobieSchedulingDao,
             DoobieFileResourceDao
           )
 

@@ -17,6 +17,8 @@ trait SchedulingDao[F[_]] {
 
   def updatedDownloadProgress(id: String, downloadedBytes: Long, timestamp: DateTime): F[Option[ScheduledVideoDownload]]
 
+  def deleteById(id: String): F[Option[ScheduledVideoDownload]]
+
   def search(
     term: Option[String],
     videoUrls: Option[NonEmptyList[Uri]],
