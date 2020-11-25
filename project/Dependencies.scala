@@ -3,7 +3,7 @@ import sbt._
 object Dependencies
 {
   val ScalaVersion = "2.13.4"
-  val Http4sVersion = "0.21.11"
+  val Http4sVersion = "0.21.12"
   val CirceVersion = "0.13.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
@@ -34,7 +34,7 @@ object Dependencies
 
   lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.3"
 
-  lazy val doobie = "org.tpolecat" %% "doobie-core" % "0.9.2"
+  lazy val doobie = "org.tpolecat" %% "doobie-core" % "0.9.4"
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.13.1"
 
