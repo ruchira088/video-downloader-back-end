@@ -6,6 +6,7 @@ import com.ruchij.api.services.authentication.AuthenticationService
 import com.ruchij.api.services.health.HealthService
 import com.ruchij.api.web.middleware.{Authenticator, ExceptionHandler, NotFoundHandler}
 import com.ruchij.api.web.routes._
+import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.asset.AssetService
 import com.ruchij.core.services.scheduling.SchedulingService
 import com.ruchij.core.services.video.{VideoAnalysisService, VideoService}
@@ -22,7 +23,8 @@ object Routes {
     assetService: AssetService[F],
     healthService: HealthService[F],
     authenticationService: AuthenticationService[F],
-    ioBlocker: Blocker
+    ioBlocker: Blocker,
+    apiLogger: Logger[F]
   ): HttpApp[F] = {
     implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
 
@@ -39,7 +41,7 @@ object Routes {
         )
 
     CORS {
-      ExceptionHandler {
+      ExceptionHandler(apiLogger) {
         NotFoundHandler(routes)
       }
     }

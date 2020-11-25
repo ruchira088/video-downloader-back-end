@@ -19,5 +19,7 @@ case class Logger[F[_]: Sync](logger: TypesafeLogger) {
 }
 
 object Logger {
+  def apply[F[_]](implicit logger: Logger[F]): Logger[F] = logger
+
   def apply[F[_]: Sync, A: ClassTag]: Logger[F] = Logger[F](TypesafeLogger[A])
 }

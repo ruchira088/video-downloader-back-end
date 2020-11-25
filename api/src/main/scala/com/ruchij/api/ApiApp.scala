@@ -20,6 +20,7 @@ import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.kv.{KeySpacedKeyValueStore, RedisKeyValueStore}
 import com.ruchij.core.kv.keys.KVStoreKey.{kvStoreKeyDecoder, kvStoreKeyEncoder}
+import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.kafka.KafkaPubSub
 import com.ruchij.core.services.asset.AssetServiceImpl
 import com.ruchij.core.services.download.Http4sDownloadService
@@ -147,7 +148,8 @@ object ApiApp extends IOApp {
             assetService,
             healthService,
             authenticationService,
-            ioBlocker
+            ioBlocker,
+            Logger[F, ApiApp.type]
           )
       }
 
