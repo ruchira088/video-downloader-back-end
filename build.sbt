@@ -3,6 +3,8 @@ import sbtrelease.Git
 import sbtrelease.ReleaseStateTransformations._
 import sbtrelease.Utilities.stateW
 
+import scala.sys.process.ProcessBuilder
+
 val ReleaseBranch = "dev"
 val ProductionBranch = "master"
 
@@ -132,14 +134,26 @@ val mergeReleaseToMaster = { state: State =>
 
   val (updatedState, releaseTag) = state.extract.runTask(releaseTagName, state)
 
-  val actions =
-    git.cmd("checkout", ProductionBranch) #&&
-      git.cmd("merge", releaseTag) #&&
-      git.cmd("checkout", ReleaseBranch)
-
   updatedState.log.info(s"Merging $releaseTag to $ProductionBranch...")
 
-  actions !!
+  val userInput: Option[ProcessBuilder] =
+    SimpleReader.readLine("Push changes to the remote master branch? [Y/n]")
+      .map(_.toUpperCase) match {
+      case Some("Y") | Some("")  =>
+        updatedState.log.info(s"Pushing changes to remote master ($releaseTag)...")
+        Some(git.pushChanges)
+
+      case _ =>
+        updatedState.log.warn("Remember to push changes to remote master")
+        None
+    }
+
+  val actions: List[ProcessBuilder] =
+    List(git.cmd("checkout", ProductionBranch), git.cmd("merge", releaseTag)) ++
+      userInput ++
+      List(git.cmd("checkout", ReleaseBranch))
+
+  actions.reduce(_ #&& _) !!
 
   updatedState.log.info(s"Successfully merged $releaseTag to $ProductionBranch")
 
