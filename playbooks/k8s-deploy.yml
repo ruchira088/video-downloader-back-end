@@ -117,7 +117,6 @@
                     KUBECONFIG=k8s-output/kubeconfig helm install confluent \
                       --set cp-kafka-rest.enabled=false \
                       --set cp-kafka-connect.enabled=false \
-                      --set cp-control-center.enabled=false \
                       --set cp-ksql-server.enabled=false \
                       --namespace {{ namespace }} \
                       confluentinc/cp-helm-charts
