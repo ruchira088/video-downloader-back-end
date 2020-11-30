@@ -12,14 +12,14 @@
             namespace: video-downloader-back-end
             hostname: api.video.home.ruchij.com
             pgadmin_hostname: pgadmin.video.home.ruchij.com
-            host_video_folder: /mnt/Data/Videos
-            host_image_folder: /home/ruchira/Images
+            host_video_folder: /mnt/md0/video-downloader/videos
+            host_image_folder: /home/ruchira/Data/video-downloader/production/images
           development:
             namespace: video-downloader-back-end-{{ git_branch }}
             hostname: api.{{ git_branch }}.video.home.ruchij.com
             pgadmin_hostname: pgadmin.{{ git_branch }}.video.home.ruchij.com
-            host_video_folder: /home/ruchira/video-downloader/videos
-            host_image_folder: /home/ruchira/video-downloader/images
+            host_video_folder: /mnt/assets/data/video-downloader/development/videos
+            host_image_folder: /home/ruchira/Data/video-downloader/development/images
 
     - set_fact:
         namespace: "{{ k8s_vars[env].namespace }}"
@@ -117,7 +117,6 @@
                     KUBECONFIG=k8s-output/kubeconfig helm install confluent \
                       --set cp-kafka-rest.enabled=false \
                       --set cp-kafka-connect.enabled=false \
-                      --set cp-control-center.enabled=false \
                       --set cp-ksql-server.enabled=false \
                       --namespace {{ namespace }} \
                       confluentinc/cp-helm-charts

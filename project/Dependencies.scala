@@ -14,7 +14,7 @@ object Dependencies
 
   lazy val http4sCirce = "org.http4s" %% "http4s-circe" % Http4sVersion
 
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "2.2.0"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "2.3.0"
 
   lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.3.0"
 
@@ -54,7 +54,7 @@ object Dependencies
 
   lazy val thumbnailator = "net.coobird" % "thumbnailator" % "0.4.13"
 
-  lazy val apacheTika = "org.apache.tika" % "tika-core" % "1.24.1"
+  lazy val apacheTika = "org.apache.tika" % "tika-core" % "1.25"
 
   lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "0.10.3"
 
