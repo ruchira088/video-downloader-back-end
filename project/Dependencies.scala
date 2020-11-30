@@ -14,7 +14,7 @@ object Dependencies
 
   lazy val http4sCirce = "org.http4s" %% "http4s-circe" % Http4sVersion
 
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "2.2.0"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "2.3.0"
 
   lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.3.0"
 
