@@ -54,7 +54,7 @@ object Dependencies
 
   lazy val thumbnailator = "net.coobird" % "thumbnailator" % "0.4.13"
 
-  lazy val apacheTika = "org.apache.tika" % "tika-core" % "1.24.1"
+  lazy val apacheTika = "org.apache.tika" % "tika-core" % "1.25"
 
   lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "0.10.3"
 
