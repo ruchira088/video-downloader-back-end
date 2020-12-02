@@ -121,8 +121,6 @@
                         --set cp-kafka-rest.enabled=false \
                         --set cp-kafka-connect.enabled=false \
                         --set cp-ksql-server.enabled=false \
-                        --set cp-zookeeper.servers=1 \
-                        --set cp-kafka.brokers=1 \
                         --namespace {{ namespace }} \
                         confluentinc/cp-helm-charts
                   when: zookeeper_output.resources | length == 0

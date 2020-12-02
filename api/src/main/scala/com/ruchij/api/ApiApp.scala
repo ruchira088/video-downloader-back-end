@@ -1,8 +1,10 @@
 package com.ruchij.api
 
+import java.util.UUID
 import java.util.concurrent.Executors
 
 import cats.effect.{Blocker, Concurrent, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
+import cats.implicits._
 import com.ruchij.api.config.{ApiServiceConfiguration, AuthenticationConfiguration}
 import com.ruchij.api.config.AuthenticationConfiguration.PasswordAuthenticationConfiguration
 import com.ruchij.api.services.authentication.{AuthenticationServiceImpl, NoAuthenticationService}
@@ -30,7 +32,7 @@ import com.ruchij.core.services.repository.FileRepositoryService
 import com.ruchij.core.services.scheduling.SchedulingServiceImpl
 import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
-import com.ruchij.core.types.FunctionKTypes
+import com.ruchij.core.types.{FunctionKTypes, RandomGenerator}
 import com.ruchij.migration.MigrationApp
 import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.effect.Log.Stdout.instance
@@ -157,6 +159,7 @@ object ApiApp extends IOApp {
             assetService,
             healthService,
             authenticationService,
+            RandomGenerator[F, UUID].map(_.toString),
             ioBlocker,
             Logger[F, ApiApp.type]
           )
