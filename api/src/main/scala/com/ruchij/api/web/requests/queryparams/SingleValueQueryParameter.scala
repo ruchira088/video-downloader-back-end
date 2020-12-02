@@ -26,5 +26,5 @@ object SingleValueQueryParameter {
 
   case object OrderQueryParameter extends SingleValueQueryParameter[Order]("order", defaultValue = Order.Descending)
 
-  case object SubscriberGroupIdQueryParameter extends SingleValueQueryParameter(key = "group-id", defaultValue = "default")
+  case object SubscriberGroupIdQueryParameter extends SingleValueQueryParameter[Option[String]](key = "group-id", defaultValue = None)
 }
