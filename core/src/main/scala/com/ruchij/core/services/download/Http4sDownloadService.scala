@@ -24,7 +24,7 @@ class Http4sDownloadService[F[_]: Concurrent: ContextShift: Clock](
           .map(_ -> start)
       }
       .evalMap {
-        case (response, start) =>
+        case (response, initialSize) =>
           Http4sUtils
             .header[F](`Content-Length`)
             .product(Http4sUtils.header[F](`Content-Type`))
@@ -34,14 +34,14 @@ class Http4sDownloadService[F[_]: Concurrent: ContextShift: Clock](
             }
             .run(response)
             .map {
-              case (fileSize, mediaType) =>
-                DownloadResult.create[F](uri, fileKey, fileSize + start, mediaType) {
+              case (contentLength, mediaType) =>
+                DownloadResult.create[F](uri, fileKey, contentLength + initialSize, mediaType) {
                   response.body
                     .observe { data =>
                       repositoryService.write(fileKey, data)
                     }
                     .chunkMin(MinChunkUpdateSize)
-                    .scan(start) { case (total, chunk) => total + chunk.size }
+                    .scan(initialSize) { case (total, chunk) => total + chunk.size }
                 }
             }
       }
