@@ -64,12 +64,13 @@
 
                     - name: Install Postgres Helm chart
                       shell: |
-                        KUBECONFIG=k8s-output/kubeconfig helm install postgresql \
-                          --set postgresqlUsername="{{ secrets.database_user }}" \
-                          --set postgresqlPassword="{{ secrets.database_password }}" \
-                          --set postgresqlDatabase=video-downloader \
-                          --namespace {{ namespace }} \
-                          bitnami/postgresql
+                        KUBECONFIG=k8s-output/kubeconfig \
+                          helm install postgresql \
+                            --set postgresqlUsername="{{ secrets.database_user }}" \
+                            --set postgresqlPassword="{{ secrets.database_password }}" \
+                            --set postgresqlDatabase=video-downloader \
+                            --namespace {{ namespace }} \
+                            bitnami/postgresql
                       when: postgresql_output.resources | length == 0
 
                 - name: Deploy pgadmin
@@ -95,11 +96,12 @@
 
                 - name: Install Redis Helm chart
                   shell: |
-                    KUBECONFIG=k8s-output/kubeconfig helm install redis \
-                      --set password="{{ secrets.redis_password }}" \
-                      --set cluster.enabled=false \
-                      --namespace {{ namespace }} \
-                      bitnami/redis
+                    KUBECONFIG=k8s-output/kubeconfig \
+                      helm install redis \
+                        --set password="{{ secrets.redis_password }}" \
+                        --set cluster.enabled=false \
+                        --namespace {{ namespace }} \
+                        bitnami/redis
                   when: redis_output.resources | length == 0
 
             - name: Deploy Kafka and Schema Registry
@@ -114,12 +116,15 @@
 
                 - name: Install Confluent Helm chart
                   shell: |
-                    KUBECONFIG=k8s-output/kubeconfig helm install confluent \
-                      --set cp-kafka-rest.enabled=false \
-                      --set cp-kafka-connect.enabled=false \
-                      --set cp-ksql-server.enabled=false \
-                      --namespace {{ namespace }} \
-                      confluentinc/cp-helm-charts
+                    KUBECONFIG=k8s-output/kubeconfig \
+                      helm install confluent \
+                        --set cp-kafka-rest.enabled=false \
+                        --set cp-kafka-connect.enabled=false \
+                        --set cp-ksql-server.enabled=false \
+                        --set cp-zookeeper.servers=1 \
+                        --set cp-kafka.brokers=1 \
+                        --namespace {{ namespace }} \
+                        confluentinc/cp-helm-charts
                   when: zookeeper_output.resources | length == 0
 
         - name: Deploy DB migration

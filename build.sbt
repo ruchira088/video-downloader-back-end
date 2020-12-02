@@ -137,15 +137,15 @@ val mergeReleaseToMaster = { state: State =>
   updatedState.log.info(s"Merging $releaseTag to $ProductionBranch...")
 
   val userInput: Option[ProcessBuilder] =
-    SimpleReader.readLine("Push changes to the remote master branch (y/n)? [y] ")
-      .map(_.toLowerCase) match {
-        case Some("y") | Some("")  =>
-          updatedState.log.info(s"Pushing changes to remote master ($releaseTag)...")
-          Some(git.cmd("push"))
+    SimpleReader.readLine("Push changes to the remote master branch? (Y/n) ")
+      .map(_.toUpperCase) match {
+      case Some("Y") | Some("")  =>
+        updatedState.log.info(s"Pushing changes to remote master ($releaseTag)...")
+        Some(git.cmd("push"))
 
-        case _ =>
-          updatedState.log.warn("Remember to push changes to remote master")
-          None
+      case _ =>
+        updatedState.log.warn("Remember to push changes to remote master")
+        None
     }
 
   val actions: List[ProcessBuilder] =
