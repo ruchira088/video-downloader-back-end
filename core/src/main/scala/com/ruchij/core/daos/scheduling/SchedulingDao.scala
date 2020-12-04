@@ -30,4 +30,6 @@ trait SchedulingDao[F[_]] {
   ): F[Seq[ScheduledVideoDownload]]
 
   def staleTasks(timestamp: DateTime): F[Seq[ScheduledVideoDownload]]
+
+  def acquireTask(timestamp: DateTime): F[Option[ScheduledVideoDownload]]
 }
