@@ -121,21 +121,22 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
 
   override def staleTasks(timestamp: DateTime): ConnectionIO[Seq[ScheduledVideoDownload]] =
       sql"""
-        SELECT video_metadata_id FROM scheduled_video
+        SELECT video_metadata_id, last_updated_at FROM scheduled_video
           WHERE completed_at IS NULL
-            AND status = ${SchedulingStatus.Active}
+            AND status IN (${SchedulingStatus.Active}, ${SchedulingStatus.Stale}, ${SchedulingStatus.Acquired})
             AND last_updated_at < ${timestamp.minusMinutes(10)}
+            ORDER BY scheduled_at ASC
       """
-      .query[String]
+      .query[(String, DateTime)]
       .to[Seq]
       .flatMap {
         _.traverse {
-          videoMetadataId =>
+          case (videoMetadataId, lastUpdatedAt) =>
             sql"""
               UPDATE scheduled_video
                 SET status = ${SchedulingStatus.Stale}, last_updated_at = $timestamp
                 WHERE
-                  video_metadata_id = $videoMetadataId AND status = ${SchedulingStatus.Active}
+                  video_metadata_id = $videoMetadataId AND last_updated_at = $lastUpdatedAt
             """
               .update
               .run
@@ -152,6 +153,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
     sql"""
       SELECT video_metadata_id FROM scheduled_video
         WHERE status = ${SchedulingStatus.Queued}
+        ORDER BY scheduled_at ASC
         LIMIT 1
    """
       .query[String]
