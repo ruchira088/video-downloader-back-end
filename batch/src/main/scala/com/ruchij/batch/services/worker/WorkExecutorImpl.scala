@@ -1,15 +1,16 @@
 package com.ruchij.batch.services.worker
 
 import cats.data.OptionT
-import cats.effect.{Clock, Concurrent}
+import cats.effect.{Concurrent, Timer}
 import cats.implicits._
-import cats.~>
+import cats.{Applicative, ~>}
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService
 import com.ruchij.core.config.DownloadConfiguration
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.video.models.Video
+import com.ruchij.core.daos.workers.WorkerDao
 import com.ruchij.core.daos.workers.models.Worker
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.download.DownloadService
@@ -21,8 +22,12 @@ import com.ruchij.core.types.JodaClock
 import fs2.Stream
 import org.http4s.Uri
 
-class WorkExecutorImpl[F[_]: Concurrent: Clock, T[_]](
+import scala.concurrent.duration.DurationInt
+import scala.language.postfixOps
+
+class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
   fileResourceDao: FileResourceDao[T],
+  workerDao: WorkerDao[T],
   schedulingService: SchedulingService[F],
   videoAnalysisService: VideoAnalysisService[F],
   videoService: VideoService[F],
@@ -35,7 +40,7 @@ class WorkExecutorImpl[F[_]: Concurrent: Clock, T[_]](
 
   private val logger = Logger[F, WorkExecutorImpl[F, T]]
 
-  def downloadVideo(videoId: String, downloadUri: Uri, interrupt: Stream[F, Boolean]): F[(FileResource, DownloadResult[F])] = {
+  def downloadVideo(workerId: String, videoId: String, downloadUri: Uri, interrupt: Stream[F, Boolean]): F[(FileResource, DownloadResult[F])] = {
     val videoFileName = downloadUri.path.split("/").lastOption.getOrElse("video.unknown")
     val videoPath =
       s"${downloadConfiguration.videoFolder}/$videoId-$videoFileName"
@@ -58,8 +63,16 @@ class WorkExecutorImpl[F[_]: Concurrent: Clock, T[_]](
           }
           .product {
             downloadResult.data
-              .evalMap { bytes =>
-                schedulingService.publishDownloadProgress(videoId, bytes)
+              .observe {
+                _.groupWithin(Int.MaxValue, 30 seconds).evalMap {
+                  _ => JodaClock[F].timestamp.flatMap { timestamp =>
+                    transaction(workerDao.updateHeartBeat(workerId, timestamp))
+                      .productR(Applicative[F].unit)
+                  }
+                }
+              }
+              .evalMap { byteCount =>
+                schedulingService.publishDownloadProgress(videoId, byteCount)
               }
               .interruptWhen(interrupt)
               .compile
@@ -75,7 +88,7 @@ class WorkExecutorImpl[F[_]: Concurrent: Clock, T[_]](
       .productR {
         videoAnalysisService
           .downloadUri(scheduledVideoDownload.videoMetadata.url)
-          .flatMap { downloadUri => downloadVideo(scheduledVideoDownload.videoMetadata.id, downloadUri, interrupt) }
+          .flatMap { downloadUri => downloadVideo(worker.id, scheduledVideoDownload.videoMetadata.id, downloadUri, interrupt) }
           .productL {
             schedulingService.updateStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Downloaded)
           }

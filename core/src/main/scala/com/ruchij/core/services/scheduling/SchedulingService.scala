@@ -28,6 +28,8 @@ trait SchedulingService[F[_]] {
 
   val acquireTask: OptionT[F, ScheduledVideoDownload]
 
+  val staleTasks: F[Seq[ScheduledVideoDownload]]
+
   def updateDownloadProgress(id: String, downloadedBytes: Long): F[ScheduledVideoDownload]
 
   def subscribeToUpdates(groupId: String): Stream[F, ScheduledVideoDownload]

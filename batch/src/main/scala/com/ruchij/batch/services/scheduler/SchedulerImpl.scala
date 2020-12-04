@@ -61,7 +61,9 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       .collect { case Some(worker) => worker }
 
   def performWork(worker: Worker, topicUpdates: Topic[F, Option[ScheduledVideoDownload]]): F[Option[Video]] =
-    Bracket[F, Throwable].bracketCase(schedulingService.acquireTask.value) { taskOpt =>
+    Bracket[F, Throwable].bracketCase {
+      OptionT(schedulingService.staleTasks.map(_.headOption)).orElse(schedulingService.acquireTask).value
+    } { taskOpt =>
       OptionT
         .fromOption[F](taskOpt)
         .product(OptionT.liftF(JodaClock[F].timestamp))
@@ -167,17 +169,33 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       .flatMap {
         _.traverse { index =>
           transaction {
-            workerDao.insert(Worker(Worker.workerIdFromIndex(index), None, None, None))
+            workerDao.insert(Worker(Worker.workerIdFromIndex(index), None, None, None, None))
           }
         }
       }
       .map(_.sum)
+
+  val cleanUpStaleWorkersTask: Stream[F, Int] =
+    Stream.eval(logger.infoF("cleanUpStaleWorkersTask started"))
+      .productR {
+        Stream.eval(JodaClock[F].timestamp)
+          .repeat
+          .metered(30 seconds)
+          .evalMap { timestamp =>
+            transaction {
+              workerDao.cleanUpStaleWorkers(timestamp.minusMinutes(5))
+            }
+          }
+      }
 
   override val init: F[SynchronizationResult] =
     logger
       .infoF("Batch initialization started")
       .productR(newWorkers)
       .flatMap(count => logger.infoF(s"New workers created: $count"))
+      .productL {
+        Concurrent[F].start(cleanUpStaleWorkersTask.compile.drain)
+      }
       .productR(synchronizationService.sync)
       .flatTap(result => logger.infoF(result.prettyPrint))
       .productL(logger.infoF("Batch initialization completed"))

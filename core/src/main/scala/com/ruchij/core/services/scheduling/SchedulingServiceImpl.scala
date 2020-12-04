@@ -96,12 +96,13 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
     } yield updatedScheduledVideoDownload
 
   override val acquireTask: OptionT[F, ScheduledVideoDownload] =
-    OptionT {
-      transaction {
-        schedulingDao
-          .search(None, None, 0, 1, SortBy.Date, Order.Ascending, Some(SchedulingStatus.Queued))
-          .map(_.headOption)
-      }
+    OptionT.liftF(JodaClock[F].timestamp).flatMapF {
+      timestamp => transaction(schedulingDao.acquireTask(timestamp))
+    }
+
+  override val staleTasks: F[Seq[ScheduledVideoDownload]] =
+    JodaClock[F].timestamp.flatMap { timestamp =>
+      transaction(schedulingDao.staleTasks(timestamp))
     }
 
   override def subscribeToUpdates(groupId: String): Stream[F, ScheduledVideoDownload] =

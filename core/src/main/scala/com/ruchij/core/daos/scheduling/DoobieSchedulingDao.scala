@@ -1,5 +1,6 @@
 package com.ruchij.core.daos.scheduling
 
+import cats.Applicative
 import cats.data.{NonEmptyList, OptionT}
 import cats.implicits._
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
@@ -117,6 +118,59 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       ++ fr"LIMIT $pageSize OFFSET ${pageNumber * pageSize}")
       .query[ScheduledVideoDownload]
       .to[Seq]
+
+  override def staleTasks(timestamp: DateTime): ConnectionIO[Seq[ScheduledVideoDownload]] =
+      sql"""
+        SELECT video_metadata_id FROM scheduled_video
+          WHERE completed_at IS NULL
+            AND status = ${SchedulingStatus.Active}
+            AND last_updated_at < ${timestamp.minusMinutes(10)}
+      """
+      .query[String]
+      .to[Seq]
+      .flatMap {
+        _.traverse {
+          videoMetadataId =>
+            sql"""
+              UPDATE scheduled_video
+                SET status = ${SchedulingStatus.Stale}, last_updated_at = $timestamp
+                WHERE
+                  video_metadata_id = $videoMetadataId AND status = ${SchedulingStatus.Active}
+            """
+              .update
+              .run
+              .map(videoMetadataId -> _)
+        }
+      }
+      .flatMap {
+        _.collect { case (videoMetadataId, 1) => videoMetadataId }
+          .traverse(getById)
+          .map(_.flatten)
+      }
+
+  override def acquireTask(timestamp: DateTime): ConnectionIO[Option[ScheduledVideoDownload]] =
+    sql"""
+      SELECT video_metadata_id FROM scheduled_video
+        WHERE status = ${SchedulingStatus.Queued}
+        LIMIT 1
+   """
+      .query[String]
+      .option
+      .flatMap {
+        _.fold[ConnectionIO[Option[ScheduledVideoDownload]]](Applicative[ConnectionIO].pure[Option[ScheduledVideoDownload]](None)) { videoMetadataId =>
+          singleUpdate {
+            sql"""
+              UPDATE scheduled_video
+                SET status = ${SchedulingStatus.Acquired}, last_updated_at = $timestamp
+                WHERE video_metadata_id = $videoMetadataId AND status = ${SchedulingStatus.Queued}
+            """
+              .update
+              .run
+          }
+            .productR(OptionT(getById(videoMetadataId)))
+            .value
+        }
+      }
 
   val schedulingSortByFiledName: SortBy => Fragment =
     sortByFieldName.orElse {
