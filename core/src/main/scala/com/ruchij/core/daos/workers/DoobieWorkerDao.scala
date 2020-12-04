@@ -77,7 +77,11 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
     timestamp: DateTime
   ): ConnectionIO[Option[Worker]] =
     singleUpdate {
-      sql"UPDATE worker SET task_assigned_at = $timestamp WHERE id = $workerId AND task_assigned_at IS NULL"
+      sql"""
+          UPDATE worker
+            SET task_assigned_at = $timestamp, heart_beat_at = $timestamp
+            WHERE id = $workerId AND task_assigned_at IS NULL
+      """
         .update.run
     }
       .productR {
@@ -132,4 +136,13 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
     }
       .productR(OptionT(getById(workerId)))
       .value
+
+  override def cleanUpStaleWorkers(heartBeatBefore: DateTime): ConnectionIO[Int] =
+    sql"""
+      UPDATE worker
+        SET reserved_at = NULL, task_assigned_at = NULL, heart_beat_at = NULL
+        WHERE heart_beat_at < $heartBeatBefore
+    """
+      .update
+      .run
 }

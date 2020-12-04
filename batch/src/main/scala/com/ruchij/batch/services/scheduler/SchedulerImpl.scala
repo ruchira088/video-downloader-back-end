@@ -175,11 +175,27 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       }
       .map(_.sum)
 
+  val cleanUpStaleWorkersTask: Stream[F, Int] =
+    Stream.eval(logger.infoF("cleanUpStaleWorkersTask started"))
+      .productR {
+        Stream.eval(JodaClock[F].timestamp)
+          .repeat
+          .metered(30 seconds)
+          .evalMap { timestamp =>
+            transaction {
+              workerDao.cleanUpStaleWorkers(timestamp.minusMinutes(5))
+            }
+          }
+      }
+
   override val init: F[SynchronizationResult] =
     logger
       .infoF("Batch initialization started")
       .productR(newWorkers)
       .flatMap(count => logger.infoF(s"New workers created: $count"))
+      .productL {
+        Concurrent[F].start(cleanUpStaleWorkersTask.compile.drain)
+      }
       .productR(synchronizationService.sync)
       .flatTap(result => logger.infoF(result.prettyPrint))
       .productL(logger.infoF("Batch initialization completed"))
