@@ -119,15 +119,33 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       .to[Seq]
 
   override def staleTasks(timestamp: DateTime): ConnectionIO[Seq[ScheduledVideoDownload]] =
-    (SelectQuery ++
-      fr"""
-        WHERE scheduled_video.completed_at IS NULL
-          AND scheduled_video.status = ${SchedulingStatus.Active}
-          AND scheduled_video.last_updated_at < ${timestamp.minusMinutes(10)}
+      sql"""
+        SELECT video_metadata_id FROM scheduled_video
+          WHERE scheduled_video.completed_at IS NULL
+            AND scheduled_video.status = ${SchedulingStatus.Active}
+            AND scheduled_video.last_updated_at < ${timestamp.minusMinutes(10)}
       """
-    )
-      .query[ScheduledVideoDownload]
+      .query[String]
       .to[Seq]
+      .flatMap {
+        _.traverse {
+          videoMetadataId =>
+            sql"""
+              UPDATE scheduled_video
+                SET status = ${SchedulingStatus.Stale}, last_updated_at = timestamp
+                WHERE
+                  video_metadata_id = $videoMetadataId AND status = ${SchedulingStatus.Active}
+            """
+              .update
+              .run
+              .map(videoMetadataId -> _)
+        }
+      }
+      .flatMap {
+        _.collect { case (videoMetadataId, 1) => videoMetadataId }
+          .traverse(getById)
+          .map(_.flatten)
+      }
 
   val schedulingSortByFiledName: SortBy => Fragment =
     sortByFieldName.orElse {

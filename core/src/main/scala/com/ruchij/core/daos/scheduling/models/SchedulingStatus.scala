@@ -20,6 +20,10 @@ object SchedulingStatus extends Enum[SchedulingStatus] {
     override lazy val validTransitionStatuses: Set[SchedulingStatus] = Set(Completed, Error)
   }
 
+  case object Stale extends SchedulingStatus {
+    override val validTransitionStatuses: Set[SchedulingStatus] = Set(Active, Queued)
+  }
+
   case object Error extends SchedulingStatus {
     override lazy val validTransitionStatuses: Set[SchedulingStatus] = Set(Queued)
   }
