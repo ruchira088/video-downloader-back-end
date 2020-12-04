@@ -61,7 +61,9 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       .collect { case Some(worker) => worker }
 
   def performWork(worker: Worker, topicUpdates: Topic[F, Option[ScheduledVideoDownload]]): F[Option[Video]] =
-    Bracket[F, Throwable].bracketCase(schedulingService.acquireTask.value) { taskOpt =>
+    Bracket[F, Throwable].bracketCase {
+      OptionT(schedulingService.staleTasks.map(_.headOption)).orElse(schedulingService.acquireTask).value
+    } { taskOpt =>
       OptionT
         .fromOption[F](taskOpt)
         .product(OptionT.liftF(JodaClock[F].timestamp))

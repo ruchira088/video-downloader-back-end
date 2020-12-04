@@ -118,6 +118,17 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       .query[ScheduledVideoDownload]
       .to[Seq]
 
+  override def staleTasks(timestamp: DateTime): ConnectionIO[Seq[ScheduledVideoDownload]] =
+    (SelectQuery ++
+      fr"""
+        WHERE scheduled_video.completed_at IS NULL
+          AND scheduled_video.status = ${SchedulingStatus.Active}
+          AND scheduled_video.last_updated_at < ${timestamp.minusMinutes(10)}
+      """
+    )
+      .query[ScheduledVideoDownload]
+      .to[Seq]
+
   val schedulingSortByFiledName: SortBy => Fragment =
     sortByFieldName.orElse {
       case SortBy.Date => fr"scheduled_video.scheduled_at"

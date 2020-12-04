@@ -104,6 +104,11 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
       }
     }
 
+  override val staleTasks: F[Seq[ScheduledVideoDownload]] =
+    JodaClock[F].timestamp.flatMap { timestamp =>
+      transaction(schedulingDao.staleTasks(timestamp))
+    }
+
   override def subscribeToUpdates(groupId: String): Stream[F, ScheduledVideoDownload] =
     scheduledVideoDownloadPubSub.subscribe(groupId).map {
       case CommittableRecord(value, _) => value
