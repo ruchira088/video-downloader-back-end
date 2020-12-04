@@ -158,16 +158,17 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       .option
       .flatMap {
         _.fold[ConnectionIO[Option[ScheduledVideoDownload]]](Applicative[ConnectionIO].pure[Option[ScheduledVideoDownload]](None)) { videoMetadataId =>
-          sql"""
-            UPDATE scheduled_video
-              SET status = ${SchedulingStatus.Acquired}, last_updated_at = $timestamp
-              WHERE video_metadata_id = $videoMetadataId AND status = ${SchedulingStatus.Queued}
-          """
-            .update
-            .run
-            .flatMap { result =>
-              if (result == 1) getById(videoMetadataId) else Applicative[ConnectionIO].pure(None)
-            }
+          singleUpdate {
+            sql"""
+              UPDATE scheduled_video
+                SET status = ${SchedulingStatus.Acquired}, last_updated_at = $timestamp
+                WHERE video_metadata_id = $videoMetadataId AND status = ${SchedulingStatus.Queued}
+            """
+              .update
+              .run
+          }
+            .productR(OptionT(getById(videoMetadataId)))
+            .value
         }
       }
 

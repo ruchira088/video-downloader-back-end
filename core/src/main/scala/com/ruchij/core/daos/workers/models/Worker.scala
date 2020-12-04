@@ -7,6 +7,7 @@ case class Worker(
   id: String,
   reservedAt: Option[DateTime],
   taskAssignedAt: Option[DateTime],
+  heartBeatAt: Option[DateTime],
   scheduledVideoDownload: Option[ScheduledVideoDownload]
 )
 
