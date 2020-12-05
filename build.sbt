@@ -40,6 +40,7 @@ lazy val core =
         Seq(
           catsEffect,
           http4sAsyncHttpClient,
+          http4sDsl,
           fs2Kafka,
           fs2KafkaVulkan,
           vulkanGeneric,
@@ -68,7 +69,6 @@ lazy val api =
       topLevelDirectory := None,
       libraryDependencies ++=
         Seq(
-          http4sDsl,
           http4sBlazeServer,
           http4sCirce,
           circeGeneric,
