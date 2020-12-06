@@ -15,6 +15,11 @@
         path: k8s-output/pgadmin
         state: directory
 
+    - name: Create output directory - Confluent control center
+      file:
+        path: k8s-output/confluent
+        state: directory
+
     - name: Create output directory - DB migration
       file:
         path: k8s-output/db-migration
@@ -51,6 +56,13 @@
         dest: k8s-output/pgadmin/{{ item | basename }}
       with_fileglob:
         - k8s/pgadmin/*.yaml
+
+    - name: Render K8s resource files - Confluent control center
+      template:
+        src: "{{ item }}"
+        dest: k8s-output/confluent/{{ item | basename }}
+      with_fileglob:
+        - k8s/confluent-control-center/*.yaml
 
     - name: Render K8s resource files - DB migration
       template:
