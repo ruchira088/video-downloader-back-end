@@ -22,5 +22,9 @@ object SortBy extends Enum[SortBy] {
     override val entryName: String = "title"
   }
 
+  case object Random extends SortBy  {
+    override def entryName: String = "random"
+  }
+
   override val values: IndexedSeq[SortBy] = findValues
 }
