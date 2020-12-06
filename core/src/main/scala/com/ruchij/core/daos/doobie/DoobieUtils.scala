@@ -26,6 +26,7 @@ object DoobieUtils {
     case SortBy.Size => fr"video_metadata.size"
     case SortBy.Duration => fr"video_metadata.duration"
     case SortBy.Title => fr"video_metadata.title"
+    case SortBy.Random => fr"RANDOM()"
   }
 
   val ordering: Order => Fragment = {
