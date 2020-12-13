@@ -1,10 +1,7 @@
 package com.ruchij.api
 
-import java.util.UUID
 import java.util.concurrent.Executors
-
 import cats.effect.{Blocker, Concurrent, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
-import cats.implicits._
 import com.ruchij.api.config.{ApiServiceConfiguration, AuthenticationConfiguration}
 import com.ruchij.api.config.AuthenticationConfiguration.PasswordAuthenticationConfiguration
 import com.ruchij.api.services.authentication.{AuthenticationServiceImpl, NoAuthenticationService}
@@ -32,11 +29,12 @@ import com.ruchij.core.services.repository.FileRepositoryService
 import com.ruchij.core.services.scheduling.SchedulingServiceImpl
 import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
-import com.ruchij.core.types.{FunctionKTypes, RandomGenerator}
+import com.ruchij.core.types.FunctionKTypes
 import com.ruchij.migration.MigrationApp
 import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.effect.Log.Stdout.instance
 import doobie.free.connection.ConnectionIO
+import fs2.concurrent.Topic
 import org.http4s.HttpApp
 import org.http4s.client.asynchttpclient.AsyncHttpClient
 import org.http4s.client.middleware.FollowRedirect
@@ -151,6 +149,21 @@ object ApiApp extends IOApp {
 
           _ <- Resource.liftF(Concurrent[F].start(backgroundService.run))
 
+          topic <- Resource.liftF(Topic[F, Option[DownloadProgress]](None))
+
+          _ <-
+            Resource.liftF {
+              Concurrent[F].start {
+                schedulingService.subscribeToDownloadProgress(apiServiceConfiguration.applicationInformation.instanceId)
+                  .through(stream => topic.publish(stream.map(Some.apply)))
+                  .compile
+                  .drain
+              }
+            }
+
+        downloadProgressStream =
+          topic.subscribe(Int.MaxValue).collect { case Some(downloadProgress) => downloadProgress }
+
         } yield
           Routes(
             videoService,
@@ -159,7 +172,7 @@ object ApiApp extends IOApp {
             assetService,
             healthService,
             authenticationService,
-            RandomGenerator[F, UUID].map(_.toString),
+            downloadProgressStream,
             ioBlocker,
             Logger[F, ApiApp.type]
           )
