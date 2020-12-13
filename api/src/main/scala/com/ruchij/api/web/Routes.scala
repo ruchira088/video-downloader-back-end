@@ -9,8 +9,9 @@ import com.ruchij.api.web.routes._
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.asset.AssetService
 import com.ruchij.core.services.scheduling.SchedulingService
+import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.services.video.{VideoAnalysisService, VideoService}
-import com.ruchij.core.types.RandomGenerator
+import fs2.Stream
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.middleware.CORS
 import org.http4s.server.{HttpMiddleware, Router}
@@ -24,7 +25,7 @@ object Routes {
     assetService: AssetService[F],
     healthService: HealthService[F],
     authenticationService: AuthenticationService[F],
-    randomGenerator: RandomGenerator[F, String],
+    downloadProgressStream: Stream[F, DownloadProgress],
     ioBlocker: Blocker,
     apiLogger: Logger[F]
   ): HttpApp[F] = {
@@ -37,7 +38,7 @@ object Routes {
       WebServerRoutes(ioBlocker) <+>
         Router(
           "/authentication" -> AuthenticationRoutes(authenticationService),
-          "/schedule" -> authMiddleware(SchedulingRoutes(schedulingService, randomGenerator)),
+          "/schedule" -> authMiddleware(SchedulingRoutes(schedulingService, downloadProgressStream)),
           "/videos" -> authMiddleware(VideoRoutes(videoService, videoAnalysisService)),
           "/assets" -> authMiddleware(AssetRoutes(assetService)),
           "/service" -> ServiceRoutes(healthService),

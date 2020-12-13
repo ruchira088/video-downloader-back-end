@@ -1,6 +1,5 @@
 package com.ruchij.api.web.routes
 
-import cats.Applicative
 import cats.effect.{Concurrent, Timer}
 import cats.implicits._
 import com.ruchij.api.web.requests.{SchedulingRequest, UpdateScheduledVideoRequest}
@@ -9,11 +8,10 @@ import com.ruchij.api.web.requests.RequestOps.RequestOpsSyntax
 import com.ruchij.api.web.requests.queryparams.SearchQuery
 import com.ruchij.core.services.scheduling.SchedulingService
 import com.ruchij.core.services.scheduling.models.DownloadProgress
-import com.ruchij.core.types.{JodaClock, RandomGenerator}
+import com.ruchij.core.types.JodaClock
 import com.ruchij.api.web.responses.EventStreamEventType.{ActiveDownload, HeartBeat}
 import com.ruchij.api.circe.Decoders._
 import com.ruchij.api.circe.Encoders._
-import com.ruchij.api.web.requests.queryparams.SingleValueQueryParameter.SubscriberGroupIdQueryParameter
 import com.ruchij.api.web.responses.{EventStreamHeartBeat, SearchResult}
 import com.ruchij.core.services.video.models.DurationRange
 import fs2.Stream
@@ -31,7 +29,7 @@ import scala.language.postfixOps
 object SchedulingRoutes {
   def apply[F[+_]: Concurrent: Timer](
     schedulingService: SchedulingService[F],
-    randomGenerator: RandomGenerator[F, String]
+    downloadProgressStream: Stream[F, DownloadProgress]
   )(implicit dsl: Http4sDsl[F]): HttpRoutes[F] = {
     import dsl._
 
@@ -90,23 +88,18 @@ object SchedulingRoutes {
           response <- Ok(updatedScheduledVideoDownload)
         } yield response
 
-      case GET -> Root / "active" :? SubscriberGroupIdQueryParameter(groupId) =>
+      case GET -> Root / "active" =>
         Ok {
-          Stream
-            .eval(groupId.fold[F[String]](randomGenerator.generate)(Applicative[F].pure))
-            .flatMap { subscriberId =>
-              schedulingService
-                .subscribeToDownloadProgress(subscriberId)
-                .map { downloadProgress =>
-                  ServerSentEvent(Encoder[DownloadProgress].apply(downloadProgress).noSpaces, ActiveDownload)
-                }
-                .merge {
-                  Stream
-                    .fixedRate[F](10 seconds)
-                    .zipRight(Stream.eval(JodaClock[F].timestamp).repeat)
-                    .map { timestamp =>
-                      ServerSentEvent(EventStreamHeartBeat(timestamp).asJson.noSpaces, HeartBeat)
-                    }
+          downloadProgressStream
+            .map { downloadProgress =>
+              ServerSentEvent(Encoder[DownloadProgress].apply(downloadProgress).noSpaces, ActiveDownload)
+            }
+            .merge {
+              Stream
+                .fixedRate[F](10 seconds)
+                .zipRight(Stream.eval(JodaClock[F].timestamp).repeat)
+                .map { timestamp =>
+                  ServerSentEvent(EventStreamHeartBeat(timestamp).asJson.noSpaces, HeartBeat)
                 }
             }
         }
