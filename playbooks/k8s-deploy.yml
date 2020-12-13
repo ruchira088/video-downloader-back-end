@@ -12,12 +12,14 @@
             namespace: video-downloader-back-end
             hostname: api.video.home.ruchij.com
             pgadmin_hostname: pgadmin.video.home.ruchij.com
+            confluent_control_center_hostname: confluent.video.home.ruchij.com
             host_video_folder: /mnt/md0/video-downloader/videos
             host_image_folder: /home/ruchira/Data/video-downloader/production/images
           development:
             namespace: video-downloader-back-end-{{ git_branch }}
             hostname: api.{{ git_branch }}.video.home.ruchij.com
             pgadmin_hostname: pgadmin.{{ git_branch }}.video.home.ruchij.com
+            confluent_control_center_hostname: confluent.{{ git_branch }}.video.home.ruchij.com
             host_video_folder: /mnt/assets/data/video-downloader/development/videos
             host_image_folder: /home/ruchira/Data/video-downloader/development/images
 
@@ -25,6 +27,7 @@
         namespace: "{{ k8s_vars[env].namespace }}"
         hostname: "{{ k8s_vars[env].hostname }}"
         pgadmin_hostname: "{{ k8s_vars[env].pgadmin_hostname }}"
+        confluent_control_center_hostname: "{{ k8s_vars[env].confluent_control_center_hostname }}"
         host_video_folder: "{{ k8s_vars[env].host_video_folder }}"
         host_image_folder: "{{ k8s_vars[env].host_image_folder }}"
 
@@ -124,6 +127,9 @@
                         --namespace {{ namespace }} \
                         confluentinc/cp-helm-charts
                   when: zookeeper_output.resources | length == 0
+
+                - name: Create Ingress for Confluent control center
+                  command: kubectl apply -f k8s-output/confluent --kubeconfig k8s-output/kubeconfig
 
         - name: Deploy DB migration
           block:

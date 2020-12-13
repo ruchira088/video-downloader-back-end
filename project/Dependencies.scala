@@ -3,7 +3,7 @@ import sbt._
 object Dependencies
 {
   val ScalaVersion = "2.13.4"
-  val Http4sVersion = "0.21.13"
+  val Http4sVersion = "0.21.14"
   val CirceVersion = "0.13.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
@@ -56,7 +56,7 @@ object Dependencies
 
   lazy val apacheTika = "org.apache.tika" % "tika-core" % "1.25"
 
-  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "0.10.3"
+  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "0.11.0"
 
   lazy val jbcrypt = "org.mindrot" % "jbcrypt" % "0.4"
 
@@ -76,7 +76,7 @@ object Dependencies
 
   lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.3"
 
-  lazy val scalaMock = "org.scalamock" %% "scalamock" % "5.0.0"
+  lazy val scalaMock = "org.scalamock" %% "scalamock" % "5.1.0"
 
   lazy val pegdown = "org.pegdown" % "pegdown" % "1.6.0"
 }
