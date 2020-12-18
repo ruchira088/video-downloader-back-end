@@ -1,4 +1,4 @@
-package com.ruchij.api.circe
+package com.ruchij.core.circe
 
 import java.nio.file.Path
 

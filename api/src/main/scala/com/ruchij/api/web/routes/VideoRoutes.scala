@@ -5,7 +5,7 @@ import cats.implicits._
 import com.ruchij.api.web.requests.{VideoMetadataRequest, VideoMetadataUpdateRequest}
 import com.ruchij.api.web.requests.queryparams.SearchQuery
 import com.ruchij.core.services.video.{VideoAnalysisService, VideoService}
-import com.ruchij.api.circe.Encoders._
+import com.ruchij.core.circe.Encoders._
 import com.ruchij.api.web.responses.{IterableResponse, SearchResult}
 import com.ruchij.core.services.video.VideoAnalysisService.{NewlyCreated, Existing}
 import io.circe.generic.auto._

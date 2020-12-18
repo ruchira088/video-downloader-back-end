@@ -10,8 +10,8 @@ import com.ruchij.core.services.scheduling.SchedulingService
 import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.types.JodaClock
 import com.ruchij.api.web.responses.EventStreamEventType.{ActiveDownload, HeartBeat}
-import com.ruchij.api.circe.Decoders._
-import com.ruchij.api.circe.Encoders._
+import com.ruchij.core.circe.Decoders._
+import com.ruchij.core.circe.Encoders._
 import com.ruchij.api.web.responses.{EventStreamHeartBeat, SearchResult}
 import com.ruchij.core.services.video.models.DurationRange
 import fs2.Stream
