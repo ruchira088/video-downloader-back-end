@@ -39,6 +39,8 @@ lazy val core =
       libraryDependencies ++=
         Seq(
           catsEffect,
+          circeGeneric,
+          circeParser,
           http4sAsyncHttpClient,
           http4sDsl,
           fs2Kafka,

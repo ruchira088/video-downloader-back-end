@@ -7,11 +7,14 @@ import cats.effect.Sync
 import cats.implicits._
 import com.ruchij.api.exceptions.AuthenticationException
 import com.ruchij.api.web.responses.ErrorResponse
+import com.ruchij.core.circe.Encoders.throwableEncoder
 import com.ruchij.core.exceptions.{AggregatedException, ExternalServiceException, JSoupException, ResourceConflictException, ResourceNotFoundException, ValidationException}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.types.FunctionKTypes
 import io.circe.DecodingFailure
+import io.circe.generic.auto.exportEncoder
 import org.http4s.dsl.impl.EntityResponseGenerator
+import org.http4s.circe.CirceEntityEncoder.circeEntityEncoder
 import org.http4s.{HttpApp, MessageFailure, Request, Response, Status}
 
 object ExceptionHandler {

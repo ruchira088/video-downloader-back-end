@@ -3,7 +3,7 @@ package com.ruchij.api.web.routes
 import cats.effect.Sync
 import cats.implicits._
 import com.ruchij.api.services.health.HealthService
-import com.ruchij.api.circe.Encoders.{dateTimeEncoder, enumEncoder}
+import com.ruchij.core.circe.Encoders.{dateTimeEncoder, enumEncoder}
 import io.circe.generic.auto._
 import org.http4s.circe.CirceEntityEncoder.circeEntityEncoder
 import org.http4s.HttpRoutes

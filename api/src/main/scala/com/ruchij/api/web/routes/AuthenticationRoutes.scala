@@ -8,8 +8,8 @@ import com.ruchij.api.web.requests.LoginRequest
 import org.http4s.circe.CirceEntityDecoder.circeEntityDecoder
 import org.http4s.circe.CirceEntityEncoder.circeEntityEncoder
 import io.circe.generic.auto._
-import com.ruchij.api.circe.Decoders.stringWrapperDecoder
-import com.ruchij.api.circe.Encoders.{dateTimeEncoder, stringWrapperEncoder}
+import com.ruchij.core.circe.Decoders.stringWrapperDecoder
+import com.ruchij.core.circe.Encoders.{dateTimeEncoder, stringWrapperEncoder}
 import com.ruchij.api.exceptions.AuthenticationException
 import com.ruchij.api.web.middleware.Authenticator
 import org.http4s.HttpRoutes
