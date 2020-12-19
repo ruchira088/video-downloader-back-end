@@ -14,7 +14,7 @@ trait VideoService[F[_]] {
 
   def update(videoId: String, title: Option[String]): F[Video]
 
-  def deleteById(videoId: String): F[Video]
+  def deleteById(videoId: String, deleteVideoFile: Boolean): F[Video]
 
   def search(
     term: Option[String],

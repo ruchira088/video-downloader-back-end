@@ -4,10 +4,11 @@ import cats.effect.Sync
 import cats.implicits._
 import com.ruchij.api.web.requests.{VideoMetadataRequest, VideoMetadataUpdateRequest}
 import com.ruchij.api.web.requests.queryparams.SearchQuery
+import com.ruchij.api.web.requests.queryparams.SingleValueQueryParameter.DeleteVideoFileQueryParameter
 import com.ruchij.core.services.video.{VideoAnalysisService, VideoService}
 import com.ruchij.core.circe.Encoders._
 import com.ruchij.api.web.responses.{IterableResponse, SearchResult}
-import com.ruchij.core.services.video.VideoAnalysisService.{NewlyCreated, Existing}
+import com.ruchij.core.services.video.VideoAnalysisService.{Existing, NewlyCreated}
 import io.circe.generic.auto._
 import org.http4s.HttpRoutes
 import org.http4s.circe.CirceEntityCodec.{circeEntityDecoder, circeEntityEncoder}
@@ -48,7 +49,8 @@ object VideoRoutes {
 
       case GET -> Root / "id" / videoId => Ok(videoService.fetchById(videoId))
 
-      case DELETE -> Root / "id" / videoId => Ok(videoService.deleteById(videoId))
+      case DELETE -> Root / "id" / videoId :? DeleteVideoFileQueryParameter(deleteVideoFile) =>
+        Ok(videoService.deleteById(videoId, deleteVideoFile))
 
       case request @ PATCH -> Root / "id" / videoId / "metadata" =>
         for {

@@ -109,6 +109,7 @@ object BatchApp extends IOApp {
           fileTypeDetector = new PathFileTypeDetector[F](new Tika(), ioBlocker)
 
           videoService = new VideoServiceImpl[F, ConnectionIO](
+            repositoryService,
             DoobieVideoDao,
             DoobieVideoMetadataDao,
             DoobieSnapshotDao,
