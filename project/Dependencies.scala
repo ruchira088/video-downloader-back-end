@@ -16,7 +16,7 @@ object Dependencies
 
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "2.3.0"
 
-  lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.3.0"
+  lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.3.1"
 
   lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "1.1.0"
 
@@ -62,7 +62,7 @@ object Dependencies
 
   lazy val embeddedRedis = "com.github.kstyrc" % "embedded-redis" % "0.6"
 
-  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "6.0.0"
+  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "6.0.1"
 
   lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.3"
 
