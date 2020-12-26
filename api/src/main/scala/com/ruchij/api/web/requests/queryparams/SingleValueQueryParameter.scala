@@ -25,4 +25,6 @@ object SingleValueQueryParameter {
   case object SortByQueryParameter extends SingleValueQueryParameter[SortBy]("sort-by", defaultValue = SortBy.Date)
 
   case object OrderQueryParameter extends SingleValueQueryParameter[Order]("order", defaultValue = Order.Descending)
+
+  case object DeleteVideoFileQueryParameter extends SingleValueQueryParameter[Boolean]("delete-video-file", defaultValue = false)
 }

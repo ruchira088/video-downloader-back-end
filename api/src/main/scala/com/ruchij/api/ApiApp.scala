@@ -99,6 +99,7 @@ object ApiApp extends IOApp {
           )
 
           videoService = new VideoServiceImpl[F, ConnectionIO](
+            repositoryService,
             DoobieVideoDao,
             DoobieVideoMetadataDao,
             DoobieSnapshotDao,
