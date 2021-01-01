@@ -49,7 +49,7 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
     (SelectQuery
       ++
         whereAndOpt(
-          term.map(searchTerm => fr"video_metadata.title LIKE ${"%" + searchTerm + "%"}"),
+          term.map(searchTerm => fr"video_metadata.title ILIKE ${"%" + searchTerm + "%"}"),
           durationRange.min.map(minimum => fr"video_metadata.duration >= $minimum"),
           durationRange.max.map(maximum => fr"video_metadata.duration <= $maximum")
         )
