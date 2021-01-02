@@ -2,18 +2,28 @@ package com.ruchij.api.web.requests.queryparams
 
 import cats.ApplicativeError
 import cats.data.{Kleisli, NonEmptyList}
-import com.ruchij.api.web.requests.queryparams.QueryParameter.QueryParameters
+import com.ruchij.api.web.requests.queryparams.QueryParameter._
+import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 import org.http4s.{QueryParamDecoder, Uri}
 
-abstract class MultiValueQueryParameter[A: QueryParamDecoder](key: String) extends QueryParameter[Option[NonEmptyList[A]]] {
+import scala.reflect.ClassTag
+
+abstract class MultiValueQueryParameter[A: QueryParamDecoder: ClassTag](key: String)
+    extends QueryParameter[Option[NonEmptyList[A]]] {
   override def parse[F[_]: ApplicativeError[*[_], Throwable]]: Kleisli[F, QueryParameters, Option[NonEmptyList[A]]] =
-    QueryParameter.parse[F, A](key)
+    QueryParameter
+      .parse[F, Option[NonEmptyList[A]]](key)
       .map {
-        case head :: tail => Some(NonEmptyList(head, tail))
-        case Nil => None
+        _.collect { case Some(nonEmptyList) => nonEmptyList }
+          .foldLeft[Option[NonEmptyList[A]]](None) {
+            case (result, nonEmptyList) =>
+              Some { result.fold(nonEmptyList)(_ ::: nonEmptyList) }
+          }
       }
 }
 
 object MultiValueQueryParameter {
   case object VideoUrlsQueryParameter extends MultiValueQueryParameter[Uri](key = "video-url")
+
+  case object SchedulingStatusesQueryParameter extends MultiValueQueryParameter[SchedulingStatus](key = "status")
 }

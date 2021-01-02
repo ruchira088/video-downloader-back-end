@@ -26,7 +26,7 @@ trait SchedulingDao[F[_]] {
     pageSize: Int,
     sortBy: SortBy,
     order: Order,
-    schedulingStatus: Option[SchedulingStatus]
+    schedulingStatuses: Option[NonEmptyList[SchedulingStatus]]
   ): F[Seq[ScheduledVideoDownload]]
 
   def staleTasks(timestamp: DateTime): F[Seq[ScheduledVideoDownload]]

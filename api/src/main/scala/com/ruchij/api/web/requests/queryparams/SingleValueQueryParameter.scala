@@ -2,7 +2,7 @@ package com.ruchij.api.web.requests.queryparams
 
 import cats.ApplicativeError
 import cats.data.Kleisli
-import com.ruchij.api.web.requests.queryparams.QueryParameter.{QueryParameters, durationRangeQueryParamDecoder, enumQueryParamDecoder, optionQueryParamDecoder}
+import com.ruchij.api.web.requests.queryparams.QueryParameter._
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.video.models.DurationRange
 import org.http4s.QueryParamDecoder
