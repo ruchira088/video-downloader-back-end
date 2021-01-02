@@ -108,7 +108,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
     (SelectQuery
       ++
         whereAndOpt(
-          term.map(searchTerm => fr"video_metadata.title LIKE ${"%" + searchTerm + "%"}"),
+          term.map(searchTerm => fr"video_metadata.title ILIKE ${"%" + searchTerm + "%"}"),
           videoUrls.map(urls => in(fr"video_metadata.url", urls)),
           schedulingStatus.map(status => fr"scheduled_video.status = $status")
         )
