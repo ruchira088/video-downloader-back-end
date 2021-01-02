@@ -1,7 +1,6 @@
 package com.ruchij.api.web.requests.queryparams
 
 import java.util.concurrent.TimeUnit
-
 import cats.data.Validated.{Invalid, Valid}
 import cats.data.{Kleisli, NonEmptyList, ValidatedNel}
 import cats.implicits._
@@ -13,7 +12,7 @@ import enumeratum.{Enum, EnumEntry}
 import org.http4s.{ParseFailure, QueryParamDecoder, QueryParameterValue}
 
 import scala.concurrent.duration.FiniteDuration
-import scala.reflect.ClassTag
+import scala.reflect.{ClassTag, classTag}
 
 abstract class QueryParameter[A] {
   def parse[F[_]: ApplicativeError[*[_], Throwable]]: Kleisli[F, QueryParameters, A]
@@ -74,7 +73,32 @@ object QueryParameter {
   }
 
   implicit def optionQueryParamDecoder[A: QueryParamDecoder]: QueryParamDecoder[Option[A]] =
-    (value: QueryParameterValue) => QueryParamDecoder[A].decode(value).map(Some.apply)
+    (queryParameterValue: QueryParameterValue) =>
+      if (queryParameterValue.value.trim.isEmpty) Valid(None)
+      else QueryParamDecoder[A].decode(queryParameterValue).map(Some.apply)
+
+  implicit def nonEmptyListQueryParamDecoder[A: QueryParamDecoder: ClassTag]: QueryParamDecoder[NonEmptyList[A]] =
+    (queryParameterValue: QueryParameterValue) => queryParameterValue.value
+      .split(",")
+      .map(_.trim)
+      .filter(_.nonEmpty)
+      .toList
+      .traverse(value => QueryParamDecoder[A].decode(QueryParameterValue(value)))
+      .fold[ValidatedNel[ParseFailure, NonEmptyList[A]]](
+        Invalid.apply, {
+          case head :: tail => Valid(NonEmptyList(head, tail))
+
+          case Nil =>
+            Invalid {
+              NonEmptyList.one {
+                ParseFailure(
+                  "Values cannot be empty",
+                  s"""Unable to parse "${queryParameterValue.value}" as non-empty list of ${classTag[A].runtimeClass.getSimpleName}"""
+                )
+              }
+            }
+        }
+      )
 
   implicit def enumQueryParamDecoder[A <: EnumEntry](
     implicit enumValue: Enum[A],

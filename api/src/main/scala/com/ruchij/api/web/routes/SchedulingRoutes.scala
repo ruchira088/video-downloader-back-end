@@ -44,7 +44,7 @@ object SchedulingRoutes {
 
       case GET -> Root / "search" :? queryParameters =>
         for {
-          SearchQuery(term, _, videoUrls, pageSize, pageNumber, sortBy, order) <- SearchQuery
+          SearchQuery(term, statuses, _, videoUrls, pageSize, pageNumber, sortBy, order) <- SearchQuery
             .fromQueryParameters[F]
             .run(queryParameters)
 
@@ -65,6 +65,7 @@ object SchedulingRoutes {
               pageSize,
               term,
               videoUrls,
+              statuses,
               DurationRange.All,
               sortBy,
               order

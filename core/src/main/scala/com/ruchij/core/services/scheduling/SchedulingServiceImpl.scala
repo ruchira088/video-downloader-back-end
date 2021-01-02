@@ -58,9 +58,9 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
     pageSize: Int,
     sortBy: SortBy,
     order: Order,
-    schedulingStatus: Option[SchedulingStatus]
+    schedulingStatuses: Option[NonEmptyList[SchedulingStatus]]
   ): F[Seq[ScheduledVideoDownload]] =
-    transaction(schedulingDao.search(term, videoUrls, pageNumber, pageSize, sortBy, order, schedulingStatus))
+    transaction(schedulingDao.search(term, videoUrls, pageNumber, pageSize, sortBy, order, schedulingStatuses))
 
   override def getById(id: String): F[ScheduledVideoDownload] =
     OptionT(transaction(schedulingDao.getById(id)))

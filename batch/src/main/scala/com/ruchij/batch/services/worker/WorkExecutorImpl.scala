@@ -16,6 +16,7 @@ import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.download.DownloadService
 import com.ruchij.core.services.download.models.DownloadResult
 import com.ruchij.core.services.hashing.HashingService
+import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.services.scheduling.SchedulingService
 import com.ruchij.core.services.video.{VideoAnalysisService, VideoService}
 import com.ruchij.core.types.JodaClock
@@ -28,6 +29,7 @@ import scala.language.postfixOps
 class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
   fileResourceDao: FileResourceDao[T],
   workerDao: WorkerDao[T],
+  repositoryService: RepositoryService[F],
   schedulingService: SchedulingService[F],
   videoAnalysisService: VideoAnalysisService[F],
   videoService: VideoService[F],
@@ -89,17 +91,20 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
         videoAnalysisService
           .downloadUri(scheduledVideoDownload.videoMetadata.url)
           .flatMap { downloadUri => downloadVideo(worker.id, scheduledVideoDownload.videoMetadata.id, downloadUri, interrupt) }
-          .productL {
-            schedulingService.updateStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Downloaded)
-          }
           .flatMap {
             case (fileResource, _) =>
-              videoService.insert(scheduledVideoDownload.videoMetadata.id, fileResource.id)
+              repositoryService.size(fileResource.path).flatMap {
+                _.filter { _ == scheduledVideoDownload.videoMetadata.size }
+                  .fold[F[Video]](execute(scheduledVideoDownload, worker, interrupt)) { _ =>
+                    schedulingService.updateStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Downloaded)
+                      .productR(videoService.insert(scheduledVideoDownload.videoMetadata.id, fileResource.id))
+                      .flatTap(videoEnrichmentService.videoSnapshots)
+                      .productL(schedulingService.completeTask(scheduledVideoDownload.videoMetadata.id))
+                      .productL {
+                        logger.infoF(s"Worker ${worker.id} completed download for ${scheduledVideoDownload.videoMetadata.url}")
+                      }
+                  }
+              }
           }
-          .flatTap(videoEnrichmentService.videoSnapshots)
-          .productL(schedulingService.completeTask(scheduledVideoDownload.videoMetadata.id))
-      }
-      .productL {
-        logger.infoF(s"Worker ${worker.id} completed download for ${scheduledVideoDownload.videoMetadata.url}")
       }
 }

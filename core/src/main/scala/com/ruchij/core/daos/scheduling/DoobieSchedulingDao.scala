@@ -103,14 +103,14 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
     pageSize: Int,
     sortBy: SortBy,
     order: Order,
-    schedulingStatus: Option[SchedulingStatus]
+    schedulingStatuses: Option[NonEmptyList[SchedulingStatus]]
   ): ConnectionIO[Seq[ScheduledVideoDownload]] =
     (SelectQuery
       ++
         whereAndOpt(
           term.map(searchTerm => fr"video_metadata.title ILIKE ${"%" + searchTerm + "%"}"),
           videoUrls.map(urls => in(fr"video_metadata.url", urls)),
-          schedulingStatus.map(status => fr"scheduled_video.status = $status")
+          schedulingStatuses.map(statuses => in(fr"scheduled_video.status", statuses))
         )
       ++ fr"ORDER BY"
       ++ schedulingSortByFiledName(sortBy)
