@@ -141,6 +141,7 @@ object BatchApp extends IOApp {
           workExecutor = new WorkExecutorImpl[F, ConnectionIO](
             DoobieFileResourceDao,
             workerDao,
+            repositoryService,
             schedulingService,
             videoAnalysisService,
             videoService,
