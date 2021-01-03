@@ -111,6 +111,8 @@ class VideoAnalysisServiceImpl[F[_]: Sync: Clock, T[_]: Monad](
 
       downloadUri <- videoSite.downloadUri[F]
 
+      _ <- Kleisli.liftF(logger.infoF(s"Download uri = $downloadUri for videoUri = $uri"))
+
       size <- Kleisli.liftF {
         client
           .run(Request[F](Method.HEAD, downloadUri))
