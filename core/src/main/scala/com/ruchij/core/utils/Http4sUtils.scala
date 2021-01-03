@@ -7,12 +7,18 @@ import org.http4s.{HeaderKey, Response}
 
 object Http4sUtils {
 
-  def header[F[_]: MonadError[*[_], Throwable]](headerKey: HeaderKey.Extractable): Kleisli[F, Response[F], headerKey.HeaderT] =
-    Kleisli {
-      _.headers
+  def header[F[_]: MonadError[*[_], Throwable]](
+    headerKey: HeaderKey.Extractable
+  ): Kleisli[F, Response[F], headerKey.HeaderT] =
+    Kleisli { response =>
+      response.headers
         .get(headerKey)
         .fold[F[headerKey.HeaderT]](MonadError[F, Throwable].raiseError {
-          ExternalServiceException(s"""Response did not contain the "${headerKey.name}" header""")
+          ExternalServiceException(
+            s"""Response did not contain the "${headerKey.name}" header. Headers: ${response.headers.toList
+              .map(header => s"${header.name}->${header.value}")
+              .mkString(",")}"""
+          )
         })(value => Applicative[F].pure(value))
     }
 
