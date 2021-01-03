@@ -42,7 +42,12 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
 
   private val logger = Logger[F, WorkExecutorImpl[F, T]]
 
-  def downloadVideo(workerId: String, videoId: String, downloadUri: Uri, interrupt: Stream[F, Boolean]): F[(FileResource, DownloadResult[F])] = {
+  def downloadVideo(
+    workerId: String,
+    videoId: String,
+    downloadUri: Uri,
+    interrupt: Stream[F, Boolean]
+  ): F[(FileResource, DownloadResult[F])] = {
     val videoFileName = downloadUri.path.split("/").lastOption.getOrElse("video.unknown")
     val videoPath =
       s"${downloadConfiguration.videoFolder}/$videoId-$videoFileName"
@@ -66,8 +71,8 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
           .product {
             downloadResult.data
               .observe {
-                _.groupWithin(Int.MaxValue, 30 seconds).evalMap {
-                  _ => JodaClock[F].timestamp.flatMap { timestamp =>
+                _.groupWithin(Int.MaxValue, 30 seconds).evalMap { _ =>
+                  JodaClock[F].timestamp.flatMap { timestamp =>
                     transaction(workerDao.updateHeartBeat(workerId, timestamp))
                       .productR(Applicative[F].unit)
                   }
@@ -84,24 +89,36 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
       }
   }
 
-  override def execute(scheduledVideoDownload: ScheduledVideoDownload, worker: Worker, interrupt: Stream[F, Boolean]): F[Video] =
+  override def execute(
+    scheduledVideoDownload: ScheduledVideoDownload,
+    worker: Worker,
+    interrupt: Stream[F, Boolean]
+  ): F[Video] =
     logger
       .infoF(s"Worker ${worker.id} started download for ${scheduledVideoDownload.videoMetadata.url}")
       .productR {
         videoAnalysisService
           .downloadUri(scheduledVideoDownload.videoMetadata.url)
-          .flatMap { downloadUri => downloadVideo(worker.id, scheduledVideoDownload.videoMetadata.id, downloadUri, interrupt) }
+          .flatMap { downloadUri =>
+            downloadVideo(worker.id, scheduledVideoDownload.videoMetadata.id, downloadUri, interrupt)
+          }
           .flatMap {
             case (fileResource, _) =>
               repositoryService.size(fileResource.path).flatMap {
-                _.filter { _ == scheduledVideoDownload.videoMetadata.size }
-                  .fold[F[Video]](execute(scheduledVideoDownload, worker, interrupt)) { _ =>
-                    schedulingService.updateStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Downloaded)
+                _.filter { _ >= scheduledVideoDownload.videoMetadata.size }
+                  .fold[F[Video]] {
+                    logger.warnF(s"Worker ${worker.id} invalidly deemed as complete: ${scheduledVideoDownload.videoMetadata.url}")
+                      .productR(execute(scheduledVideoDownload, worker, interrupt))
+                  } { _ =>
+                    schedulingService
+                      .updateStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Downloaded)
                       .productR(videoService.insert(scheduledVideoDownload.videoMetadata.id, fileResource.id))
                       .flatTap(videoEnrichmentService.videoSnapshots)
                       .productL(schedulingService.completeTask(scheduledVideoDownload.videoMetadata.id))
                       .productL {
-                        logger.infoF(s"Worker ${worker.id} completed download for ${scheduledVideoDownload.videoMetadata.url}")
+                        logger.infoF(
+                          s"Worker ${worker.id} completed download for ${scheduledVideoDownload.videoMetadata.url}"
+                        )
                       }
                   }
               }
