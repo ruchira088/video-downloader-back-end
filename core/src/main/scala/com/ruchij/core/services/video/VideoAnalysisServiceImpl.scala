@@ -3,13 +3,14 @@ package com.ruchij.core.services.video
 import cats.data.Kleisli
 import cats.effect.{Clock, Sync}
 import cats.implicits._
-import cats.{Applicative, Monad, ~>}
+import cats.{Applicative, ApplicativeError, Monad, ~>}
 import com.ruchij.core.config.DownloadConfiguration
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.VideoSite.Selector
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
+import com.ruchij.core.exceptions.ExternalServiceException
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.download.DownloadService
 import com.ruchij.core.services.hashing.HashingService
@@ -113,7 +114,15 @@ class VideoAnalysisServiceImpl[F[_]: Sync: Clock, T[_]: Monad](
       size <- Kleisli.liftF {
         client
           .run(Request[F](Method.HEAD, downloadUri))
-          .use(Http4sUtils.header[F](`Content-Length`).map(_.length).run)
+          .use {
+            response =>
+              if (response.status.isSuccess)
+                Http4sUtils.header[F](`Content-Length`).map(_.length).run(response)
+              else
+                ApplicativeError[F, Throwable].raiseError[Long] {
+                  ExternalServiceException(s"Failed ${response.status} response for HEAD $downloadUri")
+                }
+          }
       }
     } yield VideoAnalysisResult(uri, videoSite, videoTitle, duration, size, thumbnailUri)
 }
