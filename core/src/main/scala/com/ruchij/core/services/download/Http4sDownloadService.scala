@@ -1,7 +1,9 @@
 package com.ruchij.core.services.download
 
+import cats.ApplicativeError
 import cats.effect.{Clock, Concurrent, ContextShift, Resource}
 import cats.implicits._
+import com.ruchij.core.exceptions.ExternalServiceException
 import com.ruchij.core.services.download.Http4sDownloadService.MinChunkUpdateSize
 import com.ruchij.core.services.download.models.{DownloadResult, RangeFrom}
 import com.ruchij.core.services.repository.RepositoryService
@@ -25,14 +27,22 @@ class Http4sDownloadService[F[_]: Concurrent: ContextShift: Clock](
       }
       .evalMap {
         case (response, initialSize) =>
-          Http4sUtils
-            .header[F](`Content-Length`)
-            .product(Http4sUtils.header[F](`Content-Type`))
-            .map {
-              case (contentLengthValue, contentTypeValue) =>
-                (contentLengthValue.length, contentTypeValue.mediaType)
+          ApplicativeError[F, Throwable]
+            .recoverWith {
+              Http4sUtils
+                .header[F](`Content-Length`)
+                .product(Http4sUtils.header[F](`Content-Type`))
+                .map {
+                  case (contentLengthValue, contentTypeValue) =>
+                    (contentLengthValue.length, contentTypeValue.mediaType)
+                }
+                .run(response)
+            } {
+              case ExternalServiceException(error) =>
+                ApplicativeError[F, Throwable].raiseError {
+                  ExternalServiceException(s"Download uri = $uri. $error")
+                }
             }
-            .run(response)
             .map {
               case (contentLength, mediaType) =>
                 DownloadResult.create[F](uri, fileKey, contentLength + initialSize, mediaType) {
