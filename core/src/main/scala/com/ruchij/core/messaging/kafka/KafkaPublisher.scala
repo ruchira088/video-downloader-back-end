@@ -33,7 +33,7 @@ object KafkaPublisher {
   def apply[F[_]: ConcurrentEffect: ContextShift, A](kafkaConfiguration: KafkaConfiguration)(
     implicit topic: KafkaTopic[A]
   ): Resource[F, KafkaPublisher[F, A]] =
-    producerResource {
+    KafkaProducer.resource {
       ProducerSettings[F, Unit, A](RecordSerializer[F, Unit], topic.serializer[F](kafkaConfiguration))
         .withBootstrapServers(kafkaConfiguration.bootstrapServers)
     }

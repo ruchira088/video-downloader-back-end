@@ -18,11 +18,11 @@ object Dependencies
 
   lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.3.1"
 
-  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "1.1.0"
+  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "1.3.1"
 
-  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "1.1.0"
+  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "1.3.1"
 
-  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.2.0"
+  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.3.0"
 
   lazy val circeGeneric = "io.circe" %% "circe-generic" % CirceVersion
 
@@ -68,9 +68,9 @@ object Dependencies
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
 
-  lazy val kindProjector = "org.typelevel" %% "kind-projector" % "0.11.2" cross CrossVersion.full
+  lazy val kindProjector = "org.typelevel" %% "kind-projector" % "0.11.3" cross CrossVersion.full
 
-  lazy val scalaTypedHoles = "com.github.cb372" % "scala-typed-holes" % "0.1.6" cross CrossVersion.full
+  lazy val scalaTypedHoles = "com.github.cb372" % "scala-typed-holes" % "0.1.7" cross CrossVersion.full
 
   lazy val betterMonadicFor = "com.olegpy" %% "better-monadic-for" % "0.3.1"
 

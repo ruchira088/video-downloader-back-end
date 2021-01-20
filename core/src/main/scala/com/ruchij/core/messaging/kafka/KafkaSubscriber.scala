@@ -5,7 +5,7 @@ import com.ruchij.core.config.KafkaConfiguration
 import com.ruchij.core.messaging.Subscriber
 import com.ruchij.core.messaging.kafka.KafkaSubscriber.CommittableRecord
 import fs2.Stream
-import fs2.kafka.{AutoOffsetReset, ConsumerSettings, RecordDeserializer, consumerResource}
+import fs2.kafka.{AutoOffsetReset, ConsumerSettings, KafkaConsumer, RecordDeserializer}
 
 class KafkaSubscriber[F[_]: ConcurrentEffect: ContextShift: Timer, A](kafkaConfiguration: KafkaConfiguration)(
   implicit topic: KafkaTopic[A]
@@ -14,7 +14,7 @@ class KafkaSubscriber[F[_]: ConcurrentEffect: ContextShift: Timer, A](kafkaConfi
   override def subscribe(groupId: String): Stream[F, CommittableRecord[F, A]] =
     Stream
       .resource {
-        consumerResource {
+        KafkaConsumer.resource {
           ConsumerSettings[F, Unit, A](RecordDeserializer[F, Unit], topic.deserializer[F](kafkaConfiguration))
             .withBootstrapServers(kafkaConfiguration.bootstrapServers)
             .withAutoOffsetReset(AutoOffsetReset.Latest)
