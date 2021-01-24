@@ -1,6 +1,6 @@
 package com.ruchij.core.messaging
 
-import cats.{Applicative, Id}
+import cats.Applicative
 import cats.effect.Concurrent
 import cats.implicits._
 import com.ruchij.core.messaging.kafka.KafkaSubscriber.CommittableRecord
