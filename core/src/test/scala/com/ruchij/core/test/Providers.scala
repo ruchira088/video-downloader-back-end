@@ -1,26 +1,13 @@
-package com.ruchij.core.test.utils
+package com.ruchij.core.test
 
-import java.util.concurrent.TimeUnit
-
-import cats.effect.{Async, Blocker, Clock, ContextShift, IO, Sync, Timer}
-import cats.implicits._
-import com.ruchij.core.daos.doobie.DoobieTransactor
-import com.ruchij.migration.MigrationApp
-import com.ruchij.migration.config.DatabaseConfiguration
-import doobie.util.transactor.Transactor
+import cats.effect.{Blocker, Clock, ContextShift, IO, Sync, Timer}
 import org.joda.time.DateTime
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
 
 object Providers {
-  val h2DatabaseConfiguration: DatabaseConfiguration =
-    DatabaseConfiguration(
-      "jdbc:h2:mem:video-downloader;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false",
-      "",
-      ""
-    )
-
   def stubClock[F[_]: Sync](dateTime: => DateTime): Clock[F] = new Clock[F] {
     override def realTime(unit: TimeUnit): F[Long] =
       Sync[F].delay(unit.convert(dateTime.getMillis, TimeUnit.MILLISECONDS))
@@ -42,12 +29,5 @@ object Providers {
       override def clock: Clock[IO] = stubClock(dateTime)
 
       override def sleep(duration: FiniteDuration): IO[Unit] = timer.sleep(duration)
-    }
-
-  def h2Transactor[F[_]: Async: ContextShift]: F[Transactor.Aux[F, Unit]] =
-    Blocker[F].use { blocker =>
-      MigrationApp
-        .migration(h2DatabaseConfiguration, blocker)
-        .productR(DoobieTransactor.create[F](h2DatabaseConfiguration))
     }
 }

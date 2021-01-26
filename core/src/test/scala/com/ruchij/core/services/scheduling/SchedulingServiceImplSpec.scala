@@ -16,8 +16,8 @@ import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.repository.InMemoryRepositoryService
 import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.services.video.VideoAnalysisServiceImpl
-import com.ruchij.core.test.utils.Providers
-import com.ruchij.core.test.utils.Providers.{blocker, contextShift}
+import com.ruchij.core.test.Providers.{blocker, contextShift}
+import com.ruchij.core.test.{DoobieProvider, Providers}
 import com.ruchij.core.types.FunctionKTypes
 import doobie.ConnectionIO
 import fs2.Stream
@@ -46,7 +46,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
     val dateTime = DateTime.now()
     implicit val timer: Timer[IO] = Providers.stubTimer(dateTime)
     implicit val transaction: ConnectionIO ~> IO =
-      Providers.h2Transactor[IO].map(FunctionKTypes.transaction[IO]).unsafeRunSync()
+      DoobieProvider.h2InMemoryTransactor[IO].map(FunctionKTypes.transaction[IO]).unsafeRunSync()
 
     val client =
       Client[IO] { request =>
