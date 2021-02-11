@@ -3,7 +3,7 @@ import sbt._
 object Dependencies
 {
   val ScalaVersion = "2.13.4"
-  val Http4sVersion = "0.21.16"
+  val Http4sVersion = "0.21.18"
   val CirceVersion = "0.13.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
@@ -38,11 +38,11 @@ object Dependencies
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.13.1"
 
-  lazy val jodaTime = "joda-time" % "joda-time" % "2.10.9"
+  lazy val jodaTime = "joda-time" % "joda-time" % "2.10.10"
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.14.0"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "7.5.1"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "7.5.3"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.18"
 
@@ -62,7 +62,7 @@ object Dependencies
 
   lazy val embeddedRedis = "com.github.kstyrc" % "embedded-redis" % "0.6"
 
-  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "6.0.1"
+  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "6.1.0"
 
   lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.3"
 
