@@ -3,7 +3,7 @@ import sbt._
 object Dependencies
 {
   val ScalaVersion = "2.13.4"
-  val Http4sVersion = "0.21.18"
+  val Http4sVersion = "0.21.19"
   val CirceVersion = "0.13.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
@@ -18,11 +18,11 @@ object Dependencies
 
   lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.3.1"
 
-  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "1.3.1"
+  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "1.4.0"
 
-  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "1.3.1"
+  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "1.4.0"
 
-  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.3.0"
+  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.4.0"
 
   lazy val circeGeneric = "io.circe" %% "circe-generic" % CirceVersion
 
