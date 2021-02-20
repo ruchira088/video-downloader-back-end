@@ -14,15 +14,15 @@ object Dependencies
 
   lazy val http4sCirce = "org.http4s" %% "http4s-circe" % Http4sVersion
 
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "2.3.1"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "2.3.3"
 
   lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.3.1"
 
-  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "1.4.0"
+  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "1.4.1"
 
-  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "1.4.0"
+  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "1.4.1"
 
-  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.4.0"
+  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.4.1"
 
   lazy val circeGeneric = "io.circe" %% "circe-generic" % CirceVersion
 
@@ -44,7 +44,7 @@ object Dependencies
 
   lazy val flywayCore = "org.flywaydb" % "flyway-core" % "7.5.3"
 
-  lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.18"
+  lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.19"
 
   lazy val h2 = "com.h2database" % "h2" % "1.4.200"
 
@@ -74,7 +74,7 @@ object Dependencies
 
   lazy val betterMonadicFor = "com.olegpy" %% "better-monadic-for" % "0.3.1"
 
-  lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.3"
+  lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.5"
 
   lazy val scalaMock = "org.scalamock" %% "scalamock" % "5.1.0"
 
