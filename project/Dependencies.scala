@@ -3,7 +3,7 @@ import sbt._
 object Dependencies
 {
   val ScalaVersion = "2.13.5"
-  val Http4sVersion = "0.21.19"
+  val Http4sVersion = "0.21.20"
   val CirceVersion = "0.13.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
@@ -40,9 +40,9 @@ object Dependencies
 
   lazy val jodaTime = "joda-time" % "joda-time" % "2.10.10"
 
-  lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.14.0"
+  lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.14.1"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "7.5.4"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "7.6.0"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.19"
 
@@ -56,7 +56,7 @@ object Dependencies
 
   lazy val apacheTika = "org.apache.tika" % "tika-core" % "1.25"
 
-  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "0.11.1"
+  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "0.12.0"
 
   lazy val jbcrypt = "org.mindrot" % "jbcrypt" % "0.4"
 
@@ -74,7 +74,7 @@ object Dependencies
 
   lazy val betterMonadicFor = "com.olegpy" %% "better-monadic-for" % "0.3.1"
 
-  lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.5"
+  lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.6"
 
   lazy val scalaMock = "org.scalamock" %% "scalamock" % "5.1.0"
 
