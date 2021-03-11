@@ -34,7 +34,7 @@ object Dependencies
 
   lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.3"
 
-  lazy val doobie = "org.tpolecat" %% "doobie-core" % "0.10.0"
+  lazy val doobie = "org.tpolecat" %% "doobie-core" % "0.12.1"
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.13.1"
 
@@ -52,7 +52,7 @@ object Dependencies
 
   lazy val jcodecJavaSe = "org.jcodec" % "jcodec-javase" % "0.2.5"
 
-  lazy val thumbnailator = "net.coobird" % "thumbnailator" % "0.4.13"
+  lazy val thumbnailator = "net.coobird" % "thumbnailator" % "0.4.14"
 
   lazy val apacheTika = "org.apache.tika" % "tika-core" % "1.25"
 
