@@ -1,7 +1,5 @@
 package com.ruchij.development
 
-import java.security.KeyStore
-
 import cats.ApplicativeError
 import cats.data.OptionT
 import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
@@ -14,17 +12,15 @@ import com.ruchij.batch.config.{BatchServiceConfiguration, WorkerConfiguration}
 import com.ruchij.batch.services.scheduler.Scheduler
 import com.ruchij.core.config.{ApplicationInformation, DownloadConfiguration, KafkaConfiguration, RedisConfiguration}
 import com.ruchij.core.exceptions.ResourceNotFoundException
+import com.ruchij.core.test.Resources.{startEmbeddedRedis, startEmbeddedKafkaAndSchemaRegistry}
 import com.ruchij.migration.MigrationApp
 import com.ruchij.migration.config.DatabaseConfiguration
-import javax.net.ssl.{KeyManagerFactory, SSLContext}
-import net.manub.embeddedkafka.EmbeddedKafkaConfig
-import net.manub.embeddedkafka.schemaregistry.{EmbeddedKWithSR, EmbeddedKafka, EmbeddedKafkaConfig => EmbeddedKafkaSchemaRegistryConfig}
-import org.http4s.Uri.Scheme
+import org.http4s.HttpApp
 import org.http4s.server.blaze.BlazeServerBuilder
-import org.http4s.{HttpApp, Uri}
 import org.joda.time.LocalTime
-import redis.embedded.RedisServer
 
+import java.security.KeyStore
+import javax.net.ssl.{KeyManagerFactory, SSLContext}
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
@@ -40,9 +36,6 @@ object DevelopmentApp extends IOApp {
   val DownloadConfig: DownloadConfiguration =
     DownloadConfiguration("./videos", "./images")
 
-  val RedisConfig: RedisConfiguration =
-    RedisConfiguration("localhost", 6300, None)
-
   val ApplicationInfo: ApplicationInformation =
     ApplicationInformation("localhost", Some("N/A"), Some("N/A"), None)
 
@@ -57,28 +50,19 @@ object DevelopmentApp extends IOApp {
       30 days
     )
 
-  val KafkaConfig: KafkaConfiguration =
-    KafkaConfiguration(
-      s"localhost:${EmbeddedKafkaConfig.defaultKafkaPort}",
-      Uri(
-        Some(Scheme.http),
-        Some(Uri.Authority(port = Some(EmbeddedKafkaSchemaRegistryConfig.defaultSchemaRegistryPort)))
-      )
-    )
-
-  val ApiConfig: ApiServiceConfiguration =
+  def apiConfig(redisConfiguration: RedisConfiguration, kafkaConfiguration: KafkaConfiguration): ApiServiceConfiguration =
     ApiServiceConfiguration(
       HttpConfig,
       DownloadConfig,
       DatabaseConfig,
-      RedisConfig,
+      redisConfiguration,
       NoAuthenticationConfiguration,
-      KafkaConfig,
+      kafkaConfiguration,
       ApplicationInfo
     )
 
-  val BatchConfig: BatchServiceConfiguration =
-    BatchServiceConfiguration(DownloadConfig, WorkerConfig, DatabaseConfig, KafkaConfig, ApplicationInfo)
+  def batchConfig(kafkaConfiguration: KafkaConfiguration): BatchServiceConfiguration =
+    BatchServiceConfiguration(DownloadConfig, WorkerConfig, DatabaseConfig, kafkaConfiguration, ApplicationInfo)
 
   val KeyStoreResource = "/localhost.jks"
 
@@ -104,30 +88,16 @@ object DevelopmentApp extends IOApp {
 
   def program[F[+ _]: ConcurrentEffect: Timer: ContextShift]: Resource[F, (HttpApp[F], Scheduler[F], SSLContext)] =
     for {
-      _ <- startEmbeddedRedis[F]
-      _ <- startEmbeddedKafkaAndSchemaRegistry[F]
+      (redisConfig, _) <- startEmbeddedRedis[F]
+      (kafkaConfig, _) <- startEmbeddedKafkaAndSchemaRegistry[F]
       blocker <- Blocker[F]
       sslContext <- Resource.liftF(blocker.blockOn(createSslContext[F]))
 
       _ <- Resource.liftF(MigrationApp.migration[F](DatabaseConfig, blocker))
 
-      api <- ApiApp.program[F](ApiConfig)
-      batch <- BatchApp.program[F](BatchConfig)
+      api <- ApiApp.program[F](apiConfig(redisConfig, kafkaConfig))
+      batch <- BatchApp.program[F](batchConfig(kafkaConfig))
     } yield (api, batch, sslContext)
-
-  def startEmbeddedRedis[F[_]: Sync]: Resource[F, RedisServer] =
-    Resource
-      .pure[F, RedisServer](RedisServer.builder().port(RedisConfig.port).build())
-      .flatTap { redisServer =>
-        Resource.make(Sync[F].delay(redisServer.start()))(_ => Sync[F].delay(redisServer.stop()))
-      }
-
-  def startEmbeddedKafkaAndSchemaRegistry[F[_]: Sync](
-    implicit embeddedKafkaConfig: EmbeddedKafkaSchemaRegistryConfig
-  ): Resource[F, EmbeddedKWithSR] =
-    Resource.make(Sync[F].delay(EmbeddedKafka.start())) { kafka =>
-      Sync[F].delay(kafka.stop(false))
-    }
 
   def createSslContext[F[_]: Sync]: F[SSLContext] =
     for {

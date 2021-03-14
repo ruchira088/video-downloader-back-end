@@ -13,6 +13,11 @@ trait RandomGenerator[F[+ _], +A] {
 object RandomGenerator {
   def apply[F[+ _], A](implicit randomGenerator: RandomGenerator[F, A]): RandomGenerator[F, A] = randomGenerator
 
+  def apply[F[+ _]: Sync, A](block: => A): RandomGenerator[F, A] =
+    new RandomGenerator[F, A] {
+      override val generate: F[A] = Sync[F].delay(block)
+    }
+
   implicit def randomGeneratorMonad[F[+ _]: Monad]: Monad[RandomGenerator[F, *]] =
     new Monad[RandomGenerator[F, *]] {
       override def pure[A](x: A): RandomGenerator[F, A] =

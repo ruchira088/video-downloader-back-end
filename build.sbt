@@ -57,7 +57,7 @@ lazy val core =
           jsoup,
           scalaLogging,
           logbackClassic
-        ) ++ Seq(scalaTest, scalaMock).map(_ % Test)
+        ) ++ Seq(scalaTest, scalaMock, embeddedRedis, embeddedKafkaSchemaRegistry).map(_ % Test)
     )
     .dependsOn(migrationApplication)
 
@@ -97,10 +97,9 @@ lazy val batch =
 lazy val development =
   (project in file("./development"))
     .settings(
-      name := "video-downloader-development",
-      libraryDependencies ++= Seq(embeddedRedis, embeddedKafkaSchemaRegistry)
+      name := "video-downloader-development"
     )
-    .dependsOn(migrationApplication, api, batch)
+    .dependsOn(migrationApplication, core % "compile->test", api, batch)
 
 val compileAll = taskKey[Unit]("Compile all projects")
 compileAll :=

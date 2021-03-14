@@ -2,8 +2,9 @@ package com.ruchij.api.web.routes
 
 import cats.effect.{Clock, IO}
 import com.ruchij.core.circe.Encoders.dateTimeEncoder
-import com.ruchij.api.test.HttpAppFixture
+import com.ruchij.api.test.HttpTestResource
 import com.ruchij.api.test.matchers._
+import com.ruchij.core.test.Providers.stubClock
 import io.circe.literal._
 import org.http4s.{Request, Status, Uri}
 import org.joda.time.DateTime
