@@ -110,7 +110,9 @@ object ApiApp extends IOApp {
           assetService = new AssetServiceImpl[F, ConnectionIO](DoobieFileResourceDao, repositoryService)
 
           downloadProgressPubSub <- KafkaPubSub[F, DownloadProgress](apiServiceConfiguration.kafkaConfiguration)
-          scheduledVideoDownloadPubSub <- KafkaPubSub[F, ScheduledVideoDownload](apiServiceConfiguration.kafkaConfiguration)
+          scheduledVideoDownloadPubSub <- KafkaPubSub[F, ScheduledVideoDownload](
+            apiServiceConfiguration.kafkaConfiguration
+          )
           healthCheckPubSub <- KafkaPubSub[F, HealthCheckMessage](apiServiceConfiguration.kafkaConfiguration)
 
           schedulingService = new SchedulingServiceImpl[F, ConnectionIO](
@@ -128,42 +130,39 @@ object ApiApp extends IOApp {
             apiServiceConfiguration.downloadConfiguration
           )
 
-          authenticationService =
-            apiServiceConfiguration.authenticationConfiguration match {
-              case AuthenticationConfiguration.NoAuthenticationConfiguration =>
-                new NoAuthenticationService[F]
+          authenticationService = apiServiceConfiguration.authenticationConfiguration match {
+            case AuthenticationConfiguration.NoAuthenticationConfiguration =>
+              new NoAuthenticationService[F]
 
-              case passwordAuthenticationConfiguration: PasswordAuthenticationConfiguration =>
-                new AuthenticationServiceImpl[F](
-                  authenticationKeyStore,
-                  passwordAuthenticationConfiguration,
-                  cpuBlocker
-                )
-            }
+            case passwordAuthenticationConfiguration: PasswordAuthenticationConfiguration =>
+              new AuthenticationServiceImpl[F](authenticationKeyStore, passwordAuthenticationConfiguration, cpuBlocker)
+          }
 
-          backgroundService =
-            new BackgroundServiceImpl[F](
-              downloadProgressPubSub,
-              schedulingService,
-              s"background-${apiServiceConfiguration.applicationInformation.instanceId}"
-            )
+          backgroundService = new BackgroundServiceImpl[F](
+            downloadProgressPubSub,
+            schedulingService,
+            s"background-${apiServiceConfiguration.applicationInformation.instanceId}"
+          )
 
-          _ <- Resource.liftF(Concurrent[F].start(backgroundService.run))
+          _ <- Resource.make(Concurrent[F].start(backgroundService.run))(_.cancel)
 
           topic <- Resource.liftF(Topic[F, Option[DownloadProgress]](None))
 
-          _ <-
-            Resource.liftF {
-              Concurrent[F].start {
-                schedulingService.subscribeToDownloadProgress(apiServiceConfiguration.applicationInformation.instanceId)
-                  .through(stream => topic.publish(stream.map(Some.apply)))
-                  .compile
-                  .drain
-              }
+          _ <- Resource.make {
+            Concurrent[F].start {
+              schedulingService
+                .subscribeToDownloadProgress(apiServiceConfiguration.applicationInformation.instanceId)
+                .through(stream => topic.publish(stream.map(Some.apply)))
+                .compile
+                .drain
             }
+          }(_.cancel)
 
-        downloadProgressStream =
-          topic.subscribe(Int.MaxValue).collect { case Some(downloadProgress) => downloadProgress }
+          downloadProgressStream =
+            topic.subscribe(Int.MaxValue)
+              .collect {
+                case Some(downloadProgress) => downloadProgress
+              }
 
         } yield
           Routes(
