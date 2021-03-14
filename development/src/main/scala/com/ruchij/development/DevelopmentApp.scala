@@ -5,7 +5,7 @@ import cats.data.OptionT
 import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
 import cats.implicits._
 import com.ruchij.api.ApiApp
-import com.ruchij.api.config.AuthenticationConfiguration.{HashedPassword, NoAuthenticationConfiguration, PasswordAuthenticationConfiguration}
+import com.ruchij.api.config.AuthenticationConfiguration.{HashedPassword, PasswordAuthenticationConfiguration}
 import com.ruchij.api.config.{ApiServiceConfiguration, HttpConfiguration}
 import com.ruchij.batch.BatchApp
 import com.ruchij.batch.config.{BatchServiceConfiguration, WorkerConfiguration}
@@ -56,7 +56,7 @@ object DevelopmentApp extends IOApp {
       DownloadConfig,
       DatabaseConfig,
       redisConfiguration,
-      NoAuthenticationConfiguration,
+      PasswordAuthenticationConfig,
       kafkaConfiguration,
       ApplicationInfo
     )
