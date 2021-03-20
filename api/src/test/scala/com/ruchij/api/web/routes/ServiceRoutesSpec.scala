@@ -20,7 +20,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Properties
 
 class ServiceRoutesSpec extends AnyFlatSpec with Matchers with IOSupport {
-  "GET /service" should "return a successful response containing service information" in {
+
+  "GET /service/info" should "return a successful response containing service information" in {
     val dateTime = DateTime.now()
     implicit val timer: Timer[IO] = stubTimer(dateTime)
 
@@ -55,6 +56,30 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with IOSupport {
           }
           yield (): Unit
       }
+    }
+  }
+
+  "GET /service/health" should "return a health check response" in run {
+    HttpTestResource[IO].use {
+      case (_, application) =>
+        for {
+          request <- GET(uri"/service/health")
+          response <- application.run(request)
+
+          _ = {
+            response must beJsonContentType
+            response must haveStatus(Status.Ok)
+            response must haveJson {
+              json"""{
+                "database" : "Healthy",
+                "fileRepository" : "Healthy",
+                "keyValueStore" : "Healthy",
+                "pubSubStatus" : "Healthy"
+              }"""
+            }
+          }
+        }
+        yield (): Unit
     }
   }
 }
