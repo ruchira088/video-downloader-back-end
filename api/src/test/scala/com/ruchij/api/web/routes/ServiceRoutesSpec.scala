@@ -17,6 +17,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.Properties
 
 class ServiceRoutesSpec extends AnyFlatSpec with Matchers with IOSupport {
   "GET /service" should "return a successful response containing service information" in {
@@ -30,8 +31,9 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with IOSupport {
         "organization": "com.ruchij",
         "scalaVersion": "2.13.5",
         "sbtVersion": "1.4.9",
-        "javaVersion": "1.8.0_282",
+        "javaVersion": ${Properties.javaVersion},
         "currentTimestamp": $dateTime,
+        "applicationMode": "Test",
         "instanceId": "localhost",
         "gitBranch": "N/A",
         "gitCommit": "N/A",

@@ -1,5 +1,6 @@
 package com.ruchij.core.config
 
+import enumeratum.{Enum, EnumEntry}
 import org.http4s.Uri
 import org.joda.time.{DateTime, LocalTime}
 import pureconfig.ConfigReader
@@ -22,6 +23,11 @@ object PureConfigReaders {
   implicit val uriPureConfigReader: ConfigReader[Uri] =
     ConfigReader.fromNonEmptyString { input =>
       Uri.fromString(input).left.map(error => CannotConvert(input, classOf[Uri].getSimpleName, error.message))
+    }
+
+  implicit def enumPureConfigReader[A <: EnumEntry: ClassTag](implicit enumValues: Enum[A]): ConfigReader[A] =
+    ConfigReader.fromNonEmptyStringOpt[A] {
+      value => enumValues.values.find(_.entryName.equalsIgnoreCase(value))
     }
 
   def stringConfigParserTry[A](parser: String => Try[A])(implicit classTag: ClassTag[A]): ConfigReader[A] =

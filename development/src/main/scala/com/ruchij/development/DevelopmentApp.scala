@@ -10,9 +10,10 @@ import com.ruchij.api.config.{ApiServiceConfiguration, HttpConfiguration}
 import com.ruchij.batch.BatchApp
 import com.ruchij.batch.config.{BatchServiceConfiguration, WorkerConfiguration}
 import com.ruchij.batch.services.scheduler.Scheduler
+import com.ruchij.core.config.models.ApplicationMode
 import com.ruchij.core.config.{ApplicationInformation, DownloadConfiguration, KafkaConfiguration, RedisConfiguration}
 import com.ruchij.core.exceptions.ResourceNotFoundException
-import com.ruchij.core.test.Resources.{startEmbeddedRedis, startEmbeddedKafkaAndSchemaRegistry}
+import com.ruchij.core.test.Resources.{startEmbeddedKafkaAndSchemaRegistry, startEmbeddedRedis}
 import com.ruchij.migration.MigrationApp
 import com.ruchij.migration.config.DatabaseConfiguration
 import org.http4s.HttpApp
@@ -37,7 +38,7 @@ object DevelopmentApp extends IOApp {
     DownloadConfiguration("./videos", "./images")
 
   val ApplicationInfo: ApplicationInformation =
-    ApplicationInformation("localhost", Some("N/A"), Some("N/A"), None)
+    ApplicationInformation(ApplicationMode.Development, "localhost", Some("N/A"), Some("N/A"), None)
 
   val WorkerConfig: WorkerConfiguration =
     WorkerConfiguration(2, LocalTime.MIDNIGHT, LocalTime.MIDNIGHT)

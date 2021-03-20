@@ -4,6 +4,7 @@ import cats.effect.{Clock, Sync}
 import cats.implicits._
 import com.eed3si9n.ruchij.api.BuildInfo
 import com.ruchij.core.config.ApplicationInformation
+import com.ruchij.core.config.models.ApplicationMode
 import com.ruchij.core.types.JodaClock
 import org.joda.time.DateTime
 
@@ -17,6 +18,7 @@ case class ServiceInformation(
   sbtVersion: String,
   javaVersion: String,
   currentTimestamp: DateTime,
+  applicationMode: ApplicationMode,
   instanceId: String,
   gitBranch: Option[String],
   gitCommit: Option[String],
@@ -38,6 +40,7 @@ object ServiceInformation {
         BuildInfo.sbtVersion,
         javaVersion,
         timestamp,
+        applicationInformation.mode,
         applicationInformation.instanceId,
         applicationInformation.gitBranch,
         applicationInformation.gitCommit,

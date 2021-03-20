@@ -1,8 +1,9 @@
-package com.ruchij.core.messaging
+package com.ruchij.core.messaging.inmemory
 
 import cats.Applicative
 import cats.effect.Concurrent
 import cats.implicits._
+import com.ruchij.core.messaging.PubSub
 import com.ruchij.core.messaging.kafka.KafkaSubscriber.CommittableRecord
 import fs2.concurrent.Topic
 import fs2.{Pipe, Stream}

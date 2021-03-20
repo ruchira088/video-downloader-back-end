@@ -4,9 +4,10 @@ import cats.effect.{ConcurrentEffect, ContextShift, Resource, Timer}
 import com.ruchij.api.ApiApp
 import com.ruchij.api.config.AuthenticationConfiguration.{HashedPassword, PasswordAuthenticationConfiguration}
 import com.ruchij.api.config.{ApiServiceConfiguration, HttpConfiguration}
-import com.ruchij.core.config.{ApplicationInformation, DownloadConfiguration}
+import com.ruchij.core.config.models.ApplicationMode
+import com.ruchij.core.config.{ApplicationInformation, DownloadConfiguration, KafkaConfiguration}
 import com.ruchij.core.test.{DoobieProvider, Resources}
-import org.http4s.HttpApp
+import org.http4s.{HttpApp, Uri}
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
@@ -15,7 +16,7 @@ object HttpTestResource {
   val DownloadConfig: DownloadConfiguration = DownloadConfiguration("./videos", "./images")
 
   val ApplicationInfo: ApplicationInformation =
-    ApplicationInformation("localhost", Some("N/A"), Some("N/A"), None)
+    ApplicationInformation(ApplicationMode.Test, "localhost", Some("N/A"), Some("N/A"), None)
 
   val HttpConfig: HttpConfiguration = HttpConfiguration("localhost", 8000)
 
@@ -25,10 +26,12 @@ object HttpTestResource {
       30 days
     )
 
+  val KafkaConfig: KafkaConfiguration = KafkaConfiguration("N/A", Uri())
+
   def apply[F[+ _]: ConcurrentEffect: Timer: ContextShift]: Resource[F, (ApiServiceConfiguration, HttpApp[F])] =
     for {
       (redisConfiguration, _) <- Resources.startEmbeddedRedis[F]
-      (kafkaConfiguration, _) <- Resources.startEmbeddedKafkaAndSchemaRegistry[F]
+//      (kafkaConfiguration, _) <- Resources.startEmbeddedKafkaAndSchemaRegistry[F]
 
       databaseConfiguration <- Resource.liftF(DoobieProvider.uniqueH2InMemoryDatabaseConfiguration[F])
 
@@ -39,7 +42,7 @@ object HttpTestResource {
           databaseConfiguration,
           redisConfiguration,
           PasswordAuthenticationConfig,
-          kafkaConfiguration,
+          KafkaConfig,
           ApplicationInfo
         )
 
