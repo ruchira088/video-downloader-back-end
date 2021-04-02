@@ -92,9 +92,9 @@ object DevelopmentApp extends IOApp {
       (redisConfig, _) <- startEmbeddedRedis[F]
       (kafkaConfig, _) <- startEmbeddedKafkaAndSchemaRegistry[F]
       blocker <- Blocker[F]
-      sslContext <- Resource.liftF(blocker.blockOn(createSslContext[F]))
+      sslContext <- Resource.eval(blocker.blockOn(createSslContext[F]))
 
-      _ <- Resource.liftF(MigrationApp.migration[F](DatabaseConfig, blocker))
+      _ <- Resource.eval(MigrationApp.migration[F](DatabaseConfig, blocker))
 
       api <- ApiApp.program[F](apiConfig(redisConfig, kafkaConfig))
       batch <- BatchApp.program[F](batchConfig(kafkaConfig))

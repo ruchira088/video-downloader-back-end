@@ -70,17 +70,17 @@ object ApiApp extends IOApp {
     apiServiceConfiguration: ApiServiceConfiguration
   ): Resource[F, HttpApp[F]] =
     Resource
-      .liftF(DoobieTransactor.create[F](apiServiceConfiguration.databaseConfiguration))
+      .eval(DoobieTransactor.create[F](apiServiceConfiguration.databaseConfiguration))
       .map(FunctionKTypes.transaction[F])
       .flatMap { implicit transaction =>
         for {
           httpClient <- AsyncHttpClient.resource().map(FollowRedirect(maxRedirects = 10))
 
-          ioThreadPool <- Resource.liftF(Sync[F].delay(Executors.newCachedThreadPool()))
+          ioThreadPool <- Resource.eval(Sync[F].delay(Executors.newCachedThreadPool()))
           ioBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(ioThreadPool))
 
-          processorCount <- Resource.liftF(Sync[F].delay(Runtime.getRuntime.availableProcessors()))
-          cpuBlockingThreadPool <- Resource.liftF(Sync[F].delay(Executors.newFixedThreadPool(processorCount)))
+          processorCount <- Resource.eval(Sync[F].delay(Runtime.getRuntime.availableProcessors()))
+          cpuBlockingThreadPool <- Resource.eval(Sync[F].delay(Executors.newFixedThreadPool(processorCount)))
           cpuBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(cpuBlockingThreadPool))
 
           redisCommands <- Redis[F].utf8(apiServiceConfiguration.redisConfiguration.uri)
@@ -89,7 +89,7 @@ object ApiApp extends IOApp {
           healthCheckKeyStore = new KeySpacedKeyValueStore(HealthCheckKeySpace, keyValueStore)
           authenticationKeyStore = new KeySpacedKeyValueStore(AuthenticationKeySpace, keyValueStore)
 
-          _ <- Resource.liftF(MigrationApp.migration[F](apiServiceConfiguration.databaseConfiguration, ioBlocker))
+          _ <- Resource.eval(MigrationApp.migration[F](apiServiceConfiguration.databaseConfiguration, ioBlocker))
 
           repositoryService = new FileRepositoryService[F](ioBlocker)
           downloadService = new Http4sDownloadService[F](httpClient, repositoryService)
@@ -148,7 +148,7 @@ object ApiApp extends IOApp {
 
           _ <- Resource.make(Concurrent[F].start(backgroundService.run))(_.cancel)
 
-          topic <- Resource.liftF(Topic[F, Option[DownloadProgress]](None))
+          topic <- Resource.eval(Topic[F, Option[DownloadProgress]](None))
 
           _ <- Resource.make {
             Concurrent[F].start {
@@ -182,7 +182,7 @@ object ApiApp extends IOApp {
 
   def pubSubs[F[_]: ConcurrentEffect: ContextShift: Timer](apiServiceConfiguration: ApiServiceConfiguration): Resource[F, (PubSub[F, CommittableRecord[F, *], DownloadProgress], PubSub[F, CommittableRecord[F, *], ScheduledVideoDownload], PubSub[F, CommittableRecord[F, *], HealthCheckMessage])] =
     if (apiServiceConfiguration.applicationInformation.mode == ApplicationMode.Test) {
-      Resource.liftF {
+      Resource.eval {
         for {
           downloadProgressPubSub <- Fs2PubSub[F, DownloadProgress]
           scheduledVideoDownloadPubSub <- Fs2PubSub[F, ScheduledVideoDownload]

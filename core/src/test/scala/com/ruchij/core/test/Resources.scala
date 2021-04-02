@@ -34,7 +34,7 @@ object Resources {
 
   def startEmbeddedRedis[F[+ _]: Sync]: Resource[F, (RedisConfiguration, RedisServer)] =
     Resource
-      .liftF(availablePort[F](6300))
+      .eval(availablePort[F](6300))
       .map { port =>
         RedisConfiguration("localhost", port, None) -> RedisServer.builder().port(port).build()
       }
@@ -45,9 +45,9 @@ object Resources {
 
   def startEmbeddedKafkaAndSchemaRegistry[F[+ _]: Sync]: Resource[F, (KafkaConfiguration, EmbeddedKWithSR)] =
     for {
-      kafkaPort <- Resource.liftF(availablePort(EmbeddedKafkaConfig.defaultKafkaPort))
-      zookeeperPort <- Resource.liftF(availablePort(EmbeddedKafkaConfig.defaultZookeeperPort))
-      schemaRegistryPort <- Resource.liftF(availablePort(EmbeddedKafkaSchemaRegistryConfig.defaultSchemaRegistryPort))
+      kafkaPort <- Resource.eval(availablePort(EmbeddedKafkaConfig.defaultKafkaPort))
+      zookeeperPort <- Resource.eval(availablePort(EmbeddedKafkaConfig.defaultZookeeperPort))
+      schemaRegistryPort <- Resource.eval(availablePort(EmbeddedKafkaSchemaRegistryConfig.defaultSchemaRegistryPort))
 
       kafkaConfiguration = KafkaConfiguration(
         s"localhost:$kafkaPort",

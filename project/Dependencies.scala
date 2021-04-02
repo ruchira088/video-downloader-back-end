@@ -3,7 +3,7 @@ import sbt._
 object Dependencies
 {
   val ScalaVersion = "2.13.5"
-  val Http4sVersion = "0.21.20"
+  val Http4sVersion = "0.21.21"
   val CirceVersion = "0.13.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
@@ -14,15 +14,15 @@ object Dependencies
 
   lazy val http4sCirce = "org.http4s" %% "http4s-circe" % Http4sVersion
 
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "2.3.3"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "2.4.1"
 
   lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.3.1"
 
-  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "1.4.1"
+  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "1.4.2"
 
-  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "1.4.1"
+  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "1.4.2"
 
-  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.4.1"
+  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.5.0"
 
   lazy val circeGeneric = "io.circe" %% "circe-generic" % CirceVersion
 
@@ -42,7 +42,7 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.14.1"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "7.7.0"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "7.7.2"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.19"
 
@@ -54,19 +54,19 @@ object Dependencies
 
   lazy val thumbnailator = "net.coobird" % "thumbnailator" % "0.4.14"
 
-  lazy val apacheTika = "org.apache.tika" % "tika-core" % "1.25"
+  lazy val apacheTika = "org.apache.tika" % "tika-core" % "1.26"
 
-  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "0.12.0"
+  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "0.13.1"
 
   lazy val jbcrypt = "org.mindrot" % "jbcrypt" % "0.4"
 
   lazy val embeddedRedis = "com.github.kstyrc" % "embedded-redis" % "0.6"
 
-  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "6.1.0"
+  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "6.1.1"
 
   lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.3"
 
-  lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
+  lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.3"
 
   lazy val kindProjector = "org.typelevel" %% "kind-projector" % "0.11.3" cross CrossVersion.full
 
@@ -74,7 +74,7 @@ object Dependencies
 
   lazy val betterMonadicFor = "com.olegpy" %% "better-monadic-for" % "0.3.1"
 
-  lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.6"
+  lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.7"
 
   lazy val scalaMock = "org.scalamock" %% "scalamock" % "5.1.0"
 

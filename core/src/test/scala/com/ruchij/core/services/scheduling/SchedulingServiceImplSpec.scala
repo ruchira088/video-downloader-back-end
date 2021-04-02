@@ -50,7 +50,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
 
     val client =
       Client[IO] { request =>
-        Resource.liftF {
+        Resource.eval {
           HttpRoutes
             .of[IO] {
               case GET -> Root / "caught" / "caught-my-bbc-roommate-spying" / "276979928" / "" =>

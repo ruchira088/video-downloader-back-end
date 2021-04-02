@@ -65,7 +65,7 @@ object BatchApp extends IOApp {
     batchServiceConfiguration: BatchServiceConfiguration
   ): Resource[F, Scheduler[F]] =
     Resource
-      .liftF(DoobieTransactor.create[F](batchServiceConfiguration.databaseConfiguration))
+      .eval(DoobieTransactor.create[F](batchServiceConfiguration.databaseConfiguration))
       .map(FunctionKTypes.transaction[F])
       .flatMap { implicit transaction =>
         for {
@@ -73,14 +73,14 @@ object BatchApp extends IOApp {
             AsyncHttpClient.resource { AsyncHttpClient.configure(_.setRequestTimeout((24 hours).toMillis.toInt)) }
               .map(FollowRedirect(maxRedirects = 10))
 
-          ioThreadPool <- Resource.liftF(Sync[F].delay(Executors.newCachedThreadPool()))
+          ioThreadPool <- Resource.eval(Sync[F].delay(Executors.newCachedThreadPool()))
           ioBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(ioThreadPool))
 
-          processorCount <- Resource.liftF(Sync[F].delay(Runtime.getRuntime.availableProcessors()))
-          cpuBlockingThreadPool <- Resource.liftF(Sync[F].delay(Executors.newFixedThreadPool(processorCount)))
+          processorCount <- Resource.eval(Sync[F].delay(Runtime.getRuntime.availableProcessors()))
+          cpuBlockingThreadPool <- Resource.eval(Sync[F].delay(Executors.newFixedThreadPool(processorCount)))
           cpuBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(cpuBlockingThreadPool))
 
-          _ <- Resource.liftF(MigrationApp.migration[F](batchServiceConfiguration.databaseConfiguration, ioBlocker))
+          _ <- Resource.eval(MigrationApp.migration[F](batchServiceConfiguration.databaseConfiguration, ioBlocker))
 
           workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
 
