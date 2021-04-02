@@ -2,6 +2,7 @@ package com.ruchij.api
 
 import java.util.concurrent.Executors
 import cats.effect.{Blocker, Concurrent, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
+import cats.implicits._
 import com.ruchij.api.config.{ApiServiceConfiguration, AuthenticationConfiguration}
 import com.ruchij.api.config.AuthenticationConfiguration.PasswordAuthenticationConfiguration
 import com.ruchij.api.services.authentication.{AuthenticationServiceImpl, NoAuthenticationService}
@@ -11,6 +12,7 @@ import com.ruchij.api.services.health.HealthServiceImpl
 import com.ruchij.api.services.health.models.kv.HealthCheckKey.HealthCheckKeySpace
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.api.web.Routes
+import com.ruchij.core.config.models.ApplicationMode
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
@@ -21,7 +23,10 @@ import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.kv.{KeySpacedKeyValueStore, RedisKeyValueStore}
 import com.ruchij.core.kv.keys.KVStoreKey.{kvStoreKeyDecoder, kvStoreKeyEncoder}
 import com.ruchij.core.logging.Logger
+import com.ruchij.core.messaging.PubSub
+import com.ruchij.core.messaging.inmemory.Fs2PubSub
 import com.ruchij.core.messaging.kafka.KafkaPubSub
+import com.ruchij.core.messaging.kafka.KafkaSubscriber.CommittableRecord
 import com.ruchij.core.services.asset.AssetServiceImpl
 import com.ruchij.core.services.download.Http4sDownloadService
 import com.ruchij.core.services.hashing.MurmurHash3Service
@@ -60,21 +65,22 @@ object ApiApp extends IOApp {
         }
     } yield ExitCode.Success
 
+
   def program[F[+ _]: ConcurrentEffect: Timer: ContextShift](
     apiServiceConfiguration: ApiServiceConfiguration
   ): Resource[F, HttpApp[F]] =
     Resource
-      .liftF(DoobieTransactor.create[F](apiServiceConfiguration.databaseConfiguration))
+      .eval(DoobieTransactor.create[F](apiServiceConfiguration.databaseConfiguration))
       .map(FunctionKTypes.transaction[F])
       .flatMap { implicit transaction =>
         for {
           httpClient <- AsyncHttpClient.resource().map(FollowRedirect(maxRedirects = 10))
 
-          ioThreadPool <- Resource.liftF(Sync[F].delay(Executors.newCachedThreadPool()))
+          ioThreadPool <- Resource.eval(Sync[F].delay(Executors.newCachedThreadPool()))
           ioBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(ioThreadPool))
 
-          processorCount <- Resource.liftF(Sync[F].delay(Runtime.getRuntime.availableProcessors()))
-          cpuBlockingThreadPool <- Resource.liftF(Sync[F].delay(Executors.newFixedThreadPool(processorCount)))
+          processorCount <- Resource.eval(Sync[F].delay(Runtime.getRuntime.availableProcessors()))
+          cpuBlockingThreadPool <- Resource.eval(Sync[F].delay(Executors.newFixedThreadPool(processorCount)))
           cpuBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(cpuBlockingThreadPool))
 
           redisCommands <- Redis[F].utf8(apiServiceConfiguration.redisConfiguration.uri)
@@ -83,7 +89,7 @@ object ApiApp extends IOApp {
           healthCheckKeyStore = new KeySpacedKeyValueStore(HealthCheckKeySpace, keyValueStore)
           authenticationKeyStore = new KeySpacedKeyValueStore(AuthenticationKeySpace, keyValueStore)
 
-          _ <- Resource.liftF(MigrationApp.migration[F](apiServiceConfiguration.databaseConfiguration, ioBlocker))
+          _ <- Resource.eval(MigrationApp.migration[F](apiServiceConfiguration.databaseConfiguration, ioBlocker))
 
           repositoryService = new FileRepositoryService[F](ioBlocker)
           downloadService = new Http4sDownloadService[F](httpClient, repositoryService)
@@ -109,9 +115,7 @@ object ApiApp extends IOApp {
 
           assetService = new AssetServiceImpl[F, ConnectionIO](DoobieFileResourceDao, repositoryService)
 
-          downloadProgressPubSub <- KafkaPubSub[F, DownloadProgress](apiServiceConfiguration.kafkaConfiguration)
-          scheduledVideoDownloadPubSub <- KafkaPubSub[F, ScheduledVideoDownload](apiServiceConfiguration.kafkaConfiguration)
-          healthCheckPubSub <- KafkaPubSub[F, HealthCheckMessage](apiServiceConfiguration.kafkaConfiguration)
+          (downloadProgressPubSub, scheduledVideoDownloadPubSub, healthCheckPubSub) <- pubSubs(apiServiceConfiguration)
 
           schedulingService = new SchedulingServiceImpl[F, ConnectionIO](
             videoAnalysisService,
@@ -128,42 +132,39 @@ object ApiApp extends IOApp {
             apiServiceConfiguration.downloadConfiguration
           )
 
-          authenticationService =
-            apiServiceConfiguration.authenticationConfiguration match {
-              case AuthenticationConfiguration.NoAuthenticationConfiguration =>
-                new NoAuthenticationService[F]
+          authenticationService = apiServiceConfiguration.authenticationConfiguration match {
+            case AuthenticationConfiguration.NoAuthenticationConfiguration =>
+              new NoAuthenticationService[F]
 
-              case passwordAuthenticationConfiguration: PasswordAuthenticationConfiguration =>
-                new AuthenticationServiceImpl[F](
-                  authenticationKeyStore,
-                  passwordAuthenticationConfiguration,
-                  cpuBlocker
-                )
+            case passwordAuthenticationConfiguration: PasswordAuthenticationConfiguration =>
+              new AuthenticationServiceImpl[F](authenticationKeyStore, passwordAuthenticationConfiguration, cpuBlocker)
+          }
+
+          backgroundService = new BackgroundServiceImpl[F](
+            downloadProgressPubSub,
+            schedulingService,
+            s"background-${apiServiceConfiguration.applicationInformation.instanceId}"
+          )
+
+          _ <- Resource.make(Concurrent[F].start(backgroundService.run))(_.cancel)
+
+          topic <- Resource.eval(Topic[F, Option[DownloadProgress]](None))
+
+          _ <- Resource.make {
+            Concurrent[F].start {
+              schedulingService
+                .subscribeToDownloadProgress(apiServiceConfiguration.applicationInformation.instanceId)
+                .through(stream => topic.publish(stream.map(Some.apply)))
+                .compile
+                .drain
             }
+          }(_.cancel)
 
-          backgroundService =
-            new BackgroundServiceImpl[F](
-              downloadProgressPubSub,
-              schedulingService,
-              s"background-${apiServiceConfiguration.applicationInformation.instanceId}"
-            )
-
-          _ <- Resource.liftF(Concurrent[F].start(backgroundService.run))
-
-          topic <- Resource.liftF(Topic[F, Option[DownloadProgress]](None))
-
-          _ <-
-            Resource.liftF {
-              Concurrent[F].start {
-                schedulingService.subscribeToDownloadProgress(apiServiceConfiguration.applicationInformation.instanceId)
-                  .through(stream => topic.publish(stream.map(Some.apply)))
-                  .compile
-                  .drain
+          downloadProgressStream =
+            topic.subscribe(Int.MaxValue)
+              .collect {
+                case Some(downloadProgress) => downloadProgress
               }
-            }
-
-        downloadProgressStream =
-          topic.subscribe(Int.MaxValue).collect { case Some(downloadProgress) => downloadProgress }
 
         } yield
           Routes(
@@ -178,5 +179,23 @@ object ApiApp extends IOApp {
             Logger[F, ApiApp.type]
           )
       }
+
+  def pubSubs[F[_]: ConcurrentEffect: ContextShift: Timer](apiServiceConfiguration: ApiServiceConfiguration): Resource[F, (PubSub[F, CommittableRecord[F, *], DownloadProgress], PubSub[F, CommittableRecord[F, *], ScheduledVideoDownload], PubSub[F, CommittableRecord[F, *], HealthCheckMessage])] =
+    if (apiServiceConfiguration.applicationInformation.mode == ApplicationMode.Test) {
+      Resource.eval {
+        for {
+          downloadProgressPubSub <- Fs2PubSub[F, DownloadProgress]
+          scheduledVideoDownloadPubSub <- Fs2PubSub[F, ScheduledVideoDownload]
+          healthCheckPubSub <- Fs2PubSub[F, HealthCheckMessage]
+        }
+        yield (downloadProgressPubSub, scheduledVideoDownloadPubSub, healthCheckPubSub)
+      }
+    } else
+      for {
+        downloadProgressPubSub <- KafkaPubSub[F, DownloadProgress](apiServiceConfiguration.kafkaConfiguration)
+        scheduledVideoDownloadPubSub <- KafkaPubSub[F, ScheduledVideoDownload](apiServiceConfiguration.kafkaConfiguration)
+        healthCheckPubSub <- KafkaPubSub[F, HealthCheckMessage](apiServiceConfiguration.kafkaConfiguration)
+      }
+      yield (downloadProgressPubSub, scheduledVideoDownloadPubSub, healthCheckPubSub)
 
 }

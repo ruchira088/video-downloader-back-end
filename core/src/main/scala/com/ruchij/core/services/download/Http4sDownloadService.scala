@@ -19,7 +19,7 @@ class Http4sDownloadService[F[_]: Concurrent: ContextShift: Clock](
 
   override def download(uri: Uri, fileKey: String): Resource[F, DownloadResult[F]] =
     Resource
-      .liftF { repositoryService.size(fileKey).map(_.getOrElse(0L)) }
+      .eval { repositoryService.size(fileKey).map(_.getOrElse(0L)) }
       .flatMap { start =>
         client
           .run(Request(uri = uri, headers = Headers.of(RangeFrom(start))))
