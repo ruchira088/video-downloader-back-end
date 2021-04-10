@@ -1,12 +1,11 @@
 package com.ruchij.api
 
-import java.util.concurrent.Executors
 import cats.effect.{Blocker, Concurrent, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
 import cats.implicits._
-import com.ruchij.api.config.{ApiServiceConfiguration, AuthenticationConfiguration}
 import com.ruchij.api.config.AuthenticationConfiguration.PasswordAuthenticationConfiguration
-import com.ruchij.api.services.authentication.{AuthenticationServiceImpl, NoAuthenticationService}
+import com.ruchij.api.config.{ApiServiceConfiguration, AuthenticationConfiguration}
 import com.ruchij.api.services.authentication.models.AuthenticationToken.AuthenticationKeySpace
+import com.ruchij.api.services.authentication.{AuthenticationServiceImpl, NoAuthenticationService}
 import com.ruchij.api.services.background.BackgroundServiceImpl
 import com.ruchij.api.services.health.HealthServiceImpl
 import com.ruchij.api.services.health.models.kv.HealthCheckKey.HealthCheckKeySpace
@@ -20,8 +19,8 @@ import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.daos.snapshot.DoobieSnapshotDao
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
-import com.ruchij.core.kv.{KeySpacedKeyValueStore, RedisKeyValueStore}
 import com.ruchij.core.kv.keys.KVStoreKey.{kvStoreKeyDecoder, kvStoreKeyEncoder}
+import com.ruchij.core.kv.{KeySpacedKeyValueStore, RedisKeyValueStore}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.PubSub
 import com.ruchij.core.messaging.inmemory.Fs2PubSub
@@ -34,7 +33,6 @@ import com.ruchij.core.services.repository.FileRepositoryService
 import com.ruchij.core.services.scheduling.SchedulingServiceImpl
 import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
-import com.ruchij.core.types.FunctionKTypes
 import com.ruchij.migration.MigrationApp
 import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.effect.Log.Stdout.instance
@@ -46,6 +44,7 @@ import org.http4s.client.middleware.FollowRedirect
 import org.http4s.server.blaze.BlazeServerBuilder
 import pureconfig.ConfigSource
 
+import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
 
 object ApiApp extends IOApp {
@@ -69,9 +68,8 @@ object ApiApp extends IOApp {
   def program[F[+ _]: ConcurrentEffect: Timer: ContextShift](
     apiServiceConfiguration: ApiServiceConfiguration
   ): Resource[F, HttpApp[F]] =
-    Resource
-      .eval(DoobieTransactor.create[F](apiServiceConfiguration.databaseConfiguration))
-      .map(FunctionKTypes.transaction[F])
+    DoobieTransactor.create[F](apiServiceConfiguration.databaseConfiguration)
+      .map(_.trans)
       .flatMap { implicit transaction =>
         for {
           httpClient <- AsyncHttpClient.resource().map(FollowRedirect(maxRedirects = 10))

@@ -1,26 +1,38 @@
 package com.ruchij.core.daos.doobie
 
-import cats.effect.{Async, ContextShift}
+import cats.effect.{Async, Blocker, ContextShift, Resource}
 import cats.{Applicative, ApplicativeError}
-import cats.implicits._
 import com.ruchij.migration.config.DatabaseConfiguration
-import doobie.util.transactor.Transactor
-import doobie.util.transactor.Transactor.Aux
+import doobie.hikari.HikariTransactor
+import doobie.util.ExecutionContexts
 
+import scala.concurrent.ExecutionContext
 import scala.util.matching.Regex
 
 object DoobieTransactor {
   val UrlName: Regex = "^jdbc:(\\w+):.*".r
 
-  def create[F[_]: Async: ContextShift](databaseConfiguration: DatabaseConfiguration): F[Aux[F, Unit]] =
-    parseFromConnectionUrl[F](databaseConfiguration.url)
-      .map { databaseDriverType =>
-        Transactor.fromDriverManager(
-          databaseDriverType.driver,
-          databaseConfiguration.url,
-          databaseConfiguration.user,
-          databaseConfiguration.password
-        )
+  def create[F[_]: Async: ContextShift](databaseConfiguration: DatabaseConfiguration): Resource[F, HikariTransactor[F]] =
+    for {
+      connectEC <- ExecutionContexts.fixedThreadPool(8)
+      blocker <- Blocker[F]
+
+      transactor <- create[F](databaseConfiguration, connectEC, blocker)
+    }
+    yield transactor
+
+  def create[F[_]: Async: ContextShift](databaseConfiguration: DatabaseConfiguration, connectEC: ExecutionContext, blocker: Blocker): Resource[F, HikariTransactor[F]] =
+    Resource.eval(parseFromConnectionUrl[F](databaseConfiguration.url))
+      .flatMap {
+        driverType =>
+          HikariTransactor.newHikariTransactor[F](
+            driverType.driver,
+            databaseConfiguration.url,
+            databaseConfiguration.user,
+            databaseConfiguration.password,
+            connectEC,
+            blocker
+          )
       }
 
   def parseFromConnectionUrl[F[_]: ApplicativeError[*[_], Throwable]](connectionUrl: String): F[DatabaseDriverType] =

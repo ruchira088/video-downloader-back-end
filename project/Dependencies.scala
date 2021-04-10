@@ -3,7 +3,7 @@ import sbt._
 object Dependencies
 {
   val ScalaVersion = "2.13.5"
-  val Http4sVersion = "0.21.21"
+  val Http4sVersion = "0.21.22"
   val CirceVersion = "0.13.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
@@ -18,11 +18,11 @@ object Dependencies
 
   lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.3.1"
 
-  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "1.4.2"
+  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "1.5.0"
 
-  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "1.4.2"
+  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "1.5.0"
 
-  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.5.0"
+  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.5.1"
 
   lazy val circeGeneric = "io.circe" %% "circe-generic" % CirceVersion
 
@@ -32,9 +32,11 @@ object Dependencies
 
   lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.6.1"
 
-  lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.3"
+  lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.4"
 
   lazy val doobie = "org.tpolecat" %% "doobie-core" % "0.12.1"
+
+  lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "0.12.1"
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.13.1"
 
@@ -42,7 +44,7 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.14.1"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "7.7.2"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "7.7.3"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.19"
 
