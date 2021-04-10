@@ -48,6 +48,7 @@ lazy val core =
           vulkanGeneric,
           h2,
           doobie,
+          doobieHikari,
           shapeless,
           pureconfig,
           jodaTime,

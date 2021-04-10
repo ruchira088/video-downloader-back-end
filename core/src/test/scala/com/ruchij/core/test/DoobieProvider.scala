@@ -1,14 +1,16 @@
 package com.ruchij.core.test
 
-import cats.effect.{Async, Blocker, ContextShift, Sync}
+import cats.effect.{Async, Blocker, ContextShift, Resource, Sync}
 import cats.implicits._
+import cats.~>
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.types.RandomGenerator
 import com.ruchij.migration.MigrationApp
 import com.ruchij.migration.config.DatabaseConfiguration
-import doobie.util.transactor.Transactor
+import doobie.ConnectionIO
 
 import java.util.UUID
+import scala.concurrent.ExecutionContext
 
 object DoobieProvider {
   def h2InMemoryDatabaseConfiguration(databaseName: String): DatabaseConfiguration =
@@ -20,14 +22,20 @@ object DoobieProvider {
 
   def uniqueH2InMemoryDatabaseConfiguration[F[+ _]: Sync]: F[DatabaseConfiguration] =
     RandomGenerator[F, UUID].generate
-      .map(_.toString)
-      .map(h2InMemoryDatabaseConfiguration)
+      .map(uuid => h2InMemoryDatabaseConfiguration(uuid.toString))
 
-  def h2InMemoryTransactor[F[+ _]: Async: ContextShift]: F[Transactor.Aux[F, Unit]] =
-    Blocker[F].use {
-      blocker =>
-        uniqueH2InMemoryDatabaseConfiguration[F]
-          .flatTap(dbConfig => MigrationApp.migration(dbConfig, blocker))
-          .flatMap(DoobieTransactor.create[F])
+  def h2InMemoryTransactor[F[+ _]: Async: ContextShift](implicit executionContext: ExecutionContext): Resource[F, ConnectionIO ~> F] =
+    for {
+      databaseConfiguration <- Resource.eval(uniqueH2InMemoryDatabaseConfiguration[F])
+      blocker = Blocker.liftExecutionContext(executionContext)
+
+      hikariTransactor <- DoobieTransactor.create[F](databaseConfiguration, executionContext, blocker)
+
+      migrationResult <- Resource.eval(MigrationApp.migration(databaseConfiguration, blocker))
+
+      _ <- Resource.eval(Sync[F].delay(println(s"Executed ${migrationResult.migrationsExecuted} migrations")))
     }
+    yield hikariTransactor.trans
+
+
 }

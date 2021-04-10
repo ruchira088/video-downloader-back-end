@@ -31,7 +31,7 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with IOSupport {
         "serviceVersion": ${BuildInfo.version},
         "organization": "com.ruchij",
         "scalaVersion": "2.13.5",
-        "sbtVersion": "1.4.9",
+        "sbtVersion": "1.5.0",
         "javaVersion": ${Properties.javaVersion},
         "currentTimestamp": $dateTime,
         "applicationMode": "Test",

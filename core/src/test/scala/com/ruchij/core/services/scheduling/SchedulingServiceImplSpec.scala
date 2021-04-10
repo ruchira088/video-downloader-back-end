@@ -1,7 +1,6 @@
 package com.ruchij.core.services.scheduling
 
 import cats.effect.{IO, Resource, Timer}
-import cats.~>
 import com.ruchij.core.config.DownloadConfiguration
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
@@ -17,8 +16,7 @@ import com.ruchij.core.services.repository.InMemoryRepositoryService
 import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.services.video.VideoAnalysisServiceImpl
 import com.ruchij.core.test.Providers.{blocker, contextShift}
-import com.ruchij.core.test.{DoobieProvider, Providers}
-import com.ruchij.core.types.FunctionKTypes
+import com.ruchij.core.test.{DoobieProvider, IOSupport, Providers}
 import doobie.ConnectionIO
 import fs2.Stream
 import org.http4s._
@@ -37,16 +35,14 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory with OptionValues {
+class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory with OptionValues with IOSupport {
   import ExecutionContext.Implicits.global
 
-  "SchedulingServiceImpl" should "save the scheduled video task" in {
+  "SchedulingServiceImpl" should "save the scheduled video task" in run {
     val videoUrl: Uri = uri"https://www.pornone.com/caught/caught-my-bbc-roommate-spying/276979928/"
 
     val dateTime = DateTime.now()
     implicit val timer: Timer[IO] = Providers.stubTimer(dateTime)
-    implicit val transaction: ConnectionIO ~> IO =
-      DoobieProvider.h2InMemoryTransactor[IO].map(FunctionKTypes.transaction[IO]).unsafeRunSync()
 
     val client =
       Client[IO] { request =>
@@ -107,63 +103,74 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
     val hashingService = new MurmurHash3Service[IO](blocker)
     val repositoryService = new InMemoryRepositoryService[IO](new ConcurrentHashMap())
     val downloadService = new Http4sDownloadService[IO](client, repositoryService)
-    val videoAnalysisService =
-      new VideoAnalysisServiceImpl[IO, ConnectionIO](
-        hashingService,
-        downloadService,
-        client,
-        DoobieVideoMetadataDao,
-        DoobieFileResourceDao,
-        downloadConfiguration
-      )
 
-    val videoId = hashingService.hash(videoUrl.renderString).unsafeRunSync()
+    DoobieProvider.h2InMemoryTransactor[IO]
+      .use { implicit transaction =>
+        for {
+          videoAnalysisService <- IO.pure {
+            new VideoAnalysisServiceImpl[IO, ConnectionIO](
+              hashingService,
+              downloadService,
+              client,
+              DoobieVideoMetadataDao,
+              DoobieFileResourceDao,
+              downloadConfiguration
+            )
+          }
 
-    val expectedScheduledDownloadVideo =
-      ScheduledVideoDownload(
-        dateTime,
-        dateTime,
-        SchedulingStatus.Queued,
-        0,
-        VideoMetadata(
-          videoUrl,
-          videoId,
-          VideoSite.PornOne,
-          "Caught My Bbc Roommate Spying",
-          204 seconds,
-          1988,
-          FileResource(
-            hashingService.hash(uri"https://th-eu3.pornone.com/t/b81.jpg".renderString).unsafeRunSync(),
-            dateTime,
-            s"${downloadConfiguration.imageFolder}/thumbnail-$videoId-b81.jpg",
-            MediaType.image.jpeg,
-            100
-          )
-        ),
-        None
-      )
+          videoId <- hashingService.hash(videoUrl.renderString)
 
-    val downloadProgressPubSub: Fs2PubSub[IO, DownloadProgress] = Fs2PubSub[IO, DownloadProgress].unsafeRunSync()
-    val scheduledVideoDownloadUpdatesPubSub: Fs2PubSub[IO, ScheduledVideoDownload] =
-      Fs2PubSub[IO, ScheduledVideoDownload].unsafeRunSync()
+          expectedScheduledDownloadVideo =
+            ScheduledVideoDownload(
+              dateTime,
+              dateTime,
+              SchedulingStatus.Queued,
+              0,
+              VideoMetadata(
+                videoUrl,
+                videoId,
+                VideoSite.PornOne,
+                "Caught My Bbc Roommate Spying",
+                204 seconds,
+                1988,
+                FileResource(
+                  hashingService.hash(uri"https://th-eu3.pornone.com/t/b81.jpg".renderString).unsafeRunSync(),
+                  dateTime,
+                  s"${downloadConfiguration.imageFolder}/thumbnail-$videoId-b81.jpg",
+                  MediaType.image.jpeg,
+                  100
+                )
+              ),
+              None
+            )
 
-    val schedulingService =
-      new SchedulingServiceImpl[IO, ConnectionIO](
-        videoAnalysisService,
-        DoobieSchedulingDao,
-        downloadProgressPubSub,
-        scheduledVideoDownloadUpdatesPubSub
-      )
+          downloadProgressPubSub <- Fs2PubSub[IO, DownloadProgress]
+          scheduledVideoDownloadUpdatesPubSub <- Fs2PubSub[IO, ScheduledVideoDownload]
 
-    schedulingService.schedule(videoUrl).unsafeRunSync() mustBe expectedScheduledDownloadVideo
+          schedulingService =
+            new SchedulingServiceImpl[IO, ConnectionIO](
+              videoAnalysisService,
+              DoobieSchedulingDao,
+              downloadProgressPubSub,
+              scheduledVideoDownloadUpdatesPubSub
+            )
 
-    scheduledVideoDownloadUpdatesPubSub.subscribe("SchedulingServiceImplSpec")
-      .take(1)
-      .compile
-      .toList
-      .unsafeRunSync()
-      .map { case CommittableRecord(message, _) => message }
-      .headOption mustBe Some(expectedScheduledDownloadVideo)
+          scheduledVideoDownload <- schedulingService.schedule(videoUrl)
+          _ = scheduledVideoDownload mustBe expectedScheduledDownloadVideo
+
+          receivedMessages <-
+            scheduledVideoDownloadUpdatesPubSub.subscribe("SchedulingServiceImplSpec")
+              .take(1)
+              .compile
+              .toList
+              .map {
+                _.map { case CommittableRecord(message, _) => message }
+              }
+
+          _ = receivedMessages.headOption mustBe Some(expectedScheduledDownloadVideo)
+        }
+        yield (): Unit
+      }
   }
 }
 

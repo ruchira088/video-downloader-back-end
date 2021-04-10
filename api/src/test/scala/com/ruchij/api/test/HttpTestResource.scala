@@ -33,7 +33,7 @@ object HttpTestResource {
       (redisConfiguration, _) <- Resources.startEmbeddedRedis[F]
 //      (kafkaConfiguration, _) <- Resources.startEmbeddedKafkaAndSchemaRegistry[F]
 
-      databaseConfiguration <- Resource.liftF(DoobieProvider.uniqueH2InMemoryDatabaseConfiguration[F])
+      databaseConfiguration <- Resource.eval(DoobieProvider.uniqueH2InMemoryDatabaseConfiguration[F])
 
       apiServiceConfiguration =
         ApiServiceConfiguration(

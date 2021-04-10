@@ -1,7 +1,5 @@
 package com.ruchij.batch
 
-import java.util.concurrent.Executors
-
 import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
 import cats.implicits._
 import com.ruchij.batch.config.BatchServiceConfiguration
@@ -25,7 +23,6 @@ import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeD
 import com.ruchij.core.services.scheduling.SchedulingServiceImpl
 import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
-import com.ruchij.core.types.FunctionKTypes
 import com.ruchij.migration.MigrationApp
 import doobie.free.connection.ConnectionIO
 import org.apache.tika.Tika
@@ -33,6 +30,7 @@ import org.http4s.client.asynchttpclient.AsyncHttpClient
 import org.http4s.client.middleware.FollowRedirect
 import pureconfig.ConfigSource
 
+import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
@@ -64,9 +62,8 @@ object BatchApp extends IOApp {
   def program[F[+ _]: ConcurrentEffect: ContextShift: Timer](
     batchServiceConfiguration: BatchServiceConfiguration
   ): Resource[F, Scheduler[F]] =
-    Resource
-      .eval(DoobieTransactor.create[F](batchServiceConfiguration.databaseConfiguration))
-      .map(FunctionKTypes.transaction[F])
+    DoobieTransactor.create[F](batchServiceConfiguration.databaseConfiguration)
+      .map(_.trans)
       .flatMap { implicit transaction =>
         for {
           httpClient <-
