@@ -15,8 +15,9 @@ import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.repository.InMemoryRepositoryService
 import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.services.video.VideoAnalysisServiceImpl
+import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.Providers.{blocker, contextShift}
-import com.ruchij.core.test.{DoobieProvider, IOSupport, Providers}
+import com.ruchij.core.test.{DoobieProvider, Providers}
 import doobie.ConnectionIO
 import fs2.Stream
 import org.http4s._
@@ -35,10 +36,10 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory with OptionValues with IOSupport {
+class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory with OptionValues {
   import ExecutionContext.Implicits.global
 
-  "SchedulingServiceImpl" should "save the scheduled video task" in run {
+  "SchedulingServiceImpl" should "save the scheduled video task" in runIO {
     val videoUrl: Uri = uri"https://www.pornone.com/caught/caught-my-bbc-roommate-spying/276979928/"
 
     val dateTime = DateTime.now()

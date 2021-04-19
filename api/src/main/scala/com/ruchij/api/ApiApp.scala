@@ -19,7 +19,7 @@ import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.daos.snapshot.DoobieSnapshotDao
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
-import com.ruchij.core.kv.keys.KVStoreKey.{kvStoreKeyDecoder, kvStoreKeyEncoder}
+import com.ruchij.core.kv.keys.KeySpacedKeyEncoder.keySpacedKeyEncoder
 import com.ruchij.core.kv.{KeySpacedKeyValueStore, RedisKeyValueStore}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.PubSub
