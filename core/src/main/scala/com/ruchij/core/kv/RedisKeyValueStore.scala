@@ -34,10 +34,4 @@ class RedisKeyValueStore[F[_]: Monad](redisCommands: RedisCommands[F, String, St
       encodedKey <- KVEncoder[F, K].encode(key)
       _ <- redisCommands.del(encodedKey)
     } yield (): Unit
-
-  override def keys[K: KVDecoder[F, *]](term: String): F[List[K]] =
-    for {
-      encodedKeys <- redisCommands.keys("*" + term + "*")
-      keys <- encodedKeys.traverse(KVDecoder[F, K].decode)
-    } yield keys
 }

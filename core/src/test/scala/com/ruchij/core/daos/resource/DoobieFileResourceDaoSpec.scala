@@ -2,8 +2,9 @@ package com.ruchij.core.daos.resource
 
 import cats.effect.IO
 import com.ruchij.core.daos.resource.models.FileResource
+import com.ruchij.core.test.DoobieProvider
+import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.Providers._
-import com.ruchij.core.test.{DoobieProvider, IOSupport}
 import com.ruchij.core.types.JodaClock
 import org.http4s.MediaType
 import org.scalatest.flatspec.AnyFlatSpec
@@ -11,9 +12,9 @@ import org.scalatest.matchers.must.Matchers
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class DoobieFileResourceDaoSpec extends AnyFlatSpec with Matchers with IOSupport {
+class DoobieFileResourceDaoSpec extends AnyFlatSpec with Matchers {
 
-  "DoobieFileResource" should "perform CRUD operation" in run {
+  "DoobieFileResource" should "perform CRUD operation" in runIO {
     DoobieProvider.h2InMemoryTransactor[IO]
       .use {
         transaction =>

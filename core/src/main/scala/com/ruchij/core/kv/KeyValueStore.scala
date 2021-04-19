@@ -13,6 +13,4 @@ trait KeyValueStore[F[_]] {
   def put[K: KVEncoder[F, *], V: KVEncoder[F, *]](key: K, value: V, ttl: FiniteDuration): F[InsertionResult]
 
   def remove[K: KVEncoder[F, *]](key: K): F[DeletionResult]
-
-  def keys[K: KVDecoder[F, *]](term: String): F[List[K]]
 }
