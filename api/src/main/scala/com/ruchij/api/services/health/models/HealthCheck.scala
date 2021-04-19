@@ -1,7 +1,6 @@
 package com.ruchij.api.services.health.models
 
-import shapeless.Generic.Aux
-import shapeless.{::, Generic, HNil}
+import shapeless.Generic
 
 case class HealthCheck(
   database: HealthStatus,
@@ -10,10 +9,5 @@ case class HealthCheck(
   pubSubStatus: HealthStatus
 ) { self =>
   val isHealthy: Boolean =
-    HealthCheck.generic.to(self).toList.forall(_ == HealthStatus.Healthy)
-}
-
-object HealthCheck {
-  val generic: Aux[HealthCheck, HealthStatus :: HealthStatus :: HealthStatus :: HealthStatus :: HNil] =
-    Generic[HealthCheck]
+    Generic[HealthCheck].to(self).toList.forall(_ == HealthStatus.Healthy)
 }

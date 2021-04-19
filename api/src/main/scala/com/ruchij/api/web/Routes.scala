@@ -13,7 +13,7 @@ import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.services.video.{VideoAnalysisService, VideoService}
 import fs2.Stream
 import org.http4s.dsl.Http4sDsl
-import org.http4s.server.middleware.CORS
+import org.http4s.server.middleware.{CORS, GZip}
 import org.http4s.server.{HttpMiddleware, Router}
 import org.http4s.{HttpApp, HttpRoutes}
 
@@ -44,9 +44,11 @@ object Routes {
           "/service" -> ServiceRoutes(healthService),
         )
 
-    CORS {
-      ExceptionHandler(apiLogger) {
-        NotFoundHandler(routes)
+    GZip {
+      CORS {
+        ExceptionHandler(apiLogger) {
+          NotFoundHandler(routes)
+        }
       }
     }
   }
