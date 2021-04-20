@@ -151,7 +151,7 @@ val mergeReleaseToMaster = { state: State =>
     }
 
   val actions: List[ProcessBuilder] =
-    List(git.cmd("checkout", ProductionBranch), git.cmd("merge", releaseTag)) ++
+    List(git.cmd("checkout", ProductionBranch), git.cmd("pull", "--rebase"), git.cmd("merge", releaseTag)) ++
       userInput ++
       List(git.cmd("checkout", ReleaseBranch))
 
