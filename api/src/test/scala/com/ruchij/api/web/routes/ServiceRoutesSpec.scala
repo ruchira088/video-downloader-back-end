@@ -59,7 +59,7 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  "GET /service/health" should "return a health check response" in run {
+  "GET /service/health" should "return a health check response" in runIO {
     HttpTestResource[IO].use {
       case (_, application) =>
         for {

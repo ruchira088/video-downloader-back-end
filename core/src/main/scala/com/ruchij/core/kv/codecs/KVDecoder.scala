@@ -4,10 +4,10 @@ import cats.implicits._
 import cats.{Applicative, ApplicativeError, Functor, Monad, MonadError}
 import com.ruchij.core.kv.keys.KVStoreKey.{KeyList, KeySeparator}
 import org.joda.time.DateTime
-import shapeless.{::, Generic, HList, HNil}
+import shapeless.{::, <:!<, Generic, HList, HNil}
 
+import scala.reflect.ClassTag
 import scala.util.Try
-
 
 trait KVDecoder[F[_], A] { self =>
   def decode(value: String): F[A]
@@ -37,9 +37,15 @@ object KVDecoder {
   implicit def stringKVDecoder[F[_]: Applicative]: KVDecoder[F, String] =
     (value: String) => Applicative[F].pure(value)
 
-  implicit def longKVDecoder[F[_]: MonadError[*[_], Throwable]]: KVDecoder[F, Long] =
+  implicit def numericKVDecoder[F[_]: MonadError[*[_], Throwable], A: Numeric](
+    implicit classTag: ClassTag[A]
+  ): KVDecoder[F, A] =
     stringKVDecoder[F].mapEither { value =>
-      value.toLongOption.fold[Either[String, Long]](Left(s"""Unable to parse "$value" as a Long"""))(Right.apply)
+      Numeric[A]
+        .parseString(value)
+        .fold[Either[String, A]](Left(s"""Unable to parse "$value" as a ${classTag.runtimeClass.getSimpleName}"""))(
+          Right.apply
+        )
     }
 
   implicit def dateTimeKVDecoder[F[_]: MonadError[*[_], Throwable]]: KVDecoder[F, DateTime] =
@@ -55,11 +61,12 @@ object KVDecoder {
 
   implicit def reprKVDecoder[F[_]: MonadError[*[_], Throwable], H, T <: HList](
     implicit headKVDecoder: KVDecoder[F, H],
-    tailKVDecoder: KVDecoder[F, T]
+    tailKVDecoder: KVDecoder[F, T],
+    headTermCount: TermCount[H]
   ): KVDecoder[F, H :: T] = {
-    case KeyList(head, tail @ _*) =>
-      headKVDecoder.decode(head).flatMap { value =>
-        tailKVDecoder.decode(tail.mkString(KeySeparator)).map(value :: _)
+    case KeyList(keys @ _*) if keys.length >= headTermCount.size =>
+      headKVDecoder.decode(keys.take(headTermCount.size).mkString(KeySeparator)).flatMap { value =>
+        tailKVDecoder.decode(keys.drop(headTermCount.size).mkString(KeySeparator)).map(value :: _)
       }
 
     case _ => ApplicativeError[F, Throwable].raiseError(new IllegalArgumentException("Key is too short"))
@@ -70,5 +77,39 @@ object KVDecoder {
       if (value.trim.nonEmpty)
         ApplicativeError[F, Throwable].raiseError(new IllegalArgumentException(s"Key contains extra terms: $value"))
       else Applicative[F].pure(HNil)
+
+  sealed trait TermCount[A] {
+    val size: Int
+  }
+
+  object TermCount {
+    def apply[A](implicit termCount: TermCount[A]): TermCount[A] = termCount
+
+    implicit def productTermCount[A <: Product, Repr <: HList: Generic.Aux[A, *]](
+      implicit hlistTermCount: TermCount[Repr]
+    ): TermCount[A] =
+      new TermCount[A] {
+        override val size: Int = hlistTermCount.size
+      }
+
+    implicit def nonProductTermCount[A: * <:!< Product]: TermCount[A] =
+      new TermCount[A] {
+        override val size: Int = 1
+      }
+
+    implicit def hlistTermCount[H, Tail <: HList](
+      implicit headTermCount: TermCount[H],
+      tailTermCount: TermCount[Tail]
+    ): TermCount[H :: Tail] =
+      new TermCount[H :: Tail] {
+        override val size: Int = headTermCount.size + tailTermCount.size
+      }
+
+    implicit val hnilTermCount: TermCount[HNil] =
+      new TermCount[HNil] {
+        override val size: Int = 0
+      }
+
+  }
 
 }
