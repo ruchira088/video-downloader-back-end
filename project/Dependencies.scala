@@ -14,7 +14,7 @@ object Dependencies
 
   lazy val http4sCirce = "org.http4s" %% "http4s-circe" % Http4sVersion
 
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "2.4.1"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "2.5.0"
 
   lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.3.1"
 
@@ -34,9 +34,9 @@ object Dependencies
 
   lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.4"
 
-  lazy val doobie = "org.tpolecat" %% "doobie-core" % "0.12.1"
+  lazy val doobie = "org.tpolecat" %% "doobie-core" % "0.13.0"
 
-  lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "0.12.1"
+  lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "0.13.0"
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.13.1"
 
@@ -46,7 +46,7 @@ object Dependencies
 
   lazy val flywayCore = "org.flywaydb" % "flyway-core" % "7.8.1"
 
-  lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.19"
+  lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.20"
 
   lazy val h2 = "com.h2database" % "h2" % "1.4.200"
 
@@ -76,7 +76,7 @@ object Dependencies
 
   lazy val betterMonadicFor = "com.olegpy" %% "better-monadic-for" % "0.3.1"
 
-  lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.7"
+  lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.8"
 
   lazy val scalaMock = "org.scalamock" %% "scalamock" % "5.1.0"
 
