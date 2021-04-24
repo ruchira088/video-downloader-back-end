@@ -102,23 +102,9 @@ lazy val development =
     )
     .dependsOn(migrationApplication, core % "compile->test", api, batch)
 
-val compileAll = taskKey[Unit]("Compile all projects")
-compileAll :=
-  Def
-    .sequential(
-      migrationApplication / Compile / compile,
-      core / Compile / compile,
-      api / Compile / compile,
-      batch / Compile / compile,
-      development / Compile / compile
-    )
-    .value
-
-val cleanAll = taskKey[Unit]("Clean all projects")
-cleanAll := clean.all(ScopeFilter(inAnyProject)).value
-
 val cleanCompile = taskKey[Unit]("Clean compile all projects")
-cleanCompile := Def.sequential(cleanAll, compileAll).value
+cleanCompile :=
+  Def.sequential(clean.all(ScopeFilter(inAnyProject)), (Compile / compile).all(ScopeFilter(inAnyProject))).value
 
 val verifyReleaseBranch = { state: State =>
   val git = Git.mkVcs(state.extract.get(baseDirectory))
