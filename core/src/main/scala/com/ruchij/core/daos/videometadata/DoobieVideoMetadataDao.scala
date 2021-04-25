@@ -5,8 +5,23 @@ import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 import com.ruchij.core.daos.videometadata.models.VideoMetadata
 import doobie.ConnectionIO
 import doobie.implicits._
+import org.http4s.Uri
 
 object DoobieVideoMetadataDao extends VideoMetadataDao[ConnectionIO] {
+
+  val SelectQuery =
+    sql"""
+        SELECT
+          video_metadata.url,
+          video_metadata.id,
+          video_metadata.video_site,
+          video_metadata.title,
+          video_metadata.duration,
+          video_metadata.size,
+          file_resource.id, file_resource.created_at, file_resource.path, file_resource.media_type, file_resource.size
+        FROM video_metadata
+        JOIN file_resource ON video_metadata.thumbnail_id = file_resource.id
+    """
 
   override def insert(videoMetadata: VideoMetadata): ConnectionIO[Int] =
     sql"""
@@ -23,7 +38,7 @@ object DoobieVideoMetadataDao extends VideoMetadataDao[ConnectionIO] {
     """.update.run
 
   override def update(videoMetadataId: String, title: Option[String]): ConnectionIO[Int] =
-    OptionT(getById(videoMetadataId))
+    OptionT(findById(videoMetadataId))
       .semiflatMap { videoMetadata =>
         sql"UPDATE video_metadata SET title = ${title.getOrElse[String](videoMetadata.title)} WHERE id = $videoMetadataId"
           .update
@@ -31,20 +46,13 @@ object DoobieVideoMetadataDao extends VideoMetadataDao[ConnectionIO] {
       }
       .getOrElse(0)
 
-  override def getById(videoMetadataId: String): ConnectionIO[Option[VideoMetadata]] =
-    sql"""
-        SELECT
-          video_metadata.url,
-          video_metadata.id,
-          video_metadata.video_site,
-          video_metadata.title,
-          video_metadata.duration,
-          video_metadata.size,
-          file_resource.id, file_resource.created_at, file_resource.path, file_resource.media_type, file_resource.size
-        FROM video_metadata
-        JOIN file_resource ON video_metadata.thumbnail_id = file_resource.id
-        WHERE video_metadata.id = $videoMetadataId
-    """
+  override def findById(videoMetadataId: String): ConnectionIO[Option[VideoMetadata]] =
+    (SelectQuery ++ fr"WHERE video_metadata.id = $videoMetadataId")
+      .query[VideoMetadata]
+      .option
+
+  override def findByUrl(uri: Uri): ConnectionIO[Option[VideoMetadata]] =
+    (SelectQuery ++ fr"WHERE video_metadata.url = $uri")
       .query[VideoMetadata]
       .option
 

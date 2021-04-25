@@ -119,7 +119,9 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
             )
           }
 
-          videoId <- hashingService.hash(videoUrl.renderString)
+          videoId <- hashingService.hash(videoUrl.renderString).map(hash => s"pornone-$hash")
+          fileId <-
+            hashingService.hash(uri"https://th-eu3.pornone.com/t/b81.jpg".renderString).map(hash => s"$videoId-$hash")
 
           expectedScheduledDownloadVideo =
             ScheduledVideoDownload(
@@ -135,7 +137,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
                 204 seconds,
                 1988,
                 FileResource(
-                  hashingService.hash(uri"https://th-eu3.pornone.com/t/b81.jpg".renderString).unsafeRunSync(),
+                  fileId,
                   dateTime,
                   s"${downloadConfiguration.imageFolder}/thumbnail-$videoId-b81.jpg",
                   MediaType.image.jpeg,

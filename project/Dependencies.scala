@@ -34,9 +34,9 @@ object Dependencies
 
   lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.4"
 
-  lazy val doobie = "org.tpolecat" %% "doobie-core" % "0.13.0"
+  lazy val doobie = "org.tpolecat" %% "doobie-core" % "0.13.1"
 
-  lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "0.13.0"
+  lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "0.13.1"
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.13.1"
 

@@ -58,7 +58,7 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
         OptionT(transaction(fileResourceDao.findByPath(videoPath)))
           .getOrElseF {
             hashingService
-              .hash(downloadResult.uri.renderString)
+              .hash(downloadResult.uri.renderString).map(hash => s"$videoId-$hash")
               .product(JodaClock[F].timestamp)
               .flatMap {
                 case (fileKey, timestamp) =>
