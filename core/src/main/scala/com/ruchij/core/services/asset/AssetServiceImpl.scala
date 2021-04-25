@@ -16,10 +16,10 @@ class AssetServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]](
   override def retrieve(id: String, start: Option[Long], end: Option[Long]): F[Asset[F]] =
     OptionT(transaction(fileResourceDao.getById(id)))
       .flatMap { fileResource =>
-        val fileRange = start.map(first => FileRange(first, end.getOrElse(fileResource.size)))
-
-        OptionT(repositoryService.read(fileResource.path, fileRange.map(_.start), fileRange.map(_.end)))
-          .map { stream => Asset[F](fileResource, stream, fileRange) }
+        OptionT(repositoryService.read(fileResource.path, start, end))
+          .map { stream =>
+            Asset[F](fileResource, stream, FileRange(start.getOrElse(0), end.getOrElse(fileResource.size)))
+          }
       }
       .getOrElseF {
         ApplicativeError[F, Throwable].raiseError(ResourceNotFoundException("Asset not found"))
