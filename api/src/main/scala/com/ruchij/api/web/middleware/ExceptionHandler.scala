@@ -18,7 +18,9 @@ import org.http4s.circe.CirceEntityEncoder.circeEntityEncoder
 import org.http4s.{HttpApp, MessageFailure, Request, Response, Status}
 
 object ExceptionHandler {
-  def apply[F[_]: Sync](logger: Logger[F])(httpApp: HttpApp[F]): HttpApp[F] =
+  def apply[F[_]: Sync](httpApp: HttpApp[F]): HttpApp[F] = {
+    val logger = Logger[F, ExceptionHandler.type]
+
     Kleisli[F, Request[F], Response[F]] { request =>
       Sync[F].handleErrorWith(httpApp.run(request)) { throwable =>
         entityResponseGenerator[F](throwable)(throwableResponseBody(throwable))
@@ -26,6 +28,7 @@ object ExceptionHandler {
           .flatMap(logErrors[F](logger, throwable))
       }
     }
+  }
 
   def logErrors[F[_]: Applicative](logger: Logger[F], throwable: Throwable)(response: Response[F]): F[Response[F]] =
     if (response.status >= Status.InternalServerError)

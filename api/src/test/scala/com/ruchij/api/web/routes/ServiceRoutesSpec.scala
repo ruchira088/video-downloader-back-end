@@ -34,7 +34,6 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers {
         "sbtVersion": "1.5.0",
         "javaVersion": ${Properties.javaVersion},
         "currentTimestamp": $dateTime,
-        "applicationMode": "Test",
         "instanceId": "localhost",
         "gitBranch": "N/A",
         "gitCommit": "N/A",
@@ -42,8 +41,8 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers {
       }"""
 
     runIO {
-      HttpTestResource[IO].use {
-        case (_, application) =>
+      HttpTestResource.create[IO].use {
+        case (_, _, application) =>
           for {
             request <- GET(uri"/service/info")
             response <- application.run(request)
@@ -60,8 +59,8 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers {
   }
 
   "GET /service/health" should "return a health check response" in runIO {
-    HttpTestResource[IO].use {
-      case (_, application) =>
+    HttpTestResource.create[IO].use {
+      case (_, _, application) =>
         for {
           request <- GET(uri"/service/health")
           response <- application.run(request)

@@ -121,7 +121,7 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
       path <- fileRepositoryService.backedType(videoPath)
       mediaType <- fileTypeDetector.detect(path)
 
-      videoId <- hashingService.hash(videoPath)
+      videoId <- hashingService.hash(videoPath).map(hash => s"local-$hash")
 
       snapshot <- videoEnrichmentService.snapshotFileResource(
         videoPath,

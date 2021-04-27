@@ -8,7 +8,7 @@
     state: directory
 
 - name: Clean and build sbt project
-  shell: cd ../ && sbt cleanAll {{ sbt_project }}/universal:packageZipTarball
+  shell: cd ../ && sbt clean {{ sbt_project }}/universal:packageZipTarball
 
 - name: Gather git information
   import_tasks: git-info.yml

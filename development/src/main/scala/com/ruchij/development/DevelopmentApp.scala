@@ -10,7 +10,6 @@ import com.ruchij.api.config.{ApiServiceConfiguration, HttpConfiguration}
 import com.ruchij.batch.BatchApp
 import com.ruchij.batch.config.{BatchServiceConfiguration, WorkerConfiguration}
 import com.ruchij.batch.services.scheduler.Scheduler
-import com.ruchij.core.config.models.ApplicationMode
 import com.ruchij.core.config.{ApplicationInformation, DownloadConfiguration, KafkaConfiguration, RedisConfiguration}
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.test.Resources.{startEmbeddedKafkaAndSchemaRegistry, startEmbeddedRedis}
@@ -38,7 +37,7 @@ object DevelopmentApp extends IOApp {
     DownloadConfiguration("./videos", "./images")
 
   val ApplicationInfo: ApplicationInformation =
-    ApplicationInformation(ApplicationMode.Development, "localhost", Some("N/A"), Some("N/A"), None)
+    ApplicationInformation("localhost", Some("N/A"), Some("N/A"), None)
 
   val WorkerConfig: WorkerConfiguration =
     WorkerConfiguration(2, LocalTime.MIDNIGHT, LocalTime.MIDNIGHT)
@@ -96,7 +95,7 @@ object DevelopmentApp extends IOApp {
 
       _ <- Resource.eval(MigrationApp.migration[F](DatabaseConfig, blocker))
 
-      api <- ApiApp.program[F](apiConfig(redisConfig, kafkaConfig))
+      api <- ApiApp.create[F](apiConfig(redisConfig, kafkaConfig))
       batch <- BatchApp.program[F](batchConfig(kafkaConfig))
     } yield (api, batch, sslContext)
 

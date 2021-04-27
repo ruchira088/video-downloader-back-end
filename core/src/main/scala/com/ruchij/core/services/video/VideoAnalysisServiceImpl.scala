@@ -38,20 +38,21 @@ class VideoAnalysisServiceImpl[F[_]: Sync: Clock, T[_]: Monad](
 
   override def metadata(uri: Uri): F[VideoMetadataResult] =
     for {
-      videoId <- hashingService.hash(uri.renderString)
+      videoMetadataOpt <- transaction(videoMetadataDao.findByUrl(uri))
 
-      videoMetadataOpt <- transaction(videoMetadataDao.getById(videoId))
-
-      result <- videoMetadataOpt.fold[F[VideoMetadataResult]](createMetadata(uri, videoId).map(NewlyCreated)) {
-        videoMetadata => Applicative[F].pure[VideoMetadataResult](Existing(videoMetadata))
-      }
+      result <-
+        videoMetadataOpt.fold[F[VideoMetadataResult]](createMetadata(uri).map(NewlyCreated)) {
+          videoMetadata => Applicative[F].pure[VideoMetadataResult](Existing(videoMetadata))
+        }
 
     } yield result
 
-  def createMetadata(uri: Uri, videoId: String): F[VideoMetadata] =
+  def createMetadata(uri: Uri): F[VideoMetadata] =
     for {
       videoAnalysisResult @ VideoAnalysisResult(_, videoSite, title, duration, size, thumbnailUri) <- analyze(uri)
       _ <- logger.infoF(s"Uri=${uri.renderString} Result=$videoAnalysisResult")
+
+      videoId <- hashingService.hash(uri.renderString).map(hash => s"${videoSite.entryName.toLowerCase}-$hash")
 
       timestamp <- JodaClock[F].timestamp
 
@@ -62,7 +63,7 @@ class VideoAnalysisServiceImpl[F[_]: Sync: Clock, T[_]: Monad](
         .download(thumbnailUri, filePath)
         .use { downloadResult =>
           downloadResult.data.compile.drain
-            .productR(hashingService.hash(thumbnailUri.renderString))
+            .productR(hashingService.hash(thumbnailUri.renderString).map(hash => s"$videoId-$hash"))
             .map { fileId =>
               FileResource(
                 fileId,
