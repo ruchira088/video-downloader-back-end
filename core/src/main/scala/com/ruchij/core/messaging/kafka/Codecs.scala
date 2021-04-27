@@ -2,12 +2,11 @@ package com.ruchij.core.messaging.kafka
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
-
 import cats.Show
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.videometadata.models.VideoMetadata
 import enumeratum.{Enum, EnumEntry}
-import org.http4s.{MediaType, Uri}
+import org.http4s.{MediaType, Method, Status, Uri}
 import org.joda.time.DateTime
 import vulcan.{AvroError, Codec}
 import vulcan.generic._
@@ -35,6 +34,12 @@ object Codecs {
     Codec[String].imapError {
       input => MediaType.parse(input).left.map(error => AvroError(error.message))
     }(Show[MediaType].show)
+
+  implicit val statusCodec: Codec[Status] =
+    Codec[Int].imapError(input => Status.fromInt(input).left.map(error => AvroError(error.message)))(_.code)
+
+  implicit val methodCodec: Codec[Method] =
+    Codec[String].imapError(input => Method.fromString(input).left.map(error => AvroError(error.message)))(_.name)
 
   implicit val fileResourceCodec: Codec[FileResource] = Codec.derive[FileResource]
 

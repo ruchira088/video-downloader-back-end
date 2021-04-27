@@ -4,9 +4,10 @@ import cats.effect.{Blocker, Concurrent, ContextShift, Timer}
 import cats.implicits._
 import com.ruchij.api.services.authentication.AuthenticationService
 import com.ruchij.api.services.health.HealthService
-import com.ruchij.api.web.middleware.{Authenticator, ExceptionHandler, NotFoundHandler}
+import com.ruchij.api.web.middleware.{Authenticator, ExceptionHandler, MetricsMiddleware, NotFoundHandler}
 import com.ruchij.api.web.routes._
-import com.ruchij.core.logging.Logger
+import com.ruchij.core.messaging.Publisher
+import com.ruchij.core.messaging.models.HttpMetric
 import com.ruchij.core.services.asset.AssetService
 import com.ruchij.core.services.scheduling.SchedulingService
 import com.ruchij.core.services.scheduling.models.DownloadProgress
@@ -26,8 +27,8 @@ object Routes {
     healthService: HealthService[F],
     authenticationService: AuthenticationService[F],
     downloadProgressStream: Stream[F, DownloadProgress],
-    ioBlocker: Blocker,
-    apiLogger: Logger[F]
+    metricPublisher: Publisher[F, HttpMetric],
+    ioBlocker: Blocker
   ): HttpApp[F] = {
     implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
 
@@ -44,10 +45,12 @@ object Routes {
           "/service" -> ServiceRoutes(healthService),
         )
 
-    GZip {
-      CORS {
-        ExceptionHandler(apiLogger) {
-          NotFoundHandler(routes)
+    MetricsMiddleware(metricPublisher) {
+      GZip {
+        CORS {
+          ExceptionHandler {
+            NotFoundHandler(routes)
+          }
         }
       }
     }
