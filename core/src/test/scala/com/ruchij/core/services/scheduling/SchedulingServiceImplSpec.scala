@@ -105,7 +105,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
     val repositoryService = new InMemoryRepositoryService[IO](new ConcurrentHashMap())
     val downloadService = new Http4sDownloadService[IO](client, repositoryService)
 
-    DoobieProvider.h2InMemoryTransactor[IO]
+    DoobieProvider.inMemoryTransactor[IO]
       .use { implicit transaction =>
         for {
           videoAnalysisService <- IO.pure {

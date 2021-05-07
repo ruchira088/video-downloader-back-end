@@ -36,6 +36,7 @@ lazy val migrationApplication =
 lazy val core =
   (project in file("./core"))
     .settings(
+      Test / fork := true,
       libraryDependencies ++=
         Seq(
           catsEffect,

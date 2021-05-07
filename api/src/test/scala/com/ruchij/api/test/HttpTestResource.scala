@@ -59,7 +59,7 @@ object HttpTestResource {
 
 //      (kafkaConfiguration, _) <- Resources.startEmbeddedKafkaAndSchemaRegistry[F]
 
-      databaseConfiguration <- Resource.eval(DoobieProvider.uniqueH2InMemoryDatabaseConfiguration[F])
+      databaseConfiguration <- Resource.eval(DoobieProvider.uniqueInMemoryDbConfig[F])
       transactor <- DoobieTransactor.create(
         databaseConfiguration,
         executionContext,

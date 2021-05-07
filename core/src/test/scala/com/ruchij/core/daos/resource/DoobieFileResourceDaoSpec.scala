@@ -15,7 +15,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 class DoobieFileResourceDaoSpec extends AnyFlatSpec with Matchers {
 
   "DoobieFileResource" should "perform CRUD operation" in runIO {
-    DoobieProvider.h2InMemoryTransactor[IO]
+    DoobieProvider.inMemoryTransactor[IO]
       .use {
         transaction =>
           for {
