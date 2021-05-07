@@ -18,11 +18,11 @@ object Dependencies
 
   lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.3.1"
 
-  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "1.5.0"
+  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "1.6.1"
 
-  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "1.5.0"
+  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "1.6.1"
 
-  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.5.1"
+  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.6.0"
 
   lazy val circeGeneric = "io.circe" %% "circe-generic" % CirceVersion
 
@@ -32,11 +32,11 @@ object Dependencies
 
   lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.6.1"
 
-  lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.4"
+  lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.5"
 
-  lazy val doobie = "org.tpolecat" %% "doobie-core" % "0.13.1"
+  lazy val doobie = "org.tpolecat" %% "doobie-core" % "0.13.2"
 
-  lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "0.13.1"
+  lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "0.13.2"
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.13.1"
 
