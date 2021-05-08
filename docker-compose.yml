@@ -42,7 +42,7 @@ services:
       - schema-registry
     ports:
       - 8000:8000
-      - 5005:5005
+#      - 5005:5005
     volumes: *docker-volumes
     environment:
       DATABASE_URL: "jdbc:postgresql://postgres:5432/video-downloader"
@@ -66,8 +66,8 @@ services:
       - migration-application
       - kafka-broker
       - schema-registry
-    ports:
-      - 5006:5005
+#    ports:
+#      - 5006:5005
     volumes: *docker-volumes
     environment:
       DATABASE_URL: "jdbc:postgresql://postgres:5432/video-downloader"
@@ -87,8 +87,8 @@ services:
 #    command: migrationApplication/run
     depends_on:
       - postgres
-    ports:
-      - 5007:5005
+#    ports:
+#      - 5007:5005
     volumes: *docker-volumes
     environment:
       DATABASE_URL: "jdbc:postgresql://postgres:5432/video-downloader"

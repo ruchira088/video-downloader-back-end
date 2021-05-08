@@ -17,6 +17,8 @@ import com.ruchij.core.types.JodaClock
 import fs2.Stream
 import org.http4s.Uri
 
+import scala.concurrent.duration.FiniteDuration
+
 class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
   videoAnalysisService: VideoAnalysisService[F],
   schedulingDao: SchedulingDao[T],
@@ -100,9 +102,14 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
       timestamp => transaction(schedulingDao.acquireTask(timestamp))
     }
 
-  override val staleTasks: F[Seq[ScheduledVideoDownload]] =
-    JodaClock[F].timestamp.flatMap { timestamp =>
-      transaction(schedulingDao.staleTasks(timestamp))
+  override val staleTask: OptionT[F, ScheduledVideoDownload] =
+    OptionT {
+      JodaClock[F].timestamp.flatMap(timestamp => transaction(schedulingDao.staleTask(timestamp)))
+    }
+
+  override def updateTimedOutTasks(timeout: FiniteDuration): F[Seq[ScheduledVideoDownload]] =
+    JodaClock[F].timestamp.flatMap {
+      timestamp => transaction(schedulingDao.updateTimedOutTasks(timeout, timestamp))
     }
 
   override def subscribeToUpdates(groupId: String): Stream[F, ScheduledVideoDownload] =

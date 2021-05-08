@@ -7,6 +7,8 @@ import com.ruchij.core.services.scheduling.models.DownloadProgress
 import fs2.Stream
 import org.http4s.Uri
 
+import scala.concurrent.duration.FiniteDuration
+
 trait SchedulingService[F[_]] {
   def schedule(uri: Uri): F[ScheduledVideoDownload]
 
@@ -28,7 +30,9 @@ trait SchedulingService[F[_]] {
 
   val acquireTask: OptionT[F, ScheduledVideoDownload]
 
-  val staleTasks: F[Seq[ScheduledVideoDownload]]
+  val staleTask: OptionT[F, ScheduledVideoDownload]
+
+  def updateTimedOutTasks(timeout: FiniteDuration): F[Seq[ScheduledVideoDownload]]
 
   def updateDownloadProgress(id: String, downloadedBytes: Long): F[ScheduledVideoDownload]
 

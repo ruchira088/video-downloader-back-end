@@ -62,38 +62,40 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
 
   def performWork(worker: Worker, topicUpdates: Topic[F, Option[ScheduledVideoDownload]]): F[Option[Video]] =
     Bracket[F, Throwable].bracketCase {
-      OptionT(schedulingService.staleTasks.map(_.headOption)).orElse(schedulingService.acquireTask).value
+      schedulingService.staleTask.orElse(schedulingService.acquireTask).value
     } { taskOpt =>
       OptionT
         .fromOption[F](taskOpt)
         .product(OptionT.liftF(JodaClock[F].timestamp))
         .flatMapF {
           case (task, timestamp) =>
-            schedulingService.updateStatus(task.videoMetadata.id, SchedulingStatus.Active)
+            schedulingService
+              .updateStatus(task.videoMetadata.id, SchedulingStatus.Active)
               .product(transaction(workerDao.assignTask(worker.id, task.videoMetadata.id, timestamp)))
               .as(Option(timestamp -> task))
         }
-        .flatMapF { case (timestamp, scheduledVideoDownload) =>
-          ApplicativeError[F, Throwable].recoverWith {
-            workExecutor
-              .execute(
-                scheduledVideoDownload,
-                worker,
-                topicUpdates
-                  .subscribe(Int.MaxValue)
-                  .collect { case Some(value) => value }
-                  .filter { value: ScheduledVideoDownload =>
-                    value.videoMetadata.id == scheduledVideoDownload.videoMetadata.id &&
-                    List(SchedulingStatus.SchedulerPaused, SchedulingStatus.Paused).contains(value.status) &&
+        .flatMapF {
+          case (timestamp, scheduledVideoDownload) =>
+            ApplicativeError[F, Throwable].recoverWith {
+              workExecutor
+                .execute(
+                  scheduledVideoDownload,
+                  worker,
+                  topicUpdates
+                    .subscribe(Int.MaxValue)
+                    .collect { case Some(value) => value }
+                    .filter { value: ScheduledVideoDownload =>
+                      value.videoMetadata.id == scheduledVideoDownload.videoMetadata.id &&
+                      List(SchedulingStatus.SchedulerPaused, SchedulingStatus.Paused).contains(value.status) &&
                       value.lastUpdatedAt.isAfter(timestamp)
-                  }
-                  .productR[Boolean](Stream.raiseError[F](PausedVideoDownload))
-              )
-              .map[Option[Video]](Some.apply)
-          } {
-            case PausedVideoDownload =>
-              logger.infoF(s"${scheduledVideoDownload.videoMetadata.url} has been paused").as(None)
-          }
+                    }
+                    .productR[Boolean](Stream.raiseError[F](PausedVideoDownload))
+                )
+                .map[Option[Video]](Some.apply)
+            } {
+              case PausedVideoDownload =>
+                logger.infoF(s"${scheduledVideoDownload.videoMetadata.url} has been paused").as(None)
+            }
         }
         .semiflatMap { video =>
           JodaClock[F].timestamp
@@ -117,7 +119,8 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
           .productR(Applicative[F].unit)
 
       case (Some(scheduledVideoDownload), ExitCase.Canceled) =>
-        schedulingService.updateStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Queued)
+        schedulingService
+          .updateStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Queued)
           .productR(Applicative[F].unit)
 
       case (_, _) => Applicative[F].unit
@@ -133,10 +136,19 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       .productR(Applicative[F].unit)
 
   override val run: Stream[F, Video] =
-    Stream.eval(Topic[F, Option[ScheduledVideoDownload]](None))
+    Stream
+      .eval(Topic[F, Option[ScheduledVideoDownload]](None))
       .flatMap { topic =>
         idleWorkers
-          .concurrently(topic.publish(schedulingService.subscribeToUpdates(s"scheduler-$instanceId").map(Some.apply)))
+          .concurrently {
+            topic.publish(schedulingService.subscribeToUpdates(s"scheduler-$instanceId").map(Some.apply))
+          }
+          .concurrently {
+            Stream.eval(schedulingService.updateTimedOutTasks(10 minutes))
+              .repeat
+              .metered(30 seconds)
+              .flatMap(Stream.emits)
+          }
           .parEvalMapUnordered(workerConfiguration.maxConcurrentDownloads) { worker =>
             Bracket[F, Throwable].guarantee {
               SchedulerImpl
@@ -176,9 +188,11 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       .map(_.sum)
 
   val cleanUpStaleWorkersTask: Stream[F, Int] =
-    Stream.eval(logger.infoF("cleanUpStaleWorkersTask started"))
+    Stream
+      .eval(logger.infoF("cleanUpStaleWorkersTask started"))
       .productR {
-        Stream.eval(JodaClock[F].timestamp)
+        Stream
+          .eval(JodaClock[F].timestamp)
           .repeat
           .metered(30 seconds)
           .evalMap { timestamp =>

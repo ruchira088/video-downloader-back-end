@@ -6,6 +6,8 @@ import com.ruchij.core.services.models.{Order, SortBy}
 import org.http4s.Uri
 import org.joda.time.DateTime
 
+import scala.concurrent.duration.FiniteDuration
+
 trait SchedulingDao[F[_]] {
   def insert(scheduledVideoDownload: ScheduledVideoDownload): F[Int]
 
@@ -29,7 +31,9 @@ trait SchedulingDao[F[_]] {
     schedulingStatuses: Option[NonEmptyList[SchedulingStatus]]
   ): F[Seq[ScheduledVideoDownload]]
 
-  def staleTasks(timestamp: DateTime): F[Seq[ScheduledVideoDownload]]
+  def staleTask(timestamp: DateTime): F[Option[ScheduledVideoDownload]]
+
+  def updateTimedOutTasks(timeout: FiniteDuration, timestamp: DateTime): F[Seq[ScheduledVideoDownload]]
 
   def acquireTask(timestamp: DateTime): F[Option[ScheduledVideoDownload]]
 }
