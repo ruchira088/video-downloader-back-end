@@ -2,8 +2,8 @@ import sbt._
 
 object Dependencies
 {
-  val ScalaVersion = "2.13.5"
-  val Http4sVersion = "0.21.22"
+  val ScalaVersion = "2.13.6"
+  val Http4sVersion = "0.21.23"
   val CirceVersion = "0.13.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
@@ -14,7 +14,7 @@ object Dependencies
 
   lazy val http4sCirce = "org.http4s" %% "http4s-circe" % Http4sVersion
 
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "2.5.0"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "2.5.1"
 
   lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.3.1"
 
@@ -32,11 +32,11 @@ object Dependencies
 
   lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.6.1"
 
-  lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.5"
+  lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.7"
 
-  lazy val doobie = "org.tpolecat" %% "doobie-core" % "0.13.2"
+  lazy val doobie = "org.tpolecat" %% "doobie-core" % "0.13.3"
 
-  lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "0.13.2"
+  lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "0.13.3"
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.13.1"
 
@@ -70,13 +70,13 @@ object Dependencies
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.3"
 
-  lazy val kindProjector = "org.typelevel" %% "kind-projector" % "0.11.3" cross CrossVersion.full
+  lazy val kindProjector = "org.typelevel" %% "kind-projector" % "0.13.0" cross CrossVersion.full
 
-  lazy val scalaTypedHoles = "com.github.cb372" % "scala-typed-holes" % "0.1.8" cross CrossVersion.full
+  lazy val scalaTypedHoles = "com.github.cb372" % "scala-typed-holes" % "0.1.9" cross CrossVersion.full
 
   lazy val betterMonadicFor = "com.olegpy" %% "better-monadic-for" % "0.3.1"
 
-  lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.8"
+  lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.9"
 
   lazy val scalaMock = "org.scalamock" %% "scalamock" % "5.1.0"
 
