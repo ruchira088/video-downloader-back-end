@@ -3,8 +3,8 @@ import sbt._
 object Dependencies
 {
   val ScalaVersion = "2.13.6"
-  val Http4sVersion = "0.21.23"
-  val CirceVersion = "0.13.0"
+  val Http4sVersion = "0.21.24"
+  val CirceVersion = "0.14.1"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -18,9 +18,9 @@ object Dependencies
 
   lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.3.1"
 
-  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "1.6.1"
+  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "1.7.0"
 
-  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "1.6.1"
+  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "1.7.0"
 
   lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.7.1"
 
@@ -34,9 +34,9 @@ object Dependencies
 
   lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.7"
 
-  lazy val doobie = "org.tpolecat" %% "doobie-core" % "0.13.3"
+  lazy val doobie = "org.tpolecat" %% "doobie-core" % "0.13.4"
 
-  lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "0.13.3"
+  lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "0.13.4"
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.13.1"
 
