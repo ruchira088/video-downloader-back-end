@@ -35,11 +35,16 @@ services:
 #    build: .
 #    command: api/run
     depends_on:
-      - postgres
-      - redis
-      - migration-application
-      - kafka-broker
-      - schema-registry
+      postgres:
+        condition: service_healthy
+      migration-application:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+      kafka-broker:
+        condition: service_started
+      schema-registry:
+        condition: service_started
     ports:
       - 8000:8000
 #      - 5005:5005
@@ -61,11 +66,16 @@ services:
 #    build: .
 #    command: batch/run
     depends_on:
-      - postgres
-      - redis
-      - migration-application
-      - kafka-broker
-      - schema-registry
+      postgres:
+        condition: service_healthy
+      migration-application:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+      kafka-broker:
+        condition: service_started
+      schema-registry:
+        condition: service_started
 #    ports:
 #      - 5006:5005
     volumes: *docker-volumes
@@ -86,7 +96,8 @@ services:
 #    build: .
 #    command: migrationApplication/run
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
 #    ports:
 #      - 5007:5005
     volumes: *docker-volumes
@@ -98,6 +109,11 @@ services:
   postgres:
     image: postgres
 #    command: ["postgres", "-c", "log_statement=all"]
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U admin -d video-downloader" ]
+      start_period: 10s
+      interval: 10s
+      timeout: 5s
     ports:
       - 5432:5432
     environment:
@@ -108,7 +124,7 @@ services:
   redis:
     image: bitnami/redis
     ports:
-      - 6378:6379
+      - 6379:6379
     environment:
       REDIS_PASSWORD: "redis-password"
 
@@ -140,6 +156,8 @@ services:
     image: confluentinc/cp-schema-registry
     depends_on:
       - zookeeper
+    ports:
+      - 8081:8081
     environment:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: zookeeper:2181
