@@ -133,7 +133,7 @@ object ApiApp extends IOApp {
         client,
         DoobieVideoMetadataDao,
         DoobieFileResourceDao,
-        apiServiceConfiguration.downloadConfiguration
+        apiServiceConfiguration.storageConfiguration
       )
 
     val videoService: VideoServiceImpl[F, ConnectionIO] =
@@ -160,7 +160,7 @@ object ApiApp extends IOApp {
       healthCheckKeyStore,
       messageBrokers.healthCheckPubSub,
       apiServiceConfiguration.applicationInformation,
-      apiServiceConfiguration.downloadConfiguration
+      apiServiceConfiguration.storageConfiguration
     )
 
     val backgroundService = new BackgroundServiceImpl[F](

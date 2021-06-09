@@ -14,10 +14,7 @@ inThisBuild {
     scalaVersion := Dependencies.ScalaVersion,
     maintainer := "me@ruchij.com",
     scalacOptions ++= Seq("-feature", "-Xlint", "-Wconf:cat=lint-byname-implicit:s"),
-    resolvers ++= Seq(
-      "Confluent" at "https://packages.confluent.io/maven/",
-      "jitpack" at "https://jitpack.io"
-    ),
+    resolvers ++= Seq("Confluent" at "https://packages.confluent.io/maven/", "jitpack" at "https://jitpack.io"),
     addCompilerPlugin(kindProjector),
     addCompilerPlugin(betterMonadicFor),
     addCompilerPlugin(scalaTypedHoles)
@@ -92,15 +89,14 @@ lazy val batch =
     .settings(
       name := "video-downloader-batch",
       topLevelDirectory := None,
-      libraryDependencies ++= Seq(postgresql, jcodec, jcodecJavaSe, thumbnailator)
+      libraryDependencies ++=
+        Seq(postgresql, jcodec, jcodecJavaSe, thumbnailator) ++ Seq(scalaTest, pegdown).map(_ % Test)
     )
-    .dependsOn(core)
+    .dependsOn(core % "compile->compile;test->test")
 
 lazy val development =
   (project in file("./development"))
-    .settings(
-      name := "video-downloader-development"
-    )
+    .settings(name := "video-downloader-development")
     .dependsOn(migrationApplication, core % "compile->test", api, batch)
 
 val cleanCompile = taskKey[Unit]("Clean compile all projects")
@@ -126,9 +122,10 @@ val mergeReleaseToMaster = { state: State =>
   updatedState.log.info(s"Merging $releaseTag to $ProductionBranch...")
 
   val userInput: Option[ProcessBuilder] =
-    SimpleReader.readLine("Push changes to the remote master branch? (Y/n) ")
+    SimpleReader
+      .readLine("Push changes to the remote master branch? (Y/n) ")
       .map(_.toUpperCase) match {
-      case Some("Y") | Some("")  =>
+      case Some("Y") | Some("") =>
         updatedState.log.info(s"Pushing changes to remote master ($releaseTag)...")
         Some(git.cmd("push"))
 

@@ -1,21 +1,15 @@
 package com.ruchij.batch.services.sync
 
 import java.util.concurrent.TimeUnit
-
 import cats.data.OptionT
 import cats.effect.{Blocker, Clock, Concurrent, ContextShift, Sync}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Functor, Monad, ~>}
+import com.ruchij.batch.config.BatchStorageConfiguration
 import com.ruchij.batch.services.enrichment.{SeekableByteChannelConverter, VideoEnrichmentService}
-import com.ruchij.batch.services.sync.SynchronizationServiceImpl.{
-  MaxConcurrentSyncCount,
-  SupportedFileTypes,
-  errorHandler,
-  fileName
-}
+import com.ruchij.batch.services.sync.SynchronizationServiceImpl.{MaxConcurrentSyncCount, SupportedFileTypes, errorHandler, fileName}
 import com.ruchij.batch.services.sync.models.FileSyncResult.{ExistingVideo, IgnoredFile, SyncError, VideoSynced}
 import com.ruchij.batch.services.sync.models.{FileSyncResult, SynchronizationResult}
-import com.ruchij.core.config.DownloadConfiguration
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.video.models.Video
@@ -42,7 +36,7 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
   hashingService: HashingService[F],
   fileTypeDetector: FileTypeDetector[F, A],
   ioBlocker: Blocker,
-  downloadConfiguration: DownloadConfiguration
+  storageConfiguration: BatchStorageConfiguration
 )(implicit seekableByteChannelConverter: SeekableByteChannelConverter[F, A], transaction: T ~> F)
     extends SynchronizationService[F] {
 
@@ -50,7 +44,7 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
 
   override val sync: F[SynchronizationResult] =
     fileRepositoryService
-      .list(downloadConfiguration.videoFolder)
+      .list(storageConfiguration.videoFolder)
       .mapAsyncUnordered(MaxConcurrentSyncCount) { filePath =>
         isFileSupported(filePath)
           .flatMap { isVideoFilePath =>
@@ -125,8 +119,11 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
 
       snapshot <- videoEnrichmentService.snapshotFileResource(
         videoPath,
-        s"${downloadConfiguration.imageFolder}/thumbnail-$videoId.${videoEnrichmentService.snapshotMediaType.subType}",
-        FiniteDuration((duration * SynchronizationServiceImpl.VideoThumbnailSnapshotTimestamp).toMillis, TimeUnit.MILLISECONDS)
+        s"${storageConfiguration.imageFolder}/thumbnail-$videoId.${videoEnrichmentService.snapshotMediaType.subType}",
+        FiniteDuration(
+          (duration * SynchronizationServiceImpl.VideoThumbnailSnapshotTimestamp).toMillis,
+          TimeUnit.MILLISECONDS
+        )
       )
 
       uri <- FunctionKTypes.eitherToF[Throwable, F].apply(Uri.fromString(Uri.encode(videoPath)))
