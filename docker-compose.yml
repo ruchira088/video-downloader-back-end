@@ -54,7 +54,7 @@ services:
       REDIS_PASSWORD: "redis-password"
       KAFKA_BROKERS: "kafka-cluster:9092"
       SCHEMA_REGISTRY: "http://kafka-cluster:8081"
-      VIDEO_FOLDER: "/opt/videos"
+      VIDEO_FOLDER: "/opt/videos/downloads"
       IMAGE_FOLDER: "/opt/images"
 
   batch:
@@ -80,7 +80,8 @@ services:
       REDIS_PASSWORD: "redis-password"
       KAFKA_BROKERS: "kafka-cluster:9092"
       SCHEMA_REGISTRY: "http://kafka-cluster:8081"
-      VIDEO_FOLDER: "/opt/videos"
+      VIDEO_FOLDER: "/opt/videos/downloads"
+      OTHER_VIDEO_FOLDERS: "/opt/videos/location-1;/opt/videos/location-2;/opt/videos/location-3"
       IMAGE_FOLDER: "/opt/images"
 
   migration-application:

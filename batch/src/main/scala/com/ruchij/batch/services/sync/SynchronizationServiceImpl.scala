@@ -22,6 +22,7 @@ import com.ruchij.core.services.repository.FileRepositoryService.FileRepository
 import com.ruchij.core.services.repository.FileTypeDetector
 import com.ruchij.core.services.video.VideoService
 import com.ruchij.core.types.{FunctionKTypes, JodaClock}
+import fs2.Stream
 import org.http4s.{MediaType, Uri}
 import org.jcodec.api.{FrameGrab, UnsupportedFormatException}
 
@@ -43,8 +44,8 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
   private val logger = Logger[F, SynchronizationServiceImpl[F, A, T]]
 
   override val sync: F[SynchronizationResult] =
-    fileRepositoryService
-      .list(storageConfiguration.videoFolder)
+    Stream.emits[F, String](storageConfiguration.videoFolder :: storageConfiguration.otherVideoFolders)
+      .flatMap(fileRepositoryService.list)
       .mapAsyncUnordered(MaxConcurrentSyncCount) { filePath =>
         isFileSupported(filePath)
           .flatMap { isVideoFilePath =>
