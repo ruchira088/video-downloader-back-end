@@ -30,7 +30,7 @@ object Dependencies
 
   lazy val circeLiteral = "io.circe" %% "circe-literal" % CirceVersion
 
-  lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.6.1"
+  lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.7.0"
 
   lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.7"
 
@@ -46,7 +46,7 @@ object Dependencies
 
   lazy val flywayCore = "org.flywaydb" % "flyway-core" % "7.10.0"
 
-  lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.21"
+  lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.22"
 
   lazy val h2 = "com.h2database" % "h2" % "1.4.200"
 
@@ -68,7 +68,7 @@ object Dependencies
 
   lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.3"
 
-  lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.3"
+  lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4"
 
   lazy val kindProjector = "org.typelevel" %% "kind-projector" % "0.13.0" cross CrossVersion.full
 
