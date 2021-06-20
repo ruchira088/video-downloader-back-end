@@ -54,7 +54,7 @@ services:
       REDIS_PASSWORD: "redis-password"
       KAFKA_BROKERS: "kafka-cluster:9092"
       SCHEMA_REGISTRY: "http://kafka-cluster:8081"
-      VIDEO_FOLDER: "/opt/videos/downloads"
+      VIDEO_FOLDER: "/opt/videos"
       IMAGE_FOLDER: "/opt/images"
 
   batch:
@@ -80,8 +80,7 @@ services:
       REDIS_PASSWORD: "redis-password"
       KAFKA_BROKERS: "kafka-cluster:9092"
       SCHEMA_REGISTRY: "http://kafka-cluster:8081"
-      VIDEO_FOLDER: "/opt/videos/downloads"
-      OTHER_VIDEO_FOLDERS: "/opt/videos/location-1;/opt/videos/location-2;/opt/videos/location-3"
+      VIDEO_FOLDER: "/opt/videos"
       IMAGE_FOLDER: "/opt/images"
 
   migration-application:
@@ -121,20 +120,11 @@ services:
     environment:
       REDIS_PASSWORD: "redis-password"
 
-#  pgadmin:
-#    image: dpage/pgadmin4:latest
-#    ports:
-#      - 8001:80
-#    environment:
-#      PGADMIN_DEFAULT_EMAIL: "me@ruchij.com"
-#      PGADMIN_DEFAULT_PASSWORD: "password"
-
   kafka-cluster:
     image: landoop/fast-data-dev
     environment:
       ADV_HOST: kafka-cluster
-      RUNTESTS: 0
-      FORWARDLOGS: 0
-      SAMPLEDATA: 0
+      USER: admin
+      PASSWORD: Passw0rd
     ports:
       - 3030:3030

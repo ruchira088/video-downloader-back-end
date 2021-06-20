@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-fast-data-deployment
+  namespace: {{ namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: kafka-fast-data
+      branch: {{ git_branch }}
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: kafka-fast-data
+        branch: {{ git_branch }}
+    spec:
+      containers:
+        - name: kafka-fast-data-container
+          image: lensesio/fast-data-dev:2.6.2-L0
+          envFrom:
+            - configMapRef:
+                name: kafka-fast-data-config-map
+            - secretRef:
+                name: kafka-fast-data-secrets
+          ports:
+            - name: ui-port
+              containerPort: 3030
+            - name: kafka-broker-port
+              containerPort: 9092
+            - name: schema-registry-port
+              containerPort: 8081
+          readinessProbe:
+            httpGet:
+              port: ui-port
+              path: /
+          livenessProbe:
+            httpGet:
+              port: ui-port
+              path: /
+          startupProbe:
+            periodSeconds: 5
+            failureThreshold: 10
+            httpGet:
+              port: ui-port
+              path: /
+

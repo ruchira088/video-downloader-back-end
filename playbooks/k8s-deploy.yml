@@ -11,23 +11,20 @@
           production:
             namespace: video-downloader-back-end
             hostname: api.video.home.ruchij.com
-            pgadmin_hostname: pgadmin.video.home.ruchij.com
-            confluent_control_center_hostname: confluent.video.home.ruchij.com
+            kafka_fast_data_hostname: kafka-fast-data.video.home.ruchij.com
             host_video_folder: /mnt/md0/video-downloader/videos
             host_image_folder: /home/ruchira/Data/video-downloader/production/images
           development:
             namespace: video-downloader-back-end-{{ git_branch }}
             hostname: api.{{ git_branch }}.video.home.ruchij.com
-            pgadmin_hostname: pgadmin.{{ git_branch }}.video.home.ruchij.com
-            confluent_control_center_hostname: confluent.{{ git_branch }}.video.home.ruchij.com
+            kafka_fast_data_hostname: kafka-fast-data.{{ git_branch }}.video.home.ruchij.com
             host_video_folder: /mnt/assets/data/video-downloader/development/videos
             host_image_folder: /home/ruchira/Data/video-downloader/development/images
 
     - set_fact:
         namespace: "{{ k8s_vars[env].namespace }}"
         hostname: "{{ k8s_vars[env].hostname }}"
-        pgadmin_hostname: "{{ k8s_vars[env].pgadmin_hostname }}"
-        confluent_control_center_hostname: "{{ k8s_vars[env].confluent_control_center_hostname }}"
+        kafka_fast_data_hostname: "{{ k8s_vars[env].kafka_fast_data_hostname }}"
         host_video_folder: "{{ k8s_vars[env].host_video_folder }}"
         host_image_folder: "{{ k8s_vars[env].host_image_folder }}"
 
@@ -46,9 +43,6 @@
           block:
             - name: Add Bitnami Helm charts repository
               command: helm repo add bitnami https://charts.bitnami.com/bitnami
-
-            - name: Add ConfluentInc Helm charts repository
-              command: helm repo add confluentinc https://confluentinc.github.io/cp-helm-charts/
 
             - name: Update Helm repositories
               command: helm repo update
@@ -76,17 +70,6 @@
                             bitnami/postgresql
                       when: postgresql_output.resources | length == 0
 
-                - name: Deploy pgadmin
-                  block:
-                    - name: Create ConfigMap
-                      command: kubectl apply -f k8s-output/pgadmin/ConfigMap.yaml --kubeconfig k8s-output/kubeconfig
-
-                    - name: Create Secrets
-                      command: kubectl apply -f k8s-output/pgadmin/Secrets.yaml --kubeconfig k8s-output/kubeconfig
-
-                    - name: Deploy application
-                      command: kubectl apply -f k8s-output/pgadmin --kubeconfig k8s-output/kubeconfig
-
             - name: Deploy Redis Helm chart
               block:
                 - name: Check Redis service in K8s
@@ -107,29 +90,16 @@
                         bitnami/redis
                   when: redis_output.resources | length == 0
 
-            - name: Deploy Kafka and Schema Registry
+            - name: Deploy Kafka Fast Data
               block:
-                - name: Check Zookeeper service in K8s
-                  k8s_info:
-                    kind: Service
-                    namespace: "{{ namespace }}"
-                    name: confluent-cp-zookeeper
-                    kubeconfig: k8s-output/kubeconfig
-                  register: zookeeper_output
+                - name: Create ConfigMap
+                  command: kubectl apply -f k8s-output/kafka-fast-data/ConfigMap.yaml --kubeconfig k8s-output/kubeconfig
 
-                - name: Install Confluent Helm chart
-                  shell: |
-                    KUBECONFIG=k8s-output/kubeconfig \
-                      helm install confluent \
-                        --set cp-kafka-rest.enabled=false \
-                        --set cp-kafka-connect.enabled=false \
-                        --set cp-ksql-server.enabled=false \
-                        --namespace {{ namespace }} \
-                        confluentinc/cp-helm-charts
-                  when: zookeeper_output.resources | length == 0
+                - name: Create Secrets
+                  command: kubectl apply -f k8s-output/kafka-fast-data/Secrets.yaml --kubeconfig k8s-output/kubeconfig
 
-                - name: Create Ingress for Confluent control center
-                  command: kubectl apply -f k8s-output/confluent --kubeconfig k8s-output/kubeconfig
+                - name: Deploy application
+                  command: kubectl apply -f k8s-output/kafka-fast-data --kubeconfig k8s-output/kubeconfig
 
         - name: Deploy DB migration
           block:

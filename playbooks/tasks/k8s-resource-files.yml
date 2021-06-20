@@ -10,14 +10,9 @@
         path: k8s-output
         state: directory
 
-    - name: Create output directory - pgadmin
+    - name: Create output directory - Kafka Fast Data
       file:
-        path: k8s-output/pgadmin
-        state: directory
-
-    - name: Create output directory - Confluent control center
-      file:
-        path: k8s-output/confluent
+        path: k8s-output/kafka-fast-data
         state: directory
 
     - name: Create output directory - DB migration
@@ -25,12 +20,12 @@
         path: k8s-output/db-migration
         state: directory
 
-    - name: Create output directory - api
+    - name: Create output directory - API
       file:
         path: k8s-output/api
         state: directory
 
-    - name: Create output directory - batch
+    - name: Create output directory - Batch
       file:
         path: k8s-output/batch
         state: directory
@@ -50,19 +45,12 @@
       with_fileglob:
         - k8s/*.yaml
 
-    - name: Render K8s resource files - pgadmin
+    - name: Render K8s resource files - Kafka Fast Data
       template:
         src: "{{ item }}"
-        dest: k8s-output/pgadmin/{{ item | basename }}
+        dest: k8s-output/kafka-fast-data/{{ item | basename }}
       with_fileglob:
-        - k8s/pgadmin/*.yaml
-
-    - name: Render K8s resource files - Confluent control center
-      template:
-        src: "{{ item }}"
-        dest: k8s-output/confluent/{{ item | basename }}
-      with_fileglob:
-        - k8s/confluent-control-center/*.yaml
+        - k8s/kafka-fast-data/*.yaml
 
     - name: Render K8s resource files - DB migration
       template:
@@ -71,14 +59,14 @@
       with_fileglob:
         - k8s/db-migration/*.yaml
 
-    - name: Render K8s resource files - api
+    - name: Render K8s resource files - API
       template:
         src: "{{ item }}"
         dest: k8s-output/api/{{ item | basename }}
       with_fileglob:
         - k8s/api/*.yaml
 
-    - name: Render K8s resource files - batch
+    - name: Render K8s resource files - Batch
       template:
         src: "{{ item }}"
         dest: k8s-output/batch/{{ item | basename }}
