@@ -26,9 +26,9 @@ spec:
           ports:
             - name: ui-port
               containerPort: 3030
-            - name: kafka-broker-port
+            - name: broker-port
               containerPort: 9092
-            - name: schema-registry-port
+            - name: registry-port
               containerPort: 8081
           readinessProbe:
             httpGet:

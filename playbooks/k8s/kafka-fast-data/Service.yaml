@@ -10,7 +10,7 @@ spec:
   ports:
     - name: ui-port
       port: 3030
-    - name: kafka-broker-port
+    - name: broker-port
       port: 9092
-    - name: schema-registry-port
+    - name: registry-port
       port: 8081
