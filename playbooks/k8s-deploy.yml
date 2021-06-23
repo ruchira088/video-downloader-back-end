@@ -11,13 +11,13 @@
           production:
             namespace: video-downloader-back-end
             hostname: api.video.home.ruchij.com
-            kafka_fast_data_hostname: kafka-fast-data-service
+            kafka_fast_data_hostname: kafka-fast-data.video.home.ruchij.com
             host_video_folder: /mnt/md0/video-downloader/videos
             host_image_folder: /home/ruchira/Data/video-downloader/production/images
           development:
             namespace: video-downloader-back-end-{{ git_branch }}
             hostname: api.{{ git_branch }}.video.dev.ruchij.com
-            kafka_fast_data_hostname: kafka-fast-data-service
+            kafka_fast_data_hostname: kafka-fast-data.{{ git_branch }}.video.dev.ruchij.com
             host_video_folder: /root/video-downloader/dev/videos
             host_image_folder: /root/video-downloader/dev/images
 
