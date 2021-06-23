@@ -30,18 +30,3 @@ spec:
               containerPort: 9092
             - name: registry-port
               containerPort: 8081
-          readinessProbe:
-            httpGet:
-              port: ui-port
-              path: /
-          livenessProbe:
-            httpGet:
-              port: ui-port
-              path: /
-          startupProbe:
-            periodSeconds: 5
-            failureThreshold: 10
-            httpGet:
-              port: ui-port
-              path: /
-

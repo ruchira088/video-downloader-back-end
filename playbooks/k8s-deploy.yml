@@ -84,8 +84,8 @@
                   shell: |
                     KUBECONFIG=k8s-output/kubeconfig \
                       helm install redis \
-                        --set password="{{ secrets.redis_password }}" \
-                        --set cluster.enabled=false \
+                        --set auth.password="{{ secrets.redis_password }}" \
+                        --set architecture=standalone \
                         --namespace {{ namespace }} \
                         bitnami/redis
                   when: redis_output.resources | length == 0
