@@ -50,16 +50,14 @@ spec:
             - name: http4s-port
               containerPort: 8000
           volumeMounts:
-            - mountPath: {{ api.config_values.VIDEO_FOLDER }}
-              name: video-folder
-            - mountPath: {{ api.config_values.IMAGE_FOLDER }}
-              name: image-folder
+{% for path_mapping in host_path_mappings %}
+            - mountPath: {{ path_mapping.pod_mount_path }}
+              name: path-mapping-{{ loop.index }}
+{% endfor %}
       volumes:
-        - name: video-folder
+{% for path_mapping in host_path_mappings %}
+        - name: path-mapping-{{ loop.index }}
           hostPath:
-            path: {{ host_video_folder }}
+            path: {{ path_mapping.host_path }}
             type: Directory
-        - name: image-folder
-          hostPath:
-            path: {{ host_image_folder }}
-            type: Directory
+{% endfor %}
