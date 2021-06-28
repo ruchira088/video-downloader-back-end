@@ -1,12 +1,12 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: api-certificate
+  name: kafka-fast-data-certificate
   namespace: {{ namespace }}
 spec:
-  secretName: api-tls-secret
+  secretName: kafka-fast-data-tls-secret
   issuerRef:
     kind: ClusterIssuer
     name: lets-encrypt
   dnsNames:
-    - {{ hostname }}
+    - {{ kafka_fast_data_hostname }}

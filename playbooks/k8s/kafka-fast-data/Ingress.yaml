@@ -1,20 +1,20 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: pgadmin-ingress
+  name: kafka-fast-data-ingress
   namespace: {{ namespace }}
 spec:
   tls:
-    - secretName: pgadmin-tls-secret
+    - secretName: kafka-fast-data-tls-secret
       hosts:
-        - {{ pgadmin_hostname }}
+        - {{ kafka_fast_data_hostname }}
   rules:
-    - host: {{ pgadmin_hostname }}
+    - host: {{ kafka_fast_data_hostname }}
       http:
         paths:
           - pathType: ImplementationSpecific
             backend:
               service:
-                name: pgadmin-service
+                name: kafka-fast-data-service
                 port:
-                  name: http-port
+                  name: ui-port

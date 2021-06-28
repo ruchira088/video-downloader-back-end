@@ -4,8 +4,8 @@ import cats.data.OptionT
 import cats.effect.{Concurrent, Timer}
 import cats.implicits._
 import cats.{Applicative, ~>}
+import com.ruchij.batch.config.BatchStorageConfiguration
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService
-import com.ruchij.core.config.DownloadConfiguration
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
@@ -36,7 +36,7 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
   hashingService: HashingService[F],
   downloadService: DownloadService[F],
   videoEnrichmentService: VideoEnrichmentService[F],
-  downloadConfiguration: DownloadConfiguration
+  storageConfiguration: BatchStorageConfiguration
 )(implicit transaction: T ~> F)
     extends WorkExecutor[F] {
 
@@ -50,7 +50,7 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
   ): F[(FileResource, DownloadResult[F])] = {
     val videoFileName = downloadUri.path.split("/").lastOption.getOrElse("video.unknown")
     val videoPath =
-      s"${downloadConfiguration.videoFolder}/$videoId-$videoFileName"
+      s"${storageConfiguration.videoFolder}/$videoId-$videoFileName"
 
     downloadService
       .download(downloadUri, videoPath)
@@ -58,7 +58,8 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
         OptionT(transaction(fileResourceDao.findByPath(videoPath)))
           .getOrElseF {
             hashingService
-              .hash(downloadResult.uri.renderString).map(hash => s"$videoId-$hash")
+              .hash(downloadResult.uri.renderString)
+              .map(hash => s"$videoId-$hash")
               .product(JodaClock[F].timestamp)
               .flatMap {
                 case (fileKey, timestamp) =>
@@ -107,7 +108,10 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
               repositoryService.size(fileResource.path).flatMap {
                 _.filter { _ >= scheduledVideoDownload.videoMetadata.size }
                   .fold[F[Video]] {
-                    logger.warnF(s"Worker ${worker.id} invalidly deemed as complete: ${scheduledVideoDownload.videoMetadata.url}")
+                    logger
+                      .warnF(
+                        s"Worker ${worker.id} invalidly deemed as complete: ${scheduledVideoDownload.videoMetadata.url}"
+                      )
                       .productR(execute(scheduledVideoDownload, worker, interrupt))
                   } { _ =>
                     schedulingService

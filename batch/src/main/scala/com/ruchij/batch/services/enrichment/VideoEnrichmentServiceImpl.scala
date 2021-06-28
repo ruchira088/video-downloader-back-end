@@ -7,7 +7,7 @@ import cats.data.OptionT
 import cats.effect.{Blocker, Clock, ContextShift, Sync}
 import cats.implicits._
 import cats.{ApplicativeError, Monad, ~>}
-import com.ruchij.core.config.DownloadConfiguration
+import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.snapshot.SnapshotDao
@@ -32,7 +32,7 @@ class VideoEnrichmentServiceImpl[F[_]: Sync: Clock: ContextShift, A, T[_]: Monad
   snapshotDao: SnapshotDao[T],
   fileResourceDao: FileResourceDao[T],
   ioBlocker: Blocker,
-  downloadConfiguration: DownloadConfiguration
+  storageConfiguration: StorageConfiguration
 )(implicit seekableByteChannelConverter: SeekableByteChannelConverter[F, A], transaction: T ~> F)
     extends VideoEnrichmentService[F] {
 
@@ -71,17 +71,17 @@ class VideoEnrichmentServiceImpl[F[_]: Sync: Clock: ContextShift, A, T[_]: Monad
 
   def createSnapshot(video: Video, frameGrab: FrameGrab, videoTimestamp: FiniteDuration): F[Snapshot] = {
     val key =
-      s"${downloadConfiguration.imageFolder}/${video.videoMetadata.id}-snapshot-${videoTimestamp.toMillis}.${snapshotMediaType.subType}"
+      s"${storageConfiguration.imageFolder}/${video.videoMetadata.id}-snapshot-${videoTimestamp.toMillis}.${snapshotMediaType.subType}"
 
     snapshotFileResource(key, frameGrab, videoTimestamp)
       .flatMap { fileResource =>
         val snapshot = Snapshot(video.videoMetadata.id, fileResource, videoTimestamp)
 
         transaction {
-          fileResourceDao.insert(fileResource)
+          fileResourceDao
+            .insert(fileResource)
             .productR(snapshotDao.insert(snapshot))
-        }
-            .as(snapshot)
+        }.as(snapshot)
       }
   }
 
@@ -137,7 +137,8 @@ class VideoEnrichmentServiceImpl[F[_]: Sync: Clock: ContextShift, A, T[_]: Monad
                 VideoEnrichmentServiceImpl.ScaledImageHeight
               ),
               snapshotMediaType.subType,
-              outputStream)
+              outputStream
+            )
           }
           .as(outputStream)
 

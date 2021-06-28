@@ -14,6 +14,8 @@ import doobie.util.fragments.{in, whereAndOpt}
 import org.http4s.Uri
 import org.joda.time.DateTime
 
+import scala.concurrent.duration.FiniteDuration
+
 object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
 
   override def insert(scheduledVideoDownload: ScheduledVideoDownload): ConnectionIO[Int] =
@@ -119,24 +121,50 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       .query[ScheduledVideoDownload]
       .to[Seq]
 
-  override def staleTasks(timestamp: DateTime): ConnectionIO[Seq[ScheduledVideoDownload]] =
-      sql"""
-        SELECT video_metadata_id, last_updated_at FROM scheduled_video
+
+  override def staleTask(timestamp: DateTime): ConnectionIO[Option[ScheduledVideoDownload]] =
+    sql"""
+        SELECT video_metadata_id FROM scheduled_video
+            WHERE status = ${SchedulingStatus.Stale}
+            LIMIT 1
+    """
+      .query[String]
+      .option
+      .flatMap {
+        case Some(videoMetadataId) =>
+          singleUpdate[ConnectionIO] {
+            sql"""
+              UPDATE scheduled_video
+                  SET status = ${SchedulingStatus.Acquired}
+                  WHERE video_metadata_id = $videoMetadataId AND status = ${SchedulingStatus.Stale}
+            """
+              .update
+              .run
+          }
+            .productR(OptionT(getById(videoMetadataId)))
+            .value
+
+        case None => Applicative[ConnectionIO].pure(None)
+      }
+
+  override def updateTimedOutTasks(timeout: FiniteDuration, timestamp: DateTime): ConnectionIO[Seq[ScheduledVideoDownload]] =
+    sql"""
+        SELECT video_metadata_id FROM scheduled_video
           WHERE completed_at IS NULL
-            AND status IN (${SchedulingStatus.Active}, ${SchedulingStatus.Stale}, ${SchedulingStatus.Acquired})
-            AND last_updated_at < ${timestamp.minusMinutes(10)}
+            AND status IN (${SchedulingStatus.Active}, ${SchedulingStatus.Acquired})
+            AND last_updated_at < ${timestamp.minus(timeout.toMillis)}
             ORDER BY scheduled_at ASC
       """
-      .query[(String, DateTime)]
+      .query[String]
       .to[Seq]
       .flatMap {
         _.traverse {
-          case (videoMetadataId, lastUpdatedAt) =>
+          videoMetadataId =>
             sql"""
               UPDATE scheduled_video
                 SET status = ${SchedulingStatus.Stale}, last_updated_at = $timestamp
                 WHERE
-                  video_metadata_id = $videoMetadataId AND last_updated_at = $lastUpdatedAt
+                  video_metadata_id = $videoMetadataId
             """
               .update
               .run

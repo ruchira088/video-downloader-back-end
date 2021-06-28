@@ -1,7 +1,7 @@
 package com.ruchij.core.services.scheduling
 
 import cats.effect.{IO, Resource, Timer}
-import com.ruchij.core.config.DownloadConfiguration
+import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
@@ -100,12 +100,12 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
         }
       }
 
-    val downloadConfiguration = DownloadConfiguration("/videos", "/images")
+    val storageConfiguration = new StorageConfiguration { override val imageFolder: String = "/images" }
     val hashingService = new MurmurHash3Service[IO](blocker)
     val repositoryService = new InMemoryRepositoryService[IO](new ConcurrentHashMap())
     val downloadService = new Http4sDownloadService[IO](client, repositoryService)
 
-    DoobieProvider.h2InMemoryTransactor[IO]
+    DoobieProvider.inMemoryTransactor[IO]
       .use { implicit transaction =>
         for {
           videoAnalysisService <- IO.pure {
@@ -115,7 +115,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
               client,
               DoobieVideoMetadataDao,
               DoobieFileResourceDao,
-              downloadConfiguration
+              storageConfiguration
             )
           }
 
@@ -139,7 +139,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
                 FileResource(
                   fileId,
                   dateTime,
-                  s"${downloadConfiguration.imageFolder}/thumbnail-$videoId-b81.jpg",
+                  s"${storageConfiguration.imageFolder}/thumbnail-$videoId-b81.jpg",
                   MediaType.image.jpeg,
                   100
                 )
@@ -175,9 +175,4 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
         yield (): Unit
       }
   }
-}
-
-object SchedulingServiceImplSpec {
-  val downloadConfiguration: DownloadConfiguration =
-    DownloadConfiguration(videoFolder = "videos", imageFolder = "images")
 }

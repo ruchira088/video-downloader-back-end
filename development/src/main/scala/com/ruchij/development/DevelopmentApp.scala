@@ -6,11 +6,11 @@ import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp
 import cats.implicits._
 import com.ruchij.api.ApiApp
 import com.ruchij.api.config.AuthenticationConfiguration.{HashedPassword, PasswordAuthenticationConfiguration}
-import com.ruchij.api.config.{ApiServiceConfiguration, HttpConfiguration}
+import com.ruchij.api.config.{ApiServiceConfiguration, ApiStorageConfiguration, HttpConfiguration}
 import com.ruchij.batch.BatchApp
-import com.ruchij.batch.config.{BatchServiceConfiguration, WorkerConfiguration}
+import com.ruchij.batch.config.{BatchServiceConfiguration, BatchStorageConfiguration, WorkerConfiguration}
 import com.ruchij.batch.services.scheduler.Scheduler
-import com.ruchij.core.config.{ApplicationInformation, DownloadConfiguration, KafkaConfiguration, RedisConfiguration}
+import com.ruchij.core.config.{ApplicationInformation, KafkaConfiguration, RedisConfiguration}
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.test.Resources.{startEmbeddedKafkaAndSchemaRegistry, startEmbeddedRedis}
 import com.ruchij.migration.MigrationApp
@@ -33,8 +33,10 @@ object DevelopmentApp extends IOApp {
       ""
     )
 
-  val DownloadConfig: DownloadConfiguration =
-    DownloadConfiguration("./videos", "./images")
+  val ApiStorageConfig: ApiStorageConfiguration = ApiStorageConfiguration("./images")
+
+  val BatchStorageConfig: BatchStorageConfiguration =
+    BatchStorageConfiguration("./videos", "./images", List.empty)
 
   val ApplicationInfo: ApplicationInformation =
     ApplicationInformation("localhost", Some("N/A"), Some("N/A"), None)
@@ -53,7 +55,7 @@ object DevelopmentApp extends IOApp {
   def apiConfig(redisConfiguration: RedisConfiguration, kafkaConfiguration: KafkaConfiguration): ApiServiceConfiguration =
     ApiServiceConfiguration(
       HttpConfig,
-      DownloadConfig,
+      ApiStorageConfig,
       DatabaseConfig,
       redisConfiguration,
       PasswordAuthenticationConfig,
@@ -62,7 +64,7 @@ object DevelopmentApp extends IOApp {
     )
 
   def batchConfig(kafkaConfiguration: KafkaConfiguration): BatchServiceConfiguration =
-    BatchServiceConfiguration(DownloadConfig, WorkerConfig, DatabaseConfig, kafkaConfiguration, ApplicationInfo)
+    BatchServiceConfiguration(BatchStorageConfig, WorkerConfig, DatabaseConfig, kafkaConfiguration, ApplicationInfo)
 
   val KeyStoreResource = "/localhost.jks"
 

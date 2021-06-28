@@ -6,18 +6,21 @@ import org.joda.time.{DateTime, LocalTime}
 import pureconfig.ConfigReader
 import pureconfig.error.CannotConvert
 
+import scala.collection.Factory
 import scala.reflect.ClassTag
 import scala.util.Try
 
 object PureConfigReaders {
+  private val ListSeparator = ";"
+
   implicit val localTimePureConfigReader: ConfigReader[LocalTime] =
-    stringConfigParserTry {
-      localTime => Try(LocalTime.parse(localTime))
+    stringConfigParserTry { localTime =>
+      Try(LocalTime.parse(localTime))
     }
 
   implicit val dateTimePureConfigReader: ConfigReader[DateTime] =
-    stringConfigParserTry {
-      dateTime => Try(DateTime.parse(dateTime))
+    stringConfigParserTry { dateTime =>
+      Try(DateTime.parse(dateTime))
     }
 
   implicit val uriPureConfigReader: ConfigReader[Uri] =
@@ -25,16 +28,26 @@ object PureConfigReaders {
       Uri.fromString(input).left.map(error => CannotConvert(input, classOf[Uri].getSimpleName, error.message))
     }
 
+  implicit def stringListConfigReader[Itr[x] <: IterableOnce[x]](
+    implicit factory: Factory[String, Itr[String]]
+  ): ConfigReader[Itr[String]] =
+    ConfigReader[Option[String]].map {
+      _.fold(factory.fromSpecific(List.empty)) { string =>
+        factory.fromSpecific {
+          string.split(ListSeparator).map(_.trim).filter(_.nonEmpty)
+        }
+      }
+    }
+
   implicit def enumPureConfigReader[A <: EnumEntry: ClassTag](implicit enumValues: Enum[A]): ConfigReader[A] =
-    ConfigReader.fromNonEmptyStringOpt[A] {
-      value => enumValues.values.find(_.entryName.equalsIgnoreCase(value))
+    ConfigReader.fromNonEmptyStringOpt[A] { value =>
+      enumValues.values.find(_.entryName.equalsIgnoreCase(value))
     }
 
   def stringConfigParserTry[A](parser: String => Try[A])(implicit classTag: ClassTag[A]): ConfigReader[A] =
-    ConfigReader.fromNonEmptyString {
-      value =>
-        parser(value).toEither.left.map {
-          throwable => CannotConvert(value, classTag.runtimeClass.getSimpleName, throwable.getMessage)
-        }
+    ConfigReader.fromNonEmptyString { value =>
+      parser(value).toEither.left.map { throwable =>
+        CannotConvert(value, classTag.runtimeClass.getSimpleName, throwable.getMessage)
+      }
     }
 }

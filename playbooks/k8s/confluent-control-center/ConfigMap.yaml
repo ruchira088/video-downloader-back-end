@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: confluent-control-center-http-auth-config-map
-  namespace: {{ namespace }}
-data:
-{% for key, value in confluent_control_center_http_auth.config_values.items() %}
-  {{ key }}: "{{ value }}"
-{% endfor %}

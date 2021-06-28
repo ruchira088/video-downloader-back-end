@@ -4,7 +4,7 @@ import cats.data.Kleisli
 import cats.effect.{Clock, Sync}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Monad, ~>}
-import com.ruchij.core.config.DownloadConfiguration
+import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
@@ -30,7 +30,7 @@ class VideoAnalysisServiceImpl[F[_]: Sync: Clock, T[_]: Monad](
   client: Client[F],
   videoMetadataDao: VideoMetadataDao[T],
   fileResourceDao: FileResourceDao[T],
-  downloadConfiguration: DownloadConfiguration
+  storageConfiguration: StorageConfiguration
 )(implicit transaction: T ~> F)
     extends VideoAnalysisService[F] {
 
@@ -40,10 +40,9 @@ class VideoAnalysisServiceImpl[F[_]: Sync: Clock, T[_]: Monad](
     for {
       videoMetadataOpt <- transaction(videoMetadataDao.findByUrl(uri))
 
-      result <-
-        videoMetadataOpt.fold[F[VideoMetadataResult]](createMetadata(uri).map(NewlyCreated)) {
-          videoMetadata => Applicative[F].pure[VideoMetadataResult](Existing(videoMetadata))
-        }
+      result <- videoMetadataOpt.fold[F[VideoMetadataResult]](createMetadata(uri).map(NewlyCreated)) { videoMetadata =>
+        Applicative[F].pure[VideoMetadataResult](Existing(videoMetadata))
+      }
 
     } yield result
 
@@ -57,7 +56,7 @@ class VideoAnalysisServiceImpl[F[_]: Sync: Clock, T[_]: Monad](
       timestamp <- JodaClock[F].timestamp
 
       thumbnailFileName = thumbnailUri.path.split("/").lastOption.getOrElse("thumbnail.unknown")
-      filePath = s"${downloadConfiguration.imageFolder}/thumbnail-$videoId-$thumbnailFileName"
+      filePath = s"${storageConfiguration.imageFolder}/thumbnail-$videoId-$thumbnailFileName"
 
       thumbnail <- downloadService
         .download(thumbnailUri, filePath)
@@ -117,14 +116,13 @@ class VideoAnalysisServiceImpl[F[_]: Sync: Clock, T[_]: Monad](
       size <- Kleisli.liftF {
         client
           .run(Request[F](Method.HEAD, downloadUri))
-          .use {
-            response =>
-              if (response.status.isSuccess)
-                Http4sUtils.header[F](`Content-Length`).map(_.length).run(response)
-              else
-                ApplicativeError[F, Throwable].raiseError[Long] {
-                  ExternalServiceException(s"Failed ${response.status} response for HEAD $downloadUri")
-                }
+          .use { response =>
+            if (response.status.isSuccess)
+              Http4sUtils.header[F](`Content-Length`).map(_.length).run(response)
+            else
+              ApplicativeError[F, Throwable].raiseError[Long] {
+                ExternalServiceException(s"Failed ${response.status} response for HEAD $downloadUri")
+              }
           }
       }
     } yield VideoAnalysisResult(uri, videoSite, videoTitle, duration, size, thumbnailUri)

@@ -90,7 +90,7 @@ object BatchApp extends IOApp {
             httpClient,
             DoobieVideoMetadataDao,
             DoobieFileResourceDao,
-            batchServiceConfiguration.downloadConfiguration
+            batchServiceConfiguration.storageConfiguration
           )
 
           downloadProgressPubSub <- KafkaPubSub[F, DownloadProgress](batchServiceConfiguration.kafkaConfiguration)
@@ -120,7 +120,7 @@ object BatchApp extends IOApp {
             DoobieSnapshotDao,
             DoobieFileResourceDao,
             ioBlocker,
-            batchServiceConfiguration.downloadConfiguration
+            batchServiceConfiguration.storageConfiguration
           )
 
           synchronizationService = new SynchronizationServiceImpl[F, repositoryService.BackedType, ConnectionIO](
@@ -132,7 +132,7 @@ object BatchApp extends IOApp {
             hashingService,
             fileTypeDetector,
             ioBlocker,
-            batchServiceConfiguration.downloadConfiguration
+            batchServiceConfiguration.storageConfiguration
           )
 
           workExecutor = new WorkExecutorImpl[F, ConnectionIO](
@@ -145,7 +145,7 @@ object BatchApp extends IOApp {
             hashingService,
             downloadService,
             videoEnrichmentService,
-            batchServiceConfiguration.downloadConfiguration
+            batchServiceConfiguration.storageConfiguration
           )
 
           scheduler = new SchedulerImpl(

@@ -4,10 +4,10 @@ import cats.ApplicativeError
 import cats.effect.{Blocker, ConcurrentEffect, ContextShift, Resource, Timer}
 import com.ruchij.api.ApiApp
 import com.ruchij.api.config.AuthenticationConfiguration.{HashedPassword, PasswordAuthenticationConfiguration}
-import com.ruchij.api.config.{ApiServiceConfiguration, HttpConfiguration}
+import com.ruchij.api.config.{ApiServiceConfiguration, ApiStorageConfiguration, HttpConfiguration}
 import com.ruchij.api.models.ApiMessageBrokers
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
-import com.ruchij.core.config.{ApplicationInformation, DownloadConfiguration, KafkaConfiguration}
+import com.ruchij.core.config.{ApplicationInformation, KafkaConfiguration}
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.kv.RedisKeyValueStore
@@ -27,7 +27,7 @@ import scala.language.postfixOps
 object HttpTestResource {
   type TestResources[F[_]] = (ApiServiceConfiguration, ApiMessageBrokers[F], HttpApp[F])
 
-  val DownloadConfig: DownloadConfiguration = DownloadConfiguration("./videos", "./images")
+  val ApiStorageConfig: ApiStorageConfiguration = ApiStorageConfiguration("./images")
 
   val ApplicationInfo: ApplicationInformation =
     ApplicationInformation("localhost", Some("N/A"), Some("N/A"), None)
@@ -59,7 +59,7 @@ object HttpTestResource {
 
 //      (kafkaConfiguration, _) <- Resources.startEmbeddedKafkaAndSchemaRegistry[F]
 
-      databaseConfiguration <- Resource.eval(DoobieProvider.uniqueH2InMemoryDatabaseConfiguration[F])
+      databaseConfiguration <- Resource.eval(DoobieProvider.uniqueInMemoryDbConfig[F])
       transactor <- DoobieTransactor.create(
         databaseConfiguration,
         executionContext,
@@ -68,7 +68,7 @@ object HttpTestResource {
 
       apiServiceConfiguration = ApiServiceConfiguration(
         HttpConfig,
-        DownloadConfig,
+        ApiStorageConfig,
         databaseConfiguration,
         redisConfiguration,
         PasswordAuthenticationConfig,

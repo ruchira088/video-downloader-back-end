@@ -8,7 +8,7 @@ import com.eed3si9n.ruchij.api.BuildInfo
 import com.ruchij.api.services.health.models.kv.HealthCheckKey
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.api.services.health.models.{HealthCheck, HealthStatus, ServiceInformation}
-import com.ruchij.core.config.{ApplicationInformation, DownloadConfiguration}
+import com.ruchij.core.config.{ApplicationInformation, StorageConfiguration}
 import com.ruchij.core.kv.KeySpacedKeyValueStore
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.PubSub
@@ -28,7 +28,7 @@ class HealthServiceImpl[F[_]: Timer: Concurrent](
   keySpacedKeyValueStore: KeySpacedKeyValueStore[F, HealthCheckKey, DateTime],
   pubSub: PubSub[F, CommittableRecord[F, *], HealthCheckMessage],
   applicationInformation: ApplicationInformation,
-  downloadConfiguration: DownloadConfiguration
+  storageConfiguration: StorageConfiguration
 )(implicit transaction: ConnectionIO ~> F)
     extends HealthService[F] {
 
@@ -72,7 +72,8 @@ class HealthServiceImpl[F[_]: Timer: Concurrent](
               .drain
           }
           .flatMap { fiber =>
-            Stream.emit[F, HealthCheckMessage](HealthCheckMessage(applicationInformation.instanceId, dateTime))
+            Stream
+              .emit[F, HealthCheckMessage](HealthCheckMessage(applicationInformation.instanceId, dateTime))
               .repeat
               .metered[F](1 second)
               .evalMap(message => pubSub.publish(message))
@@ -87,16 +88,10 @@ class HealthServiceImpl[F[_]: Timer: Concurrent](
     for {
       timestamp <- JodaClock[F].timestamp.map(_.toString("HH-mm-ss-SSS"))
 
-      videoFileKey = s"${downloadConfiguration.videoFolder}/video-health-check-$timestamp.txt"
-      imageFileKey = s"${downloadConfiguration.imageFolder}/image-health-check-$timestamp.txt"
+      imageFileKey = s"${storageConfiguration.imageFolder}/image-health-check-$timestamp.txt"
 
-      videoFileFiber <- Concurrent[F].start(fileHealthCheck(videoFileKey))
-      imageFileFiber <- Concurrent[F].start(fileHealthCheck(imageFileKey))
-
-      videoResult <- videoFileFiber.join
-      imageResult <- imageFileFiber.join
-
-    } yield videoResult + imageResult
+      imageResult <- fileHealthCheck(imageFileKey)
+    } yield imageResult
 
   def fileHealthCheck(fileKey: String): F[HealthStatus] =
     OptionT

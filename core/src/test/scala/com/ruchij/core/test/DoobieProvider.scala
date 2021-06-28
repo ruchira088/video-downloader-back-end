@@ -20,20 +20,18 @@ object DoobieProvider {
       ""
     )
 
-  def uniqueH2InMemoryDatabaseConfiguration[F[+ _]: Sync]: F[DatabaseConfiguration] =
+  def uniqueInMemoryDbConfig[F[+ _]: Sync]: F[DatabaseConfiguration] =
     RandomGenerator[F, UUID].generate
-      .map(uuid => h2InMemoryDatabaseConfiguration(uuid.toString))
+      .map(uuid => h2InMemoryDatabaseConfiguration(uuid.toString.take(8)))
 
-  def h2InMemoryTransactor[F[+ _]: Async: ContextShift](implicit executionContext: ExecutionContext): Resource[F, ConnectionIO ~> F] =
+  def inMemoryTransactor[F[+ _]: Async: ContextShift](implicit executionContext: ExecutionContext): Resource[F, ConnectionIO ~> F] =
     for {
-      databaseConfiguration <- Resource.eval(uniqueH2InMemoryDatabaseConfiguration[F])
+      databaseConfiguration <- Resource.eval(uniqueInMemoryDbConfig[F])
       blocker = Blocker.liftExecutionContext(executionContext)
 
       hikariTransactor <- DoobieTransactor.create[F](databaseConfiguration, executionContext, blocker)
 
       migrationResult <- Resource.eval(MigrationApp.migration(databaseConfiguration, blocker))
-
-      _ <- Resource.eval(Sync[F].delay(println(s"Executed ${migrationResult.migrationsExecuted} migrations")))
     }
     yield hikariTransactor.trans
 
