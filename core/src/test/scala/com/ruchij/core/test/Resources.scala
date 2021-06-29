@@ -5,8 +5,8 @@ import cats.effect.{Resource, Sync}
 import cats.implicits._
 import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration}
 import com.ruchij.core.types.RandomGenerator
-import net.manub.embeddedkafka.EmbeddedKafkaConfig
-import net.manub.embeddedkafka.schemaregistry.{EmbeddedKWithSR, EmbeddedKafka, EmbeddedKafkaConfig => EmbeddedKafkaSchemaRegistryConfig}
+import io.github.embeddedkafka.EmbeddedKafkaConfig
+import io.github.embeddedkafka.schemaregistry.{EmbeddedKWithSR, EmbeddedKafka, EmbeddedKafkaConfig => EmbeddedKafkaSchemaRegistryConfig}
 import org.http4s.Uri
 import org.http4s.Uri.Scheme
 import redis.embedded.RedisServer
