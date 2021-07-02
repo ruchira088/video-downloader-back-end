@@ -25,7 +25,7 @@ services:
     depends_on:
       - api
     ports:
-      - 443:443
+      - 8443:443
     volumes:
       - "./nginx/ssl:/etc/ssl"
       - "./nginx/default.conf:/etc/nginx/conf.d/default.conf"
