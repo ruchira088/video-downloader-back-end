@@ -65,7 +65,7 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
 
   val videoSortByFieldName: SortBy => Fragment =
     sortByFieldName.orElse {
-      case SortBy.Date => fr"video_file.created_at"
+      case SortBy.Date => fr"video.created_at"
     }
 
   override def deleteById(videoId: String): ConnectionIO[Int] =
