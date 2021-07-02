@@ -44,6 +44,7 @@ lazy val core =
           fs2Kafka,
           fs2KafkaVulkan,
           vulkanGeneric,
+          kafkaAvroSerializer,
           h2,
           doobie,
           doobieHikari,

@@ -22,6 +22,8 @@ object Dependencies
 
   lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "1.7.0"
 
+  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "6.2.0"
+
   lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.7.1"
 
   lazy val circeGeneric = "io.circe" %% "circe-generic" % CirceVersion

@@ -44,7 +44,7 @@ object DevelopmentApp extends IOApp {
   val WorkerConfig: WorkerConfiguration =
     WorkerConfiguration(2, LocalTime.MIDNIGHT, LocalTime.MIDNIGHT)
 
-  val HttpConfig: HttpConfiguration = HttpConfiguration("0.0.0.0", 443)
+  val HttpConfig: HttpConfiguration = HttpConfiguration("0.0.0.0", 8443)
 
   val PasswordAuthenticationConfig: PasswordAuthenticationConfiguration =
     PasswordAuthenticationConfiguration(
@@ -76,6 +76,7 @@ object DevelopmentApp extends IOApp {
         for {
           _ <- BlazeServerBuilder[IO](ExecutionContext.global)
             .withHttpApp(api)
+            .withoutBanner
             .bindHttp(HttpConfig.port, HttpConfig.host)
             .withSslContext(sslContext)
             .serve
