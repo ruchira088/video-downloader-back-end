@@ -54,8 +54,6 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
 
         application-information {
           instance-id = "localhost"
-          instance-id = ${?HOSTNAME}
-          instance-id = ${?INSTANCE_ID}
 
           git-branch = ${?GIT_BRANCH}
           git-commit = ${?GIT_COMMIT}
