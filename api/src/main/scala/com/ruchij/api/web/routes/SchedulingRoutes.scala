@@ -1,5 +1,6 @@
 package com.ruchij.api.web.routes
 
+import cats.data.NonEmptyList
 import cats.effect.{Concurrent, Timer}
 import cats.implicits._
 import com.ruchij.api.web.requests.{SchedulingRequest, UpdateScheduledVideoRequest}
@@ -13,6 +14,7 @@ import com.ruchij.api.web.responses.EventStreamEventType.{ActiveDownload, HeartB
 import com.ruchij.core.circe.Decoders._
 import com.ruchij.core.circe.Encoders._
 import com.ruchij.api.web.responses.{EventStreamHeartBeat, SearchResult}
+import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 import com.ruchij.core.services.video.models.DurationRange
 import fs2.Stream
 import io.circe.Encoder
@@ -55,7 +57,11 @@ object SchedulingRoutes {
             pageSize,
             sortBy,
             order,
-            None
+            statuses.orElse {
+              NonEmptyList.fromList {
+                SchedulingStatus.values.filter(_ != SchedulingStatus.Completed).toList
+              }
+            }
           )
 
           response <- Ok {

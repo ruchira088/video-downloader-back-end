@@ -14,7 +14,7 @@ import org.http4s.{ParseFailure, QueryParamDecoder, QueryParameterValue}
 import scala.concurrent.duration.FiniteDuration
 import scala.reflect.{ClassTag, classTag}
 
-abstract class QueryParameter[A] {
+trait QueryParameter[A] {
   def parse[F[_]: ApplicativeError[*[_], Throwable]]: Kleisli[F, QueryParameters, A]
 
   def unapply(params: QueryParameters): Option[A] =
