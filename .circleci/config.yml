@@ -35,6 +35,9 @@ jobs:
       - run:
           name: Clean compile all sbt projects
           command: sbt cleanCompile
+      - run:
+          name: Execute all tests
+          command: sbt test
       - save_cache:
           key: sbt-cache-{{ checksum "project/build.properties" }}-{{ checksum "project/plugins.sbt" }}-{{ checksum "project/Dependencies.scala" }}
           paths:
