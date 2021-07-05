@@ -6,7 +6,7 @@ import cats.{Applicative, ApplicativeError, MonadError}
 import com.ruchij.core.circe.Decoders.finiteDurationDecoder
 import com.ruchij.core.daos.videometadata.models.VideoSite.Selector
 import com.ruchij.core.exceptions.InvalidConditionException
-import com.ruchij.core.types.FunctionKTypes
+import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherToF, toType}
 import com.ruchij.core.utils.JsoupSelector
 import com.ruchij.core.utils.MatcherUtils.IntNumber
 import enumeratum.{Enum, EnumEntry}
@@ -60,7 +60,7 @@ object VideoSite extends Enum[VideoSite] {
         .singleElement[F]("#video_player video")
         .flatMapF(element => JsoupSelector.attribute[F](element, "poster"))
         .flatMapF { urlString =>
-          FunctionKTypes.eitherToF[Throwable, F].apply(Uri.fromString(urlString))
+          Uri.fromString(urlString).toType[F, Throwable]
         }
 
     override def duration[F[_]: MonadError[*[_], Throwable]]: Selector[F, FiniteDuration] =
@@ -130,7 +130,7 @@ object VideoSite extends Enum[VideoSite] {
       JsoupSelector.singleElement("""#movieplayer-left [type="application/ld+json"]""")
         .map(_.html())
         .flatMapF { text =>
-          FunctionKTypes.eitherToF.apply {
+          toType[Either[Throwable, *], F, EPornerMetadata] {
             for {
               json <- JsonParser.parse(text)
               metadata <- json.as[EPornerMetadata]
@@ -157,7 +157,7 @@ object VideoSite extends Enum[VideoSite] {
           case NonEmptyList(head, _) => JsoupSelector.attribute(head, "href")
         }
         .flatMapF {
-          path => FunctionKTypes.eitherToF.apply(Uri.fromString(s"https://www.eporner.com$path"))
+          path => Uri.fromString(s"https://www.eporner.com$path").toType[F, Throwable]
         }
   }
 
