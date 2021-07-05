@@ -70,11 +70,17 @@ object BatchApp extends IOApp {
             AsyncHttpClient.resource { AsyncHttpClient.configure(_.setRequestTimeout((24 hours).toMillis.toInt)) }
               .map(FollowRedirect(maxRedirects = 10))
 
-          ioThreadPool <- Resource.eval(Sync[F].delay(Executors.newCachedThreadPool()))
+          ioThreadPool <-
+            Resource.make(Sync[F].delay(Executors.newCachedThreadPool())) { executorService =>
+              Sync[F].delay(executorService.shutdown())
+            }
           ioBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(ioThreadPool))
 
           processorCount <- Resource.eval(Sync[F].delay(Runtime.getRuntime.availableProcessors()))
-          cpuBlockingThreadPool <- Resource.eval(Sync[F].delay(Executors.newFixedThreadPool(processorCount)))
+          cpuBlockingThreadPool <-
+            Resource.make(Sync[F].delay(Executors.newFixedThreadPool(processorCount))) { executorService =>
+              Sync[F].delay(executorService.shutdown())
+            }
           cpuBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(cpuBlockingThreadPool))
 
           _ <- Resource.eval(MigrationApp.migration[F](batchServiceConfiguration.databaseConfiguration, ioBlocker))

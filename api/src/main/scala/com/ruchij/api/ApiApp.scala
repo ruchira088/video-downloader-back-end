@@ -77,11 +77,17 @@ object ApiApp extends IOApp {
         for {
           httpClient <- AsyncHttpClient.resource().map(FollowRedirect(maxRedirects = 10))
 
-          threadPoolIO <- Resource.eval(Sync[F].delay(Executors.newCachedThreadPool()))
+          threadPoolIO <-
+            Resource.make(Sync[F].delay(Executors.newCachedThreadPool())) {
+              executorService => Sync[F].delay(executorService.shutdown())
+            }
           blockerIO = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(threadPoolIO))
 
           processorCount <- Resource.eval(Sync[F].delay(Runtime.getRuntime.availableProcessors()))
-          blockingThreadPool <- Resource.eval(Sync[F].delay(Executors.newFixedThreadPool(processorCount)))
+          blockingThreadPool <-
+            Resource.make(Sync[F].delay(Executors.newFixedThreadPool(processorCount))) {
+              executorService => Sync[F].delay(executorService.shutdown())
+            }
           blockerCPU = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(blockingThreadPool))
 
           redisCommands <- Redis[F].utf8(apiServiceConfiguration.redisConfiguration.uri)
