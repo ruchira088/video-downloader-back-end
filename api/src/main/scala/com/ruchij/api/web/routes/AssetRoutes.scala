@@ -17,11 +17,11 @@ object AssetRoutes {
     HttpRoutes.of {
       case request @ GET -> Root / "id" / id =>
         for {
-          range <- Applicative[F].pure {
+          maybeRange <- Applicative[F].pure {
             request.headers.get(Range).collect { case Range(_, NonEmptyList(subRange, _)) => subRange }
           }
 
-          asset <- assetService.retrieve(id, range.map(_.first), range.flatMap(_.second))
+          asset <- assetService.retrieve(id, maybeRange.map(_.first), maybeRange.flatMap(_.second))
 
           response <- asset.asResponse
         }
