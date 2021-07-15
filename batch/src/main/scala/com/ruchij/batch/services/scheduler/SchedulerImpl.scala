@@ -140,33 +140,38 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       .eval(Topic[F, Option[ScheduledVideoDownload]](None))
       .flatMap { topic =>
         idleWorkers
-          .concurrently {
-            topic.publish(schedulingService.subscribeToUpdates(s"scheduler-$instanceId").map(Some.apply))
-          }
-          .concurrently {
-            Stream.eval(schedulingService.updateTimedOutTasks(10 minutes))
-              .repeat
-              .metered(30 seconds)
-              .flatMap(Stream.emits)
-          }
+          .concurrently(publishUpdatesToTopic(topic))
+          .concurrently(cleanUpStaleScheduledVideoDownloads)
           .parEvalMapUnordered(workerConfiguration.maxConcurrentDownloads) { worker =>
-            Bracket[F, Throwable].guarantee {
-              SchedulerImpl
-                .isWorkPeriod[F](workerConfiguration.startTime, workerConfiguration.endTime)
-                .flatMap { isWorkPeriod =>
-                  if (isWorkPeriod)
-                    performWork(worker, topic)
-                      .recoverWith {
-                        case throwable =>
-                          logger.errorF("Error occurred in work scheduler", throwable).as(None)
-                      } else OptionT.none[F, Video].value
-                }
-            }(releaseWorker(worker))
+            performWorkDuringWorkPeriod(worker, topic)
           }
           .collect {
             case Some(video) => video
           }
       }
+
+  def performWorkDuringWorkPeriod(worker: Worker, topic: Topic[F, Option[ScheduledVideoDownload]]): F[Option[Video]] =
+    Bracket[F, Throwable].guarantee {
+      SchedulerImpl
+        .isWorkPeriod[F](workerConfiguration.startTime, workerConfiguration.endTime)
+        .flatMap { isWorkPeriod =>
+          if (isWorkPeriod)
+            performWork(worker, topic)
+              .recoverWith {
+                case throwable =>
+                  logger.errorF("Error occurred in work scheduler", throwable).as(None)
+              } else OptionT.none[F, Video].value
+        }
+    }(releaseWorker(worker))
+
+  def publishUpdatesToTopic(topic: Topic[F, Option[ScheduledVideoDownload]]): Stream[F, Unit] =
+    topic.publish(schedulingService.subscribeToUpdates(s"scheduler-$instanceId").map(Some.apply))
+
+  val cleanUpStaleScheduledVideoDownloads: Stream[F, ScheduledVideoDownload] =
+    Stream.eval(schedulingService.updateTimedOutTasks(10 minutes))
+      .repeat
+      .metered(30 seconds)
+      .flatMap(Stream.emits)
 
   val newWorkers: F[Int] =
     Range(0, workerConfiguration.maxConcurrentDownloads).toList
