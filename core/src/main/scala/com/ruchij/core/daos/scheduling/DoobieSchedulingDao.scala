@@ -4,7 +4,7 @@ import cats.Applicative
 import cats.data.{NonEmptyList, OptionT}
 import cats.implicits._
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
-import com.ruchij.core.daos.doobie.DoobieUtils.{ordering, singleUpdate, sortByFieldName}
+import com.ruchij.core.daos.doobie.DoobieUtils.{SingleUpdateOps, ordering, sortByFieldName}
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.services.models.{Order, SortBy}
 import doobie.free.connection.ConnectionIO
@@ -48,53 +48,55 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
     (SelectQuery ++ fr"WHERE scheduled_video.video_metadata_id = $id").query[ScheduledVideoDownload].option
 
   override def completeTask(id: String, timestamp: DateTime): ConnectionIO[Option[ScheduledVideoDownload]] =
-    singleUpdate[ConnectionIO] {
       sql"""
         UPDATE scheduled_video
           SET completed_at = $timestamp, status = ${SchedulingStatus.Completed}, last_updated_at = $timestamp
           WHERE
             completed_at IS NULL AND
             video_metadata_id = $id
-      """.update.run
-    }.productR(OptionT(getById(id)))
-      .value
+      """
+        .update
+        .run
+        .singleUpdate
+        .productR(OptionT(getById(id)))
+        .value
 
   override def updateStatus(
     id: String,
     status: SchedulingStatus,
     timestamp: DateTime
   ): ConnectionIO[Option[ScheduledVideoDownload]] =
-    singleUpdate[ConnectionIO] {
       sql"""
         UPDATE scheduled_video
           SET status = $status, last_updated_at = $timestamp
           WHERE video_metadata_id = $id
        """
-        .update.run
-    }.productR(OptionT(getById(id)))
-      .value
+        .update
+        .run
+        .singleUpdate
+        .productR(OptionT(getById(id)))
+        .value
 
   override def updatedDownloadProgress(
     id: String,
     downloadedBytes: Long,
     timestamp: DateTime
   ): ConnectionIO[Option[ScheduledVideoDownload]] =
-    singleUpdate[ConnectionIO] {
       sql"""
         UPDATE scheduled_video
           SET downloaded_bytes = $downloadedBytes, last_updated_at = $timestamp
           WHERE video_metadata_id = $id
       """
-        .update.run
-    }.productR(OptionT(getById(id)))
-      .value
+        .update
+        .run
+        .singleUpdate
+        .productR(OptionT(getById(id)))
+        .value
 
   override def deleteById(id: String): ConnectionIO[Option[ScheduledVideoDownload]] =
     OptionT(getById(id))
       .productL {
-        singleUpdate[ConnectionIO] {
-          sql"DELETE FROM scheduled_video WHERE video_metadata_id = $id".update.run
-        }
+        sql"DELETE FROM scheduled_video WHERE video_metadata_id = $id".update.run.singleUpdate
       }
       .value
 
@@ -132,7 +134,6 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       .option
       .flatMap {
         case Some(videoMetadataId) =>
-          singleUpdate[ConnectionIO] {
             sql"""
               UPDATE scheduled_video
                   SET status = ${SchedulingStatus.Acquired}
@@ -140,9 +141,9 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
             """
               .update
               .run
-          }
-            .productR(OptionT(getById(videoMetadataId)))
-            .value
+              .singleUpdate
+              .productR(OptionT(getById(videoMetadataId)))
+              .value
 
         case None => Applicative[ConnectionIO].pure(None)
       }
@@ -188,7 +189,6 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       .option
       .flatMap {
         _.fold[ConnectionIO[Option[ScheduledVideoDownload]]](Applicative[ConnectionIO].pure[Option[ScheduledVideoDownload]](None)) { videoMetadataId =>
-          singleUpdate {
             sql"""
               UPDATE scheduled_video
                 SET status = ${SchedulingStatus.Acquired}, last_updated_at = $timestamp
@@ -196,9 +196,9 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
             """
               .update
               .run
-          }
-            .productR(OptionT(getById(videoMetadataId)))
-            .value
+              .singleUpdate
+              .productR(OptionT(getById(videoMetadataId)))
+              .value
         }
       }
 

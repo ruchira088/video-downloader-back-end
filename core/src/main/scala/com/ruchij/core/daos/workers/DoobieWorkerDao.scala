@@ -4,7 +4,7 @@ import cats.data.OptionT
 import cats.implicits._
 import cats.{Applicative, ApplicativeError}
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
-import com.ruchij.core.daos.doobie.DoobieUtils.singleUpdate
+import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.workers.models.Worker
 import com.ruchij.core.exceptions.ResourceNotFoundException
@@ -62,39 +62,40 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
       .value
 
   def reserveWorker(workerId: String, timestamp: DateTime): ConnectionIO[Option[Worker]] =
-    singleUpdate {
       sql"""
         UPDATE worker
           SET reserved_at = $timestamp
           WHERE id = $workerId AND reserved_at IS NULL
       """
       .update.run
-    }.productR(OptionT(getById(workerId))).value
+      .singleUpdate
+      .productR(OptionT(getById(workerId)))
+      .value
 
   override def assignTask(
     workerId: String,
     scheduledVideoId: String,
     timestamp: DateTime
   ): ConnectionIO[Option[Worker]] =
-    singleUpdate {
       sql"""
           UPDATE worker
             SET task_assigned_at = $timestamp, heart_beat_at = $timestamp
             WHERE id = $workerId AND task_assigned_at IS NULL
       """
-        .update.run
-    }
-      .productR {
-        singleUpdate {
+        .update
+        .run
+        .singleUpdate
+        .productR {
           sql"""
             INSERT INTO worker_task(worker_id, scheduled_video_id, created_at)
             VALUES ($workerId, $scheduledVideoId, $timestamp)
-            """
-            .update.run
+          """
+            .update
+            .run
+            .singleUpdate
         }
-      }
-      .productR(OptionT(getById(workerId)))
-      .value
+        .productR(OptionT(getById(workerId)))
+        .value
 
   override def completeTask(
     workerId: String,
@@ -107,35 +108,36 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
         .option
     }
       .flatMap { taskCreatedAt =>
-        singleUpdate {
-          sql"""
+        sql"""
           UPDATE worker_task SET completed_at = $timestamp
-          WHERE worker_id = $workerId AND scheduled_video_id = $scheduledVideoId AND created_at = $taskCreatedAt
-      """.update.run
-        }
+            WHERE worker_id = $workerId AND scheduled_video_id = $scheduledVideoId AND created_at = $taskCreatedAt
+        """
+          .update
+          .run
+          .singleUpdate
       }
       .productR(OptionT(getById(workerId)))
       .value
 
   override def releaseWorker(workerId: String): ConnectionIO[Option[Worker]] =
-    singleUpdate {
-      sql"""
-         UPDATE worker
-          SET reserved_at = NULL, task_assigned_at = NULL, heart_beat_at = NULL
-          WHERE id = $workerId
-       """
-        .update.run
-    }
+    sql"""
+       UPDATE worker
+        SET reserved_at = NULL, task_assigned_at = NULL, heart_beat_at = NULL
+        WHERE id = $workerId
+     """
+      .update
+      .run
+      .singleUpdate
       .productR(OptionT(getById(workerId)))
       .value
 
   override def updateHeartBeat(workerId: String, timestamp: DateTime): ConnectionIO[Option[Worker]] =
-    singleUpdate {
       sql"UPDATE worker SET heart_beat_at = $timestamp WHERE id = $workerId"
-        .update.run
-    }
-      .productR(OptionT(getById(workerId)))
-      .value
+        .update
+        .run
+        .singleUpdate
+        .productR(OptionT(getById(workerId)))
+        .value
 
   override def cleanUpStaleWorkers(heartBeatBefore: DateTime): ConnectionIO[Int] =
     sql"""

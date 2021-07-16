@@ -1,5 +1,7 @@
 package com.ruchij.core.daos.video
 
+import cats.data.OptionT
+import cats.implicits._
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 import com.ruchij.core.daos.doobie.DoobieUtils.{SingleUpdateOps, ordering, sortByFieldName}
 import com.ruchij.core.daos.video.models.Video
@@ -86,8 +88,16 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
       }
       .value
 
-  override def deleteById(videoId: String): ConnectionIO[Int] =
-    sql"DELETE FROM video WHERE video_metadata_id = $videoId".update.run
+  override def deleteById(videoId: String): ConnectionIO[Option[Video]] =
+    OptionT(findById(videoId))
+      .flatMap { video =>
+        sql"DELETE FROM video WHERE video_metadata_id = $videoId"
+          .update
+          .run
+          .singleUpdate
+          .as(video)
+      }
+      .value
 
   override val count: ConnectionIO[Int] =
     sql"SELECT COUNT(*) FROM video".query[Int].unique

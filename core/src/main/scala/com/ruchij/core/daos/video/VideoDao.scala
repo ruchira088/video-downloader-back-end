@@ -24,7 +24,7 @@ trait VideoDao[F[_]] {
 
   def findByVideoFileResourceId(fileResourceId: String): F[Option[Video]]
 
-  def deleteById(videoId: String): F[Int]
+  def deleteById(videoId: String): F[Option[Video]]
 
   val count: F[Int]
 
