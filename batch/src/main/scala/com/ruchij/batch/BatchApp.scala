@@ -16,7 +16,8 @@ import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.workers.DoobieWorkerDao
 import com.ruchij.core.logging.Logger
-import com.ruchij.core.messaging.kafka.KafkaPubSub
+import com.ruchij.core.messaging.kafka.{KafkaPubSub, KafkaSubscriber}
+import com.ruchij.core.messaging.models.HttpMetric
 import com.ruchij.core.services.download.Http4sDownloadService
 import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector}
@@ -101,6 +102,7 @@ object BatchApp extends IOApp {
 
           downloadProgressPubSub <- KafkaPubSub[F, DownloadProgress](batchServiceConfiguration.kafkaConfiguration)
           scheduledVideoDownloadPubSub <- KafkaPubSub[F, ScheduledVideoDownload](batchServiceConfiguration.kafkaConfiguration)
+          httpMetricsSubscriber = new KafkaSubscriber[F, HttpMetric](batchServiceConfiguration.kafkaConfiguration)
 
           schedulingService = new SchedulingServiceImpl[F, ConnectionIO](
             videoAnalysisService,
@@ -157,7 +159,9 @@ object BatchApp extends IOApp {
           scheduler = new SchedulerImpl(
             schedulingService,
             synchronizationService,
+            videoService,
             workExecutor,
+            httpMetricsSubscriber,
             workerDao,
             batchServiceConfiguration.workerConfiguration,
             batchServiceConfiguration.applicationInformation.instanceId

@@ -2,7 +2,7 @@ package com.ruchij.core.services.video
 
 import cats.data.OptionT
 import cats.implicits._
-import cats.{Applicative, MonadError, ~>}
+import cats.{Applicative, ApplicativeError, MonadError, ~>}
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.snapshot.SnapshotDao
@@ -15,6 +15,9 @@ import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.services.video.models.{DurationRange, VideoServiceSummary}
 
+import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.FiniteDuration
+
 class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: MonadError[*[_], Throwable]](
   repositoryService: RepositoryService[F],
   videoDao: VideoDao[T],
@@ -26,13 +29,15 @@ class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: MonadError[*[_],
     extends VideoService[F] {
 
   override def insert(videoMetadataKey: String, fileResourceKey: String): F[Video] =
-    transaction(videoDao.insert(videoMetadataKey, fileResourceKey))
+    transaction(videoDao.insert(videoMetadataKey, fileResourceKey, FiniteDuration(0, TimeUnit.MILLISECONDS)))
       .productR(fetchById(videoMetadataKey))
 
   override def fetchById(videoId: String): F[Video] =
     OptionT(transaction(videoDao.findById(videoId)))
       .getOrElseF {
-        MonadError[F, Throwable].raiseError(ResourceNotFoundException(s"Unable to find video with ID: $videoId"))
+        ApplicativeError[F, Throwable].raiseError {
+          ResourceNotFoundException(s"Unable to find video with ID: $videoId")
+        }
       }
 
   override def search(term: Option[String], durationRange: DurationRange, pageNumber: Int, pageSize: Int, sortBy: SortBy, order: Order): F[Seq[Video]] =
@@ -44,6 +49,19 @@ class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: MonadError[*[_],
     transaction {
       snapshotDao.findByVideo(videoId)
     }
+
+  override def incrementWatchTime(videoId: String, duration: FiniteDuration): F[_] =
+    transaction {
+      videoDao.incrementWatchTime(videoId, duration)
+    }
+
+  override def fetchByVideoFileResourceId(videoFileResourceId: String): F[Video] =
+    OptionT(transaction(videoDao.findByVideoFileResourceId(videoFileResourceId)))
+      .getOrElseF {
+        ApplicativeError[F, Throwable].raiseError {
+          ResourceNotFoundException(s"Unable to find video for video file resource ID: $videoFileResourceId")
+        }
+      }
 
   override def update(videoId: String, title: Option[String]): F[Video] =
     transaction(videoMetadataDao.update(videoId, title))

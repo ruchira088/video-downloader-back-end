@@ -9,5 +9,6 @@ case class HttpMetric(
   uri: Uri,
   finiteDuration: FiniteDuration,
   responseStatus: Status,
-  contentType: Option[MediaType]
+  contentType: Option[MediaType],
+  size: Option[Long]
 )
