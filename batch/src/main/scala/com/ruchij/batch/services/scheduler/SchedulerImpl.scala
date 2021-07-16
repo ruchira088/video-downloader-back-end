@@ -22,7 +22,7 @@ import com.ruchij.core.messaging.models.HttpMetric
 import com.ruchij.core.services.scheduling.SchedulingService
 import com.ruchij.core.services.video.VideoService
 import com.ruchij.core.types.JodaClock
-import com.ruchij.core.utils.Constants.ChunkSize
+import com.ruchij.core.utils.Http4sUtils.ChunkSize
 import fs2.Stream
 import fs2.concurrent.Topic
 import org.joda.time.LocalTime
