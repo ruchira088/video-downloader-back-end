@@ -27,6 +27,7 @@ import fs2.Stream
 import fs2.concurrent.Topic
 import org.joda.time.LocalTime
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.language.postfixOps
 
@@ -187,7 +188,11 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
               ApplicativeError[F, Throwable].handleErrorWith {
                 videoService.fetchByVideoFileResourceId(resourceId)
                   .flatMap { video =>
-                    val watchDuration = video.videoMetadata.duration * (size / video.fileResource.size)
+                    val watchDuration =
+                      FiniteDuration(
+                        math.round((size.toDouble / video.fileResource.size) * video.videoMetadata.duration.toMillis),
+                        TimeUnit.MILLISECONDS
+                      )
 
                     videoService.incrementWatchTime(video.videoMetadata.id, watchDuration).productR(commit)
                   }
