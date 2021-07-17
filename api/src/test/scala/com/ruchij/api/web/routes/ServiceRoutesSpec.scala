@@ -1,6 +1,6 @@
 package com.ruchij.api.web.routes
 
-import cats.effect.{IO, Timer}
+import cats.effect.{Clock, IO, Timer}
 import com.eed3si9n.ruchij.api.BuildInfo
 import com.ruchij.api.test.HttpTestResource
 import com.ruchij.api.test.matchers._
@@ -16,46 +16,47 @@ import org.joda.time.DateTime
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Properties
 
 class ServiceRoutesSpec extends AnyFlatSpec with Matchers {
 
-  "GET /service/info" should "return a successful response containing service information" in {
-    val dateTime = DateTime.now()
-    implicit val timer: Timer[IO] = stubTimer(dateTime)
+  "GET /service/info" should "return a successful response containing service information" in runIO {
+    Clock.create[IO].realTime(TimeUnit.MILLISECONDS).map(milliseconds => new DateTime(milliseconds))
+      .flatMap { dateTime =>
+        implicit val timer: Timer[IO] = stubTimer(dateTime)
 
-    val expectedJsonResponse =
-      json"""{
-        "serviceName": "video-downloader-api",
-        "serviceVersion": ${BuildInfo.version},
-        "organization": "com.ruchij",
-        "scalaVersion": "2.13.6",
-        "sbtVersion": "1.5.5",
-        "javaVersion": ${Properties.javaVersion},
-        "currentTimestamp": $dateTime,
-        "instanceId": "localhost",
-        "gitBranch": "N/A",
-        "gitCommit": "N/A",
-        "buildTimestamp": null
-      }"""
+        val expectedJsonResponse =
+          json"""{
+            "serviceName": "video-downloader-api",
+            "serviceVersion": ${BuildInfo.version},
+            "organization": "com.ruchij",
+            "scalaVersion": ${BuildInfo.scalaVersion},
+            "sbtVersion": ${BuildInfo.sbtVersion},
+            "javaVersion": ${Properties.javaVersion},
+            "currentTimestamp": $dateTime,
+            "instanceId": "localhost",
+            "gitBranch": "N/A",
+            "gitCommit": "N/A",
+            "buildTimestamp": null
+          }"""
 
-    runIO {
-      HttpTestResource.create[IO].use {
-        case (_, _, application) =>
-          for {
-            request <- GET(uri"/service/info")
-            response <- application.run(request)
+        HttpTestResource.create[IO].use {
+          case (_, _, application) =>
+            for {
+              request <- GET(uri"/service/info")
+              response <- application.run(request)
 
-            _ = {
-              response must beJsonContentType
-              response must haveJson(expectedJsonResponse)
-              response must haveStatus(Status.Ok)
+              _ = {
+                response must beJsonContentType
+                response must haveJson(expectedJsonResponse)
+                response must haveStatus(Status.Ok)
+              }
             }
-          }
-          yield (): Unit
+            yield (): Unit
+        }
       }
-    }
   }
 
   "GET /service/health" should "return a health check response" in runIO {
