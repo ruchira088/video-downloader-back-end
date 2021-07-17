@@ -13,6 +13,7 @@ import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.scheduling.SchedulingServiceImpl.notFound
 import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.services.video.VideoAnalysisService
+import com.ruchij.core.services.video.models.DurationRange
 import com.ruchij.core.types.JodaClock
 import fs2.Stream
 import org.http4s.Uri
@@ -30,7 +31,7 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
   override def schedule(uri: Uri): F[ScheduledVideoDownload] =
     for {
       searchResult <- transaction {
-        schedulingDao.search(None, Some(NonEmptyList.of(uri)), 0, 1, SortBy.Date, Order.Descending, None)
+        schedulingDao.search(None, Some(NonEmptyList.of(uri)), DurationRange.All, 0, 1, SortBy.Date, Order.Descending, None)
       }
 
       _ <- if (searchResult.nonEmpty)
@@ -56,13 +57,14 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
   override def search(
     term: Option[String],
     videoUrls: Option[NonEmptyList[Uri]],
+    durationRange: DurationRange,
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,
     order: Order,
     schedulingStatuses: Option[NonEmptyList[SchedulingStatus]]
   ): F[Seq[ScheduledVideoDownload]] =
-    transaction(schedulingDao.search(term, videoUrls, pageNumber, pageSize, sortBy, order, schedulingStatuses))
+    transaction(schedulingDao.search(term, videoUrls, durationRange, pageNumber, pageSize, sortBy, order, schedulingStatuses))
 
   override def getById(id: String): F[ScheduledVideoDownload] =
     OptionT(transaction(schedulingDao.getById(id)))

@@ -4,6 +4,7 @@ import cats.data.{NonEmptyList, OptionT}
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.scheduling.models.DownloadProgress
+import com.ruchij.core.services.video.models.DurationRange
 import fs2.Stream
 import org.http4s.Uri
 
@@ -15,6 +16,7 @@ trait SchedulingService[F[_]] {
   def search(
     term: Option[String],
     videoUrls: Option[NonEmptyList[Uri]],
+    durationRange: DurationRange,
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,

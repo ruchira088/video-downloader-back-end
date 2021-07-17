@@ -7,6 +7,7 @@ import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 import com.ruchij.core.daos.doobie.DoobieUtils.{SingleUpdateOps, ordering, sortByFieldName}
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.services.models.{Order, SortBy}
+import com.ruchij.core.services.video.models.DurationRange
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import doobie.util.fragment.Fragment
@@ -36,7 +37,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       SELECT
         scheduled_video.scheduled_at, scheduled_video.last_updated_at, scheduled_video.status,
         scheduled_video.downloaded_bytes, video_metadata.url, video_metadata.id, video_metadata.video_site,
-        video_metadata.title, video_metadata.duration,video_metadata.size, file_resource.id,
+        video_metadata.title, video_metadata.duration, video_metadata.size, file_resource.id,
         file_resource.created_at, file_resource.path, file_resource.media_type, file_resource.size,
         scheduled_video.completed_at
       FROM scheduled_video
@@ -103,6 +104,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
   override def search(
     term: Option[String],
     videoUrls: Option[NonEmptyList[Uri]],
+    durationRange: DurationRange,
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,
@@ -114,7 +116,9 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
         whereAndOpt(
           term.map(searchTerm => fr"video_metadata.title ILIKE ${"%" + searchTerm + "%"}"),
           videoUrls.map(urls => in(fr"video_metadata.url", urls)),
-          schedulingStatuses.map(statuses => in(fr"scheduled_video.status", statuses))
+          schedulingStatuses.map(statuses => in(fr"scheduled_video.status", statuses)),
+          durationRange.max.map(maxDuration => fr"video_metadata.duration <= $maxDuration"),
+          durationRange.min.map(minDuration => fr"video_metadata.duration >= $minDuration")
         )
       ++ fr"ORDER BY"
       ++ schedulingSortByFiledName(sortBy)

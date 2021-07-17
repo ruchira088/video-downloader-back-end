@@ -3,6 +3,7 @@ package com.ruchij.core.daos.scheduling
 import cats.data.NonEmptyList
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.services.models.{Order, SortBy}
+import com.ruchij.core.services.video.models.DurationRange
 import org.http4s.Uri
 import org.joda.time.DateTime
 
@@ -24,6 +25,7 @@ trait SchedulingDao[F[_]] {
   def search(
     term: Option[String],
     videoUrls: Option[NonEmptyList[Uri]],
+    durationRange: DurationRange,
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,
