@@ -3,6 +3,7 @@ import sbtrelease.Git
 import sbtrelease.ReleaseStateTransformations._
 import sbtrelease.Utilities.stateW
 
+import java.awt.Desktop
 import scala.sys.process.ProcessBuilder
 
 val ReleaseBranch = "dev"
@@ -100,9 +101,12 @@ lazy val development =
     .settings(name := "video-downloader-development")
     .dependsOn(migrationApplication, core % "compile->test", api, batch)
 
-val cleanCompile = taskKey[Unit]("Clean compile all projects")
-cleanCompile :=
-  Def.sequential(clean.all(ScopeFilter(inAnyProject)), (Compile / compile).all(ScopeFilter(inAnyProject))).value
+val cleanTest = taskKey[Unit]("Clean and test all projects")
+cleanTest :=
+  Def.sequential(
+    clean.all(ScopeFilter(inAnyProject)),
+    (Test / test).all(ScopeFilter(inAnyProject))
+  ).value
 
 val verifyReleaseBranch = { state: State =>
   val git = Git.mkVcs(state.extract.get(baseDirectory))
@@ -151,7 +155,7 @@ releaseProcess := Seq(
   ReleaseStep(verifyReleaseBranch),
   checkSnapshotDependencies,
   inquireVersions,
-  releaseStepTask(cleanCompile),
+  releaseStepTask(cleanTest),
   setReleaseVersion,
   commitReleaseVersion,
   tagRelease,
@@ -160,3 +164,15 @@ releaseProcess := Seq(
   commitNextVersion,
   pushChanges
 )
+
+val viewCoverageResults = taskKey[Unit]("Opens the coverage result in the default browser")
+
+viewCoverageResults := {
+  val coverageResults =
+    target.value.toPath.resolve(s"scala-${scalaBinaryVersion.value}/scoverage-report/index.html")
+
+  Desktop.getDesktop.browse(coverageResults.toUri)
+}
+
+addCommandAlias("cleanCompile", "; clean; compile")
+addCommandAlias("testWithCoverage", "; clean; coverage; test; coverageAggregate; viewCoverageResults")
