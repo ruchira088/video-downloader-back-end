@@ -73,6 +73,8 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
   val videoSortByFieldName: SortBy => Fragment =
     sortByFieldName.orElse {
       case SortBy.Date => fr"video.created_at"
+      case SortBy.WatchTime => fr"video.watch_time"
+      case _ => fr"RANDOM()"
     }
 
   override def findByVideoFileResourceId(fileResourceId: String): ConnectionIO[Option[Video]] =

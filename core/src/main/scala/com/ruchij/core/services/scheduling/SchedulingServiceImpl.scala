@@ -64,7 +64,12 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
     order: Order,
     schedulingStatuses: Option[NonEmptyList[SchedulingStatus]]
   ): F[Seq[ScheduledVideoDownload]] =
-    transaction(schedulingDao.search(term, videoUrls, durationRange, pageNumber, pageSize, sortBy, order, schedulingStatuses))
+    if (sortBy == SortBy.WatchTime)
+      ApplicativeError[F, Throwable].raiseError {
+        new IllegalArgumentException("Searching for scheduled videos by watch_time is not valid")
+      }
+    else
+      transaction(schedulingDao.search(term, videoUrls, durationRange, pageNumber, pageSize, sortBy, order, schedulingStatuses))
 
   override def getById(id: String): F[ScheduledVideoDownload] =
     OptionT(transaction(schedulingDao.getById(id)))

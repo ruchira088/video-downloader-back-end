@@ -15,7 +15,9 @@ object DoobieUtils {
       OptionT {
         value.flatMap[Option[Unit]] {
           case 0 => Applicative[F].pure(None)
+
           case 1 => Applicative[F].pure(Some((): Unit))
+
           case count => ApplicativeError[F, Throwable].raiseError {
             InvalidConditionException {
               s"0 or 1 row was expected to be updated, but $count rows were updated"
@@ -29,7 +31,6 @@ object DoobieUtils {
     case SortBy.Size => fr"video_metadata.size"
     case SortBy.Duration => fr"video_metadata.duration"
     case SortBy.Title => fr"video_metadata.title"
-    case SortBy.Random => fr"RANDOM()"
   }
 
   val ordering: Order => Fragment = {
