@@ -101,13 +101,6 @@ lazy val development =
     .settings(name := "video-downloader-development")
     .dependsOn(migrationApplication, core % "compile->test", api, batch)
 
-val cleanTest = taskKey[Unit]("Clean and test all projects")
-cleanTest :=
-  Def.sequential(
-    clean.all(ScopeFilter(inAnyProject)),
-    (Test / test).all(ScopeFilter(inAnyProject))
-  ).value
-
 val verifyReleaseBranch = { state: State =>
   val git = Git.mkVcs(state.extract.get(baseDirectory))
   val branch = git.currentBranch
@@ -155,7 +148,8 @@ releaseProcess := Seq(
   ReleaseStep(verifyReleaseBranch),
   checkSnapshotDependencies,
   inquireVersions,
-  releaseStepTask(cleanTest),
+  runClean,
+  runTest,
   setReleaseVersion,
   commitReleaseVersion,
   tagRelease,
@@ -175,4 +169,5 @@ viewCoverageResults := {
 }
 
 addCommandAlias("cleanCompile", "; clean; compile")
+addCommandAlias("cleanTest", "; clean; test")
 addCommandAlias("testWithCoverage", "; clean; coverage; test; coverageAggregate; viewCoverageResults")
