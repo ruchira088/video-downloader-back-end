@@ -5,7 +5,7 @@ import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadError}
 import com.ruchij.core.daos.videometadata.models.VideoSite.Selector
 import com.ruchij.core.exceptions.JSoupException._
-import com.ruchij.core.types.FunctionKTypes
+import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherToF}
 import org.http4s.Uri
 import org.jsoup.nodes.{Document, Element}
 
@@ -45,7 +45,7 @@ object JsoupSelector {
   def src[F[_]: MonadError[*[_], Throwable]](element: Element): F[Uri] =
     attribute[F](element, "src")
       .flatMap { uri =>
-        FunctionKTypes.eitherToF[Throwable, F].apply(Uri.fromString(uri))
+        Uri.fromString(uri).toType[F, Throwable]
       }
 
   def attribute[F[_]: ApplicativeError[*[_], Throwable]](element: Element, attributeKey: String): F[String] =

@@ -3,10 +3,11 @@ package com.ruchij.core.types
 import cats.{Applicative, ApplicativeError, ~>}
 
 object FunctionKTypes {
-
-  def identityFunctionK[F[_]]: F ~> F = new ~>[F, F] {
-    override def apply[A](fa: F[A]): F[A] = fa
+  implicit class FunctionK2TypeOps[F[+ _, _], A, B](value: F[B, A]) {
+    def toType[G[_], C >: B](implicit functionK: F[C, *] ~> G): G[A] = functionK.apply(value)
   }
+
+  def toType[F[_], G[_], A](value: F[A])(implicit functionK: F ~> G): G[A] = functionK.apply(value)
 
   implicit def eitherToF[L, F[_]: ApplicativeError[*[_], L]]: Either[L, *] ~> F =
     new ~>[Either[L, *], F] {

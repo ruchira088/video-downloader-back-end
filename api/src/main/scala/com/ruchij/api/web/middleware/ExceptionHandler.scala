@@ -10,7 +10,6 @@ import com.ruchij.api.web.responses.ErrorResponse
 import com.ruchij.core.circe.Encoders.throwableEncoder
 import com.ruchij.core.exceptions.{AggregatedException, ExternalServiceException, JSoupException, ResourceConflictException, ResourceNotFoundException, ValidationException}
 import com.ruchij.core.logging.Logger
-import com.ruchij.core.types.FunctionKTypes
 import io.circe.DecodingFailure
 import io.circe.generic.auto.exportEncoder
 import org.http4s.dsl.impl.EntityResponseGenerator
@@ -68,6 +67,6 @@ object ExceptionHandler {
     new EntityResponseGenerator[F, F] {
       override def status: Status = throwableStatusMapper(throwable)
 
-      override def liftG: FunctionK[F, F] = FunctionKTypes.identityFunctionK[F]
+      override def liftG: FunctionK[F, F] = FunctionK.id[F]
     }
 }

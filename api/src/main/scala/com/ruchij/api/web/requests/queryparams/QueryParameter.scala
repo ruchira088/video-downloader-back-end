@@ -67,7 +67,9 @@ object QueryParameter {
               .left
               .map(throwable => ParseFailure(inputValue, throwable.getMessage))
               .toValidatedNel
+
           case min :: Nil => DurationRange(min, None).validNel
+
           case _ => DurationRange.All.validNel
         }
   }

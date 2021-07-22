@@ -22,6 +22,10 @@ object SortBy extends Enum[SortBy] {
     override val entryName: String = "title"
   }
 
+  case object WatchTime extends SortBy {
+    override def entryName: String = "watch-time"
+  }
+
   case object Random extends SortBy  {
     override def entryName: String = "random"
   }

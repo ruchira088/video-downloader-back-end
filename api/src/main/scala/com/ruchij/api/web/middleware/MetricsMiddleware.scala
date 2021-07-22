@@ -6,6 +6,7 @@ import cats.data.Kleisli
 import cats.effect.Clock
 import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.messaging.models.HttpMetric
+import org.http4s.headers.{`Content-Length`, `Content-Type`}
 import org.http4s.{HttpApp, Request, Response}
 
 import java.util.concurrent.TimeUnit
@@ -23,13 +24,18 @@ object MetricsMiddleware {
 
           endTime <- Clock[F].realTime(TimeUnit.MILLISECONDS)
 
+          maybeContentType = response.headers.get(`Content-Type`).map(_.mediaType)
+          maybeContentLength = response.headers.get(`Content-Length`).map(_.length)
+
           _ <-
             metricPublisher.publish {
               HttpMetric(
                 request.method,
                 request.uri,
                 FiniteDuration(endTime - startTime, TimeUnit.MILLISECONDS),
-                response.status
+                response.status,
+                maybeContentType,
+                maybeContentLength
               )
             }
         }

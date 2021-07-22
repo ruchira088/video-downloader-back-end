@@ -3,20 +3,16 @@ package com.ruchij.api.web.responses
 import cats.ApplicativeError
 import cats.implicits._
 import com.ruchij.core.services.asset.models.Asset
-import com.ruchij.core.types.FunctionKTypes
+import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherToF}
+import com.ruchij.core.utils.Http4sUtils.ChunkSize
 import org.http4s.headers.{Range, `Accept-Ranges`, `Content-Length`, `Content-Range`, `Content-Type`}
 import org.http4s.{Headers, Response, Status}
 
 object ResponseOps {
-  val ChunkSize: Long = 5 * 1000 * 1000
 
-  def assetResponse[F[_]: ApplicativeError[*[_], Throwable]](asset: Asset[F]): F[Response[F]] =
-    FunctionKTypes.eitherToF[Throwable, F]
-      .apply {
-        `Content-Length`.fromLong {
-          Math.min(asset.fileRange.end - asset.fileRange.start, ChunkSize)
-        }
-      }
+  def assetResponse[F[_]: ApplicativeError[*[_], Throwable]](asset: Asset[F], maxChunkSize: Long): F[Response[F]] =
+    `Content-Length`.fromLong(Math.min(asset.fileRange.end - asset.fileRange.start, maxChunkSize))
+      .toType[F, Throwable]
       .map { contentLength =>
         val headers =
           Headers.of(contentLength, `Content-Type`(asset.fileResource.mediaType), `Accept-Ranges`.bytes)
@@ -35,14 +31,10 @@ object ResponseOps {
                 )
           )
         else
-          Response(
-            status = Status.Ok,
-            body = asset.stream,
-            headers = headers
-          )
+          Response(status = Status.Ok, body = asset.stream, headers = headers)
       }
 
   implicit class AssetResponseOps[F[_]: ApplicativeError[*[_], Throwable]](asset: Asset[F]) {
-    def asResponse: F[Response[F]] = assetResponse(asset)
+    def asResponse: F[Response[F]] = assetResponse(asset, ChunkSize)
   }
 }

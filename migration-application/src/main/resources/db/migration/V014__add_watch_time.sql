@@ -1,0 +1,2 @@
+ALTER TABLE video
+    ADD COLUMN watch_time BIGINT DEFAULT 0 NOT NULL;

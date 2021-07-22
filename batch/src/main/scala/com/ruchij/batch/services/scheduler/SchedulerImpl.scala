@@ -16,19 +16,27 @@ import com.ruchij.core.daos.workers.WorkerDao
 import com.ruchij.core.daos.workers.models.Worker
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.logging.Logger
+import com.ruchij.core.messaging.Subscriber
+import com.ruchij.core.messaging.kafka.KafkaSubscriber.CommittableRecord
+import com.ruchij.core.messaging.models.HttpMetric
 import com.ruchij.core.services.scheduling.SchedulingService
+import com.ruchij.core.services.video.VideoService
 import com.ruchij.core.types.JodaClock
+import com.ruchij.core.utils.Http4sUtils.ChunkSize
 import fs2.Stream
 import fs2.concurrent.Topic
 import org.joda.time.LocalTime
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.language.postfixOps
 
 class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
   schedulingService: SchedulingService[F],
   synchronizationService: SynchronizationService[F],
+  videoService: VideoService[F],
   workExecutor: WorkExecutor[F],
+  httpMetricSubscriber: Subscriber[F, CommittableRecord[F, *], HttpMetric],
   workerDao: WorkerDao[T],
   workerConfiguration: WorkerConfiguration,
   instanceId: String
@@ -140,33 +148,69 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       .eval(Topic[F, Option[ScheduledVideoDownload]](None))
       .flatMap { topic =>
         idleWorkers
-          .concurrently {
-            topic.publish(schedulingService.subscribeToUpdates(s"scheduler-$instanceId").map(Some.apply))
-          }
-          .concurrently {
-            Stream.eval(schedulingService.updateTimedOutTasks(10 minutes))
-              .repeat
-              .metered(30 seconds)
-              .flatMap(Stream.emits)
-          }
+          .concurrently(publishUpdatesToTopic(topic))
+          .concurrently(cleanUpStaleScheduledVideoDownloads)
+          .concurrently(updateVideoWatchTimes(ChunkSize))
           .parEvalMapUnordered(workerConfiguration.maxConcurrentDownloads) { worker =>
-            Bracket[F, Throwable].guarantee {
-              SchedulerImpl
-                .isWorkPeriod[F](workerConfiguration.startTime, workerConfiguration.endTime)
-                .flatMap { isWorkPeriod =>
-                  if (isWorkPeriod)
-                    performWork(worker, topic)
-                      .recoverWith {
-                        case throwable =>
-                          logger.errorF("Error occurred in work scheduler", throwable).as(None)
-                      } else OptionT.none[F, Video].value
-                }
-            }(releaseWorker(worker))
+            performWorkDuringWorkPeriod(worker, topic)
           }
           .collect {
             case Some(video) => video
           }
       }
+
+  def performWorkDuringWorkPeriod(worker: Worker, topic: Topic[F, Option[ScheduledVideoDownload]]): F[Option[Video]] =
+    Bracket[F, Throwable].guarantee {
+      SchedulerImpl
+        .isWorkPeriod[F](workerConfiguration.startTime, workerConfiguration.endTime)
+        .flatMap { isWorkPeriod =>
+          if (isWorkPeriod)
+            performWork(worker, topic)
+              .recoverWith {
+                case throwable =>
+                  logger.errorF("Error occurred in work scheduler", throwable).as(None)
+              } else OptionT.none[F, Video].value
+        }
+    }(releaseWorker(worker))
+
+  def updateVideoWatchTimes(minimumChunkSize: Long): Stream[F, Unit] =
+    httpMetricSubscriber.subscribe(s"scheduler-$instanceId")
+      .evalMap {
+        case CommittableRecord(httpMetric, commit) =>
+          httpMetric.contentType.product(httpMetric.size)
+            .flatMap {
+              case (contentType, size) =>
+                if (contentType.isVideo && size >= minimumChunkSize)
+                  httpMetric.uri.path.split("/").lastOption.map(_ -> size)
+                else None
+            }
+            .fold(commit) { case (resourceId, size) =>
+              ApplicativeError[F, Throwable].handleErrorWith {
+                videoService.fetchByVideoFileResourceId(resourceId)
+                  .flatMap { video =>
+                    val watchDuration =
+                      FiniteDuration(
+                        math.round((size.toDouble / video.fileResource.size) * video.videoMetadata.duration.toMillis),
+                        TimeUnit.MILLISECONDS
+                      )
+
+                    videoService.incrementWatchTime(video.videoMetadata.id, watchDuration).productR(commit)
+                  }
+              } { throwable =>
+                logger.errorF(s"Unable to update watch time for ${httpMetric.uri}", throwable)
+                  .productR(commit)
+              }
+            }
+      }
+
+  def publishUpdatesToTopic(topic: Topic[F, Option[ScheduledVideoDownload]]): Stream[F, Unit] =
+    topic.publish(schedulingService.subscribeToUpdates(s"scheduler-$instanceId").map(Some.apply))
+
+  val cleanUpStaleScheduledVideoDownloads: Stream[F, ScheduledVideoDownload] =
+    Stream.eval(schedulingService.updateTimedOutTasks(10 minutes))
+      .repeat
+      .metered(30 seconds)
+      .flatMap(Stream.emits)
 
   val newWorkers: F[Int] =
     Range(0, workerConfiguration.maxConcurrentDownloads).toList

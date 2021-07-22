@@ -135,7 +135,7 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
       videoMetadata = VideoMetadata(uri, videoId, VideoSite.Local, videoTitle, duration, size, snapshot)
       videoFileResource = FileResource(videoId, timestamp, videoPath, mediaType, size)
 
-    } yield Video(videoMetadata, videoFileResource)
+    } yield Video(videoMetadata, videoFileResource, FiniteDuration(0, TimeUnit.MILLISECONDS))
 
   def saveVideo(video: Video): F[Video] =
     transaction {

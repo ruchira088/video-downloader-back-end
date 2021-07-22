@@ -5,12 +5,18 @@ import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.video.models.{DurationRange, VideoServiceSummary}
 
+import scala.concurrent.duration.FiniteDuration
+
 trait VideoService[F[_]] {
   def insert(videoMetadataKey: String, fileResourceKey: String): F[Video]
 
   def fetchById(videoId: String): F[Video]
 
   def fetchVideoSnapshots(videoId: String): F[Seq[Snapshot]]
+
+  def fetchByVideoFileResourceId(videoFileResourceId: String): F[Video]
+
+  def incrementWatchTime(videoId: String, duration: FiniteDuration): F[_]
 
   def update(videoId: String, title: Option[String]): F[Video]
 

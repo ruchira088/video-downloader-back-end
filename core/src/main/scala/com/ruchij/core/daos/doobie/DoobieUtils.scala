@@ -9,24 +9,28 @@ import doobie.implicits._
 import doobie.util.fragment.Fragment
 
 object DoobieUtils {
-  def singleUpdate[F[_]: MonadError[*[_], Throwable]](result: F[Int]): OptionT[F, Unit] =
-    OptionT {
-      result.flatMap[Option[Unit]] {
-        case 0 => Applicative[F].pure(None)
-        case 1 => Applicative[F].pure(Some((): Unit))
-        case count => ApplicativeError[F, Throwable].raiseError {
-          InvalidConditionException {
-            s"0 or 1 row was expected to be updated, but $count rows were updated"
+
+  implicit class SingleUpdateOps[F[_]: MonadError[*[_], Throwable]](value: F[Int]) {
+    val singleUpdate: OptionT[F, Unit] =
+      OptionT {
+        value.flatMap[Option[Unit]] {
+          case 0 => Applicative[F].pure(None)
+
+          case 1 => Applicative[F].pure(Some((): Unit))
+
+          case count => ApplicativeError[F, Throwable].raiseError {
+            InvalidConditionException {
+              s"0 or 1 row was expected to be updated, but $count rows were updated"
+            }
           }
         }
       }
-    }
+  }
 
   val sortByFieldName: PartialFunction[SortBy, Fragment] = {
     case SortBy.Size => fr"video_metadata.size"
     case SortBy.Duration => fr"video_metadata.duration"
     case SortBy.Title => fr"video_metadata.title"
-    case SortBy.Random => fr"RANDOM()"
   }
 
   val ordering: Order => Fragment = {
