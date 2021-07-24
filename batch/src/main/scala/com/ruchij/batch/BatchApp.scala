@@ -27,7 +27,7 @@ import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImp
 import com.ruchij.migration.MigrationApp
 import doobie.free.connection.ConnectionIO
 import org.apache.tika.Tika
-import org.http4s.client.asynchttpclient.AsyncHttpClient
+import org.http4s.asynchttpclient.client.AsyncHttpClient
 import org.http4s.client.middleware.FollowRedirect
 import pureconfig.ConfigSource
 

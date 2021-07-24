@@ -18,7 +18,7 @@ object AssetRoutes {
       case request @ GET -> Root / "id" / id =>
         for {
           maybeRange <- Applicative[F].pure {
-            request.headers.get(Range).collect { case Range(_, NonEmptyList(subRange, _)) => subRange }
+            request.headers.get[Range].collect { case Range(_, NonEmptyList(subRange, _)) => subRange }
           }
 
           asset <- assetService.retrieve(id, maybeRange.map(_.first), maybeRange.flatMap(_.second))

@@ -15,7 +15,7 @@ object ResponseOps {
       .toType[F, Throwable]
       .map { contentLength =>
         val headers =
-          Headers.of(contentLength, `Content-Type`(asset.fileResource.mediaType), `Accept-Ranges`.bytes)
+          Headers(contentLength, `Content-Type`(asset.fileResource.mediaType), `Accept-Ranges`.bytes)
 
         if (contentLength.length < asset.fileResource.size)
           Response(
@@ -23,7 +23,7 @@ object ResponseOps {
             body = asset.stream.take(contentLength.length),
             headers =
               headers ++
-                Headers.of(
+                Headers(
                   `Content-Range`(
                     Range.SubRange(asset.fileRange.start, asset.fileRange.start + contentLength.length - 1),
                     Some(asset.fileResource.size)

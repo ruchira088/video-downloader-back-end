@@ -100,14 +100,14 @@ object SchedulingRoutes {
         Ok {
           downloadProgressStream
             .map { downloadProgress =>
-              ServerSentEvent(Encoder[DownloadProgress].apply(downloadProgress).noSpaces, ActiveDownload)
+              ServerSentEvent(Some(Encoder[DownloadProgress].apply(downloadProgress).noSpaces), ActiveDownload)
             }
             .merge {
               Stream
                 .fixedRate[F](10 seconds)
                 .zipRight(Stream.eval(JodaClock[F].timestamp).repeat)
                 .map { timestamp =>
-                  ServerSentEvent(EventStreamHeartBeat(timestamp).asJson.noSpaces, HeartBeat)
+                  ServerSentEvent(Some(EventStreamHeartBeat(timestamp).asJson.noSpaces), HeartBeat)
                 }
             }
         }

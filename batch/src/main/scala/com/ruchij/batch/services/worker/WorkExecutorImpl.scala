@@ -48,7 +48,7 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
     downloadUri: Uri,
     interrupt: Stream[F, Boolean]
   ): F[(FileResource, DownloadResult[F])] = {
-    val videoFileName = downloadUri.path.split("/").lastOption.getOrElse("video.unknown")
+    val videoFileName = downloadUri.path.segments.lastOption.map(_.encoded).getOrElse("video.unknown")
     val videoPath =
       s"${storageConfiguration.videoFolder}/$videoId-$videoFileName"
 

@@ -5,11 +5,11 @@ import cats.effect.{Clock, Concurrent, ContextShift, Resource}
 import cats.implicits._
 import com.ruchij.core.exceptions.ExternalServiceException
 import com.ruchij.core.services.download.Http4sDownloadService.MinChunkUpdateSize
-import com.ruchij.core.services.download.models.{DownloadResult, RangeFrom}
+import com.ruchij.core.services.download.models.DownloadResult
 import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.utils.Http4sUtils
 import org.http4s.client.Client
-import org.http4s.headers.{`Content-Length`, `Content-Type`}
+import org.http4s.headers.{Range, `Content-Length`, `Content-Type`}
 import org.http4s.{Headers, Request, Uri}
 
 class Http4sDownloadService[F[_]: Concurrent: ContextShift: Clock](
@@ -22,7 +22,7 @@ class Http4sDownloadService[F[_]: Concurrent: ContextShift: Clock](
       .eval { repositoryService.size(fileKey).map(_.getOrElse(0L)) }
       .flatMap { start =>
         client
-          .run(Request(uri = uri, headers = Headers.of(RangeFrom(start))))
+          .run(Request(uri = uri, headers = Headers(Range(start))))
           .map(_ -> start)
       }
       .evalMap {
@@ -30,8 +30,8 @@ class Http4sDownloadService[F[_]: Concurrent: ContextShift: Clock](
           ApplicativeError[F, Throwable]
             .recoverWith {
               Http4sUtils
-                .header[F](`Content-Length`)
-                .product(Http4sUtils.header[F](`Content-Type`))
+                .header[F, `Content-Length`]
+                .product(Http4sUtils.header[F, `Content-Type`])
                 .map {
                   case (contentLengthValue, contentTypeValue) =>
                     (contentLengthValue.length, contentTypeValue.mediaType)

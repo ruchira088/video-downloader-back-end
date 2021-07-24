@@ -78,7 +78,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
                 IO.pure {
                   Response[IO](
                     status = Status.Ok,
-                    headers = Headers.of(`Content-Length`.unsafeFromLong(1988))
+                    headers = Headers(`Content-Length`.unsafeFromLong(1988))
                   )
                 }
 
@@ -87,7 +87,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
                   Response[IO](
                     status = Status.Ok,
                     headers =
-                      Headers.of(
+                      Headers(
                         `Content-Length`.unsafeFromLong(100),
                         `Content-Type`(MediaType.image.jpeg)
                       ),

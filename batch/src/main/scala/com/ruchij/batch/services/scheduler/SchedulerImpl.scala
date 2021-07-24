@@ -181,7 +181,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
             .flatMap {
               case (contentType, size) =>
                 if (contentType.isVideo && size >= minimumChunkSize)
-                  httpMetric.uri.path.split("/").lastOption.map(_ -> size)
+                  httpMetric.uri.path.segments.lastOption.map(lastSegment => (lastSegment.encoded, size))
                 else None
             }
             .fold(commit) { case (resourceId, size) =>
