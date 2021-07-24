@@ -13,7 +13,7 @@ import com.ruchij.core.kv.KeySpacedKeyValueStore
 import com.ruchij.core.types.{JodaClock, RandomGenerator}
 import org.mindrot.jbcrypt.BCrypt
 
-class AuthenticationServiceImpl[F[+ _]: Sync: ContextShift: Clock](
+class AuthenticationServiceImpl[F[+ _]: Sync: ContextShift: Clock: RandomGenerator[*[_], Secret]](
   keySpacedKeyValueStore: KeySpacedKeyValueStore[F, AuthenticationTokenKey, AuthenticationToken],
   passwordAuthenticationConfiguration: PasswordAuthenticationConfiguration,
   blocker: Blocker
@@ -48,9 +48,12 @@ class AuthenticationServiceImpl[F[+ _]: Sync: ContextShift: Clock](
             timestamp <- JodaClock[F].timestamp
             _ <- if (timestamp.isBefore(expiresAt)) Applicative[F].unit
             else
-              ApplicativeError[F, Throwable].raiseError {
-                AuthenticationException(s"Authentication token expired at $expiresAt")
-              }
+              keySpacedKeyValueStore.remove(AuthenticationTokenKey(secret))
+                .productR {
+                  ApplicativeError[F, Throwable].raiseError {
+                    AuthenticationException(s"Authentication token expired at $expiresAt")
+                  }
+                }
 
             authenticationToken = AuthenticationToken(
               secret,
