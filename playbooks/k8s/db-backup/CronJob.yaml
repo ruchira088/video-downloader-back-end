@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: db-backup-cron-job
+  namespace: {{ namespace }}
+spec:
+  schedule: "0 8 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: db-backup-container
+              envFrom:
+                - configMapRef:
+                    name: db-backup-config-map
+                - secretRef:
+                    name: db-backup-secrets
+
