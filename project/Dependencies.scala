@@ -46,7 +46,7 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.16.0"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "7.11.3"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "7.11.4"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.23"
 
@@ -68,7 +68,7 @@ object Dependencies
 
   lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "6.2.0"
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.4"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.5"
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4"
 
