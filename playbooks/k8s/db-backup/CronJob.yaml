@@ -9,6 +9,7 @@ spec:
     spec:
       template:
         spec:
+          restartPolicy: OnFailure
           containers:
             - name: db-backup-container
               image: ruchira088/video-downloader-db-backup:{{ git_branch }}-{{ git_commit }}

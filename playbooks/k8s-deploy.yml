@@ -61,7 +61,7 @@
                         kind: Service
                         namespace: "{{ namespace }}"
                         name: postgresql
-                        kubeconfig: {{ kubeconfig }}
+                        kubeconfig: "{{ kubeconfig }}"
                       register: postgresql_output
 
                     - name: Install Postgres Helm chart
@@ -82,7 +82,7 @@
                     kind: Service
                     namespace: "{{ namespace }}"
                     name: redis-master
-                    kubeconfig: {{ kubeconfig }}
+                    kubeconfig: "{{ kubeconfig }}"
                   register: redis_output
 
                 - name: Install Redis Helm chart
@@ -139,9 +139,9 @@
 
             - name: Take DB backup snapshot
               block:
-                - name: Set snapshot job name
+                - name: Set DB snapshot job name
                   set_fact:
-                    snapshot_job_name: db-backup-job-{{ git_commit }}-{{ ansible_date_time.iso8601_basic_short }}
+                    snapshot_job_name: db-backup-job-{{ git_commit }}-{{ ansible_date_time.iso8601_basic_short | lower }}
 
                 - name: Run DB backup job
                   command: |
