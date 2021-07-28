@@ -11,6 +11,7 @@ spec:
         spec:
           containers:
             - name: db-backup-container
+              image: ruchira088/video-downloader-db-backup:{{ git_branch }}-{{ git_commit }}
               envFrom:
                 - configMapRef:
                     name: db-backup-config-map

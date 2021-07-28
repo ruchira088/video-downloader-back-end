@@ -22,3 +22,8 @@
           import_tasks: tasks/publish-docker-image.yml
           vars:
             app_name: batch
+
+        - name: Publish Docker image - DB backup
+          import_tasks: tasks/publish-docker-image.yml
+          vars:
+            app_name: db-backup

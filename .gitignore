@@ -12,6 +12,7 @@ project/project
 
 playbooks/k8s-output
 playbooks/docker-output
+playbooks/terraform/.terraform*
 
 video-downloader.mv.db
 video-downloader.trace.db
