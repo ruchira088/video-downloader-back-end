@@ -24,8 +24,8 @@ object MetricsMiddleware {
 
           endTime <- Clock[F].realTime(TimeUnit.MILLISECONDS)
 
-          maybeContentType = response.headers.get(`Content-Type`).map(_.mediaType)
-          maybeContentLength = response.headers.get(`Content-Length`).map(_.length)
+          maybeContentType = response.headers.get[`Content-Type`].map(_.mediaType)
+          maybeContentLength = response.headers.get[`Content-Length`].map(_.length)
 
           _ <-
             metricPublisher.publish {

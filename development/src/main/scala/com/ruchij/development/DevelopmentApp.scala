@@ -16,7 +16,7 @@ import com.ruchij.core.test.Resources.{startEmbeddedKafkaAndSchemaRegistry, star
 import com.ruchij.migration.MigrationApp
 import com.ruchij.migration.config.DatabaseConfiguration
 import org.http4s.HttpApp
-import org.http4s.server.blaze.BlazeServerBuilder
+import org.http4s.blaze.server.BlazeServerBuilder
 import org.joda.time.LocalTime
 
 import java.security.KeyStore

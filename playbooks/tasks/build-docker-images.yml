@@ -1,18 +1,21 @@
 - name: Build DB migration Docker image
-  import_tasks: build-docker.yml
+  import_tasks: build-scala-docker-image.yml
   vars:
     sbt_project: migrationApplication
     app_name: migration-application
 
 - name: Build api Docker image
-  import_tasks: build-docker.yml
+  import_tasks: build-scala-docker-image.yml
   vars:
     sbt_project: api
     app_name: api
     ports: 8000
 
 - name: Build batch Docker image
-  import_tasks: build-docker.yml
+  import_tasks: build-scala-docker-image.yml
   vars:
     sbt_project: batch
     app_name: batch
+
+- name: Build DB backup Docker image
+  import_tasks: build-db-backup-docker-image.yml

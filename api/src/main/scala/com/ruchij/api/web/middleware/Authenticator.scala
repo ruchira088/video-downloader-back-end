@@ -19,7 +19,7 @@ object Authenticator {
 
   def bearerToken[F[_]](request: Request[F]): Option[Secret] =
     request.headers
-      .get(Authorization)
+      .get[Authorization]
       .map(_.credentials)
       .collect {
         case Credentials.Token(AuthScheme.Bearer, bearerToken) => Secret(bearerToken)
@@ -84,7 +84,7 @@ object Authenticator {
             Some(httpDate),
             path = Some("/"),
             secure = true,
-            sameSite = SameSite.None
+            sameSite = Some(SameSite.None)
           )
         }
       }

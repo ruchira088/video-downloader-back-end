@@ -45,8 +45,7 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers {
         HttpTestResource.create[IO].use {
           case (_, _, application) =>
             for {
-              request <- GET(uri"/service/info")
-              response <- application.run(request)
+              response <- application.run(GET(uri"/service/info"))
 
               _ = {
                 response must beJsonContentType
@@ -63,8 +62,7 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers {
     HttpTestResource.create[IO].use {
       case (_, _, application) =>
         for {
-          request <- GET(uri"/service/health")
-          response <- application.run(request)
+          response <- application.run(GET(uri"/service/health"))
 
           _ = {
             response must beJsonContentType

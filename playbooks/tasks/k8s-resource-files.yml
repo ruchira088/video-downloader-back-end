@@ -20,6 +20,11 @@
         path: k8s-output/db-migration
         state: directory
 
+    - name: Create output directory - DB backup
+      file:
+        path: k8s-output/db-backup
+        state: directory
+
     - name: Create output directory - API
       file:
         path: k8s-output/api
@@ -58,6 +63,13 @@
         dest: k8s-output/db-migration/{{ item | basename }}
       with_fileglob:
         - k8s/db-migration/*.yaml
+
+    - name: Render K8s resource files - DB backup
+      template:
+        src: "{{ item }}"
+        dest: k8s-output/db-backup/{{ item | basename }}
+      with_fileglob:
+        - k8s/db-backup/*.yaml
 
     - name: Render K8s resource files - API
       template:

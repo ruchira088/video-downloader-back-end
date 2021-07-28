@@ -55,7 +55,7 @@ class VideoAnalysisServiceImpl[F[_]: Sync: Clock, T[_]: Monad](
 
       timestamp <- JodaClock[F].timestamp
 
-      thumbnailFileName = thumbnailUri.path.split("/").lastOption.getOrElse("thumbnail.unknown")
+      thumbnailFileName = thumbnailUri.path.segments.lastOption.map(_.encoded).getOrElse("thumbnail.unknown")
       filePath = s"${storageConfiguration.imageFolder}/thumbnail-$videoId-$thumbnailFileName"
 
       thumbnail <- downloadService
@@ -118,7 +118,7 @@ class VideoAnalysisServiceImpl[F[_]: Sync: Clock, T[_]: Monad](
           .run(Request[F](Method.HEAD, downloadUri))
           .use { response =>
             if (response.status.isSuccess)
-              Http4sUtils.header[F](`Content-Length`).map(_.length).run(response)
+              Http4sUtils.header[F, `Content-Length`].map(_.length).run(response)
             else
               ApplicativeError[F, Throwable].raiseError[Long] {
                 ExternalServiceException(s"Failed ${response.status} response for HEAD $downloadUri")

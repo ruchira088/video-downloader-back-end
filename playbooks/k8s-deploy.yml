@@ -42,7 +42,7 @@
     - name: Deploy K8s resources
       block:
         - name: Create Namespace
-          command: kubectl apply -f k8s-output/Namespace.yaml --kubeconfig k8s-output/kubeconfig
+          command: kubectl apply -f k8s-output/Namespace.yaml --kubeconfig {{ kubeconfig }}
 
         - name: Deploy Helm charts
           block:
@@ -61,12 +61,12 @@
                         kind: Service
                         namespace: "{{ namespace }}"
                         name: postgresql
-                        kubeconfig: k8s-output/kubeconfig
+                        kubeconfig: "{{ kubeconfig }}"
                       register: postgresql_output
 
                     - name: Install Postgres Helm chart
                       shell: |
-                        KUBECONFIG=k8s-output/kubeconfig \
+                        KUBECONFIG={{ kubeconfig }} \
                           helm install postgresql \
                             --set postgresqlUsername="{{ secrets.database_user }}" \
                             --set postgresqlPassword="{{ secrets.database_password }}" \
@@ -82,12 +82,12 @@
                     kind: Service
                     namespace: "{{ namespace }}"
                     name: redis-master
-                    kubeconfig: k8s-output/kubeconfig
+                    kubeconfig: "{{ kubeconfig }}"
                   register: redis_output
 
                 - name: Install Redis Helm chart
                   shell: |
-                    KUBECONFIG=k8s-output/kubeconfig \
+                    KUBECONFIG={{ kubeconfig }} \
                       helm install redis \
                         --set auth.password="{{ secrets.redis_password }}" \
                         --set architecture=standalone \
@@ -98,55 +98,95 @@
             - name: Deploy Kafka Fast Data
               block:
                 - name: Create ConfigMap
-                  command: kubectl apply -f k8s-output/kafka-fast-data/ConfigMap.yaml --kubeconfig k8s-output/kubeconfig
+                  command: kubectl apply -f k8s-output/kafka-fast-data/ConfigMap.yaml --kubeconfig {{ kubeconfig }}
 
                 - name: Create Secrets
-                  command: kubectl apply -f k8s-output/kafka-fast-data/Secrets.yaml --kubeconfig k8s-output/kubeconfig
+                  command: kubectl apply -f k8s-output/kafka-fast-data/Secrets.yaml --kubeconfig {{ kubeconfig }}
 
                 - name: Deploy application
-                  command: kubectl apply -f k8s-output/kafka-fast-data --kubeconfig k8s-output/kubeconfig
+                  command: kubectl apply -f k8s-output/kafka-fast-data --kubeconfig {{ kubeconfig }}
 
         - name: Deploy DB migration
           block:
             - name: Create ConfigMap
-              command: kubectl apply -f k8s-output/db-migration/ConfigMap.yaml --kubeconfig k8s-output/kubeconfig
+              command: kubectl apply -f k8s-output/db-migration/ConfigMap.yaml --kubeconfig {{ kubeconfig }}
 
             - name: Create Secrets
-              command: kubectl apply -f k8s-output/db-migration/Secrets.yaml --kubeconfig k8s-output/kubeconfig
+              command: kubectl apply -f k8s-output/db-migration/Secrets.yaml --kubeconfig {{ kubeconfig }}
 
             - name: Deploy Job
-              command: kubectl apply -f k8s-output/db-migration --kubeconfig k8s-output/kubeconfig
+              command: kubectl apply -f k8s-output/db-migration --kubeconfig {{ kubeconfig }}
 
             - name: Wait Job to complete
-              command: kubectl wait --for=condition=complete job/database-migration-job-{{ git_commit }} --kubeconfig k8s-output/kubeconfig -n {{ namespace }} --timeout=120s
+              command: |
+                kubectl wait \
+                  --for=condition=complete \
+                  job/database-migration-job-{{ git_commit }} \
+                  --kubeconfig {{ kubeconfig }} \
+                  -n {{ namespace }} \
+                  --timeout=120s
+
+        - name: Deploy DB backup
+          block:
+            - name: Create ConfigMap
+              command: kubectl apply -f k8s-output/db-backup/ConfigMap.yaml --kubeconfig {{ kubeconfig }}
+
+            - name: Create Secrets
+              command: kubectl apply -f k8s-output/db-backup/Secrets.yaml --kubeconfig {{ kubeconfig }}
+
+            - name: Deploy CronJob
+              command: kubectl apply -f k8s-output/db-backup --kubeconfig {{ kubeconfig }}
+
+            - name: Take DB backup snapshot
+              block:
+                - name: Set DB snapshot job name
+                  set_fact:
+                    snapshot_job_name: db-backup-job-{{ git_commit }}-{{ ansible_date_time.iso8601_basic_short | lower }}
+
+                - name: Run DB backup job
+                  command: |
+                    kubectl create job \
+                      --from=cronjob/db-backup-cron-job \
+                      {{ snapshot_job_name }} \
+                      --kubeconfig {{ kubeconfig }} \
+                      -n {{ namespace }}
+
+                - name: Wait for DB backup snapshot to complete
+                  command: |
+                    kubectl wait \
+                      --for=condition=complete \
+                      job/{{ snapshot_job_name }} \
+                      --kubeconfig {{ kubeconfig }} \
+                      -n {{ namespace }} \
+                      --timeout=120s
 
         - name: Deploy api
           block:
             - name: Create ConfigMap
-              command: kubectl apply -f k8s-output/api/ConfigMap.yaml --kubeconfig k8s-output/kubeconfig
+              command: kubectl apply -f k8s-output/api/ConfigMap.yaml --kubeconfig {{ kubeconfig }}
 
             - name: Create Secrets
-              command: kubectl apply -f k8s-output/api/Secrets.yaml --kubeconfig k8s-output/kubeconfig
+              command: kubectl apply -f k8s-output/api/Secrets.yaml --kubeconfig {{ kubeconfig }}
 
             - name: Deploy application
-              command: kubectl apply -f k8s-output/api --kubeconfig k8s-output/kubeconfig
+              command: kubectl apply -f k8s-output/api --kubeconfig {{ kubeconfig }}
 
         - name: Deploy batch
           block:
             - name: Create ConfigMap
-              command: kubectl apply -f k8s-output/batch/ConfigMap.yaml --kubeconfig k8s-output/kubeconfig
+              command: kubectl apply -f k8s-output/batch/ConfigMap.yaml --kubeconfig {{ kubeconfig }}
 
             - name: Create Secrets
-              command: kubectl apply -f k8s-output/batch/Secrets.yaml --kubeconfig k8s-output/kubeconfig
+              command: kubectl apply -f k8s-output/batch/Secrets.yaml --kubeconfig {{ kubeconfig }}
 
             - name: Deploy application
-              command: kubectl apply -f k8s-output/batch --kubeconfig k8s-output/kubeconfig
+              command: kubectl apply -f k8s-output/batch --kubeconfig {{ kubeconfig }}
 
         - name: Wait for successful api deployment
-          command: kubectl rollout status deployment api-deployment --kubeconfig k8s-output/kubeconfig -n {{ namespace }}
+          command: kubectl rollout status deployment api-deployment --kubeconfig {{ kubeconfig }} -n {{ namespace }}
 
         - name: Wait for successful batch deployment
-          command: kubectl rollout status deployment batch-deployment --kubeconfig k8s-output/kubeconfig -n {{ namespace }}
+          command: kubectl rollout status deployment batch-deployment --kubeconfig {{ kubeconfig }} -n {{ namespace }}
 
     - name: Clean up output directory
       file:

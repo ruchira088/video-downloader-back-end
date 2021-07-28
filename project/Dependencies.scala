@@ -3,7 +3,7 @@ import sbt._
 object Dependencies
 {
   val ScalaVersion = "2.13.6"
-  val Http4sVersion = "0.21.24"
+  val Http4sVersion = "0.22.0"
   val CirceVersion = "0.14.1"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
@@ -16,7 +16,7 @@ object Dependencies
 
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "2.5.1"
 
-  lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.3.1"
+  lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.5.9"
 
   lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "1.7.0"
 
@@ -46,7 +46,7 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.16.0"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "7.11.2"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "7.11.4"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.23"
 
@@ -68,7 +68,7 @@ object Dependencies
 
   lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "6.2.0"
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.3"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.5"
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4"
 

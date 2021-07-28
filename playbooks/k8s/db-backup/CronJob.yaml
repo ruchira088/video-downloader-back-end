@@ -1,0 +1,21 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: db-backup-cron-job
+  namespace: {{ namespace }}
+spec:
+  schedule: "0 8 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: db-backup-container
+              image: ruchira088/video-downloader-db-backup:{{ git_branch }}-{{ git_commit }}
+              envFrom:
+                - configMapRef:
+                    name: db-backup-config-map
+                - secretRef:
+                    name: db-backup-secrets
+

@@ -39,9 +39,9 @@ import doobie.free.connection.ConnectionIO
 import fs2.concurrent.Topic
 import org.http4s.HttpApp
 import org.http4s.client.Client
-import org.http4s.client.asynchttpclient.AsyncHttpClient
+import org.http4s.asynchttpclient.client.AsyncHttpClient
 import org.http4s.client.middleware.FollowRedirect
-import org.http4s.server.blaze.BlazeServerBuilder
+import org.http4s.blaze.server.BlazeServerBuilder
 import org.joda.time.DateTime
 import pureconfig.ConfigSource
 

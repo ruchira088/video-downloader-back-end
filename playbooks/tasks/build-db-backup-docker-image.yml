@@ -1,0 +1,36 @@
+- name: Print start message
+  debug:
+    msg: Started building DB backup
+
+- name: Create output directory
+  file:
+    path: docker-output
+    state: directory
+
+- name: Gather git information
+  import_tasks: git-info.yml
+
+- name: Generate the Dockerfile
+  template:
+    src: ../db-backup/Dockerfile.j2
+    dest: docker-output/Dockerfile-db-backup
+  vars:
+    build_timestamp: "{{ ansible_date_time.iso8601 }}"
+
+- name: Build Docker image
+  shell: |
+    docker build \
+      -f docker-output/Dockerfile-db-backup \
+      -t video-downloader-db-backup:latest \
+      -t video-downloader-db-backup:{{ git_branch }}-{{ git_commit }} \
+      -t video-downloader-db-backup:{{ git_branch }}-{{ ansible_date_time.iso8601_basic_short }} \
+      ../db-backup
+
+- name: Clean up output directory
+  file:
+    path: docker-output
+    state: absent
+
+- name: Print finish message
+  debug:
+    msg: Completed building DB backup
