@@ -142,7 +142,7 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
       result <-
         OptionT {
           transaction {
-            schedulingDao.updatedDownloadProgress(id, downloadedBytes, timestamp)
+            schedulingDao.updateDownloadProgress(id, downloadedBytes, timestamp)
           }
         }
           .getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))

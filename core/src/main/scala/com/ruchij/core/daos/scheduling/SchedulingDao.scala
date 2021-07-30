@@ -18,7 +18,7 @@ trait SchedulingDao[F[_]] {
 
   def updateStatus(id: String, status: SchedulingStatus, timestamp: DateTime): F[Option[ScheduledVideoDownload]]
 
-  def updatedDownloadProgress(id: String, downloadedBytes: Long, timestamp: DateTime): F[Option[ScheduledVideoDownload]]
+  def updateDownloadProgress(id: String, downloadedBytes: Long, timestamp: DateTime): F[Option[ScheduledVideoDownload]]
 
   def deleteById(id: String): F[Option[ScheduledVideoDownload]]
 

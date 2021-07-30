@@ -78,7 +78,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
         .productR(OptionT(getById(id)))
         .value
 
-  override def updatedDownloadProgress(
+  override def updateDownloadProgress(
     id: String,
     downloadedBytes: Long,
     timestamp: DateTime
@@ -140,7 +140,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
         case Some(videoMetadataId) =>
             sql"""
               UPDATE scheduled_video
-                  SET status = ${SchedulingStatus.Acquired}
+                  SET status = ${SchedulingStatus.Acquired}, last_updated_at = $timestamp
                   WHERE video_metadata_id = $videoMetadataId AND status = ${SchedulingStatus.Stale}
             """
               .update
