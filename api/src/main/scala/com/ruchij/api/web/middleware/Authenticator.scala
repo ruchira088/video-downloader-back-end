@@ -9,7 +9,7 @@ import com.ruchij.api.exceptions.AuthenticationException
 import com.ruchij.api.services.authentication.AuthenticationService
 import com.ruchij.api.services.authentication.AuthenticationService.Secret
 import com.ruchij.api.services.authentication.models.AuthenticationToken
-import com.ruchij.core.types.FunctionKTypes
+import com.ruchij.core.types.FunctionKTypes._
 import org.http4s._
 import org.http4s.headers.Authorization
 import org.http4s.server.HttpMiddleware
@@ -71,11 +71,7 @@ object Authenticator {
     authenticationToken: AuthenticationToken,
     response: Response[F]
   ): F[Response[F]] =
-    FunctionKTypes
-      .eitherToF[Throwable, F]
-      .apply {
-        HttpDate.fromInstant(Instant.ofEpochMilli(authenticationToken.expiresAt.getMillis))
-      }
+    HttpDate.fromInstant(Instant.ofEpochMilli(authenticationToken.expiresAt.getMillis)).toType[F, Throwable]
       .map { httpDate =>
         response.addCookie {
           ResponseCookie(

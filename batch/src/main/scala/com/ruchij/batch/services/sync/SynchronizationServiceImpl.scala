@@ -22,6 +22,7 @@ import com.ruchij.core.services.repository.FileRepositoryService.FileRepository
 import com.ruchij.core.services.repository.FileTypeDetector
 import com.ruchij.core.services.video.VideoService
 import com.ruchij.core.types.{FunctionKTypes, JodaClock}
+import com.ruchij.core.types.FunctionKTypes._
 import fs2.Stream
 import org.http4s.{MediaType, Uri}
 import org.jcodec.api.{FrameGrab, UnsupportedFormatException}
@@ -127,7 +128,7 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
         )
       )
 
-      uri <- FunctionKTypes.eitherToF[Throwable, F].apply(Uri.fromString(Uri.encode(videoPath)))
+      uri <- Uri.fromString(Uri.encode(videoPath)).toType[F, Throwable]
 
       timestamp <- JodaClock[F].timestamp
 

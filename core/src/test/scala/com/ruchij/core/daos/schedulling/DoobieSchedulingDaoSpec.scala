@@ -279,7 +279,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
       }
       yield (): Unit
   }
-  
+
   it should "delete the scheduled video download" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
