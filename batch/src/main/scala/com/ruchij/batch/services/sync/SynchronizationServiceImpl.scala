@@ -21,7 +21,7 @@ import com.ruchij.core.services.hashing.HashingService
 import com.ruchij.core.services.repository.FileRepositoryService.FileRepository
 import com.ruchij.core.services.repository.FileTypeDetector
 import com.ruchij.core.services.video.VideoService
-import com.ruchij.core.types.{FunctionKTypes, JodaClock}
+import com.ruchij.core.types.JodaClock
 import com.ruchij.core.types.FunctionKTypes._
 import fs2.Stream
 import org.http4s.{MediaType, Uri}
