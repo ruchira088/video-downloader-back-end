@@ -28,7 +28,7 @@ object MetricsMiddleware {
           maybeContentLength = response.headers.get[`Content-Length`].map(_.length)
 
           _ <-
-            metricPublisher.publish {
+            metricPublisher.publishOne {
               HttpMetric(
                 request.method,
                 request.uri,

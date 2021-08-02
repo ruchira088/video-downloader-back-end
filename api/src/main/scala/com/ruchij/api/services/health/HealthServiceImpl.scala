@@ -76,7 +76,7 @@ class HealthServiceImpl[F[_]: Timer: Concurrent](
               .emit[F, HealthCheckMessage](HealthCheckMessage(applicationInformation.instanceId, dateTime))
               .repeat
               .metered[F](1 second)
-              .evalMap(message => pubSub.publish(message))
+              .evalMap(message => pubSub.publishOne(message))
               .interruptWhen[F](fiber.join.map[Either[Throwable, Unit]](Right.apply))
               .compile
               .drain

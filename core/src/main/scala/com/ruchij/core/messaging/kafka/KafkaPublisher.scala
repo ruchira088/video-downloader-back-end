@@ -25,7 +25,7 @@ class KafkaPublisher[F[_]: Sync, A](topicName: String, kafkaProducer: KafkaProdu
       }
       .productR(Stream.empty)
 
-  override def publish(input: A): F[Unit] =
+  override def publishOne(input: A): F[Unit] =
     publish(Stream.emit[F, A](input)).compile.drain
 }
 

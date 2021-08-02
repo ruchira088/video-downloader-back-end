@@ -51,7 +51,7 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
       )
 
       _ <- transaction(schedulingDao.insert(scheduledVideoDownload))
-      _ <- scheduledVideoDownloadPubSub.publish(scheduledVideoDownload)
+      _ <- scheduledVideoDownloadPubSub.publishOne(scheduledVideoDownload)
     } yield scheduledVideoDownload
 
   override def search(
@@ -83,7 +83,7 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
         OptionT(transaction(schedulingDao.completeTask(id, timestamp)))
           .getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
       }
-      .flatTap(value => scheduledVideoDownloadPubSub.publish(value))
+      .flatTap(value => scheduledVideoDownloadPubSub.publishOne(value))
 
   override def updateStatus(id: String, status: SchedulingStatus): F[ScheduledVideoDownload] =
     for {
@@ -101,7 +101,7 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
       updatedScheduledVideoDownload <- OptionT(transaction(schedulingDao.updateStatus(id, status, timestamp)))
         .getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
 
-      _ <- scheduledVideoDownloadPubSub.publish(updatedScheduledVideoDownload)
+      _ <- scheduledVideoDownloadPubSub.publishOne(updatedScheduledVideoDownload)
     } yield updatedScheduledVideoDownload
 
   override val acquireTask: OptionT[F, ScheduledVideoDownload] =
@@ -127,7 +127,7 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
   override def publishDownloadProgress(id: String, downloadedBytes: Long): F[Unit] = {
     for {
       timestamp <- JodaClock[F].timestamp
-      result <- downloadProgressPubSub.publish(DownloadProgress(id, timestamp, downloadedBytes))
+      result <- downloadProgressPubSub.publishOne(DownloadProgress(id, timestamp, downloadedBytes))
     } yield result
   }
 

@@ -28,7 +28,7 @@ object Routes {
     authenticationService: AuthenticationService[F],
     downloadProgressStream: Stream[F, DownloadProgress],
     metricPublisher: Publisher[F, HttpMetric],
-    ioBlocker: Blocker
+    blockerIO: Blocker
   ): HttpApp[F] = {
     implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
 
@@ -36,7 +36,7 @@ object Routes {
       if (authenticationService.enabled) Authenticator.middleware[F](authenticationService, strict = true) else identity
 
     val routes: HttpRoutes[F] =
-      WebServerRoutes(ioBlocker) <+>
+      WebServerRoutes(blockerIO) <+>
         Router(
           "/authentication" -> AuthenticationRoutes(authenticationService),
           "/schedule" -> authMiddleware(SchedulingRoutes(schedulingService, downloadProgressStream)),
