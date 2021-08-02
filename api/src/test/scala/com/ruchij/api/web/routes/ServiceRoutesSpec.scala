@@ -39,8 +39,9 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockFactory with 
 
     val clock = mock[Clock[IO]]
     (clock.realTime _).expects(TimeUnit.MILLISECONDS).returns(IO.pure(dateTime.getMillis)).repeat(2)
-
     (() => timer.clock).expects().returns(clock)
+
+    (metricPublisher.publishOne _).expects(*).returns(IO.unit)
 
     (() => healthService.serviceInformation).expects()
       .returns {
@@ -61,8 +62,6 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockFactory with 
         }
       }
 
-    (metricPublisher.publishOne _).expects(*).returns(IO.unit)
-
     createRoutes().run(GET(uri"/service/info")).flatMap {
       response => IO.delay {
         response must beJsonContentType
@@ -72,7 +71,7 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockFactory with 
     }
   }
 
-  "GET /service/health" should "return a health check response" in runIO {
+  "GET /service/health" should "return a 200 status health check response when all health checks are healthy" in runIO {
     val expectedJsonResponse =
       json"""{
         "database" : "Healthy",
@@ -83,8 +82,9 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockFactory with 
 
     val clock = mock[Clock[IO]]
     (clock.realTime _).expects(TimeUnit.MILLISECONDS).returns(IO.pure(0)).repeat(2)
-
     (() => timer.clock).expects().returns(clock)
+
+    (metricPublisher.publishOne _).expects(*).returns(IO.unit)
 
     (() => healthService.healthCheck).expects()
       .returns {
@@ -93,13 +93,43 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockFactory with 
         }
       }
 
-    (metricPublisher.publishOne _).expects(*).returns(IO.unit)
-
     createRoutes().run(GET(uri"/service/health")).flatMap {
       response =>
         IO.delay {
           response must beJsonContentType
           response must haveStatus(Status.Ok)
+          response must haveJson(expectedJsonResponse)
+        }
+    }
+  }
+
+  it should "return a 503 status health check response when at least one of the health checks are unhealthy" in runIO {
+    val expectedJsonResponse =
+      json"""{
+        "database" : "Healthy",
+        "fileRepository" : "Unhealthy",
+        "keyValueStore" : "Healthy",
+        "pubSubStatus" : "Healthy"
+      }"""
+
+    val clock = mock[Clock[IO]]
+    (clock.realTime _).expects(TimeUnit.MILLISECONDS).returns(IO.pure(0)).repeat(2)
+    (() => timer.clock).expects().returns(clock)
+
+    (metricPublisher.publishOne _).expects(*).returns(IO.unit)
+
+    (() => healthService.healthCheck).expects()
+      .returns {
+        IO.pure {
+          HealthCheck(HealthStatus.Healthy, HealthStatus.Unhealthy, HealthStatus.Healthy, HealthStatus.Healthy)
+        }
+      }
+
+    createRoutes().run(GET(uri"/service/health")).flatMap {
+      response =>
+        IO.delay {
+          response must beJsonContentType
+          response must haveStatus(Status.ServiceUnavailable)
           response must haveJson(expectedJsonResponse)
         }
     }
