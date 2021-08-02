@@ -1,6 +1,6 @@
 package com.ruchij.api.web.routes
 
-import cats.effect.{Clock, IO}
+import cats.effect.IO
 import com.ruchij.api.services.health.models.{HealthCheck, HealthStatus, ServiceInformation}
 import com.ruchij.api.test.matchers._
 import com.ruchij.api.test.mixins.io.MockedRoutesIO
@@ -11,17 +11,12 @@ import org.http4s.client.dsl.io._
 import org.http4s.dsl.io.GET
 import org.http4s.implicits.http4sLiteralsSyntax
 import org.joda.time.{DateTime, DateTimeZone}
-import org.scalamock.scalatest.MockFactory
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import java.util.concurrent.TimeUnit
-
-class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockFactory with MockedRoutesIO {
+class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
   "GET /service/info" should "return a successful response containing service information" in runIO {
-    val dateTime = new DateTime(2021, 8, 1, 10, 10, 0, 0, DateTimeZone.UTC)
-
     val expectedJsonResponse =
       json"""{
         "serviceName": "video-downloader-api",
@@ -37,12 +32,6 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockFactory with 
         "buildTimestamp": null
       }"""
 
-    val clock = mock[Clock[IO]]
-    (clock.realTime _).expects(TimeUnit.MILLISECONDS).returns(IO.pure(dateTime.getMillis)).repeat(2)
-    (() => timer.clock).expects().returns(clock)
-
-    (metricPublisher.publishOne _).expects(*).returns(IO.unit)
-
     (() => healthService.serviceInformation).expects()
       .returns {
         IO.pure {
@@ -53,7 +42,7 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockFactory with 
             "2.13.6",
             "1.5.5",
             "1.8.0_302",
-            dateTime,
+            new DateTime(2021, 8, 1, 10, 10, 0, 0, DateTimeZone.UTC),
             "localhost",
             Some("my-branch"),
             Some("my-commit"),
@@ -62,13 +51,16 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockFactory with 
         }
       }
 
-    createRoutes().run(GET(uri"/service/info")).flatMap {
-      response => IO.delay {
-        response must beJsonContentType
-        response must haveJson(expectedJsonResponse)
-        response must haveStatus(Status.Ok)
-      }
-    }
+    ignoreHttpMetrics() *>
+      createRoutes()
+        .flatMap(_.run(GET(uri"/service/info")))
+        .flatMap { response =>
+          IO.delay {
+            response must beJsonContentType
+            response must haveJson(expectedJsonResponse)
+            response must haveStatus(Status.Ok)
+          }
+        }
   }
 
   "GET /service/health" should "return a 200 status health check response when all health checks are healthy" in runIO {
@@ -80,12 +72,6 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockFactory with 
         "pubSubStatus" : "Healthy"
       }"""
 
-    val clock = mock[Clock[IO]]
-    (clock.realTime _).expects(TimeUnit.MILLISECONDS).returns(IO.pure(0)).repeat(2)
-    (() => timer.clock).expects().returns(clock)
-
-    (metricPublisher.publishOne _).expects(*).returns(IO.unit)
-
     (() => healthService.healthCheck).expects()
       .returns {
         IO.pure {
@@ -93,14 +79,16 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockFactory with 
         }
       }
 
-    createRoutes().run(GET(uri"/service/health")).flatMap {
-      response =>
-        IO.delay {
-          response must beJsonContentType
-          response must haveStatus(Status.Ok)
-          response must haveJson(expectedJsonResponse)
+    ignoreHttpMetrics() *>
+      createRoutes()
+        .flatMap(_.run(GET(uri"/service/health")))
+        .flatMap { response =>
+          IO.delay {
+            response must beJsonContentType
+            response must haveJson(expectedJsonResponse)
+            response must haveStatus(Status.Ok)
+          }
         }
-    }
   }
 
   it should "return a 503 status health check response when at least one of the health checks are unhealthy" in runIO {
@@ -112,12 +100,6 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockFactory with 
         "pubSubStatus" : "Healthy"
       }"""
 
-    val clock = mock[Clock[IO]]
-    (clock.realTime _).expects(TimeUnit.MILLISECONDS).returns(IO.pure(0)).repeat(2)
-    (() => timer.clock).expects().returns(clock)
-
-    (metricPublisher.publishOne _).expects(*).returns(IO.unit)
-
     (() => healthService.healthCheck).expects()
       .returns {
         IO.pure {
@@ -125,13 +107,15 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockFactory with 
         }
       }
 
-    createRoutes().run(GET(uri"/service/health")).flatMap {
-      response =>
-        IO.delay {
-          response must beJsonContentType
-          response must haveStatus(Status.ServiceUnavailable)
-          response must haveJson(expectedJsonResponse)
+    ignoreHttpMetrics() *>
+      createRoutes()
+        .flatMap(_.run(GET(uri"/service/health")))
+        .flatMap { response =>
+          IO.delay {
+            response must beJsonContentType
+            response must haveStatus(Status.ServiceUnavailable)
+            response must haveJson(expectedJsonResponse)
+          }
         }
-    }
   }
 }

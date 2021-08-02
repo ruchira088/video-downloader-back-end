@@ -1,6 +1,7 @@
 package com.ruchij.api.test.mixins
 
-import cats.effect.{Blocker, Concurrent, ContextShift, Timer}
+import cats.effect.{Blocker, Clock, Concurrent, ContextShift, Timer}
+import cats.implicits._
 import com.ruchij.api.services.authentication.AuthenticationService
 import com.ruchij.api.services.health.HealthService
 import com.ruchij.api.web.Routes
@@ -13,10 +14,12 @@ import com.ruchij.core.services.video.{VideoAnalysisService, VideoService}
 import fs2.Stream
 import org.http4s.HttpApp
 import org.scalamock.scalatest.MockFactory
+import org.scalatest.OneInstancePerTest
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.ExecutionContext
 
-trait MockedRoutes[F[+ _]] { self: MockFactory =>
+trait MockedRoutes[F[+ _]] extends MockFactory with OneInstancePerTest {
 
   val videoService: VideoService[F] = mock[VideoService[F]]
   val videoAnalysisService: VideoAnalysisService[F] = mock[VideoAnalysisService[F]]
@@ -33,16 +36,31 @@ trait MockedRoutes[F[+ _]] { self: MockFactory =>
   val contextShift: ContextShift[F]
   val concurrent: Concurrent[F]
 
-  def createRoutes(): HttpApp[F] = Routes(
-    videoService,
-    videoAnalysisService,
-    schedulingService,
-    assetService,
-    healthService,
-    authenticationService,
-    downloadProgressStream,
-    metricPublisher,
-    blockerIO
-  )(concurrent, timer, contextShift)
+  def createRoutes(): F[HttpApp[F]] =
+    concurrent.delay {
+      Routes(
+        videoService,
+        videoAnalysisService,
+        schedulingService,
+        assetService,
+        healthService,
+        authenticationService,
+        downloadProgressStream,
+        metricPublisher,
+        blockerIO
+      )(concurrent, timer, contextShift)
+    }
 
+
+  def ignoreHttpMetrics(): F[Unit] = {
+    val clock = mock[Clock[F]]
+    (clock.realTime _).expects(TimeUnit.MILLISECONDS).returns(concurrent.pure(0)).repeat(2)
+
+    catsSyntaxApply(concurrent.delay { (() => timer.clock).expects().returns(clock) })(concurrent)
+      .productR {
+        concurrent.delay {
+          (metricPublisher.publishOne _).expects(*).returns(concurrent.unit)
+        }
+      }
+  }
 }
