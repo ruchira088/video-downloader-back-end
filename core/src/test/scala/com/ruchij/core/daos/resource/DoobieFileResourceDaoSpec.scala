@@ -23,31 +23,31 @@ class DoobieFileResourceDaoSpec extends AnyFlatSpec with Matchers {
             fileResource = FileResource("file-id", timestamp, "/video/sample-video.mp4", MediaType.video.mp4, 1024)
 
             insertResult <- transaction { DoobieFileResourceDao.insert(fileResource) }
-            _ = insertResult mustBe 1
+            _ <- IO.delay { insertResult mustBe 1 }
 
             getByIdResult <- transaction { DoobieFileResourceDao.getById(fileResource.id) }
-            _ = getByIdResult mustBe Some(fileResource)
+            _ <- IO.delay {  getByIdResult mustBe Some(fileResource) }
 
             getByIdNoResult <- transaction { DoobieFileResourceDao.getById("random") }
-            _ = getByIdNoResult mustBe None
+            _ <- IO.delay { getByIdNoResult mustBe None }
 
             findByPathResult <- transaction { DoobieFileResourceDao.findByPath(fileResource.path) }
-            _ = findByPathResult mustBe Some(fileResource)
+            _ <- IO.delay { findByPathResult mustBe Some(fileResource) }
 
             findByPathNoResult <- transaction { DoobieFileResourceDao.findByPath("/opt/missing.mp4") }
-            _ = findByPathNoResult mustBe None
+            _ <- IO.delay { findByPathNoResult mustBe None }
 
             deletionResult <- transaction { DoobieFileResourceDao.deleteById(fileResource.id) }
-            _ = deletionResult mustBe 1
+            _ <- IO.delay { deletionResult mustBe 1 }
 
             emptyGetById <- transaction { DoobieFileResourceDao.getById(fileResource.id) }
-            _ = emptyGetById mustBe None
+            _ <- IO.delay { emptyGetById mustBe None }
 
             emptyFindByPath <- transaction { DoobieFileResourceDao.findByPath(fileResource.path) }
-            _ = emptyFindByPath mustBe None
+            _ <- IO.delay { emptyFindByPath mustBe None }
 
             emptyDeleteResult <- transaction { DoobieFileResourceDao.deleteById(fileResource.id) }
-            _ = emptyDeleteResult mustBe 0
+            _ <- IO.delay { emptyDeleteResult mustBe 0 }
           }
           yield insertResult
       }

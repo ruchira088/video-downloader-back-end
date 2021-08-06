@@ -58,7 +58,7 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
         _ <- IO.delay { (clock.realTime _).expects(TimeUnit.MILLISECONDS).returning(IO.pure(timestamp)) }
         authenticationTokenOne <- authenticationService.login(Password("top-secret"))
 
-        _ = {
+        _ <- IO.delay {
           authenticationTokenOne.secret mustBe Secret(uuid.toString)
           authenticationTokenOne.issuedAt.getMillis mustBe timestamp
           authenticationTokenOne.renewals mustBe 0
@@ -70,7 +70,7 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
         }
         authenticationTokenTwo <- authenticationService.authenticate(Secret(uuid.toString))
 
-        _ = {
+        _ <- IO.delay {
           authenticationTokenTwo.secret mustBe Secret(uuid.toString)
           authenticationTokenTwo.issuedAt.getMillis mustBe timestamp
           authenticationTokenTwo.renewals mustBe 1
@@ -81,7 +81,7 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
 
         authenticationException <- authenticationService.authenticate(Secret(uuid.toString)).error
 
-        _ = {
+        _ <- IO.delay {
           authenticationException.getMessage mustBe "Authentication cookie/token not found"
         }
 
@@ -131,13 +131,13 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
         }
         tokenExpiredException <- authenticationService.authenticate(Secret(uuid.toString)).error
 
-        _ = {
+        _ <- IO.delay {
           tokenExpiredException.getMessage mustBe s"Authentication token expired at ${new DateTime(timestamp + (40 seconds).toMillis)}"
         }
 
         missingTokenException <- authenticationService.authenticate(Secret(uuid.toString)).error
 
-        _ = {
+        _ <- IO.delay {
           missingTokenException.getMessage mustBe "Authentication cookie/token not found"
         }
       }

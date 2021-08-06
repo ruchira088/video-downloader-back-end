@@ -70,7 +70,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
             maybeScheduledVideoDownload <-
               transaction { DoobieSchedulingDao.getById(scheduledVideoDownload.videoMetadata.id) }
 
-            _ = {
+            _ <- IO.delay {
               maybeScheduledVideoDownload.value.videoMetadata.id mustBe videoMetadata.id
               maybeScheduledVideoDownload.value.videoMetadata.size mustBe videoMetadata.size
               maybeScheduledVideoDownload.value.videoMetadata.duration mustBe videoMetadata.duration
@@ -100,55 +100,55 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
         transaction {
           DoobieSchedulingDao.search(None, None, DurationRange.All, 0, 10, SortBy.Date, Order.Descending, None)
        }
-      _ = { searchResultOne mustBe Seq(scheduledVideoDownload) }
+      _ <- IO.delay {  searchResultOne mustBe Seq(scheduledVideoDownload) }
 
       searchResultTwo <-
         transaction {
           DoobieSchedulingDao.search(Some("sample"), None, DurationRange.All, 0, 10, SortBy.Date, Order.Descending, None)
         }
-      _ = { searchResultTwo mustBe Seq(scheduledVideoDownload) }
+      _ <- IO.delay {  searchResultTwo mustBe Seq(scheduledVideoDownload) }
 
       searchResultThree <-
         transaction {
           DoobieSchedulingDao.search(Some("non-existent"), None, DurationRange.All, 0, 10, SortBy.Date, Order.Descending, None)
         }
-      _ = { searchResultThree mustBe Seq.empty }
+      _ <- IO.delay {  searchResultThree mustBe Seq.empty }
 
       searchResultFour <-
         transaction {
           DoobieSchedulingDao.search(None, None, DurationRange(None, Some(6 minutes)), 0, 10, SortBy.Date, Order.Descending, None)
         }
-      _ = { searchResultFour mustBe Seq(scheduledVideoDownload) }
+      _ <- IO.delay {  searchResultFour mustBe Seq(scheduledVideoDownload) }
 
       searchResultFive <-
         transaction {
           DoobieSchedulingDao.search(None, None, DurationRange(None, Some(4 minutes)), 0, 10, SortBy.Date, Order.Descending, None)
         }
-      _ = { searchResultFive mustBe Seq.empty }
+      _ <- IO.delay {  searchResultFive mustBe Seq.empty }
 
       searchResultSix <-
         transaction {
           DoobieSchedulingDao.search(None, None, DurationRange(Some(4 minutes), None), 0, 10, SortBy.Date, Order.Descending, None)
         }
-      _ = { searchResultSix mustBe Seq(scheduledVideoDownload) }
+      _ <- IO.delay {  searchResultSix mustBe Seq(scheduledVideoDownload) }
 
       searchResultSeven <-
         transaction {
           DoobieSchedulingDao.search(None, None, DurationRange(Some(6 minutes), None), 0, 10, SortBy.Date, Order.Descending, None)
         }
-      _ = { searchResultSeven mustBe Seq.empty }
+      _ <- IO.delay {  searchResultSeven mustBe Seq.empty }
 
       searchResultEight <-
         transaction {
           DoobieSchedulingDao.search(None, None, DurationRange.All, 0, 10, SortBy.Date, Order.Descending, Some(NonEmptyList.one(SchedulingStatus.Queued)))
         }
-      _ = { searchResultEight mustBe Seq(scheduledVideoDownload) }
+      _ <- IO.delay { searchResultEight mustBe Seq(scheduledVideoDownload) }
 
       searchResultNine <-
         transaction {
           DoobieSchedulingDao.search(None, None, DurationRange.All, 0, 10, SortBy.Date, Order.Descending, Some(NonEmptyList.one(SchedulingStatus.Completed)))
         }
-      _ = { searchResultNine mustBe Seq.empty }
+      _ <- IO.delay {  searchResultNine mustBe Seq.empty }
 
     }
     yield (): Unit
@@ -163,7 +163,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
             DoobieSchedulingDao.completeTask(scheduledVideoDownload.videoMetadata.id, timestamp)
           }
 
-        _ = {
+        _ <- IO.delay {
           maybeUpdated.value.completedAt.map(_.getMillis) mustBe Some(timestamp.getMillis)
           maybeUpdated.value.status mustBe SchedulingStatus.Completed
           maybeUpdated.value.lastUpdatedAt.getMillis mustBe timestamp.getMillis
@@ -183,7 +183,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
             DoobieSchedulingDao.updateStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Active, timestamp)
           }
 
-        _ = {
+        _ <- IO.delay {
           maybeUpdated.value.status mustBe SchedulingStatus.Active
           maybeUpdated.value.lastUpdatedAt.getMillis mustBe timestamp.getMillis
 
@@ -202,7 +202,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
             DoobieSchedulingDao.updateDownloadProgress(scheduledVideoDownload.videoMetadata.id, 2021, timestamp)
           }
 
-        _ = {
+        _ <- IO.delay {
           maybeUpdated.value.downloadedBytes mustBe 2021
           maybeUpdated.value.lastUpdatedAt.getMillis mustBe timestamp.getMillis
 
@@ -226,7 +226,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
               }
           }
 
-        _ = {
+        _ <- IO.delay {
           timedOutTasks.size mustBe 1
           timedOutTasks.headOption.value.status mustBe SchedulingStatus.Stale
           timedOutTasks.headOption.value.lastUpdatedAt.getMillis mustBe timestampTwo.getMillis
@@ -236,7 +236,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
 
         maybeStaleTask <- transaction { DoobieSchedulingDao.staleTask(timestampTwo) }
 
-        _ = {
+        _ <- IO.delay {
           maybeStaleTask.value.status mustBe SchedulingStatus.Acquired
           maybeStaleTask.value.lastUpdatedAt.getMillis mustBe timestampTwo.getMillis
 
@@ -246,11 +246,11 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
         moreTimedOutTasks <-
           transaction(DoobieSchedulingDao.updateTimedOutTasks(10 seconds, timestampTwo))
 
-        _ = { moreTimedOutTasks mustBe Seq.empty }
+        _ <- IO.delay {  moreTimedOutTasks mustBe Seq.empty }
 
         maybeMoreStaledTasks <- transaction { DoobieSchedulingDao.staleTask(timestampTwo) }
 
-        _ = maybeMoreStaledTasks mustBe None
+        _ <- IO.delay { maybeMoreStaledTasks mustBe None }
       }
       yield (): Unit
   }
@@ -266,7 +266,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
 
         maybeAcquiredTask <- transaction(DoobieSchedulingDao.acquireTask(timestamp))
 
-        _ = {
+        _ <- IO.delay {
           maybeAcquiredTask.value.status mustBe SchedulingStatus.Acquired
           maybeAcquiredTask.value.lastUpdatedAt.getMillis mustBe timestamp.getMillis
 
@@ -275,7 +275,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
 
         maybeAnotherTask <- transaction(DoobieSchedulingDao.acquireTask(timestamp))
 
-        _ = { maybeAnotherTask mustBe None }
+        _ <- IO.delay {  maybeAnotherTask mustBe None }
       }
       yield (): Unit
   }
@@ -285,11 +285,11 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
       for {
         maybeDeleted <- transaction(DoobieSchedulingDao.deleteById(scheduledVideoDownload.videoMetadata.id))
 
-        _ = { maybeDeleted.value mustBe scheduledVideoDownload }
+        _ <- IO.delay {  maybeDeleted.value mustBe scheduledVideoDownload }
 
         maybeDeleteAgain <- transaction(DoobieSchedulingDao.deleteById(scheduledVideoDownload.videoMetadata.id))
 
-        _ = { maybeDeleteAgain mustBe None }
+        _ <- IO.delay {  maybeDeleteAgain mustBe None }
       }
       yield (): Unit
   }
