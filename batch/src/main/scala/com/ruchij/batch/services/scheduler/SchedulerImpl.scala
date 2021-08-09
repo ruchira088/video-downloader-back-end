@@ -13,7 +13,7 @@ import com.ruchij.batch.services.worker.WorkExecutor
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.workers.WorkerDao
-import com.ruchij.core.daos.workers.models.Worker
+import com.ruchij.core.daos.workers.models.{Worker, WorkerStatus}
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Subscriber
@@ -225,7 +225,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       .flatMap {
         _.traverse { index =>
           transaction {
-            workerDao.insert(Worker(Worker.workerIdFromIndex(index), None, None, None, None))
+            workerDao.insert(Worker(Worker.workerIdFromIndex(index), WorkerStatus.Available, None, None, None))
           }
         }
       }
