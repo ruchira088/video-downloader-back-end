@@ -7,7 +7,7 @@ import com.ruchij.core.exceptions.ValidationException
 case class UpdateScheduledVideoRequest(status: SchedulingStatus)
 
 object UpdateScheduledVideoRequest {
-  val ValidInputStatuses = List(SchedulingStatus.Queued, SchedulingStatus.Paused)
+  private val ValidInputStatuses = List(SchedulingStatus.Queued, SchedulingStatus.Paused)
 
   implicit def updateScheduledVideoRequestValidator[F[_]: ApplicativeError[*[_], Throwable]]
     : Validator[F, UpdateScheduledVideoRequest] =

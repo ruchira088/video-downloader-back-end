@@ -6,12 +6,13 @@ import cats.implicits._
 import cats.{Applicative, ApplicativeError, Monad, ~>}
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
+import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.exceptions.{ResourceConflictException, ResourceNotFoundException}
 import com.ruchij.core.messaging.PubSub
 import com.ruchij.core.messaging.kafka.KafkaSubscriber.CommittableRecord
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.scheduling.SchedulingServiceImpl.notFound
-import com.ruchij.core.services.scheduling.models.DownloadProgress
+import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.services.video.VideoAnalysisService
 import com.ruchij.core.services.video.models.DurationRange
 import com.ruchij.core.types.JodaClock
@@ -24,7 +25,8 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
   videoAnalysisService: VideoAnalysisService[F],
   schedulingDao: SchedulingDao[T],
   downloadProgressPubSub: PubSub[F, CommittableRecord[F, *], DownloadProgress],
-  scheduledVideoDownloadPubSub: PubSub[F, CommittableRecord[F, *], ScheduledVideoDownload]
+  scheduledVideoDownloadPubSub: PubSub[F, CommittableRecord[F, *], ScheduledVideoDownload],
+  workerStatusUpdatePubSub: PubSub[F, CommittableRecord[F, *], WorkerStatusUpdate]
 )(implicit transaction: T ~> F)
     extends SchedulingService[F] {
 
@@ -147,6 +149,9 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
         }
           .getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
     } yield result
+
+  override def updateWorkerStatuses(workerStatus: WorkerStatus): F[Unit] =
+    workerStatusUpdatePubSub.publishOne(WorkerStatusUpdate(workerStatus))
 }
 
 object SchedulingServiceImpl {

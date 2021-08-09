@@ -30,7 +30,7 @@ import com.ruchij.core.services.download.Http4sDownloadService
 import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.repository.FileRepositoryService
 import com.ruchij.core.services.scheduling.SchedulingServiceImpl
-import com.ruchij.core.services.scheduling.models.DownloadProgress
+import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
 import com.ruchij.migration.MigrationApp
 import dev.profunktor.redis4cats.Redis
@@ -97,9 +97,10 @@ object ApiApp extends IOApp {
           scheduledVideoDownloadPubSub <- KafkaPubSub[F, ScheduledVideoDownload](apiServiceConfiguration.kafkaConfiguration)
           healthCheckPubSub <- KafkaPubSub[F, HealthCheckMessage](apiServiceConfiguration.kafkaConfiguration)
           metricsPublisher <- KafkaPublisher[F, HttpMetric](apiServiceConfiguration.kafkaConfiguration)
+          workerStatusUpdatePubSub <- KafkaPubSub[F, WorkerStatusUpdate](apiServiceConfiguration.kafkaConfiguration)
 
           messageBrokers =
-            ApiMessageBrokers(downloadProgressPubSub, scheduledVideoDownloadPubSub, healthCheckPubSub, metricsPublisher)
+            ApiMessageBrokers(downloadProgressPubSub, scheduledVideoDownloadPubSub, healthCheckPubSub, workerStatusUpdatePubSub, metricsPublisher)
 
           httpApp <-
             program[F](httpClient, redisKeyValueStore, messageBrokers, blockerIO, blockerCPU, apiServiceConfiguration)
@@ -160,7 +161,8 @@ object ApiApp extends IOApp {
       videoAnalysisService,
       DoobieSchedulingDao,
       messageBrokers.downloadProgressPubSub,
-      messageBrokers.scheduledVideoDownloadPubSub
+      messageBrokers.scheduledVideoDownloadPubSub,
+      messageBrokers.workerStatusUpdatesPubSub
     )
 
     val healthService = new HealthServiceImpl[F](

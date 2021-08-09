@@ -13,7 +13,7 @@ import com.ruchij.core.messaging.kafka.KafkaSubscriber.CommittableRecord
 import com.ruchij.core.services.download.Http4sDownloadService
 import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.repository.InMemoryRepositoryService
-import com.ruchij.core.services.scheduling.models.DownloadProgress
+import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.services.video.VideoAnalysisServiceImpl
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.Providers.{blocker, contextShift}
@@ -149,13 +149,15 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
 
           downloadProgressPubSub <- Fs2PubSub[IO, DownloadProgress]
           scheduledVideoDownloadUpdatesPubSub <- Fs2PubSub[IO, ScheduledVideoDownload]
+          workerStatusUpdatesPubSub <- Fs2PubSub[IO, WorkerStatusUpdate]
 
           schedulingService =
             new SchedulingServiceImpl[IO, ConnectionIO](
               videoAnalysisService,
               DoobieSchedulingDao,
               downloadProgressPubSub,
-              scheduledVideoDownloadUpdatesPubSub
+              scheduledVideoDownloadUpdatesPubSub,
+              workerStatusUpdatesPubSub
             )
 
           scheduledVideoDownload <- schedulingService.schedule(videoUrl)

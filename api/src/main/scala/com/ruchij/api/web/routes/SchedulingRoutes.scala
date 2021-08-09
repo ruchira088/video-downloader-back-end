@@ -3,7 +3,7 @@ package com.ruchij.api.web.routes
 import cats.data.NonEmptyList
 import cats.effect.{Concurrent, Timer}
 import cats.implicits._
-import com.ruchij.api.web.requests.{SchedulingRequest, UpdateScheduledVideoRequest}
+import com.ruchij.api.web.requests.{SchedulingRequest, UpdateScheduledVideoRequest, WorkerStatusUpdateRequest}
 import com.ruchij.api.web.requests.UpdateScheduledVideoRequest.updateScheduledVideoRequestValidator
 import com.ruchij.api.web.requests.RequestOps.RequestOpsSyntax
 import com.ruchij.api.web.requests.queryparams.SearchQuery
@@ -111,6 +111,13 @@ object SchedulingRoutes {
                 }
             }
         }
+
+      case request @ PUT -> Root / "worker-status" =>
+        for {
+          workerStatusUpdateRequest <- request.to[WorkerStatusUpdateRequest]
+          _ <- schedulingService.updateWorkerStatuses(workerStatusUpdateRequest.workerStatus)
+        }
+        yield ???
     }
   }
 }

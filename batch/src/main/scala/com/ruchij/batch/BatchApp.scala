@@ -22,7 +22,7 @@ import com.ruchij.core.services.download.Http4sDownloadService
 import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector}
 import com.ruchij.core.services.scheduling.SchedulingServiceImpl
-import com.ruchij.core.services.scheduling.models.DownloadProgress
+import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
 import com.ruchij.migration.MigrationApp
 import doobie.free.connection.ConnectionIO
@@ -102,13 +102,15 @@ object BatchApp extends IOApp {
 
           downloadProgressPubSub <- KafkaPubSub[F, DownloadProgress](batchServiceConfiguration.kafkaConfiguration)
           scheduledVideoDownloadPubSub <- KafkaPubSub[F, ScheduledVideoDownload](batchServiceConfiguration.kafkaConfiguration)
+          workerStatusUpdatesPubSub <- KafkaPubSub[F, WorkerStatusUpdate](batchServiceConfiguration.kafkaConfiguration)
           httpMetricsSubscriber = new KafkaSubscriber[F, HttpMetric](batchServiceConfiguration.kafkaConfiguration)
 
           schedulingService = new SchedulingServiceImpl[F, ConnectionIO](
             videoAnalysisService,
             DoobieSchedulingDao,
             downloadProgressPubSub,
-            scheduledVideoDownloadPubSub
+            scheduledVideoDownloadPubSub,
+            workerStatusUpdatesPubSub
           )
 
           fileTypeDetector = new PathFileTypeDetector[F](new Tika(), ioBlocker)

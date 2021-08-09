@@ -5,7 +5,7 @@ import com.ruchij.core.config.KafkaConfiguration
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.messaging.kafka.Codecs._
 import com.ruchij.core.messaging.models.HttpMetric
-import com.ruchij.core.services.scheduling.models.DownloadProgress
+import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import fs2.kafka.vulcan.{AvroSettings, SchemaRegistryClientSettings, avroDeserializer, avroSerializer}
 import fs2.kafka.{RecordDeserializer, RecordSerializer}
 import vulcan.Codec
@@ -44,5 +44,11 @@ object KafkaTopic {
     override val name: String = "http-metrics"
 
     override val codec: Codec[HttpMetric] = Codec.derive[HttpMetric]
+  }
+
+  implicit case object WorkerStatusUpdateTopic extends KafkaTopic[WorkerStatusUpdate] {
+    override val name: String = "worker-status-updates"
+
+    override val codec: Codec[WorkerStatusUpdate] = Codec.derive[WorkerStatusUpdate]
   }
 }

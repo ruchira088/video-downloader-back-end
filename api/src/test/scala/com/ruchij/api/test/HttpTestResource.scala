@@ -13,7 +13,7 @@ import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.kv.RedisKeyValueStore
 import com.ruchij.core.messaging.inmemory.Fs2PubSub
 import com.ruchij.core.messaging.models.HttpMetric
-import com.ruchij.core.services.scheduling.models.DownloadProgress
+import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.test.{DoobieProvider, Resources}
 import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.effect.Log.Stdout.instance
@@ -80,11 +80,13 @@ object HttpTestResource {
       scheduledVideoDownloadPubSub <- Resource.eval(Fs2PubSub[F, ScheduledVideoDownload])
       healthCheckPubSub <- Resource.eval(Fs2PubSub[F, HealthCheckMessage])
       httpMetricPubSub <- Resource.eval(Fs2PubSub[F, HttpMetric])
+      workerStatusUpdatesPubSub <- Resource.eval(Fs2PubSub[F, WorkerStatusUpdate])
 
       messageBrokers = ApiMessageBrokers(
         downloadProgressPubSub,
         scheduledVideoDownloadPubSub,
         healthCheckPubSub,
+        workerStatusUpdatesPubSub,
         httpMetricPubSub
       )
 
