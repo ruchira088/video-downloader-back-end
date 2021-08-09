@@ -147,7 +147,7 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
     sql"""
       UPDATE worker
         SET task_assigned_at = NULL, heart_beat_at = NULL, status = ${WorkerStatus.Available}
-        WHERE heart_beat_at < $heartBeatBefore
+        WHERE heart_beat_at < $heartBeatBefore OR (task_assigned_at IS NULL AND status = ${WorkerStatus.Active})
     """
       .update
       .run

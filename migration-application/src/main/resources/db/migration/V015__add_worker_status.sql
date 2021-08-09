@@ -1,0 +1,3 @@
+ALTER TABLE worker ADD COLUMN status VARCHAR(32) DEFAULT 'Active' NOT NULL;
+
+ALTER TABLE worker DROP COLUMN reserved_at;
