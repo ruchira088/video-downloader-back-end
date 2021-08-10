@@ -100,7 +100,6 @@ object SchedulingRoutes {
         Ok {
           downloadProgressStream
             .map { downloadProgress =>
-              println(downloadProgress)
               ServerSentEvent(Some(Encoder[DownloadProgress].apply(downloadProgress).noSpaces), ActiveDownload)
             }
             .merge {
