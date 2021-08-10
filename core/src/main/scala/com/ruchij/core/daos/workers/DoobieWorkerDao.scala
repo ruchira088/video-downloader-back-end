@@ -151,4 +151,16 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
     """
       .update
       .run
+
+  override def updateWorkerStatus(workerStatus: WorkerStatus): ConnectionIO[Seq[Worker]] =
+    sql"""
+        UPDATE worker
+            SET task_assigned_at = NULL, heart_beat_at = NULL, status = $workerStatus
+    """
+      .update
+      .run
+      .productR { sql"SELECT id FROM worker".query[String].to[Seq] }
+      .flatMap {
+        workerIds => workerIds.traverse(getById).map(_.flatten)
+      }
 }

@@ -121,9 +121,9 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
       timestamp => transaction(schedulingDao.updateTimedOutTasks(timeout, timestamp))
     }
 
-  override def subscribeToUpdates(groupId: String): Stream[F, ScheduledVideoDownload] =
-    scheduledVideoDownloadPubSub.subscribe(groupId).map {
-      case CommittableRecord(value, _) => value
+  override def subscribeToScheduledVideoDownloadUpdates(groupId: String): Stream[F, ScheduledVideoDownload] =
+    scheduledVideoDownloadPubSub.subscribe(groupId).evalMap {
+      case CommittableRecord(value, commit) => commit.as(value)
     }
 
   override def publishDownloadProgress(id: String, downloadedBytes: Long): F[Unit] = {
@@ -134,8 +134,8 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
   }
 
   override def subscribeToDownloadProgress(groupId: String): Stream[F, DownloadProgress] =
-    downloadProgressPubSub.subscribe(groupId).map {
-      case CommittableRecord(value, _) => value
+    downloadProgressPubSub.subscribe(groupId).evalMap {
+      case CommittableRecord(value, commit) => commit.as(value)
     }
 
   override def updateDownloadProgress(id: String, downloadedBytes: Long): F[ScheduledVideoDownload] =
@@ -152,6 +152,11 @@ class SchedulingServiceImpl[F[+ _]: Sync: Timer, T[_]: Monad](
 
   override def updateWorkerStatuses(workerStatus: WorkerStatus): F[Unit] =
     workerStatusUpdatePubSub.publishOne(WorkerStatusUpdate(workerStatus))
+
+  override def subscribeToWorkerStatusUpdates(groupId: String): Stream[F, WorkerStatusUpdate] =
+    workerStatusUpdatePubSub.subscribe(groupId).evalMap {
+      case CommittableRecord(value, commit) => commit.as(value)
+    }
 }
 
 object SchedulingServiceImpl {

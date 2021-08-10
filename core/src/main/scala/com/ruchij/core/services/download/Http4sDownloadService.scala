@@ -1,7 +1,7 @@
 package com.ruchij.core.services.download
 
 import cats.ApplicativeError
-import cats.effect.{Clock, Concurrent, ContextShift, Resource}
+import cats.effect.{Concurrent, ContextShift, Resource, Timer}
 import cats.implicits._
 import com.ruchij.core.exceptions.ExternalServiceException
 import com.ruchij.core.services.download.Http4sDownloadService.MinChunkUpdateSize
@@ -12,7 +12,10 @@ import org.http4s.client.Client
 import org.http4s.headers.{Range, `Content-Length`, `Content-Type`}
 import org.http4s.{Headers, Request, Uri}
 
-class Http4sDownloadService[F[_]: Concurrent: ContextShift: Clock](
+import scala.language.postfixOps
+import scala.concurrent.duration.DurationInt
+
+class Http4sDownloadService[F[_]: Concurrent: ContextShift: Timer](
   client: Client[F],
   repositoryService: RepositoryService[F]
 ) extends DownloadService[F] {
@@ -50,7 +53,7 @@ class Http4sDownloadService[F[_]: Concurrent: ContextShift: Clock](
                     .observe { data =>
                       repositoryService.write(fileKey, data)
                     }
-                    .chunkMin(MinChunkUpdateSize)
+                    .groupWithin(MinChunkUpdateSize, 250 milliseconds)
                     .scan(initialSize) { case (total, chunk) => total + chunk.size }
                 }
             }
@@ -59,5 +62,5 @@ class Http4sDownloadService[F[_]: Concurrent: ContextShift: Clock](
 }
 
 object Http4sDownloadService {
-  val MinChunkUpdateSize: Int = 100 * 1000 // 100KB
+  val MinChunkUpdateSize: Int = 1000 * 1000 // 100KB
 }

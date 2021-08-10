@@ -4,7 +4,7 @@ import cats.data.{NonEmptyList, OptionT}
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.services.models.{Order, SortBy}
-import com.ruchij.core.services.scheduling.models.DownloadProgress
+import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.services.video.models.DurationRange
 import fs2.Stream
 import org.http4s.Uri
@@ -39,11 +39,13 @@ trait SchedulingService[F[_]] {
 
   def updateDownloadProgress(id: String, downloadedBytes: Long): F[ScheduledVideoDownload]
 
-  def subscribeToUpdates(groupId: String): Stream[F, ScheduledVideoDownload]
+  def subscribeToScheduledVideoDownloadUpdates(groupId: String): Stream[F, ScheduledVideoDownload]
 
   def publishDownloadProgress(id: String, downloadedBytes: Long): F[Unit]
 
   def subscribeToDownloadProgress(groupId: String): Stream[F, DownloadProgress]
 
   def updateWorkerStatuses(workerStatus: WorkerStatus): F[Unit]
+
+  def subscribeToWorkerStatusUpdates(groupId: String): Stream[F, WorkerStatusUpdate]
 }

@@ -1,6 +1,6 @@
 package com.ruchij.batch.services.scheduler
 
-import cats.data.OptionT
+import cats.data.{NonEmptyList, OptionT}
 import cats.effect.{Bracket, Clock, Concurrent, ExitCase, Timer}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Monad, ~>}
@@ -19,8 +19,11 @@ import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Subscriber
 import com.ruchij.core.messaging.kafka.KafkaSubscriber.CommittableRecord
 import com.ruchij.core.messaging.models.HttpMetric
+import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.scheduling.SchedulingService
+import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
 import com.ruchij.core.services.video.VideoService
+import com.ruchij.core.services.video.models.DurationRange
 import com.ruchij.core.types.JodaClock
 import com.ruchij.core.utils.Http4sUtils.ChunkSize
 import fs2.Stream
@@ -68,7 +71,11 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       }
       .collect { case Some(worker) => worker }
 
-  def performWork(worker: Worker, topicUpdates: Topic[F, Option[ScheduledVideoDownload]]): F[Option[Video]] =
+  def performWork(
+    worker: Worker,
+    scheduledVideoDownloadUpdates: Stream[F, ScheduledVideoDownload],
+    workerStatusUpdates: Stream[F, WorkerStatusUpdate]
+  ): F[Option[Video]] =
     Bracket[F, Throwable].bracketCase {
       schedulingService.staleTask.orElse(schedulingService.acquireTask).value
     } { taskOpt =>
@@ -89,14 +96,18 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
                 .execute(
                   scheduledVideoDownload,
                   worker,
-                  topicUpdates
-                    .subscribe(Int.MaxValue)
-                    .collect { case Some(value) => value }
-                    .filter { value: ScheduledVideoDownload =>
+                  scheduledVideoDownloadUpdates
+                    .map { value: ScheduledVideoDownload =>
                       value.videoMetadata.id == scheduledVideoDownload.videoMetadata.id &&
-                      List(SchedulingStatus.SchedulerPaused, SchedulingStatus.Paused).contains(value.status) &&
+                      List(SchedulingStatus.Paused).contains(value.status) &&
                       value.lastUpdatedAt.isAfter(timestamp)
                     }
+                    .merge {
+                      workerStatusUpdates.map { workerStatusUpdate: WorkerStatusUpdate =>
+                        workerStatusUpdate.workerStatus == WorkerStatus.Paused
+                      }
+                    }
+                    .filter(identity)
                     .productR[Boolean](Stream.raiseError[F](PausedVideoDownload))
                 )
                 .map[Option[Video]](Some.apply)
@@ -146,26 +157,63 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
   override val run: Stream[F, Video] =
     Stream
       .eval(Topic[F, Option[ScheduledVideoDownload]](None))
-      .flatMap { topic =>
-        idleWorkers
-          .concurrently(publishUpdatesToTopic(topic))
-          .concurrently(cleanUpStaleScheduledVideoDownloads)
-          .concurrently(updateVideoWatchTimes(ChunkSize))
-          .parEvalMapUnordered(workerConfiguration.maxConcurrentDownloads) { worker =>
-            performWorkDuringWorkPeriod(worker, topic)
-          }
-          .collect {
-            case Some(video) => video
-          }
+      .product(Stream.eval(Topic[F, Option[WorkerStatusUpdate]](None)))
+      .flatMap {
+        case (scheduledVideoDownloadsTopic, workerStatusUpdatesTopic) =>
+          val workerStatusUpdates: Stream[F, WorkerStatusUpdate] =
+            workerStatusUpdatesTopic.subscribe(Int.MaxValue).collect { case Some(value) => value }
+
+          idleWorkers
+            .concurrently(publishScheduledVideoDownloadsUpdatesToTopic(scheduledVideoDownloadsTopic))
+            .concurrently(publishWorkerStatusUpdatesToTopic(workerStatusUpdatesTopic))
+            .concurrently(cleanUpStaleScheduledVideoDownloads)
+            .concurrently(updateVideoWatchTimes(ChunkSize))
+            .concurrently(updateWorkersAndScheduledVideoDownloads(workerStatusUpdates))
+            .parEvalMapUnordered(workerConfiguration.maxConcurrentDownloads) { worker =>
+              performWorkDuringWorkPeriod(worker, scheduledVideoDownloadsTopic.subscribe(Int.MaxValue).collect {
+                case Some(value) => value
+              }, workerStatusUpdates)
+            }
+            .collect {
+              case Some(video) => video
+            }
       }
 
-  def performWorkDuringWorkPeriod(worker: Worker, topic: Topic[F, Option[ScheduledVideoDownload]]): F[Option[Video]] =
+  def updateWorkersAndScheduledVideoDownloads(workerStatusUpdates: Stream[F, WorkerStatusUpdate]): Stream[F, Seq[Worker]] =
+    workerStatusUpdates.evalMap { workerStatusUpdate =>
+      transaction(workerDao.updateWorkerStatus(workerStatusUpdate.workerStatus))
+        .productL {
+          if (workerStatusUpdate.workerStatus == WorkerStatus.Paused)
+            schedulingService.search(
+              None,
+              None,
+              DurationRange.All,
+              0,
+              workerConfiguration.maxConcurrentDownloads * 2,
+              SortBy.Date,
+              Order.Descending,
+              Some(NonEmptyList.of(SchedulingStatus.Active))
+            )
+              .flatMap {
+                activeDownloads => activeDownloads.traverse { scheduledVideoDownloads =>
+                  schedulingService.updateStatus(scheduledVideoDownloads.videoMetadata.id, SchedulingStatus.Queued)
+                }
+              }
+          else Applicative[F].unit
+        }
+    }
+
+  def performWorkDuringWorkPeriod(
+    worker: Worker,
+    scheduledVideoDownloadUpdates: Stream[F, ScheduledVideoDownload],
+    workerStatusUpdates: Stream[F, WorkerStatusUpdate]
+  ): F[Option[Video]] =
     Bracket[F, Throwable].guarantee {
       SchedulerImpl
         .isWorkPeriod[F](workerConfiguration.startTime, workerConfiguration.endTime)
         .flatMap { isWorkPeriod =>
           if (isWorkPeriod)
-            performWork(worker, topic)
+            performWork(worker, scheduledVideoDownloadUpdates, workerStatusUpdates)
               .recoverWith {
                 case throwable =>
                   logger.errorF("Error occurred in work scheduler", throwable).as(None)
@@ -174,40 +222,49 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
     }(releaseWorker(worker))
 
   def updateVideoWatchTimes(minimumChunkSize: Long): Stream[F, Unit] =
-    httpMetricSubscriber.subscribe(s"scheduler-$instanceId")
+    httpMetricSubscriber
+      .subscribe(s"scheduler-$instanceId")
       .evalMap {
         case CommittableRecord(httpMetric, commit) =>
-          httpMetric.contentType.product(httpMetric.size)
+          httpMetric.contentType
+            .product(httpMetric.size)
             .flatMap {
               case (contentType, size) =>
                 if (contentType.isVideo && size >= minimumChunkSize)
                   httpMetric.uri.path.segments.lastOption.map(lastSegment => (lastSegment.encoded, size))
                 else None
             }
-            .fold(commit) { case (resourceId, size) =>
-              ApplicativeError[F, Throwable].handleErrorWith {
-                videoService.fetchByVideoFileResourceId(resourceId)
-                  .flatMap { video =>
-                    val watchDuration =
-                      FiniteDuration(
-                        math.round((size.toDouble / video.fileResource.size) * video.videoMetadata.duration.toMillis),
-                        TimeUnit.MILLISECONDS
-                      )
+            .fold(commit) {
+              case (resourceId, size) =>
+                ApplicativeError[F, Throwable].handleErrorWith {
+                  videoService
+                    .fetchByVideoFileResourceId(resourceId)
+                    .flatMap { video =>
+                      val watchDuration =
+                        FiniteDuration(
+                          math.round((size.toDouble / video.fileResource.size) * video.videoMetadata.duration.toMillis),
+                          TimeUnit.MILLISECONDS
+                        )
 
-                    videoService.incrementWatchTime(video.videoMetadata.id, watchDuration).productR(commit)
-                  }
-              } { throwable =>
-                logger.errorF(s"Unable to update watch time for ${httpMetric.uri}", throwable)
-                  .productR(commit)
-              }
+                      videoService.incrementWatchTime(video.videoMetadata.id, watchDuration).productR(commit)
+                    }
+                } { throwable =>
+                  logger
+                    .errorF(s"Unable to update watch time for ${httpMetric.uri}", throwable)
+                    .productR(commit)
+                }
             }
       }
 
-  def publishUpdatesToTopic(topic: Topic[F, Option[ScheduledVideoDownload]]): Stream[F, Unit] =
-    topic.publish(schedulingService.subscribeToUpdates(s"scheduler-$instanceId").map(Some.apply))
+  def publishScheduledVideoDownloadsUpdatesToTopic(topic: Topic[F, Option[ScheduledVideoDownload]]): Stream[F, Unit] =
+    topic.publish(schedulingService.subscribeToScheduledVideoDownloadUpdates(s"scheduler-$instanceId").map(Some.apply))
+
+  def publishWorkerStatusUpdatesToTopic(topic: Topic[F, Option[WorkerStatusUpdate]]): Stream[F, Unit] =
+    topic.publish(schedulingService.subscribeToWorkerStatusUpdates(s"scheduler-$instanceId").map(Some.apply))
 
   val cleanUpStaleScheduledVideoDownloads: Stream[F, ScheduledVideoDownload] =
-    Stream.eval(schedulingService.updateTimedOutTasks(10 minutes))
+    Stream
+      .eval(schedulingService.updateTimedOutTasks(10 minutes))
       .repeat
       .metered(30 seconds)
       .flatMap(Stream.emits)

@@ -100,6 +100,7 @@ object SchedulingRoutes {
         Ok {
           downloadProgressStream
             .map { downloadProgress =>
+              println(downloadProgress)
               ServerSentEvent(Some(Encoder[DownloadProgress].apply(downloadProgress).noSpaces), ActiveDownload)
             }
             .merge {
@@ -115,9 +116,12 @@ object SchedulingRoutes {
       case request @ PUT -> Root / "worker-status" =>
         for {
           workerStatusUpdateRequest <- request.to[WorkerStatusUpdateRequest]
+
           _ <- schedulingService.updateWorkerStatuses(workerStatusUpdateRequest.workerStatus)
+
+          response <- Ok(workerStatusUpdateRequest)
         }
-        yield ???
+        yield response
     }
   }
 }

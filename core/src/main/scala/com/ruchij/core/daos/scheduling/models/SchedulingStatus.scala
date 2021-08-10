@@ -9,7 +9,7 @@ sealed trait SchedulingStatus extends EnumEntry {
 object SchedulingStatus extends Enum[SchedulingStatus] {
   case object Active extends SchedulingStatus {
     override lazy val validTransitionStatuses: Set[SchedulingStatus] =
-      Set(Paused, SchedulerPaused, Downloaded, Error, Queued, Stale)
+      Set(Paused, Downloaded, Error, Queued, Stale)
   }
 
   case object Completed extends SchedulingStatus {
@@ -33,16 +33,12 @@ object SchedulingStatus extends Enum[SchedulingStatus] {
   }
 
   case object Paused extends SchedulingStatus {
-    override lazy val validTransitionStatuses: Set[SchedulingStatus] = Set(Queued, SchedulerPaused)
+    override lazy val validTransitionStatuses: Set[SchedulingStatus] = Set(Queued)
   }
 
   case object Queued extends SchedulingStatus {
     override lazy val validTransitionStatuses: Set[SchedulingStatus] =
-      Set(Acquired, Error, SchedulerPaused, Paused)
-  }
-
-  case object SchedulerPaused extends SchedulingStatus {
-    override lazy val validTransitionStatuses: Set[SchedulingStatus] = Set(Queued, Paused)
+      Set(Acquired, Error, Paused)
   }
 
   override def values: IndexedSeq[SchedulingStatus] = findValues
