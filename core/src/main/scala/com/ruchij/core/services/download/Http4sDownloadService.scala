@@ -12,7 +12,6 @@ import org.http4s.client.Client
 import org.http4s.headers.{Range, `Content-Length`, `Content-Type`}
 import org.http4s.{Headers, Request, Uri}
 
-import scala.language.postfixOps
 import scala.concurrent.duration.DurationInt
 
 class Http4sDownloadService[F[_]: Concurrent: ContextShift: Timer](
