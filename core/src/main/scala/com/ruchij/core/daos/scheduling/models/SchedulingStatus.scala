@@ -2,8 +2,12 @@ package com.ruchij.core.daos.scheduling.models
 
 import enumeratum.{Enum, EnumEntry}
 
-sealed trait SchedulingStatus extends EnumEntry {
+sealed trait SchedulingStatus extends EnumEntry { self =>
   val validTransitionStatuses: Set[SchedulingStatus]
+
+  def validateTransition(destination: SchedulingStatus): Either[Throwable, SchedulingStatus] =
+    if (validTransitionStatuses.contains(destination)) Right(destination)
+    else Left(new IllegalArgumentException(s"Transition not valid: $self -> $destination"))
 }
 
 object SchedulingStatus extends Enum[SchedulingStatus] {

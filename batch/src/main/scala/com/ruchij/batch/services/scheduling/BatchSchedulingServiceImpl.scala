@@ -3,7 +3,7 @@ package com.ruchij.batch.services.scheduling
 import cats.data.{NonEmptyList, OptionT}
 import cats.effect.{Sync, Timer}
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, Monad, ~>}
+import cats.{ApplicativeError, MonadError, ~>}
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.SchedulingDao.notFound
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
@@ -12,13 +12,13 @@ import com.ruchij.core.messaging.{PubSub, Publisher, Subscriber}
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.services.video.models.DurationRange
+import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherToF}
 import com.ruchij.core.types.JodaClock
 import fs2.Stream
-import org.http4s.Uri
 
 import scala.concurrent.duration.FiniteDuration
 
-class BatchSchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
+class BatchSchedulingServiceImpl[F[_]: Sync: Timer, T[_]: MonadError[*[_], Throwable]](
   downloadProgressPublisher: Publisher[F, DownloadProgress],
   workerStatusSubscriber: Subscriber[F, CommittableRecord[F, *], WorkerStatusUpdate],
   scheduledVideoDownloadPubSub: PubSub[F, CommittableRecord[F, *], ScheduledVideoDownload],
@@ -26,23 +26,17 @@ class BatchSchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
 )(implicit transaction: T ~> F)
     extends BatchSchedulingService[F] {
 
-  override def search(
-    term: Option[String],
-    videoUrls: Option[NonEmptyList[Uri]],
-    durationRange: DurationRange,
-    pageNumber: Int,
-    pageSize: Int,
-    sortBy: SortBy,
-    order: Order,
-    schedulingStatuses: Option[NonEmptyList[SchedulingStatus]]
-  ): F[Seq[ScheduledVideoDownload]] =
-    if (sortBy == SortBy.WatchTime)
-      ApplicativeError[F, Throwable].raiseError {
-        new IllegalArgumentException("Searching for scheduled videos by watch_time is not valid")
-      } else
-      transaction(
-        schedulingDao.search(term, videoUrls, durationRange, pageNumber, pageSize, sortBy, order, schedulingStatuses)
-      )
+  override def findBySchedulingStatus(schedulingStatus: SchedulingStatus, pageNumber: Int, pageSize: Int): F[Seq[ScheduledVideoDownload]] =
+    transaction {
+      schedulingDao.search(None,
+        None,
+        DurationRange.All,
+        pageNumber,
+        pageSize,
+        SortBy.Date,
+        Order.Descending,
+        Some(NonEmptyList.of(schedulingStatus)))
+    }
 
   override val acquireTask: OptionT[F, ScheduledVideoDownload] =
     OptionT.liftF(JodaClock[F].timestamp).flatMapF { timestamp =>
@@ -53,24 +47,21 @@ class BatchSchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
     OptionT {
       JodaClock[F].timestamp.flatMap(timestamp => transaction(schedulingDao.staleTask(timestamp)))
     }
+
   override def updateSchedulingStatus(id: String, status: SchedulingStatus): F[ScheduledVideoDownload] =
-    for {
-      timestamp <- JodaClock[F].timestamp
-      scheduledVideoDownload <- OptionT(transaction(schedulingDao.getById(id)))
-        .getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
-
-      _ <- if (scheduledVideoDownload.status.validTransitionStatuses.contains(status))
-        Applicative[F].unit
-      else
-        ApplicativeError[F, Throwable].raiseError {
-          new IllegalArgumentException(s"Transition not valid: ${scheduledVideoDownload.status} -> $status")
+    JodaClock[F].timestamp
+      .map { timestamp =>
+        for {
+          scheduledVideoDownload <- OptionT(schedulingDao.getById(id))
+          _ <- OptionT.liftF(scheduledVideoDownload.status.validateTransition(status).toType[T, Throwable])
+          updated <- OptionT(schedulingDao.updateStatus(id, status, timestamp))
         }
-
-      updatedScheduledVideoDownload <- OptionT(transaction(schedulingDao.updateStatus(id, status, timestamp)))
-        .getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
-
-      _ <- scheduledVideoDownloadPubSub.publishOne(updatedScheduledVideoDownload)
-    } yield updatedScheduledVideoDownload
+        yield updated
+      }
+      .flatMap { maybeUpdatedT =>
+          OptionT(transaction(maybeUpdatedT.value))
+            .getOrElseF { ApplicativeError[F, Throwable].raiseError(notFound(id)) }
+      }
 
   override def completeTask(id: String): F[ScheduledVideoDownload] =
     JodaClock[F].timestamp
@@ -84,16 +75,6 @@ class BatchSchedulingServiceImpl[F[_]: Sync: Timer, T[_]: Monad](
     JodaClock[F].timestamp.flatMap { timestamp =>
       transaction(schedulingDao.updateTimedOutTasks(timeout, timestamp))
     }
-
-  override def updateDownloadProgress(id: String, downloadedBytes: Long): F[ScheduledVideoDownload] =
-    for {
-      timestamp <- JodaClock[F].timestamp
-      result <- OptionT {
-        transaction {
-          schedulingDao.updateDownloadProgress(id, downloadedBytes, timestamp)
-        }
-      }.getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
-    } yield result
 
   override def publishDownloadProgress(id: String, downloadedBytes: Long): F[Unit] = {
     for {

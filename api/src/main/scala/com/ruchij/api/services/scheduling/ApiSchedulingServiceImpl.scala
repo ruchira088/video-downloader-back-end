@@ -3,7 +3,7 @@ package com.ruchij.api.services.scheduling
 import cats.data.{NonEmptyList, OptionT}
 import cats.effect.{Clock, Sync}
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, ~>}
+import cats.{Applicative, ApplicativeError, MonadError, ~>}
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.SchedulingDao.notFound
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
@@ -16,10 +16,11 @@ import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatu
 import com.ruchij.core.services.video.VideoAnalysisService
 import com.ruchij.core.services.video.models.DurationRange
 import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherToF}
 import fs2.Stream
 import org.http4s.Uri
 
-class ApiSchedulingServiceImpl[F[_]: Sync: Clock, T[_]](
+class ApiSchedulingServiceImpl[F[_]: Sync: Clock, T[_]: MonadError[*[_], Throwable]](
   videoAnalysisService: VideoAnalysisService[F],
   scheduledVideoDownloadPublisher: Publisher[F, ScheduledVideoDownload],
   downloadProgressSubscriber: Subscriber[F, CommittableRecord[F, *], DownloadProgress],
@@ -86,23 +87,19 @@ class ApiSchedulingServiceImpl[F[_]: Sync: Clock, T[_]](
     }
 
   override def updateSchedulingStatus(id: String, status: SchedulingStatus): F[ScheduledVideoDownload] =
-    for {
-      timestamp <- JodaClock[F].timestamp
-      scheduledVideoDownload <- OptionT(transaction(schedulingDao.getById(id)))
-        .getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
-
-      _ <- if (scheduledVideoDownload.status.validTransitionStatuses.contains(status))
-        Applicative[F].unit
-      else
-        ApplicativeError[F, Throwable].raiseError {
-          new IllegalArgumentException(s"Transition not valid: ${scheduledVideoDownload.status} -> $status")
+    JodaClock[F].timestamp
+      .map { timestamp =>
+        for {
+          scheduledVideoDownload <- OptionT(schedulingDao.getById(id))
+          _ <- OptionT.liftF(scheduledVideoDownload.status.validateTransition(status).toType[T, Throwable])
+          updated <- OptionT(schedulingDao.updateStatus(id, status, timestamp))
         }
-
-      updatedScheduledVideoDownload <- OptionT(transaction(schedulingDao.updateStatus(id, status, timestamp)))
-        .getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
-
-      _ <- scheduledVideoDownloadPublisher.publishOne(updatedScheduledVideoDownload)
-    } yield updatedScheduledVideoDownload
+        yield updated
+      }
+      .flatMap { maybeUpdatedT =>
+        OptionT(transaction(maybeUpdatedT.value))
+          .getOrElseF { ApplicativeError[F, Throwable].raiseError(notFound(id)) }
+      }
 
   override def getById(id: String): F[ScheduledVideoDownload] =
     OptionT(transaction(schedulingDao.getById(id)))

@@ -1,6 +1,6 @@
 package com.ruchij.batch.services.scheduler
 
-import cats.data.{NonEmptyList, OptionT}
+import cats.data.OptionT
 import cats.effect.{Bracket, Clock, Concurrent, ExitCase, Timer}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Monad, ~>}
@@ -20,10 +20,8 @@ import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Subscriber
 import com.ruchij.core.messaging.kafka.KafkaSubscriber.CommittableRecord
 import com.ruchij.core.messaging.models.HttpMetric
-import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
 import com.ruchij.core.services.video.VideoService
-import com.ruchij.core.services.video.models.DurationRange
 import com.ruchij.core.types.JodaClock
 import com.ruchij.core.utils.Http4sUtils.ChunkSize
 import fs2.Stream
@@ -187,16 +185,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
         .productL {
           if (workerStatusUpdate.workerStatus == WorkerStatus.Paused)
             batchSchedulingService
-              .search(
-                None,
-                None,
-                DurationRange.All,
-                0,
-                workerConfiguration.maxConcurrentDownloads * 2,
-                SortBy.Date,
-                Order.Descending,
-                Some(NonEmptyList.of(SchedulingStatus.Active))
-              )
+              .findBySchedulingStatus(SchedulingStatus.Active, 0, workerConfiguration.maxConcurrentDownloads * 2)
               .flatMap { activeDownloads =>
                 activeDownloads.traverse { scheduledVideoDownloads =>
                   batchSchedulingService.updateSchedulingStatus(scheduledVideoDownloads.videoMetadata.id, SchedulingStatus.Queued)
