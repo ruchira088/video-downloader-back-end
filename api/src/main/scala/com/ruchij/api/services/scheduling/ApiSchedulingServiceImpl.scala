@@ -4,11 +4,11 @@ import cats.data.{NonEmptyList, OptionT}
 import cats.effect.{Clock, Sync}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadError, ~>}
+import com.ruchij.api.exceptions.ResourceConflictException
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.SchedulingDao.notFound
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.workers.models.WorkerStatus
-import com.ruchij.core.exceptions.ResourceConflictException
 import com.ruchij.core.messaging.kafka.KafkaSubscriber.CommittableRecord
 import com.ruchij.core.messaging.{Publisher, Subscriber}
 import com.ruchij.core.services.models.{Order, SortBy}
