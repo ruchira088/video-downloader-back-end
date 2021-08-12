@@ -100,6 +100,7 @@ class ApiSchedulingServiceImpl[F[_]: Sync: Clock, T[_]: MonadError[*[_], Throwab
         OptionT(transaction(maybeUpdatedT.value))
           .getOrElseF { ApplicativeError[F, Throwable].raiseError(notFound(id)) }
       }
+      .flatTap(scheduledVideoDownloadPublisher.publishOne)
 
   override def getById(id: String): F[ScheduledVideoDownload] =
     OptionT(transaction(schedulingDao.getById(id)))
