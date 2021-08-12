@@ -7,6 +7,7 @@ import cats.{Applicative, ApplicativeError, Monad, ~>}
 import com.ruchij.batch.config.WorkerConfiguration
 import com.ruchij.batch.services.scheduler.Scheduler.PausedVideoDownload
 import com.ruchij.batch.services.scheduler.SchedulerImpl.WorkerPollPeriod
+import com.ruchij.batch.services.scheduling.BatchSchedulingService
 import com.ruchij.batch.services.sync.SynchronizationService
 import com.ruchij.batch.services.sync.models.SynchronizationResult
 import com.ruchij.batch.services.worker.WorkExecutor
@@ -20,7 +21,6 @@ import com.ruchij.core.messaging.Subscriber
 import com.ruchij.core.messaging.kafka.KafkaSubscriber.CommittableRecord
 import com.ruchij.core.messaging.models.HttpMetric
 import com.ruchij.core.services.models.{Order, SortBy}
-import com.ruchij.core.services.scheduling.SchedulingService
 import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
 import com.ruchij.core.services.video.VideoService
 import com.ruchij.core.services.video.models.DurationRange
@@ -35,7 +35,7 @@ import scala.concurrent.duration.{FiniteDuration, _}
 import scala.language.postfixOps
 
 class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
-  schedulingService: SchedulingService[F],
+  batchSchedulingService: BatchSchedulingService[F],
   synchronizationService: SynchronizationService[F],
   videoService: VideoService[F],
   workExecutor: WorkExecutor[F],
@@ -77,15 +77,15 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
     workerStatusUpdates: Stream[F, WorkerStatusUpdate]
   ): F[Option[Video]] =
     Bracket[F, Throwable].bracketCase {
-      schedulingService.staleTask.orElse(schedulingService.acquireTask).value
+      batchSchedulingService.staleTask.orElse(batchSchedulingService.acquireTask).value
     } { taskOpt =>
       OptionT
         .fromOption[F](taskOpt)
         .product(OptionT.liftF(JodaClock[F].timestamp))
         .flatMapF {
           case (task, timestamp) =>
-            schedulingService
-              .updateStatus(task.videoMetadata.id, SchedulingStatus.Active)
+            batchSchedulingService
+              .updateSchedulingStatus(task.videoMetadata.id, SchedulingStatus.Active)
               .product(transaction(workerDao.assignTask(worker.id, task.videoMetadata.id, timestamp)))
               .as(Option(timestamp -> task))
         }
@@ -133,13 +133,13 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
         .value
     } {
       case (Some(scheduledVideoDownload), ExitCase.Error(_)) =>
-        schedulingService
-          .updateStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Error)
+        batchSchedulingService
+          .updateSchedulingStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Error)
           .productR(Applicative[F].unit)
 
       case (Some(scheduledVideoDownload), ExitCase.Canceled) =>
-        schedulingService
-          .updateStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Queued)
+        batchSchedulingService
+          .updateSchedulingStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Queued)
           .productR(Applicative[F].unit)
 
       case (_, _) => Applicative[F].unit
@@ -179,27 +179,29 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
             }
       }
 
-  def updateWorkersAndScheduledVideoDownloads(workerStatusUpdates: Stream[F, WorkerStatusUpdate]): Stream[F, Seq[Worker]] =
+  def updateWorkersAndScheduledVideoDownloads(
+    workerStatusUpdates: Stream[F, WorkerStatusUpdate]
+  ): Stream[F, Seq[Worker]] =
     workerStatusUpdates.evalMap { workerStatusUpdate =>
       transaction(workerDao.updateWorkerStatus(workerStatusUpdate.workerStatus))
         .productL {
           if (workerStatusUpdate.workerStatus == WorkerStatus.Paused)
-            schedulingService.search(
-              None,
-              None,
-              DurationRange.All,
-              0,
-              workerConfiguration.maxConcurrentDownloads * 2,
-              SortBy.Date,
-              Order.Descending,
-              Some(NonEmptyList.of(SchedulingStatus.Active))
-            )
-              .flatMap {
-                activeDownloads => activeDownloads.traverse { scheduledVideoDownloads =>
-                  schedulingService.updateStatus(scheduledVideoDownloads.videoMetadata.id, SchedulingStatus.Queued)
+            batchSchedulingService
+              .search(
+                None,
+                None,
+                DurationRange.All,
+                0,
+                workerConfiguration.maxConcurrentDownloads * 2,
+                SortBy.Date,
+                Order.Descending,
+                Some(NonEmptyList.of(SchedulingStatus.Active))
+              )
+              .flatMap { activeDownloads =>
+                activeDownloads.traverse { scheduledVideoDownloads =>
+                  batchSchedulingService.updateSchedulingStatus(scheduledVideoDownloads.videoMetadata.id, SchedulingStatus.Queued)
                 }
-              }
-          else Applicative[F].unit
+              } else Applicative[F].unit
         }
     }
 
@@ -257,14 +259,16 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       }
 
   def publishScheduledVideoDownloadsUpdatesToTopic(topic: Topic[F, Option[ScheduledVideoDownload]]): Stream[F, Unit] =
-    topic.publish(schedulingService.subscribeToScheduledVideoDownloadUpdates(s"scheduler-$instanceId").map(Some.apply))
+    topic.publish(
+      batchSchedulingService.subscribeToScheduledVideoDownloadUpdates(s"scheduler-$instanceId").map(Some.apply)
+    )
 
   def publishWorkerStatusUpdatesToTopic(topic: Topic[F, Option[WorkerStatusUpdate]]): Stream[F, Unit] =
-    topic.publish(schedulingService.subscribeToWorkerStatusUpdates(s"scheduler-$instanceId").map(Some.apply))
+    topic.publish(batchSchedulingService.subscribeToWorkerStatusUpdates(s"scheduler-$instanceId").map(Some.apply))
 
   val cleanUpStaleScheduledVideoDownloads: Stream[F, ScheduledVideoDownload] =
     Stream
-      .eval(schedulingService.updateTimedOutTasks(10 minutes))
+      .eval(batchSchedulingService.updateTimedOutTasks(10 minutes))
       .repeat
       .metered(30 seconds)
       .flatMap(Stream.emits)

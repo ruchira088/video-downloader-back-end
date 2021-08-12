@@ -2,22 +2,23 @@ package com.ruchij.batch.services.enrichment
 
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
-
 import cats.data.OptionT
 import cats.effect.{Blocker, Clock, ContextShift, Sync}
 import cats.implicits._
 import cats.{ApplicativeError, Monad, ~>}
+import com.ruchij.batch.exceptions.CorruptedFrameGrabException
 import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.snapshot.SnapshotDao
 import com.ruchij.core.daos.snapshot.models.Snapshot
 import com.ruchij.core.daos.video.models.Video
-import com.ruchij.core.exceptions.{CorruptedFrameGrabException, ResourceNotFoundException}
+import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.services.hashing.HashingService
 import com.ruchij.core.services.repository.FileRepositoryService.FileRepository
 import com.ruchij.core.types.JodaClock
 import fs2.Stream
+
 import javax.imageio.ImageIO
 import net.coobird.thumbnailator.Thumbnails
 import org.http4s.MediaType

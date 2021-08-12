@@ -6,6 +6,7 @@ import cats.effect.{Blocker, Clock, Concurrent, ContextShift, Sync}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Functor, Monad, ~>}
 import com.ruchij.batch.config.BatchStorageConfiguration
+import com.ruchij.batch.exceptions.CorruptedFrameGrabException
 import com.ruchij.batch.services.enrichment.{SeekableByteChannelConverter, VideoEnrichmentService}
 import com.ruchij.batch.services.sync.SynchronizationServiceImpl.{MaxConcurrentSyncCount, SupportedFileTypes, errorHandler, fileName}
 import com.ruchij.batch.services.sync.models.FileSyncResult.{ExistingVideo, IgnoredFile, SyncError, VideoSynced}
@@ -15,7 +16,7 @@ import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
-import com.ruchij.core.exceptions.{CorruptedFrameGrabException, ResourceNotFoundException}
+import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.hashing.HashingService
 import com.ruchij.core.services.repository.FileRepositoryService.FileRepository

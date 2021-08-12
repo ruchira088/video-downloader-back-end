@@ -4,11 +4,11 @@ import cats.effect.{Blocker, Clock, Concurrent, ContextShift, Timer}
 import cats.implicits._
 import com.ruchij.api.services.authentication.AuthenticationService
 import com.ruchij.api.services.health.HealthService
+import com.ruchij.api.services.scheduling.ApiSchedulingService
 import com.ruchij.api.web.Routes
 import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.messaging.models.HttpMetric
 import com.ruchij.core.services.asset.AssetService
-import com.ruchij.core.services.scheduling.SchedulingService
 import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.services.video.{VideoAnalysisService, VideoService}
 import fs2.Stream
@@ -23,7 +23,7 @@ trait MockedRoutes[F[+ _]] extends MockFactory with OneInstancePerTest {
 
   val videoService: VideoService[F] = mock[VideoService[F]]
   val videoAnalysisService: VideoAnalysisService[F] = mock[VideoAnalysisService[F]]
-  val schedulingService: SchedulingService[F] = mock[SchedulingService[F]]
+  val apiSchedulingService: ApiSchedulingService[F] = mock[ApiSchedulingService[F]]
   val assetService: AssetService[F] = mock[AssetService[F]]
   val healthService: HealthService[F] = mock[HealthService[F]]
   val authenticationService: AuthenticationService[F] = mock[AuthenticationService[F]]
@@ -41,7 +41,7 @@ trait MockedRoutes[F[+ _]] extends MockFactory with OneInstancePerTest {
       Routes(
         videoService,
         videoAnalysisService,
-        schedulingService,
+        apiSchedulingService,
         assetService,
         healthService,
         authenticationService,

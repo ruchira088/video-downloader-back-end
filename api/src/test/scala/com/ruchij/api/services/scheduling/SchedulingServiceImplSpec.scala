@@ -1,4 +1,4 @@
-package com.ruchij.core.services.scheduling
+package com.ruchij.api.services.scheduling
 
 import cats.effect.{IO, Resource, Timer}
 import com.ruchij.core.config.StorageConfiguration
@@ -151,16 +151,16 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
           scheduledVideoDownloadUpdatesPubSub <- Fs2PubSub[IO, ScheduledVideoDownload]
           workerStatusUpdatesPubSub <- Fs2PubSub[IO, WorkerStatusUpdate]
 
-          schedulingService =
-            new SchedulingServiceImpl[IO, ConnectionIO](
+          apiSchedulingService =
+            new ApiSchedulingServiceImpl[IO, ConnectionIO](
               videoAnalysisService,
-              DoobieSchedulingDao,
-              downloadProgressPubSub,
               scheduledVideoDownloadUpdatesPubSub,
-              workerStatusUpdatesPubSub
+              downloadProgressPubSub,
+              workerStatusUpdatesPubSub,
+              DoobieSchedulingDao
             )
 
-          scheduledVideoDownload <- schedulingService.schedule(videoUrl)
+          scheduledVideoDownload <- apiSchedulingService.schedule(videoUrl)
           _ = scheduledVideoDownload mustBe expectedScheduledDownloadVideo
 
           receivedMessages <-

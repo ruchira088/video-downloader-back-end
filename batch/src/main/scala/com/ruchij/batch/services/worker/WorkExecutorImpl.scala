@@ -6,6 +6,7 @@ import cats.implicits._
 import cats.{Applicative, ~>}
 import com.ruchij.batch.config.BatchStorageConfiguration
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService
+import com.ruchij.batch.services.scheduling.BatchSchedulingService
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
@@ -17,7 +18,6 @@ import com.ruchij.core.services.download.DownloadService
 import com.ruchij.core.services.download.models.DownloadResult
 import com.ruchij.core.services.hashing.HashingService
 import com.ruchij.core.services.repository.RepositoryService
-import com.ruchij.core.services.scheduling.SchedulingService
 import com.ruchij.core.services.video.{VideoAnalysisService, VideoService}
 import com.ruchij.core.types.JodaClock
 import fs2.Stream
@@ -30,7 +30,7 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
   fileResourceDao: FileResourceDao[T],
   workerDao: WorkerDao[T],
   repositoryService: RepositoryService[F],
-  schedulingService: SchedulingService[F],
+  batchSchedulingService: BatchSchedulingService[F],
   videoAnalysisService: VideoAnalysisService[F],
   videoService: VideoService[F],
   hashingService: HashingService[F],
@@ -80,7 +80,7 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
                 }
               }
               .evalMap { byteCount =>
-                schedulingService.publishDownloadProgress(videoId, byteCount)
+                batchSchedulingService.publishDownloadProgress(videoId, byteCount)
               }
               .interruptWhen(interrupt)
               .compile
@@ -114,11 +114,11 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
                       )
                       .productR(execute(scheduledVideoDownload, worker, interrupt))
                   } { _ =>
-                    schedulingService
-                      .updateStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Downloaded)
+                    batchSchedulingService
+                      .updateSchedulingStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Downloaded)
                       .productR(videoService.insert(scheduledVideoDownload.videoMetadata.id, fileResource.id))
                       .flatTap(videoEnrichmentService.videoSnapshots)
-                      .productL(schedulingService.completeTask(scheduledVideoDownload.videoMetadata.id))
+                      .productL(batchSchedulingService.completeTask(scheduledVideoDownload.videoMetadata.id))
                       .productL {
                         logger.infoF(
                           s"Worker ${worker.id} completed download for ${scheduledVideoDownload.videoMetadata.url}"

@@ -5,6 +5,7 @@ import cats.implicits._
 import com.ruchij.batch.config.BatchServiceConfiguration
 import com.ruchij.batch.services.enrichment.VideoEnrichmentServiceImpl
 import com.ruchij.batch.services.scheduler.{Scheduler, SchedulerImpl}
+import com.ruchij.batch.services.scheduling.BatchSchedulingServiceImpl
 import com.ruchij.batch.services.sync.SynchronizationServiceImpl
 import com.ruchij.batch.services.worker.WorkExecutorImpl
 import com.ruchij.core.daos.doobie.DoobieTransactor
@@ -16,12 +17,11 @@ import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.workers.DoobieWorkerDao
 import com.ruchij.core.logging.Logger
-import com.ruchij.core.messaging.kafka.{KafkaPubSub, KafkaSubscriber}
+import com.ruchij.core.messaging.kafka.{KafkaPubSub, KafkaPublisher, KafkaSubscriber}
 import com.ruchij.core.messaging.models.HttpMetric
 import com.ruchij.core.services.download.Http4sDownloadService
 import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector}
-import com.ruchij.core.services.scheduling.SchedulingServiceImpl
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
 import com.ruchij.migration.MigrationApp
@@ -100,17 +100,16 @@ object BatchApp extends IOApp {
             batchServiceConfiguration.storageConfiguration
           )
 
-          downloadProgressPubSub <- KafkaPubSub[F, DownloadProgress](batchServiceConfiguration.kafkaConfiguration)
+          downloadProgressPublisher <- KafkaPublisher[F, DownloadProgress](batchServiceConfiguration.kafkaConfiguration)
           scheduledVideoDownloadPubSub <- KafkaPubSub[F, ScheduledVideoDownload](batchServiceConfiguration.kafkaConfiguration)
-          workerStatusUpdatesPubSub <- KafkaPubSub[F, WorkerStatusUpdate](batchServiceConfiguration.kafkaConfiguration)
+          workerStatusUpdatesSubscriber = new KafkaSubscriber[F, WorkerStatusUpdate](batchServiceConfiguration.kafkaConfiguration)
           httpMetricsSubscriber = new KafkaSubscriber[F, HttpMetric](batchServiceConfiguration.kafkaConfiguration)
 
-          schedulingService = new SchedulingServiceImpl[F, ConnectionIO](
-            videoAnalysisService,
-            DoobieSchedulingDao,
-            downloadProgressPubSub,
+          batchSchedulingService = new BatchSchedulingServiceImpl[F, ConnectionIO](
+            downloadProgressPublisher,
+            workerStatusUpdatesSubscriber,
             scheduledVideoDownloadPubSub,
-            workerStatusUpdatesPubSub
+            DoobieSchedulingDao
           )
 
           fileTypeDetector = new PathFileTypeDetector[F](new Tika(), ioBlocker)
@@ -149,7 +148,7 @@ object BatchApp extends IOApp {
             DoobieFileResourceDao,
             workerDao,
             repositoryService,
-            schedulingService,
+            batchSchedulingService,
             videoAnalysisService,
             videoService,
             hashingService,
@@ -159,7 +158,7 @@ object BatchApp extends IOApp {
           )
 
           scheduler = new SchedulerImpl(
-            schedulingService,
+            batchSchedulingService,
             synchronizationService,
             videoService,
             workExecutor,

@@ -66,6 +66,7 @@ lazy val api =
   (project in file("./api"))
     .enablePlugins(BuildInfoPlugin, JavaAppPackaging)
     .settings(
+      Test / fork := true,
       name := "video-downloader-api",
       buildInfoKeys := Seq[BuildInfoKey](name, organization, version, scalaVersion, sbtVersion),
       buildInfoPackage := "com.eed3si9n.ruchij.api",
