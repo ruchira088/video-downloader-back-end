@@ -5,6 +5,8 @@ import cats.effect.{Bracket, Clock, Concurrent, ExitCase, Timer}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Monad, ~>}
 import com.ruchij.batch.config.WorkerConfiguration
+import com.ruchij.batch.daos.workers.{WorkerDao, models}
+import com.ruchij.batch.daos.workers.models.Worker
 import com.ruchij.batch.services.scheduler.Scheduler.PausedVideoDownload
 import com.ruchij.batch.services.scheduler.SchedulerImpl.WorkerPollPeriod
 import com.ruchij.batch.services.scheduling.BatchSchedulingService
@@ -13,8 +15,7 @@ import com.ruchij.batch.services.sync.models.SynchronizationResult
 import com.ruchij.batch.services.worker.WorkExecutor
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.video.models.Video
-import com.ruchij.core.daos.workers.WorkerDao
-import com.ruchij.core.daos.workers.models.{Worker, WorkerStatus}
+import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Subscriber
@@ -275,7 +276,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       .flatMap {
         _.traverse { index =>
           transaction {
-            workerDao.insert(Worker(Worker.workerIdFromIndex(index), WorkerStatus.Available, None, None, None))
+            workerDao.insert(models.Worker(Worker.workerIdFromIndex(index), WorkerStatus.Available, None, None, None))
           }
         }
       }

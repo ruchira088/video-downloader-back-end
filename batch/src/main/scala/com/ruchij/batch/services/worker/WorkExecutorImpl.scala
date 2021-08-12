@@ -5,14 +5,14 @@ import cats.effect.{Concurrent, Timer}
 import cats.implicits._
 import cats.{Applicative, ~>}
 import com.ruchij.batch.config.BatchStorageConfiguration
+import com.ruchij.batch.daos.workers.WorkerDao
+import com.ruchij.batch.daos.workers.models.Worker
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService
 import com.ruchij.batch.services.scheduling.BatchSchedulingService
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.video.models.Video
-import com.ruchij.core.daos.workers.WorkerDao
-import com.ruchij.core.daos.workers.models.Worker
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.download.DownloadService
 import com.ruchij.core.services.download.models.DownloadResult

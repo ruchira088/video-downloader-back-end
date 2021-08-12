@@ -1,12 +1,13 @@
-package com.ruchij.core.daos.workers
+package com.ruchij.batch.daos.workers
 
 import cats.data.OptionT
 import cats.implicits._
 import cats.{Applicative, ApplicativeError}
+import com.ruchij.batch.daos.workers.models.Worker
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
 import com.ruchij.core.daos.scheduling.SchedulingDao
-import com.ruchij.core.daos.workers.models.{Worker, WorkerStatus}
+import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
@@ -47,11 +48,11 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
             }
             .map {
               scheduledVideoDownload =>
-                Some(Worker(workerId, WorkerStatus.Active, Some(taskAssignedAt), heartBeatAt, Some(scheduledVideoDownload)))
+                Some(models.Worker(workerId, WorkerStatus.Active, Some(taskAssignedAt), heartBeatAt, Some(scheduledVideoDownload)))
             }
 
         case Some((status, reservedAt, heartBeat)) =>
-          Applicative[ConnectionIO].pure(Some(Worker(workerId, status, reservedAt, heartBeat, None)))
+          Applicative[ConnectionIO].pure(Some(models.Worker(workerId, status, reservedAt, heartBeat, None)))
 
         case None => Applicative[ConnectionIO].pure(None)
       }

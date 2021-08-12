@@ -3,6 +3,7 @@ package com.ruchij.batch
 import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
 import cats.implicits._
 import com.ruchij.batch.config.BatchServiceConfiguration
+import com.ruchij.batch.daos.workers.DoobieWorkerDao
 import com.ruchij.batch.services.enrichment.VideoEnrichmentServiceImpl
 import com.ruchij.batch.services.scheduler.{Scheduler, SchedulerImpl}
 import com.ruchij.batch.services.scheduling.BatchSchedulingServiceImpl
@@ -15,7 +16,6 @@ import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.daos.snapshot.DoobieSnapshotDao
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
-import com.ruchij.core.daos.workers.DoobieWorkerDao
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.kafka.{KafkaPubSub, KafkaPublisher, KafkaSubscriber}
 import com.ruchij.core.messaging.models.HttpMetric

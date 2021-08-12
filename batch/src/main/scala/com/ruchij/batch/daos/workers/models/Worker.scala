@@ -1,6 +1,7 @@
-package com.ruchij.core.daos.workers.models
+package com.ruchij.batch.daos.workers.models
 
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
+import com.ruchij.core.daos.workers.models.WorkerStatus
 import org.joda.time.DateTime
 
 case class Worker(
