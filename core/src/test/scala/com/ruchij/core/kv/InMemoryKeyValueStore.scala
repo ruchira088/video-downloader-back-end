@@ -23,7 +23,7 @@ class InMemoryKeyValueStore[F[_]: Sync] extends KeyValueStore[F] {
     }
     yield maybeValue
 
-  def put[K: KVEncoder[F, *], V: KVEncoder[F, *]](key: K, value: V, ttl: FiniteDuration): F[Boolean] =
+  def put[K: KVEncoder[F, *], V: KVEncoder[F, *]](key: K, value: V, maybeTtl: Option[FiniteDuration]): F[Boolean] =
     for {
       keyString <- KVEncoder[F, K].encode(key)
       valueString <- KVEncoder[F, V].encode(value)

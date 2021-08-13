@@ -13,7 +13,7 @@ import com.ruchij.core.types.JodaClock
 import com.ruchij.api.web.responses.EventStreamEventType.{ActiveDownload, HeartBeat}
 import com.ruchij.core.circe.Decoders._
 import com.ruchij.core.circe.Encoders._
-import com.ruchij.api.web.responses.{EventStreamHeartBeat, SearchResult}
+import com.ruchij.api.web.responses.{EventStreamHeartBeat, SearchResult, WorkerStatusResponse}
 import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 import com.ruchij.core.services.video.models.DurationRange
 import fs2.Stream
@@ -112,11 +112,17 @@ object SchedulingRoutes {
             }
         }
 
+      case GET -> Root / "worker-status" =>
+        apiSchedulingService.getWorkerStatus.flatMap {
+          workerStatus => Ok(WorkerStatusResponse(workerStatus))
+        }
+
+
       case request @ PUT -> Root / "worker-status" =>
         for {
           workerStatusUpdateRequest <- request.to[WorkerStatusUpdateRequest]
 
-          _ <- apiSchedulingService.updateWorkerStatuses(workerStatusUpdateRequest.workerStatus)
+          _ <- apiSchedulingService.updateWorkerStatus(workerStatusUpdateRequest.workerStatus)
 
           response <- Ok(workerStatusUpdateRequest)
         } yield response

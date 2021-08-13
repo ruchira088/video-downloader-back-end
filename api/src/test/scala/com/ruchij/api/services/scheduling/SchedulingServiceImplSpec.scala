@@ -1,6 +1,8 @@
 package com.ruchij.api.services.scheduling
 
 import cats.effect.{IO, Resource, Timer}
+import com.ruchij.api.services.config.models.ApiConfigKey
+import com.ruchij.api.services.config.models.ApiConfigKey.ApiConfigKeySpace
 import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
@@ -8,8 +10,10 @@ import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
+import com.ruchij.core.kv.{InMemoryKeyValueStore, KeySpacedKeyValueStore}
 import com.ruchij.core.messaging.inmemory.Fs2PubSub
 import com.ruchij.core.messaging.kafka.KafkaSubscriber.CommittableRecord
+import com.ruchij.core.services.config.ConfigurationServiceImpl
 import com.ruchij.core.services.download.Http4sDownloadService
 import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.repository.InMemoryRepositoryService
@@ -70,27 +74,19 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
                       </div>
 
                     </div>
-                  }
-                    .toString()
+                  }.toString()
                 }
 
               case HEAD -> Root / "vid2" / "276979928_1920x1080_4000k.mp4" =>
                 IO.pure {
-                  Response[IO](
-                    status = Status.Ok,
-                    headers = Headers(`Content-Length`.unsafeFromLong(1988))
-                  )
+                  Response[IO](status = Status.Ok, headers = Headers(`Content-Length`.unsafeFromLong(1988)))
                 }
 
               case GET -> Root / "t" / "b81.jpg" =>
                 IO.pure {
                   Response[IO](
                     status = Status.Ok,
-                    headers =
-                      Headers(
-                        `Content-Length`.unsafeFromLong(100),
-                        `Content-Type`(MediaType.image.jpeg)
-                      ),
+                    headers = Headers(`Content-Length`.unsafeFromLong(100), `Content-Type`(MediaType.image.jpeg)),
                     body = Stream[IO, Byte](1).repeat.take(100)
                   )
                 }
@@ -104,8 +100,13 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
     val hashingService = new MurmurHash3Service[IO](blocker)
     val repositoryService = new InMemoryRepositoryService[IO](new ConcurrentHashMap())
     val downloadService = new Http4sDownloadService[IO](client, repositoryService)
+    val configurationService =
+      new ConfigurationServiceImpl[IO, ApiConfigKey](
+        new KeySpacedKeyValueStore[IO, ApiConfigKey[_], String](ApiConfigKeySpace, new InMemoryKeyValueStore[IO])
+      )
 
-    DoobieProvider.inMemoryTransactor[IO]
+    DoobieProvider
+      .inMemoryTransactor[IO]
       .use { implicit transaction =>
         for {
           videoAnalysisService <- IO.pure {
@@ -120,61 +121,60 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
           }
 
           videoId <- hashingService.hash(videoUrl.renderString).map(hash => s"pornone-$hash")
-          fileId <-
-            hashingService.hash(uri"https://th-eu3.pornone.com/t/b81.jpg".renderString).map(hash => s"$videoId-$hash")
+          fileId <- hashingService
+            .hash(uri"https://th-eu3.pornone.com/t/b81.jpg".renderString)
+            .map(hash => s"$videoId-$hash")
 
-          expectedScheduledDownloadVideo =
-            ScheduledVideoDownload(
-              dateTime,
-              dateTime,
-              SchedulingStatus.Queued,
-              0,
-              VideoMetadata(
-                videoUrl,
-                videoId,
-                VideoSite.PornOne,
-                "Caught My Bbc Roommate Spying",
-                204 seconds,
-                1988,
-                FileResource(
-                  fileId,
-                  dateTime,
-                  s"${storageConfiguration.imageFolder}/thumbnail-$videoId-b81.jpg",
-                  MediaType.image.jpeg,
-                  100
-                )
-              ),
-              None
-            )
+          expectedScheduledDownloadVideo = ScheduledVideoDownload(
+            dateTime,
+            dateTime,
+            SchedulingStatus.Queued,
+            0,
+            VideoMetadata(
+              videoUrl,
+              videoId,
+              VideoSite.PornOne,
+              "Caught My Bbc Roommate Spying",
+              204 seconds,
+              1988,
+              FileResource(
+                fileId,
+                dateTime,
+                s"${storageConfiguration.imageFolder}/thumbnail-$videoId-b81.jpg",
+                MediaType.image.jpeg,
+                100
+              )
+            ),
+            None
+          )
 
           downloadProgressPubSub <- Fs2PubSub[IO, DownloadProgress]
           scheduledVideoDownloadUpdatesPubSub <- Fs2PubSub[IO, ScheduledVideoDownload]
           workerStatusUpdatesPubSub <- Fs2PubSub[IO, WorkerStatusUpdate]
 
-          apiSchedulingService =
-            new ApiSchedulingServiceImpl[IO, ConnectionIO](
-              videoAnalysisService,
-              scheduledVideoDownloadUpdatesPubSub,
-              downloadProgressPubSub,
-              workerStatusUpdatesPubSub,
-              DoobieSchedulingDao
-            )
+          apiSchedulingService = new ApiSchedulingServiceImpl[IO, ConnectionIO](
+            videoAnalysisService,
+            scheduledVideoDownloadUpdatesPubSub,
+            downloadProgressPubSub,
+            workerStatusUpdatesPubSub,
+            configurationService,
+            DoobieSchedulingDao
+          )
 
           scheduledVideoDownload <- apiSchedulingService.schedule(videoUrl)
           _ = scheduledVideoDownload mustBe expectedScheduledDownloadVideo
 
-          receivedMessages <-
-            scheduledVideoDownloadUpdatesPubSub.subscribe("SchedulingServiceImplSpec")
-              .take(1)
-              .compile
-              .toList
-              .map {
-                _.map { case CommittableRecord(message, _) => message }
-              }
+          receivedMessages <- scheduledVideoDownloadUpdatesPubSub
+            .subscribe("SchedulingServiceImplSpec")
+            .take(1)
+            .compile
+            .toList
+            .map {
+              _.map { case CommittableRecord(message, _) => message }
+            }
 
           _ = receivedMessages.headOption mustBe Some(expectedScheduledDownloadVideo)
-        }
-        yield (): Unit
+        } yield (): Unit
       }
   }
 }

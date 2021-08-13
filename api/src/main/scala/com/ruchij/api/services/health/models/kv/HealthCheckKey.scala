@@ -11,6 +11,6 @@ case class HealthCheckKey(dateTime: DateTime) extends KVStoreKey
 object HealthCheckKey {
   implicit case object HealthCheckKeySpace extends KeySpace[HealthCheckKey, DateTime] {
     override val name: String = "health-check"
-    override val ttl: FiniteDuration = 10 seconds
+    override val maybeTtl: Option[FiniteDuration] = Some(10 seconds)
   }
 }

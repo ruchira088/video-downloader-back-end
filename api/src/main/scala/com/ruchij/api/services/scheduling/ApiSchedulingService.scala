@@ -29,7 +29,9 @@ trait ApiSchedulingService[F[_]] {
 
   def getById(id: String): F[ScheduledVideoDownload]
 
-  def updateWorkerStatuses(workerStatus: WorkerStatus): F[Unit]
+  def updateWorkerStatus(workerStatus: WorkerStatus): F[Unit]
+
+  val getWorkerStatus: F[WorkerStatus]
 
   def updateDownloadProgress(id: String, downloadedBytes: Long): F[ScheduledVideoDownload]
 }

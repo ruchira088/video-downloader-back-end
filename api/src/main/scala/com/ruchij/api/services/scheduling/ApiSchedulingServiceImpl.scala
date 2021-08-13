@@ -5,12 +5,14 @@ import cats.effect.{Clock, Sync}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadError, ~>}
 import com.ruchij.api.exceptions.ResourceConflictException
+import com.ruchij.api.services.config.models.ApiConfigKey
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.SchedulingDao.notFound
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.messaging.kafka.KafkaSubscriber.CommittableRecord
 import com.ruchij.core.messaging.{Publisher, Subscriber}
+import com.ruchij.core.services.config.ConfigurationService
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.services.video.VideoAnalysisService
@@ -25,6 +27,7 @@ class ApiSchedulingServiceImpl[F[_]: Sync: Clock, T[_]: MonadError[*[_], Throwab
   scheduledVideoDownloadPublisher: Publisher[F, ScheduledVideoDownload],
   downloadProgressSubscriber: Subscriber[F, CommittableRecord[F, *], DownloadProgress],
   workerStatusPublisher: Publisher[F, WorkerStatusUpdate],
+  configurationService: ConfigurationService[F, ApiConfigKey],
   schedulingDao: SchedulingDao[T]
 )(implicit transaction: T ~> F)
     extends ApiSchedulingService[F] {
@@ -108,8 +111,14 @@ class ApiSchedulingServiceImpl[F[_]: Sync: Clock, T[_]: MonadError[*[_], Throwab
         ApplicativeError[F, Throwable].raiseError(notFound(id))
       }
 
-  override def updateWorkerStatuses(workerStatus: WorkerStatus): F[Unit] =
-    workerStatusPublisher.publishOne(WorkerStatusUpdate(workerStatus))
+  override def updateWorkerStatus(workerStatus: WorkerStatus): F[Unit] =
+    configurationService.put(ApiConfigKey.WorkerStatus, workerStatus)
+      .productR {
+        workerStatusPublisher.publishOne(WorkerStatusUpdate(workerStatus))
+      }
+
+  override val getWorkerStatus: F[WorkerStatus] =
+    configurationService.get[WorkerStatus, ApiConfigKey](ApiConfigKey.WorkerStatus).map(_.getOrElse(WorkerStatus.Active))
 
   override def updateDownloadProgress(id: String, downloadedBytes: Long): F[ScheduledVideoDownload] =
     for {

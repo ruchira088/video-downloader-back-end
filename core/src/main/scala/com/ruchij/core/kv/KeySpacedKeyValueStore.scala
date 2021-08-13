@@ -11,7 +11,7 @@ class KeySpacedKeyValueStore[F[_]: Functor, K <: KVStoreKey : KeySpacedKeyEncode
 ) {
   def get(key: K): F[Option[V]] = keyValueStore.get[K, V](key)
 
-  def put(key: K, value: V): F[Unit] = keyValueStore.put[K, V](key, value, keySpace.ttl).as((): Unit)
+  def put(key: K, value: V): F[Unit] = keyValueStore.put[K, V](key, value, keySpace.maybeTtl).as((): Unit)
 
   def remove(key: K): F[Unit] = keyValueStore.remove(key).as((): Unit)
 }

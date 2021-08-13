@@ -9,6 +9,8 @@ import com.ruchij.api.services.authentication._
 import com.ruchij.api.services.authentication.models.AuthenticationToken
 import com.ruchij.api.services.authentication.models.AuthenticationToken.AuthenticationKeySpace
 import com.ruchij.api.services.background.BackgroundServiceImpl
+import com.ruchij.api.services.config.models.ApiConfigKey
+import com.ruchij.api.services.config.models.ApiConfigKey.{ApiConfigKeySpace, apiConfigKeySpacedKVEncoder}
 import com.ruchij.api.services.health.HealthServiceImpl
 import com.ruchij.api.services.health.models.kv.HealthCheckKey
 import com.ruchij.api.services.health.models.kv.HealthCheckKey.HealthCheckKeySpace
@@ -27,6 +29,7 @@ import com.ruchij.core.kv.{KeySpacedKeyValueStore, KeyValueStore, RedisKeyValueS
 import com.ruchij.core.messaging.kafka.{KafkaPubSub, KafkaPublisher}
 import com.ruchij.core.messaging.models.HttpMetric
 import com.ruchij.core.services.asset.AssetServiceImpl
+import com.ruchij.core.services.config.{ConfigurationService, ConfigurationServiceImpl}
 import com.ruchij.core.services.download.Http4sDownloadService
 import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.repository.FileRepositoryService
@@ -122,6 +125,9 @@ object ApiApp extends IOApp {
     val authenticationKeyStore: KeySpacedKeyValueStore[F, AuthenticationToken.AuthenticationTokenKey, AuthenticationToken] =
       new KeySpacedKeyValueStore(AuthenticationKeySpace, keyValueStore)
 
+    val configurationService: ConfigurationService[F, ApiConfigKey] =
+      new ConfigurationServiceImpl[F, ApiConfigKey](new KeySpacedKeyValueStore[F, ApiConfigKey[_], String](ApiConfigKeySpace, keyValueStore))
+
     val repositoryService: FileRepositoryService[F] = new FileRepositoryService[F](blockerIO)
     val downloadService: Http4sDownloadService[F] = new Http4sDownloadService[F](client, repositoryService)
     val hashingService: MurmurHash3Service[F] = new MurmurHash3Service[F](blockerCPU)
@@ -162,6 +168,7 @@ object ApiApp extends IOApp {
       messageBrokers.scheduledVideoDownloadPublisher,
       messageBrokers.downloadProgressSubscriber,
       messageBrokers.workerStatusUpdatesPublisher,
+      configurationService,
       DoobieSchedulingDao
     )
 

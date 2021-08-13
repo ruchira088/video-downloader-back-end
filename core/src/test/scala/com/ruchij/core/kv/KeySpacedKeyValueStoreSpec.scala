@@ -55,6 +55,6 @@ object KeySpacedKeyValueStoreSpec {
   implicit case object PersonKeySpace extends KeySpace[PersonKey, Person] {
     override val name: String = "person"
 
-    override val ttl: FiniteDuration = 5 seconds
+    override val maybeTtl: Option[FiniteDuration] = Some(5 seconds)
   }
 }
