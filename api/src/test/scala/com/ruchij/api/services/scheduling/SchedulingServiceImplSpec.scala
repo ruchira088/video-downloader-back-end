@@ -162,7 +162,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
           )
 
           scheduledVideoDownload <- apiSchedulingService.schedule(videoUrl)
-          _ = scheduledVideoDownload mustBe expectedScheduledDownloadVideo
+          _ <- IO.delay { scheduledVideoDownload mustBe expectedScheduledDownloadVideo }
 
           receivedMessages <- scheduledVideoDownloadUpdatesPubSub
             .subscribe("SchedulingServiceImplSpec")
@@ -173,7 +173,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
               _.map { case CommittableRecord(message, _) => message }
             }
 
-          _ = receivedMessages.headOption mustBe Some(expectedScheduledDownloadVideo)
+          _ <- IO.delay { receivedMessages.headOption mustBe Some(expectedScheduledDownloadVideo) }
         } yield (): Unit
       }
   }
