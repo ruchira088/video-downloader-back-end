@@ -118,7 +118,7 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
                       .updateSchedulingStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Downloaded)
                       .productR(videoService.insert(scheduledVideoDownload.videoMetadata.id, fileResource.id))
                       .flatTap(videoEnrichmentService.videoSnapshots)
-                      .productL(batchSchedulingService.completeTask(scheduledVideoDownload.videoMetadata.id))
+                      .productL(batchSchedulingService.completeScheduledVideoDownload(scheduledVideoDownload.videoMetadata.id))
                       .productL {
                         logger.infoF(
                           s"Worker ${worker.id} completed download for ${scheduledVideoDownload.videoMetadata.url}"

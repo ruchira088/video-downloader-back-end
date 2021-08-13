@@ -21,7 +21,7 @@ trait BatchSchedulingService[F[_]] {
 
   def updateSchedulingStatus(id: String, status: SchedulingStatus): F[ScheduledVideoDownload]
 
-  def completeTask(id: String): F[ScheduledVideoDownload]
+  def completeScheduledVideoDownload(id: String): F[ScheduledVideoDownload]
 
   def updateTimedOutTasks(timeout: FiniteDuration): F[Seq[ScheduledVideoDownload]]
 

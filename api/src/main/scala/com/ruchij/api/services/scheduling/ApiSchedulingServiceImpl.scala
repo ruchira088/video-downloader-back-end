@@ -95,7 +95,7 @@ class ApiSchedulingServiceImpl[F[_]: Sync: Clock, T[_]: MonadError[*[_], Throwab
         for {
           scheduledVideoDownload <- OptionT(schedulingDao.getById(id))
           _ <- OptionT.liftF(scheduledVideoDownload.status.validateTransition(status).toType[T, Throwable])
-          updated <- OptionT(schedulingDao.updateStatus(id, status, timestamp))
+          updated <- OptionT(schedulingDao.updateSchedulingStatus(id, status, timestamp))
         }
         yield updated
       }

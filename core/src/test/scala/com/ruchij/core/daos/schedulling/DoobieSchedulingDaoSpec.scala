@@ -160,7 +160,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
         timestamp <- JodaClock.create[IO].timestamp
         maybeUpdated <-
           transaction {
-            DoobieSchedulingDao.completeTask(scheduledVideoDownload.videoMetadata.id, timestamp)
+            DoobieSchedulingDao.markScheduledVideoDownloadAsComplete(scheduledVideoDownload.videoMetadata.id, timestamp)
           }
 
         _ <- IO.delay {
@@ -180,7 +180,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
         timestamp <- JodaClock.create[IO].timestamp
         maybeUpdated <-
           transaction {
-            DoobieSchedulingDao.updateStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Active, timestamp)
+            DoobieSchedulingDao.updateSchedulingStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Active, timestamp)
           }
 
         _ <- IO.delay {
@@ -220,7 +220,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
 
         timedOutTasks <-
           transaction {
-            DoobieSchedulingDao.updateStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Active, timestampOne)
+            DoobieSchedulingDao.updateSchedulingStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Active, timestampOne)
               .productR {
                 DoobieSchedulingDao.updateTimedOutTasks(10 seconds, timestampTwo)
               }
@@ -261,7 +261,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
         timestamp <- JodaClock.create[IO].timestamp
 
         _ <- transaction {
-          DoobieSchedulingDao.updateStatus(scheduledVideDownload.videoMetadata.id, SchedulingStatus.Queued, timestamp)
+          DoobieSchedulingDao.updateSchedulingStatus(scheduledVideDownload.videoMetadata.id, SchedulingStatus.Queued, timestamp)
         }
 
         maybeAcquiredTask <- transaction(DoobieSchedulingDao.acquireTask(timestamp))

@@ -15,9 +15,9 @@ trait SchedulingDao[F[_]] {
 
   def getById(id: String): F[Option[ScheduledVideoDownload]]
 
-  def completeTask(id: String, timestamp: DateTime): F[Option[ScheduledVideoDownload]]
+  def markScheduledVideoDownloadAsComplete(id: String, timestamp: DateTime): F[Option[ScheduledVideoDownload]]
 
-  def updateStatus(id: String, status: SchedulingStatus, timestamp: DateTime): F[Option[ScheduledVideoDownload]]
+  def updateSchedulingStatus(id: String, status: SchedulingStatus, timestamp: DateTime): F[Option[ScheduledVideoDownload]]
 
   def updateDownloadProgress(id: String, downloadedBytes: Long, timestamp: DateTime): F[Option[ScheduledVideoDownload]]
 
