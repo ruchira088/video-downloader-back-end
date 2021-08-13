@@ -80,14 +80,14 @@ object SchedulingRoutes {
           }
         } yield response
 
-      case GET -> Root / "videoId" / videoId =>
+      case GET -> Root / "id" / videoId =>
         apiSchedulingService
           .getById(videoId)
           .flatMap { scheduledVideoDownload =>
             Ok(scheduledVideoDownload)
           }
 
-      case request @ PUT -> Root / "videoId" / videoId =>
+      case request @ PUT -> Root / "id" / videoId =>
         for {
           UpdateScheduledVideoRequest(schedulingStatus) <- request.to[UpdateScheduledVideoRequest]
 
