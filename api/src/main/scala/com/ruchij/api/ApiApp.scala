@@ -5,14 +5,17 @@ import cats.~>
 import com.ruchij.api.config.AuthenticationConfiguration.PasswordAuthenticationConfiguration
 import com.ruchij.api.config.{ApiServiceConfiguration, AuthenticationConfiguration}
 import com.ruchij.api.models.ApiMessageBrokers
+import com.ruchij.api.services.authentication._
 import com.ruchij.api.services.authentication.models.AuthenticationToken
 import com.ruchij.api.services.authentication.models.AuthenticationToken.AuthenticationKeySpace
-import com.ruchij.api.services.authentication._
 import com.ruchij.api.services.background.BackgroundServiceImpl
+import com.ruchij.api.services.config.models.ApiConfigKey
+import com.ruchij.api.services.config.models.ApiConfigKey.{ApiConfigKeySpace, apiConfigKeySpacedKVEncoder}
 import com.ruchij.api.services.health.HealthServiceImpl
 import com.ruchij.api.services.health.models.kv.HealthCheckKey
 import com.ruchij.api.services.health.models.kv.HealthCheckKey.HealthCheckKeySpace
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
+import com.ruchij.api.services.scheduling.ApiSchedulingServiceImpl
 import com.ruchij.api.web.Routes
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
@@ -26,11 +29,11 @@ import com.ruchij.core.kv.{KeySpacedKeyValueStore, KeyValueStore, RedisKeyValueS
 import com.ruchij.core.messaging.kafka.{KafkaPubSub, KafkaPublisher}
 import com.ruchij.core.messaging.models.HttpMetric
 import com.ruchij.core.services.asset.AssetServiceImpl
+import com.ruchij.core.services.config.{ConfigurationService, ConfigurationServiceImpl}
 import com.ruchij.core.services.download.Http4sDownloadService
 import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.repository.FileRepositoryService
-import com.ruchij.core.services.scheduling.SchedulingServiceImpl
-import com.ruchij.core.services.scheduling.models.DownloadProgress
+import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
 import com.ruchij.migration.MigrationApp
 import dev.profunktor.redis4cats.Redis
@@ -38,10 +41,10 @@ import dev.profunktor.redis4cats.effect.Log.Stdout.instance
 import doobie.free.connection.ConnectionIO
 import fs2.concurrent.Topic
 import org.http4s.HttpApp
-import org.http4s.client.Client
 import org.http4s.asynchttpclient.client.AsyncHttpClient
-import org.http4s.client.middleware.FollowRedirect
 import org.http4s.blaze.server.BlazeServerBuilder
+import org.http4s.client.Client
+import org.http4s.client.middleware.FollowRedirect
 import org.joda.time.DateTime
 import pureconfig.ConfigSource
 
@@ -97,9 +100,10 @@ object ApiApp extends IOApp {
           scheduledVideoDownloadPubSub <- KafkaPubSub[F, ScheduledVideoDownload](apiServiceConfiguration.kafkaConfiguration)
           healthCheckPubSub <- KafkaPubSub[F, HealthCheckMessage](apiServiceConfiguration.kafkaConfiguration)
           metricsPublisher <- KafkaPublisher[F, HttpMetric](apiServiceConfiguration.kafkaConfiguration)
+          workerStatusUpdatePubSub <- KafkaPubSub[F, WorkerStatusUpdate](apiServiceConfiguration.kafkaConfiguration)
 
           messageBrokers =
-            ApiMessageBrokers(downloadProgressPubSub, scheduledVideoDownloadPubSub, healthCheckPubSub, metricsPublisher)
+            ApiMessageBrokers(downloadProgressPubSub, scheduledVideoDownloadPubSub, healthCheckPubSub, workerStatusUpdatePubSub, metricsPublisher)
 
           httpApp <-
             program[F](httpClient, redisKeyValueStore, messageBrokers, blockerIO, blockerCPU, apiServiceConfiguration)
@@ -120,6 +124,9 @@ object ApiApp extends IOApp {
 
     val authenticationKeyStore: KeySpacedKeyValueStore[F, AuthenticationToken.AuthenticationTokenKey, AuthenticationToken] =
       new KeySpacedKeyValueStore(AuthenticationKeySpace, keyValueStore)
+
+    val configurationService: ConfigurationService[F, ApiConfigKey] =
+      new ConfigurationServiceImpl[F, ApiConfigKey](new KeySpacedKeyValueStore[F, ApiConfigKey[_], String](ApiConfigKeySpace, keyValueStore))
 
     val repositoryService: FileRepositoryService[F] = new FileRepositoryService[F](blockerIO)
     val downloadService: Http4sDownloadService[F] = new Http4sDownloadService[F](client, repositoryService)
@@ -156,11 +163,13 @@ object ApiApp extends IOApp {
 
     val assetService = new AssetServiceImpl[F, ConnectionIO](DoobieFileResourceDao, repositoryService)
 
-    val schedulingService = new SchedulingServiceImpl[F, ConnectionIO](
+    val schedulingService = new ApiSchedulingServiceImpl[F, ConnectionIO](
       videoAnalysisService,
-      DoobieSchedulingDao,
-      messageBrokers.downloadProgressPubSub,
-      messageBrokers.scheduledVideoDownloadPubSub
+      messageBrokers.scheduledVideoDownloadPublisher,
+      messageBrokers.downloadProgressSubscriber,
+      messageBrokers.workerStatusUpdatesPublisher,
+      configurationService,
+      DoobieSchedulingDao
     )
 
     val healthService = new HealthServiceImpl[F](
@@ -172,7 +181,7 @@ object ApiApp extends IOApp {
     )
 
     val backgroundService = new BackgroundServiceImpl[F](
-      messageBrokers.downloadProgressPubSub,
+      messageBrokers.downloadProgressSubscriber,
       schedulingService,
       s"background-${apiServiceConfiguration.applicationInformation.instanceId}"
     )

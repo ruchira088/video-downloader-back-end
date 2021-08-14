@@ -1,6 +1,7 @@
-package com.ruchij.core.daos.workers
+package com.ruchij.batch.daos.workers
 
-import com.ruchij.core.daos.workers.models.Worker
+import com.ruchij.batch.daos.workers.models.Worker
+import com.ruchij.core.daos.workers.models.WorkerStatus
 import org.joda.time.DateTime
 
 trait WorkerDao[F[_]] {
@@ -21,4 +22,6 @@ trait WorkerDao[F[_]] {
   def updateHeartBeat(workerId: String, timestamp: DateTime): F[Option[Worker]]
 
   def cleanUpStaleWorkers(heartBeatBefore: DateTime): F[Int]
+
+  def updateWorkerStatus(workerStatus: WorkerStatus): F[Seq[Worker]]
 }

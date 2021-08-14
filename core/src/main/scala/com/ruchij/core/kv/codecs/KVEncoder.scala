@@ -4,6 +4,7 @@ import cats.implicits._
 import cats.{Applicative, ApplicativeError, Monad, MonadError}
 import com.ruchij.core.exceptions.InvalidConditionException
 import com.ruchij.core.kv.keys.KVStoreKey.KeySeparator
+import enumeratum.EnumEntry
 import org.joda.time.DateTime
 import shapeless.{::, Generic, HList, HNil}
 
@@ -22,6 +23,9 @@ object KVEncoder {
 
   implicit def stringKVEncoder[F[_]: Applicative]: KVEncoder[F, String] =
     (value: String) => Applicative[F].pure(value)
+
+  implicit def enumKVEncoder[F[_]: Applicative, A <: EnumEntry]: KVEncoder[F, A] =
+    stringKVEncoder[F].coMap[A](_.entryName)
 
   implicit def longKVEncoder[F[_]: Monad]: KVEncoder[F, Long] = stringKVEncoder[F].coMap[Long](_.toString)
 

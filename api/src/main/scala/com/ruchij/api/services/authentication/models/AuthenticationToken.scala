@@ -15,6 +15,6 @@ object AuthenticationToken {
   implicit case object AuthenticationKeySpace extends KeySpace[AuthenticationTokenKey, AuthenticationToken] {
     override val name: String = "authentication"
 
-    override val ttl: FiniteDuration = 45 days
+    override val maybeTtl: Option[FiniteDuration] = Some(45 days)
   }
 }

@@ -20,13 +20,13 @@ class RedisKeyValueStore[F[_]: Monad](redisCommands: RedisCommands[F, String, St
       }
     } yield value
 
-  override def put[K: KVEncoder[F, *], V: KVEncoder[F, *]](key: K, value: V, ttl: FiniteDuration): F[InsertionResult] =
+  override def put[K: KVEncoder[F, *], V: KVEncoder[F, *]](key: K, value: V, maybeTtl: Option[FiniteDuration]): F[InsertionResult] =
     for {
       encodedKey <- KVEncoder[F, K].encode(key)
       encodedValue <- KVEncoder[F, V].encode(value)
 
       result <- redisCommands.set(encodedKey, encodedValue)
-      _ <- redisCommands.expire(encodedKey, ttl)
+      _ <- maybeTtl.fold(Applicative[F].pure(false)){ ttl => redisCommands.expire(encodedKey, ttl) }
     } yield result
 
   override def remove[K: KVEncoder[F, *]](key: K): F[Unit] =

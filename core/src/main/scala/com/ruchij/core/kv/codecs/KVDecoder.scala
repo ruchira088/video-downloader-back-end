@@ -3,6 +3,7 @@ package com.ruchij.core.kv.codecs
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Functor, Monad, MonadError}
 import com.ruchij.core.kv.keys.KVStoreKey.{KeyList, KeySeparator}
+import enumeratum.{Enum, EnumEntry}
 import org.joda.time.DateTime
 import shapeless.{::, <:!<, Generic, HList, HNil}
 
@@ -36,6 +37,11 @@ object KVDecoder {
 
   implicit def stringKVDecoder[F[_]: Applicative]: KVDecoder[F, String] =
     (value: String) => Applicative[F].pure(value)
+
+  implicit def enumKVDecoder[F[_]: MonadError[*[_], Throwable], A <: EnumEntry](implicit enumValues: Enum[A]): KVDecoder[F, A] =
+    stringKVDecoder[F].mapEither {
+      string => enumValues.withNameInsensitiveEither(string).left.map(_.getMessage)
+    }
 
   implicit def numericKVDecoder[F[_]: MonadError[*[_], Throwable], A: Numeric](
     implicit classTag: ClassTag[A]

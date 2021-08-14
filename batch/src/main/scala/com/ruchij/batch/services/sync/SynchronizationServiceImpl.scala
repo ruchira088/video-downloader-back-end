@@ -6,6 +6,7 @@ import cats.effect.{Blocker, Clock, Concurrent, ContextShift, Sync}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Functor, Monad, ~>}
 import com.ruchij.batch.config.BatchStorageConfiguration
+import com.ruchij.batch.exceptions.CorruptedFrameGrabException
 import com.ruchij.batch.services.enrichment.{SeekableByteChannelConverter, VideoEnrichmentService}
 import com.ruchij.batch.services.sync.SynchronizationServiceImpl.{MaxConcurrentSyncCount, SupportedFileTypes, errorHandler, fileName}
 import com.ruchij.batch.services.sync.models.FileSyncResult.{ExistingVideo, IgnoredFile, SyncError, VideoSynced}
@@ -15,13 +16,14 @@ import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
-import com.ruchij.core.exceptions.{CorruptedFrameGrabException, ResourceNotFoundException}
+import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.hashing.HashingService
 import com.ruchij.core.services.repository.FileRepositoryService.FileRepository
 import com.ruchij.core.services.repository.FileTypeDetector
 import com.ruchij.core.services.video.VideoService
-import com.ruchij.core.types.{FunctionKTypes, JodaClock}
+import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.FunctionKTypes._
 import fs2.Stream
 import org.http4s.{MediaType, Uri}
 import org.jcodec.api.{FrameGrab, UnsupportedFormatException}
@@ -127,7 +129,7 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
         )
       )
 
-      uri <- FunctionKTypes.eitherToF[Throwable, F].apply(Uri.fromString(Uri.encode(videoPath)))
+      uri <- Uri.fromString(Uri.encode(videoPath)).toType[F, Throwable]
 
       timestamp <- JodaClock[F].timestamp
 

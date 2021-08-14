@@ -5,5 +5,5 @@ import scala.concurrent.duration.FiniteDuration
 trait KeySpace[K <: KVStoreKey, V] {
   val name: String
 
-  val ttl: FiniteDuration
+  val maybeTtl: Option[FiniteDuration]
 }

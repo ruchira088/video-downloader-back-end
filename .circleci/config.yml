@@ -55,6 +55,18 @@ jobs:
           name: Build and publish Docker images to Docker Hub
           command: ansible-playbook playbooks/build-and-publish-docker-images.yml
 
+  build-terraform-resources:
+    docker:
+      - image: ruchira088/docker-ci:vdbe
+    steps:
+      - checkout
+      - run:
+          name: Initialize Terraform
+          command: terraform -chdir=./terraform init
+      - run:
+          name: Apply Terraform resources
+          command: terraform -chdir=./terraform apply -auto-approve
+
   deploy-to-k8s:
     docker:
       - image: ruchira088/docker-ci:vdbe
@@ -83,10 +95,15 @@ workflows:
           post-steps:
             - slack/status
 
-      - deploy-to-k8s:
+      - build-terraform-resources:
           context: aws-credentials
           requires:
             - build-and-publish-docker-images
+
+      - deploy-to-k8s:
+          context: aws-credentials
+          requires:
+            - build-terraform-resources
           post-steps:
             - slack/status
 

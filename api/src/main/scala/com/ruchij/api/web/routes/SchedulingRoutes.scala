@@ -3,17 +3,17 @@ package com.ruchij.api.web.routes
 import cats.data.NonEmptyList
 import cats.effect.{Concurrent, Timer}
 import cats.implicits._
-import com.ruchij.api.web.requests.{SchedulingRequest, UpdateScheduledVideoRequest}
+import com.ruchij.api.services.scheduling.ApiSchedulingService
+import com.ruchij.api.web.requests.{SchedulingRequest, UpdateScheduledVideoRequest, WorkerStatusUpdateRequest}
 import com.ruchij.api.web.requests.UpdateScheduledVideoRequest.updateScheduledVideoRequestValidator
 import com.ruchij.api.web.requests.RequestOps.RequestOpsSyntax
 import com.ruchij.api.web.requests.queryparams.SearchQuery
-import com.ruchij.core.services.scheduling.SchedulingService
 import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.types.JodaClock
 import com.ruchij.api.web.responses.EventStreamEventType.{ActiveDownload, HeartBeat}
 import com.ruchij.core.circe.Decoders._
 import com.ruchij.core.circe.Encoders._
-import com.ruchij.api.web.responses.{EventStreamHeartBeat, SearchResult}
+import com.ruchij.api.web.responses.{EventStreamHeartBeat, SearchResult, WorkerStatusResponse}
 import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 import com.ruchij.core.services.video.models.DurationRange
 import fs2.Stream
@@ -29,8 +29,8 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 
 object SchedulingRoutes {
-  def apply[F[+_]: Concurrent: Timer](
-    schedulingService: SchedulingService[F],
+  def apply[F[+ _]: Concurrent: Timer](
+    apiSchedulingService: ApiSchedulingService[F],
     downloadProgressStream: Stream[F, DownloadProgress]
   )(implicit dsl: Http4sDsl[F]): HttpRoutes[F] = {
     import dsl._
@@ -39,7 +39,7 @@ object SchedulingRoutes {
       case request @ POST -> Root =>
         for {
           scheduleRequest <- request.as[SchedulingRequest]
-          scheduledVideoDownload <- schedulingService.schedule(scheduleRequest.url)
+          scheduledVideoDownload <- apiSchedulingService.schedule(scheduleRequest.url)
 
           response <- Ok(scheduledVideoDownload)
         } yield response
@@ -50,7 +50,7 @@ object SchedulingRoutes {
             .fromQueryParameters[F]
             .run(queryParameters)
 
-          scheduledVideoDownloads <- schedulingService.search(
+          scheduledVideoDownloads <- apiSchedulingService.search(
             term,
             videoUrls,
             durationRange,
@@ -80,18 +80,18 @@ object SchedulingRoutes {
           }
         } yield response
 
-      case GET -> Root / "videoId" / videoId =>
-        schedulingService
+      case GET -> Root / "id" / videoId =>
+        apiSchedulingService
           .getById(videoId)
           .flatMap { scheduledVideoDownload =>
             Ok(scheduledVideoDownload)
           }
 
-      case request @ PUT -> Root / "videoId" / videoId =>
+      case request @ PUT -> Root / "id" / videoId =>
         for {
           UpdateScheduledVideoRequest(schedulingStatus) <- request.to[UpdateScheduledVideoRequest]
 
-          updatedScheduledVideoDownload <- schedulingService.updateStatus(videoId, schedulingStatus)
+          updatedScheduledVideoDownload <- apiSchedulingService.updateSchedulingStatus(videoId, schedulingStatus)
 
           response <- Ok(updatedScheduledVideoDownload)
         } yield response
@@ -111,6 +111,21 @@ object SchedulingRoutes {
                 }
             }
         }
+
+      case GET -> Root / "worker-status" =>
+        apiSchedulingService.getWorkerStatus.flatMap {
+          workerStatus => Ok(WorkerStatusResponse(workerStatus))
+        }
+
+
+      case request @ PUT -> Root / "worker-status" =>
+        for {
+          workerStatusUpdateRequest <- request.to[WorkerStatusUpdateRequest]
+
+          _ <- apiSchedulingService.updateWorkerStatus(workerStatusUpdateRequest.workerStatus)
+
+          response <- Ok(workerStatusUpdateRequest)
+        } yield response
     }
   }
 }

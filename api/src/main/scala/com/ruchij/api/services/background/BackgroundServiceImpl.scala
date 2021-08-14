@@ -2,9 +2,9 @@ package com.ruchij.api.services.background
 
 import cats.effect.{Concurrent, Timer}
 import cats.implicits._
+import com.ruchij.api.services.scheduling.ApiSchedulingService
 import com.ruchij.core.messaging.Subscriber
 import com.ruchij.core.messaging.kafka.KafkaSubscriber.CommittableRecord
-import com.ruchij.core.services.scheduling.SchedulingService
 import com.ruchij.core.services.scheduling.models.DownloadProgress
 
 import scala.concurrent.duration.DurationInt
@@ -12,7 +12,7 @@ import scala.language.postfixOps
 
 class BackgroundServiceImpl[F[_]: Timer: Concurrent](
   downloadProgressSubscriber: Subscriber[F, CommittableRecord[F, *], DownloadProgress],
-  schedulingService: SchedulingService[F],
+  apiSchedulingService: ApiSchedulingService[F],
   subscriberGroupId: String
 ) extends BackgroundService[F] {
 
@@ -33,7 +33,7 @@ class BackgroundServiceImpl[F[_]: Timer: Concurrent](
           .toList
           .traverse {
             case DownloadProgress(videoId, _, bytes) =>
-              schedulingService.updateDownloadProgress(videoId, bytes)
+              apiSchedulingService.updateDownloadProgress(videoId, bytes)
           }
       }
       .compile

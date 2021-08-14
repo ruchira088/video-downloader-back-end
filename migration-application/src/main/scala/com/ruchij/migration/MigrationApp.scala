@@ -11,7 +11,7 @@ object MigrationApp extends IOApp {
   override def run(args: List[String]): IO[ExitCode] =
     for {
       configObjectSource <- IO.delay(ConfigSource.defaultApplication)
-      databaseConfiguration <- IO.suspend(IO.fromEither(DatabaseConfiguration.load(configObjectSource)))
+      databaseConfiguration <- IO.defer(IO.fromEither(DatabaseConfiguration.load(configObjectSource)))
 
       _ <- Blocker[IO].use { blocker =>
         migration[IO](databaseConfiguration, blocker)

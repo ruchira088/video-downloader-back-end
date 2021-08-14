@@ -5,10 +5,10 @@ import cats.arrow.FunctionK
 import cats.data.{Kleisli, NonEmptyList}
 import cats.effect.Sync
 import cats.implicits._
-import com.ruchij.api.exceptions.AuthenticationException
+import com.ruchij.api.exceptions.{AuthenticationException, ResourceConflictException}
 import com.ruchij.api.web.responses.ErrorResponse
 import com.ruchij.core.circe.Encoders.throwableEncoder
-import com.ruchij.core.exceptions.{AggregatedException, ExternalServiceException, JSoupException, ResourceConflictException, ResourceNotFoundException, ValidationException}
+import com.ruchij.core.exceptions.{AggregatedException, ExternalServiceException, JSoupException, ResourceNotFoundException, ValidationException}
 import com.ruchij.core.logging.Logger
 import io.circe.DecodingFailure
 import io.circe.generic.auto.exportEncoder

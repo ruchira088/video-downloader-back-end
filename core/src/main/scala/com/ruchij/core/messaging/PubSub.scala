@@ -9,7 +9,7 @@ object PubSub {
     new PubSub[F, G, A] {
       override val publish: Pipe[F, A, Unit] = publisher.publish
 
-      override def publish(input: A): F[Unit] = publisher.publish(input)
+      override def publishOne(input: A): F[Unit] = publisher.publishOne(input)
 
       override def subscribe(groupId: String): Stream[F, G[A]] = subscriber.subscribe(groupId)
     }

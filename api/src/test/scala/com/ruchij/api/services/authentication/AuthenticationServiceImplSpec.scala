@@ -9,7 +9,7 @@ import com.ruchij.api.services.authentication.models.AuthenticationToken.{Authen
 import com.ruchij.core.kv.{InMemoryKeyValueStore, KeySpacedKeyValueStore}
 import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import com.ruchij.core.test.Providers.{blocker, contextShift}
-import com.ruchij.core.types.RandomGenerator
+import com.ruchij.core.types.{JodaClock, RandomGenerator}
 import org.joda.time.DateTime
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.flatspec.AnyFlatSpec
@@ -25,9 +25,7 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
 
   def runTest(testCase: (Long, UUID, Clock[IO], AuthenticationServiceImpl[IO]) => IO[Unit]): Unit =
     runIO {
-      Clock
-        .create[IO]
-        .realTime(TimeUnit.MILLISECONDS)
+      JodaClock.create[IO].timestamp
         .product(IO.delay(UUID.randomUUID()))
         .flatMap {
           case (milliseconds, uuid) =>
@@ -50,7 +48,7 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
             val authenticationService =
               new AuthenticationServiceImpl[IO](keySpacedKeyValueStore, passwordAuthenticationConfiguration, blocker)
 
-            testCase(milliseconds, uuid, clock, authenticationService)
+            testCase(milliseconds.getMillis, uuid, clock, authenticationService)
         }
     }
 
@@ -60,7 +58,7 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
         _ <- IO.delay { (clock.realTime _).expects(TimeUnit.MILLISECONDS).returning(IO.pure(timestamp)) }
         authenticationTokenOne <- authenticationService.login(Password("top-secret"))
 
-        _ = {
+        _ <- IO.delay {
           authenticationTokenOne.secret mustBe Secret(uuid.toString)
           authenticationTokenOne.issuedAt.getMillis mustBe timestamp
           authenticationTokenOne.renewals mustBe 0
@@ -72,7 +70,7 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
         }
         authenticationTokenTwo <- authenticationService.authenticate(Secret(uuid.toString))
 
-        _ = {
+        _ <- IO.delay {
           authenticationTokenTwo.secret mustBe Secret(uuid.toString)
           authenticationTokenTwo.issuedAt.getMillis mustBe timestamp
           authenticationTokenTwo.renewals mustBe 1
@@ -83,7 +81,7 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
 
         authenticationException <- authenticationService.authenticate(Secret(uuid.toString)).error
 
-        _ = {
+        _ <- IO.delay {
           authenticationException.getMessage mustBe "Authentication cookie/token not found"
         }
 
@@ -133,13 +131,13 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
         }
         tokenExpiredException <- authenticationService.authenticate(Secret(uuid.toString)).error
 
-        _ = {
+        _ <- IO.delay {
           tokenExpiredException.getMessage mustBe s"Authentication token expired at ${new DateTime(timestamp + (40 seconds).toMillis)}"
         }
 
         missingTokenException <- authenticationService.authenticate(Secret(uuid.toString)).error
 
-        _ = {
+        _ <- IO.delay {
           missingTokenException.getMessage mustBe "Authentication cookie/token not found"
         }
       }

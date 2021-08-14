@@ -23,7 +23,7 @@ class KeySpacedKeyValueStoreSpec extends AnyFlatSpec with Matchers {
     for {
       _ <- keySpacedKeyValueStore.put(key, person)
 
-      _ = {
+      _ <- IO.delay {
         keyValueStore.data.keys().asScala.toList mustBe List("person::1")
         keyValueStore.data.values().asScala.toList mustBe List("1::John::Smith")
       }
@@ -31,14 +31,14 @@ class KeySpacedKeyValueStoreSpec extends AnyFlatSpec with Matchers {
       maybePerson <- keySpacedKeyValueStore.get(key)
       emptyResult <- keySpacedKeyValueStore.get(PersonKey(2))
 
-      _ = {
+      _ <- IO.delay {
         maybePerson mustBe Some(person)
         emptyResult mustBe None
       }
 
       _ <- keySpacedKeyValueStore.remove(key)
 
-      _ = {
+      _ <- IO.delay {
         keyValueStore.data.keys().asScala.toList mustBe List.empty
         keyValueStore.data.values().asScala.toList mustBe List.empty
       }
@@ -55,6 +55,6 @@ object KeySpacedKeyValueStoreSpec {
   implicit case object PersonKeySpace extends KeySpace[PersonKey, Person] {
     override val name: String = "person"
 
-    override val ttl: FiniteDuration = 5 seconds
+    override val maybeTtl: Option[FiniteDuration] = Some(5 seconds)
   }
 }

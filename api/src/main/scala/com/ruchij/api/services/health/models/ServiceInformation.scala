@@ -28,7 +28,6 @@ object ServiceInformation {
     for {
       timestamp <- JodaClock[F].timestamp
       javaVersion <- Sync[F].delay(Properties.javaVersion)
-
     } yield
       ServiceInformation(
         BuildInfo.name,
