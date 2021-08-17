@@ -84,7 +84,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
         .flatMapF {
           case (task, timestamp) =>
             batchSchedulingService
-              .updateSchedulingStatus(task.videoMetadata.id, SchedulingStatus.Active)
+              .updateSchedulingStatusById(task.videoMetadata.id, SchedulingStatus.Active)
               .product(transaction(workerDao.assignTask(worker.id, task.videoMetadata.id, timestamp)))
               .as(Option(timestamp -> task))
         }
@@ -133,12 +133,12 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
     } {
       case (Some(scheduledVideoDownload), ExitCase.Error(_)) =>
         batchSchedulingService
-          .updateSchedulingStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Error)
+          .updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Error)
           .productR(Applicative[F].unit)
 
       case (Some(scheduledVideoDownload), ExitCase.Canceled) =>
         batchSchedulingService
-          .updateSchedulingStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Queued)
+          .updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Queued)
           .productR(Applicative[F].unit)
 
       case (_, _) => Applicative[F].unit
@@ -182,16 +182,15 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
     workerStatusUpdates: Stream[F, WorkerStatusUpdate]
   ): Stream[F, Seq[Worker]] =
     workerStatusUpdates.evalMap { workerStatusUpdate =>
-      transaction(workerDao.updateWorkerStatus(workerStatusUpdate.workerStatus))
+      transaction(workerDao.updateWorkerStatuses(workerStatusUpdate.workerStatus))
         .productL {
-          if (workerStatusUpdate.workerStatus == WorkerStatus.Paused)
-            batchSchedulingService
-              .findBySchedulingStatus(SchedulingStatus.Active, 0, workerConfiguration.maxConcurrentDownloads * 2)
-              .flatMap { activeDownloads =>
-                activeDownloads.traverse { scheduledVideoDownloads =>
-                  batchSchedulingService.updateSchedulingStatus(scheduledVideoDownloads.videoMetadata.id, SchedulingStatus.Queued)
-                }
-              } else Applicative[F].unit
+          workerStatusUpdate.workerStatus match {
+            case WorkerStatus.Paused => batchSchedulingService.updateSchedulingStatus(SchedulingStatus.Active, SchedulingStatus.WorkersPaused)
+
+            case WorkerStatus.Available => batchSchedulingService.updateSchedulingStatus(SchedulingStatus.WorkersPaused, SchedulingStatus.Queued)
+
+            case _ => Applicative[F].pure(Seq.empty)
+          }
         }
     }
 

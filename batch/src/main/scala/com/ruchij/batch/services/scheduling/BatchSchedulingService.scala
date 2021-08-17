@@ -19,7 +19,9 @@ trait BatchSchedulingService[F[_]] {
 
   val staleTask: OptionT[F, ScheduledVideoDownload]
 
-  def updateSchedulingStatus(id: String, status: SchedulingStatus): F[ScheduledVideoDownload]
+  def updateSchedulingStatusById(id: String, status: SchedulingStatus): F[ScheduledVideoDownload]
+
+  def updateSchedulingStatus(from: SchedulingStatus, to: SchedulingStatus): F[Seq[ScheduledVideoDownload]]
 
   def completeScheduledVideoDownload(id: String): F[ScheduledVideoDownload]
 

@@ -48,13 +48,13 @@ class BatchSchedulingServiceImpl[F[_]: Sync: Timer, T[_]: MonadError[*[_], Throw
       JodaClock[F].timestamp.flatMap(timestamp => transaction(schedulingDao.staleTask(timestamp)))
     }
 
-  override def updateSchedulingStatus(id: String, status: SchedulingStatus): F[ScheduledVideoDownload] =
+  override def updateSchedulingStatusById(id: String, status: SchedulingStatus): F[ScheduledVideoDownload] =
     JodaClock[F].timestamp
       .map { timestamp =>
         for {
           scheduledVideoDownload <- OptionT(schedulingDao.getById(id))
           _ <- OptionT.liftF(scheduledVideoDownload.status.validateTransition(status).toType[T, Throwable])
-          updated <- OptionT(schedulingDao.updateSchedulingStatus(id, status, timestamp))
+          updated <- OptionT(schedulingDao.updateSchedulingStatusById(id, status, timestamp))
         }
         yield updated
       }
@@ -63,6 +63,14 @@ class BatchSchedulingServiceImpl[F[_]: Sync: Timer, T[_]: MonadError[*[_], Throw
             .getOrElseF { ApplicativeError[F, Throwable].raiseError(notFound(id)) }
       }
       .flatTap(scheduledVideoDownloadPubSub.publishOne)
+
+  override def updateSchedulingStatus(from: SchedulingStatus, to: SchedulingStatus): F[Seq[ScheduledVideoDownload]] =
+    for {
+      _ <- from.validateTransition(to).toType[F, Throwable]
+      updated <- transaction(schedulingDao.updateSchedulingStatus(from, to))
+      _ <- scheduledVideoDownloadPubSub.publish(Stream.emits(updated)).compile.drain
+    }
+    yield updated
 
   override def completeScheduledVideoDownload(id: String): F[ScheduledVideoDownload] =
     JodaClock[F].timestamp

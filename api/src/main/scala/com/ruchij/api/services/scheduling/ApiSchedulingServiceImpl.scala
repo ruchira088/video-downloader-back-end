@@ -95,7 +95,7 @@ class ApiSchedulingServiceImpl[F[_]: Sync: Clock, T[_]: MonadError[*[_], Throwab
         for {
           scheduledVideoDownload <- OptionT(schedulingDao.getById(id))
           _ <- OptionT.liftF(scheduledVideoDownload.status.validateTransition(status).toType[T, Throwable])
-          updated <- OptionT(schedulingDao.updateSchedulingStatus(id, status, timestamp))
+          updated <- OptionT(schedulingDao.updateSchedulingStatusById(id, status, timestamp))
         }
         yield updated
       }
@@ -118,7 +118,7 @@ class ApiSchedulingServiceImpl[F[_]: Sync: Clock, T[_]: MonadError[*[_], Throwab
       }
 
   override val getWorkerStatus: F[WorkerStatus] =
-    configurationService.get[WorkerStatus, ApiConfigKey](ApiConfigKey.WorkerStatus).map(_.getOrElse(WorkerStatus.Active))
+    configurationService.get[WorkerStatus, ApiConfigKey](ApiConfigKey.WorkerStatus).map(_.getOrElse(WorkerStatus.Available))
 
   override def updateDownloadProgress(id: String, downloadedBytes: Long): F[ScheduledVideoDownload] =
     for {

@@ -115,7 +115,7 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
                       .productR(execute(scheduledVideoDownload, worker, interrupt))
                   } { _ =>
                     batchSchedulingService
-                      .updateSchedulingStatus(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Downloaded)
+                      .updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Downloaded)
                       .productR(videoService.insert(scheduledVideoDownload.videoMetadata.id, fileResource.id))
                       .flatTap(videoEnrichmentService.videoSnapshots)
                       .productL(batchSchedulingService.completeScheduledVideoDownload(scheduledVideoDownload.videoMetadata.id))
