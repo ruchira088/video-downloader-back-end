@@ -62,7 +62,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
         .productR(OptionT(getById(id)))
         .value
 
-  override def updateSchedulingStatus(
+  override def updateSchedulingStatusById(
     id: String,
     status: SchedulingStatus,
     timestamp: DateTime
@@ -77,6 +77,25 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
         .singleUpdate
         .productR(OptionT(getById(id)))
         .value
+
+  override def updateSchedulingStatus(from: SchedulingStatus, to: SchedulingStatus): ConnectionIO[Seq[ScheduledVideoDownload]] =
+    sql"SELECT video_metadata_id FROM scheduled_video WHERE status = $from"
+      .query[String]
+      .to[Seq]
+      .flatMap {
+        ids => ids.headOption.fold[ConnectionIO[Seq[ScheduledVideoDownload]]](Applicative[ConnectionIO].pure(Seq.empty)) { head =>
+          val nonEmptyListIds = NonEmptyList(head, ids.tail.toList)
+
+          (sql"UPDATE scheduled_video SET status = $to" ++  fr"WHERE" ++ in(fr"video_metadata_id", nonEmptyListIds))
+            .update
+            .run
+            .productR {
+              (SelectQuery ++ fr"WHERE" ++ in(fr"scheduled_video.video_metadata_id", nonEmptyListIds))
+                .query[ScheduledVideoDownload]
+                .to[Seq]
+            }
+        }
+      }
 
   override def updateDownloadProgress(
     id: String,

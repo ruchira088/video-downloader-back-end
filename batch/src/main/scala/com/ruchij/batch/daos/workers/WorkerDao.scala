@@ -23,5 +23,5 @@ trait WorkerDao[F[_]] {
 
   def cleanUpStaleWorkers(heartBeatBefore: DateTime): F[Int]
 
-  def updateWorkerStatus(workerStatus: WorkerStatus): F[Seq[Worker]]
+  def updateWorkerStatuses(workerStatus: WorkerStatus): F[Seq[Worker]]
 }

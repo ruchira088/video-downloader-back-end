@@ -124,7 +124,7 @@ object SchedulingRoutes {
 
           _ <- apiSchedulingService.updateWorkerStatus(workerStatusUpdateRequest.workerStatus)
 
-          response <- Ok(workerStatusUpdateRequest)
+          response <- Ok(WorkerStatusResponse(workerStatusUpdateRequest.workerStatus))
         } yield response
     }
   }
