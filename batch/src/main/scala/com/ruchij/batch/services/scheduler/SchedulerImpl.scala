@@ -167,6 +167,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
             .concurrently(publishWorkerStatusUpdatesToTopic(workerStatusUpdatesTopic))
             .concurrently(cleanUpStaleScheduledVideoDownloads)
             .concurrently(updateVideoWatchTimes(ChunkSize))
+            .concurrently(cleanUpStaleWorkers)
             .concurrently(updateWorkersAndScheduledVideoDownloads(workerStatusUpdates))
             .parEvalMapUnordered(workerConfiguration.maxConcurrentDownloads) { worker =>
               performWorkDuringWorkPeriod(worker, scheduledVideoDownloadsTopic.subscribe(Int.MaxValue).collect {
@@ -182,16 +183,21 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
     workerStatusUpdates: Stream[F, WorkerStatusUpdate]
   ): Stream[F, Seq[Worker]] =
     workerStatusUpdates.evalMap { workerStatusUpdate =>
-      transaction(workerDao.updateWorkerStatuses(workerStatusUpdate.workerStatus))
-        .productL {
-          workerStatusUpdate.workerStatus match {
-            case WorkerStatus.Paused => batchSchedulingService.updateSchedulingStatus(SchedulingStatus.Active, SchedulingStatus.WorkersPaused)
 
-            case WorkerStatus.Available => batchSchedulingService.updateSchedulingStatus(SchedulingStatus.WorkersPaused, SchedulingStatus.Queued)
+      val updateScheduledVideoDownloads: F[Seq[ScheduledVideoDownload]] =
+        workerStatusUpdate.workerStatus match {
+          case WorkerStatus.Paused =>
+            batchSchedulingService.updateSchedulingStatus(SchedulingStatus.Active, SchedulingStatus.WorkersPaused)
 
-            case _ => Applicative[F].pure(Seq.empty)
-          }
+          case WorkerStatus.Available =>
+            batchSchedulingService.updateSchedulingStatus(SchedulingStatus.WorkersPaused, SchedulingStatus.Queued)
+
+          case _ => Applicative[F].pure(Seq.empty[ScheduledVideoDownload])
         }
+
+      updateScheduledVideoDownloads.productR {
+        transaction(workerDao.updateWorkerStatuses(workerStatusUpdate.workerStatus))
+      }
     }
 
   def performWorkDuringWorkPeriod(
@@ -257,7 +263,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
 
   val cleanUpStaleScheduledVideoDownloads: Stream[F, ScheduledVideoDownload] =
     Stream
-      .eval(batchSchedulingService.updateTimedOutTasks(10 minutes))
+      .eval(batchSchedulingService.updateTimedOutTasks(2 minutes))
       .repeat
       .metered(30 seconds)
       .flatMap(Stream.emits)
@@ -281,7 +287,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       }
       .map(_.sum)
 
-  val cleanUpStaleWorkersTask: Stream[F, Int] =
+  val cleanUpStaleWorkers: Stream[F, Int] =
     Stream
       .eval(logger.infoF("cleanUpStaleWorkersTask started"))
       .productR {
@@ -291,7 +297,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
           .metered(30 seconds)
           .evalMap { timestamp =>
             transaction {
-              workerDao.cleanUpStaleWorkers(timestamp.minusMinutes(5))
+              workerDao.cleanUpStaleWorkers(timestamp.minusMinutes(2))
             }
           }
       }
@@ -301,9 +307,6 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
       .infoF("Batch initialization started")
       .productR(newWorkers)
       .flatMap(count => logger.infoF(s"New workers created: $count"))
-      .productL {
-        Concurrent[F].start(cleanUpStaleWorkersTask.compile.drain)
-      }
       .productR(synchronizationService.sync)
       .flatTap(result => logger.infoF(result.prettyPrint))
       .productL(logger.infoF("Batch initialization completed"))
