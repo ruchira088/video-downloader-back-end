@@ -5,7 +5,7 @@ metadata:
   namespace: {{ namespace }}
 data:
   logback.xml: |
-    <configuration scan="true" scanPeriod="10 seconds">
+    <configuration scan="true" scanPeriod="30 seconds">
         <appender name="STD_OUT" class="ch.qos.logback.core.ConsoleAppender">
             <encoder>
                 <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
