@@ -4,7 +4,6 @@ import cats.ApplicativeError
 import cats.effect.{Concurrent, ContextShift, Resource, Timer}
 import cats.implicits._
 import com.ruchij.core.exceptions.ExternalServiceException
-import com.ruchij.core.services.download.Http4sDownloadService.MinChunkUpdateSize
 import com.ruchij.core.services.download.models.DownloadResult
 import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.utils.Http4sUtils
@@ -52,14 +51,10 @@ class Http4sDownloadService[F[_]: Concurrent: ContextShift: Timer](
                     .observe { data =>
                       repositoryService.write(fileKey, data)
                     }
-                    .groupWithin(MinChunkUpdateSize, 250 milliseconds)
+                    .groupWithin(Int.MaxValue, 250 milliseconds)
                     .scan(initialSize) { case (total, chunk) => total + chunk.size }
                 }
             }
       }
 
-}
-
-object Http4sDownloadService {
-  val MinChunkUpdateSize: Int = 1000 * 1000 // 100KB
 }
