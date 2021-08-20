@@ -45,6 +45,7 @@ services:
       - 8000:8000
 #      - 5005:5005
     volumes: *docker-volumes
+      - "./api/src/main/resources/logback.xml:/opt/data/logback.xml"
     environment:
       DATABASE_URL: "jdbc:postgresql://postgres:5432/video-downloader"
       DATABASE_USER: "admin"
@@ -71,6 +72,7 @@ services:
 #    ports:
 #      - 5006:5005
     volumes: *docker-volumes
+      - "./batch/src/main/resources/logback.xml:/opt/data/logback.xml"
     environment:
       DATABASE_URL: "jdbc:postgresql://postgres:5432/video-downloader"
       DATABASE_USER: "admin"
