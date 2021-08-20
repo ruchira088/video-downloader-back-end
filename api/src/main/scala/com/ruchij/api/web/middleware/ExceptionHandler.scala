@@ -1,6 +1,5 @@
 package com.ruchij.api.web.middleware
 
-import cats.Applicative
 import cats.arrow.FunctionK
 import cats.data.{Kleisli, NonEmptyList}
 import cats.effect.Sync
@@ -17,22 +16,21 @@ import org.http4s.circe.CirceEntityEncoder.circeEntityEncoder
 import org.http4s.{HttpApp, MessageFailure, Request, Response, Status}
 
 object ExceptionHandler {
-  def apply[F[_]: Sync](httpApp: HttpApp[F]): HttpApp[F] = {
-    val logger = Logger[F, ExceptionHandler.type]
+  private val logger = Logger[ExceptionHandler.type]
 
+  def apply[F[_]: Sync](httpApp: HttpApp[F]): HttpApp[F] =
     Kleisli[F, Request[F], Response[F]] { request =>
       Sync[F].handleErrorWith(httpApp.run(request)) { throwable =>
         entityResponseGenerator[F](throwable)(throwableResponseBody(throwable))
           .map(errorResponseMapper(throwable))
-          .flatMap(logErrors[F](logger, throwable))
+          .flatMap(logErrors[F](throwable))
       }
     }
-  }
 
-  def logErrors[F[_]: Applicative](logger: Logger[F], throwable: Throwable)(response: Response[F]): F[Response[F]] =
+  def logErrors[F[_]: Sync](throwable: Throwable)(response: Response[F]): F[Response[F]] =
     if (response.status >= Status.InternalServerError)
-      logger.errorF(s"${response.status} status code returned", throwable).as(response)
-    else logger.warnF(throwable.getMessage).as(response)
+      logger.error[F](s"${response.status} status code returned", throwable).as(response)
+    else logger.warn[F](throwable.getMessage).as(response)
 
   val throwableStatusMapper: Throwable => Status = {
     case _: ResourceNotFoundException => Status.NotFound

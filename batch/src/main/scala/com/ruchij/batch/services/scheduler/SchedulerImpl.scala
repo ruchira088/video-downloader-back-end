@@ -47,7 +47,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
 
   override type InitializationResult = SynchronizationResult
 
-  private val logger = Logger[F, SchedulerImpl[F, T]]
+  private val logger = Logger[SchedulerImpl[F, T]]
 
   val idleWorkers: Stream[F, Worker] =
     Stream
@@ -62,7 +62,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
             }.recoverWith {
               case throwable =>
                 logger
-                  .errorF("Error occurred when fetching idle worker", throwable)
+                  .error[F]("Error occurred when fetching idle worker", throwable)
                   .productR(Applicative[F].pure(None))
             }
           }
@@ -112,7 +112,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
                 .map[Option[Video]](Some.apply)
             } {
               case PausedVideoDownload =>
-                logger.infoF(s"${scheduledVideoDownload.videoMetadata.url} has been paused").as(None)
+                logger.info[F](s"${scheduledVideoDownload.videoMetadata.url} has been paused").as(None)
             }
         }
         .semiflatMap { video =>
@@ -213,7 +213,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
             performWork(worker, scheduledVideoDownloadUpdates, workerStatusUpdates)
               .recoverWith {
                 case throwable =>
-                  logger.errorF("Error occurred in work scheduler", throwable).as(None)
+                  logger.error[F]("Error occurred in work scheduler", throwable).as(None)
               } else OptionT.none[F, Video].value
         }
     }(releaseWorker(worker))
@@ -247,7 +247,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
                     }
                 } { throwable =>
                   logger
-                    .errorF(s"Unable to update watch time for ${httpMetric.uri}", throwable)
+                    .error[F](s"Unable to update watch time for ${httpMetric.uri}", throwable)
                     .productR(commit)
                 }
             }
@@ -289,7 +289,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
 
   val cleanUpStaleWorkers: Stream[F, Int] =
     Stream
-      .eval(logger.infoF("cleanUpStaleWorkersTask started"))
+      .eval(logger.info[F]("cleanUpStaleWorkersTask started"))
       .productR {
         Stream
           .eval(JodaClock[F].timestamp)
@@ -304,12 +304,12 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
 
   override val init: F[SynchronizationResult] =
     logger
-      .infoF("Batch initialization started")
+      .info[F]("Batch initialization started")
       .productR(newWorkers)
-      .flatMap(count => logger.infoF(s"New workers created: $count"))
+      .flatMap(count => logger.info[F](s"New workers created: $count"))
       .productR(synchronizationService.sync)
-      .flatTap(result => logger.infoF(result.prettyPrint))
-      .productL(logger.infoF("Batch initialization completed"))
+      .flatTap(result => logger.info[F](result.prettyPrint))
+      .productL(logger.info[F]("Batch initialization completed"))
 }
 
 object SchedulerImpl {

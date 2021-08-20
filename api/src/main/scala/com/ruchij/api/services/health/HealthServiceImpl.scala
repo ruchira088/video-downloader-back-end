@@ -32,7 +32,7 @@ class HealthServiceImpl[F[_]: Timer: Concurrent](
 )(implicit transaction: ConnectionIO ~> F)
     extends HealthService[F] {
 
-  private val logger = Logger[F, HealthServiceImpl[F]]
+  private val logger = Logger[HealthServiceImpl[F]]
 
   val keyValueStoreCheck: F[HealthStatus] =
     JodaClock[F].timestamp
@@ -116,7 +116,7 @@ class HealthServiceImpl[F[_]: Timer: Concurrent](
       .map(_.merge)
       .recoverWith {
         case throwable =>
-          logger.errorF("Health check error", throwable).as(HealthStatus.Unhealthy)
+          logger.error[F]("Health check error", throwable).as(HealthStatus.Unhealthy)
       }
 
   val timeout: F[HealthStatus.Unhealthy.type] =

@@ -38,7 +38,7 @@ import scala.language.postfixOps
 
 object BatchApp extends IOApp {
 
-  private val logger = Logger[IO, BatchApp.type]
+  private val logger = Logger[BatchApp.type]
 
   override def run(args: List[String]): IO[ExitCode] =
     for {
@@ -48,11 +48,11 @@ object BatchApp extends IOApp {
       _ <- program[IO](batchServiceConfiguration)
         .use { scheduler =>
           scheduler.init
-            .productR(logger.infoF("Scheduler has started"))
+            .productR(logger.info[IO]("Scheduler has started"))
             .productR {
               scheduler.run
                 .evalMap { video =>
-                  logger.infoF(s"Download completed for videoId = ${video.videoMetadata.id}")
+                  logger.info[IO](s"Download completed for videoId = ${video.videoMetadata.id}")
                 }
                 .compile
                 .drain

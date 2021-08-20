@@ -34,7 +34,7 @@ class VideoAnalysisServiceImpl[F[_]: Sync: Clock, T[_]: Monad](
 )(implicit transaction: T ~> F)
     extends VideoAnalysisService[F] {
 
-  private val logger: Logger[F] = Logger[F, VideoAnalysisServiceImpl[F, T]]
+  private val logger = Logger[VideoAnalysisServiceImpl[F, T]]
 
   override def metadata(uri: Uri): F[VideoMetadataResult] =
     for {
@@ -49,7 +49,7 @@ class VideoAnalysisServiceImpl[F[_]: Sync: Clock, T[_]: Monad](
   def createMetadata(uri: Uri): F[VideoMetadata] =
     for {
       videoAnalysisResult @ VideoAnalysisResult(_, videoSite, title, duration, size, thumbnailUri) <- analyze(uri)
-      _ <- logger.infoF(s"Uri=${uri.renderString} Result=$videoAnalysisResult")
+      _ <- logger.info[F](s"Uri=${uri.renderString} Result=$videoAnalysisResult")
 
       videoId <- hashingService.hash(uri.renderString).map(hash => s"${videoSite.entryName.toLowerCase}-$hash")
 
@@ -111,7 +111,7 @@ class VideoAnalysisServiceImpl[F[_]: Sync: Clock, T[_]: Monad](
 
       downloadUri <- videoSite.downloadUri[F]
 
-      _ <- Kleisli.liftF(logger.infoF(s"Download uri = $downloadUri for videoUri = $uri"))
+      _ <- Kleisli.liftF(logger.info[F](s"Download uri = $downloadUri for videoUri = $uri"))
 
       size <- Kleisli.liftF {
         client
