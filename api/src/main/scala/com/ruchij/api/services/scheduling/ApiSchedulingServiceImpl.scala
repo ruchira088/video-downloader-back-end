@@ -143,9 +143,7 @@ class ApiSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], T
     for {
       timestamp <- JodaClock[F].timestamp
       result <- OptionT {
-        transaction {
-          schedulingDao.updateDownloadProgress(id, downloadedBytes, timestamp)
-        }
+        transaction { schedulingDao.updateDownloadProgress(id, downloadedBytes, timestamp) }
       }.getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
     } yield result
 }

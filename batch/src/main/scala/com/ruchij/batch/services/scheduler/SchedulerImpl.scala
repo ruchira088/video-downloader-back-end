@@ -221,7 +221,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad, M[_]](
     httpMetricSubscriber
       .subscribe("batch-scheduler")
       .evalTap {
-        case committableRecord @ CommittableRecord(httpMetric, _) =>
+        case CommittableRecord(httpMetric, _) =>
           httpMetric.contentType
             .product(httpMetric.size)
             .flatMap {
