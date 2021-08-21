@@ -174,14 +174,6 @@ object ApiApp extends IOApp {
       DoobieSchedulingDao
     )
 
-    val healthService = new HealthServiceImpl[F, M](
-      repositoryService,
-      healthCheckKeyStore,
-      messageBrokers.healthCheckPubSub,
-      apiServiceConfiguration.applicationInformation,
-      apiServiceConfiguration.storageConfiguration
-    )
-
     for {
       _ <- MigrationApp.migration[F](apiServiceConfiguration.databaseConfiguration, blockerIO)
 
@@ -189,8 +181,18 @@ object ApiApp extends IOApp {
         BackgroundServiceImpl.create[F, M](
           schedulingService,
           messageBrokers.downloadProgressSubscriber,
+          messageBrokers.healthCheckPubSub,
           s"background-${apiServiceConfiguration.applicationInformation.instanceId}"
         )
+
+      healthService = new HealthServiceImpl[F](
+        repositoryService,
+        healthCheckKeyStore,
+        backgroundService.healthChecks,
+        messageBrokers.healthCheckPubSub,
+        apiServiceConfiguration.applicationInformation,
+        apiServiceConfiguration.storageConfiguration
+      )
 
       _ <- backgroundService.run
 

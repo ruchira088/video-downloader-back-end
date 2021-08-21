@@ -12,7 +12,7 @@
     <logger name="com.ruchij" level="DEBUG" additivity="false">
         <appender-ref ref="ASYNC"/>
     </logger>
-    <root level="INFO">
+    <root level="WARN">
         <appender-ref ref="ASYNC"/>
     </root>
 </configuration>
