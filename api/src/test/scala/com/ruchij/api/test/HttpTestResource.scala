@@ -1,6 +1,6 @@
 package com.ruchij.api.test
 
-import cats.ApplicativeError
+import cats.{ApplicativeError, Id}
 import cats.effect.{Blocker, ConcurrentEffect, ContextShift, Resource, Timer}
 import com.ruchij.api.ApiApp
 import com.ruchij.api.config.AuthenticationConfiguration.{HashedPassword, PasswordAuthenticationConfiguration}
@@ -25,7 +25,7 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 
 object HttpTestResource {
-  type TestResources[F[_]] = (ApiServiceConfiguration, ApiMessageBrokers[F], HttpApp[F])
+  type TestResources[F[_]] = (ApiServiceConfiguration, ApiMessageBrokers[F, Id], HttpApp[F])
 
   val ApiStorageConfig: ApiStorageConfiguration = ApiStorageConfiguration("./images")
 
@@ -90,14 +90,17 @@ object HttpTestResource {
         httpMetricPubSub
       )
 
-      httpApp <- ApiApp.program[F](
-        client,
-        redisKeyValueStore,
-        messageBrokers,
-        Blocker.liftExecutionContext(executionContext),
-        Blocker.liftExecutionContext(executionContext),
-        apiServiceConfiguration
-      )(ConcurrentEffect[F], ContextShift[F], Timer[F], transactor.trans)
+      httpApp <-
+        Resource.eval {
+          ApiApp.program[F, Id](
+            client,
+            redisKeyValueStore,
+            messageBrokers,
+            Blocker.liftExecutionContext(executionContext),
+            Blocker.liftExecutionContext(executionContext),
+            apiServiceConfiguration
+          )(ConcurrentEffect[F], ContextShift[F], Timer[F], transactor.trans)
+        }
     } yield (apiServiceConfiguration, messageBrokers, httpApp)
 
 }

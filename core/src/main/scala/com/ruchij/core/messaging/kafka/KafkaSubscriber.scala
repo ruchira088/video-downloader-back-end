@@ -1,21 +1,22 @@
 package com.ruchij.core.messaging.kafka
 
+import cats.{Foldable, Functor}
 import cats.effect.{ConcurrentEffect, ContextShift, Timer}
 import cats.implicits.toFunctorOps
 import com.ruchij.core.config.KafkaConfiguration
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Subscriber
-import com.ruchij.core.messaging.kafka.KafkaSubscriber.CommittableRecord
+import com.ruchij.core.messaging.models.CommittableRecord
 import fs2.Stream
-import fs2.kafka.{AutoOffsetReset, ConsumerSettings, KafkaConsumer, RecordDeserializer}
+import fs2.kafka._
 
 class KafkaSubscriber[F[_]: ConcurrentEffect: ContextShift: Timer, A](kafkaConfiguration: KafkaConfiguration)(
   implicit topic: KafkaTopic[A]
-) extends Subscriber[F, CommittableRecord[F, *], A] {
+) extends Subscriber[F, CommittableRecord[CommittableConsumerRecord[F, Unit, *], *], A] {
 
   private val logger = Logger[KafkaSubscriber[F, A]]
 
-  override def subscribe(groupId: String): Stream[F, CommittableRecord[F, A]] =
+  override def subscribe(groupId: String): Stream[F, CommittableRecord[CommittableConsumerRecord[F, Unit, *], A]] =
     Stream
       .resource {
         KafkaConsumer.resource {
@@ -28,14 +29,13 @@ class KafkaSubscriber[F[_]: ConcurrentEffect: ContextShift: Timer, A](kafkaConfi
       .evalTap(_.subscribeTo(topic.name))
       .flatMap {
         _.stream.evalMap { committableConsumerRecord =>
-          logger.debug[F](s"Received: topic=${committableConsumerRecord.record.topic}, value=${committableConsumerRecord.record.value}")
+          logger.debug[F](s"Received: topic=${committableConsumerRecord.record.topic}, consumerGroupId=${committableConsumerRecord.offset.consumerGroupId}, value=${committableConsumerRecord.record.value}")
             .as {
-              CommittableRecord(committableConsumerRecord.record.value, committableConsumerRecord.offset.commit)
+              CommittableRecord(committableConsumerRecord.record.value, committableConsumerRecord)
             }
         }
       }
-}
 
-object KafkaSubscriber {
-  case class CommittableRecord[F[_], A](value: A, commit: F[Unit])
+  override def commit[H[_]: Foldable: Functor](values: H[CommittableRecord[CommittableConsumerRecord[F, Unit, *], A]]): F[Unit] =
+    CommittableOffsetBatch.fromFoldable(values.map(_.raw.offset)).commit
 }

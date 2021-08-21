@@ -12,7 +12,7 @@ import com.ruchij.core.config.{ApplicationInformation, StorageConfiguration}
 import com.ruchij.core.kv.KeySpacedKeyValueStore
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.PubSub
-import com.ruchij.core.messaging.kafka.KafkaSubscriber.CommittableRecord
+import com.ruchij.core.messaging.models.CommittableRecord
 import com.ruchij.core.services.repository.FileRepositoryService
 import com.ruchij.core.types.JodaClock
 import doobie.free.connection.ConnectionIO
@@ -23,16 +23,16 @@ import org.joda.time.DateTime
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class HealthServiceImpl[F[_]: Timer: Concurrent](
+class HealthServiceImpl[F[_]: Timer: Concurrent, M[_]](
   fileRepositoryService: FileRepositoryService[F],
   keySpacedKeyValueStore: KeySpacedKeyValueStore[F, HealthCheckKey, DateTime],
-  pubSub: PubSub[F, CommittableRecord[F, *], HealthCheckMessage],
+  pubSub: PubSub[F, CommittableRecord[M, *], HealthCheckMessage],
   applicationInformation: ApplicationInformation,
   storageConfiguration: StorageConfiguration
 )(implicit transaction: ConnectionIO ~> F)
     extends HealthService[F] {
 
-  private val logger = Logger[HealthServiceImpl[F]]
+  private val logger = Logger[HealthServiceImpl[F, M]]
 
   val keyValueStoreCheck: F[HealthStatus] =
     JodaClock[F].timestamp

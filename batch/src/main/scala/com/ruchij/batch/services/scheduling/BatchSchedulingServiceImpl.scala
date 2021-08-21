@@ -1,13 +1,14 @@
 package com.ruchij.batch.services.scheduling
 
 import cats.data.{NonEmptyList, OptionT}
-import cats.effect.{Sync, Timer}
+import cats.effect.{Concurrent, Timer}
 import cats.implicits._
 import cats.{ApplicativeError, MonadError, ~>}
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.SchedulingDao.notFound
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
-import com.ruchij.core.messaging.kafka.KafkaSubscriber.CommittableRecord
+import com.ruchij.core.logging.Logger
+import com.ruchij.core.messaging.models.CommittableRecord
 import com.ruchij.core.messaging.{PubSub, Publisher, Subscriber}
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
@@ -18,13 +19,15 @@ import fs2.Stream
 
 import scala.concurrent.duration.FiniteDuration
 
-class BatchSchedulingServiceImpl[F[_]: Sync: Timer, T[_]: MonadError[*[_], Throwable]](
+class BatchSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], Throwable], M[_]](
   downloadProgressPublisher: Publisher[F, DownloadProgress],
-  workerStatusSubscriber: Subscriber[F, CommittableRecord[F, *], WorkerStatusUpdate],
-  scheduledVideoDownloadPubSub: PubSub[F, CommittableRecord[F, *], ScheduledVideoDownload],
+  workerStatusSubscriber: Subscriber[F, CommittableRecord[M, *], WorkerStatusUpdate],
+  scheduledVideoDownloadPubSub: PubSub[F, CommittableRecord[M, *], ScheduledVideoDownload],
   schedulingDao: SchedulingDao[T]
 )(implicit transaction: T ~> F)
     extends BatchSchedulingService[F] {
+
+  private val logger = Logger[BatchSchedulingServiceImpl[F, T, M]]
 
   override def findBySchedulingStatus(schedulingStatus: SchedulingStatus, pageNumber: Int, pageSize: Int): F[Seq[ScheduledVideoDownload]] =
     transaction {
@@ -93,13 +96,25 @@ class BatchSchedulingServiceImpl[F[_]: Sync: Timer, T[_]: MonadError[*[_], Throw
   }
 
   override def subscribeToWorkerStatusUpdates(groupId: String): Stream[F, WorkerStatusUpdate] =
-    workerStatusSubscriber.subscribe(groupId).evalMap {
-      case CommittableRecord(value, commit) => commit.as(value)
-    }
+    workerStatusSubscriber.subscribe(groupId)
+      .evalMap {
+        committableRecord =>
+          workerStatusSubscriber.commit(List(committableRecord))
+            .product {
+              logger.debug(s"DownloadProgressSubscriber(groupId=$groupId) committed 1 message")
+            }
+            .as(committableRecord.value)
+      }
 
   override def subscribeToScheduledVideoDownloadUpdates(groupId: String): Stream[F, ScheduledVideoDownload] =
-    scheduledVideoDownloadPubSub.subscribe(groupId).evalMap {
-      case CommittableRecord(value, commit) => commit.as(value)
-    }
+    scheduledVideoDownloadPubSub.subscribe(groupId)
+      .evalMap {
+        committableRecord =>
+          scheduledVideoDownloadPubSub.commit(List(committableRecord))
+            .product {
+              logger.debug(s"ScheduledVideoDownloadPubSub(groupId=$groupId) committed 1 message")
+            }
+            .as(committableRecord.value)
+      }
 
 }

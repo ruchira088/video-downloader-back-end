@@ -26,6 +26,7 @@ import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatu
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
 import com.ruchij.migration.MigrationApp
 import doobie.free.connection.ConnectionIO
+import fs2.kafka.CommittableConsumerRecord
 import org.apache.tika.Tika
 import org.http4s.asynchttpclient.client.AsyncHttpClient
 import org.http4s.client.middleware.FollowRedirect
@@ -105,7 +106,7 @@ object BatchApp extends IOApp {
           workerStatusUpdatesSubscriber = new KafkaSubscriber[F, WorkerStatusUpdate](batchServiceConfiguration.kafkaConfiguration)
           httpMetricsSubscriber = new KafkaSubscriber[F, HttpMetric](batchServiceConfiguration.kafkaConfiguration)
 
-          batchSchedulingService = new BatchSchedulingServiceImpl[F, ConnectionIO](
+          batchSchedulingService = new BatchSchedulingServiceImpl[F, ConnectionIO, CommittableConsumerRecord[F, Unit, *]](
             downloadProgressPublisher,
             workerStatusUpdatesSubscriber,
             scheduledVideoDownloadPubSub,

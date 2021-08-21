@@ -1,6 +1,7 @@
 package com.ruchij.api
 
 import cats.effect.{Blocker, Concurrent, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
+import cats.implicits._
 import cats.~>
 import com.ruchij.api.config.AuthenticationConfiguration.PasswordAuthenticationConfiguration
 import com.ruchij.api.config.{ApiServiceConfiguration, AuthenticationConfiguration}
@@ -39,7 +40,7 @@ import com.ruchij.migration.MigrationApp
 import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.effect.Log.Stdout.instance
 import doobie.free.connection.ConnectionIO
-import fs2.concurrent.Topic
+import fs2.kafka.CommittableConsumerRecord
 import org.http4s.HttpApp
 import org.http4s.asynchttpclient.client.AsyncHttpClient
 import org.http4s.blaze.server.BlazeServerBuilder
@@ -106,19 +107,21 @@ object ApiApp extends IOApp {
             ApiMessageBrokers(downloadProgressPubSub, scheduledVideoDownloadPubSub, healthCheckPubSub, workerStatusUpdatePubSub, metricsPublisher)
 
           httpApp <-
-            program[F](httpClient, redisKeyValueStore, messageBrokers, blockerIO, blockerCPU, apiServiceConfiguration)
+            Resource.eval {
+              program[F, CommittableConsumerRecord[F, Unit, *]](httpClient, redisKeyValueStore, messageBrokers, blockerIO, blockerCPU, apiServiceConfiguration)
+            }
         }
         yield httpApp
       }
 
-  def program[F[+ _]: Concurrent: ContextShift: Timer](
+  def program[F[+ _]: Concurrent: ContextShift: Timer, M[_]](
     client: Client[F],
     keyValueStore: KeyValueStore[F],
-    messageBrokers: ApiMessageBrokers[F],
+    messageBrokers: ApiMessageBrokers[F, M],
     blockerIO: Blocker,
     blockerCPU: Blocker,
     apiServiceConfiguration: ApiServiceConfiguration
-  )(implicit transaction: ConnectionIO ~> F): Resource[F, HttpApp[F]] = {
+  )(implicit transaction: ConnectionIO ~> F): F[HttpApp[F]] = {
     val healthCheckKeyStore: KeySpacedKeyValueStore[F, HealthCheckKey, DateTime] =
       new KeySpacedKeyValueStore(HealthCheckKeySpace, keyValueStore)
 
@@ -163,7 +166,7 @@ object ApiApp extends IOApp {
 
     val assetService = new AssetServiceImpl[F, ConnectionIO](DoobieFileResourceDao, repositoryService)
 
-    val schedulingService = new ApiSchedulingServiceImpl[F, ConnectionIO](
+    val schedulingService = new ApiSchedulingServiceImpl[F, ConnectionIO, M](
       videoAnalysisService,
       messageBrokers.scheduledVideoDownloadPublisher,
       messageBrokers.downloadProgressSubscriber,
@@ -172,7 +175,7 @@ object ApiApp extends IOApp {
       DoobieSchedulingDao
     )
 
-    val healthService = new HealthServiceImpl[F](
+    val healthService = new HealthServiceImpl[F, M](
       repositoryService,
       healthCheckKeyStore,
       messageBrokers.healthCheckPubSub,
@@ -180,34 +183,16 @@ object ApiApp extends IOApp {
       apiServiceConfiguration.storageConfiguration
     )
 
-    val backgroundService = new BackgroundServiceImpl[F](
-      messageBrokers.downloadProgressSubscriber,
-      schedulingService,
-      s"background-${apiServiceConfiguration.applicationInformation.instanceId}"
-    )
-
     for {
-      _ <- Resource.eval(MigrationApp.migration[F](apiServiceConfiguration.databaseConfiguration, blockerIO))
+      _ <- MigrationApp.migration[F](apiServiceConfiguration.databaseConfiguration, blockerIO)
 
-      _ <- Resource.make(Concurrent[F].start(backgroundService.run))(_.cancel)
+      backgroundService <-
+        BackgroundServiceImpl.create[F](
+          schedulingService,
+          s"background-${apiServiceConfiguration.applicationInformation.instanceId}"
+        )
 
-      topic <- Resource.eval(Topic[F, Option[DownloadProgress]](None))
-
-      _ <-
-        Resource.make {
-          Concurrent[F].start {
-            schedulingService
-              .subscribeToDownloadProgress(apiServiceConfiguration.applicationInformation.instanceId)
-              .through(stream => topic.publish(stream.map(Some.apply)))
-              .compile
-              .drain
-          }
-        }(_.cancel)
-
-      downloadProgressStream =
-        topic
-          .subscribe(Int.MaxValue)
-          .collect { case Some(downloadProgress) => downloadProgress }
+      _ <- backgroundService.run
 
     } yield
       Routes(
@@ -217,7 +202,7 @@ object ApiApp extends IOApp {
         assetService,
         healthService,
         authenticationService,
-        downloadProgressStream,
+        backgroundService.downloadProgress,
         messageBrokers.metricsPublisher,
         blockerIO
       )

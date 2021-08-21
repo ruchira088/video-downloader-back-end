@@ -5,8 +5,8 @@ import cats.effect.{Bracket, Clock, Concurrent, ExitCase, Timer}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Monad, ~>}
 import com.ruchij.batch.config.WorkerConfiguration
-import com.ruchij.batch.daos.workers.{WorkerDao, models}
 import com.ruchij.batch.daos.workers.models.Worker
+import com.ruchij.batch.daos.workers.{WorkerDao, models}
 import com.ruchij.batch.services.scheduler.Scheduler.PausedVideoDownload
 import com.ruchij.batch.services.scheduler.SchedulerImpl.WorkerPollPeriod
 import com.ruchij.batch.services.scheduling.BatchSchedulingService
@@ -19,8 +19,7 @@ import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Subscriber
-import com.ruchij.core.messaging.kafka.KafkaSubscriber.CommittableRecord
-import com.ruchij.core.messaging.models.HttpMetric
+import com.ruchij.core.messaging.models.{CommittableRecord, HttpMetric}
 import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
 import com.ruchij.core.services.video.VideoService
 import com.ruchij.core.types.JodaClock
@@ -33,12 +32,12 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.language.postfixOps
 
-class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
+class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad, M[_]](
   batchSchedulingService: BatchSchedulingService[F],
   synchronizationService: SynchronizationService[F],
   videoService: VideoService[F],
   workExecutor: WorkExecutor[F],
-  httpMetricSubscriber: Subscriber[F, CommittableRecord[F, *], HttpMetric],
+  httpMetricSubscriber: Subscriber[F, CommittableRecord[M, *], HttpMetric],
   workerDao: WorkerDao[T],
   workerConfiguration: WorkerConfiguration,
   instanceId: String
@@ -47,7 +46,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
 
   override type InitializationResult = SynchronizationResult
 
-  private val logger = Logger[SchedulerImpl[F, T]]
+  private val logger = Logger[SchedulerImpl[F, T, M]]
 
   val idleWorkers: Stream[F, Worker] =
     Stream
@@ -220,9 +219,9 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
 
   def updateVideoWatchTimes(minimumChunkSize: Long): Stream[F, Unit] =
     httpMetricSubscriber
-      .subscribe(s"scheduler-$instanceId")
-      .evalMap {
-        case CommittableRecord(httpMetric, commit) =>
+      .subscribe("batch-scheduler")
+      .evalTap {
+        case committableRecord @ CommittableRecord(httpMetric, _) =>
           httpMetric.contentType
             .product(httpMetric.size)
             .flatMap {
@@ -231,7 +230,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
                   httpMetric.uri.path.segments.lastOption.map(lastSegment => (lastSegment.encoded, size))
                 else None
             }
-            .fold(commit) {
+            .fold(Applicative[F].unit) {
               case (resourceId, size) =>
                 ApplicativeError[F, Throwable].handleErrorWith {
                   videoService
@@ -243,23 +242,34 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad](
                           TimeUnit.MILLISECONDS
                         )
 
-                      videoService.incrementWatchTime(video.videoMetadata.id, watchDuration).productR(commit)
+                      videoService.incrementWatchTime(video.videoMetadata.id, watchDuration).productR(Applicative[F].unit)
                     }
                 } { throwable =>
                   logger
                     .error[F](s"Unable to update watch time for ${httpMetric.uri}", throwable)
-                    .productR(commit)
                 }
+            }
+      }
+      .groupWithin(20, 5 seconds)
+      .evalMap {
+        chunk =>
+          httpMetricSubscriber.commit(chunk)
+            .productR {
+              logger.debug[F] {
+                s"HttpMetricSubscriber(groupId=batch-scheduler) committed ${chunk.size} messages"
+              }
             }
       }
 
   def publishScheduledVideoDownloadsUpdatesToTopic(topic: Topic[F, Option[ScheduledVideoDownload]]): Stream[F, Unit] =
-    topic.publish(
-      batchSchedulingService.subscribeToScheduledVideoDownloadUpdates(s"scheduler-$instanceId").map(Some.apply)
-    )
+    topic.publish {
+      batchSchedulingService.subscribeToScheduledVideoDownloadUpdates(s"batch-scheduler-$instanceId").map(Some.apply)
+    }
 
   def publishWorkerStatusUpdatesToTopic(topic: Topic[F, Option[WorkerStatusUpdate]]): Stream[F, Unit] =
-    topic.publish(batchSchedulingService.subscribeToWorkerStatusUpdates(s"scheduler-$instanceId").map(Some.apply))
+    topic.publish {
+      batchSchedulingService.subscribeToWorkerStatusUpdates(s"batch-scheduler-$instanceId").map(Some.apply)
+    }
 
   val cleanUpStaleScheduledVideoDownloads: Stream[F, ScheduledVideoDownload] =
     Stream

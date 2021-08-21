@@ -1,5 +1,6 @@
 package com.ruchij.api.services.scheduling
 
+import cats.Id
 import cats.effect.{IO, Resource, Timer}
 import com.ruchij.api.services.config.models.ApiConfigKey
 import com.ruchij.api.services.config.models.ApiConfigKey.ApiConfigKeySpace
@@ -12,7 +13,7 @@ import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
 import com.ruchij.core.kv.{InMemoryKeyValueStore, KeySpacedKeyValueStore}
 import com.ruchij.core.messaging.inmemory.Fs2PubSub
-import com.ruchij.core.messaging.kafka.KafkaSubscriber.CommittableRecord
+import com.ruchij.core.messaging.models.CommittableRecord
 import com.ruchij.core.services.config.ConfigurationServiceImpl
 import com.ruchij.core.services.download.Http4sDownloadService
 import com.ruchij.core.services.hashing.MurmurHash3Service
@@ -152,7 +153,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
           scheduledVideoDownloadUpdatesPubSub <- Fs2PubSub[IO, ScheduledVideoDownload]
           workerStatusUpdatesPubSub <- Fs2PubSub[IO, WorkerStatusUpdate]
 
-          apiSchedulingService = new ApiSchedulingServiceImpl[IO, ConnectionIO](
+          apiSchedulingService = new ApiSchedulingServiceImpl[IO, ConnectionIO, Id](
             videoAnalysisService,
             scheduledVideoDownloadUpdatesPubSub,
             downloadProgressPubSub,

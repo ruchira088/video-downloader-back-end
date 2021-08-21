@@ -1,7 +1,7 @@
 package com.ruchij.api.services.scheduling
 
 import cats.data.{NonEmptyList, OptionT}
-import cats.effect.{Clock, Sync}
+import cats.effect.{Concurrent, Timer}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadError, ~>}
 import com.ruchij.api.exceptions.ResourceConflictException
@@ -10,27 +10,34 @@ import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.SchedulingDao.notFound
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.workers.models.WorkerStatus
-import com.ruchij.core.messaging.kafka.KafkaSubscriber.CommittableRecord
+import com.ruchij.core.logging.Logger
+import com.ruchij.core.messaging.models.CommittableRecord
 import com.ruchij.core.messaging.{Publisher, Subscriber}
 import com.ruchij.core.services.config.ConfigurationService
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.services.video.VideoAnalysisService
 import com.ruchij.core.services.video.models.DurationRange
-import com.ruchij.core.types.JodaClock
 import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherToF}
+import com.ruchij.core.types.JodaClock
 import fs2.Stream
 import org.http4s.Uri
 
-class ApiSchedulingServiceImpl[F[_]: Sync: Clock, T[_]: MonadError[*[_], Throwable]](
+import scala.concurrent.duration.DurationInt
+import scala.language.postfixOps
+
+class ApiSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], Throwable], M[_]](
   videoAnalysisService: VideoAnalysisService[F],
   scheduledVideoDownloadPublisher: Publisher[F, ScheduledVideoDownload],
-  downloadProgressSubscriber: Subscriber[F, CommittableRecord[F, *], DownloadProgress],
+  downloadProgressSubscriber: Subscriber[F, CommittableRecord[M, *], DownloadProgress],
   workerStatusPublisher: Publisher[F, WorkerStatusUpdate],
   configurationService: ConfigurationService[F, ApiConfigKey],
   schedulingDao: SchedulingDao[T]
 )(implicit transaction: T ~> F)
     extends ApiSchedulingService[F] {
+
+  private val logger = Logger[ApiSchedulingServiceImpl[F, T, M]]
+
   override def schedule(uri: Uri): F[ScheduledVideoDownload] =
     for {
       searchResult <- transaction {
@@ -85,9 +92,21 @@ class ApiSchedulingServiceImpl[F[_]: Sync: Clock, T[_]: MonadError[*[_], Throwab
       )
 
   override def subscribeToDownloadProgress(groupId: String): Stream[F, DownloadProgress] =
-    downloadProgressSubscriber.subscribe(groupId).evalMap {
-      case CommittableRecord(value, commit) => commit.as(value)
-    }
+    downloadProgressSubscriber.subscribe(groupId)
+      .observe {
+        _
+          .groupWithin(20, 5 seconds)
+          .evalMap {
+            chunk =>
+              downloadProgressSubscriber.commit(chunk)
+                .productR {
+                  logger.debug[F] {
+                    s"DownloadProgressSubscriber(groupId=$groupId) committed ${chunk.size} messages"
+                  }
+                }
+          }
+      }
+      .map { case CommittableRecord(value, _) => value }
 
   override def updateSchedulingStatus(id: String, status: SchedulingStatus): F[ScheduledVideoDownload] =
     JodaClock[F].timestamp
