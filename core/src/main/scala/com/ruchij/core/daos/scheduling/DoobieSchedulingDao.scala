@@ -105,13 +105,13 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       sql"""
         UPDATE scheduled_video
           SET downloaded_bytes = $downloadedBytes, last_updated_at = $timestamp
-          WHERE video_metadata_id = $id
+          WHERE video_metadata_id = $id AND downloaded_bytes < $downloadedBytes
       """
         .update
         .run
         .singleUpdate
-        .productR(OptionT(getById(id)))
         .value
+        .productR(getById(id))
 
   override def deleteById(id: String): ConnectionIO[Option[ScheduledVideoDownload]] =
     OptionT(getById(id))

@@ -11,8 +11,7 @@ import com.ruchij.api.services.health.models.{HealthCheck, HealthStatus, Service
 import com.ruchij.core.config.{ApplicationInformation, StorageConfiguration}
 import com.ruchij.core.kv.KeySpacedKeyValueStore
 import com.ruchij.core.logging.Logger
-import com.ruchij.core.messaging.PubSub
-import com.ruchij.core.messaging.kafka.KafkaSubscriber.CommittableRecord
+import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.services.repository.FileRepositoryService
 import com.ruchij.core.types.JodaClock
 import doobie.free.connection.ConnectionIO
@@ -26,13 +25,14 @@ import scala.language.postfixOps
 class HealthServiceImpl[F[_]: Timer: Concurrent](
   fileRepositoryService: FileRepositoryService[F],
   keySpacedKeyValueStore: KeySpacedKeyValueStore[F, HealthCheckKey, DateTime],
-  pubSub: PubSub[F, CommittableRecord[F, *], HealthCheckMessage],
+  healthCheckStream: Stream[F, HealthCheckMessage],
+  healthCheckPublisher: Publisher[F, HealthCheckMessage],
   applicationInformation: ApplicationInformation,
   storageConfiguration: StorageConfiguration
 )(implicit transaction: ConnectionIO ~> F)
     extends HealthService[F] {
 
-  private val logger = Logger[F, HealthServiceImpl[F]]
+  private val logger = Logger[HealthServiceImpl[F]]
 
   val keyValueStoreCheck: F[HealthStatus] =
     JodaClock[F].timestamp
@@ -59,29 +59,22 @@ class HealthServiceImpl[F[_]: Timer: Concurrent](
   val pubSubCheck: F[HealthStatus] =
     JodaClock[F].timestamp
       .flatMap { dateTime =>
-        Concurrent[F]
-          .start {
-            pubSub
-              .subscribe(s"${applicationInformation.instanceId}-${dateTime.getMillis}")
-              .filter {
-                case CommittableRecord(HealthCheckMessage(instanceId, messageDateTime), _) =>
-                  instanceId == applicationInformation.instanceId && dateTime.isEqual(messageDateTime)
-              }
-              .take(1)
-              .compile
-              .drain
+        healthCheckStream
+          .concurrently {
+            healthCheckPublisher.publish {
+              Stream.emit[F, HealthCheckMessage] { HealthCheckMessage(applicationInformation.instanceId, dateTime) }
+                .repeat
+                .take(10)
+            }
           }
-          .flatMap { fiber =>
-            Stream
-              .emit[F, HealthCheckMessage](HealthCheckMessage(applicationInformation.instanceId, dateTime))
-              .repeat
-              .metered[F](1 second)
-              .evalMap(message => pubSub.publishOne(message))
-              .interruptWhen[F](fiber.join.map[Either[Throwable, Unit]](Right.apply))
-              .compile
-              .drain
-              .as(HealthStatus.Healthy)
+          .filter {
+            case HealthCheckMessage(instanceId, messageDateTime) =>
+              instanceId == applicationInformation.instanceId && dateTime.isEqual(messageDateTime)
           }
+          .take(10)
+          .compile
+          .drain
+          .as(HealthStatus.Healthy)
       }
 
   val fileRepositoryCheck: F[HealthStatus] =
@@ -116,7 +109,7 @@ class HealthServiceImpl[F[_]: Timer: Concurrent](
       .map(_.merge)
       .recoverWith {
         case throwable =>
-          logger.errorF("Health check error", throwable).as(HealthStatus.Unhealthy)
+          logger.error[F]("Health check error", throwable).as(HealthStatus.Unhealthy)
       }
 
   val timeout: F[HealthStatus.Unhealthy.type] =

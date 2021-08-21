@@ -40,7 +40,7 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
 )(implicit transaction: T ~> F)
     extends WorkExecutor[F] {
 
-  private val logger = Logger[F, WorkExecutorImpl[F, T]]
+  private val logger = Logger[WorkExecutorImpl[F, T]]
 
   def downloadVideo(
     workerId: String,
@@ -96,7 +96,7 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
     interrupt: Stream[F, Boolean]
   ): F[Video] =
     logger
-      .infoF(s"Worker ${worker.id} started download for ${scheduledVideoDownload.videoMetadata.url}")
+      .info[F](s"Worker ${worker.id} started download for ${scheduledVideoDownload.videoMetadata.url}")
       .productR {
         videoAnalysisService
           .downloadUri(scheduledVideoDownload.videoMetadata.url)
@@ -109,7 +109,7 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
                 _.filter { _ >= scheduledVideoDownload.videoMetadata.size }
                   .fold[F[Video]] {
                     logger
-                      .warnF(
+                      .warn[F](
                         s"Worker ${worker.id} invalidly deemed as complete: ${scheduledVideoDownload.videoMetadata.url}"
                       )
                       .productR(execute(scheduledVideoDownload, worker, interrupt))
@@ -120,7 +120,7 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
                       .flatTap(videoEnrichmentService.videoSnapshots)
                       .productL(batchSchedulingService.completeScheduledVideoDownload(scheduledVideoDownload.videoMetadata.id))
                       .productL {
-                        logger.infoF(
+                        logger.info[F](
                           s"Worker ${worker.id} completed download for ${scheduledVideoDownload.videoMetadata.url}"
                         )
                       }

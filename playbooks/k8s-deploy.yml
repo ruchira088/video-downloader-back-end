@@ -162,8 +162,11 @@
 
         - name: Deploy api
           block:
-            - name: Create ConfigMap
-              command: kubectl apply -f k8s-output/api/ConfigMap.yaml --kubeconfig {{ kubeconfig }}
+            - name: Create data ConfigMap
+              command: kubectl apply -f k8s-output/api/DataConfigMap.yaml --kubeconfig {{ kubeconfig }}
+
+            - name: Create file ConfigMap
+              command: kubectl apply -f k8s-output/api/FileConfigMap.yaml --kubeconfig {{ kubeconfig }}
 
             - name: Create Secrets
               command: kubectl apply -f k8s-output/api/Secrets.yaml --kubeconfig {{ kubeconfig }}
@@ -173,8 +176,11 @@
 
         - name: Deploy batch
           block:
-            - name: Create ConfigMap
-              command: kubectl apply -f k8s-output/batch/ConfigMap.yaml --kubeconfig {{ kubeconfig }}
+            - name: Create data ConfigMap
+              command: kubectl apply -f k8s-output/batch/DataConfigMap.yaml --kubeconfig {{ kubeconfig }}
+
+            - name: Create file ConfigMap
+              command: kubectl apply -f k8s-output/batch/FileConfigMap.yaml --kubeconfig {{ kubeconfig }}
 
             - name: Create Secrets
               command: kubectl apply -f k8s-output/batch/Secrets.yaml --kubeconfig {{ kubeconfig }}

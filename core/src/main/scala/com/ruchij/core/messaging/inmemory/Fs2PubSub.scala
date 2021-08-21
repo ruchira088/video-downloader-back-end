@@ -1,21 +1,24 @@
 package com.ruchij.core.messaging.inmemory
 
-import cats.Applicative
+import cats.{Applicative, Foldable, Functor, Id}
 import cats.effect.Concurrent
 import cats.implicits._
 import com.ruchij.core.messaging.PubSub
-import com.ruchij.core.messaging.kafka.KafkaSubscriber.CommittableRecord
+import com.ruchij.core.messaging.models.CommittableRecord
 import fs2.concurrent.Topic
 import fs2.{Pipe, Stream}
 
-class Fs2PubSub[F[_]: Applicative, A] private (topic: Topic[F, Option[A]]) extends PubSub[F, CommittableRecord[F, *], A] {
+class Fs2PubSub[F[_]: Applicative, A] private (topic: Topic[F, Option[A]]) extends PubSub[F, CommittableRecord[Id, *], A] {
 
   override val publish: Pipe[F, A, Unit] = input => topic.publish(input.map(Some.apply))
 
   override def publishOne(input: A): F[Unit] = topic.publish1(Some(input))
 
-  override def subscribe(groupId: String): Stream[F, CommittableRecord[F, A]] =
-    topic.subscribe(Int.MaxValue).collect { case Some(value) => CommittableRecord(value, Applicative[F].unit) }
+  override def subscribe(groupId: String): Stream[F, CommittableRecord[Id, A]] =
+    topic.subscribe(Int.MaxValue).collect { case Some(value) => CommittableRecord[Id, A](value, value) }
+
+  override def commit[H[_] : Foldable : Functor](values: H[CommittableRecord[Id, A]]): F[Unit] =
+    Applicative[F].unit
 }
 
 object Fs2PubSub {

@@ -43,7 +43,7 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
 )(implicit seekableByteChannelConverter: SeekableByteChannelConverter[F, A], transaction: T ~> F)
     extends SynchronizationService[F] {
 
-  private val logger = Logger[F, SynchronizationServiceImpl[F, A, T]]
+  private val logger = Logger[SynchronizationServiceImpl[F, A, T]]
 
   override val sync: F[SynchronizationResult] =
     Stream.emits[F, String](storageConfiguration.videoFolder :: storageConfiguration.otherVideoFolders)
@@ -56,7 +56,7 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
       }
       .evalTap {
         case VideoSynced(video) =>
-          logger.infoF(s"Sync completed for ${video.fileResource.path}")
+          logger.info[F](s"Sync completed for ${video.fileResource.path}")
 
         case _ => Applicative[F].unit
       }
@@ -94,20 +94,20 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
       .recoverWith {
         errorHandler[F](videoPath) {
           case CorruptedFrameGrabException =>
-            logger.warnF(s"Unable to create thumbnail snapshots for video file at $videoPath")
+            logger.warn[F](s"Unable to create thumbnail snapshots for video file at $videoPath")
 
           case _: UnsupportedFormatException =>
             logger
-              .warnF(s"Video with an unsupported format at $videoPath")
+              .warn[F](s"Video with an unsupported format at $videoPath")
 
           case throwable =>
-            logger.errorF(s"Unable to add video file at: $videoPath", throwable)
+            logger.error[F](s"Unable to add video file at: $videoPath", throwable)
         }
       }
 
   def videoFromPath(videoPath: String): F[Video] =
     for {
-      _ <- logger.infoF(s"Sync started for $videoPath")
+      _ <- logger.info[F](s"Sync started for $videoPath")
       duration <- videoDuration(videoPath)
 
       size <- OptionT(fileRepositoryService.size(videoPath))

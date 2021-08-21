@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: batch-file-config-map
+  namespace: {{ namespace }}
+data:
+  logback.xml: |
+    <configuration scan="true" scanPeriod="30 seconds">
+        <appender name="STD_OUT" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            </encoder>
+        </appender>
+
+        <appender name="ASYNC" class="ch.qos.logback.classic.AsyncAppender">
+            <appender-ref ref="STD_OUT"/>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="ASYNC"/>
+        </root>
+    </configuration>
+

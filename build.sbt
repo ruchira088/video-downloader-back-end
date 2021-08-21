@@ -71,6 +71,7 @@ lazy val api =
       buildInfoKeys := Seq[BuildInfoKey](name, organization, version, scalaVersion, sbtVersion),
       buildInfoPackage := "com.eed3si9n.ruchij.api",
       topLevelDirectory := None,
+      Universal / javaOptions ++= Seq("-Dlogback.configurationFile=/opt/data/logback.xml"),
       libraryDependencies ++=
         Seq(
           http4sBlazeServer,
@@ -92,6 +93,7 @@ lazy val batch =
     .settings(
       name := "video-downloader-batch",
       topLevelDirectory := None,
+      Universal / javaOptions ++= Seq("-Dlogback.configurationFile=/opt/data/logback.xml"),
       libraryDependencies ++=
         Seq(postgresql, jcodec, jcodecJavaSe, thumbnailator) ++ Seq(scalaTest, pegdown).map(_ % Test)
     )

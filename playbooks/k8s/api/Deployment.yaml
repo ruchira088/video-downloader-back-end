@@ -20,7 +20,7 @@ spec:
           image: ruchira088/video-downloader-api:{{ git_branch }}-{{ git_commit }}
           envFrom:
             - configMapRef:
-                name: api-config-map
+                name: api-data-config-map
             - secretRef:
                 name: api-secrets
           readinessProbe:
@@ -50,11 +50,16 @@ spec:
             - name: http4s-port
               containerPort: 8000
           volumeMounts:
+            - mountPath: /opt/data
+              name: file-config-map
 {% for path_mapping in host_path_mappings %}
             - mountPath: {{ path_mapping.pod_mount_path }}
               name: path-mapping-{{ loop.index }}
 {% endfor %}
       volumes:
+        - name: file-config-map
+          configMap:
+            name: api-file-config-map
 {% for path_mapping in host_path_mappings %}
         - name: path-mapping-{{ loop.index }}
           hostPath:

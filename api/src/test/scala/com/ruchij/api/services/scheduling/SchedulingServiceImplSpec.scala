@@ -12,7 +12,7 @@ import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
 import com.ruchij.core.kv.{InMemoryKeyValueStore, KeySpacedKeyValueStore}
 import com.ruchij.core.messaging.inmemory.Fs2PubSub
-import com.ruchij.core.messaging.kafka.KafkaSubscriber.CommittableRecord
+import com.ruchij.core.messaging.models.CommittableRecord
 import com.ruchij.core.services.config.ConfigurationServiceImpl
 import com.ruchij.core.services.download.Http4sDownloadService
 import com.ruchij.core.services.hashing.MurmurHash3Service
@@ -155,7 +155,6 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
           apiSchedulingService = new ApiSchedulingServiceImpl[IO, ConnectionIO](
             videoAnalysisService,
             scheduledVideoDownloadUpdatesPubSub,
-            downloadProgressPubSub,
             workerStatusUpdatesPubSub,
             configurationService,
             DoobieSchedulingDao
