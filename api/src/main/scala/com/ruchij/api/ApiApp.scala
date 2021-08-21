@@ -166,10 +166,9 @@ object ApiApp extends IOApp {
 
     val assetService = new AssetServiceImpl[F, ConnectionIO](DoobieFileResourceDao, repositoryService)
 
-    val schedulingService = new ApiSchedulingServiceImpl[F, ConnectionIO, M](
+    val schedulingService = new ApiSchedulingServiceImpl[F, ConnectionIO](
       videoAnalysisService,
       messageBrokers.scheduledVideoDownloadPublisher,
-      messageBrokers.downloadProgressSubscriber,
       messageBrokers.workerStatusUpdatesPublisher,
       configurationService,
       DoobieSchedulingDao
@@ -187,8 +186,9 @@ object ApiApp extends IOApp {
       _ <- MigrationApp.migration[F](apiServiceConfiguration.databaseConfiguration, blockerIO)
 
       backgroundService <-
-        BackgroundServiceImpl.create[F](
+        BackgroundServiceImpl.create[F, M](
           schedulingService,
+          messageBrokers.downloadProgressSubscriber,
           s"background-${apiServiceConfiguration.applicationInformation.instanceId}"
         )
 

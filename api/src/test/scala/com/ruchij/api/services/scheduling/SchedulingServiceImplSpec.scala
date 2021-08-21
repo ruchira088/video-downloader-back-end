@@ -1,6 +1,5 @@
 package com.ruchij.api.services.scheduling
 
-import cats.Id
 import cats.effect.{IO, Resource, Timer}
 import com.ruchij.api.services.config.models.ApiConfigKey
 import com.ruchij.api.services.config.models.ApiConfigKey.ApiConfigKeySpace
@@ -153,10 +152,9 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
           scheduledVideoDownloadUpdatesPubSub <- Fs2PubSub[IO, ScheduledVideoDownload]
           workerStatusUpdatesPubSub <- Fs2PubSub[IO, WorkerStatusUpdate]
 
-          apiSchedulingService = new ApiSchedulingServiceImpl[IO, ConnectionIO, Id](
+          apiSchedulingService = new ApiSchedulingServiceImpl[IO, ConnectionIO](
             videoAnalysisService,
             scheduledVideoDownloadUpdatesPubSub,
-            downloadProgressPubSub,
             workerStatusUpdatesPubSub,
             configurationService,
             DoobieSchedulingDao
