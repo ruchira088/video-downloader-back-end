@@ -42,6 +42,7 @@ lazy val core =
           circeParser,
           http4sAsyncHttpClient,
           http4sDsl,
+          http4sCirce,
           fs2Kafka,
           fs2KafkaVulkan,
           vulkanGeneric,
