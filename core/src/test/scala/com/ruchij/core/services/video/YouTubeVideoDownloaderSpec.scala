@@ -1,9 +1,10 @@
 package com.ruchij.core.services.video
 
 import cats.effect.IO
-import com.ruchij.core.services.cli.CliCommandRunner
+import cats.implicits._
+import com.ruchij.core.services.cli.{CliCommandRunner, CliCommandRunnerImpl}
 import com.ruchij.core.test.IOSupport.runIO
-import com.ruchij.core.test.Providers.contextShift
+import com.ruchij.core.test.Providers.{contextShift, timer}
 import fs2.Stream
 import org.http4s.implicits.http4sLiteralsSyntax
 import org.scalamock.scalatest.MockFactory
@@ -76,5 +77,30 @@ class YouTubeVideoDownloaderSpec extends AnyFlatSpec with MockFactory with Match
             videoAnalysisResult.thumbnail mustBe uri"https://i.ytimg.com/vi_webp/4PrO20ALoCA/maxresdefault.webp"
           }
       }
+  }
+
+  it should "return a list of supported video sites" in runIO {
+    val cliCommandRunner = mock[CliCommandRunner[IO]]
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner)
+
+    val expectedCliOutput =
+      """9now.com.au
+        |abc.net.au
+        |youtube
+        |XHamster
+        |""".stripMargin
+
+    (cliCommandRunner.run _).expects("youtube-dl --list-extractors", *)
+      .returns {
+        Stream.emits[IO, String] { expectedCliOutput.split("\n").filter(_.nonEmpty) }
+      }
+
+    youTubeVideoDownloader.supportedSites
+      .flatMap {
+        sites => IO.delay {
+          sites mustBe Seq("9now.com.au", "abc.net.au", "youtube", "XHamster")
+        }
+      }
+
   }
 }

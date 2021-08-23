@@ -6,4 +6,6 @@ import org.http4s.Uri
 trait YouTubeVideoDownloader[F[_]] {
   def videoInformation(uri: Uri): F[VideoAnalysisResult]
 
+  def supportedSites: F[Seq[String]]
+
 }

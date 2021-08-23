@@ -34,4 +34,9 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
         )
       }
 
+  override def supportedSites: F[Seq[String]] =
+    cliCommandRunner.run("youtube-dl --list-extractors", Stream.never[F])
+      .compile
+      .toVector
+      .map(identity[Seq[String]])
 }
