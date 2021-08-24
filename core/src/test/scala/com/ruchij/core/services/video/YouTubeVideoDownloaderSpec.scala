@@ -63,7 +63,7 @@ class YouTubeVideoDownloaderSpec extends AnyFlatSpec with MockFactory with Match
         |}""".stripMargin
 
     (cliCommandRunner.run _)
-      .expects("youtube-dl https://www.youtube.com/watch?v=4PrO20ALoCA -j", *)
+      .expects("""youtube-dl "https://www.youtube.com/watch?v=4PrO20ALoCA" -j""", *)
       .returns(Stream.emits[IO, String](cliOutput.split("\n")))
 
     youTubeVideoDownloader.videoInformation(uri"https://www.youtube.com/watch?v=4PrO20ALoCA")
@@ -128,7 +128,7 @@ class YouTubeVideoDownloaderSpec extends AnyFlatSpec with MockFactory with Match
         |Deleting original file Sean Lock - Our Favourite Moments-F1Zl1TRDJs0.f140.m4a (pass -k to keep)
         |""".stripMargin
 
-    (cliCommandRunner.run _).expects("""youtube-dl -o "~/Videos/%(extractor)s/%(title)s.%(ext)s" https://www.youtube.com/watch?v=F1Zl1TRDJs0""", *)
+    (cliCommandRunner.run _).expects("""youtube-dl -o "~/Videos/%(extractor)s/%(title)s.%(ext)s" "https://www.youtube.com/watch?v=F1Zl1TRDJs0"""", *)
       .returns {
         Stream.emits[IO, String] { cliOutput.split("\n") }
       }

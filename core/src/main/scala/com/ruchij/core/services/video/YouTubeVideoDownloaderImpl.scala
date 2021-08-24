@@ -20,7 +20,7 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
 
   override def videoInformation(uri: Uri): F[VideoAnalysisResult] =
     cliCommandRunner
-      .run(s"youtube-dl ${uri.renderString} -j", Stream.never[F])
+      .run(s"""youtube-dl "${uri.renderString}" -j""", Stream.never[F])
       .compile
       .string
       .flatMap(output => JsonParser.decode[YTDownloaderMetadata](output).toType[F, Throwable])
@@ -45,7 +45,7 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
 
   override def downloadVideo(uri: Uri, filePath: Path, interrupt: Stream[F, Boolean]): Stream[F, Long] =
     cliCommandRunner
-      .run(s"""youtube-dl -o "$filePath/%(extractor)s/%(title)s.%(ext)s" ${uri.renderString}""", interrupt)
+      .run(s"""youtube-dl -o "$filePath/%(extractor)s/%(title)s.%(ext)s" "${uri.renderString}"""", interrupt)
       .collect {
         case YTDownloaderProgress(progress) => math.round(progress.completed / 100 * progress.totalSize.bytes)
       }
