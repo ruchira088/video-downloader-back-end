@@ -3,7 +3,7 @@ package com.ruchij.core.utils
 import cats.data.{Kleisli, NonEmptyList}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadError}
-import com.ruchij.core.daos.videometadata.models.VideoSite.Selector
+import com.ruchij.core.daos.videometadata.models.CustomVideoSite.Selector
 import com.ruchij.core.exceptions.JSoupException._
 import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherToF}
 import org.http4s.Uri

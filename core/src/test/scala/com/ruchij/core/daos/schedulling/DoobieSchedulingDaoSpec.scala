@@ -9,7 +9,7 @@ import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
-import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
+import com.ruchij.core.daos.videometadata.models.{VideoMetadata, CustomVideoSite}
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.video.models.DurationRange
 import com.ruchij.core.test.DoobieProvider
@@ -44,7 +44,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
               VideoMetadata(
                 uri"https://spankbang.com",
                 "video-metadata-id",
-                VideoSite.SpankBang,
+                CustomVideoSite.SpankBang,
                 "sample-video-title",
                 5 minutes,
                 50_000,

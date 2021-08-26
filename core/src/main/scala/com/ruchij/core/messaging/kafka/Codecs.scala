@@ -4,7 +4,7 @@ import java.time.Instant
 import java.util.concurrent.TimeUnit
 import cats.Show
 import com.ruchij.core.daos.resource.models.FileResource
-import com.ruchij.core.daos.videometadata.models.VideoMetadata
+import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
 import enumeratum.{Enum, EnumEntry}
 import org.http4s.{MediaType, Method, Status, Uri}
 import org.joda.time.DateTime
@@ -18,6 +18,8 @@ object Codecs {
     Codec[Instant].imap[DateTime](instant => new DateTime(instant.toEpochMilli)) { dateTime =>
       Instant.ofEpochMilli(dateTime.getMillis)
     }
+
+  implicit val videoSiteCodex: Codec[VideoSite] = Codec[String].imap(VideoSite.from)(_.name)
 
   implicit def enumCodec[A <: EnumEntry](implicit enumValues: Enum[A]): Codec[A] =
     Codec[String].imapError[A] {

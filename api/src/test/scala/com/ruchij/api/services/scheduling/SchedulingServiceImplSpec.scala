@@ -9,7 +9,7 @@ import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
-import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
+import com.ruchij.core.daos.videometadata.models.{VideoMetadata, CustomVideoSite}
 import com.ruchij.core.kv.{InMemoryKeyValueStore, KeySpacedKeyValueStore}
 import com.ruchij.core.messaging.inmemory.Fs2PubSub
 import com.ruchij.core.messaging.models.CommittableRecord
@@ -133,7 +133,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
             VideoMetadata(
               videoUrl,
               videoId,
-              VideoSite.PornOne,
+              CustomVideoSite.PornOne,
               "Caught My Bbc Roommate Spying",
               204 seconds,
               1988,

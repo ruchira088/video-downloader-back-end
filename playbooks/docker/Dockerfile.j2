@@ -1,5 +1,9 @@
 FROM openjdk:8-jre-slim
 
+RUN apt update && \
+    apt install ffmpeg python3-pip -y && \
+    pip3 install youtube-dl
+
 ENV GIT_BRANCH {{ git_branch }}
 ENV GIT_COMMIT {{ git_commit }}
 ENV BUILD_TIMESTAMP {{ build_timestamp }}

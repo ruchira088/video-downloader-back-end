@@ -109,7 +109,7 @@ class YouTubeVideoDownloaderSpec extends AnyFlatSpec with MockFactory with Match
 
     val cliOutput =
       """[youtube] F1Zl1TRDJs0: Downloading webpage
-        |[download] Destination: Sean Lock - Our Favourite Moments-F1Zl1TRDJs0.f248.webm
+        |[download] Destination: /home/ruchira/Videos/youtube-video-url-hash.mp4.f248
         |[download]  0.3% of 180.0MiB at  6.1MiB/s ETA 00:32
         |[download]  11.1% of 180.0MiB at  6.0MiB/s ETA 00:28
         |[download]  20.3% of 180.0MiB at  6.1MiB/s ETA 00:25
@@ -121,19 +121,27 @@ class YouTubeVideoDownloaderSpec extends AnyFlatSpec with MockFactory with Match
         |[download]  80.3% of 180.0MiB at  6.1MiB/s ETA 00:04
         |[download]  91.1% of 180.0MiB at  6.0MiB/s ETA 00:02
         |[download]  100% of 180.0MiB at  6.0MiB/s ETA 00:00
-        |[download] Destination: Sean Lock - Our Favourite Moments-F1Zl1TRDJs0.f140.m4a
+        |[download] Destination: /home/ruchira/Videos/youtube-video-url-hash.mp4.f140
+        |[download]   0.0% of 12.91MiB at 350.96KiB/s ETA 00:37
+        |[download]  15.5% of 12.91MiB at  5.89MiB/s ETA 00:01
+        |[download]  31.0% of 12.91MiB at  5.91MiB/s ETA 00:01
+        |[download]  62.0% of 12.91MiB at  5.92MiB/s ETA 00:00
+        |[download]  75.1% of 12.91MiB at  5.83MiB/s ETA 00:00
+        |[download]  75.1% of 12.91MiB at  1.23MiB/s ETA 00:02
+        |[download]  90.6% of 12.91MiB at  5.86MiB/s ETA 00:00
+        |[download] 100.0% of 12.91MiB at  5.91MiB/s ETA 00:00
         |[download] 100% of 12.91MiB in 00:02
-        |[ffmpeg] Merging formats into "Sean Lock - Our Favourite Moments-F1Zl1TRDJs0.mkv"
-        |Deleting original file Sean Lock - Our Favourite Moments-F1Zl1TRDJs0.f248.webm (pass -k to keep)
-        |Deleting original file Sean Lock - Our Favourite Moments-F1Zl1TRDJs0.f140.m4a (pass -k to keep)
+        |[ffmpeg] Merging formats into "/home/ruchira/Videos/youtube-video-url-hash.mp4"
+        |Deleting original file /home/ruchira/Videos/youtube-video-url-hash.mp4.f248 (pass -k to keep)
+        |Deleting original file /home/ruchira/Videos/youtube-video-url-hash.mp4.f140 (pass -k to keep)
         |""".stripMargin
 
-    (cliCommandRunner.run _).expects("""youtube-dl -o "~/Videos/%(extractor)s/%(title)s.%(ext)s" "https://www.youtube.com/watch?v=F1Zl1TRDJs0"""", *)
+    (cliCommandRunner.run _).expects("""youtube-dl -o "~/Videos/youtube-video-url-hash.mp4" --merge-output-format mp4 "https://www.youtube.com/watch?v=F1Zl1TRDJs0"""", *)
       .returns {
         Stream.emits[IO, String] { cliOutput.split("\n") }
       }
 
-    IO.delay(Paths.get("~/Videos"))
+    IO.delay(Paths.get("~/Videos/youtube-video-url-hash.mp4"))
       .flatMap { filePath =>
         youTubeVideoDownloader
           .downloadVideo(uri"https://www.youtube.com/watch?v=F1Zl1TRDJs0", filePath, Stream.never[IO])
@@ -142,7 +150,12 @@ class YouTubeVideoDownloaderSpec extends AnyFlatSpec with MockFactory with Match
       }
       .flatMap { bytes =>
         IO.delay {
-          bytes mustBe Seq(0, 566231, 20950548, 38314967, 62474158, 76063703, 96448020, 113812439, 134196756, 151561175, 171945492, 188743680)
+          bytes mustBe
+            Seq(
+              0, 566231, 20950548, 38314967, 62474158, 76063703, 96448020, 113812439, 134196756, 151561175,
+              171945492, 188743680, 188743680, 188743680, 188743680, 188743680, 188743680, 188743680,
+              188743680, 188743680
+            )
         }
       }
   }

@@ -1,5 +1,6 @@
 package com.ruchij.core.circe
 
+import com.ruchij.core.daos.videometadata.models.VideoSite
 import enumeratum.{Enum, EnumEntry}
 import io.circe.Decoder
 import org.joda.time.DateTime
@@ -15,6 +16,9 @@ object Decoders {
 
   implicit val finiteDurationDecoder: Decoder[FiniteDuration] =
     Decoder.decodeDuration.map { duration => FiniteDuration(duration.toMillis, TimeUnit.MILLISECONDS) }
+
+  implicit val videoSiteDecoder: Decoder[VideoSite] =
+    Decoder.decodeString.map(VideoSite.from)
 
   implicit def enumDecoder[A <: EnumEntry](implicit enumValues: Enum[A]): Decoder[A] =
     Decoder.decodeString.emap { enumString =>

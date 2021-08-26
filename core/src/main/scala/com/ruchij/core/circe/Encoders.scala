@@ -1,8 +1,8 @@
 package com.ruchij.core.circe
 
 import java.nio.file.Path
-
 import cats.Show
+import com.ruchij.core.daos.videometadata.models.VideoSite
 import enumeratum.EnumEntry
 import io.circe.{Encoder, Json}
 import org.http4s.MediaType
@@ -25,6 +25,8 @@ object Encoders {
         "length" -> Json.fromLong(finiteDuration.length),
         "unit" -> Json.fromString(finiteDuration.unit.name())
       )
+
+  implicit val videoSiteEncoder: Encoder[VideoSite] = Encoder[String].contramap[VideoSite](_.name)
 
   implicit val pathEncoder: Encoder[Path] = Encoder.encodeString.contramap[Path](_.toAbsolutePath.toString)
 
