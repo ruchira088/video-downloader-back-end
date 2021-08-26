@@ -11,5 +11,5 @@ trait YouTubeVideoDownloader[F[_]] {
 
   def supportedSites: F[Seq[String]]
 
-  def downloadVideo(uri: Uri, filePath: Path, interrupt: Stream[F, Boolean]): Stream[F, Long]
+  def downloadVideo(uri: Uri, filePath: Path): Stream[F, Long]
 }

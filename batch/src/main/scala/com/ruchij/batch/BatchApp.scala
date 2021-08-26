@@ -156,8 +156,8 @@ object BatchApp extends IOApp {
             batchSchedulingService,
             videoAnalysisService,
             videoService,
-            hashingService,
             downloadService,
+            youtubeVideoDownloader,
             videoEnrichmentService,
             batchServiceConfiguration.storageConfiguration
           )

@@ -56,7 +56,7 @@ object VideoRoutes {
         for {
           videoMetadataUpdateRequest <- request.as[VideoMetadataUpdateRequest]
 
-          updatedVideo <- videoService.update(videoId, videoMetadataUpdateRequest.title)
+          updatedVideo <- videoService.update(videoId, videoMetadataUpdateRequest.title, None)
 
           response <- Ok(updatedVideo)
         }

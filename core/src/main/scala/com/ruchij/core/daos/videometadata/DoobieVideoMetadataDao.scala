@@ -1,10 +1,10 @@
 package com.ruchij.core.daos.videometadata
 
-import cats.data.OptionT
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 import com.ruchij.core.daos.videometadata.models.VideoMetadata
 import doobie.ConnectionIO
 import doobie.implicits._
+import doobie.util.fragments.setOpt
 import org.http4s.Uri
 
 object DoobieVideoMetadataDao extends VideoMetadataDao[ConnectionIO] {
@@ -37,14 +37,12 @@ object DoobieVideoMetadataDao extends VideoMetadataDao[ConnectionIO] {
         )
     """.update.run
 
-  override def update(videoMetadataId: String, title: Option[String]): ConnectionIO[Int] =
-    OptionT(findById(videoMetadataId))
-      .semiflatMap { videoMetadata =>
-        sql"UPDATE video_metadata SET title = ${title.getOrElse[String](videoMetadata.title)} WHERE id = $videoMetadataId"
-          .update
-          .run
-      }
-      .getOrElse(0)
+  override def update(videoMetadataId: String, maybeTitle: Option[String], maybeSize: Option[Long]): ConnectionIO[Int] =
+    (fr"UPDATE video_metadata" ++
+      setOpt(maybeTitle.map(title => fr"title = $title"), maybeSize.map(size => fr"size = $size")) ++
+      fr"WHERE id = $videoMetadataId")
+      .update
+      .run
 
   override def findById(videoMetadataId: String): ConnectionIO[Option[VideoMetadata]] =
     (SelectQuery ++ fr"WHERE video_metadata.id = $videoMetadataId")

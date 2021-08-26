@@ -12,7 +12,7 @@ import scala.sys.process._
 
 class CliCommandRunnerImpl[F[_]: ConcurrentEffect: Timer] extends CliCommandRunner[F] {
 
-  override def run(command: String, interruptWhen: Stream[F, Boolean]): Stream[F, String] =
+  override def run(command: String): Stream[F, String] =
     for {
       topic <- Stream.eval(Topic[F, Option[String]](None))
 
@@ -35,7 +35,6 @@ class CliCommandRunnerImpl[F[_]: ConcurrentEffect: Timer] extends CliCommandRunn
       line <-
         topic.subscribe(Int.MaxValue)
           .collect { case Some(line) => line }
-          .interruptWhen(interruptWhen)
           .interruptWhen {
             Stream.eval(Sync[F].delay(process.isAlive()))
               .repeat

@@ -20,7 +20,7 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
 
   override def videoInformation(uri: Uri): F[VideoAnalysisResult] =
     cliCommandRunner
-      .run(s"""youtube-dl "${uri.renderString}" -j""", Stream.never[F])
+      .run(s"""youtube-dl "${uri.renderString}" -j""")
       .compile
       .string
       .flatMap(output => JsonParser.decode[YTDownloaderMetadata](output).toType[F, Throwable])
@@ -42,15 +42,15 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
 
   override val supportedSites: F[Seq[String]] =
     Sync[F].defer {
-      cliCommandRunner.run("youtube-dl --list-extractors", Stream.never[F])
+      cliCommandRunner.run("youtube-dl --list-extractors")
         .compile
         .toVector
         .map(identity[Seq[String]])
     }
 
-  override def downloadVideo(uri: Uri, filePath: Path, interrupt: Stream[F, Boolean]): Stream[F, Long] =
+  override def downloadVideo(uri: Uri, filePath: Path): Stream[F, Long] =
     cliCommandRunner
-      .run(s"""youtube-dl -o "$filePath" --merge-output-format mp4 "${uri.renderString}"""", interrupt)
+      .run(s"""youtube-dl -o "$filePath" --merge-output-format mp4 "${uri.renderString}"""")
       .collect {
         case YTDownloaderProgress(progress) => math.round(progress.completed / 100 * progress.totalSize.bytes)
       }

@@ -63,7 +63,7 @@ class YouTubeVideoDownloaderSpec extends AnyFlatSpec with MockFactory with Match
         |}""".stripMargin
 
     (cliCommandRunner.run _)
-      .expects("""youtube-dl "https://www.youtube.com/watch?v=4PrO20ALoCA" -j""", *)
+      .expects("""youtube-dl "https://www.youtube.com/watch?v=4PrO20ALoCA" -j""")
       .returns(Stream.emits[IO, String](cliOutput.split("\n")))
 
     youTubeVideoDownloader.videoInformation(uri"https://www.youtube.com/watch?v=4PrO20ALoCA")
@@ -90,7 +90,7 @@ class YouTubeVideoDownloaderSpec extends AnyFlatSpec with MockFactory with Match
         |XHamster
         |""".stripMargin
 
-    (cliCommandRunner.run _).expects("youtube-dl --list-extractors", *)
+    (cliCommandRunner.run _).expects("youtube-dl --list-extractors")
       .returns {
         Stream.emits[IO, String] { cliOutput.split("\n").filter(_.nonEmpty) }
       }
@@ -136,7 +136,7 @@ class YouTubeVideoDownloaderSpec extends AnyFlatSpec with MockFactory with Match
         |Deleting original file /home/ruchira/Videos/youtube-video-url-hash.mp4.f140 (pass -k to keep)
         |""".stripMargin
 
-    (cliCommandRunner.run _).expects("""youtube-dl -o "~/Videos/youtube-video-url-hash.mp4" --merge-output-format mp4 "https://www.youtube.com/watch?v=F1Zl1TRDJs0"""", *)
+    (cliCommandRunner.run _).expects("""youtube-dl -o "~/Videos/youtube-video-url-hash.mp4" --merge-output-format mp4 "https://www.youtube.com/watch?v=F1Zl1TRDJs0"""")
       .returns {
         Stream.emits[IO, String] { cliOutput.split("\n") }
       }
@@ -144,7 +144,7 @@ class YouTubeVideoDownloaderSpec extends AnyFlatSpec with MockFactory with Match
     IO.delay(Paths.get("~/Videos/youtube-video-url-hash.mp4"))
       .flatMap { filePath =>
         youTubeVideoDownloader
-          .downloadVideo(uri"https://www.youtube.com/watch?v=F1Zl1TRDJs0", filePath, Stream.never[IO])
+          .downloadVideo(uri"https://www.youtube.com/watch?v=F1Zl1TRDJs0", filePath)
           .compile
           .toVector
       }
