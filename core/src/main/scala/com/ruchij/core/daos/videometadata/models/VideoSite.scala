@@ -17,7 +17,15 @@ object VideoSite {
   def fromUri(uri: Uri): Either[ValidationException, VideoSite] =
     CustomVideoSite.values
       .find(_.test(uri))
-      .orElse { uri.host.map(host => YTDownloaderSite(host.value)) }
+      .orElse {
+        uri.host
+          .map { host =>
+            host.renderString.split('.').reverse.toList match {
+              case _ :: name :: _ => YTDownloaderSite(name)
+              case _ => YTDownloaderSite(host.renderString)
+            }
+          }
+      }
       .fold[Either[ValidationException, VideoSite]](Left(ValidationException(s"Unable infer video site from ${uri.renderString}"))) {
         videoSite => Right(videoSite)
       }
