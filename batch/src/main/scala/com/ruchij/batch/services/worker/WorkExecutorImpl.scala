@@ -3,7 +3,7 @@ package com.ruchij.batch.services.worker
 import cats.data.OptionT
 import cats.effect.{Concurrent, Resource, Sync, Timer}
 import cats.implicits._
-import cats.{Applicative, ~>}
+import cats.{Applicative, ApplicativeError, ~>}
 import com.ruchij.batch.config.BatchStorageConfiguration
 import com.ruchij.batch.daos.workers.WorkerDao
 import com.ruchij.batch.daos.workers.models.Worker
@@ -14,6 +14,7 @@ import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.models.CustomVideoSite
+import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.download.DownloadService
 import com.ruchij.core.services.download.models.DownloadResult
@@ -126,32 +127,32 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
         downloadVideo(worker.id, scheduledVideoDownload, interrupt)
           .flatMap {
             case (fileResource, _) =>
-              repositoryService.size(fileResource.path).flatMap {
-                _.filter { _ >= scheduledVideoDownload.videoMetadata.size }
-                  .fold[F[Video]] {
-                    logger
-                      .warn[F](
-                        s"Worker ${worker.id} invalidly deemed as complete: ${scheduledVideoDownload.videoMetadata.url}"
-                      )
-                      .productR(execute(scheduledVideoDownload, worker, interrupt))
-                  } { fileSize =>
-                    batchSchedulingService
-                      .updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Downloaded)
-                      .productR(videoService.insert(scheduledVideoDownload.videoMetadata.id, fileResource.id))
-                      .productL {
-                        if (fileSize > scheduledVideoDownload.videoMetadata.size)
-                          videoService.update(scheduledVideoDownload.videoMetadata.id, None, Some(fileSize))
-                        else Applicative[F].unit
-                      }
-                      .flatTap(videoEnrichmentService.videoSnapshots)
-                      .productL(
-                        batchSchedulingService.completeScheduledVideoDownload(scheduledVideoDownload.videoMetadata.id)
-                      )
-                      .productL {
-                        logger.info[F](
-                          s"Worker ${worker.id} completed download for ${scheduledVideoDownload.videoMetadata.url}"
-                        )
-                      }
+              repositoryService.size(fileResource.path).flatMap { maybeSizeFile =>
+                maybeSizeFile
+                  .fold[F[Video]](ApplicativeError[F, Throwable].raiseError(ResourceNotFoundException(s"File not found at: ${fileResource.path}"))) {
+                    fileSize =>
+                      if (fileSize < scheduledVideoDownload.videoMetadata.size)
+                        logger
+                          .warn[F](s"Worker ${worker.id} invalidly deemed as complete: ${scheduledVideoDownload.videoMetadata.url}")
+                          .productR(execute(scheduledVideoDownload, worker, interrupt))
+                      else
+                        batchSchedulingService
+                          .updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Downloaded)
+                          .productR(videoService.insert(scheduledVideoDownload.videoMetadata.id, fileResource.id))
+                          .productL {
+                            if (fileSize > scheduledVideoDownload.videoMetadata.size)
+                              videoService.update(scheduledVideoDownload.videoMetadata.id, None, Some(fileSize))
+                            else Applicative[F].unit
+                          }
+                          .flatTap(videoEnrichmentService.videoSnapshots)
+                          .productL(
+                            batchSchedulingService.completeScheduledVideoDownload(scheduledVideoDownload.videoMetadata.id)
+                          )
+                          .productL {
+                            logger.info[F](
+                              s"Worker ${worker.id} completed download for ${scheduledVideoDownload.videoMetadata.url}"
+                            )
+                          }
                   }
               }
           }
