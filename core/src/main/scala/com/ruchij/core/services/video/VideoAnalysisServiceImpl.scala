@@ -8,15 +8,16 @@ import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
-import com.ruchij.core.daos.videometadata.models.VideoSite.Selector
-import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
-import com.ruchij.core.exceptions.ExternalServiceException
+import com.ruchij.core.daos.videometadata.models.CustomVideoSite.Selector
+import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata, VideoSite}
+import com.ruchij.core.exceptions.{ExternalServiceException, ValidationException}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.download.DownloadService
 import com.ruchij.core.services.hashing.HashingService
 import com.ruchij.core.services.video.VideoAnalysisService.{Existing, NewlyCreated, VideoMetadataResult}
 import com.ruchij.core.services.video.models.VideoAnalysisResult
 import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.FunctionKTypes._
 import com.ruchij.core.utils.Http4sUtils
 import org.http4s.client.Client
 import org.http4s.headers.`Content-Length`
@@ -27,6 +28,7 @@ import org.jsoup.nodes.Document
 class VideoAnalysisServiceImpl[F[_]: Sync: Clock, T[_]: Monad](
   hashingService: HashingService[F],
   downloadService: DownloadService[F],
+  youTubeVideoDownloader: YouTubeVideoDownloader[F],
   client: Client[F],
   videoMetadataDao: VideoMetadataDao[T],
   fileResourceDao: FileResourceDao[T],
@@ -51,7 +53,7 @@ class VideoAnalysisServiceImpl[F[_]: Sync: Clock, T[_]: Monad](
       videoAnalysisResult @ VideoAnalysisResult(_, videoSite, title, duration, size, thumbnailUri) <- analyze(uri)
       _ <- logger.info[F](s"Uri=${uri.renderString} Result=$videoAnalysisResult")
 
-      videoId <- hashingService.hash(uri.renderString).map(hash => s"${videoSite.entryName.toLowerCase}-$hash")
+      videoId <- hashingService.hash(uri.renderString).map(hash => s"${videoSite.name.toLowerCase}-$hash")
 
       timestamp <- JodaClock[F].timestamp
 
@@ -83,33 +85,54 @@ class VideoAnalysisServiceImpl[F[_]: Sync: Clock, T[_]: Monad](
       }
     } yield videoMetadata
 
-  override def analyze(uri: Uri): F[VideoAnalysisResult] =
-    for {
-      (videoSite, document) <- uriInfo(uri)
-      videoAnalysisResult <- analyze(uri, videoSite).run(document)
-    } yield videoAnalysisResult
+  def analyze(uri: Uri): F[VideoAnalysisResult] =
+    VideoSite.fromUri(uri).toType[F, Throwable]
+      .flatMap {
+        case customVideoSite: CustomVideoSite =>
+          for {
+            document <- uriInfoForCustomVideoSite(uri)
+            videoAnalysisResult <- analyze(uri, customVideoSite).run(document)
+          }
+          yield videoAnalysisResult
+
+        case VideoSite.Local =>
+          ApplicativeError[F, Throwable].raiseError {
+            ValidationException("Unable to analyse local URLs")
+          }
+
+        case _ =>
+          youTubeVideoDownloader.videoInformation(uri)
+      }
 
   override def downloadUri(uri: Uri): F[Uri] =
-    for {
-      (videoSite, document) <- uriInfo(uri)
-      downloadUri <- videoSite.downloadUri[F].run(document)
-    } yield downloadUri
+    VideoSite.fromUri(uri).toType[F, Throwable]
+      .flatMap {
+        case customVideoSite: CustomVideoSite =>
+          for {
+            document <- uriInfoForCustomVideoSite(uri)
+            downloadUri <- customVideoSite.downloadUri[F].run(document)
+          }
+          yield downloadUri
 
-  def uriInfo(uri: Uri): F[(VideoSite, Document)] =
-    for {
-      videoSite <- VideoSite.infer[F](uri)
+        case _ =>
+          ApplicativeError[F, Throwable].raiseError {
+            ValidationException("Download URLs can only be fetched for custom video sites")
+          }
+      }
 
+  private def uriInfoForCustomVideoSite(uri: Uri): F[Document] =
+    for {
       html <- client.expect[String](uri)
       document <- Sync[F].catchNonFatal(Jsoup.parse(html))
-    } yield (videoSite, document)
+    } yield document
 
-  def analyze(uri: Uri, videoSite: VideoSite): Selector[F, VideoAnalysisResult] =
+  def analyze(uri: Uri, customVideoSite: CustomVideoSite): Selector[F, VideoAnalysisResult] =
     for {
-      videoTitle <- videoSite.title[F]
-      thumbnailUri <- videoSite.thumbnailUri[F]
-      duration <- videoSite.duration[F]
+      videoTitle <- customVideoSite.title[F]
+      thumbnailUri <- customVideoSite.thumbnailUri[F]
+      duration <- customVideoSite.duration[F]
 
-      downloadUri <- videoSite.downloadUri[F]
+      downloadUri <- customVideoSite.downloadUri[F]
 
       _ <- Kleisli.liftF(logger.info[F](s"Download uri = $downloadUri for videoUri = $uri"))
 
@@ -125,5 +148,5 @@ class VideoAnalysisServiceImpl[F[_]: Sync: Clock, T[_]: Monad](
               }
           }
       }
-    } yield VideoAnalysisResult(uri, videoSite, videoTitle, duration, size, thumbnailUri)
+    } yield VideoAnalysisResult(uri, customVideoSite, videoTitle, duration, size, thumbnailUri)
 }

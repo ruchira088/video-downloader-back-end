@@ -50,10 +50,13 @@ class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: MonadError[*[_],
       snapshotDao.findByVideo(videoId)
     }
 
-  override def incrementWatchTime(videoId: String, duration: FiniteDuration): F[_] =
-    transaction {
-      videoDao.incrementWatchTime(videoId, duration)
-    }
+  override def incrementWatchTime(videoId: String, duration: FiniteDuration): F[FiniteDuration] =
+    OptionT(transaction(videoDao.incrementWatchTime(videoId, duration)))
+      .getOrElseF {
+        ApplicativeError[F, Throwable].raiseError {
+          ResourceNotFoundException(s"Unable to find vide with ID: $videoId")
+        }
+      }
 
   override def fetchByVideoFileResourceId(videoFileResourceId: String): F[Video] =
     OptionT(transaction(videoDao.findByVideoFileResourceId(videoFileResourceId)))
@@ -63,8 +66,15 @@ class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: MonadError[*[_],
         }
       }
 
-  override def update(videoId: String, title: Option[String]): F[Video] =
-    transaction(videoMetadataDao.update(videoId, title))
+  override def update(videoId: String, maybeTitle: Option[String], maybeSize: Option[Long]): F[Video] =
+    transaction {
+      OptionT(videoDao.findById(videoId))
+        .semiflatMap { video =>
+          videoMetadataDao.update(videoId, maybeTitle, maybeSize)
+            .product(fileResourceDao.update(video.fileResource.id, maybeSize))
+        }
+        .value
+    }
       .productR(fetchById(videoId))
 
   override def deleteById(videoId: String, deleteVideoFile: Boolean): F[Video] =

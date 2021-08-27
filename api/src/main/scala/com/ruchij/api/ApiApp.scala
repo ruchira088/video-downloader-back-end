@@ -1,6 +1,6 @@
 package com.ruchij.api
 
-import cats.effect.{Blocker, Concurrent, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
+import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
 import cats.implicits._
 import cats.~>
 import com.ruchij.api.config.AuthenticationConfiguration.PasswordAuthenticationConfiguration
@@ -30,12 +30,13 @@ import com.ruchij.core.kv.{KeySpacedKeyValueStore, KeyValueStore, RedisKeyValueS
 import com.ruchij.core.messaging.kafka.{KafkaPubSub, KafkaPublisher}
 import com.ruchij.core.messaging.models.HttpMetric
 import com.ruchij.core.services.asset.AssetServiceImpl
+import com.ruchij.core.services.cli.CliCommandRunnerImpl
 import com.ruchij.core.services.config.{ConfigurationService, ConfigurationServiceImpl}
 import com.ruchij.core.services.download.Http4sDownloadService
 import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.repository.FileRepositoryService
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
-import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
+import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, YouTubeVideoDownloaderImpl}
 import com.ruchij.migration.MigrationApp
 import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.effect.Log.Stdout.instance
@@ -114,7 +115,7 @@ object ApiApp extends IOApp {
         yield httpApp
       }
 
-  def program[F[+ _]: Concurrent: ContextShift: Timer, M[_]](
+  def program[F[+ _]: ConcurrentEffect: ContextShift: Timer, M[_]](
     client: Client[F],
     keyValueStore: KeyValueStore[F],
     messageBrokers: ApiMessageBrokers[F, M],
@@ -144,10 +145,13 @@ object ApiApp extends IOApp {
           new AuthenticationServiceImpl[F](authenticationKeyStore, passwordAuthenticationConfiguration, blockerCPU)
       }
 
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](new CliCommandRunnerImpl[F])
+
     val videoAnalysisService: VideoAnalysisServiceImpl[F, ConnectionIO] =
       new VideoAnalysisServiceImpl[F, ConnectionIO](
         hashingService,
         downloadService,
+        youTubeVideoDownloader,
         client,
         DoobieVideoMetadataDao,
         DoobieFileResourceDao,

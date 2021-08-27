@@ -9,7 +9,7 @@ import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
-import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
+import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata}
 import com.ruchij.core.kv.{InMemoryKeyValueStore, KeySpacedKeyValueStore}
 import com.ruchij.core.messaging.inmemory.Fs2PubSub
 import com.ruchij.core.messaging.models.CommittableRecord
@@ -18,7 +18,7 @@ import com.ruchij.core.services.download.Http4sDownloadService
 import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.repository.InMemoryRepositoryService
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
-import com.ruchij.core.services.video.VideoAnalysisServiceImpl
+import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, YouTubeVideoDownloader}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.Providers.{blocker, contextShift}
 import com.ruchij.core.test.{DoobieProvider, Providers}
@@ -113,6 +113,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
             new VideoAnalysisServiceImpl[IO, ConnectionIO](
               hashingService,
               downloadService,
+              mock[YouTubeVideoDownloader[IO]],
               client,
               DoobieVideoMetadataDao,
               DoobieFileResourceDao,
@@ -133,7 +134,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
             VideoMetadata(
               videoUrl,
               videoId,
-              VideoSite.PornOne,
+              CustomVideoSite.PornOne,
               "Caught My Bbc Roommate Spying",
               204 seconds,
               1988,

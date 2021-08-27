@@ -6,6 +6,8 @@ import com.ruchij.core.daos.resource.models.FileResource
 trait FileResourceDao[F[_]] {
   def insert(resource: FileResource): F[Int]
 
+  def update(id: String, maybeSize: Option[Long]): F[Int]
+
   def getById(id: String): F[Option[FileResource]]
 
   def findByPath(path: String): F[Option[FileResource]]

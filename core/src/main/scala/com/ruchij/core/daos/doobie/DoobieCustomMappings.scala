@@ -3,8 +3,8 @@ package com.ruchij.core.daos.doobie
 import java.nio.file.{Path, Paths}
 import java.sql.Timestamp
 import java.util.concurrent.TimeUnit
-
 import cats.Show
+import com.ruchij.core.daos.videometadata.models.VideoSite
 import doobie.implicits.javasql._
 import doobie.util.{Get, Put}
 import enumeratum.{Enum, EnumEntry}
@@ -17,6 +17,10 @@ import scala.util.Try
 
 object DoobieCustomMappings {
   private implicit def stringShow: Show[String] = Show.fromToString
+
+  implicit val videoSitePut: Put[VideoSite] = Put[String].contramap[VideoSite](_.name)
+
+  implicit val videoSiteGet: Get[VideoSite] = Get[String].map(VideoSite.from)
 
   implicit def enumPut[A <: EnumEntry]: Put[A] = Put[String].contramap[A](_.entryName)
 

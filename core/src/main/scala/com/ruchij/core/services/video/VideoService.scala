@@ -16,9 +16,9 @@ trait VideoService[F[_]] {
 
   def fetchByVideoFileResourceId(videoFileResourceId: String): F[Video]
 
-  def incrementWatchTime(videoId: String, duration: FiniteDuration): F[_]
+  def incrementWatchTime(videoId: String, duration: FiniteDuration): F[FiniteDuration]
 
-  def update(videoId: String, title: Option[String]): F[Video]
+  def update(videoId: String, maybeTitle: Option[String], maybeSize: Option[Long]): F[Video]
 
   def deleteById(videoId: String, deleteVideoFile: Boolean): F[Video]
 

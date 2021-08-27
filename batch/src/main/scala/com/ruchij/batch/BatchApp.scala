@@ -19,11 +19,12 @@ import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.kafka.{KafkaPubSub, KafkaPublisher, KafkaSubscriber}
 import com.ruchij.core.messaging.models.HttpMetric
+import com.ruchij.core.services.cli.CliCommandRunnerImpl
 import com.ruchij.core.services.download.Http4sDownloadService
 import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
-import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl}
+import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, YouTubeVideoDownloaderImpl}
 import com.ruchij.migration.MigrationApp
 import doobie.free.connection.ConnectionIO
 import fs2.kafka.CommittableConsumerRecord
@@ -89,12 +90,15 @@ object BatchApp extends IOApp {
 
           workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
 
+          youtubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](new CliCommandRunnerImpl[F])
+
           repositoryService = new FileRepositoryService[F](ioBlocker)
           downloadService = new Http4sDownloadService[F](httpClient, repositoryService)
           hashingService = new MurmurHash3Service[F](cpuBlocker)
           videoAnalysisService = new VideoAnalysisServiceImpl[F, ConnectionIO](
             hashingService,
             downloadService,
+            youtubeVideoDownloader,
             httpClient,
             DoobieVideoMetadataDao,
             DoobieFileResourceDao,
@@ -152,8 +156,8 @@ object BatchApp extends IOApp {
             batchSchedulingService,
             videoAnalysisService,
             videoService,
-            hashingService,
             downloadService,
+            youtubeVideoDownloader,
             videoEnrichmentService,
             batchServiceConfiguration.storageConfiguration
           )

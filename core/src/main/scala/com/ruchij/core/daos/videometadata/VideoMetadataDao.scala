@@ -6,7 +6,7 @@ import org.http4s.Uri
 trait VideoMetadataDao[F[_]] {
   def insert(videoMetadata: VideoMetadata): F[Int]
 
-  def update(videoMetadataId: String, title: Option[String]): F[Int]
+  def update(videoMetadataId: String, title: Option[String], size: Option[Long]): F[Int]
 
   def findById(videoMetadataId: String): F[Option[VideoMetadata]]
 
