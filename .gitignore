@@ -18,3 +18,5 @@ video-downloader.mv.db
 video-downloader.trace.db
 
 development/src/main/resources/localhost.jks
+
+*.log
