@@ -15,7 +15,7 @@
 
 - name: Generate the Dockerfile
   template:
-    src: docker/Dockerfile.j2
+    src: docker/{{ docker_file }}
     dest: docker-output/Dockerfile-{{ app_name }}
   vars:
     build_timestamp: "{{ ansible_date_time.iso8601 }}"
