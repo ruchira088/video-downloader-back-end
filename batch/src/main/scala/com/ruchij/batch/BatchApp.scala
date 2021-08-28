@@ -77,24 +77,26 @@ object BatchApp extends IOApp {
             Resource.make(Sync[F].delay(Executors.newCachedThreadPool())) { executorService =>
               Sync[F].delay(executorService.shutdown())
             }
-          ioBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(ioThreadPool))
+          blockerIO = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(ioThreadPool))
 
           processorCount <- Resource.eval(Sync[F].delay(Runtime.getRuntime.availableProcessors()))
           cpuBlockingThreadPool <-
             Resource.make(Sync[F].delay(Executors.newFixedThreadPool(processorCount))) { executorService =>
               Sync[F].delay(executorService.shutdown())
             }
-          cpuBlocker = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(cpuBlockingThreadPool))
+          blockerCPU = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(cpuBlockingThreadPool))
 
-          _ <- Resource.eval(MigrationApp.migration[F](batchServiceConfiguration.databaseConfiguration, ioBlocker))
+          _ <- Resource.eval(MigrationApp.migration[F](batchServiceConfiguration.databaseConfiguration, blockerIO))
 
           workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
 
           youtubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](new CliCommandRunnerImpl[F])
 
-          repositoryService = new FileRepositoryService[F](ioBlocker)
+          fileTypeDetector = new PathFileTypeDetector[F](new Tika(), blockerIO)
+
+          repositoryService = new FileRepositoryService[F](fileTypeDetector, blockerIO)
           downloadService = new Http4sDownloadService[F](httpClient, repositoryService)
-          hashingService = new MurmurHash3Service[F](cpuBlocker)
+          hashingService = new MurmurHash3Service[F](blockerCPU)
           videoAnalysisService = new VideoAnalysisServiceImpl[F, ConnectionIO](
             hashingService,
             downloadService,
@@ -117,8 +119,6 @@ object BatchApp extends IOApp {
             DoobieSchedulingDao
           )
 
-          fileTypeDetector = new PathFileTypeDetector[F](new Tika(), ioBlocker)
-
           videoService = new VideoServiceImpl[F, ConnectionIO](
             repositoryService,
             DoobieVideoDao,
@@ -133,7 +133,7 @@ object BatchApp extends IOApp {
             hashingService,
             DoobieSnapshotDao,
             DoobieFileResourceDao,
-            ioBlocker,
+            blockerIO,
             batchServiceConfiguration.storageConfiguration
           )
 
@@ -141,11 +141,12 @@ object BatchApp extends IOApp {
             repositoryService,
             DoobieFileResourceDao,
             DoobieVideoMetadataDao,
+            DoobieSchedulingDao,
             videoService,
             videoEnrichmentService,
             hashingService,
             fileTypeDetector,
-            ioBlocker,
+            blockerIO,
             batchServiceConfiguration.storageConfiguration
           )
 

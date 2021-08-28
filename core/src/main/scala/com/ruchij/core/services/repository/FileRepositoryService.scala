@@ -2,14 +2,14 @@ package com.ruchij.core.services.repository
 
 
 import java.nio.file.{FileVisitOption, Path, Paths, StandardOpenOption}
-
 import cats.effect.{Blocker, ContextShift, Sync}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError}
 import fs2.Stream
 import fs2.io.file.{deleteIfExists, exists, readRange, walk, writeAll, size => fileSize}
+import org.http4s.MediaType
 
-class FileRepositoryService[F[_]: Sync: ContextShift](ioBlocker: Blocker) extends RepositoryService[F] {
+class FileRepositoryService[F[_]: Sync: ContextShift](fileTypeDetector: FileTypeDetector[F, Path], ioBlocker: Blocker) extends RepositoryService[F] {
 
   override type BackedType = Path
 
@@ -68,6 +68,15 @@ class FileRepositoryService[F[_]: Sync: ContextShift](ioBlocker: Blocker) extend
       path <- backedType(key)
       result <- deleteIfExists(ioBlocker, path)
     } yield result
+
+  override def fileType(key: Key): F[Option[MediaType]] =
+    for {
+      path <- backedType(key)
+      fileExists <- exists(ioBlocker, path)
+
+      result <- if (fileExists) fileTypeDetector.detect(path).map(Some.apply) else Applicative[F].pure(None)
+    }
+    yield result
 }
 
 object FileRepositoryService {

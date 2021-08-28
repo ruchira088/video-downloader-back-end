@@ -34,7 +34,7 @@ import com.ruchij.core.services.cli.CliCommandRunnerImpl
 import com.ruchij.core.services.config.{ConfigurationService, ConfigurationServiceImpl}
 import com.ruchij.core.services.download.Http4sDownloadService
 import com.ruchij.core.services.hashing.MurmurHash3Service
-import com.ruchij.core.services.repository.FileRepositoryService
+import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, YouTubeVideoDownloaderImpl}
 import com.ruchij.migration.MigrationApp
@@ -42,6 +42,7 @@ import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.effect.Log.Stdout.instance
 import doobie.free.connection.ConnectionIO
 import fs2.kafka.CommittableConsumerRecord
+import org.apache.tika.Tika
 import org.http4s.HttpApp
 import org.http4s.asynchttpclient.client.AsyncHttpClient
 import org.http4s.blaze.server.BlazeServerBuilder
@@ -132,7 +133,9 @@ object ApiApp extends IOApp {
     val configurationService: ConfigurationService[F, ApiConfigKey] =
       new ConfigurationServiceImpl[F, ApiConfigKey](new KeySpacedKeyValueStore[F, ApiConfigKey[_], String](ApiConfigKeySpace, keyValueStore))
 
-    val repositoryService: FileRepositoryService[F] = new FileRepositoryService[F](blockerIO)
+    val fileTypeDetector = new PathFileTypeDetector[F](new Tika(), blockerIO)
+
+    val repositoryService: FileRepositoryService[F] = new FileRepositoryService[F](fileTypeDetector, blockerIO)
     val downloadService: Http4sDownloadService[F] = new Http4sDownloadService[F](client, repositoryService)
     val hashingService: MurmurHash3Service[F] = new MurmurHash3Service[F](blockerCPU)
 

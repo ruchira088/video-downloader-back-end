@@ -1,11 +1,11 @@
 package com.ruchij.core.services.repository
 
 import java.util.concurrent.ConcurrentHashMap
-
-import cats.Applicative
+import cats.{Applicative, ApplicativeError}
 import cats.effect.Sync
 import cats.implicits._
 import fs2.Stream
+import org.http4s.MediaType
 
 import scala.jdk.CollectionConverters._
 import scala.util.Try
@@ -50,4 +50,9 @@ class InMemoryRepositoryService[F[_]: Sync](concurrentHashMap: ConcurrentHashMap
 
   override def delete(key: Key): F[Boolean] =
     Sync[F].delay { Option(concurrentHashMap.remove(key)).nonEmpty }
+
+  override def fileType(key: Key): F[Option[MediaType]] =
+    ApplicativeError[F, Throwable].raiseError {
+      new UnsupportedOperationException("Fetching the file type is NOT supported in InMemoryRepositoryService")
+    }
 }
