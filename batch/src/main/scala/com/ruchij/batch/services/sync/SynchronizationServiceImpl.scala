@@ -68,13 +68,16 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
       .lastOrError
 
   def isFileSupported(filePath: String): F[Boolean] =
-    if (SupportedFileTypes.exists(_.fileExtensions.exists(filePath.endsWith)))
-      for {
-        path <- fileRepositoryService.backedType(filePath)
-        fileType <- fileTypeDetector.detect(path)
-        isSupported = SupportedFileTypes.contains(fileType)
-      } yield isSupported
-    else
+    if (SupportedFileTypes.exists(_.fileExtensions.exists(extension => filePath.endsWith("." + extension)))) {
+      Bracket[F, Throwable]
+        .handleError {
+          for {
+            path <- fileRepositoryService.backedType(filePath)
+            fileType <- fileTypeDetector.detect(path)
+            isSupported = SupportedFileTypes.contains(fileType)
+          } yield isSupported
+        } { _ => false }
+    } else
       Applicative[F].pure(false)
 
   def syncVideo(videoPath: String): F[FileSyncResult] =
