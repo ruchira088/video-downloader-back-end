@@ -12,7 +12,6 @@ import io.circe.generic.auto._
 import org.http4s.Uri
 import org.http4s.circe.decodeUri
 
-import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
@@ -48,9 +47,9 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
         .map(identity[Seq[String]])
     }
 
-  override def downloadVideo(uri: Uri, filePath: Path): Stream[F, Long] =
+  override def downloadVideo(uri: Uri, pathWithoutExtension: String): Stream[F, Long] =
     cliCommandRunner
-      .run(s"""youtube-dl -o "$filePath" --merge-output-format mp4 "${uri.renderString}"""")
+      .run(s"""youtube-dl -o "$pathWithoutExtension.%(ext)s" "${uri.renderString}"""")
       .collect {
         case YTDownloaderProgress(progress) => math.round(progress.completed / 100 * progress.totalSize.bytes)
       }

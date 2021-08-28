@@ -2,17 +2,18 @@ package com.ruchij.batch.services.sync
 
 import java.util.concurrent.TimeUnit
 import cats.data.OptionT
-import cats.effect.{Blocker, Clock, Concurrent, ContextShift, Sync}
+import cats.effect.{Blocker, Bracket, Clock, Concurrent, ContextShift, Sync}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Functor, Monad, ~>}
 import com.ruchij.batch.config.BatchStorageConfiguration
 import com.ruchij.batch.exceptions.CorruptedFrameGrabException
 import com.ruchij.batch.services.enrichment.{SeekableByteChannelConverter, VideoEnrichmentService}
-import com.ruchij.batch.services.sync.SynchronizationServiceImpl.{MaxConcurrentSyncCount, SupportedFileTypes, errorHandler, fileName}
+import com.ruchij.batch.services.sync.SynchronizationServiceImpl.{MaxConcurrentSyncCount, SupportedFileTypes, errorHandler, fileName, videoIdFromVideoFile}
 import com.ruchij.batch.services.sync.models.FileSyncResult.{ExistingVideo, IgnoredFile, SyncError, VideoSynced}
 import com.ruchij.batch.services.sync.models.{FileSyncResult, SynchronizationResult}
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
+import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
@@ -29,11 +30,13 @@ import org.http4s.{MediaType, Uri}
 import org.jcodec.api.{FrameGrab, UnsupportedFormatException}
 
 import scala.concurrent.duration.FiniteDuration
+import scala.util.matching.Regex
 
 class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_]: Monad](
   fileRepositoryService: FileRepository[F, A],
   fileResourceDao: FileResourceDao[T],
   videoMetadataDao: VideoMetadataDao[T],
+  schedulingDao: SchedulingDao[T],
   videoService: VideoService[F],
   videoEnrichmentService: VideoEnrichmentService[F],
   hashingService: HashingService[F],
@@ -65,7 +68,7 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
       .lastOrError
 
   def isFileSupported(filePath: String): F[Boolean] =
-    if (SupportedFileTypes.exists(fileType => filePath.endsWith("." + fileType.subType)))
+    if (SupportedFileTypes.exists(_.fileExtensions.exists(filePath.endsWith)))
       for {
         path <- fileRepositoryService.backedType(filePath)
         fileType <- fileTypeDetector.detect(path)
@@ -75,7 +78,14 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
       Applicative[F].pure(false)
 
   def syncVideo(videoPath: String): F[FileSyncResult] =
-    transaction(fileResourceDao.findByPath(videoPath))
+    transaction {
+      OptionT(fileResourceDao.findByPath(videoPath).map(_.as((): Unit)))
+        .orElse {
+          OptionT.fromOption[T](videoIdFromVideoFile(videoPath))
+            .flatMapF(videoId => schedulingDao.getById(videoId).map(_.as((): Unit)))
+        }
+        .value
+    }
       .flatMap {
         _.fold[F[FileSyncResult]](addVideo(videoPath))(_ => Applicative[F].pure(ExistingVideo(videoPath)))
       }
@@ -86,7 +96,7 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
         saveVideo(video).recoverWith {
           case throwable =>
             videoService
-              .deleteById(video.videoMetadata.id, false)
+              .deleteById(video.videoMetadata.id, deleteVideoFile = false)
               .productR(ApplicativeError[F, Throwable].raiseError(throwable))
         }
       }
@@ -146,7 +156,11 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
         .productR(videoMetadataDao.insert(video.videoMetadata))
         .productR(fileResourceDao.insert(video.fileResource))
     }.productR(videoService.insert(video.videoMetadata.id, video.fileResource.id))
-      .flatTap(videoEnrichmentService.videoSnapshots)
+      .flatTap { video =>
+        Bracket[F, Throwable].handleErrorWith(videoEnrichmentService.videoSnapshots(video).as((): Unit)) { _ =>
+          Applicative[F].unit
+        }
+      }
 
   def videoDuration(videoPath: String): F[FiniteDuration] =
     ioBlocker.blockOn {
@@ -161,10 +175,11 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
 }
 
 object SynchronizationServiceImpl {
-  val VideoThumbnailSnapshotTimestamp = 0.1
-  val SupportedFileTypes: List[MediaType] = List(MediaType.video.mp4)
-  val PathDelimiter = "[/\\\\]"
-  val MaxConcurrentSyncCount = 8
+  private val VideoThumbnailSnapshotTimestamp = 0.1
+  private val SupportedFileTypes: List[MediaType] = List(MediaType.video.mp4, MediaType.video.`x-matroska`)
+  private val PathDelimiter = "[/\\\\]"
+  private val MaxConcurrentSyncCount = 8
+  private val VideoFileVideoIdPattern: Regex = "^([^-]+)-([^-\\.]+).*".r
 
   def errorHandler[F[_]: Functor](
     videoPath: String
@@ -175,4 +190,11 @@ object SynchronizationServiceImpl {
 
   def fileName(path: String): String =
     path.split(PathDelimiter).lastOption.getOrElse(path)
+
+  def videoIdFromVideoFile(videoFilePath: String): Option[String] =
+    fileName(videoFilePath) match {
+      case VideoFileVideoIdPattern(site, videoHash) => Some(s"$site-$videoHash")
+      case _ => None
+    }
+
 }

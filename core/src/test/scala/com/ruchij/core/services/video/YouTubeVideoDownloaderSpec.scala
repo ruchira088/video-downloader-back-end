@@ -10,7 +10,6 @@ import org.scalamock.scalatest.MockFactory
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.FiniteDuration
@@ -136,18 +135,15 @@ class YouTubeVideoDownloaderSpec extends AnyFlatSpec with MockFactory with Match
         |Deleting original file /home/ruchira/Videos/youtube-video-url-hash.mp4.f140 (pass -k to keep)
         |""".stripMargin
 
-    (cliCommandRunner.run _).expects("""youtube-dl -o "~/Videos/youtube-video-url-hash.mp4" --merge-output-format mp4 "https://www.youtube.com/watch?v=F1Zl1TRDJs0"""")
+    (cliCommandRunner.run _).expects("""youtube-dl -o "~/Videos/youtube-video-url-hash.%(ext)s" "https://www.youtube.com/watch?v=F1Zl1TRDJs0"""")
       .returns {
         Stream.emits[IO, String] { cliOutput.split("\n") }
       }
 
-    IO.delay(Paths.get("~/Videos/youtube-video-url-hash.mp4"))
-      .flatMap { filePath =>
-        youTubeVideoDownloader
-          .downloadVideo(uri"https://www.youtube.com/watch?v=F1Zl1TRDJs0", filePath)
-          .compile
-          .toVector
-      }
+    youTubeVideoDownloader
+      .downloadVideo(uri"https://www.youtube.com/watch?v=F1Zl1TRDJs0", "~/Videos/youtube-video-url-hash")
+      .compile
+      .toVector
       .flatMap { bytes =>
         IO.delay {
           bytes mustBe

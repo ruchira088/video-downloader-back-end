@@ -1,6 +1,7 @@
 package com.ruchij.core.services.repository
 
 import fs2.Stream
+import org.http4s.MediaType
 
 trait RepositoryService[F[_]] {
 
@@ -18,4 +19,6 @@ trait RepositoryService[F[_]] {
   def backedType(key: Key): F[BackedType]
 
   def delete(key: Key): F[Boolean]
+
+  def fileType(key: Key): F[Option[MediaType]]
 }
