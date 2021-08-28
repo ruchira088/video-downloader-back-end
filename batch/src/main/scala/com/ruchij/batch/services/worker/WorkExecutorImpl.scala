@@ -152,18 +152,21 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
                       else
                         batchSchedulingService
                           .updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Downloaded)
+                          .productL {
+                            batchSchedulingService.publishDownloadProgress(scheduledVideoDownload.videoMetadata.id, fileSize)
+                          }
                           .productR(videoService.insert(scheduledVideoDownload.videoMetadata.id, fileResource.id))
                           .productL {
-                            if (fileSize > scheduledVideoDownload.videoMetadata.size)
+                            if (fileSize > scheduledVideoDownload.videoMetadata.size) {
                               videoService.update(scheduledVideoDownload.videoMetadata.id, None, Some(fileSize))
-                            else Applicative[F].unit
+                            } else Applicative[F].unit
                           }
                           .flatTap { video =>
                             Bracket[F, Throwable].handleErrorWith(videoEnrichmentService.videoSnapshots(video).as((): Unit)) { _ => Applicative[F].unit }
                           }
-                          .productL(
+                          .productL {
                             batchSchedulingService.completeScheduledVideoDownload(scheduledVideoDownload.videoMetadata.id)
-                          )
+                          }
                           .productL {
                             logger.info[F](
                               s"Worker ${worker.id} completed download for ${scheduledVideoDownload.videoMetadata.url}"
