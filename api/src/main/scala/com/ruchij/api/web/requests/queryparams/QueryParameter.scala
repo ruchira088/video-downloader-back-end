@@ -6,6 +6,7 @@ import cats.data.{Kleisli, NonEmptyList, ValidatedNel}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError}
 import com.ruchij.api.web.requests.queryparams.QueryParameter.QueryParameters
+import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.exceptions.AggregatedException
 import com.ruchij.core.services.video.models.DurationRange
 import enumeratum.{Enum, EnumEntry}
@@ -73,6 +74,9 @@ object QueryParameter {
           case _ => DurationRange.All.validNel
         }
   }
+
+  implicit val videoSiteQueryParamDecoder: QueryParamDecoder[VideoSite] =
+    QueryParamDecoder[String].map(VideoSite.from)
 
   implicit def optionQueryParamDecoder[A: QueryParamDecoder]: QueryParamDecoder[Option[A]] =
     (queryParameterValue: QueryParameterValue) =>

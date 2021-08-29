@@ -2,6 +2,7 @@ package com.ruchij.core.daos.scheduling
 
 import cats.data.NonEmptyList
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
+import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.video.models.DurationRange
@@ -33,7 +34,8 @@ trait SchedulingDao[F[_]] {
     pageSize: Int,
     sortBy: SortBy,
     order: Order,
-    schedulingStatuses: Option[NonEmptyList[SchedulingStatus]]
+    schedulingStatuses: Option[NonEmptyList[SchedulingStatus]],
+    videoSites: Option[NonEmptyList[VideoSite]]
   ): F[Seq[ScheduledVideoDownload]]
 
   def staleTask(timestamp: DateTime): F[Option[ScheduledVideoDownload]]

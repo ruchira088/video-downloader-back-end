@@ -1,13 +1,14 @@
 package com.ruchij.core.daos.video
 
-import cats.data.OptionT
+import cats.data.{NonEmptyList, OptionT}
 import cats.implicits._
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 import com.ruchij.core.daos.doobie.DoobieUtils.{SingleUpdateOps, ordering, sortByFieldName}
 import com.ruchij.core.daos.video.models.Video
+import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.video.models.DurationRange
-import doobie.Fragments.whereAndOpt
+import doobie.Fragments.{in, whereAndOpt}
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import doobie.util.fragment.Fragment
@@ -51,14 +52,16 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,
-    order: Order
+    order: Order,
+    videoSites: Option[NonEmptyList[VideoSite]]
   ): ConnectionIO[Seq[Video]] =
     (SelectQuery
       ++
         whereAndOpt(
           term.map(searchTerm => fr"video_metadata.title ILIKE ${"%" + searchTerm + "%"}"),
           durationRange.min.map(minimum => fr"video_metadata.duration >= $minimum"),
-          durationRange.max.map(maximum => fr"video_metadata.duration <= $maximum")
+          durationRange.max.map(maximum => fr"video_metadata.duration <= $maximum"),
+          videoSites.map(sites => in(fr"video_metadata.video_site", sites))
         )
       ++ fr"ORDER BY"
       ++ videoSortByFieldName(sortBy)

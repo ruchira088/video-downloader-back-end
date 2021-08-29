@@ -31,14 +31,17 @@ class BatchSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_],
 
   override def findBySchedulingStatus(schedulingStatus: SchedulingStatus, pageNumber: Int, pageSize: Int): F[Seq[ScheduledVideoDownload]] =
     transaction {
-      schedulingDao.search(None,
+      schedulingDao.search(
+        None,
         None,
         DurationRange.All,
         pageNumber,
         pageSize,
         SortBy.Date,
         Order.Descending,
-        Some(NonEmptyList.of(schedulingStatus)))
+        Some(NonEmptyList.of(schedulingStatus)),
+        None
+      )
     }
 
   override val acquireTask: OptionT[F, ScheduledVideoDownload] =

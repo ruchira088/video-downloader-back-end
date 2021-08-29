@@ -9,6 +9,7 @@ import com.ruchij.api.services.config.models.ApiConfigKey
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.SchedulingDao.notFound
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
+import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Publisher
@@ -43,6 +44,7 @@ class ApiSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], T
           1,
           SortBy.Date,
           Order.Descending,
+          None,
           None
         )
       }
@@ -77,14 +79,15 @@ class ApiSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], T
     pageSize: Int,
     sortBy: SortBy,
     order: Order,
-    schedulingStatuses: Option[NonEmptyList[SchedulingStatus]]
+    schedulingStatuses: Option[NonEmptyList[SchedulingStatus]],
+    videoSites: Option[NonEmptyList[VideoSite]]
   ): F[Seq[ScheduledVideoDownload]] =
     if (sortBy == SortBy.WatchTime)
       ApplicativeError[F, Throwable].raiseError {
         new IllegalArgumentException("Searching for scheduled videos by watch_time is not valid")
       } else
       transaction(
-        schedulingDao.search(term, videoUrls, durationRange, pageNumber, pageSize, sortBy, order, schedulingStatuses)
+        schedulingDao.search(term, videoUrls, durationRange, pageNumber, pageSize, sortBy, order, schedulingStatuses, videoSites)
       )
 
   override def updateSchedulingStatus(id: String, status: SchedulingStatus): F[ScheduledVideoDownload] =

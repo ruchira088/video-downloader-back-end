@@ -1,6 +1,6 @@
 package com.ruchij.core.services.video
 
-import cats.data.OptionT
+import cats.data.{NonEmptyList, OptionT}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadError, ~>}
 import com.ruchij.core.daos.resource.FileResourceDao
@@ -10,6 +10,7 @@ import com.ruchij.core.daos.snapshot.models.Snapshot
 import com.ruchij.core.daos.video.VideoDao
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
+import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.repository.RepositoryService
@@ -40,9 +41,17 @@ class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: MonadError[*[_],
         }
       }
 
-  override def search(term: Option[String], durationRange: DurationRange, pageNumber: Int, pageSize: Int, sortBy: SortBy, order: Order): F[Seq[Video]] =
+  override def search(
+    term: Option[String],
+    durationRange: DurationRange,
+    pageNumber: Int,
+    pageSize: Int,
+    sortBy: SortBy,
+    order: Order,
+    videoSites: Option[NonEmptyList[VideoSite]]
+  ): F[Seq[Video]] =
     transaction {
-      videoDao.search(term, durationRange, pageNumber, pageSize, sortBy, order)
+      videoDao.search(term, durationRange, pageNumber, pageSize, sortBy, order, videoSites)
     }
 
   override def fetchVideoSnapshots(videoId: String): F[Seq[Snapshot]] =
@@ -68,44 +77,39 @@ class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: MonadError[*[_],
 
   override def update(videoId: String, maybeTitle: Option[String], maybeSize: Option[Long]): F[Video] =
     transaction {
-      OptionT(videoDao.findById(videoId))
-        .semiflatMap { video =>
-          videoMetadataDao.update(videoId, maybeTitle, maybeSize)
-            .product(fileResourceDao.update(video.fileResource.id, maybeSize))
-        }
-        .value
-    }
-      .productR(fetchById(videoId))
+      OptionT(videoDao.findById(videoId)).semiflatMap { video =>
+        videoMetadataDao
+          .update(videoId, maybeTitle, maybeSize)
+          .product(fileResourceDao.update(video.fileResource.id, maybeSize))
+      }.value
+    }.productR(fetchById(videoId))
 
   override def deleteById(videoId: String, deleteVideoFile: Boolean): F[Video] =
     fetchById(videoId)
-        .flatTap { video =>
-          transaction {
-            snapshotDao.findByVideo(videoId)
-              .productL(snapshotDao.deleteByVideo(videoId))
-              .flatTap {
-                _.toList.traverse {
-                  snapshot =>
-                    fileResourceDao.deleteById(snapshot.fileResource.id)
-                }
-              }
-              .productL(videoDao.deleteById(videoId))
-              .productL(schedulingDao.deleteById(videoId))
-              .productL(videoMetadataDao.deleteById(videoId))
-              .productL(fileResourceDao.deleteById(video.videoMetadata.thumbnail.id))
-              .productL(fileResourceDao.deleteById(video.fileResource.id))
-          }
-            .flatMap {
-              _.toList.traverse {
-                snapshot =>
-                  repositoryService.delete(snapshot.fileResource.path)
+      .flatTap { video =>
+        transaction {
+          snapshotDao
+            .findByVideo(videoId)
+            .productL(snapshotDao.deleteByVideo(videoId))
+            .flatTap {
+              _.toList.traverse { snapshot =>
+                fileResourceDao.deleteById(snapshot.fileResource.id)
               }
             }
-        }
-        .flatTap {
-          video =>
-            if (deleteVideoFile) repositoryService.delete(video.fileResource.path) else Applicative[F].pure(false)
-        }
+            .productL(videoDao.deleteById(videoId))
+            .productL(schedulingDao.deleteById(videoId))
+            .productL(videoMetadataDao.deleteById(videoId))
+            .productL(fileResourceDao.deleteById(video.videoMetadata.thumbnail.id))
+            .productL(fileResourceDao.deleteById(video.fileResource.id))
+        }.flatMap {
+            _.toList.traverse { snapshot =>
+              repositoryService.delete(snapshot.fileResource.path)
+            }
+          }
+      }
+      .flatTap { video =>
+        if (deleteVideoFile) repositoryService.delete(video.fileResource.path) else Applicative[F].pure(false)
+      }
 
   override val summary: F[VideoServiceSummary] =
     transaction {
@@ -113,7 +117,6 @@ class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: MonadError[*[_],
         count <- videoDao.count
         size <- videoDao.size
         duration <- videoDao.duration
-      }
-      yield VideoServiceSummary(count, size, duration)
+      } yield VideoServiceSummary(count, size, duration)
     }
 }

@@ -2,6 +2,7 @@ package com.ruchij.api.services.scheduling
 
 import cats.data.NonEmptyList
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
+import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.video.models.DurationRange
@@ -18,7 +19,8 @@ trait ApiSchedulingService[F[_]] {
     pageSize: Int,
     sortBy: SortBy,
     order: Order,
-    schedulingStatuses: Option[NonEmptyList[SchedulingStatus]]
+    schedulingStatuses: Option[NonEmptyList[SchedulingStatus]],
+    videoSites: Option[NonEmptyList[VideoSite]]
   ): F[Seq[ScheduledVideoDownload]]
 
   def updateSchedulingStatus(id: String, status: SchedulingStatus): F[ScheduledVideoDownload]

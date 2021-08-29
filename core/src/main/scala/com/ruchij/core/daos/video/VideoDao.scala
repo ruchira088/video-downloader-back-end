@@ -1,6 +1,8 @@
 package com.ruchij.core.daos.video
 
+import cats.data.NonEmptyList
 import com.ruchij.core.daos.video.models.Video
+import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.video.models.DurationRange
 
@@ -15,7 +17,8 @@ trait VideoDao[F[_]] {
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,
-    order: Order
+    order: Order,
+    videoSites: Option[NonEmptyList[VideoSite]]
   ): F[Seq[Video]]
 
   def incrementWatchTime(videoId: String, finiteDuration: FiniteDuration): F[Option[FiniteDuration]]

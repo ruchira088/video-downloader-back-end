@@ -1,6 +1,5 @@
 package com.ruchij.api.web.routes
 
-import cats.data.NonEmptyList
 import cats.effect.{Concurrent, Timer}
 import cats.implicits._
 import com.ruchij.api.services.scheduling.ApiSchedulingService
@@ -14,7 +13,6 @@ import com.ruchij.api.web.responses.EventStreamEventType.{ActiveDownload, HeartB
 import com.ruchij.core.circe.Decoders._
 import com.ruchij.core.circe.Encoders._
 import com.ruchij.api.web.responses.{EventStreamHeartBeat, SearchResult, WorkerStatusResponse}
-import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 import com.ruchij.core.services.video.models.DurationRange
 import fs2.Stream
 import io.circe.Encoder
@@ -46,7 +44,7 @@ object SchedulingRoutes {
 
       case GET -> Root / "search" :? queryParameters =>
         for {
-          SearchQuery(term, statuses, durationRange, videoUrls, pageSize, pageNumber, sortBy, order) <- SearchQuery
+          SearchQuery(term, statuses, durationRange, videoUrls, videoSites, pageSize, pageNumber, sortBy, order) <- SearchQuery
             .fromQueryParameters[F]
             .run(queryParameters)
 
@@ -58,11 +56,8 @@ object SchedulingRoutes {
             pageSize,
             sortBy,
             order,
-            statuses.orElse {
-              NonEmptyList.fromList {
-                SchedulingStatus.values.filter(_ != SchedulingStatus.Completed).toList
-              }
-            }
+            statuses,
+            videoSites
           )
 
           response <- Ok {

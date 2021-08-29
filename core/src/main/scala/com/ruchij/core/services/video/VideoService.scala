@@ -1,7 +1,9 @@
 package com.ruchij.core.services.video
 
+import cats.data.NonEmptyList
 import com.ruchij.core.daos.snapshot.models.Snapshot
 import com.ruchij.core.daos.video.models.Video
+import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.video.models.{DurationRange, VideoServiceSummary}
 
@@ -28,7 +30,8 @@ trait VideoService[F[_]] {
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,
-    order: Order
+    order: Order,
+    videoSites: Option[NonEmptyList[VideoSite]]
   ): F[Seq[Video]]
 
   val summary: F[VideoServiceSummary]

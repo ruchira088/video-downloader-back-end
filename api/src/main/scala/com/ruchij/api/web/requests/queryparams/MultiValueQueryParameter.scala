@@ -4,6 +4,7 @@ import cats.ApplicativeError
 import cats.data.{Kleisli, NonEmptyList}
 import com.ruchij.api.web.requests.queryparams.QueryParameter._
 import com.ruchij.core.daos.scheduling.models.SchedulingStatus
+import com.ruchij.core.daos.videometadata.models.VideoSite
 import org.http4s.{QueryParamDecoder, Uri}
 
 import scala.reflect.ClassTag
@@ -26,4 +27,6 @@ object MultiValueQueryParameter {
   case object VideoUrlsQueryParameter extends MultiValueQueryParameter[Uri](key = "video-url")
 
   case object SchedulingStatusesQueryParameter extends MultiValueQueryParameter[SchedulingStatus](key = "status")
+
+  case object VideoSiteQueryParameter extends MultiValueQueryParameter[VideoSite](key = "site")
 }
