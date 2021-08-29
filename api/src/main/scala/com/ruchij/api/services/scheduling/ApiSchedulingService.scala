@@ -16,6 +16,7 @@ trait ApiSchedulingService[F[_]] {
     term: Option[String],
     videoUrls: Option[NonEmptyList[Uri]],
     durationRange: RangeValue[FiniteDuration],
+    sizeRange: RangeValue[Long],
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,

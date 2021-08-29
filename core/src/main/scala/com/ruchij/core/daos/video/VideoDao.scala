@@ -14,6 +14,7 @@ trait VideoDao[F[_]] {
   def search(
     term: Option[String],
     durationRange: RangeValue[FiniteDuration],
+    sizeRange: RangeValue[Long],
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,

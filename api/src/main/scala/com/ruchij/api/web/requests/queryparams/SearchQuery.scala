@@ -16,6 +16,7 @@ case class SearchQuery(
   term: Option[String],
   statuses: Option[NonEmptyList[SchedulingStatus]],
   durationRange: RangeValue[FiniteDuration],
+  sizeRange: RangeValue[Long],
   urls: Option[NonEmptyList[Uri]],
   videoSites: Option[NonEmptyList[VideoSite]],
   pageSize: Int,
@@ -29,6 +30,7 @@ object SearchQuery {
     for {
       searchTerm <- SearchTermQueryParameter.parse[F]
       durationRange <- DurationRangeQueryParameter.parse[F]
+      sizeRange <- SizeRangeQueryParameter.parse[F]
       schedulingStatuses <- SchedulingStatusesQueryParameter.parse[F]
       urls <- VideoUrlsQueryParameter.parse[F]
       videoSites <- VideoSiteQueryParameter.parse[F]
@@ -37,5 +39,5 @@ object SearchQuery {
       sortBy <- SortByQueryParameter.parse[F]
       order <- OrderQueryParameter.parse[F]
     } yield
-      SearchQuery(searchTerm, schedulingStatuses, durationRange, urls, videoSites, pageSize, pageNumber, sortBy, order)
+      SearchQuery(searchTerm, schedulingStatuses, durationRange, sizeRange, urls, videoSites, pageSize, pageNumber, sortBy, order)
 }

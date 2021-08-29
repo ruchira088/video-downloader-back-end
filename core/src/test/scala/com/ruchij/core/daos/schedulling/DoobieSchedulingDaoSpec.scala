@@ -97,63 +97,75 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
     for {
       searchResultOne <-
         transaction {
-          DoobieSchedulingDao.search(None, None, RangeValue.all[FiniteDuration], 0, 10, SortBy.Date, Order.Descending, None, None)
+          DoobieSchedulingDao.search(None, None, RangeValue.all[FiniteDuration], RangeValue.all[Long], 0, 10, SortBy.Date, Order.Descending, None, None)
        }
       _ <- IO.delay {  searchResultOne mustBe Seq(scheduledVideoDownload) }
 
       searchResultTwo <-
         transaction {
-          DoobieSchedulingDao.search(Some("sample"), None, RangeValue.all[FiniteDuration], 0, 10, SortBy.Date, Order.Descending, None, Some(NonEmptyList.one(CustomVideoSite.SpankBang)))
+          DoobieSchedulingDao.search(Some("sample"), None, RangeValue.all[FiniteDuration], RangeValue.all[Long], 0, 10, SortBy.Date, Order.Descending, None, Some(NonEmptyList.one(CustomVideoSite.SpankBang)))
         }
       _ <- IO.delay {  searchResultTwo mustBe Seq(scheduledVideoDownload) }
 
       searchResultThree <-
         transaction {
-          DoobieSchedulingDao.search(Some("non-existent"), None, RangeValue.all[FiniteDuration], 0, 10, SortBy.Date, Order.Descending, None, None)
+          DoobieSchedulingDao.search(Some("non-existent"), None, RangeValue.all[FiniteDuration], RangeValue.all[Long], 0, 10, SortBy.Date, Order.Descending, None, None)
         }
       _ <- IO.delay {  searchResultThree mustBe Seq.empty }
 
       searchResultFour <-
         transaction {
-          DoobieSchedulingDao.search(None, None, RangeValue[FiniteDuration](None, Some(6 minutes)), 0, 10, SortBy.Date, Order.Descending, None, None)
+          DoobieSchedulingDao.search(None, None, RangeValue[FiniteDuration](None, Some(6 minutes)), RangeValue.all[Long], 0, 10, SortBy.Date, Order.Descending, None, None)
         }
       _ <- IO.delay {  searchResultFour mustBe Seq(scheduledVideoDownload) }
 
       searchResultFive <-
         transaction {
-          DoobieSchedulingDao.search(None, None, RangeValue[FiniteDuration](None, Some(4 minutes)), 0, 10, SortBy.Date, Order.Descending, None, None)
+          DoobieSchedulingDao.search(None, None, RangeValue[FiniteDuration](None, Some(4 minutes)), RangeValue.all[Long], 0, 10, SortBy.Date, Order.Descending, None, None)
         }
       _ <- IO.delay {  searchResultFive mustBe Seq.empty }
 
       searchResultSix <-
         transaction {
-          DoobieSchedulingDao.search(None, None, RangeValue[FiniteDuration](Some(4 minutes), None), 0, 10, SortBy.Date, Order.Descending, None, None)
+          DoobieSchedulingDao.search(None, None, RangeValue[FiniteDuration](Some(4 minutes), None), RangeValue.all[Long], 0, 10, SortBy.Date, Order.Descending, None, None)
         }
       _ <- IO.delay {  searchResultSix mustBe Seq(scheduledVideoDownload) }
 
       searchResultSeven <-
         transaction {
-          DoobieSchedulingDao.search(None, None, RangeValue[FiniteDuration](Some(6 minutes), None), 0, 10, SortBy.Date, Order.Descending, None, None)
+          DoobieSchedulingDao.search(None, None, RangeValue[FiniteDuration](Some(6 minutes), None), RangeValue.all[Long], 0, 10, SortBy.Date, Order.Descending, None, None)
         }
       _ <- IO.delay {  searchResultSeven mustBe Seq.empty }
 
       searchResultEight <-
         transaction {
-          DoobieSchedulingDao.search(None, None, RangeValue.all[FiniteDuration], 0, 10, SortBy.Date, Order.Descending, Some(NonEmptyList.one(SchedulingStatus.Queued)), None)
+          DoobieSchedulingDao.search(None, None, RangeValue.all[FiniteDuration], RangeValue.all[Long], 0, 10, SortBy.Date, Order.Descending, Some(NonEmptyList.one(SchedulingStatus.Queued)), None)
         }
       _ <- IO.delay { searchResultEight mustBe Seq(scheduledVideoDownload) }
 
       searchResultNine <-
         transaction {
-          DoobieSchedulingDao.search(None, None, RangeValue.all[FiniteDuration], 0, 10, SortBy.Date, Order.Descending, Some(NonEmptyList.one(SchedulingStatus.Completed)), None)
+          DoobieSchedulingDao.search(None, None, RangeValue.all[FiniteDuration], RangeValue.all[Long], 0, 10, SortBy.Date, Order.Descending, Some(NonEmptyList.one(SchedulingStatus.Completed)), None)
         }
       _ <- IO.delay {  searchResultNine mustBe Seq.empty }
 
       searchResultTen <-
         transaction {
-          DoobieSchedulingDao.search(None, None, RangeValue.all[FiniteDuration], 0, 10, SortBy.Date, Order.Descending, None, Some(NonEmptyList.one(CustomVideoSite.PornOne)))
+          DoobieSchedulingDao.search(None, None, RangeValue.all[FiniteDuration], RangeValue.all[Long], 0, 10, SortBy.Date, Order.Descending, None, Some(NonEmptyList.one(CustomVideoSite.PornOne)))
         }
       _ <- IO.delay {  searchResultTen mustBe Seq.empty }
+
+      searchResultEleven <-
+        transaction {
+          DoobieSchedulingDao.search(None, None, RangeValue.all[FiniteDuration], RangeValue(Some(40_000), None), 0, 10, SortBy.Date, Order.Descending, None, None)
+        }
+      _ <- IO.delay {  searchResultEleven mustBe Seq(scheduledVideoDownload) }
+
+      searchResultTwelve <-
+        transaction {
+          DoobieSchedulingDao.search(None, None, RangeValue.all[FiniteDuration], RangeValue(Some(60_000), None), 0, 10, SortBy.Date, Order.Descending, None, None)
+        }
+      _ <- IO.delay {  searchResultTwelve mustBe Seq.empty }
     }
     yield (): Unit
   }

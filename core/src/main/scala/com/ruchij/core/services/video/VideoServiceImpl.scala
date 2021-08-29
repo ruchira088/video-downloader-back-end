@@ -45,6 +45,7 @@ class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: MonadError[*[_],
   override def search(
     term: Option[String],
     durationRange: RangeValue[FiniteDuration],
+    sizeRange: RangeValue[Long],
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,
@@ -52,7 +53,7 @@ class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: MonadError[*[_],
     videoSites: Option[NonEmptyList[VideoSite]]
   ): F[Seq[Video]] =
     transaction {
-      videoDao.search(term, durationRange, pageNumber, pageSize, sortBy, order, videoSites)
+      videoDao.search(term, durationRange, sizeRange, pageNumber, pageSize, sortBy, order, videoSites)
     }
 
   override def fetchVideoSnapshots(videoId: String): F[Seq[Snapshot]] =

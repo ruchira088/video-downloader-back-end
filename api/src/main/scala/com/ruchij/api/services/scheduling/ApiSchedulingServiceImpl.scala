@@ -41,6 +41,7 @@ class ApiSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], T
           None,
           Some(NonEmptyList.of(uri)),
           RangeValue.all[FiniteDuration],
+          RangeValue.all[Long],
           0,
           1,
           SortBy.Date,
@@ -76,6 +77,7 @@ class ApiSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], T
     term: Option[String],
     videoUrls: Option[NonEmptyList[Uri]],
     durationRange: RangeValue[FiniteDuration],
+    sizeRange: RangeValue[Long],
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,
@@ -88,7 +90,7 @@ class ApiSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], T
         new IllegalArgumentException("Searching for scheduled videos by watch_time is not valid")
       } else
       transaction(
-        schedulingDao.search(term, videoUrls, durationRange, pageNumber, pageSize, sortBy, order, schedulingStatuses, videoSites)
+        schedulingDao.search(term, videoUrls, durationRange, sizeRange, pageNumber, pageSize, sortBy, order, schedulingStatuses, videoSites)
       )
 
   override def updateSchedulingStatus(id: String, status: SchedulingStatus): F[ScheduledVideoDownload] =

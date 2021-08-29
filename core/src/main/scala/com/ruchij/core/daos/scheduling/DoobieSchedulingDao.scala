@@ -124,6 +124,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
     term: Option[String],
     videoUrls: Option[NonEmptyList[Uri]],
     durationRange: RangeValue[FiniteDuration],
+    sizeRange: RangeValue[Long],
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,
@@ -139,6 +140,8 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
           schedulingStatuses.map(statuses => in(fr"scheduled_video.status", statuses)),
           durationRange.max.map(maxDuration => fr"video_metadata.duration <= $maxDuration"),
           durationRange.min.map(minDuration => fr"video_metadata.duration >= $minDuration"),
+          sizeRange.max.map(maxSize => fr"video_metadata.size <= $maxSize"),
+          sizeRange.min.map(minSize => fr"video_metadata.size >= $minSize"),
           videoSites.map(sites => in(fr"video_metadata.video_site", sites))
         )
       ++ fr"ORDER BY"

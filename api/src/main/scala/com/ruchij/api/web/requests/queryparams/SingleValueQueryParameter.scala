@@ -22,6 +22,8 @@ object SingleValueQueryParameter {
 
   case object DurationRangeQueryParameter extends SingleValueQueryParameter[RangeValue[FiniteDuration]](key = "duration", defaultValue = RangeValue.all[FiniteDuration])
 
+  case object SizeRangeQueryParameter extends SingleValueQueryParameter[RangeValue[Long]](key = "size", defaultValue = RangeValue.all[Long])
+
   case object SearchTermQueryParameter extends SingleValueQueryParameter[Option[String]](key = "search-term", defaultValue = None)
 
   case object SortByQueryParameter extends SingleValueQueryParameter[SortBy]("sort-by", defaultValue = SortBy.Date)

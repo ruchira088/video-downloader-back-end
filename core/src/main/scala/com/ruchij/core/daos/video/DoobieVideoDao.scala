@@ -49,6 +49,7 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
   override def search(
     term: Option[String],
     durationRange: RangeValue[FiniteDuration],
+    sizeRange: RangeValue[Long],
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,
@@ -61,6 +62,8 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
           term.map(searchTerm => fr"video_metadata.title ILIKE ${"%" + searchTerm + "%"}"),
           durationRange.min.map(minimum => fr"video_metadata.duration >= $minimum"),
           durationRange.max.map(maximum => fr"video_metadata.duration <= $maximum"),
+          sizeRange.min.map(minimum => fr"video_metadata.size >= $minimum"),
+          sizeRange.max.map(maximum => fr"video_metadata.size <= $maximum"),
           videoSites.map(sites => in(fr"video_metadata.video_site", sites))
         )
       ++ fr"ORDER BY"
