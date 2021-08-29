@@ -1,11 +1,10 @@
 package com.ruchij.core.daos.scheduling
 
 import cats.data.NonEmptyList
-import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
+import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.services.models.{Order, SortBy}
-import com.ruchij.core.services.video.models.DurationRange
 import org.http4s.Uri
 import org.joda.time.DateTime
 
@@ -18,7 +17,11 @@ trait SchedulingDao[F[_]] {
 
   def markScheduledVideoDownloadAsComplete(id: String, timestamp: DateTime): F[Option[ScheduledVideoDownload]]
 
-  def updateSchedulingStatusById(id: String, status: SchedulingStatus, timestamp: DateTime): F[Option[ScheduledVideoDownload]]
+  def updateSchedulingStatusById(
+    id: String,
+    status: SchedulingStatus,
+    timestamp: DateTime
+  ): F[Option[ScheduledVideoDownload]]
 
   def updateSchedulingStatus(from: SchedulingStatus, to: SchedulingStatus): F[Seq[ScheduledVideoDownload]]
 
@@ -29,7 +32,7 @@ trait SchedulingDao[F[_]] {
   def search(
     term: Option[String],
     videoUrls: Option[NonEmptyList[Uri]],
-    durationRange: DurationRange,
+    durationRange: RangeValue[FiniteDuration],
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,

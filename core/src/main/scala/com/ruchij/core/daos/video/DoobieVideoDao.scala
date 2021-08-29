@@ -4,10 +4,10 @@ import cats.data.{NonEmptyList, OptionT}
 import cats.implicits._
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 import com.ruchij.core.daos.doobie.DoobieUtils.{SingleUpdateOps, ordering, sortByFieldName}
+import com.ruchij.core.daos.scheduling.models.RangeValue
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.services.models.{Order, SortBy}
-import com.ruchij.core.services.video.models.DurationRange
 import doobie.Fragments.{in, whereAndOpt}
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
@@ -48,7 +48,7 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
 
   override def search(
     term: Option[String],
-    durationRange: DurationRange,
+    durationRange: RangeValue[FiniteDuration],
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,

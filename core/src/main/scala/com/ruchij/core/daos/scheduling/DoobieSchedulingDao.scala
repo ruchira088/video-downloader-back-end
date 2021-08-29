@@ -5,10 +5,9 @@ import cats.data.{NonEmptyList, OptionT}
 import cats.implicits._
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 import com.ruchij.core.daos.doobie.DoobieUtils.{SingleUpdateOps, ordering, sortByFieldName}
-import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
+import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.services.models.{Order, SortBy}
-import com.ruchij.core.services.video.models.DurationRange
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import doobie.util.fragment.Fragment
@@ -124,7 +123,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
   override def search(
     term: Option[String],
     videoUrls: Option[NonEmptyList[Uri]],
-    durationRange: DurationRange,
+    durationRange: RangeValue[FiniteDuration],
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,

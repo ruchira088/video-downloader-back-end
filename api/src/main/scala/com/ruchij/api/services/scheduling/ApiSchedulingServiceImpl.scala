@@ -8,7 +8,7 @@ import com.ruchij.api.exceptions.ResourceConflictException
 import com.ruchij.api.services.config.models.ApiConfigKey
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.SchedulingDao.notFound
-import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
+import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.logging.Logger
@@ -17,10 +17,11 @@ import com.ruchij.core.services.config.ConfigurationService
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
 import com.ruchij.core.services.video.VideoAnalysisService
-import com.ruchij.core.services.video.models.DurationRange
 import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherToF}
 import com.ruchij.core.types.JodaClock
 import org.http4s.Uri
+
+import scala.concurrent.duration.FiniteDuration
 
 class ApiSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], Throwable]](
   videoAnalysisService: VideoAnalysisService[F],
@@ -39,7 +40,7 @@ class ApiSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], T
         schedulingDao.search(
           None,
           Some(NonEmptyList.of(uri)),
-          DurationRange.All,
+          RangeValue.all[FiniteDuration],
           0,
           1,
           SortBy.Date,
@@ -74,7 +75,7 @@ class ApiSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], T
   override def search(
     term: Option[String],
     videoUrls: Option[NonEmptyList[Uri]],
-    durationRange: DurationRange,
+    durationRange: RangeValue[FiniteDuration],
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,

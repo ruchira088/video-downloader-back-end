@@ -3,9 +3,11 @@ package com.ruchij.api.web.requests.queryparams
 import cats.ApplicativeError
 import cats.data.Kleisli
 import com.ruchij.api.web.requests.queryparams.QueryParameter._
+import com.ruchij.core.daos.scheduling.models.RangeValue
 import com.ruchij.core.services.models.{Order, SortBy}
-import com.ruchij.core.services.video.models.DurationRange
 import org.http4s.QueryParamDecoder
+
+import scala.concurrent.duration.FiniteDuration
 
 abstract class SingleValueQueryParameter[A: QueryParamDecoder](key: String, defaultValue: A)
     extends QueryParameter[A] {
@@ -18,7 +20,7 @@ object SingleValueQueryParameter {
 
   case object PageSizeQueryParameter extends SingleValueQueryParameter(key = "page-size", defaultValue = 10)
 
-  case object DurationRangeQueryParameter extends SingleValueQueryParameter[DurationRange](key = "duration", defaultValue = DurationRange.All)
+  case object DurationRangeQueryParameter extends SingleValueQueryParameter[RangeValue[FiniteDuration]](key = "duration", defaultValue = RangeValue.all[FiniteDuration])
 
   case object SearchTermQueryParameter extends SingleValueQueryParameter[Option[String]](key = "search-term", defaultValue = None)
 

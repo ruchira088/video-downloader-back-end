@@ -5,6 +5,7 @@ import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadError, ~>}
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.scheduling.SchedulingDao
+import com.ruchij.core.daos.scheduling.models.RangeValue
 import com.ruchij.core.daos.snapshot.SnapshotDao
 import com.ruchij.core.daos.snapshot.models.Snapshot
 import com.ruchij.core.daos.video.VideoDao
@@ -14,7 +15,7 @@ import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.repository.RepositoryService
-import com.ruchij.core.services.video.models.{DurationRange, VideoServiceSummary}
+import com.ruchij.core.services.video.models.VideoServiceSummary
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
@@ -43,7 +44,7 @@ class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: MonadError[*[_],
 
   override def search(
     term: Option[String],
-    durationRange: DurationRange,
+    durationRange: RangeValue[FiniteDuration],
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,

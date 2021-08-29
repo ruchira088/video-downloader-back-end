@@ -5,16 +5,17 @@ import cats.data.{Kleisli, NonEmptyList}
 import com.ruchij.api.web.requests.queryparams.MultiValueQueryParameter.{SchedulingStatusesQueryParameter, VideoSiteQueryParameter, VideoUrlsQueryParameter}
 import com.ruchij.api.web.requests.queryparams.QueryParameter.QueryParameters
 import com.ruchij.api.web.requests.queryparams.SingleValueQueryParameter._
-import com.ruchij.core.daos.scheduling.models.SchedulingStatus
+import com.ruchij.core.daos.scheduling.models.{RangeValue, SchedulingStatus}
 import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.services.models.{Order, SortBy}
-import com.ruchij.core.services.video.models.DurationRange
 import org.http4s.Uri
+
+import scala.concurrent.duration.FiniteDuration
 
 case class SearchQuery(
   term: Option[String],
   statuses: Option[NonEmptyList[SchedulingStatus]],
-  durationRange: DurationRange,
+  durationRange: RangeValue[FiniteDuration],
   urls: Option[NonEmptyList[Uri]],
   videoSites: Option[NonEmptyList[VideoSite]],
   pageSize: Int,
@@ -35,5 +36,6 @@ object SearchQuery {
       pageNumber <- PageNumberQueryParameter.parse[F]
       sortBy <- SortByQueryParameter.parse[F]
       order <- OrderQueryParameter.parse[F]
-    } yield SearchQuery(searchTerm, schedulingStatuses, durationRange, urls, videoSites, pageSize, pageNumber, sortBy, order)
+    } yield
+      SearchQuery(searchTerm, schedulingStatuses, durationRange, urls, videoSites, pageSize, pageNumber, sortBy, order)
 }
