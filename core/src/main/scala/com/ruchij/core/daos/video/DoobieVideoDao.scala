@@ -127,4 +127,13 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
     """
       .query[Long]
       .unique
+
+  override val sites: ConnectionIO[Seq[VideoSite]] =
+    sql"""
+      SELECT DISTINCT video_metadata.video_site
+      FROM video
+      JOIN video_metadata ON video.video_metadata_id = video_metadata.id
+    """
+      .query[VideoSite]
+      .to[Seq]
 }

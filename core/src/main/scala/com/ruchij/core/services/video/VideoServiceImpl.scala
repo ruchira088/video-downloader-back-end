@@ -119,6 +119,7 @@ class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: MonadError[*[_],
         count <- videoDao.count
         size <- videoDao.size
         duration <- videoDao.duration
-      } yield VideoServiceSummary(count, size, duration)
+        sites <- videoDao.sites
+      } yield VideoServiceSummary(count, size, duration, sites)
     }
 }
