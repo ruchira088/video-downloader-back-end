@@ -5,9 +5,9 @@ import cats.data.{NonEmptyList, OptionT}
 import cats.implicits._
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 import com.ruchij.core.daos.doobie.DoobieUtils.{SingleUpdateOps, ordering, sortByFieldName}
-import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
+import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownload, SchedulingStatus}
+import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.services.models.{Order, SortBy}
-import com.ruchij.core.services.video.models.DurationRange
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import doobie.util.fragment.Fragment
@@ -123,12 +123,14 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
   override def search(
     term: Option[String],
     videoUrls: Option[NonEmptyList[Uri]],
-    durationRange: DurationRange,
+    durationRange: RangeValue[FiniteDuration],
+    sizeRange: RangeValue[Long],
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,
     order: Order,
-    schedulingStatuses: Option[NonEmptyList[SchedulingStatus]]
+    schedulingStatuses: Option[NonEmptyList[SchedulingStatus]],
+    videoSites: Option[NonEmptyList[VideoSite]]
   ): ConnectionIO[Seq[ScheduledVideoDownload]] =
     (SelectQuery
       ++
@@ -137,7 +139,10 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
           videoUrls.map(urls => in(fr"video_metadata.url", urls)),
           schedulingStatuses.map(statuses => in(fr"scheduled_video.status", statuses)),
           durationRange.max.map(maxDuration => fr"video_metadata.duration <= $maxDuration"),
-          durationRange.min.map(minDuration => fr"video_metadata.duration >= $minDuration")
+          durationRange.min.map(minDuration => fr"video_metadata.duration >= $minDuration"),
+          sizeRange.max.map(maxSize => fr"video_metadata.size <= $maxSize"),
+          sizeRange.min.map(minSize => fr"video_metadata.size >= $minSize"),
+          videoSites.map(sites => in(fr"video_metadata.video_site", sites))
         )
       ++ fr"ORDER BY"
       ++ schedulingSortByFiledName(sortBy)

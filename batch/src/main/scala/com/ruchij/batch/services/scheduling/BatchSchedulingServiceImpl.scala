@@ -6,13 +6,12 @@ import cats.implicits._
 import cats.{ApplicativeError, MonadError, ~>}
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.SchedulingDao.notFound
-import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
+import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.models.CommittableRecord
 import com.ruchij.core.messaging.{PubSub, Publisher, Subscriber}
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
-import com.ruchij.core.services.video.models.DurationRange
 import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherToF}
 import com.ruchij.core.types.JodaClock
 import fs2.Stream
@@ -31,14 +30,18 @@ class BatchSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_],
 
   override def findBySchedulingStatus(schedulingStatus: SchedulingStatus, pageNumber: Int, pageSize: Int): F[Seq[ScheduledVideoDownload]] =
     transaction {
-      schedulingDao.search(None,
+      schedulingDao.search(
         None,
-        DurationRange.All,
+        None,
+        RangeValue.all[FiniteDuration],
+        RangeValue.all[Long],
         pageNumber,
         pageSize,
         SortBy.Date,
         Order.Descending,
-        Some(NonEmptyList.of(schedulingStatus)))
+        Some(NonEmptyList.of(schedulingStatus)),
+        None
+      )
     }
 
   override val acquireTask: OptionT[F, ScheduledVideoDownload] =

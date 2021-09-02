@@ -2,12 +2,13 @@ package com.ruchij.api.web.requests.queryparams
 
 import java.util.concurrent.TimeUnit
 import cats.data.Validated.{Invalid, Valid}
-import cats.data.{Kleisli, NonEmptyList, ValidatedNel}
+import cats.data.{Kleisli, NonEmptyList, Validated, ValidatedNel}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError}
 import com.ruchij.api.web.requests.queryparams.QueryParameter.QueryParameters
+import com.ruchij.core.daos.scheduling.models.RangeValue
+import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.exceptions.AggregatedException
-import com.ruchij.core.services.video.models.DurationRange
 import enumeratum.{Enum, EnumEntry}
 import org.http4s.{ParseFailure, QueryParamDecoder, QueryParameterValue}
 
@@ -47,32 +48,37 @@ object QueryParameter {
         }
     }
 
-  implicit val durationRangeQueryParamDecoder: QueryParamDecoder[DurationRange] = {
-    case QueryParameterValue(inputValue) =>
-      inputValue
-        .split("-")
-        .toList
-        .take(2)
-        .traverse { value =>
-          if (value.trim.isEmpty) None.validNel[ParseFailure]
-          else
-            value.trim.toLongOption.fold[ValidatedNel[ParseFailure, Some[FiniteDuration]]](
-              ParseFailure(s"""Unable to parse "$value" as a Long""", "").invalidNel[Some[FiniteDuration]]
-            )(number => Some(FiniteDuration(number, TimeUnit.MINUTES)).validNel[ParseFailure])
-        }
-        .andThen {
-          case min :: max :: Nil =>
-            DurationRange
-              .create(min, max)
-              .left
-              .map(throwable => ParseFailure(inputValue, throwable.getMessage))
-              .toValidatedNel
+  implicit def rangeValueQueryParamDecoder[A: QueryParamDecoder: Ordering]: QueryParamDecoder[RangeValue[A]] =
+    (queryParameterValue: QueryParameterValue) => {
+      val valuesList = queryParameterValue.value.split('-').toList
 
-          case min :: Nil => DurationRange(min, None).validNel
+      if(valuesList.size > 2) Validated.Invalid(NonEmptyList.one(ParseFailure(queryParameterValue.value, "Range contains more than 2 terms")))
+      else
+        valuesList
+          .traverse { stringValue =>
+            if (stringValue.isEmpty) Validated.Valid[Option[A]](None)
+            else QueryParamDecoder[A].decode(QueryParameterValue(stringValue)).map(Some.apply)
+          }
+          .andThen {
+            case min :: max :: Nil =>
+              RangeValue
+                .create(min, max)
+                .left
+                .map(validationException => ParseFailure(queryParameterValue.value, validationException.message))
+                .toValidatedNel
 
-          case _ => DurationRange.All.validNel
-        }
-  }
+            case min :: Nil =>
+              RangeValue(min, None).validNel
+
+            case _ => RangeValue.all[A].validNel
+          }
+    }
+
+  implicit val finiteDurationQueryParamDecoder: QueryParamDecoder[FiniteDuration] =
+    QueryParamDecoder[Long].map(number => FiniteDuration(number, TimeUnit.MINUTES))
+
+  implicit val videoSiteQueryParamDecoder: QueryParamDecoder[VideoSite] =
+    QueryParamDecoder[String].map(VideoSite.from)
 
   implicit def optionQueryParamDecoder[A: QueryParamDecoder]: QueryParamDecoder[Option[A]] =
     (queryParameterValue: QueryParameterValue) =>
@@ -80,26 +86,27 @@ object QueryParameter {
       else QueryParamDecoder[A].decode(queryParameterValue).map(Some.apply)
 
   implicit def nonEmptyListQueryParamDecoder[A: QueryParamDecoder: ClassTag]: QueryParamDecoder[NonEmptyList[A]] =
-    (queryParameterValue: QueryParameterValue) => queryParameterValue.value
-      .split(",")
-      .map(_.trim)
-      .filter(_.nonEmpty)
-      .toList
-      .traverse(value => QueryParamDecoder[A].decode(QueryParameterValue(value)))
-      .fold[ValidatedNel[ParseFailure, NonEmptyList[A]]](
-        Invalid.apply, {
-          case head :: tail => Valid(NonEmptyList(head, tail))
+    (queryParameterValue: QueryParameterValue) =>
+      queryParameterValue.value
+        .split(",")
+        .map(_.trim)
+        .filter(_.nonEmpty)
+        .toList
+        .traverse(value => QueryParamDecoder[A].decode(QueryParameterValue(value)))
+        .fold[ValidatedNel[ParseFailure, NonEmptyList[A]]](
+          Invalid.apply, {
+            case head :: tail => Valid(NonEmptyList(head, tail))
 
-          case Nil =>
-            Invalid {
-              NonEmptyList.one {
-                ParseFailure(
-                  "Values cannot be empty",
-                  s"""Unable to parse "${queryParameterValue.value}" as non-empty list of ${classTag[A].runtimeClass.getSimpleName}"""
-                )
+            case Nil =>
+              Invalid {
+                NonEmptyList.one {
+                  ParseFailure(
+                    "Values cannot be empty",
+                    s"""Unable to parse "${queryParameterValue.value}" as non-empty list of ${classTag[A].runtimeClass.getSimpleName}"""
+                  )
+                }
               }
-            }
-        }
+          }
       )
 
   implicit def enumQueryParamDecoder[A <: EnumEntry](

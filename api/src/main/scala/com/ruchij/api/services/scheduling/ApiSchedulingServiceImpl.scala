@@ -8,7 +8,8 @@ import com.ruchij.api.exceptions.ResourceConflictException
 import com.ruchij.api.services.config.models.ApiConfigKey
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.SchedulingDao.notFound
-import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
+import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownload, SchedulingStatus}
+import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Publisher
@@ -16,10 +17,11 @@ import com.ruchij.core.services.config.ConfigurationService
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
 import com.ruchij.core.services.video.VideoAnalysisService
-import com.ruchij.core.services.video.models.DurationRange
 import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherToF}
 import com.ruchij.core.types.JodaClock
 import org.http4s.Uri
+
+import scala.concurrent.duration.FiniteDuration
 
 class ApiSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], Throwable]](
   videoAnalysisService: VideoAnalysisService[F],
@@ -38,11 +40,13 @@ class ApiSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], T
         schedulingDao.search(
           None,
           Some(NonEmptyList.of(uri)),
-          DurationRange.All,
+          RangeValue.all[FiniteDuration],
+          RangeValue.all[Long],
           0,
           1,
           SortBy.Date,
           Order.Descending,
+          None,
           None
         )
       }
@@ -72,19 +76,21 @@ class ApiSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], T
   override def search(
     term: Option[String],
     videoUrls: Option[NonEmptyList[Uri]],
-    durationRange: DurationRange,
+    durationRange: RangeValue[FiniteDuration],
+    sizeRange: RangeValue[Long],
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,
     order: Order,
-    schedulingStatuses: Option[NonEmptyList[SchedulingStatus]]
+    schedulingStatuses: Option[NonEmptyList[SchedulingStatus]],
+    videoSites: Option[NonEmptyList[VideoSite]]
   ): F[Seq[ScheduledVideoDownload]] =
     if (sortBy == SortBy.WatchTime)
       ApplicativeError[F, Throwable].raiseError {
         new IllegalArgumentException("Searching for scheduled videos by watch_time is not valid")
       } else
       transaction(
-        schedulingDao.search(term, videoUrls, durationRange, pageNumber, pageSize, sortBy, order, schedulingStatuses)
+        schedulingDao.search(term, videoUrls, durationRange, sizeRange, pageNumber, pageSize, sortBy, order, schedulingStatuses, videoSites)
       )
 
   override def updateSchedulingStatus(id: String, status: SchedulingStatus): F[ScheduledVideoDownload] =

@@ -18,9 +18,9 @@ object Dependencies
 
   lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.5.9"
 
-  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "1.7.0"
+  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "1.8.0"
 
-  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "1.7.0"
+  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "1.8.0"
 
   lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "6.2.0"
 

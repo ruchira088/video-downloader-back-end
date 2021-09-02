@@ -1,9 +1,12 @@
 package com.ruchij.core.services.video
 
+import cats.data.NonEmptyList
+import com.ruchij.core.daos.scheduling.models.RangeValue
 import com.ruchij.core.daos.snapshot.models.Snapshot
 import com.ruchij.core.daos.video.models.Video
+import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.services.models.{Order, SortBy}
-import com.ruchij.core.services.video.models.{DurationRange, VideoServiceSummary}
+import com.ruchij.core.services.video.models.VideoServiceSummary
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -24,11 +27,13 @@ trait VideoService[F[_]] {
 
   def search(
     term: Option[String],
-    durationRange: DurationRange,
+    durationRange: RangeValue[FiniteDuration],
+    sizeRange: RangeValue[Long],
     pageNumber: Int,
     pageSize: Int,
     sortBy: SortBy,
-    order: Order
+    order: Order,
+    videoSites: Option[NonEmptyList[VideoSite]]
   ): F[Seq[Video]]
 
   val summary: F[VideoServiceSummary]

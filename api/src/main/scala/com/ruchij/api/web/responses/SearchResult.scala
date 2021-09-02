@@ -1,10 +1,11 @@
 package com.ruchij.api.web.responses
 
 import cats.data.NonEmptyList
-import com.ruchij.core.daos.scheduling.models.SchedulingStatus
+import com.ruchij.core.daos.scheduling.models.{RangeValue, SchedulingStatus}
 import com.ruchij.core.services.models.{Order, SortBy}
-import com.ruchij.core.services.video.models.DurationRange
 import org.http4s.Uri
+
+import scala.concurrent.duration.FiniteDuration
 
 case class SearchResult[A](
   results: Seq[A],
@@ -13,7 +14,7 @@ case class SearchResult[A](
   searchTerm: Option[String],
   videoUrls: Option[NonEmptyList[Uri]],
   statuses: Option[NonEmptyList[SchedulingStatus]],
-  durationRange: DurationRange,
+  durationRange: RangeValue[FiniteDuration],
   sortBy: SortBy,
   order: Order
 )
