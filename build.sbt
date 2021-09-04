@@ -96,7 +96,7 @@ lazy val batch =
       topLevelDirectory := None,
       Universal / javaOptions ++= Seq("-Dlogback.configurationFile=/opt/data/logback.xml"),
       libraryDependencies ++=
-        Seq(postgresql, jcodec, jcodecJavaSe, thumbnailator) ++ Seq(scalaTest, pegdown).map(_ % Test)
+        Seq(postgresql, jcodec) ++ Seq(scalaTest, pegdown).map(_ % Test)
     )
     .dependsOn(core % "compile->compile;test->test")
 
