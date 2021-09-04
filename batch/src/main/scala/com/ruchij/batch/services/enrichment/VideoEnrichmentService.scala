@@ -10,7 +10,7 @@ import scala.concurrent.duration.FiniteDuration
 trait VideoEnrichmentService[F[_]] {
   val snapshotMediaType: MediaType
 
-  def videoSnapshots(video: Video): F[Seq[Snapshot]]
+  def videoSnapshots(video: Video): F[List[Snapshot]]
 
   def snapshotFileResource(videoPath: String, snapshotPath: String, videoTimestamp: FiniteDuration): F[FileResource]
 }

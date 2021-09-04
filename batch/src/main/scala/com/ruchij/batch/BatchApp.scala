@@ -7,6 +7,7 @@ import com.ruchij.batch.daos.workers.DoobieWorkerDao
 import com.ruchij.batch.services.enrichment.VideoEnrichmentServiceImpl
 import com.ruchij.batch.services.scheduler.{Scheduler, SchedulerImpl}
 import com.ruchij.batch.services.scheduling.BatchSchedulingServiceImpl
+import com.ruchij.batch.services.snapshots.VideoSnapshotServiceImpl
 import com.ruchij.batch.services.sync.SynchronizationServiceImpl
 import com.ruchij.batch.services.worker.WorkExecutorImpl
 import com.ruchij.core.daos.doobie.DoobieTransactor
@@ -90,7 +91,9 @@ object BatchApp extends IOApp {
 
           workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
 
-          youtubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](new CliCommandRunnerImpl[F])
+          cliCommandRunner = new CliCommandRunnerImpl[F]
+
+          youtubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](cliCommandRunner)
 
           fileTypeDetector = new PathFileTypeDetector[F](new Tika(), blockerIO)
 
@@ -128,12 +131,12 @@ object BatchApp extends IOApp {
             DoobieFileResourceDao
           )
 
-          videoEnrichmentService = new VideoEnrichmentServiceImpl[F, repositoryService.BackedType, ConnectionIO](
-            repositoryService,
-            hashingService,
+          videoSnapshotService = new VideoSnapshotServiceImpl[F](cliCommandRunner, repositoryService, hashingService)
+
+          videoEnrichmentService = new VideoEnrichmentServiceImpl[F, ConnectionIO](
+            videoSnapshotService,
             DoobieSnapshotDao,
             DoobieFileResourceDao,
-            blockerIO,
             batchServiceConfiguration.storageConfiguration
           )
 
