@@ -36,5 +36,5 @@ trait VideoDao[F[_]] {
 
   val size: F[Long]
 
-  val sites: F[Seq[VideoSite]]
+  val sites: F[Set[VideoSite]]
 }
