@@ -148,7 +148,7 @@ object ApiApp extends IOApp {
           new AuthenticationServiceImpl[F](authenticationKeyStore, passwordAuthenticationConfiguration, blockerCPU)
       }
 
-    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](new CliCommandRunnerImpl[F])
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](new CliCommandRunnerImpl[F], client)
 
     val videoAnalysisService: VideoAnalysisServiceImpl[F, ConnectionIO] =
       new VideoAnalysisServiceImpl[F, ConnectionIO](

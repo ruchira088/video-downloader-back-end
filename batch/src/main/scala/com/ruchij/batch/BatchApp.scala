@@ -93,7 +93,7 @@ object BatchApp extends IOApp {
 
           cliCommandRunner = new CliCommandRunnerImpl[F]
 
-          youtubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](cliCommandRunner)
+          youtubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](cliCommandRunner, httpClient)
 
           fileTypeDetector = new PathFileTypeDetector[F](new Tika(), blockerIO)
 

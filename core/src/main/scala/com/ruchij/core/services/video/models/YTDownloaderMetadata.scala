@@ -7,7 +7,7 @@ case class YTDownloaderMetadata(
   title: String,
   extractor: String,
   duration: Int,
-  thumbnail: Uri,
+  thumbnail: Option[Uri],
   formats: List[Format]
 )
 

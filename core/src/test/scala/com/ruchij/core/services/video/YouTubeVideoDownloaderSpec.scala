@@ -5,6 +5,7 @@ import com.ruchij.core.services.cli.CliCommandRunner
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.Providers.contextShift
 import fs2.Stream
+import org.http4s.client.Client
 import org.http4s.implicits.http4sLiteralsSyntax
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.flatspec.AnyFlatSpec
@@ -18,7 +19,8 @@ class YouTubeVideoDownloaderSpec extends AnyFlatSpec with MockFactory with Match
 
   "videoInformation(Uri)" should "return video metadata information for the URI" in runIO {
     val cliCommandRunner = mock[CliCommandRunner[IO]]
-    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner)
+    val client = mock[Client[IO]]
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client)
 
     val cliOutput =
       """{
@@ -80,7 +82,8 @@ class YouTubeVideoDownloaderSpec extends AnyFlatSpec with MockFactory with Match
 
   "supportedSites" should "return a list of supported video sites" in runIO {
     val cliCommandRunner = mock[CliCommandRunner[IO]]
-    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner)
+    val client = mock[Client[IO]]
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client)
 
     val cliOutput =
       """9now.com.au
@@ -104,7 +107,8 @@ class YouTubeVideoDownloaderSpec extends AnyFlatSpec with MockFactory with Match
 
   "downloadVideo(Uri, String, Stream[F, Boolean])" should "download the video to the file path" in runIO {
     val cliCommandRunner = mock[CliCommandRunner[IO]]
-    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner)
+    val client = mock[Client[IO]]
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client)
 
     val cliOutput =
       """[youtube] F1Zl1TRDJs0: Downloading webpage
