@@ -14,12 +14,10 @@ abstract class MultiValueQueryParameter[A: QueryParamDecoder: ClassTag](key: Str
   override def parse[F[_]: ApplicativeError[*[_], Throwable]]: Kleisli[F, QueryParameters, Option[NonEmptyList[A]]] =
     QueryParameter
       .parse[F, Option[NonEmptyList[A]]](key)
-      .map {
-        _.collect { case Some(nonEmptyList) => nonEmptyList }
-          .foldLeft[Option[NonEmptyList[A]]](None) {
-            case (result, nonEmptyList) =>
-              Some { result.fold(nonEmptyList)(_ ::: nonEmptyList) }
-          }
+      .map { values =>
+        NonEmptyList.fromList {
+          values.flatMap(_.map(_.toList).getOrElse(List.empty))
+        }
       }
 }
 
