@@ -1,20 +1,17 @@
 package com.ruchij.core.daos.videometadata.models
 
-import java.util.concurrent.TimeUnit
 import cats.data.{Kleisli, NonEmptyList}
 import cats.{Applicative, ApplicativeError, MonadError}
-import com.ruchij.core.circe.Decoders.finiteDurationDecoder
 import com.ruchij.core.daos.videometadata.models.CustomVideoSite.Selector
 import com.ruchij.core.exceptions.InvalidConditionException
-import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherToF, toType}
+import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherToF}
 import com.ruchij.core.utils.JsoupSelector
 import com.ruchij.core.utils.MatcherUtils.IntNumber
 import enumeratum.{Enum, EnumEntry}
-import io.circe.{Decoder, parser => JsonParser}
-import io.circe.generic.auto.exportDecoder
 import org.http4s.Uri
 import org.jsoup.nodes.Document
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 import scala.util.matching.Regex
 
@@ -119,48 +116,6 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
     override def downloadUri[F[_] : MonadError[*[_], Throwable]]: Selector[F, Uri] =
       JsoupSelector.singleElement[F]("#video_container source")
         .flatMapF(JsoupSelector.src[F])
-  }
-
-  case object EPorner extends CustomVideoSite {
-
-    case class EPornerMetadata(name: String, duration: FiniteDuration, image: Uri)
-
-    implicit val uriDecoder: Decoder[Uri] =
-      Decoder.decodeString.emap { uriString => Uri.fromString(uriString).left.map(_.message) }
-
-    def metadata[F[_]: MonadError[*[_], Throwable]]: Selector[F, EPornerMetadata] =
-      JsoupSelector.singleElement("""#movieplayer-left [type="application/ld+json"]""")
-        .map(_.html())
-        .flatMapF { text =>
-          toType[Either[Throwable, *], F, EPornerMetadata] {
-            for {
-              json <- JsonParser.parse(text)
-              metadata <- json.as[EPornerMetadata]
-            }
-            yield metadata
-          }
-        }
-
-    override val hostname: String = "eporner.com"
-
-    override def title[F[_] : MonadError[*[_], Throwable]]: Selector[F, String] =
-      metadata.map(_.name)
-
-    override def thumbnailUri[F[_] : MonadError[*[_], Throwable]]: Selector[F, Uri] =
-      metadata.map(_.image)
-
-    override def duration[F[_] : MonadError[*[_], Throwable]]: Selector[F, FiniteDuration] =
-      metadata.map(_.duration)
-
-    override def downloadUri[F[_] : MonadError[*[_], Throwable]]: Selector[F, Uri] =
-      JsoupSelector.nonEmptyElementList("#hd-porn-dload a")
-        .map(_.reverse)
-        .flatMapF {
-          case NonEmptyList(head, _) => JsoupSelector.attribute(head, "href")
-        }
-        .flatMapF {
-          path => Uri.fromString(s"https://www.eporner.com$path").toType[F, Throwable]
-        }
   }
 
   override def values: IndexedSeq[CustomVideoSite] = findValues

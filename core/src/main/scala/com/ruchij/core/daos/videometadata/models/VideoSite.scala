@@ -11,7 +11,7 @@ object VideoSite {
   def from(input: String): VideoSite =
     CustomVideoSite.withNameInsensitiveOption(input)
       .getOrElse {
-        if (Local.name.equalsIgnoreCase(input)) Local else YTDownloaderSite(input)
+        if (Local.name.equalsIgnoreCase(input)) Local else YTDownloaderSite(input.toLowerCase)
       }
 
   def fromUri(uri: Uri): Either[ValidationException, VideoSite] =

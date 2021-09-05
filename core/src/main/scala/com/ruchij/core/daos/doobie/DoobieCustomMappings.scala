@@ -18,7 +18,7 @@ import scala.util.Try
 object DoobieCustomMappings {
   private implicit def stringShow: Show[String] = Show.fromToString
 
-  implicit val videoSitePut: Put[VideoSite] = Put[String].contramap[VideoSite](_.name)
+  implicit val videoSitePut: Put[VideoSite] = Put[String].contramap[VideoSite](_.name.toLowerCase)
 
   implicit val videoSiteGet: Get[VideoSite] = Get[String].map(VideoSite.from)
 

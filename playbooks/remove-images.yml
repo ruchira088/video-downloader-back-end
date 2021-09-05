@@ -1,7 +1,0 @@
----
-- hosts: localhost
-  connection: local
-
-  tasks:
-    - name: Remove all images
-      shell: cd ../images && ls | grep -e png$ -e jpg$ | xargs rm

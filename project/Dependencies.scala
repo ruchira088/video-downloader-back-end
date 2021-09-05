@@ -54,10 +54,6 @@ object Dependencies
 
   lazy val jcodec = "org.jcodec" % "jcodec" % "0.2.5"
 
-  lazy val jcodecJavaSe = "org.jcodec" % "jcodec-javase" % "0.2.5"
-
-  lazy val thumbnailator = "net.coobird" % "thumbnailator" % "0.4.14"
-
   lazy val apacheTika = "org.apache.tika" % "tika-core" % "1.27"
 
   lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "0.14.0"

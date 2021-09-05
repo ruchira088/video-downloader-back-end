@@ -26,7 +26,7 @@ object Encoders {
         "unit" -> Json.fromString(finiteDuration.unit.name())
       )
 
-  implicit val videoSiteEncoder: Encoder[VideoSite] = Encoder[String].contramap[VideoSite](_.name)
+  implicit val videoSiteEncoder: Encoder[VideoSite] = Encoder[String].contramap[VideoSite](_.name.toLowerCase)
 
   implicit val pathEncoder: Encoder[Path] = Encoder.encodeString.contramap[Path](_.toAbsolutePath.toString)
 

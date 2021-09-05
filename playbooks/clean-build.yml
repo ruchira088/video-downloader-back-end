@@ -1,0 +1,29 @@
+---
+- hosts: localhost
+  connection: local
+
+  tasks:
+    - name: Remove Video Downloader API Docker images
+      shell: |
+        docker_image_ids=$(docker images | grep "video-downloader" | awk '{print $3}')
+
+        if [ -z "$docker_image_ids" ];
+        then
+          echo "No Docker images found"
+        else
+          echo "$docker_image_ids" | xargs docker rmi -f
+        fi
+
+    - name: Remove all images
+      shell: |
+        images=$(cd ../images && ls | grep -e png$ -e jpg$ -e webp$)
+
+        if [ -z "$images" ];
+        then
+          echo "No images found"
+        else
+          echo "$images" | xargs rm
+        fi
+
+    - name: Build Docker images
+      import_tasks: tasks/build-docker-images.yml
