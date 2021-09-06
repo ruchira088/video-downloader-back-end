@@ -34,7 +34,9 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
           .product {
             OptionT.fromOption[F](metadata.thumbnail)
               .getOrElseF {
-                Bracket[F, Throwable].handleError(retrieveThumbnailFromUri.run(uri)) {_ => uri"https://i.stack.imgur.com/PtbGQ.png"}
+                Bracket[F, Throwable].handleError(retrieveThumbnailFromUri.run(uri)) {_ =>
+                  uri"https://s3.ap-southeast-2.amazonaws.com/assets.video-downloader.ruchij.com/video-placeholder.png"
+                }
               }
           }
           .map {
