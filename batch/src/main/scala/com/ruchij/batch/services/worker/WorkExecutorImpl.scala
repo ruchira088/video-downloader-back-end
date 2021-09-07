@@ -24,7 +24,7 @@ import com.ruchij.core.services.video.models.YTDownloaderProgress
 import com.ruchij.core.services.video.{VideoAnalysisService, VideoService, YouTubeVideoDownloader}
 import com.ruchij.core.types.JodaClock
 import fs2.Stream
-import fs2.concurrent.{SignallingRef, Topic}
+import fs2.concurrent.Topic
 
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
