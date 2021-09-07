@@ -11,6 +11,9 @@ case class YTDataSize(value: Double, unit: YTDataUnit) {
 object YTDataSize {
   private val YTDataSizePattern: Regex = "(\\S+)([GMK]iB)".r
 
+  implicit val ytDataSizeOrdering: Ordering[YTDataSize] =
+    (x: YTDataSize, y: YTDataSize) => Ordering[Double].compare(x.bytes, y.bytes)
+
   def unapply(input: String): Option[YTDataSize] =
     input match {
       case YTDataSizePattern(DoubleNumber(value), YTDataUnit(unit)) => Some(YTDataSize(value, unit))

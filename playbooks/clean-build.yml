@@ -22,7 +22,7 @@
         then
           echo "No images found"
         else
-          echo "$images" | xargs rm
+          echo "$images" | xargs rm -rf
         fi
 
     - name: Build Docker images

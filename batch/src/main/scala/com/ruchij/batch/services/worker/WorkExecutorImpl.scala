@@ -1,7 +1,8 @@
 package com.ruchij.batch.services.worker
 
 import cats.data.OptionT
-import cats.effect.{Bracket, Concurrent, Resource, Timer}
+import cats.effect.concurrent.Deferred
+import cats.effect.{Bracket, Concurrent, ExitCase, Resource, Timer}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, ~>}
 import com.ruchij.batch.config.BatchStorageConfiguration
@@ -13,20 +14,25 @@ import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.video.models.Video
+import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.CustomVideoSite
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.download.DownloadService
 import com.ruchij.core.services.repository.RepositoryService
+import com.ruchij.core.services.video.models.YTDownloaderProgress
 import com.ruchij.core.services.video.{VideoAnalysisService, VideoService, YouTubeVideoDownloader}
 import com.ruchij.core.types.JodaClock
 import fs2.Stream
+import fs2.concurrent.{SignallingRef, Topic}
 
 import scala.concurrent.duration.DurationInt
+import scala.language.postfixOps
 
 class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
   fileResourceDao: FileResourceDao[T],
   workerDao: WorkerDao[T],
+  videoMetadataDao: VideoMetadataDao[T],
   repositoryService: RepositoryService[F],
   batchSchedulingService: BatchSchedulingService[F],
   videoAnalysisService: VideoAnalysisService[F],
@@ -77,7 +83,46 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
 
         Resource.pure[F, (Stream[F, Long], F[FileResource])] {
           (
-            youTubeVideoDownloader.downloadVideo(scheduledVideoDownload.videoMetadata.url, videoFilePath),
+          Stream.eval(Topic[F, Option[YTDownloaderProgress]](None))
+            .flatMap { topic =>
+              val progressStream: Stream[F, YTDownloaderProgress] =
+                topic.subscribe(Int.MaxValue).collect { case Some(progress) => progress }
+
+              Stream.eval(Deferred[F, Either[Throwable, Unit]])
+                .flatMap { deferred =>
+                  progressStream
+                    .concurrently {
+                      topic.publish {
+                        youTubeVideoDownloader.downloadVideo(scheduledVideoDownload.videoMetadata.url, videoFilePath)
+                          .map(Some.apply)
+                          .onFinalizeCase {
+                            case ExitCase.Error(throwable) => deferred.complete(Left(throwable))
+                            case _ => deferred.complete(Right((): Unit))
+                          }
+                      }
+                    }
+                    .concurrently {
+                      progressStream.groupWithin(Int.MaxValue, 10 seconds)
+                        .evalMap {
+                          chunk =>
+                            OptionT.fromOption[F](chunk.last)
+                              .semiflatMap { progress =>
+                                if (scheduledVideoDownload.videoMetadata.size < math.round(progress.totalSize.bytes)) {
+                                  transaction {
+                                    videoMetadataDao.update(scheduledVideoDownload.videoMetadata.id, None, Some(math.round(progress.totalSize.bytes)))
+                                  }
+                                    .as((): Unit)
+                                } else Applicative[F].unit
+                              }
+                              .value
+                        }
+                        .interruptWhen(deferred)
+                    }
+                    .interruptWhen(deferred)
+                    .map(progress => math.round((progress.completed / 100) * progress.totalSize.bytes))
+                }
+            }
+          ,
             OptionT {
               repositoryService.list(storageConfiguration.videoFolder)
                 .find(fileKey => fileKey.split('/').lastOption.exists(_.startsWith(scheduledVideoDownload.videoMetadata.id)))
@@ -145,7 +190,7 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
                 maybeSizeFile
                   .fold[F[Video]](ApplicativeError[F, Throwable].raiseError(ResourceNotFoundException(s"File not found at: ${fileResource.path}"))) {
                     fileSize =>
-                      if (fileSize < scheduledVideoDownload.videoMetadata.size)
+                      if (fileSize < scheduledVideoDownload.videoMetadata.size && CustomVideoSite.values.contains(scheduledVideoDownload.videoMetadata.videoSite))
                         logger
                           .warn[F](s"Worker ${worker.id} invalidly deemed as complete: ${scheduledVideoDownload.videoMetadata.url}")
                           .productR(execute(scheduledVideoDownload, worker, interrupt))
