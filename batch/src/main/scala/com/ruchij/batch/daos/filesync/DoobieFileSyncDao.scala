@@ -4,6 +4,7 @@ import cats.data.OptionT
 import cats.implicits._
 import com.ruchij.batch.daos.filesync.models.FileSync
 import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.{dateTimeGet, dateTimePut}
 import doobie.free.connection.ConnectionIO
 import doobie.implicits.toSqlInterpolator
 import org.joda.time.DateTime

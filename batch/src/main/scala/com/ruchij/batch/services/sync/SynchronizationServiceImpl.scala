@@ -1,16 +1,15 @@
 package com.ruchij.batch.services.sync
 
-import java.util.concurrent.TimeUnit
 import cats.data.OptionT
 import cats.effect.{Blocker, Bracket, Clock, Concurrent, ContextShift, Sync}
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, Functor, Monad, MonadError, ~>}
+import cats.{Applicative, ApplicativeError, Functor, MonadError, ~>}
 import com.ruchij.batch.config.BatchStorageConfiguration
+import com.ruchij.batch.daos.filesync.FileSyncDao
 import com.ruchij.batch.daos.filesync.models.FileSync
-import com.ruchij.batch.daos.filesync.{DoobieFileSyncDao, FileSyncDao}
 import com.ruchij.batch.exceptions.CorruptedFrameGrabException
 import com.ruchij.batch.services.enrichment.{SeekableByteChannelConverter, VideoEnrichmentService}
-import com.ruchij.batch.services.sync.SynchronizationServiceImpl.{MaxConcurrentSyncCount, SupportedFileTypes, errorHandler, fileName, videoIdFromVideoFile}
+import com.ruchij.batch.services.sync.SynchronizationServiceImpl._
 import com.ruchij.batch.services.sync.models.FileSyncResult.{ExistingVideo, IgnoredFile, SyncError, VideoSynced}
 import com.ruchij.batch.services.sync.models.{FileSyncResult, SynchronizationResult}
 import com.ruchij.core.daos.resource.FileResourceDao
@@ -25,12 +24,13 @@ import com.ruchij.core.services.hashing.HashingService
 import com.ruchij.core.services.repository.FileRepositoryService.FileRepository
 import com.ruchij.core.services.repository.FileTypeDetector
 import com.ruchij.core.services.video.VideoService
-import com.ruchij.core.types.JodaClock
 import com.ruchij.core.types.FunctionKTypes._
+import com.ruchij.core.types.JodaClock
 import fs2.Stream
 import org.http4s.{MediaType, Uri}
 import org.jcodec.api.{FrameGrab, UnsupportedFormatException}
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 import scala.util.matching.Regex
 
@@ -84,7 +84,7 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
       Applicative[F].pure(false)
 
   def syncVideo(videoPath: String): F[FileSyncResult] =
-    JodaClock[F].timestamp.flatMap { timestamp =>
+    JodaClock[F].timestamp.flatMap { startTimestamp =>
       transaction {
         OptionT(fileResourceDao.findByPath(videoPath).map(_.as((): Unit)))
           .orElse {
@@ -94,20 +94,33 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
           .orElse {
             OptionT(fileSyncDao.findByPath(videoPath))
               .flatMap { fileSync =>
-                if (fileSync.syncedAt.isEmpty && fileSync.lockedAt.isBefore(timestamp.minusMinutes(1)))
+                if (fileSync.syncedAt.isEmpty && fileSync.lockedAt.isBefore(startTimestamp.minusMinutes(1)))
                   OptionT(fileSyncDao.deleteByPath(videoPath)).productR(OptionT.none[T, Unit])
                 else OptionT.some[T]((): Unit)
               }
           }
-          .orElseF {
-            fileSyncDao.insert(FileSync(timestamp, videoPath, None))
-              .map(count => if (count == 1) None else Some((): Unit))
-              .handleError(_ => Some((): Unit))
-          }
           .value
       }
         .flatMap {
-          _.fold[F[FileSyncResult]](addVideo(videoPath))(_ => Applicative[F].pure(ExistingVideo(videoPath)))
+          case None =>
+            transaction(fileSyncDao.insert(FileSync(startTimestamp, videoPath, None)))
+              .flatMap {
+                count =>
+                  if (count == 1)
+                    addVideo(videoPath)
+                      .productL {
+                        JodaClock[F].timestamp.flatMap {
+                          finishTimestamp => transaction(fileSyncDao.complete(videoPath, finishTimestamp))
+                        }
+                      }
+                  else Applicative[F].pure(IgnoredFile(videoPath))
+              }
+              .handleErrorWith {
+                throwable =>
+                  logger.warn(throwable.getMessage).as(IgnoredFile(videoPath))
+              }
+
+          case _ => Applicative[F].pure(ExistingVideo(videoPath))
         }
     }
 

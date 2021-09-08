@@ -3,6 +3,7 @@ package com.ruchij.batch
 import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
 import cats.implicits._
 import com.ruchij.batch.config.BatchServiceConfiguration
+import com.ruchij.batch.daos.filesync.DoobieFileSyncDao
 import com.ruchij.batch.daos.workers.DoobieWorkerDao
 import com.ruchij.batch.services.enrichment.VideoEnrichmentServiceImpl
 import com.ruchij.batch.services.scheduler.{Scheduler, SchedulerImpl}
@@ -145,6 +146,7 @@ object BatchApp extends IOApp {
             DoobieFileResourceDao,
             DoobieVideoMetadataDao,
             DoobieSchedulingDao,
+            DoobieFileSyncDao,
             videoService,
             videoEnrichmentService,
             hashingService,
