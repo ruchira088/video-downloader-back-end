@@ -291,8 +291,9 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad, M[_]](
       .flatMap {
         _.traverse { index =>
           transaction {
-            workerDao.insert(models.Worker(Worker.workerIdFromIndex(index), WorkerStatus.Available, None, None, None))
+            workerDao.insert(Worker(Worker.workerIdFromIndex(index), WorkerStatus.Available, None, None, None))
           }
+            .handleError(_ => 0)
         }
       }
       .map(_.sum)

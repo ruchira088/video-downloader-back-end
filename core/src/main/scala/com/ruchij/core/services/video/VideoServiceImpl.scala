@@ -1,6 +1,7 @@
 package com.ruchij.core.services.video
 
 import cats.data.{NonEmptyList, OptionT}
+import cats.effect.Sync
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadError, ~>}
 import com.ruchij.core.daos.resource.FileResourceDao
@@ -13,6 +14,7 @@ import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.exceptions.ResourceNotFoundException
+import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.services.video.models.VideoServiceSummary
@@ -20,7 +22,7 @@ import com.ruchij.core.services.video.models.VideoServiceSummary
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
-class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: MonadError[*[_], Throwable]](
+class VideoServiceImpl[F[_]: Sync, T[_]: MonadError[*[_], Throwable]](
   repositoryService: RepositoryService[F],
   videoDao: VideoDao[T],
   videoMetadataDao: VideoMetadataDao[T],
@@ -30,9 +32,17 @@ class VideoServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]: MonadError[*[_],
 )(implicit transaction: T ~> F)
     extends VideoService[F] {
 
+  private val logger = Logger[VideoServiceImpl[F, T]]
+
   override def insert(videoMetadataKey: String, fileResourceKey: String): F[Video] =
-    transaction(videoDao.insert(videoMetadataKey, fileResourceKey, FiniteDuration(0, TimeUnit.MILLISECONDS)))
-      .productR(fetchById(videoMetadataKey))
+    logger.debug[F](s"Inserting Video videoMetadataKey=$videoMetadataKey fileResourceKey=$fileResourceKey")
+      .productR {
+        transaction(videoDao.insert(videoMetadataKey, fileResourceKey, FiniteDuration(0, TimeUnit.MILLISECONDS)))
+          .productR(fetchById(videoMetadataKey))
+      }
+      .productL {
+        logger.debug[F](s"Successfully inserted Video videoMetadataKey=$videoMetadataKey fileResourceKey=$fileResourceKey")
+      }
 
   override def fetchById(videoId: String): F[Video] =
     OptionT(transaction(videoDao.findById(videoId)))

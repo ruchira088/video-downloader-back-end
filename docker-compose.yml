@@ -15,9 +15,34 @@ version: "3.8"
 #  - "./videos:/opt/videos"
 #  - "./images:/opt/images"
 
-x-volumes: &docker-volumes
-  - "./videos:/opt/videos"
-  - "./images:/opt/images"
+x-batch: &batch-app
+  image: video-downloader-batch:latest
+    #    build: .
+    #    command: batch/run
+  depends_on:
+    postgres:
+      condition: service_healthy
+    migration-application:
+      condition: service_completed_successfully
+    redis:
+      condition: service_started
+  #    ports:
+  #      - 5006:5005
+  volumes:
+    - "./videos:/opt/videos"
+    - "./images:/opt/images"
+    - "./batch/src/main/resources/logback.xml:/opt/data/logback.xml"
+  environment:
+    DATABASE_URL: "jdbc:postgresql://postgres:5432/video-downloader"
+    DATABASE_USER: "admin"
+    DATABASE_PASSWORD: "password"
+    REDIS_HOSTNAME: "redis"
+    REDIS_PORT: "6379"
+    REDIS_PASSWORD: "redis-password"
+    KAFKA_BROKERS: "kafka-cluster:9092"
+    SCHEMA_REGISTRY: "http://kafka-cluster:8081"
+    VIDEO_FOLDER: "/opt/videos"
+    IMAGE_FOLDER: "/opt/images"
 
 services:
   nginx:
@@ -60,45 +85,17 @@ services:
       VIDEO_FOLDER: "/opt/videos"
       IMAGE_FOLDER: "/opt/images"
 
-  batch:
-    image: video-downloader-batch:latest
-#    build: .
-#    command: batch/run
-    depends_on:
-      postgres:
-        condition: service_healthy
-      migration-application:
-        condition: service_completed_successfully
-      redis:
-        condition: service_started
-#    ports:
-#      - 5006:5005
-    volumes:
-      - "./videos:/opt/videos"
-      - "./images:/opt/images"
-      - "./batch/src/main/resources/logback.xml:/opt/data/logback.xml"
-    environment:
-      DATABASE_URL: "jdbc:postgresql://postgres:5432/video-downloader"
-      DATABASE_USER: "admin"
-      DATABASE_PASSWORD: "password"
-      REDIS_HOSTNAME: "redis"
-      REDIS_PORT: "6379"
-      REDIS_PASSWORD: "redis-password"
-      KAFKA_BROKERS: "kafka-cluster:9092"
-      SCHEMA_REGISTRY: "http://kafka-cluster:8081"
-      VIDEO_FOLDER: "/opt/videos"
-      IMAGE_FOLDER: "/opt/images"
+  batch-1:
+    *batch-app
+
+  batch-2:
+    *batch-app
 
   migration-application:
     image: video-downloader-migration-application:latest
-#    build: .
-#    command: migrationApplication/run
     depends_on:
       postgres:
         condition: service_healthy
-#    ports:
-#      - 5007:5005
-    volumes: *docker-volumes
     environment:
       DATABASE_URL: "jdbc:postgresql://postgres:5432/video-downloader"
       DATABASE_USER: "admin"

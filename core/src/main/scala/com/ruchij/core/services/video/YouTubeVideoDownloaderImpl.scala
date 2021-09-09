@@ -5,8 +5,9 @@ import cats.effect.{Async, Bracket, Sync}
 import cats.implicits._
 import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.services.cli.CliCommandRunner
-import com.ruchij.core.services.video.models.{VideoAnalysisResult, YTDownloaderMetadata, YTDownloaderProgress}
+import com.ruchij.core.services.video.models.{VideoAnalysisResult, YTDataSize, YTDataUnit, YTDownloaderMetadata, YTDownloaderProgress}
 import com.ruchij.core.types.FunctionKTypes._
+import com.ruchij.core.services.video.models.YTDataSize.ytDataSizeOrdering
 import com.ruchij.core.utils.JsoupSelector
 import fs2.Stream
 import io.circe.{parser => JsonParser}
@@ -20,6 +21,7 @@ import org.jsoup.nodes.Document
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
+import scala.math.Ordered.orderingToOrdered
 
 class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner[F], client: Client[F]) extends YouTubeVideoDownloader[F] {
 
@@ -34,7 +36,9 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
           .product {
             OptionT.fromOption[F](metadata.thumbnail)
               .getOrElseF {
-                Bracket[F, Throwable].handleError(retrieveThumbnailFromUri.run(uri)) {_ => uri"https://i.stack.imgur.com/PtbGQ.png"}
+                Bracket[F, Throwable].handleError(retrieveThumbnailFromUri.run(uri)) {_ =>
+                  uri"https://s3.ap-southeast-2.amazonaws.com/assets.video-downloader.ruchij.com/video-placeholder.png"
+                }
               }
           }
           .map {
@@ -68,14 +72,14 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
         .map(identity[Seq[String]])
     }
 
-  override def downloadVideo(uri: Uri, pathWithoutExtension: String): Stream[F, Long] =
+  override def downloadVideo(uri: Uri, pathWithoutExtension: String): Stream[F, YTDownloaderProgress] =
     cliCommandRunner
       .run(s"""youtube-dl -o "$pathWithoutExtension.%(ext)s" "${uri.renderString}"""")
       .collect {
-        case YTDownloaderProgress(progress) => math.round(progress.completed / 100 * progress.totalSize.bytes)
+        case YTDownloaderProgress(progress) => progress
       }
-      .scan[Long](0) {
-        (result, current) => math.max(result, current)
+      .scan(YTDownloaderProgress(0, YTDataSize(0, YTDataUnit.MiB), YTDataSize(0, YTDataUnit.MiB), FiniteDuration(0, TimeUnit.SECONDS))) {
+        (result, current) => if (current.totalSize >= result.totalSize) current else result
       }
 
 }
