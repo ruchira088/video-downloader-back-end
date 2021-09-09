@@ -19,6 +19,8 @@ import org.http4s.server.{HttpMiddleware, Router}
 import org.http4s.{HttpApp, HttpRoutes}
 
 object Routes {
+  val OriginHosts = Seq("ruchij.com", "localhost")
+
   def apply[F[+ _]: Concurrent: Timer: ContextShift](
     videoService: VideoService[F],
     videoAnalysisService: VideoAnalysisService[F],
@@ -45,9 +47,16 @@ object Routes {
           "/service" -> ServiceRoutes(healthService),
         )
 
+    val cors =
+      CORS.policy
+        .withAllowCredentials(true)
+        .withAllowOriginHost {
+          originHost => OriginHosts.exists(_.endsWith(originHost.host.value))
+        }
+
     MetricsMiddleware(metricPublisher) {
       GZip {
-        CORS {
+        cors {
           ExceptionHandler {
             NotFoundHandler(routes)
           }

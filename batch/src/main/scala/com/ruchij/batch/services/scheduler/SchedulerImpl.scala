@@ -6,7 +6,7 @@ import cats.implicits._
 import cats.{Applicative, ApplicativeError, Monad, ~>}
 import com.ruchij.batch.config.WorkerConfiguration
 import com.ruchij.batch.daos.workers.models.Worker
-import com.ruchij.batch.daos.workers.{WorkerDao, models}
+import com.ruchij.batch.daos.workers.WorkerDao
 import com.ruchij.batch.services.scheduler.Scheduler.PausedVideoDownload
 import com.ruchij.batch.services.scheduler.SchedulerImpl.WorkerPollPeriod
 import com.ruchij.batch.services.scheduling.BatchSchedulingService
