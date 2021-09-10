@@ -64,7 +64,7 @@ object Dependencies
 
   lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "6.2.0"
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.5"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.6"
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4"
 
