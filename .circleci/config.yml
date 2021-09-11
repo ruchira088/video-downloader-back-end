@@ -44,6 +44,22 @@ jobs:
             - ~/.sbt
             - ~/.cache/coursier
 
+  build-and-publish-api-docker-image:
+    docker:
+      - image: ruchira088/docker-ci:vdbe
+
+  build-and-publish-batch-docker-image:
+    docker:
+      - image: ruchira088/docker-ci:vdbe
+
+  build-and-publish-migration-docker-image:
+    docker:
+      - image: ruchira088/docker-ci:vdbe
+
+  build-and-publish-db-backup-docker-image:
+    docker:
+      - image: ruchira088/docker-ci:vdbe
+
   build-and-publish-docker-images:
     docker:
       - image: ruchira088/docker-ci:vdbe
