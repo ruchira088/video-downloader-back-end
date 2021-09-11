@@ -44,23 +44,10 @@ jobs:
             - ~/.sbt
             - ~/.cache/coursier
 
-  build-and-publish-api-docker-image:
-    docker:
-      - image: ruchira088/docker-ci:vdbe
-
-  build-and-publish-batch-docker-image:
-    docker:
-      - image: ruchira088/docker-ci:vdbe
-
-  build-and-publish-migration-docker-image:
-    docker:
-      - image: ruchira088/docker-ci:vdbe
-
-  build-and-publish-db-backup-docker-image:
-    docker:
-      - image: ruchira088/docker-ci:vdbe
-
-  build-and-publish-docker-images:
+  build-and-publish-docker-image:
+    parameters:
+      app:
+        type: string
     docker:
       - image: ruchira088/docker-ci:vdbe
     steps:
@@ -69,7 +56,7 @@ jobs:
       - restore_cache: *dependency-cache-keys
       - run:
           name: Build and publish Docker images to Docker Hub
-          command: ansible-playbook playbooks/build-and-publish-docker-images.yml
+          command: ansible-playbook playbooks/build-and-publish-docker-image.yml -e app=<< parameters.app >>
 
   build-terraform-resources:
     docker:
@@ -104,7 +91,36 @@ workflows:
           post-steps:
             - slack/status
 
-      - build-and-publish-docker-images:
+      - build-and-publish-docker-image:
+          name: build-and-publish-migration-docker-image
+          app: migration
+          context: aws-credentials
+          requires:
+            - build-and-test
+          post-steps:
+            - slack/status
+
+      - build-and-publish-docker-image:
+          name: build-and-publish-api-docker-image
+          app: api
+          context: aws-credentials
+          requires:
+            - build-and-test
+          post-steps:
+            - slack/status
+
+      - build-and-publish-docker-image:
+          name: build-and-publish-batch-docker-image
+          app: batch
+          context: aws-credentials
+          requires:
+            - build-and-test
+          post-steps:
+            - slack/status
+
+      - build-and-publish-docker-image:
+          name: build-and-publish-db-backup-docker-image
+          app: db-backup
           context: aws-credentials
           requires:
             - build-and-test
@@ -114,12 +130,16 @@ workflows:
       - build-terraform-resources:
           context: aws-credentials
           requires:
-            - build-and-publish-docker-images
+            - build-and-test
 
       - deploy-to-k8s:
           context: aws-credentials
           requires:
             - build-terraform-resources
+            - build-and-publish-migration-docker-image
+            - build-and-publish-api-docker-image
+            - build-and-publish-batch-docker-image
+            - build-and-publish-db-backup-docker-image
           post-steps:
             - slack/status
 
