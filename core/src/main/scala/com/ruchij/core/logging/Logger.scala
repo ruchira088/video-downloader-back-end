@@ -14,12 +14,9 @@ case class Logger[A](logger: TypesafeLogger) {
   def warn[F[_]: Sync](message: String): F[Unit] = Sync[F].delay(logger.warn(message))
 
   def error[F[_]: Sync](message: String, throwable: Throwable): F[Unit] =
-    Sync[F].delay(throwable.getClass.getCanonicalName)
-      .flatMap {
-        errorType => Sync[F].delay {
-          logger.error(s"$message. Type: $errorType; Message: ${throwable.getMessage}")
-        }
-      }
+    Sync[F].delay {
+      logger.error(message, throwable)
+    }
 }
 
 object Logger {
