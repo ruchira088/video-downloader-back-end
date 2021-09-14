@@ -13,7 +13,6 @@ import com.ruchij.api.web.responses.EventStreamEventType.{ActiveDownload, HeartB
 import com.ruchij.core.circe.Decoders._
 import com.ruchij.core.circe.Encoders._
 import com.ruchij.api.web.responses.{EventStreamHeartBeat, SearchResult, WorkerStatusResponse}
-import com.ruchij.core.daos.scheduling.models.RangeValue
 import fs2.Stream
 import io.circe.Encoder
 import io.circe.generic.auto._
