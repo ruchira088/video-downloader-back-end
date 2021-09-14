@@ -15,6 +15,7 @@ case class SearchResult[A](
   videoUrls: Option[NonEmptyList[Uri]],
   statuses: Option[NonEmptyList[SchedulingStatus]],
   durationRange: RangeValue[FiniteDuration],
+  sizeRange: RangeValue[Long],
   sortBy: SortBy,
   order: Order
 )

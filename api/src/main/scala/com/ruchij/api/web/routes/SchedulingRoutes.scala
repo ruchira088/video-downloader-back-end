@@ -13,7 +13,6 @@ import com.ruchij.api.web.responses.EventStreamEventType.{ActiveDownload, HeartB
 import com.ruchij.core.circe.Decoders._
 import com.ruchij.core.circe.Encoders._
 import com.ruchij.api.web.responses.{EventStreamHeartBeat, SearchResult, WorkerStatusResponse}
-import com.ruchij.core.daos.scheduling.models.RangeValue
 import fs2.Stream
 import io.circe.Encoder
 import io.circe.generic.auto._
@@ -37,7 +36,7 @@ object SchedulingRoutes {
       case request @ POST -> Root =>
         for {
           scheduleRequest <- request.as[SchedulingRequest]
-          scheduledVideoDownload <- apiSchedulingService.schedule(scheduleRequest.url)
+          scheduledVideoDownload <- apiSchedulingService.schedule(scheduleRequest.url.withoutFragment)
 
           response <- Ok(scheduledVideoDownload)
         } yield response
@@ -50,7 +49,7 @@ object SchedulingRoutes {
 
           scheduledVideoDownloads <- apiSchedulingService.search(
             term,
-            videoUrls,
+            videoUrls.map(_.map(_.withoutFragment)),
             durationRange,
             sizeRange,
             pageNumber,
@@ -69,7 +68,8 @@ object SchedulingRoutes {
               term,
               videoUrls,
               statuses,
-              RangeValue.all[FiniteDuration],
+              durationRange,
+              sizeRange,
               sortBy,
               order
             )
