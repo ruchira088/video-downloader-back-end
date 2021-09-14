@@ -36,7 +36,7 @@ object SchedulingRoutes {
       case request @ POST -> Root =>
         for {
           scheduleRequest <- request.as[SchedulingRequest]
-          scheduledVideoDownload <- apiSchedulingService.schedule(scheduleRequest.url)
+          scheduledVideoDownload <- apiSchedulingService.schedule(scheduleRequest.url.withoutFragment)
 
           response <- Ok(scheduledVideoDownload)
         } yield response
@@ -49,7 +49,7 @@ object SchedulingRoutes {
 
           scheduledVideoDownloads <- apiSchedulingService.search(
             term,
-            videoUrls,
+            videoUrls.map(_.map(_.withoutFragment)),
             durationRange,
             sizeRange,
             pageNumber,

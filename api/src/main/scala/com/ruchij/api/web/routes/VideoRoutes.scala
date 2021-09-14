@@ -39,7 +39,7 @@ object VideoRoutes {
         for {
           videoMetadataRequest <- request.as[VideoMetadataRequest]
 
-          result <- videoAnalysisService.metadata(videoMetadataRequest.url)
+          result <- videoAnalysisService.metadata(videoMetadataRequest.url.withoutFragment)
 
           response <- result match {
             case Existing(videoMetadata) => Ok(videoMetadata)
