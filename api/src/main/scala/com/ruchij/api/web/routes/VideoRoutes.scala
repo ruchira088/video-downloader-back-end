@@ -29,7 +29,7 @@ object VideoRoutes {
 
           videos <- videoService.search(term, durationRange, sizeRange, pageNumber, pageSize, sortBy, order, videoSites)
 
-          response <- Ok(SearchResult(videos, pageNumber, pageSize, term, None, None, durationRange, sortBy, order))
+          response <- Ok(SearchResult(videos, pageNumber, pageSize, term, None, None, durationRange, sizeRange, sortBy, order))
         } yield response
 
       case GET -> Root / "summary" =>

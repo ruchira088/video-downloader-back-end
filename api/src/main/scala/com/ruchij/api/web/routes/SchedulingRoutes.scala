@@ -69,7 +69,8 @@ object SchedulingRoutes {
               term,
               videoUrls,
               statuses,
-              RangeValue.all[FiniteDuration],
+              durationRange,
+              sizeRange,
               sortBy,
               order
             )
