@@ -16,6 +16,6 @@ case class SearchResult[A](
   statuses: Option[NonEmptyList[SchedulingStatus]],
   durationRange: RangeValue[FiniteDuration],
   sizeRange: RangeValue[Long],
-  sortBy: SortBy,
+  sortBy: Option[SortBy],
   order: Order
 )

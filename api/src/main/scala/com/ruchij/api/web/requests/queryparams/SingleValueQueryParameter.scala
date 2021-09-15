@@ -4,7 +4,7 @@ import cats.ApplicativeError
 import cats.data.Kleisli
 import com.ruchij.api.web.requests.queryparams.QueryParameter._
 import com.ruchij.core.daos.scheduling.models.RangeValue
-import com.ruchij.core.services.models.{Order, SortBy}
+import com.ruchij.core.services.models.Order
 import org.http4s.QueryParamDecoder
 
 import scala.concurrent.duration.FiniteDuration
@@ -25,8 +25,6 @@ object SingleValueQueryParameter {
   case object SizeRangeQueryParameter extends SingleValueQueryParameter[RangeValue[Long]](key = "size", defaultValue = RangeValue.all[Long])
 
   case object SearchTermQueryParameter extends SingleValueQueryParameter[Option[String]](key = "search-term", defaultValue = None)
-
-  case object SortByQueryParameter extends SingleValueQueryParameter[SortBy]("sort-by", defaultValue = SortBy.Date)
 
   case object OrderQueryParameter extends SingleValueQueryParameter[Order]("order", defaultValue = Order.Descending)
 

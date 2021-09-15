@@ -8,6 +8,7 @@ import com.ruchij.api.web.requests.queryparams.SingleValueQueryParameter.DeleteV
 import com.ruchij.core.services.video.{VideoAnalysisService, VideoService}
 import com.ruchij.core.circe.Encoders._
 import com.ruchij.api.web.responses.{IterableResponse, SearchResult}
+import com.ruchij.core.services.models.SortBy
 import com.ruchij.core.services.video.VideoAnalysisService.{Existing, NewlyCreated}
 import io.circe.generic.auto._
 import org.http4s.HttpRoutes
@@ -24,12 +25,12 @@ object VideoRoutes {
     HttpRoutes.of {
       case GET -> Root / "search" :? queryParameters =>
         for {
-          SearchQuery(term, _, durationRange, sizeRange,  _, videoSites, pageSize, pageNumber, sortBy, order) <-
+          SearchQuery(term, _, durationRange, sizeRange,  _, videoSites, pagingQuery) <-
             SearchQuery.fromQueryParameters[F].run(queryParameters)
 
-          videos <- videoService.search(term, durationRange, sizeRange, pageNumber, pageSize, sortBy, order, videoSites)
+          videos <- videoService.search(term, durationRange, sizeRange, pagingQuery.pageNumber, pagingQuery.pageSize, pagingQuery.maybeSortBy.getOrElse(SortBy.Date), pagingQuery.order, videoSites)
 
-          response <- Ok(SearchResult(videos, pageNumber, pageSize, term, None, None, durationRange, sizeRange, sortBy, order))
+          response <- Ok(SearchResult(videos, pagingQuery.pageNumber, pagingQuery.pageSize, term, None, None, durationRange, sizeRange, pagingQuery.maybeSortBy, pagingQuery.order))
         } yield response
 
       case GET -> Root / "summary" =>
