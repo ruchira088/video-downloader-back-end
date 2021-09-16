@@ -5,7 +5,7 @@ import cats.implicits._
 import com.ruchij.core.circe.Encoders._
 import com.ruchij.api.daos.models.PlaylistSortBy
 import com.ruchij.api.services.playlist.PlaylistService
-import com.ruchij.api.web.requests.CreatePlaylistRequest
+import com.ruchij.api.web.requests.{CreatePlaylistRequest, FileAsset, UpdatePlaylistRequest}
 import com.ruchij.api.web.requests.RequestOps.RequestOpsSyntax
 import com.ruchij.api.web.requests.queryparams.PagingQuery
 import com.ruchij.api.web.requests.queryparams.QueryParameter.enumQueryParamDecoder
@@ -53,17 +53,24 @@ object PlaylistRoutes {
           response <- Ok(playlist)
         } yield response
 
-      case PUT -> Root / playlistId => ???
+      case request @ PUT -> Root / playlistId =>
+        for {
+          UpdatePlaylistRequest(maybeTitle, maybeDescription, maybeVideoIdList) <- request.to[UpdatePlaylistRequest]
+          playlist <- playlistService.updatePlaylist(playlistId, maybeTitle, maybeDescription, maybeVideoIdList)
+          response <- Ok(playlist)
+        }
+        yield response
 
-      case PUT -> Root / playlistId / "album-art" => ???
+      case request @ PUT -> Root / playlistId / "album-art" =>
+        request.as[FileAsset[F]]
+          .flatMap { fileAsset => playlistService.addAlbumArt(playlistId, fileAsset.fileName, fileAsset.contentType, fileAsset.data) }
+          .flatMap(playlist => Ok(playlist))
 
-      case DELETE -> Root / playlistId / "album-art" => ???
+      case DELETE -> Root / playlistId / "album-art" =>
+        playlistService.removeAlbumArt(playlistId).flatMap(playlist => Ok(playlist))
 
-      case PUT -> Root / playlistId / "video" / videoId => ???
-
-      case DELETE -> Root / playlistId / "video" / videoId => ???
-
-      case DELETE -> Root / playlistId => ???
+      case DELETE -> Root / playlistId =>
+        playlistService.deletePlaylist(playlistId).flatMap(playlist => Ok(playlist))
     }
   }
 
