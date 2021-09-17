@@ -9,6 +9,6 @@ case class Playlist(
   createdAt: DateTime,
   title: String,
   description: Option[String],
-  videos: List[Video],
+  videos: Seq[Video],
   albumArt: Option[FileResource]
 )

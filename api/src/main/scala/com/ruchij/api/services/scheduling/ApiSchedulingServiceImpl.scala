@@ -6,6 +6,7 @@ import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadError, ~>}
 import com.ruchij.api.exceptions.ResourceConflictException
 import com.ruchij.api.services.config.models.ApiConfigKey
+import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.SchedulingDao.notFound
 import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownload, SchedulingStatus}
@@ -67,7 +68,7 @@ class ApiSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], T
         None
       )
 
-      _ <- transaction(schedulingDao.insert(scheduledVideoDownload))
+      _ <- transaction(schedulingDao.insert(scheduledVideoDownload).one)
       _ <- logger.info(s"Scheduled to download video at $uri")
 
       _ <- scheduledVideoDownloadPublisher.publishOne(scheduledVideoDownload)

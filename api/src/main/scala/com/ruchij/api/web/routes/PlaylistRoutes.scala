@@ -36,7 +36,7 @@ object PlaylistRoutes {
           maybeSearchTerm <- SearchTermQueryParameter.parse[F].run(queryParameters)
 
           playlists <-
-            playlistService.list(
+            playlistService.search(
               maybeSearchTerm,
               pageQuery.pageSize,
               pageQuery.pageNumber,
@@ -63,7 +63,7 @@ object PlaylistRoutes {
 
       case request @ PUT -> Root / playlistId / "album-art" =>
         request.as[FileAsset[F]]
-          .flatMap { fileAsset => playlistService.addAlbumArt(playlistId, fileAsset.fileName, fileAsset.contentType, fileAsset.data) }
+          .flatMap { fileAsset => playlistService.addAlbumArt(playlistId, fileAsset.fileName, fileAsset.mediaType, fileAsset.data) }
           .flatMap(playlist => Ok(playlist))
 
       case DELETE -> Root / playlistId / "album-art" =>

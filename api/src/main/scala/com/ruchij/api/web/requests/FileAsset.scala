@@ -3,11 +3,10 @@ package com.ruchij.api.web.requests
 import cats.data.EitherT
 import cats.effect.Sync
 import fs2.Stream
-import org.http4s.headers.`Content-Type`
 import org.http4s.multipart.Multipart
-import org.http4s.{DecodeResult, EntityDecoder, InvalidMessageBodyFailure}
+import org.http4s.{DecodeResult, EntityDecoder, InvalidMessageBodyFailure, MediaType}
 
-case class FileAsset[F[_]](fileName: String, contentType: `Content-Type`, data: Stream[F, Byte])
+case class FileAsset[F[_]](fileName: String, mediaType: MediaType, data: Stream[F, Byte])
 
 object FileAsset {
   implicit def fileAssetDecoder[F[_]: Sync]: EntityDecoder[F, FileAsset[F]] =
@@ -18,7 +17,7 @@ object FileAsset {
             for {
               fileName <- part.filename
               contentType <- part.contentType if contentType.mediaType.isImage
-            } yield FileAsset[F](fileName, contentType, part.body)
+            } yield FileAsset[F](fileName, contentType.mediaType, part.body)
           }
           .headOption
           .fold[DecodeResult[F, FileAsset[F]]](
