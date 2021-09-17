@@ -82,8 +82,7 @@ class PlaylistServiceImpl[F[+ _]: Sync: Clock: RandomGenerator[*[_], UUID], G[_]
       maybePlaylist <- transaction {
         fileResourceDao
           .insert(fileResource)
-          .one
-          .productR { playlistDao.update(playlistId, None, None, None, Some(Right(fileResource))).singleUpdate.value }
+          .productR { playlistDao.update(playlistId, None, None, None, Some(Right(fileResource.id))).singleUpdate.value }
           .productR { playlistDao.findById(playlistId) }
       }
 
