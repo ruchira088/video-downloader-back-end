@@ -45,14 +45,18 @@ class DoobiePlaylistDao(fileResourceDao: FileResourceDao[ConnectionIO], videoDao
     maybeDescription: Option[String],
     maybeVideoIds: Option[Seq[String]],
     maybeAlbumArt: Option[Either[Unit, String]]
-  ): ConnectionIO[Int] =
-    (sql"UPDATE playlist" ++
-      setOpt(
-        maybeTitle.map(title => fr"title = $title"),
-        maybeDescription.map(description => fr"description = $description"),
-        maybeAlbumArt.map(_.fold(_ => fr"album_art_id = NULL", fileResourceId => fr"album_art_id = $fileResourceId"))
-      ) ++ fr"WHERE id = $playlistId").update.run
-      .product {
+  ): ConnectionIO[Int] = {
+    val playlistTableUpdate =
+      if (List(maybeTitle, maybeDescription, maybeAlbumArt).exists(_.nonEmpty))
+        (sql"UPDATE playlist" ++
+          setOpt(
+            maybeTitle.map(title => fr"title = $title"),
+            maybeDescription.map(description => fr"description = $description"),
+            maybeAlbumArt.map(_.fold(_ => fr"album_art_id = NULL", fileResourceId => fr"album_art_id = $fileResourceId"))
+          ) ++ fr"WHERE id = $playlistId").update.run
+      else Applicative[ConnectionIO].pure(0)
+
+    playlistTableUpdate.product {
         maybeVideoIds.fold(Applicative[ConnectionIO].pure(0)) {
           videoIds =>
             sql"DELETE FROM playlist_video WHERE playlist_id = $playlistId".update.run
@@ -67,6 +71,7 @@ class DoobiePlaylistDao(fileResourceDao: FileResourceDao[ConnectionIO], videoDao
         }
       }
       .map { case (playlistUpdates, playlistVideoUpdates)  => playlistUpdates + playlistVideoUpdates }
+  }
 
   override def findById(playlistId: String): ConnectionIO[Option[Playlist]] =
     OptionT {

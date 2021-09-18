@@ -47,13 +47,13 @@ object PlaylistRoutes {
           response <- Ok(PagingResponse(playlists, pageQuery.pageSize, pageQuery.pageNumber, pageQuery.order, pageQuery.maybeSortBy))
         } yield response
 
-      case GET -> Root / playlistId =>
+      case GET -> Root / "id" / playlistId =>
         for {
           playlist <- playlistService.fetchById(playlistId)
           response <- Ok(playlist)
         } yield response
 
-      case request @ PUT -> Root / playlistId =>
+      case request @ PUT -> Root / "id" / playlistId =>
         for {
           UpdatePlaylistRequest(maybeTitle, maybeDescription, maybeVideoIdList) <- request.to[UpdatePlaylistRequest]
           playlist <- playlistService.updatePlaylist(playlistId, maybeTitle, maybeDescription, maybeVideoIdList)

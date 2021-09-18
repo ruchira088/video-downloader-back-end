@@ -1,5 +1,6 @@
 package com.ruchij.core.daos.resource
 
+import cats.Applicative
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 import com.ruchij.core.daos.resource.models.FileResource
 import doobie.ConnectionIO
@@ -21,9 +22,11 @@ object DoobieFileResourceDao extends FileResourceDao[ConnectionIO] {
     """.update.run
 
   override def update(id: String, maybeSize: Option[Long]): ConnectionIO[Int] =
-    (fr"UPDATE file_resource" ++ setOpt(maybeSize.map(size => fr"size = $size")) ++ fr"WHERE id = $id")
-      .update
-      .run
+    if (List(maybeSize).exists(_.nonEmpty))
+      (fr"UPDATE file_resource" ++ setOpt(maybeSize.map(size => fr"size = $size")) ++ fr"WHERE id = $id")
+        .update
+        .run
+    else Applicative[ConnectionIO].pure(0)
 
   override def getById(id: String): ConnectionIO[Option[FileResource]] =
     sql"SELECT id, created_at, path, media_type, size FROM file_resource WHERE id = $id"
