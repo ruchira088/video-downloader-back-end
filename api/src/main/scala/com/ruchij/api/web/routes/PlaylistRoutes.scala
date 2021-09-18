@@ -61,15 +61,15 @@ object PlaylistRoutes {
         }
         yield response
 
-      case request @ PUT -> Root / playlistId / "album-art" =>
+      case request @ PUT -> Root / "id" / playlistId / "album-art" =>
         request.as[FileAsset[F]]
           .flatMap { fileAsset => playlistService.addAlbumArt(playlistId, fileAsset.fileName, fileAsset.mediaType, fileAsset.data) }
           .flatMap(playlist => Ok(playlist))
 
-      case DELETE -> Root / playlistId / "album-art" =>
+      case DELETE -> Root / "id" / playlistId / "album-art" =>
         playlistService.removeAlbumArt(playlistId).flatMap(playlist => Ok(playlist))
 
-      case DELETE -> Root / playlistId =>
+      case DELETE -> Root / "id" / playlistId =>
         playlistService.deletePlaylist(playlistId).flatMap(playlist => Ok(playlist))
     }
   }

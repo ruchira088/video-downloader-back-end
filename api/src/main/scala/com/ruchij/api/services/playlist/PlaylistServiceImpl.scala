@@ -72,7 +72,7 @@ class PlaylistServiceImpl[F[+ _]: Sync: Clock: RandomGenerator[*[_], UUID], G[_]
     for {
       timestamp <- JodaClock[F].timestamp
       id <- RandomGenerator[F, UUID].generate.map(_.toString)
-      fileKey = s"${storageConfiguration.imageFolder}/album-art/$playlistId/${id.take(8)}-$fileName"
+      fileKey = s"${storageConfiguration.imageFolder}/${id.take(8)}-$fileName"
 
       _ <- repositoryService.write(fileKey, data).compile.drain
       fileSize <- OptionT(repositoryService.size(fileKey))

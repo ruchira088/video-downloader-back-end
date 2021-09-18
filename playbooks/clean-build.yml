@@ -16,14 +16,10 @@
 
     - name: Remove all images
       shell: |
-        images=$(cd ../images && ls | grep -e png$ -e jpg$ -e webp$)
-
-        if [ -z "$images" ];
-        then
-          echo "No images found"
-        else
-          echo "$images" | xargs rm -rf
-        fi
+        rm -rf ../images/*.png
+        rm -rf ../images/*.jpg
+        rm -rf ../images/*.jpeg
+        rm -rf ../images/*.webp
 
     - name: Build Docker images
       import_tasks: tasks/build-docker-images.yml
