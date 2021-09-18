@@ -1,5 +1,6 @@
 package com.ruchij.core.daos.videometadata
 
+import cats.Applicative
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 import com.ruchij.core.daos.videometadata.models.VideoMetadata
 import doobie.ConnectionIO
@@ -38,11 +39,13 @@ object DoobieVideoMetadataDao extends VideoMetadataDao[ConnectionIO] {
     """.update.run
 
   override def update(videoMetadataId: String, maybeTitle: Option[String], maybeSize: Option[Long]): ConnectionIO[Int] =
-    (fr"UPDATE video_metadata" ++
-      setOpt(maybeTitle.map(title => fr"title = $title"), maybeSize.map(size => fr"size = $size")) ++
-      fr"WHERE id = $videoMetadataId")
-      .update
-      .run
+    if (List(maybeSize, maybeTitle).exists(_.nonEmpty))
+      (fr"UPDATE video_metadata" ++
+        setOpt(maybeTitle.map(title => fr"title = $title"), maybeSize.map(size => fr"size = $size")) ++
+        fr"WHERE id = $videoMetadataId")
+        .update
+        .run
+    else Applicative[ConnectionIO].pure(0)
 
   override def findById(videoMetadataId: String): ConnectionIO[Option[VideoMetadata]] =
     (SelectQuery ++ fr"WHERE video_metadata.id = $videoMetadataId")

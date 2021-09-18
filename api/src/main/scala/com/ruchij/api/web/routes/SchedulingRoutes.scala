@@ -13,6 +13,7 @@ import com.ruchij.api.web.responses.EventStreamEventType.{ActiveDownload, HeartB
 import com.ruchij.core.circe.Decoders._
 import com.ruchij.core.circe.Encoders._
 import com.ruchij.api.web.responses.{EventStreamHeartBeat, SearchResult, WorkerStatusResponse}
+import com.ruchij.core.services.models.SortBy
 import fs2.Stream
 import io.circe.Encoder
 import io.circe.generic.auto._
@@ -43,7 +44,7 @@ object SchedulingRoutes {
 
       case GET -> Root / "search" :? queryParameters =>
         for {
-          SearchQuery(term, statuses, durationRange, sizeRange, videoUrls, videoSites, pageSize, pageNumber, sortBy, order) <- SearchQuery
+          SearchQuery(term, statuses, durationRange, sizeRange, videoUrls, videoSites, pagingQuery) <- SearchQuery
             .fromQueryParameters[F]
             .run(queryParameters)
 
@@ -52,10 +53,10 @@ object SchedulingRoutes {
             videoUrls.map(_.map(_.withoutFragment)),
             durationRange,
             sizeRange,
-            pageNumber,
-            pageSize,
-            sortBy,
-            order,
+            pagingQuery.pageNumber,
+            pagingQuery.pageSize,
+            pagingQuery.maybeSortBy.getOrElse(SortBy.Date),
+            pagingQuery.order,
             statuses,
             videoSites
           )
@@ -63,15 +64,15 @@ object SchedulingRoutes {
           response <- Ok {
             SearchResult(
               scheduledVideoDownloads,
-              pageNumber,
-              pageSize,
+              pagingQuery.pageNumber,
+              pagingQuery.pageSize,
               term,
               videoUrls,
               statuses,
               durationRange,
               sizeRange,
-              sortBy,
-              order
+              pagingQuery.maybeSortBy,
+              pagingQuery.order
             )
           }
         } yield response

@@ -1,0 +1,1007 @@
+{
+	"info": {
+		"_postman_id": "4006b560-a3ab-44c3-aee6-a9dac58fa3aa",
+		"name": "Video Downloader",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Service",
+			"item": [
+				{
+					"name": "Service Information",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{API_SERVER}}/service/info",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"service",
+								"info"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{API_SERVER}}/service/health",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"service",
+								"health"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const { secret } = pm.response.json()",
+									"pm.collectionVariables.set(\"secret\", secret)"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"password\": \"{{PASSWORD}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_SERVER}}/authentication/login",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"authentication",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Token Details",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{secret}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{API_SERVER}}/authentication/token",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"authentication",
+								"token"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{secret}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{API_SERVER}}/authentication/logout",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"authentication",
+								"logout"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Schedule",
+			"item": [
+				{
+					"name": "Schedule Video",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const { videoMetadata } = pm.response.json()",
+									"",
+									"pm.collectionVariables.set(\"videoId\", videoMetadata.id)",
+									"pm.collectionVariables.set(\"thumbnailId\", videoMetadata.thumbnail.id)"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{secret}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"url\": \"{{VIDEO_URL}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_SERVER}}/schedule",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"schedule"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Search Scheduled Videos",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{secret}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{API_SERVER}}/schedule/search?page-size=50&page-number=0&sort-by=date&order=desc",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"schedule",
+								"search"
+							],
+							"query": [
+								{
+									"key": "search-term",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "duration",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "size",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "status",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "video-url",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "site",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "page-size",
+									"value": "50"
+								},
+								{
+									"key": "page-number",
+									"value": "0"
+								},
+								{
+									"key": "sort-by",
+									"value": "date"
+								},
+								{
+									"key": "order",
+									"value": "desc"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Scheduled Video by ID",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{secret}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{API_SERVER}}/schedule/id/{{videoId}}",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"schedule",
+								"id",
+								"{{videoId}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "SSE for Active Downloads",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{secret}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{API_SERVER}}/schedule/active",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"schedule",
+								"active"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Scheduled Video by ID",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{secret}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"status\": \"Paused\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_SERVER}}/schedule/id/{{videoId}}",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"schedule",
+								"id",
+								"{{videoId}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Worker Status",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{secret}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{API_SERVER}}/schedule/worker-status",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"schedule",
+								"worker-status"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Worker Status",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{secret}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"workerStatus\": \"Available\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_SERVER}}/schedule/worker-status",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"schedule",
+								"worker-status"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Videos",
+			"item": [
+				{
+					"name": "Search Videos",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const { results } = pm.response.json()",
+									"const [ {videoMetadata} ] = results",
+									"",
+									"pm.collectionVariables.set(\"videoId\", videoMetadata.id)"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{secret}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{API_SERVER}}/videos/search?search-term=Tik Tok&duration=2-8&size=1000-200000000&site=YouTube&page-size=50&page-number=0&sort-by=date&order=desc",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"videos",
+								"search"
+							],
+							"query": [
+								{
+									"key": "search-term",
+									"value": "Tik Tok"
+								},
+								{
+									"key": "duration",
+									"value": "2-8"
+								},
+								{
+									"key": "size",
+									"value": "1000-200000000"
+								},
+								{
+									"key": "site",
+									"value": "YouTube"
+								},
+								{
+									"key": "page-size",
+									"value": "50"
+								},
+								{
+									"key": "page-number",
+									"value": "0"
+								},
+								{
+									"key": "sort-by",
+									"value": "date"
+								},
+								{
+									"key": "order",
+									"value": "desc"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Summary",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{secret}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{API_SERVER}}/videos/summary",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"videos",
+								"summary"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Video Metadata",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{secret}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"url\": \"https://www.youtube.com/watch?v=c9yc8X16w8c\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_SERVER}}/videos/metadata",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"videos",
+								"metadata"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Video by ID",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{secret}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{API_SERVER}}/videos/id/{{videoId}}",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"videos",
+								"id",
+								"{{videoId}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Video Snapshots by ID",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{secret}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{API_SERVER}}/videos/id/{{videoId}}/snapshots",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"videos",
+								"id",
+								"{{videoId}}",
+								"snapshots"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Video Metadata by ID",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{secret}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"This is a sample title\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_SERVER}}/videos/id/{{videoId}}/metadata",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"videos",
+								"id",
+								"{{videoId}}",
+								"metadata"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Video by ID",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{secret}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{API_SERVER}}/videos/id/{{videoId}}?delete-video-file=false",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"videos",
+								"id",
+								"{{videoId}}"
+							],
+							"query": [
+								{
+									"key": "delete-video-file",
+									"value": "false"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Assets",
+			"item": [
+				{
+					"name": "Get Asset by ID",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{secret}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{API_SERVER}}/assets/id/{{thumbnailId}}",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"assets",
+								"id",
+								"{{thumbnailId}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Playlists",
+			"item": [
+				{
+					"name": "Create Playlist",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const response = pm.response.json()",
+									"pm.collectionVariables.set(\"playlistId\", response.id)"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{secret}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Sample Playlist\",\n    \"description\": \"This is the description\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_SERVER}}/playlists",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"playlists"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Playlist by ID",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{secret}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{API_SERVER}}/playlists/id/{{playlistId}}",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"playlists",
+								"id",
+								"{{playlistId}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Playlist by ID",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{secret}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"This is the updated title\",\n    \"videoIds\": [ \"{{videoId}}\" ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_SERVER}}/playlists/id/{{playlistId}}",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"playlists",
+								"id",
+								"{{playlistId}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Add Playlist Album Art by ID",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{secret}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "album-art",
+									"type": "file",
+									"src": "/home/ruchira/Pictures/profile-image.jpg"
+								}
+							],
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{API_SERVER}}/playlists/id/{{playlistId}}/album-art",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"playlists",
+								"id",
+								"{{playlistId}}",
+								"album-art"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Playlist Album Art by ID",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{secret}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{API_SERVER}}/playlists/id/{{playlistId}}/album-art",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"playlists",
+								"id",
+								"{{playlistId}}",
+								"album-art"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Playlist by ID",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{secret}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{API_SERVER}}/playlists/id/{{playlistId}}",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"playlists",
+								"id",
+								"{{playlistId}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "secret",
+			"value": ""
+		},
+		{
+			"key": "videoId",
+			"value": ""
+		},
+		{
+			"key": "thumbnailId",
+			"value": ""
+		},
+		{
+			"key": "playlistId",
+			"value": ""
+		}
+	]
+}

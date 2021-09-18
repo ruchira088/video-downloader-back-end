@@ -13,6 +13,7 @@ import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import doobie.util.fragment.Fragment
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
 object DoobieVideoDao extends VideoDao[ConnectionIO] {
@@ -116,8 +117,9 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
       FROM video
       JOIN video_metadata ON video.video_metadata_id = video_metadata.id
     """
-      .query[FiniteDuration]
+      .query[Option[FiniteDuration]]
       .unique
+      .map(_.getOrElse(FiniteDuration(0, TimeUnit.MILLISECONDS)))
 
   override val size: ConnectionIO[Long] =
     sql"""
@@ -125,8 +127,9 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
       FROM video
       JOIN file_resource ON video.file_resource_id = file_resource.id
     """
-      .query[Long]
+      .query[Option[Long]]
       .unique
+      .map(_.getOrElse(0))
 
   override val sites: ConnectionIO[Set[VideoSite]] =
     sql"""

@@ -4,6 +4,7 @@ import cats.effect.{Blocker, Concurrent, ContextShift, Timer}
 import cats.implicits._
 import com.ruchij.api.services.authentication.AuthenticationService
 import com.ruchij.api.services.health.HealthService
+import com.ruchij.api.services.playlist.PlaylistService
 import com.ruchij.api.services.scheduling.ApiSchedulingService
 import com.ruchij.api.web.middleware.{Authenticator, ExceptionHandler, MetricsMiddleware, NotFoundHandler}
 import com.ruchij.api.web.routes._
@@ -24,6 +25,7 @@ object Routes {
     videoService: VideoService[F],
     videoAnalysisService: VideoAnalysisService[F],
     apiSchedulingService: ApiSchedulingService[F],
+    playlistService: PlaylistService[F],
     assetService: AssetService[F],
     healthService: HealthService[F],
     authenticationService: AuthenticationService[F],
@@ -42,6 +44,7 @@ object Routes {
           "/authentication" -> AuthenticationRoutes(authenticationService),
           "/schedule" -> authMiddleware(SchedulingRoutes(apiSchedulingService, downloadProgressStream)),
           "/videos" -> authMiddleware(VideoRoutes(videoService, videoAnalysisService)),
+          "/playlists" -> authMiddleware(PlaylistRoutes(playlistService)),
           "/assets" -> authMiddleware(AssetRoutes(assetService)),
           "/service" -> ServiceRoutes(healthService),
         )

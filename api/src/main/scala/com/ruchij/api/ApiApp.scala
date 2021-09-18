@@ -5,6 +5,7 @@ import cats.implicits._
 import cats.~>
 import com.ruchij.api.config.AuthenticationConfiguration.PasswordAuthenticationConfiguration
 import com.ruchij.api.config.{ApiServiceConfiguration, AuthenticationConfiguration}
+import com.ruchij.api.daos.DoobiePlaylistDao
 import com.ruchij.api.models.ApiMessageBrokers
 import com.ruchij.api.services.authentication._
 import com.ruchij.api.services.authentication.models.AuthenticationToken
@@ -16,6 +17,7 @@ import com.ruchij.api.services.health.HealthServiceImpl
 import com.ruchij.api.services.health.models.kv.HealthCheckKey
 import com.ruchij.api.services.health.models.kv.HealthCheckKey.HealthCheckKeySpace
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
+import com.ruchij.api.services.playlist.PlaylistServiceImpl
 import com.ruchij.api.services.scheduling.ApiSchedulingServiceImpl
 import com.ruchij.api.web.Routes
 import com.ruchij.core.daos.doobie.DoobieTransactor
@@ -83,37 +85,48 @@ object ApiApp extends IOApp {
         for {
           httpClient <- AsyncHttpClient.resource().map(FollowRedirect(maxRedirects = 10))
 
-          threadPoolIO <-
-            Resource.make(Sync[F].delay(Executors.newCachedThreadPool())) {
-              executorService => Sync[F].delay(executorService.shutdown())
-            }
+          threadPoolIO <- Resource.make(Sync[F].delay(Executors.newCachedThreadPool())) { executorService =>
+            Sync[F].delay(executorService.shutdown())
+          }
           blockerIO = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(threadPoolIO))
 
           processorCount <- Resource.eval(Sync[F].delay(Runtime.getRuntime.availableProcessors()))
-          blockingThreadPool <-
-            Resource.make(Sync[F].delay(Executors.newFixedThreadPool(processorCount))) {
-              executorService => Sync[F].delay(executorService.shutdown())
-            }
+          blockingThreadPool <- Resource.make(Sync[F].delay(Executors.newFixedThreadPool(processorCount))) {
+            executorService =>
+              Sync[F].delay(executorService.shutdown())
+          }
           blockerCPU = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(blockingThreadPool))
 
           redisCommands <- Redis[F].utf8(apiServiceConfiguration.redisConfiguration.uri)
           redisKeyValueStore = new RedisKeyValueStore[F](redisCommands)
 
           downloadProgressPubSub <- KafkaPubSub[F, DownloadProgress](apiServiceConfiguration.kafkaConfiguration)
-          scheduledVideoDownloadPubSub <- KafkaPubSub[F, ScheduledVideoDownload](apiServiceConfiguration.kafkaConfiguration)
+          scheduledVideoDownloadPubSub <- KafkaPubSub[F, ScheduledVideoDownload](
+            apiServiceConfiguration.kafkaConfiguration
+          )
           healthCheckPubSub <- KafkaPubSub[F, HealthCheckMessage](apiServiceConfiguration.kafkaConfiguration)
           metricsPublisher <- KafkaPublisher[F, HttpMetric](apiServiceConfiguration.kafkaConfiguration)
           workerStatusUpdatePubSub <- KafkaPubSub[F, WorkerStatusUpdate](apiServiceConfiguration.kafkaConfiguration)
 
-          messageBrokers =
-            ApiMessageBrokers(downloadProgressPubSub, scheduledVideoDownloadPubSub, healthCheckPubSub, workerStatusUpdatePubSub, metricsPublisher)
+          messageBrokers = ApiMessageBrokers(
+            downloadProgressPubSub,
+            scheduledVideoDownloadPubSub,
+            healthCheckPubSub,
+            workerStatusUpdatePubSub,
+            metricsPublisher
+          )
 
-          httpApp <-
-            Resource.eval {
-              program[F, CommittableConsumerRecord[F, Unit, *]](httpClient, redisKeyValueStore, messageBrokers, blockerIO, blockerCPU, apiServiceConfiguration)
-            }
-        }
-        yield httpApp
+          httpApp <- Resource.eval {
+            program[F, CommittableConsumerRecord[F, Unit, *]](
+              httpClient,
+              redisKeyValueStore,
+              messageBrokers,
+              blockerIO,
+              blockerCPU,
+              apiServiceConfiguration
+            )
+          }
+        } yield httpApp
       }
 
   def program[F[+ _]: ConcurrentEffect: ContextShift: Timer, M[_]](
@@ -127,11 +140,14 @@ object ApiApp extends IOApp {
     val healthCheckKeyStore: KeySpacedKeyValueStore[F, HealthCheckKey, DateTime] =
       new KeySpacedKeyValueStore(HealthCheckKeySpace, keyValueStore)
 
-    val authenticationKeyStore: KeySpacedKeyValueStore[F, AuthenticationToken.AuthenticationTokenKey, AuthenticationToken] =
+    val authenticationKeyStore
+      : KeySpacedKeyValueStore[F, AuthenticationToken.AuthenticationTokenKey, AuthenticationToken] =
       new KeySpacedKeyValueStore(AuthenticationKeySpace, keyValueStore)
 
     val configurationService: ConfigurationService[F, ApiConfigKey] =
-      new ConfigurationServiceImpl[F, ApiConfigKey](new KeySpacedKeyValueStore[F, ApiConfigKey[_], String](ApiConfigKeySpace, keyValueStore))
+      new ConfigurationServiceImpl[F, ApiConfigKey](
+        new KeySpacedKeyValueStore[F, ApiConfigKey[_], String](ApiConfigKeySpace, keyValueStore)
+      )
 
     val fileTypeDetector = new PathFileTypeDetector[F](new Tika(), blockerIO)
 
@@ -163,12 +179,21 @@ object ApiApp extends IOApp {
 
     val videoService: VideoServiceImpl[F, ConnectionIO] =
       new VideoServiceImpl[F, ConnectionIO](
+        repositoryService,
+        DoobieVideoDao,
+        DoobieVideoMetadataDao,
+        DoobieSnapshotDao,
+        DoobieSchedulingDao,
+        DoobieFileResourceDao
+      )
+
+    val playlistDao = new DoobiePlaylistDao(DoobieFileResourceDao, DoobieVideoDao)
+
+    val playlistService = new PlaylistServiceImpl[F, ConnectionIO](
+      playlistDao,
+      DoobieFileResourceDao,
       repositoryService,
-      DoobieVideoDao,
-      DoobieVideoMetadataDao,
-      DoobieSnapshotDao,
-      DoobieSchedulingDao,
-      DoobieFileResourceDao
+      apiServiceConfiguration.storageConfiguration
     )
 
     val assetService = new AssetServiceImpl[F, ConnectionIO](DoobieFileResourceDao, repositoryService)
@@ -184,13 +209,12 @@ object ApiApp extends IOApp {
     for {
       _ <- MigrationApp.migration[F](apiServiceConfiguration.databaseConfiguration, blockerIO)
 
-      backgroundService <-
-        BackgroundServiceImpl.create[F, M](
-          schedulingService,
-          messageBrokers.downloadProgressSubscriber,
-          messageBrokers.healthCheckPubSub,
-          s"background-${apiServiceConfiguration.applicationInformation.instanceId}"
-        )
+      backgroundService <- BackgroundServiceImpl.create[F, M](
+        schedulingService,
+        messageBrokers.downloadProgressSubscriber,
+        messageBrokers.healthCheckPubSub,
+        s"background-${apiServiceConfiguration.applicationInformation.instanceId}"
+      )
 
       healthService = new HealthServiceImpl[F](
         repositoryService,
@@ -208,6 +232,7 @@ object ApiApp extends IOApp {
         videoService,
         videoAnalysisService,
         schedulingService,
+        playlistService,
         assetService,
         healthService,
         authenticationService,

@@ -4,6 +4,7 @@ import cats.effect.{Blocker, Clock, Concurrent, ContextShift, Timer}
 import cats.implicits._
 import com.ruchij.api.services.authentication.AuthenticationService
 import com.ruchij.api.services.health.HealthService
+import com.ruchij.api.services.playlist.PlaylistService
 import com.ruchij.api.services.scheduling.ApiSchedulingService
 import com.ruchij.api.web.Routes
 import com.ruchij.core.messaging.Publisher
@@ -22,6 +23,7 @@ import scala.concurrent.ExecutionContext
 trait MockedRoutes[F[+ _]] extends MockFactory with OneInstancePerTest {
 
   val videoService: VideoService[F] = mock[VideoService[F]]
+  val playlistService: PlaylistService[F] = mock[PlaylistService[F]]
   val videoAnalysisService: VideoAnalysisService[F] = mock[VideoAnalysisService[F]]
   val apiSchedulingService: ApiSchedulingService[F] = mock[ApiSchedulingService[F]]
   val assetService: AssetService[F] = mock[AssetService[F]]
@@ -42,6 +44,7 @@ trait MockedRoutes[F[+ _]] extends MockFactory with OneInstancePerTest {
         videoService,
         videoAnalysisService,
         apiSchedulingService,
+        playlistService,
         assetService,
         healthService,
         authenticationService,

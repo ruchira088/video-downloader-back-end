@@ -11,6 +11,15 @@ import doobie.util.fragment.Fragment
 object DoobieUtils {
 
   implicit class SingleUpdateOps[F[_]: MonadError[*[_], Throwable]](value: F[Int]) {
+    val one: F[Unit] =
+      value.flatMap {
+        case 1 => Applicative[F].unit
+        case count =>
+          ApplicativeError[F, Throwable].raiseError {
+            InvalidConditionException(s"Expected a single row affected, but returned $count rows affected")
+          }
+      }
+
     val singleUpdate: OptionT[F, Unit] =
       OptionT {
         value.flatMap[Option[Unit]] {

@@ -3,11 +3,11 @@ package com.ruchij.api.web.requests.queryparams
 import cats.MonadError
 import cats.data.{Kleisli, NonEmptyList}
 import com.ruchij.api.web.requests.queryparams.MultiValueQueryParameter.{SchedulingStatusesQueryParameter, VideoSiteQueryParameter, VideoUrlsQueryParameter}
-import com.ruchij.api.web.requests.queryparams.QueryParameter.QueryParameters
+import com.ruchij.api.web.requests.queryparams.QueryParameter.{QueryParameters, enumQueryParamDecoder}
 import com.ruchij.api.web.requests.queryparams.SingleValueQueryParameter._
 import com.ruchij.core.daos.scheduling.models.{RangeValue, SchedulingStatus}
 import com.ruchij.core.daos.videometadata.models.VideoSite
-import com.ruchij.core.services.models.{Order, SortBy}
+import com.ruchij.core.services.models.SortBy
 import org.http4s.Uri
 
 import scala.concurrent.duration.FiniteDuration
@@ -19,10 +19,7 @@ case class SearchQuery(
   sizeRange: RangeValue[Long],
   urls: Option[NonEmptyList[Uri]],
   videoSites: Option[NonEmptyList[VideoSite]],
-  pageSize: Int,
-  pageNumber: Int,
-  sortBy: SortBy,
-  order: Order
+  pagingQuery: PagingQuery[SortBy]
 )
 
 object SearchQuery {
@@ -34,10 +31,7 @@ object SearchQuery {
       schedulingStatuses <- SchedulingStatusesQueryParameter.parse[F]
       urls <- VideoUrlsQueryParameter.parse[F]
       videoSites <- VideoSiteQueryParameter.parse[F]
-      pageSize <- PageSizeQueryParameter.parse[F]
-      pageNumber <- PageNumberQueryParameter.parse[F]
-      sortBy <- SortByQueryParameter.parse[F]
-      order <- OrderQueryParameter.parse[F]
+      pageQuery <- PagingQuery.from[F, SortBy]
     } yield
-      SearchQuery(searchTerm, schedulingStatuses, durationRange, sizeRange, urls, videoSites, pageSize, pageNumber, sortBy, order)
+      SearchQuery(searchTerm, schedulingStatuses, durationRange, sizeRange, urls, videoSites, pageQuery)
 }
