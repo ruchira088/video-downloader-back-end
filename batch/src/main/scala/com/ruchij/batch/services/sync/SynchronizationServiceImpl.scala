@@ -57,7 +57,9 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
       .mapAsyncUnordered(MaxConcurrentSyncCount) { filePath =>
         isFileSupported(filePath)
           .flatMap { isVideoFilePath =>
-            if (isVideoFilePath) syncVideo(filePath) else Applicative[F].pure(IgnoredFile(filePath))
+            if (isVideoFilePath) syncVideo(filePath)
+            else logger.debug(s"Ignoring $filePath")
+              .productR(Applicative[F].pure(IgnoredFile(filePath)))
           }
       }
       .evalTap {
