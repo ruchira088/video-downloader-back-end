@@ -48,7 +48,7 @@ class DoobiePlaylistDao(fileResourceDao: FileResourceDao[ConnectionIO], videoDao
   ): ConnectionIO[Int] = {
     val playlistTableUpdate =
       if (List(maybeTitle, maybeDescription, maybeAlbumArt).exists(_.nonEmpty))
-        (sql"UPDATE playlist" ++
+        (fr"UPDATE playlist" ++
           setOpt(
             maybeTitle.map(title => fr"title = $title"),
             maybeDescription.map(description => fr"description = $description"),
