@@ -5,7 +5,9 @@ import cats.implicits._
 import cats.~>
 import com.ruchij.api.config.AuthenticationConfiguration.PasswordAuthenticationConfiguration
 import com.ruchij.api.config.{ApiServiceConfiguration, AuthenticationConfiguration}
+import com.ruchij.api.daos.credentials.DoobieCredentialsDao
 import com.ruchij.api.daos.playlist.DoobiePlaylistDao
+import com.ruchij.api.daos.user.DoobieUserDao
 import com.ruchij.api.models.ApiMessageBrokers
 import com.ruchij.api.services.authentication._
 import com.ruchij.api.services.authentication.models.AuthenticationToken
@@ -13,12 +15,14 @@ import com.ruchij.api.services.authentication.models.AuthenticationToken.Authent
 import com.ruchij.api.services.background.BackgroundServiceImpl
 import com.ruchij.api.services.config.models.ApiConfigKey
 import com.ruchij.api.services.config.models.ApiConfigKey.{ApiConfigKeySpace, apiConfigKeySpacedKVEncoder}
+import com.ruchij.api.services.hashing.BCryptPasswordHashingService
 import com.ruchij.api.services.health.HealthServiceImpl
 import com.ruchij.api.services.health.models.kv.HealthCheckKey
 import com.ruchij.api.services.health.models.kv.HealthCheckKey.HealthCheckKeySpace
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.api.services.playlist.PlaylistServiceImpl
 import com.ruchij.api.services.scheduling.ApiSchedulingServiceImpl
+import com.ruchij.api.services.user.UserServiceImpl
 import com.ruchij.api.web.Routes
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
@@ -154,6 +158,7 @@ object ApiApp extends IOApp {
     val repositoryService: FileRepositoryService[F] = new FileRepositoryService[F](fileTypeDetector, blockerIO)
     val downloadService: Http4sDownloadService[F] = new Http4sDownloadService[F](client, repositoryService)
     val hashingService: MurmurHash3Service[F] = new MurmurHash3Service[F](blockerCPU)
+    val passwordHashingService = new BCryptPasswordHashingService[F](blockerCPU)
 
     val authenticationService: AuthenticationService[F] =
       apiServiceConfiguration.authenticationConfiguration match {
@@ -161,7 +166,13 @@ object ApiApp extends IOApp {
           new NoAuthenticationService[F]
 
         case passwordAuthenticationConfiguration: PasswordAuthenticationConfiguration =>
-          new AuthenticationServiceImpl[F, ConnectionIO](authenticationKeyStore, ???, ???, ???, passwordAuthenticationConfiguration)
+          new AuthenticationServiceImpl[F, ConnectionIO](
+            authenticationKeyStore,
+            passwordHashingService,
+            DoobieUserDao,
+            DoobieCredentialsDao,
+            passwordAuthenticationConfiguration
+          )
       }
 
     val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](new CliCommandRunnerImpl[F], client)
@@ -206,6 +217,13 @@ object ApiApp extends IOApp {
       DoobieSchedulingDao
     )
 
+    val userService = new UserServiceImpl[F, ConnectionIO](
+      passwordHashingService,
+      DoobieUserDao,
+      DoobieCredentialsDao,
+      apiServiceConfiguration.authenticationConfiguration
+    )
+
     for {
       _ <- MigrationApp.migration[F](apiServiceConfiguration.databaseConfiguration, blockerIO)
 
@@ -229,6 +247,7 @@ object ApiApp extends IOApp {
 
     } yield
       Routes(
+        userService,
         videoService,
         videoAnalysisService,
         schedulingService,
