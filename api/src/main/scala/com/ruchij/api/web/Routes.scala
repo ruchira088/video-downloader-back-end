@@ -2,6 +2,7 @@ package com.ruchij.api.web
 
 import cats.effect.{Blocker, Concurrent, ContextShift, Timer}
 import cats.implicits._
+import com.ruchij.api.daos.user.models.User
 import com.ruchij.api.services.authentication.AuthenticationService
 import com.ruchij.api.services.health.HealthService
 import com.ruchij.api.services.playlist.PlaylistService
@@ -16,7 +17,7 @@ import com.ruchij.core.services.video.{VideoAnalysisService, VideoService}
 import fs2.Stream
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.middleware.{CORS, GZip}
-import org.http4s.server.{HttpMiddleware, Router}
+import org.http4s.server.{AuthMiddleware, Router}
 import org.http4s.{HttpApp, HttpRoutes}
 
 object Routes {
@@ -35,8 +36,8 @@ object Routes {
   ): HttpApp[F] = {
     implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
 
-    val authMiddleware: HttpMiddleware[F] =
-      if (authenticationService.enabled) Authenticator.middleware[F](authenticationService, strict = true) else identity
+    val authMiddleware: AuthMiddleware[F, User] =
+      Authenticator.middleware[F](authenticationService, strict = true)
 
     val routes: HttpRoutes[F] =
       WebServerRoutes(blockerIO) <+>

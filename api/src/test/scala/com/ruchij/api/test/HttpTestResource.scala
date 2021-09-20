@@ -1,10 +1,11 @@
 package com.ruchij.api.test
 
-import cats.{ApplicativeError, Id}
 import cats.effect.{Blocker, ConcurrentEffect, ContextShift, Resource, Timer}
+import cats.{ApplicativeError, Id}
 import com.ruchij.api.ApiApp
-import com.ruchij.api.config.AuthenticationConfiguration.{HashedPassword, PasswordAuthenticationConfiguration}
+import com.ruchij.api.config.AuthenticationConfiguration.PasswordAuthenticationConfiguration
 import com.ruchij.api.config.{ApiServiceConfiguration, ApiStorageConfiguration, HttpConfiguration}
+import com.ruchij.api.daos.credentials.models.Credentials.HashedPassword
 import com.ruchij.api.models.ApiMessageBrokers
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.core.config.{ApplicationInformation, KafkaConfiguration}

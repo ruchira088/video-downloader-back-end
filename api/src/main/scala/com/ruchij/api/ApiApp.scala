@@ -161,7 +161,7 @@ object ApiApp extends IOApp {
           new NoAuthenticationService[F]
 
         case passwordAuthenticationConfiguration: PasswordAuthenticationConfiguration =>
-          new AuthenticationServiceImpl[F](authenticationKeyStore, passwordAuthenticationConfiguration, blockerCPU)
+          new AuthenticationServiceImpl[F, ConnectionIO](authenticationKeyStore, ???, ???, ???, passwordAuthenticationConfiguration)
       }
 
     val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](new CliCommandRunnerImpl[F], client)

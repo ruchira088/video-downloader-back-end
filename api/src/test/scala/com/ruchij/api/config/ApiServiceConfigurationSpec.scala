@@ -1,7 +1,8 @@
 package com.ruchij.api.config
 
 import cats.effect.IO
-import com.ruchij.api.config.AuthenticationConfiguration.{HashedPassword, PasswordAuthenticationConfiguration}
+import com.ruchij.api.config.AuthenticationConfiguration.PasswordAuthenticationConfiguration
+import com.ruchij.api.daos.credentials.models.Credentials.HashedPassword
 import com.ruchij.core.config.{ApplicationInformation, KafkaConfiguration, RedisConfiguration}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.migration.config.DatabaseConfiguration

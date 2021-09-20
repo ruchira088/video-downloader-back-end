@@ -7,7 +7,7 @@ import org.joda.time.DateTime
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-case class AuthenticationToken(secret: Secret, expiresAt: DateTime, issuedAt: DateTime, renewals: Long)
+case class AuthenticationToken(userId: String, secret: Secret, expiresAt: DateTime, issuedAt: DateTime, renewals: Long)
 
 object AuthenticationToken {
   case class AuthenticationTokenKey(secret: Secret) extends KVStoreKey

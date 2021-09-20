@@ -2,10 +2,11 @@ package com.ruchij.api.web.routes
 
 import cats.effect.{Concurrent, Timer}
 import cats.implicits._
+import com.ruchij.api.daos.user.models.User
 import com.ruchij.api.services.scheduling.ApiSchedulingService
 import com.ruchij.api.web.requests.{SchedulingRequest, UpdateScheduledVideoRequest, WorkerStatusUpdateRequest}
 import com.ruchij.api.web.requests.UpdateScheduledVideoRequest.updateScheduledVideoRequestValidator
-import com.ruchij.api.web.requests.RequestOps.RequestOpsSyntax
+import com.ruchij.api.web.requests.RequestOps.AuthRequestOpsSyntax
 import com.ruchij.api.web.requests.queryparams.SearchQuery
 import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.types.JodaClock
@@ -20,7 +21,7 @@ import io.circe.generic.auto._
 import io.circe.syntax._
 import org.http4s.circe.CirceEntityCodec.{circeEntityDecoder, circeEntityEncoder}
 import org.http4s.circe._
-import org.http4s.{HttpRoutes, ServerSentEvent}
+import org.http4s.{AuthedRoutes, ServerSentEvent}
 import org.http4s.dsl.Http4sDsl
 
 import scala.concurrent.duration._
@@ -30,19 +31,19 @@ object SchedulingRoutes {
   def apply[F[+ _]: Concurrent: Timer](
     apiSchedulingService: ApiSchedulingService[F],
     downloadProgressStream: Stream[F, DownloadProgress]
-  )(implicit dsl: Http4sDsl[F]): HttpRoutes[F] = {
+  )(implicit dsl: Http4sDsl[F]): AuthedRoutes[User, F] = {
     import dsl._
 
-    HttpRoutes.of[F] {
-      case request @ POST -> Root =>
+    AuthedRoutes.of[User, F] {
+      case authRequest @ POST -> Root as user =>
         for {
-          scheduleRequest <- request.as[SchedulingRequest]
+          scheduleRequest <- authRequest.to[SchedulingRequest]
           scheduledVideoDownload <- apiSchedulingService.schedule(scheduleRequest.url.withoutFragment)
 
           response <- Ok(scheduledVideoDownload)
         } yield response
 
-      case GET -> Root / "search" :? queryParameters =>
+      case GET -> Root / "search" :? queryParameters as user =>
         for {
           SearchQuery(term, statuses, durationRange, sizeRange, videoUrls, videoSites, pagingQuery) <- SearchQuery
             .fromQueryParameters[F]
@@ -77,23 +78,23 @@ object SchedulingRoutes {
           }
         } yield response
 
-      case GET -> Root / "id" / videoId =>
+      case GET -> Root / "id" / videoId as user =>
         apiSchedulingService
           .getById(videoId)
           .flatMap { scheduledVideoDownload =>
             Ok(scheduledVideoDownload)
           }
 
-      case request @ PUT -> Root / "id" / videoId =>
+      case authRequest @ PUT -> Root / "id" / videoId as user =>
         for {
-          UpdateScheduledVideoRequest(schedulingStatus) <- request.to[UpdateScheduledVideoRequest]
+          UpdateScheduledVideoRequest(schedulingStatus) <- authRequest.to[UpdateScheduledVideoRequest]
 
           updatedScheduledVideoDownload <- apiSchedulingService.updateSchedulingStatus(videoId, schedulingStatus)
 
           response <- Ok(updatedScheduledVideoDownload)
         } yield response
 
-      case GET -> Root / "active" =>
+      case GET -> Root / "active" as user =>
         Ok {
           downloadProgressStream
             .map { downloadProgress =>
@@ -109,15 +110,15 @@ object SchedulingRoutes {
             }
         }
 
-      case GET -> Root / "worker-status" =>
+      case GET -> Root / "worker-status" as user =>
         apiSchedulingService.getWorkerStatus.flatMap {
           workerStatus => Ok(WorkerStatusResponse(workerStatus))
         }
 
 
-      case request @ PUT -> Root / "worker-status" =>
+      case authRequest @ PUT -> Root / "worker-status" as user =>
         for {
-          workerStatusUpdateRequest <- request.to[WorkerStatusUpdateRequest]
+          workerStatusUpdateRequest <- authRequest.to[WorkerStatusUpdateRequest]
 
           _ <- apiSchedulingService.updateWorkerStatus(workerStatusUpdateRequest.workerStatus)
 

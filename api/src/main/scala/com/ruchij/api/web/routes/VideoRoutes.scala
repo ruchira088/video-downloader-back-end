@@ -2,8 +2,10 @@ package com.ruchij.api.web.routes
 
 import cats.effect.Sync
 import cats.implicits._
+import com.ruchij.api.daos.user.models.User
 import com.ruchij.api.web.requests.{VideoMetadataRequest, VideoMetadataUpdateRequest}
 import com.ruchij.api.web.requests.queryparams.SearchQuery
+import com.ruchij.api.web.requests.RequestOps.AuthRequestOpsSyntax
 import com.ruchij.api.web.requests.queryparams.SingleValueQueryParameter.DeleteVideoFileQueryParameter
 import com.ruchij.core.services.video.{VideoAnalysisService, VideoService}
 import com.ruchij.core.circe.Encoders._
@@ -11,7 +13,7 @@ import com.ruchij.api.web.responses.{IterableResponse, SearchResult}
 import com.ruchij.core.services.models.SortBy
 import com.ruchij.core.services.video.VideoAnalysisService.{Existing, NewlyCreated}
 import io.circe.generic.auto._
-import org.http4s.HttpRoutes
+import org.http4s.AuthedRoutes
 import org.http4s.circe.CirceEntityCodec.{circeEntityDecoder, circeEntityEncoder}
 import org.http4s.circe.{decodeUri, encodeUri}
 import org.http4s.dsl.Http4sDsl
@@ -19,11 +21,11 @@ import org.http4s.dsl.Http4sDsl
 object VideoRoutes {
   def apply[F[_]: Sync](videoService: VideoService[F], videoAnalysisService: VideoAnalysisService[F])(
     implicit dsl: Http4sDsl[F]
-  ): HttpRoutes[F] = {
+  ): AuthedRoutes[User, F] = {
     import dsl._
 
-    HttpRoutes.of {
-      case GET -> Root / "search" :? queryParameters =>
+    AuthedRoutes.of[User, F] {
+      case GET -> Root / "search" :? queryParameters as user =>
         for {
           SearchQuery(term, _, durationRange, sizeRange,  _, videoSites, pagingQuery) <-
             SearchQuery.fromQueryParameters[F].run(queryParameters)
@@ -33,12 +35,12 @@ object VideoRoutes {
           response <- Ok(SearchResult(videos, pagingQuery.pageNumber, pagingQuery.pageSize, term, None, None, durationRange, sizeRange, pagingQuery.maybeSortBy, pagingQuery.order))
         } yield response
 
-      case GET -> Root / "summary" =>
+      case GET -> Root / "summary" as user =>
         videoService.summary.flatMap(videoServiceSummary => Ok(videoServiceSummary))
 
-      case request @ POST -> Root / "metadata" =>
+      case authRequest @ POST -> Root / "metadata" as user =>
         for {
-          videoMetadataRequest <- request.as[VideoMetadataRequest]
+          videoMetadataRequest <- authRequest.to[VideoMetadataRequest]
 
           result <- videoAnalysisService.metadata(videoMetadataRequest.url.withoutFragment)
 
@@ -48,14 +50,14 @@ object VideoRoutes {
           }
         } yield response
 
-      case GET -> Root / "id" / videoId => Ok(videoService.fetchById(videoId))
+      case GET -> Root / "id" / videoId as user => Ok(videoService.fetchById(videoId))
 
-      case DELETE -> Root / "id" / videoId :? DeleteVideoFileQueryParameter(deleteVideoFile) =>
+      case DELETE -> Root / "id" / videoId :? DeleteVideoFileQueryParameter(deleteVideoFile) as user =>
         Ok(videoService.deleteById(videoId, deleteVideoFile))
 
-      case request @ PATCH -> Root / "id" / videoId / "metadata" =>
+      case authRequest @ PATCH -> Root / "id" / videoId / "metadata" as user =>
         for {
-          videoMetadataUpdateRequest <- request.as[VideoMetadataUpdateRequest]
+          videoMetadataUpdateRequest <- authRequest.to[VideoMetadataUpdateRequest]
 
           updatedVideo <- videoService.update(videoId, videoMetadataUpdateRequest.title, None)
 
@@ -63,7 +65,7 @@ object VideoRoutes {
         }
         yield response
 
-      case GET -> Root / "id" / videoId / "snapshots" =>
+      case GET -> Root / "id" / videoId / "snapshots" as user =>
         videoService
           .fetchById(videoId)
           .productR(videoService.fetchVideoSnapshots(videoId))
