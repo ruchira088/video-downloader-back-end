@@ -3,7 +3,7 @@ package com.ruchij.api.web.routes
 import cats.effect.Sync
 import cats.implicits._
 import com.ruchij.core.circe.Encoders._
-import com.ruchij.api.daos.models.PlaylistSortBy
+import com.ruchij.api.daos.playlist.models.PlaylistSortBy
 import com.ruchij.api.services.playlist.PlaylistService
 import com.ruchij.api.web.requests.{CreatePlaylistRequest, FileAsset, UpdatePlaylistRequest}
 import com.ruchij.api.web.requests.RequestOps.RequestOpsSyntax

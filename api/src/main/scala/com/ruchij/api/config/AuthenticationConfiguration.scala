@@ -1,5 +1,6 @@
 package com.ruchij.api.config
 
+import com.ruchij.api.daos.credentials.models.Credentials.HashedPassword
 import com.ruchij.core.config.PureConfigReaders
 import pureconfig.ConfigReader
 import pureconfig.generic.auto._
@@ -10,8 +11,6 @@ import scala.util.Success
 sealed trait AuthenticationConfiguration
 
 object AuthenticationConfiguration {
-  case class HashedPassword(value: String) extends AnyVal
-
   case class PasswordAuthenticationConfiguration(hashedPassword: HashedPassword, sessionDuration: FiniteDuration)
       extends AuthenticationConfiguration
 

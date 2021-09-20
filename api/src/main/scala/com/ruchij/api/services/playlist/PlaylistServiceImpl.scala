@@ -4,8 +4,8 @@ import cats.data.OptionT
 import cats.effect.{Clock, Sync}
 import cats.implicits._
 import cats.{ApplicativeError, MonadError, ~>}
-import com.ruchij.api.daos.PlaylistDao
-import com.ruchij.api.daos.models.{Playlist, PlaylistSortBy}
+import com.ruchij.api.daos.playlist.PlaylistDao
+import com.ruchij.api.daos.playlist.models.{Playlist, PlaylistSortBy}
 import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
 import com.ruchij.core.daos.resource.FileResourceDao

@@ -1,9 +1,9 @@
-package com.ruchij.api.daos
+package com.ruchij.api.daos.playlist
 
 import cats.Applicative
 import cats.data.OptionT
 import cats.implicits._
-import com.ruchij.api.daos.models.{Playlist, PlaylistSortBy}
+import com.ruchij.api.daos.playlist.models.{Playlist, PlaylistSortBy}
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 import com.ruchij.core.daos.doobie.DoobieUtils.ordering
 import com.ruchij.core.daos.resource.FileResourceDao

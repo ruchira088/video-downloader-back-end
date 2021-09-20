@@ -1,4 +1,4 @@
-package com.ruchij.api.daos.models
+package com.ruchij.api.daos.playlist.models
 
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.video.models.Video

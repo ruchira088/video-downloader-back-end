@@ -5,7 +5,7 @@ import cats.implicits._
 import cats.~>
 import com.ruchij.api.config.AuthenticationConfiguration.PasswordAuthenticationConfiguration
 import com.ruchij.api.config.{ApiServiceConfiguration, AuthenticationConfiguration}
-import com.ruchij.api.daos.DoobiePlaylistDao
+import com.ruchij.api.daos.playlist.DoobiePlaylistDao
 import com.ruchij.api.models.ApiMessageBrokers
 import com.ruchij.api.services.authentication._
 import com.ruchij.api.services.authentication.models.AuthenticationToken
