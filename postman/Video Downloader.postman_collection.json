@@ -68,7 +68,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"password\": \"{{PASSWORD}}\"\n}",
+							"raw": "{\n    \"email\": \"me@ruchij.com\",\n    \"password\": \"Password\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -89,7 +89,7 @@
 					"response": []
 				},
 				{
-					"name": "Token Details",
+					"name": "Authenticated User",
 					"request": {
 						"auth": {
 							"type": "bearer",
@@ -104,13 +104,13 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{API_SERVER}}/authentication/token",
+							"raw": "{{API_SERVER}}/authentication/user",
 							"host": [
 								"{{API_SERVER}}"
 							],
 							"path": [
 								"authentication",
-								"token"
+								"user"
 							]
 						}
 					},
@@ -978,6 +978,32 @@
 								"playlists",
 								"id",
 								"{{playlistId}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "User",
+			"item": [
+				{
+					"name": "Create User",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"firstName\": \"Ruchira\",\n    \"lastName\": \"Jayasekara\",\n    \"email\": \"me@ruchij.com\",\n    \"password\": \"Password\"\n}"
+						},
+						"url": {
+							"raw": "{{API_SERVER}}/users",
+							"host": [
+								"{{API_SERVER}}"
+							],
+							"path": [
+								"users"
 							]
 						}
 					},

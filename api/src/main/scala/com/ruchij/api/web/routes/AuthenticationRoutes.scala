@@ -21,7 +21,7 @@ object AuthenticationRoutes {
 
     val unauthenticatedRoutes =
       HttpRoutes.of[F] {
-        case request@POST -> Root / "login" =>
+        case request @ POST -> Root / "login" =>
           for {
             LoginRequest(email, password) <- request.to[LoginRequest]
 
