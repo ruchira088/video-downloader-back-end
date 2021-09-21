@@ -3,9 +3,7 @@ package com.ruchij.api.test
 import cats.effect.{Blocker, ConcurrentEffect, ContextShift, Resource, Timer}
 import cats.{ApplicativeError, Id}
 import com.ruchij.api.ApiApp
-import com.ruchij.api.config.AuthenticationConfiguration.PasswordAuthenticationConfiguration
-import com.ruchij.api.config.{ApiServiceConfiguration, ApiStorageConfiguration, HttpConfiguration}
-import com.ruchij.api.daos.credentials.models.Credentials.HashedPassword
+import com.ruchij.api.config.{ApiServiceConfiguration, ApiStorageConfiguration, AuthenticationConfiguration, HttpConfiguration}
 import com.ruchij.api.models.ApiMessageBrokers
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.core.config.{ApplicationInformation, KafkaConfiguration}
@@ -35,11 +33,8 @@ object HttpTestResource {
 
   val HttpConfig: HttpConfiguration = HttpConfiguration("localhost", 8000)
 
-  val PasswordAuthenticationConfig: PasswordAuthenticationConfiguration =
-    PasswordAuthenticationConfiguration(
-      HashedPassword("$2a$10$m5CQAirrrJKRqG3oalNSU.TUOn56v88isxMbNPi8cXXI35gY20hO."), // The password is "top-secret"
-      30 days
-    )
+  val AuthenticationConfig: AuthenticationConfiguration =
+    AuthenticationConfiguration(30 days)
 
   val KafkaConfig: KafkaConfiguration = KafkaConfiguration("N/A", Uri())
 
@@ -72,7 +67,7 @@ object HttpTestResource {
         ApiStorageConfig,
         databaseConfiguration,
         redisConfiguration,
-        PasswordAuthenticationConfig,
+        AuthenticationConfig,
         KafkaConfig,
         ApplicationInfo
       )

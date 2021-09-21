@@ -5,9 +5,7 @@ import cats.data.OptionT
 import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
 import cats.implicits._
 import com.ruchij.api.ApiApp
-import com.ruchij.api.config.AuthenticationConfiguration.PasswordAuthenticationConfiguration
-import com.ruchij.api.config.{ApiServiceConfiguration, ApiStorageConfiguration, HttpConfiguration}
-import com.ruchij.api.daos.credentials.models.Credentials.HashedPassword
+import com.ruchij.api.config.{ApiServiceConfiguration, ApiStorageConfiguration, AuthenticationConfiguration, HttpConfiguration}
 import com.ruchij.batch.BatchApp
 import com.ruchij.batch.config.{BatchServiceConfiguration, BatchStorageConfiguration, WorkerConfiguration}
 import com.ruchij.batch.services.scheduler.Scheduler
@@ -15,7 +13,7 @@ import com.ruchij.core.config.{ApplicationInformation, KafkaConfiguration, Redis
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.test.Resources.{startEmbeddedKafkaAndSchemaRegistry, startEmbeddedRedis}
 import com.ruchij.migration.MigrationApp
-import com.ruchij.migration.config.DatabaseConfiguration
+import com.ruchij.migration.config.{AdminConfiguration, DatabaseConfiguration, MigrationServiceConfiguration}
 import org.http4s.HttpApp
 import org.http4s.blaze.server.BlazeServerBuilder
 import org.joda.time.LocalTime
@@ -27,6 +25,8 @@ import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
 
 object DevelopmentApp extends IOApp {
+  val HashedAdminPassword = "$2a$10$m5CQAirrrJKRqG3oalNSU.TUOn56v88isxMbNPi8cXXI35gY20hO." // The password is "top-secret"
+
   val DatabaseConfig: DatabaseConfiguration =
     DatabaseConfiguration(
       "jdbc:h2:./video-downloader;MODE=PostgreSQL;DATABASE_TO_UPPER=false",
@@ -47,11 +47,8 @@ object DevelopmentApp extends IOApp {
 
   val HttpConfig: HttpConfiguration = HttpConfiguration("0.0.0.0", 8443)
 
-  val PasswordAuthenticationConfig: PasswordAuthenticationConfiguration =
-    PasswordAuthenticationConfiguration(
-      HashedPassword("$2a$10$m5CQAirrrJKRqG3oalNSU.TUOn56v88isxMbNPi8cXXI35gY20hO."), // The password is "top-secret"
-      30 days
-    )
+  val AuthenticationConfig: AuthenticationConfiguration =
+    AuthenticationConfiguration(30 days)
 
   def apiConfig(redisConfiguration: RedisConfiguration, kafkaConfiguration: KafkaConfiguration): ApiServiceConfiguration =
     ApiServiceConfiguration(
@@ -59,7 +56,7 @@ object DevelopmentApp extends IOApp {
       ApiStorageConfig,
       DatabaseConfig,
       redisConfiguration,
-      PasswordAuthenticationConfig,
+      AuthenticationConfig,
       kafkaConfiguration,
       ApplicationInfo
     )
@@ -97,7 +94,11 @@ object DevelopmentApp extends IOApp {
       blocker <- Blocker[F]
       sslContext <- Resource.eval(blocker.blockOn(createSslContext[F]))
 
-      _ <- Resource.eval(MigrationApp.migration[F](DatabaseConfig, blocker))
+      _ <-
+        Resource.eval {
+          MigrationApp.migration[F](
+            MigrationServiceConfiguration(DatabaseConfig, AdminConfiguration(HashedAdminPassword)), blocker)
+        }
 
       api <- ApiApp.create[F](apiConfig(redisConfig, kafkaConfig))
       batch <- BatchApp.program[F](batchConfig(kafkaConfig))

@@ -1,8 +1,6 @@
 package com.ruchij.api.config
 
 import cats.effect.IO
-import com.ruchij.api.config.AuthenticationConfiguration.PasswordAuthenticationConfiguration
-import com.ruchij.api.daos.credentials.models.Credentials.HashedPassword
 import com.ruchij.core.config.{ApplicationInformation, KafkaConfiguration, RedisConfiguration}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.migration.config.DatabaseConfiguration
@@ -52,10 +50,6 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         }
 
         authentication-configuration {
-          // The password is "top-secret"
-          hashed-password = "$$2a$$10$$m5CQAirrrJKRqG3oalNSU.TUOn56v88isxMbNPi8cXXI35gY20hO."
-          hashed-password = $${?API_HASHED_PASSWORD}
-
           session-duration = "30 days"
           session-duration = $${?SESSION_DURATION}
         }
@@ -81,7 +75,7 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         ApiStorageConfiguration("./images"),
         DatabaseConfiguration("jdbc:h2:mem:video-downloader;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false", "", ""),
         RedisConfiguration("localhost", 6379, Some("redis-password")),
-        PasswordAuthenticationConfiguration(HashedPassword("$2a$10$m5CQAirrrJKRqG3oalNSU.TUOn56v88isxMbNPi8cXXI35gY20hO."), 30 days),
+        AuthenticationConfiguration(30 days),
         KafkaConfiguration("kafka-cluster:9092", uri"http://kafka-cluster:8081"),
         ApplicationInformation("localhost", Some("my-branch"), Some("my-commit"), Some(new DateTime(2021, 8, 6, 1, 20, 0, 0, DateTimeZone.UTC)))
       )

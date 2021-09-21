@@ -3,8 +3,6 @@ package com.ruchij.api.services.user
 import cats.effect.Clock
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Monad, MonadError, ~>}
-import com.ruchij.api.config.AuthenticationConfiguration
-import com.ruchij.api.config.AuthenticationConfiguration.{NoAuthenticationConfiguration, PasswordAuthenticationConfiguration}
 import com.ruchij.api.daos.credentials.CredentialsDao
 import com.ruchij.api.daos.credentials.models.Credentials
 import com.ruchij.api.daos.user.UserDao
@@ -19,8 +17,7 @@ import java.util.UUID
 class UserServiceImpl[F[+ _]: RandomGenerator[*[_], UUID]: MonadError[*[_], Throwable]: Clock, G[_]: Monad](
   passwordHashingService: PasswordHashingService[F],
   userDao: UserDao[G],
-  credentialsDao: CredentialsDao[G],
-  authenticationConfiguration: AuthenticationConfiguration
+  credentialsDao: CredentialsDao[G]
 )(implicit transaction: G ~> F)
     extends UserService[F] {
 
@@ -33,20 +30,11 @@ class UserServiceImpl[F[+ _]: RandomGenerator[*[_], UUID]: MonadError[*[_], Thro
         )
       }
 
-      isAdmin <-
-        authenticationConfiguration match {
-          case NoAuthenticationConfiguration => Applicative[F].pure(true)
-
-          case PasswordAuthenticationConfiguration(hashedPassword, _) =>
-            passwordHashingService.checkPassword(password, hashedPassword)
-        }
-
       hashedPassword <- passwordHashingService.hashPassword(password)
       timestamp <- JodaClock[F].timestamp
 
       userId <- RandomGenerator[F, UUID].generate.map(_.toString)
-      role = if (isAdmin) Role.Admin else Role.User
-      user = User(userId, timestamp, firstName, lastName, email, role)
+      user = User(userId, timestamp, firstName, lastName, email, Role.User)
       credentials = Credentials(userId, timestamp, hashedPassword)
 
       _ <- transaction { userDao.insert(user).productL(credentialsDao.insert(credentials)) }

@@ -3,8 +3,7 @@ package com.ruchij.api
 import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
 import cats.implicits._
 import cats.~>
-import com.ruchij.api.config.AuthenticationConfiguration.PasswordAuthenticationConfiguration
-import com.ruchij.api.config.{ApiServiceConfiguration, AuthenticationConfiguration}
+import com.ruchij.api.config.ApiServiceConfiguration
 import com.ruchij.api.daos.credentials.DoobieCredentialsDao
 import com.ruchij.api.daos.playlist.DoobiePlaylistDao
 import com.ruchij.api.daos.user.DoobieUserDao
@@ -43,7 +42,6 @@ import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, YouTubeVideoDownloaderImpl}
-import com.ruchij.migration.MigrationApp
 import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.effect.Log.Stdout.instance
 import doobie.free.connection.ConnectionIO
@@ -161,19 +159,13 @@ object ApiApp extends IOApp {
     val passwordHashingService = new BCryptPasswordHashingService[F](blockerCPU)
 
     val authenticationService: AuthenticationService[F] =
-      apiServiceConfiguration.authenticationConfiguration match {
-        case AuthenticationConfiguration.NoAuthenticationConfiguration =>
-          new NoAuthenticationService[F]
-
-        case passwordAuthenticationConfiguration: PasswordAuthenticationConfiguration =>
-          new AuthenticationServiceImpl[F, ConnectionIO](
-            authenticationKeyStore,
-            passwordHashingService,
-            DoobieUserDao,
-            DoobieCredentialsDao,
-            passwordAuthenticationConfiguration
-          )
-      }
+      new AuthenticationServiceImpl[F, ConnectionIO](
+        authenticationKeyStore,
+        passwordHashingService,
+        DoobieUserDao,
+        DoobieCredentialsDao,
+        apiServiceConfiguration.authenticationConfiguration.sessionDuration
+      )
 
     val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](new CliCommandRunnerImpl[F], client)
 
@@ -217,16 +209,9 @@ object ApiApp extends IOApp {
       DoobieSchedulingDao
     )
 
-    val userService = new UserServiceImpl[F, ConnectionIO](
-      passwordHashingService,
-      DoobieUserDao,
-      DoobieCredentialsDao,
-      apiServiceConfiguration.authenticationConfiguration
-    )
+    val userService = new UserServiceImpl[F, ConnectionIO](passwordHashingService, DoobieUserDao, DoobieCredentialsDao)
 
     for {
-      _ <- MigrationApp.migration[F](apiServiceConfiguration.databaseConfiguration, blockerIO)
-
       backgroundService <- BackgroundServiceImpl.create[F, M](
         schedulingService,
         messageBrokers.downloadProgressSubscriber,

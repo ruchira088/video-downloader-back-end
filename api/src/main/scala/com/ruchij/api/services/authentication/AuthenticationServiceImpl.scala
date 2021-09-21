@@ -4,7 +4,6 @@ import cats.data.OptionT
 import cats.effect.{Clock, ContextShift, Sync}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadError, ~>}
-import com.ruchij.api.config.AuthenticationConfiguration.PasswordAuthenticationConfiguration
 import com.ruchij.api.daos.credentials.CredentialsDao
 import com.ruchij.api.daos.user.UserDao
 import com.ruchij.api.daos.user.models.{Email, User}
@@ -16,12 +15,14 @@ import com.ruchij.api.services.hashing.PasswordHashingService
 import com.ruchij.core.kv.KeySpacedKeyValueStore
 import com.ruchij.core.types.{JodaClock, RandomGenerator}
 
+import scala.concurrent.duration.FiniteDuration
+
 class AuthenticationServiceImpl[F[+ _]: Sync: ContextShift: Clock: RandomGenerator[*[_], Secret], G[_]: MonadError[*[_], Throwable]](
   keySpacedKeyValueStore: KeySpacedKeyValueStore[F, AuthenticationTokenKey, AuthenticationToken],
   passwordHashingService: PasswordHashingService[F],
   userDao: UserDao[G],
   credentialsDao: CredentialsDao[G],
-  passwordAuthenticationConfiguration: PasswordAuthenticationConfiguration
+  authSessionDuration: FiniteDuration
 )(implicit transaction: G ~> F)
     extends AuthenticationService[F] {
 
@@ -45,7 +46,7 @@ class AuthenticationServiceImpl[F[+ _]: Sync: ContextShift: Clock: RandomGenerat
       authenticationToken = AuthenticationToken(
         credentials.userId,
         secret,
-        timestamp.plus(passwordAuthenticationConfiguration.sessionDuration.toMillis),
+        timestamp.plus(authSessionDuration.toMillis),
         timestamp,
         0
       )
@@ -72,7 +73,7 @@ class AuthenticationServiceImpl[F[+ _]: Sync: ContextShift: Clock: RandomGenerat
             authenticationToken = AuthenticationToken(
               userId,
               secret,
-              timestamp.plus(passwordAuthenticationConfiguration.sessionDuration.toMillis),
+              timestamp.plus(authSessionDuration.toMillis),
               issuedAt,
               renewals + 1
             )
