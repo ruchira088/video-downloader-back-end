@@ -5,8 +5,8 @@ import enumeratum.{Enum, EnumEntry}
 sealed trait Role extends EnumEntry
 
 object Role extends Enum[Role] {
-  case object UserRole extends Role
-  case object AdminRole extends Role
+  case object User extends Role
+  case object Admin extends Role
 
   override def values: IndexedSeq[Role] = findValues
 }

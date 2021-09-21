@@ -45,7 +45,7 @@ class UserServiceImpl[F[+ _]: RandomGenerator[*[_], UUID]: MonadError[*[_], Thro
       timestamp <- JodaClock[F].timestamp
 
       userId <- RandomGenerator[F, UUID].generate.map(_.toString)
-      role = if (isAdmin) Role.AdminRole else Role.UserRole
+      role = if (isAdmin) Role.Admin else Role.User
       user = User(userId, timestamp, firstName, lastName, email, role)
       credentials = Credentials(userId, timestamp, hashedPassword)
 

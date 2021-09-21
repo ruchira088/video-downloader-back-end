@@ -10,7 +10,7 @@ import org.http4s.circe.CirceEntityDecoder.circeEntityDecoder
 import org.http4s.circe.CirceEntityEncoder.circeEntityEncoder
 import io.circe.generic.auto._
 import com.ruchij.core.circe.Decoders.stringWrapperDecoder
-import com.ruchij.core.circe.Encoders.{dateTimeEncoder, stringWrapperEncoder}
+import com.ruchij.core.circe.Encoders.{dateTimeEncoder, enumEncoder, stringWrapperEncoder}
 import com.ruchij.api.web.middleware.Authenticator
 import org.http4s.{AuthedRoutes, HttpRoutes, Response}
 import org.http4s.dsl.Http4sDsl
