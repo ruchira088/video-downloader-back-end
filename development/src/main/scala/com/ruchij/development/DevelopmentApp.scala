@@ -90,7 +90,7 @@ object DevelopmentApp extends IOApp {
   def program[F[+ _]: ConcurrentEffect: Timer: ContextShift]: Resource[F, (HttpApp[F], Scheduler[F], SSLContext)] =
     for {
       (redisConfig, _) <- startEmbeddedRedis[F]
-      (kafkaConfig, _) <- startEmbeddedKafkaAndSchemaRegistry[F]
+      kafkaConfig <- startEmbeddedKafkaAndSchemaRegistry[F]
       blocker <- Blocker[F]
       sslContext <- Resource.eval(blocker.blockOn(createSslContext[F]))
 
