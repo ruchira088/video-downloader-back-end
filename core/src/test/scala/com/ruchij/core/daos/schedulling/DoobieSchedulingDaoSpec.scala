@@ -11,9 +11,9 @@ import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownloa
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata}
 import com.ruchij.core.services.models.{Order, SortBy}
-import com.ruchij.core.test.DoobieProvider
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.Providers.contextShift
+import com.ruchij.core.test.external.containers.ContainerExternalServiceProvider
 import com.ruchij.core.types.JodaClock
 import doobie.ConnectionIO
 import org.http4s.MediaType
@@ -30,7 +30,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
 
   def runTest(testFn: (ScheduledVideoDownload, ConnectionIO ~> IO) => IO[Unit]): Unit =
     runIO {
-      DoobieProvider.inMemoryTransactor[IO].use {
+      new ContainerExternalServiceProvider[IO].transactor.use {
         transaction =>
           for {
             timestamp <- JodaClock.create[IO].timestamp
