@@ -1,5 +1,6 @@
 package com.ruchij.api.web.middleware
 
+import cats.Show
 import cats.arrow.FunctionK
 import cats.data.{Kleisli, NonEmptyList}
 import cats.effect.Sync
@@ -50,8 +51,19 @@ object ExceptionHandler {
   }
 
   val throwableResponseBody: Throwable => ErrorResponse = {
-    case AggregatedException(exceptions) => ErrorResponse(exceptions.toList)
-    case throwable => ErrorResponse(List(throwable))
+    case AggregatedException(exceptions) =>
+      ErrorResponse {
+        exceptions.map(throwableResponseBody).flatMap(_.errorMessages)
+      }
+
+    case decodingFailure: DecodingFailure =>
+      ErrorResponse {
+        NonEmptyList.one {
+          Show[DecodingFailure].show(decodingFailure)
+        }
+      }
+
+    case throwable => Option(throwable.getCause).fold(ErrorResponse(NonEmptyList.one(throwable.getMessage)))(throwableResponseBody)
   }
 
   def errorResponseMapper[F[_]](throwable: Throwable)(response: Response[F]): Response[F] =
