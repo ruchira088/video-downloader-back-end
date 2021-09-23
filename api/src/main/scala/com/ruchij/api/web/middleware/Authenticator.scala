@@ -1,10 +1,9 @@
 package com.ruchij.api.web.middleware
 
-import java.time.Instant
-
 import cats.data.{Kleisli, OptionT}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Monad, MonadError}
+import com.ruchij.api.daos.user.models.User
 import com.ruchij.api.exceptions.AuthenticationException
 import com.ruchij.api.services.authentication.AuthenticationService
 import com.ruchij.api.services.authentication.AuthenticationService.Secret
@@ -12,12 +11,14 @@ import com.ruchij.api.services.authentication.models.AuthenticationToken
 import com.ruchij.core.types.FunctionKTypes._
 import org.http4s._
 import org.http4s.headers.Authorization
-import org.http4s.server.HttpMiddleware
+import org.http4s.server.AuthMiddleware
+
+import java.time.Instant
 
 object Authenticator {
   val CookieName = "authentication"
 
-  def bearerToken[F[_]](request: Request[F]): Option[Secret] =
+  private def bearerToken[F[_]](request: Request[F]): Option[Secret] =
     request.headers
       .get[Authorization]
       .map(_.credentials)
@@ -25,44 +26,40 @@ object Authenticator {
         case Credentials.Token(AuthScheme.Bearer, bearerToken) => Secret(bearerToken)
       }
 
-  def authenticationCookie[F[_]](request: Request[F]): Option[RequestCookie] =
+  private def authenticationCookie[F[_]](request: Request[F]): Option[RequestCookie] =
     request.cookies.find(_.name == CookieName).filter(_.content.trim.nonEmpty)
 
-  def authenticationToken[F[_]: Monad](
+  private def authenticatedUser[F[_]: Monad](
     authenticationService: AuthenticationService[F]
-  ): Kleisli[OptionT[F, *], Request[F], AuthenticationToken] =
+  ): Kleisli[OptionT[F, *], Request[F], (AuthenticationToken, User)] =
     Kleisli { request =>
       OptionT
-        .fromOption[F] {
-          authenticationCookie(request)
-            .map(cookie => Secret(cookie.content))
-            .orElse(bearerToken(request))
-        }
+        .fromOption[F](authenticationSecret(request))
         .semiflatMap(authenticationService.authenticate)
     }
 
+  def authenticationSecret[F[_]](request: Request[F]): Option[Secret] =
+    authenticationCookie(request).map(cookie => Secret(cookie.content))
+      .orElse(bearerToken(request))
 
   def middleware[F[+ _]: MonadError[*[_], Throwable]](
     authenticationService: AuthenticationService[F],
     strict: Boolean
-  ): HttpMiddleware[F] =
-    httpRoutes =>
-      authenticationToken(authenticationService)
-        .mapF(_.value)
-        .flatMapF {
-          _.fold[F[Option[AuthenticationToken]]](onFailure[F](strict)) {
-            authenticationToken =>
-              Applicative[F].pure(Some(authenticationToken))
-          }
+  ): AuthMiddleware[F, User] =
+    httpAuthRoutes =>
+      authenticatedUser(authenticationService)
+        .flatMap {
+          case (authenticationToken, user) =>
+            Kleisli
+              .ask[OptionT[F, *], Request[F]]
+              .flatMapF(request => httpAuthRoutes.run(AuthedRequest(user, request)))
+              .flatMapF(response => OptionT.liftF(addCookie[F](authenticationToken, response)))
         }
-        .mapF(OptionT.apply[F, AuthenticationToken])
-        .flatMap { authenticationToken =>
-          httpRoutes.flatMapF { result =>
-            OptionT.liftF(addCookie[F](authenticationToken, result))
-          }
+        .mapF[OptionT[F, *], Response[F]] { optionT =>
+          optionT.orElseF(onFailure[F](strict))
       }
 
-  def onFailure[F[_]: ApplicativeError[*[_], Throwable]](strict: Boolean): F[None.type] =
+  private def onFailure[F[+ _]: ApplicativeError[*[_], Throwable]](strict: Boolean): F[None.type] =
     if (strict)
       ApplicativeError[F, Throwable].raiseError(AuthenticationException.MissingAuthenticationToken)
     else Applicative[F].pure(None)
@@ -71,7 +68,9 @@ object Authenticator {
     authenticationToken: AuthenticationToken,
     response: Response[F]
   ): F[Response[F]] =
-    HttpDate.fromInstant(Instant.ofEpochMilli(authenticationToken.expiresAt.getMillis)).toType[F, Throwable]
+    HttpDate
+      .fromInstant(Instant.ofEpochMilli(authenticationToken.expiresAt.getMillis))
+      .toType[F, Throwable]
       .map { httpDate =>
         response.addCookie {
           ResponseCookie(

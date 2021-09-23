@@ -27,7 +27,6 @@ import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, YouTubeVideoDownloaderImpl}
-import com.ruchij.migration.MigrationApp
 import doobie.free.connection.ConnectionIO
 import fs2.kafka.CommittableConsumerRecord
 import org.apache.tika.Tika
@@ -87,8 +86,6 @@ object BatchApp extends IOApp {
               Sync[F].delay(executorService.shutdown())
             }
           blockerCPU = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(cpuBlockingThreadPool))
-
-          _ <- Resource.eval(MigrationApp.migration[F](batchServiceConfiguration.databaseConfiguration, blockerIO))
 
           workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
 

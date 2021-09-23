@@ -3,8 +3,9 @@ import sbt._
 object Dependencies
 {
   val ScalaVersion = "2.13.6"
-  val Http4sVersion = "0.22.4"
+  val Http4sVersion = "0.22.5"
   val CirceVersion = "0.14.1"
+  val TestContainersVersion = "1.16.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -14,7 +15,7 @@ object Dependencies
 
   lazy val http4sCirce = "org.http4s" %% "http4s-circe" % Http4sVersion
 
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "2.5.3"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "2.5.4"
 
   lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.5.9"
 
@@ -64,6 +65,12 @@ object Dependencies
 
   lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "6.2.0"
 
+  lazy val testContainers = "org.testcontainers" % "testcontainers" % TestContainersVersion
+
+  lazy val kafkaTestContainer = "org.testcontainers" % "kafka" % TestContainersVersion
+
+  lazy val postgresqlTestContainer = "org.testcontainers" % "postgresql" % TestContainersVersion
+
   lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.6"
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4"
@@ -74,7 +81,7 @@ object Dependencies
 
   lazy val betterMonadicFor = "com.olegpy" %% "better-monadic-for" % "0.3.1"
 
-  lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.9"
+  lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.10"
 
   lazy val scalaMock = "org.scalamock" %% "scalamock" % "5.1.0"
 

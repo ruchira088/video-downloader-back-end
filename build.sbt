@@ -59,7 +59,16 @@ lazy val core =
           jsoup,
           scalaLogging,
           logbackClassic
-        ) ++ Seq(scalaTest, scalaMock, embeddedRedis, embeddedKafkaSchemaRegistry).map(_ % Test)
+        ) ++
+          Seq(
+            scalaTest,
+            scalaMock,
+            embeddedRedis,
+            embeddedKafkaSchemaRegistry,
+            testContainers,
+            kafkaTestContainer,
+            postgresqlTestContainer
+          ).map(_ % Test)
     )
     .dependsOn(migrationApplication)
 

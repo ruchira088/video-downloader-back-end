@@ -5,16 +5,17 @@ import cats.data.OptionT
 import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
 import cats.implicits._
 import com.ruchij.api.ApiApp
-import com.ruchij.api.config.AuthenticationConfiguration.{HashedPassword, PasswordAuthenticationConfiguration}
-import com.ruchij.api.config.{ApiServiceConfiguration, ApiStorageConfiguration, HttpConfiguration}
+import com.ruchij.api.config.{ApiServiceConfiguration, ApiStorageConfiguration, AuthenticationConfiguration, HttpConfiguration}
 import com.ruchij.batch.BatchApp
 import com.ruchij.batch.config.{BatchServiceConfiguration, BatchStorageConfiguration, WorkerConfiguration}
 import com.ruchij.batch.services.scheduler.Scheduler
 import com.ruchij.core.config.{ApplicationInformation, KafkaConfiguration, RedisConfiguration}
 import com.ruchij.core.exceptions.ResourceNotFoundException
-import com.ruchij.core.test.Resources.{startEmbeddedKafkaAndSchemaRegistry, startEmbeddedRedis}
+import com.ruchij.core.test.external.containers.ContainerExternalServiceProvider
+import com.ruchij.core.test.external.ExternalServiceProvider
+import com.ruchij.core.test.external.ExternalServiceProvider.HashedAdminPassword
 import com.ruchij.migration.MigrationApp
-import com.ruchij.migration.config.DatabaseConfiguration
+import com.ruchij.migration.config.{AdminConfiguration, DatabaseConfiguration, MigrationServiceConfiguration}
 import org.http4s.HttpApp
 import org.http4s.blaze.server.BlazeServerBuilder
 import org.joda.time.LocalTime
@@ -26,12 +27,6 @@ import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
 
 object DevelopmentApp extends IOApp {
-  val DatabaseConfig: DatabaseConfiguration =
-    DatabaseConfiguration(
-      "jdbc:h2:./video-downloader;MODE=PostgreSQL;DATABASE_TO_UPPER=false",
-      "",
-      ""
-    )
 
   val ApiStorageConfig: ApiStorageConfiguration = ApiStorageConfiguration("./images")
 
@@ -46,32 +41,33 @@ object DevelopmentApp extends IOApp {
 
   val HttpConfig: HttpConfiguration = HttpConfiguration("0.0.0.0", 8443)
 
-  val PasswordAuthenticationConfig: PasswordAuthenticationConfiguration =
-    PasswordAuthenticationConfiguration(
-      HashedPassword("$2a$10$m5CQAirrrJKRqG3oalNSU.TUOn56v88isxMbNPi8cXXI35gY20hO."), // The password is "top-secret"
-      30 days
-    )
+  val AuthenticationConfig: AuthenticationConfiguration =
+    AuthenticationConfiguration(30 days)
 
-  def apiConfig(redisConfiguration: RedisConfiguration, kafkaConfiguration: KafkaConfiguration): ApiServiceConfiguration =
+  def apiConfig(
+    databaseConfiguration: DatabaseConfiguration,
+    redisConfiguration: RedisConfiguration,
+    kafkaConfiguration: KafkaConfiguration
+  ): ApiServiceConfiguration =
     ApiServiceConfiguration(
       HttpConfig,
       ApiStorageConfig,
-      DatabaseConfig,
+      databaseConfiguration,
       redisConfiguration,
-      PasswordAuthenticationConfig,
+      AuthenticationConfig,
       kafkaConfiguration,
       ApplicationInfo
     )
 
-  def batchConfig(kafkaConfiguration: KafkaConfiguration): BatchServiceConfiguration =
-    BatchServiceConfiguration(BatchStorageConfig, WorkerConfig, DatabaseConfig, kafkaConfiguration, ApplicationInfo)
+  def batchConfig(databaseConfiguration: DatabaseConfiguration, kafkaConfiguration: KafkaConfiguration): BatchServiceConfiguration =
+    BatchServiceConfiguration(BatchStorageConfig, WorkerConfig, databaseConfiguration, kafkaConfiguration, ApplicationInfo)
 
   val KeyStoreResource = "/localhost.jks"
 
   val KeyStorePassword = "changeit"
 
   override def run(args: List[String]): IO[ExitCode] =
-    program[IO].use {
+    program[IO](new ContainerExternalServiceProvider[IO]).use {
       case (api, batch, sslContext) =>
         for {
           _ <- BlazeServerBuilder[IO](ExecutionContext.global)
@@ -89,17 +85,26 @@ object DevelopmentApp extends IOApp {
         } yield ExitCode.Success
     }
 
-  def program[F[+ _]: ConcurrentEffect: Timer: ContextShift]: Resource[F, (HttpApp[F], Scheduler[F], SSLContext)] =
+  def program[F[+ _]: ConcurrentEffect: Timer: ContextShift](
+    externalServiceProvider: ExternalServiceProvider[F]
+  ): Resource[F, (HttpApp[F], Scheduler[F], SSLContext)] =
     for {
-      (redisConfig, _) <- startEmbeddedRedis[F]
-      (kafkaConfig, _) <- startEmbeddedKafkaAndSchemaRegistry[F]
+      redisConfig <- externalServiceProvider.redisConfiguration
+      kafkaConfig <- externalServiceProvider.kafkaConfiguration
+      databaseConfig <- externalServiceProvider.databaseConfiguration
+
       blocker <- Blocker[F]
       sslContext <- Resource.eval(blocker.blockOn(createSslContext[F]))
 
-      _ <- Resource.eval(MigrationApp.migration[F](DatabaseConfig, blocker))
+      _ <-
+        Resource.eval {
+          MigrationApp.migration[F](
+            MigrationServiceConfiguration(databaseConfig, AdminConfiguration(HashedAdminPassword)), blocker)
+        }
 
-      api <- ApiApp.create[F](apiConfig(redisConfig, kafkaConfig))
-      batch <- BatchApp.program[F](batchConfig(kafkaConfig))
+
+      api <- ApiApp.create[F](apiConfig(databaseConfig, redisConfig, kafkaConfig))
+      batch <- BatchApp.program[F](batchConfig(databaseConfig, kafkaConfig))
     } yield (api, batch, sslContext)
 
   def createSslContext[F[_]: Sync]: F[SSLContext] =

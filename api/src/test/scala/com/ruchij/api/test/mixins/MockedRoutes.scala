@@ -6,6 +6,7 @@ import com.ruchij.api.services.authentication.AuthenticationService
 import com.ruchij.api.services.health.HealthService
 import com.ruchij.api.services.playlist.PlaylistService
 import com.ruchij.api.services.scheduling.ApiSchedulingService
+import com.ruchij.api.services.user.UserService
 import com.ruchij.api.web.Routes
 import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.messaging.models.HttpMetric
@@ -22,6 +23,7 @@ import scala.concurrent.ExecutionContext
 
 trait MockedRoutes[F[+ _]] extends MockFactory with OneInstancePerTest {
 
+  val userService: UserService[F] = mock[UserService[F]]
   val videoService: VideoService[F] = mock[VideoService[F]]
   val playlistService: PlaylistService[F] = mock[PlaylistService[F]]
   val videoAnalysisService: VideoAnalysisService[F] = mock[VideoAnalysisService[F]]
@@ -41,6 +43,7 @@ trait MockedRoutes[F[+ _]] extends MockFactory with OneInstancePerTest {
   def createRoutes(): F[HttpApp[F]] =
     concurrent.delay {
       Routes(
+        userService,
         videoService,
         videoAnalysisService,
         apiSchedulingService,

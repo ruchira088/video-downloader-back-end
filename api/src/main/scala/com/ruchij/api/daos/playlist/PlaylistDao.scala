@@ -1,6 +1,6 @@
-package com.ruchij.api.daos
+package com.ruchij.api.daos.playlist
 
-import com.ruchij.api.daos.models.{Playlist, PlaylistSortBy}
+import com.ruchij.api.daos.playlist.models.{Playlist, PlaylistSortBy}
 import com.ruchij.core.services.models.Order
 
 trait PlaylistDao[F[_]] {

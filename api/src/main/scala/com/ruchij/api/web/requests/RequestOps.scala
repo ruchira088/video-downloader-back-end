@@ -2,7 +2,7 @@ package com.ruchij.api.web.requests
 
 import cats.MonadError
 import cats.implicits._
-import org.http4s.{EntityDecoder, Request}
+import org.http4s.{AuthedRequest, EntityDecoder, Request}
 
 object RequestOps {
   def to[F[_]: MonadError[*[_], Throwable], A](
@@ -16,5 +16,10 @@ object RequestOps {
   implicit class RequestOpsSyntax[F[_]: MonadError[*[_], Throwable]](request: Request[F]) {
     def to[A](implicit entityDecoder: EntityDecoder[F, A], validator: Validator[F, A]): F[A] =
       RequestOps.to[F, A](request)
+  }
+
+  implicit class AuthRequestOpsSyntax[F[_]: MonadError[*[_], Throwable], T](authRequest: AuthedRequest[F, T]) {
+    def to[A](implicit entityDecoder: EntityDecoder[F, A], validator: Validator[F, A]): F[A] =
+      RequestOps.to[F, A](authRequest.req)
   }
 }

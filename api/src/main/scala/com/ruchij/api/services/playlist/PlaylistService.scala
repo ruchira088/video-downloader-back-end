@@ -1,6 +1,6 @@
 package com.ruchij.api.services.playlist
 
-import com.ruchij.api.daos.models.{Playlist, PlaylistSortBy}
+import com.ruchij.api.daos.playlist.models.{Playlist, PlaylistSortBy}
 import com.ruchij.core.services.models.Order
 import fs2.Stream
 import org.http4s.MediaType
