@@ -22,7 +22,7 @@ import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, YouTubeVideoDow
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.Providers
 import com.ruchij.core.test.Providers.{blocker, contextShift}
-import com.ruchij.core.test.external.containers.ContainerExternalServiceProvider
+import com.ruchij.core.test.external.embedded.EmbeddedExternalServiceProvider
 import doobie.ConnectionIO
 import fs2.Stream
 import org.http4s._
@@ -106,7 +106,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
         new KeySpacedKeyValueStore[IO, ApiConfigKey[_], String](ApiConfigKeySpace, new InMemoryKeyValueStore[IO])
       )
 
-    new ContainerExternalServiceProvider[IO].transactor
+    new EmbeddedExternalServiceProvider[IO].transactor
       .use { implicit transaction =>
         for {
           videoAnalysisService <- IO.pure {

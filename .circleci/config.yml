@@ -10,6 +10,8 @@ alias:
 
 jobs:
   build-ci-docker-image:
+    machine:
+
     docker:
       - image: cimg/base:stable
     steps:
@@ -24,7 +26,6 @@ jobs:
     docker:
       - image: ruchira088/docker-ci:vdbe
     steps:
-      - setup_remote_docker
       - checkout
       - restore_cache: &dependency-cache-keys
           keys:
