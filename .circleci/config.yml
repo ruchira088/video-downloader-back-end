@@ -24,6 +24,7 @@ jobs:
     docker:
       - image: ruchira088/docker-ci:vdbe
     steps:
+      - setup_remote_docker
       - checkout
       - restore_cache: &dependency-cache-keys
           keys:
