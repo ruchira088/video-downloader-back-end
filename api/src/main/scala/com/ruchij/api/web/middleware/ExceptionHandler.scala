@@ -8,7 +8,7 @@ import cats.implicits._
 import com.ruchij.api.exceptions.{AuthenticationException, ResourceConflictException}
 import com.ruchij.api.web.responses.ErrorResponse
 import com.ruchij.core.circe.Encoders.throwableEncoder
-import com.ruchij.core.exceptions.{AggregatedException, ExternalServiceException, JSoupException, ResourceNotFoundException, ValidationException}
+import com.ruchij.core.exceptions.{AggregatedException, ExternalServiceException, JSoupException, ResourceNotFoundException, UnsupportedVideoUrlException, ValidationException}
 import com.ruchij.core.logging.Logger
 import io.circe.DecodingFailure
 import io.circe.generic.auto.exportEncoder
@@ -38,7 +38,7 @@ object ExceptionHandler {
 
     case _: AuthenticationException => Status.Unauthorized
 
-    case _: DecodingFailure | _: IllegalArgumentException | _: MessageFailure | _: ValidationException =>
+    case _: DecodingFailure | _: IllegalArgumentException | _: MessageFailure | _: ValidationException | _: UnsupportedVideoUrlException =>
       Status.BadRequest
 
     case _: JSoupException | _: ExternalServiceException => Status.BadGateway
