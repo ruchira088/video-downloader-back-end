@@ -8,14 +8,19 @@ import com.ruchij.api.exceptions.AuthenticationException
 import com.ruchij.api.services.authentication.AuthenticationService
 import com.ruchij.api.services.authentication.AuthenticationService.Secret
 import com.ruchij.api.services.authentication.models.AuthenticationToken
+import com.ruchij.api.services.models.Context.{AuthenticatedRequestContext, RequestContext}
 import com.ruchij.core.types.FunctionKTypes._
 import org.http4s._
 import org.http4s.headers.Authorization
-import org.http4s.server.AuthMiddleware
+import org.http4s.server.Middleware
 
 import java.time.Instant
 
 object Authenticator {
+  type AuthenticatedRequestContextMiddleware[F[_]] =
+    Middleware[OptionT[F, *], ContextRequest[F, AuthenticatedRequestContext], Response[F], ContextRequest[F, RequestContext], Response[F]]
+
+
   val CookieName = "authentication"
 
   private def bearerToken[F[_]](request: Request[F]): Option[Secret] =
@@ -39,26 +44,32 @@ object Authenticator {
     }
 
   def authenticationSecret[F[_]](request: Request[F]): Option[Secret] =
-    authenticationCookie(request).map(cookie => Secret(cookie.content))
+    authenticationCookie(request)
+      .map(cookie => Secret(cookie.content))
       .orElse(bearerToken(request))
 
   def middleware[F[+ _]: MonadError[*[_], Throwable]](
     authenticationService: AuthenticationService[F],
     strict: Boolean
-  ): AuthMiddleware[F, User] =
+  ): AuthenticatedRequestContextMiddleware[F] =
     httpAuthRoutes =>
-      authenticatedUser(authenticationService)
+      authenticatedUser(authenticationService).local[ContextRequest[F, RequestContext]](_.req)
         .flatMap {
           case (authenticationToken, user) =>
             Kleisli
-              .ask[OptionT[F, *], Request[F]]
-              .flatMapF(request => httpAuthRoutes.run(AuthedRequest(user, request)))
+              .ask[OptionT[F, *], ContextRequest[F, RequestContext]]
+              .flatMapF {
+                contextRequest =>
+                  httpAuthRoutes.run {
+                    ContextRequest(AuthenticatedRequestContext(user, contextRequest.context.requestId), contextRequest.req)
+                  }
+              }
               .flatMapF(response => OptionT.liftF(addCookie[F](authenticationToken, response)))
         }
         .mapF[OptionT[F, *], Response[F]] { optionT =>
           optionT.orElseF(onFailure[F](strict))
       }
-
+  
   private def onFailure[F[+ _]: ApplicativeError[*[_], Throwable]](strict: Boolean): F[None.type] =
     if (strict)
       ApplicativeError[F, Throwable].raiseError(AuthenticationException.MissingAuthenticationToken)

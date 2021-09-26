@@ -2,11 +2,11 @@ package com.ruchij.api.web.routes
 
 import cats.effect.{Concurrent, Timer}
 import cats.implicits._
-import com.ruchij.api.daos.user.models.User
+import com.ruchij.api.services.models.Context.AuthenticatedRequestContext
 import com.ruchij.api.services.scheduling.ApiSchedulingService
 import com.ruchij.api.web.requests.{SchedulingRequest, UpdateScheduledVideoRequest, WorkerStatusUpdateRequest}
 import com.ruchij.api.web.requests.UpdateScheduledVideoRequest.updateScheduledVideoRequestValidator
-import com.ruchij.api.web.requests.RequestOps.AuthRequestOpsSyntax
+import com.ruchij.api.web.requests.RequestOps.ContextRequestOpsSyntax
 import com.ruchij.api.web.requests.queryparams.SearchQuery
 import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.types.JodaClock
@@ -21,7 +21,7 @@ import io.circe.generic.auto._
 import io.circe.syntax._
 import org.http4s.circe.CirceEntityCodec.{circeEntityDecoder, circeEntityEncoder}
 import org.http4s.circe._
-import org.http4s.{AuthedRoutes, ServerSentEvent}
+import org.http4s.{ContextRoutes, ServerSentEvent}
 import org.http4s.dsl.Http4sDsl
 
 import scala.concurrent.duration._
@@ -31,19 +31,19 @@ object SchedulingRoutes {
   def apply[F[+ _]: Concurrent: Timer](
     apiSchedulingService: ApiSchedulingService[F],
     downloadProgressStream: Stream[F, DownloadProgress]
-  )(implicit dsl: Http4sDsl[F]): AuthedRoutes[User, F] = {
+  )(implicit dsl: Http4sDsl[F]): ContextRoutes[AuthenticatedRequestContext, F] = {
     import dsl._
 
-    AuthedRoutes.of[User, F] {
-      case authRequest @ POST -> Root as user =>
+    ContextRoutes.of[AuthenticatedRequestContext, F] {
+      case contextRequest @ POST -> Root as AuthenticatedRequestContext(user, requestId) =>
         for {
-          scheduleRequest <- authRequest.to[SchedulingRequest]
+          scheduleRequest <- contextRequest.to[SchedulingRequest]
           scheduledVideoDownload <- apiSchedulingService.schedule(scheduleRequest.url.withoutFragment)
 
           response <- Ok(scheduledVideoDownload)
         } yield response
 
-      case GET -> Root / "search" :? queryParameters as user =>
+      case GET -> Root / "search" :? queryParameters as AuthenticatedRequestContext(user, requestId) =>
         for {
           SearchQuery(term, statuses, durationRange, sizeRange, videoUrls, videoSites, pagingQuery) <- SearchQuery
             .fromQueryParameters[F]
@@ -78,14 +78,14 @@ object SchedulingRoutes {
           }
         } yield response
 
-      case GET -> Root / "id" / videoId as user =>
+      case GET -> Root / "id" / videoId as AuthenticatedRequestContext(user, requestId) =>
         apiSchedulingService
           .getById(videoId)
           .flatMap { scheduledVideoDownload =>
             Ok(scheduledVideoDownload)
           }
 
-      case authRequest @ PUT -> Root / "id" / videoId as user =>
+      case authRequest @ PUT -> Root / "id" / videoId as AuthenticatedRequestContext(user, requestId) =>
         for {
           UpdateScheduledVideoRequest(schedulingStatus) <- authRequest.to[UpdateScheduledVideoRequest]
 
@@ -94,7 +94,7 @@ object SchedulingRoutes {
           response <- Ok(updatedScheduledVideoDownload)
         } yield response
 
-      case GET -> Root / "active" as user =>
+      case GET -> Root / "active" as AuthenticatedRequestContext(user, requestId) =>
         Ok {
           downloadProgressStream
             .map { downloadProgress =>
@@ -110,13 +110,13 @@ object SchedulingRoutes {
             }
         }
 
-      case GET -> Root / "worker-status" as user =>
+      case GET -> Root / "worker-status" as AuthenticatedRequestContext(user, requestId) =>
         apiSchedulingService.getWorkerStatus.flatMap {
           workerStatus => Ok(WorkerStatusResponse(workerStatus))
         }
 
 
-      case authRequest @ PUT -> Root / "worker-status" as user =>
+      case authRequest @ PUT -> Root / "worker-status" as AuthenticatedRequestContext(user, requestId) =>
         for {
           workerStatusUpdateRequest <- authRequest.to[WorkerStatusUpdateRequest]
 

@@ -2,28 +2,28 @@ package com.ruchij.api.web.routes
 
 import cats.effect.Sync
 import cats.implicits._
-import com.ruchij.api.daos.user.models.User
 import com.ruchij.api.services.authentication.AuthenticationService
+import com.ruchij.api.services.models.Context.{RequestContext, AuthenticatedRequestContext}
 import com.ruchij.api.web.requests.LoginRequest
-import com.ruchij.api.web.requests.RequestOps.RequestOpsSyntax
+import com.ruchij.api.web.requests.RequestOps.ContextRequestOpsSyntax
 import org.http4s.circe.CirceEntityDecoder.circeEntityDecoder
 import org.http4s.circe.CirceEntityEncoder.circeEntityEncoder
 import io.circe.generic.auto._
 import com.ruchij.core.circe.Decoders.stringWrapperDecoder
 import com.ruchij.core.circe.Encoders.{dateTimeEncoder, enumEncoder, stringWrapperEncoder}
 import com.ruchij.api.web.middleware.Authenticator
-import org.http4s.{AuthedRoutes, HttpRoutes, Response}
+import org.http4s.{AuthedRoutes, ContextRoutes, Response}
 import org.http4s.dsl.Http4sDsl
 
 object AuthenticationRoutes {
-  def apply[F[+ _]: Sync](authenticationService: AuthenticationService[F])(implicit dsl: Http4sDsl[F]): HttpRoutes[F] = {
+  def apply[F[+ _]: Sync](authenticationService: AuthenticationService[F])(implicit dsl: Http4sDsl[F]): ContextRoutes[RequestContext, F] = {
     import dsl._
 
     val unauthenticatedRoutes =
-      HttpRoutes.of[F] {
-        case request @ POST -> Root / "login" =>
+      ContextRoutes.of[RequestContext, F] {
+        case contextRequest @ POST -> Root / "login" as RequestContext(requestId) =>
           for {
-            LoginRequest(email, password) <- request.to[LoginRequest]
+            LoginRequest(email, password) <- contextRequest.to[LoginRequest]
 
             authenticationToken <- authenticationService.login(email, password)
 
@@ -33,10 +33,10 @@ object AuthenticationRoutes {
       }
 
     val authenticatedRoutes =
-      AuthedRoutes.of[User, F] {
-        case GET -> Root / "user" as user => Ok(user)
+      AuthedRoutes.of[AuthenticatedRequestContext, F] {
+        case GET -> Root / "user" as AuthenticatedRequestContext(user, requestId) => Ok(user)
 
-        case authRequest @ DELETE -> Root / "logout" as user =>
+        case authRequest @ DELETE -> Root / "logout" as AuthenticatedRequestContext(user, requestId) =>
           Authenticator.authenticationSecret(authRequest.req)
             .fold[F[Response[F]]](NoContent()) { secret =>
               authenticationService.logout(secret)
