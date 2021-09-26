@@ -27,12 +27,35 @@ object VideoRoutes {
     AuthedRoutes.of[User, F] {
       case GET -> Root / "search" :? queryParameters as user =>
         for {
-          SearchQuery(term, _, durationRange, sizeRange,  _, videoSites, pagingQuery) <-
-            SearchQuery.fromQueryParameters[F].run(queryParameters)
+          SearchQuery(term, _, durationRange, sizeRange, _, videoSites, pagingQuery) <- SearchQuery
+            .fromQueryParameters[F]
+            .run(queryParameters)
 
-          videos <- videoService.search(term, durationRange, sizeRange, pagingQuery.pageNumber, pagingQuery.pageSize, pagingQuery.maybeSortBy.getOrElse(SortBy.Date), pagingQuery.order, videoSites)
+          videos <- videoService.search(
+            term,
+            durationRange,
+            sizeRange,
+            pagingQuery.pageNumber,
+            pagingQuery.pageSize,
+            pagingQuery.maybeSortBy.getOrElse(SortBy.Date),
+            pagingQuery.order,
+            videoSites
+          )
 
-          response <- Ok(SearchResult(videos, pagingQuery.pageNumber, pagingQuery.pageSize, term, None, None, durationRange, sizeRange, pagingQuery.maybeSortBy, pagingQuery.order))
+          response <- Ok(
+            SearchResult(
+              videos,
+              pagingQuery.pageNumber,
+              pagingQuery.pageSize,
+              term,
+              None,
+              None,
+              durationRange,
+              sizeRange,
+              pagingQuery.maybeSortBy,
+              pagingQuery.order
+            )
+          )
         } yield response
 
       case GET -> Root / "summary" as user =>
@@ -62,8 +85,7 @@ object VideoRoutes {
           updatedVideo <- videoService.update(videoId, videoMetadataUpdateRequest.title, None)
 
           response <- Ok(updatedVideo)
-        }
-        yield response
+        } yield response
 
       case GET -> Root / "id" / videoId / "snapshots" as user =>
         videoService

@@ -15,6 +15,7 @@ import com.ruchij.batch.services.sync.models.{FileSyncResult, SynchronizationRes
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.SchedulingDao
+import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
@@ -52,14 +53,17 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
   private val logger = Logger[SynchronizationServiceImpl[F, A, T]]
 
   override val sync: F[SynchronizationResult] =
-    Stream.emits[F, String](storageConfiguration.videoFolder :: storageConfiguration.otherVideoFolders)
+    Stream
+      .emits[F, String](storageConfiguration.videoFolder :: storageConfiguration.otherVideoFolders)
       .flatMap(fileRepositoryService.list)
       .mapAsyncUnordered(MaxConcurrentSyncCount) { filePath =>
         isFileSupported(filePath)
           .flatMap { isVideoFilePath =>
             if (isVideoFilePath) syncVideo(filePath)
-            else logger.debug(s"Ignoring $filePath")
-              .productR(Applicative[F].pure(IgnoredFile(filePath)))
+            else
+              logger
+                .debug(s"Ignoring $filePath")
+                .productR(Applicative[F].pure(IgnoredFile(filePath)))
           }
       }
       .evalTap {
@@ -81,7 +85,9 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
             fileType <- fileTypeDetector.detect(path)
             isSupported = SupportedFileTypes.contains(fileType)
           } yield isSupported
-        } { _ => false }
+        } { _ =>
+          false
+        }
     } else
       Applicative[F].pure(false)
 
@@ -90,7 +96,8 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
       transaction {
         OptionT(fileResourceDao.findByPath(videoPath).map(_.as((): Unit)))
           .orElse {
-            OptionT.fromOption[T](videoIdFromVideoFile(videoPath))
+            OptionT
+              .fromOption[T](videoIdFromVideoFile(videoPath))
               .flatMapF(videoId => schedulingDao.getById(videoId).map(_.as((): Unit)))
           }
           .orElse {
@@ -102,30 +109,25 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
               }
           }
           .value
-      }
-        .flatMap {
+      }.flatMap {
           case None =>
             transaction(fileSyncDao.insert(FileSync(startTimestamp, videoPath, None)))
-              .flatMap {
-                count =>
-                  if (count == 1)
-                    addVideo(videoPath)
-                      .productL {
-                        JodaClock[F].timestamp.flatMap {
-                          finishTimestamp => transaction(fileSyncDao.complete(videoPath, finishTimestamp))
-                        }
+              .flatMap { count =>
+                if (count == 1)
+                  addVideo(videoPath)
+                    .productL {
+                      JodaClock[F].timestamp.flatMap { finishTimestamp =>
+                        transaction(fileSyncDao.complete(videoPath, finishTimestamp))
                       }
-                  else Applicative[F].pure(IgnoredFile(videoPath))
+                    } else Applicative[F].pure(IgnoredFile(videoPath))
               }
-              .handleErrorWith {
-                throwable =>
-                  logger.warn(throwable.getMessage).as(IgnoredFile(videoPath))
+              .handleErrorWith { throwable =>
+                logger.warn(throwable.getMessage).as(IgnoredFile(videoPath))
               }
 
           case _ => Applicative[F].pure(ExistingVideo(videoPath))
         }
     }
-
 
   def addVideo(videoPath: String): F[FileSyncResult] =
     videoFromPath(videoPath)
@@ -186,18 +188,35 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
 
     } yield Video(videoMetadata, videoFileResource, FiniteDuration(0, TimeUnit.MILLISECONDS))
 
-  def saveVideo(video: Video): F[Video] =
-    transaction {
-      fileResourceDao
-        .insert(video.videoMetadata.thumbnail)
-        .productR(videoMetadataDao.insert(video.videoMetadata))
-        .productR(fileResourceDao.insert(video.fileResource))
-    }.productR(videoService.insert(video.videoMetadata.id, video.fileResource.id))
+  def saveVideo(video: Video): F[Video] = {
+    JodaClock[F].timestamp
+      .flatMap { timestamp =>
+        transaction {
+          fileResourceDao
+            .insert(video.videoMetadata.thumbnail)
+            .productR(videoMetadataDao.insert(video.videoMetadata))
+            .productR {
+              schedulingDao.insert {
+                ScheduledVideoDownload(
+                  timestamp,
+                  timestamp,
+                  SchedulingStatus.Completed,
+                  video.videoMetadata.size,
+                  video.videoMetadata,
+                  Some(timestamp)
+                )
+              }
+            }
+            .productR(fileResourceDao.insert(video.fileResource))
+        }
+      }
+      .productR(videoService.insert(video.videoMetadata.id, video.fileResource.id))
       .flatTap { video =>
         Bracket[F, Throwable].handleErrorWith(videoEnrichmentService.videoSnapshots(video).as((): Unit)) { _ =>
           Applicative[F].unit
         }
       }
+  }
 
   def videoDuration(videoPath: String): F[FiniteDuration] =
     ioBlocker.blockOn {
