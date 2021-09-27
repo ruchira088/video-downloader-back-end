@@ -38,7 +38,7 @@ object SchedulingRoutes {
       case contextRequest @ POST -> Root as AuthenticatedRequestContext(user, requestId) =>
         for {
           scheduleRequest <- contextRequest.to[SchedulingRequest]
-          scheduledVideoDownload <- apiSchedulingService.schedule(scheduleRequest.url.withoutFragment)
+          scheduledVideoDownload <- apiSchedulingService.schedule(scheduleRequest.url.withoutFragment, user.id)
 
           response <- Ok(scheduledVideoDownload)
         } yield response
