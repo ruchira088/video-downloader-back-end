@@ -64,9 +64,9 @@ object Routes {
     MetricsMiddleware(metricPublisher) {
       GZip {
         cors {
-          ExceptionHandler {
-            NotFoundHandler {
-              RequestContextMiddleware { contextRoutes }
+          RequestContextMiddleware {
+            ExceptionHandler {
+              NotFoundHandler { contextRoutes }
             }
           }
         }

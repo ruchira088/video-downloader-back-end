@@ -20,7 +20,6 @@ object Authenticator {
   type AuthenticatedRequestContextMiddleware[F[_]] =
     Middleware[OptionT[F, *], ContextRequest[F, AuthenticatedRequestContext], Response[F], ContextRequest[F, RequestContext], Response[F]]
 
-
   val CookieName = "authentication"
 
   private def bearerToken[F[_]](request: Request[F]): Option[Secret] =
@@ -69,7 +68,7 @@ object Authenticator {
         .mapF[OptionT[F, *], Response[F]] { optionT =>
           optionT.orElseF(onFailure[F](strict))
       }
-  
+
   private def onFailure[F[+ _]: ApplicativeError[*[_], Throwable]](strict: Boolean): F[None.type] =
     if (strict)
       ApplicativeError[F, Throwable].raiseError(AuthenticationException.MissingAuthenticationToken)
