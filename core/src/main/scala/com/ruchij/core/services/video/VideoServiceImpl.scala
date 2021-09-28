@@ -60,10 +60,11 @@ class VideoServiceImpl[F[_]: Sync, T[_]: MonadError[*[_], Throwable]](
     pageSize: Int,
     sortBy: SortBy,
     order: Order,
-    videoSites: Option[NonEmptyList[VideoSite]]
+    videoSites: Option[NonEmptyList[VideoSite]],
+    maybeUserId: Option[String]
   ): F[Seq[Video]] =
     transaction {
-      videoDao.search(term, durationRange, sizeRange, pageNumber, pageSize, sortBy, order, videoSites)
+      videoDao.search(term, durationRange, sizeRange, pageNumber, pageSize, sortBy, order, videoSites, maybeUserId)
     }
 
   override def fetchVideoSnapshots(videoId: String): F[Seq[Snapshot]] =

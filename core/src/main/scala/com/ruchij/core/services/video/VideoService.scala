@@ -33,7 +33,8 @@ trait VideoService[F[_]] {
     pageSize: Int,
     sortBy: SortBy,
     order: Order,
-    videoSites: Option[NonEmptyList[VideoSite]]
+    videoSites: Option[NonEmptyList[VideoSite]],
+    maybeUserId: Option[String]
   ): F[Seq[Video]]
 
   val summary: F[VideoServiceSummary]

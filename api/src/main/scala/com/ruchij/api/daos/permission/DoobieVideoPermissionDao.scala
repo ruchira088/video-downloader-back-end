@@ -10,14 +10,14 @@ object DoobieVideoPermissionDao extends VideoPermissionDao[ConnectionIO] {
 
   override def insert(videoPermission: VideoPermission): ConnectionIO[Int] =
     sql"""
-      INSERT INTO video_permission(granted_at, video_id, user_id)
+      INSERT INTO permission(created_at, video_id, user_id)
         VALUES(${videoPermission.grantedAt}, ${videoPermission.scheduledVideoDownloadId}, ${videoPermission.userId})
     """
       .update
       .run
 
   override def find(maybeUserId: Option[String], maybeScheduledVideoId: Option[String]): ConnectionIO[Seq[VideoPermission]] =
-    (fr"SELECT granted_at, video_id, user_id FROM video_permission" ++
+    (fr"SELECT created_at, video_id, user_id FROM permission" ++
       whereAndOpt(
         maybeUserId.map(userId => fr"user_id = $userId"),
         maybeScheduledVideoId.map(videoId => fr"video_id = $videoId")

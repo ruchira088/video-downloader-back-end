@@ -2,6 +2,7 @@ package com.ruchij.api.web.routes
 
 import cats.effect.Sync
 import cats.implicits._
+import com.ruchij.api.daos.user.models.Role
 import com.ruchij.api.services.models.Context.AuthenticatedRequestContext
 import com.ruchij.api.web.requests.{VideoMetadataRequest, VideoMetadataUpdateRequest}
 import com.ruchij.api.web.requests.queryparams.SearchQuery
@@ -39,7 +40,8 @@ object VideoRoutes {
             pagingQuery.pageSize,
             pagingQuery.maybeSortBy.getOrElse(SortBy.Date),
             pagingQuery.order,
-            videoSites
+            videoSites,
+            if (user.role == Role.Admin) None else Some(user.id)
           )
 
           response <- Ok(
