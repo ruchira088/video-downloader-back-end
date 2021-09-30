@@ -35,9 +35,9 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
         video_file.size,
         video.watch_time
       FROM video
-      INNER JOIN video_metadata ON video.video_metadata_id = video_metadata.id
-      INNER JOIN file_resource AS thumbnail ON video_metadata.thumbnail_id = thumbnail.id
-      INNER JOIN file_resource AS video_file ON video.file_resource_id = video_file.id
+      JOIN video_metadata ON video.video_metadata_id = video_metadata.id
+      JOIN file_resource AS thumbnail ON video_metadata.thumbnail_id = thumbnail.id
+      JOIN file_resource AS video_file ON video.file_resource_id = video_file.id
     """
 
   override def insert(videoMetadataId: String, videoFileResourceId: String, finiteDuration: FiniteDuration): ConnectionIO[Int] =
@@ -58,7 +58,7 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
     videoSites: Option[NonEmptyList[VideoSite]],
     maybeUserId: Option[String]
   ): ConnectionIO[Seq[Video]] =
-    (SelectQuery ++ (if (maybeUserId.isEmpty) Fragment.empty else fr"LEFT JOIN permission ON video_metadata.id = permission.video_id")
+    (SelectQuery ++ (if (maybeUserId.isEmpty) Fragment.empty else fr"JOIN permission ON video_metadata.id = permission.video_id")
       ++
         whereAndOpt(
           term.map(searchTerm => fr"video_metadata.title ILIKE ${"%" + searchTerm + "%"}"),
