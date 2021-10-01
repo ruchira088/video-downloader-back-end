@@ -4,6 +4,8 @@ import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 import com.ruchij.core.daos.snapshot.models.Snapshot
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
+import doobie.util.fragment.Fragment
+import doobie.util.fragments.whereAndOpt
 
 object DoobieSnapshotDao extends SnapshotDao[ConnectionIO] {
 
@@ -14,20 +16,23 @@ object DoobieSnapshotDao extends SnapshotDao[ConnectionIO] {
     """.update.run
 
   override def findByVideo(videoId: String, maybeUserId: Option[String]): ConnectionIO[Seq[Snapshot]] =
-    sql"""
+    (fr"""
        SELECT video_snapshot.video_id,
               file_resource.id, file_resource.created_at, file_resource.path,
               file_resource.media_type, file_resource.size,
               video_snapshot.video_timestamp
        FROM video_snapshot
        JOIN file_resource ON video_snapshot.file_resource_id = file_resource.id
-       WHERE video_snapshot.video_id = $videoId
-     """
+    """ ++ (if (maybeUserId.isEmpty) Fragment.empty else fr"JOIN permission on video_snapshot.video_id = permission.video_id")
+      ++
+      whereAndOpt(
+        Some(fr"video_snapshot.video_id = $videoId"),
+        maybeUserId.map(userId => fr"permission.user_id = $userId")
+      )
+    )
       .query[Snapshot]
       .to[Seq]
 
   override def deleteByVideo(videoId: String): ConnectionIO[Int] =
-    sql"DELETE FROM video_snapshot WHERE video_id = $videoId"
-      .update
-      .run
+    sql"DELETE FROM video_snapshot WHERE video_id = $videoId".update.run
 }

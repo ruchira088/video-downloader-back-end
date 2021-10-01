@@ -17,13 +17,13 @@ object AssetRoutes {
     import dsl._
 
     ContextRoutes.of[AuthenticatedRequestContext, F] {
-      case GET -> Root / "thumbnail" / id as AuthenticatedRequestContext(user, requestId) =>
+      case GET -> Root / "thumbnail" / "id" / id as AuthenticatedRequestContext(user, requestId) =>
           assetService.thumbnail(id).flatMap(_.asResponse)
 
-      case GET -> Root / "snapshot" / id as AuthenticatedRequestContext(user, requestId) =>
+      case GET -> Root / "snapshot" / "id" / id as AuthenticatedRequestContext(user, requestId) =>
         assetService.snapshot(id, user.nonAdminUserId).flatMap(_.asResponse)
 
-      case authRequest @ GET -> Root / "video" / id as AuthenticatedRequestContext(user, requestId) =>
+      case authRequest @ GET -> Root / "video" / "id" / id as AuthenticatedRequestContext(user, requestId) =>
         for {
           maybeRange <- Applicative[F].pure {
             authRequest.req.headers.get[Range].collect { case Range(_, NonEmptyList(subRange, _)) => subRange }
