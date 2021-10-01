@@ -13,7 +13,7 @@ object DoobieSnapshotDao extends SnapshotDao[ConnectionIO] {
         VALUES (${snapshot.videoId}, ${snapshot.fileResource.id}, ${snapshot.videoTimestamp})
     """.update.run
 
-  override def findByVideo(videoId: String): ConnectionIO[Seq[Snapshot]] =
+  override def findByVideo(videoId: String, maybeUserId: Option[String]): ConnectionIO[Seq[Snapshot]] =
     sql"""
        SELECT video_snapshot.video_id,
               file_resource.id, file_resource.created_at, file_resource.path,

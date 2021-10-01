@@ -2,7 +2,6 @@ package com.ruchij.api.web.routes
 
 import cats.effect.Sync
 import cats.implicits._
-import com.ruchij.api.daos.user.models.Role
 import com.ruchij.api.services.models.Context.AuthenticatedRequestContext
 import com.ruchij.api.web.requests.{VideoMetadataRequest, VideoMetadataUpdateRequest}
 import com.ruchij.api.web.requests.queryparams.SearchQuery
@@ -41,7 +40,7 @@ object VideoRoutes {
             pagingQuery.maybeSortBy.getOrElse(SortBy.Date),
             pagingQuery.order,
             videoSites,
-            if (user.role == Role.Admin) None else Some(user.id)
+            user.nonAdminUserId
           )
 
           response <- Ok(
@@ -76,24 +75,24 @@ object VideoRoutes {
         } yield response
 
       case GET -> Root / "id" / videoId as AuthenticatedRequestContext(user, requestId) =>
-        Ok(videoService.fetchById(videoId))
+        Ok(videoService.fetchById(videoId, user.nonAdminUserId))
 
       case DELETE -> Root / "id" / videoId :? DeleteVideoFileQueryParameter(deleteVideoFile) as AuthenticatedRequestContext(user, requestId) =>
-        Ok(videoService.deleteById(videoId, deleteVideoFile))
+        Ok(videoService.deleteById(videoId, user.nonAdminUserId, deleteVideoFile))
 
       case contextRequest @ PATCH -> Root / "id" / videoId / "metadata" as AuthenticatedRequestContext(user, requestId) =>
         for {
           videoMetadataUpdateRequest <- contextRequest.to[VideoMetadataUpdateRequest]
 
-          updatedVideo <- videoService.update(videoId, videoMetadataUpdateRequest.title, None)
+          updatedVideo <- videoService.update(videoId, videoMetadataUpdateRequest.title, None, user.nonAdminUserId)
 
           response <- Ok(updatedVideo)
         } yield response
 
       case GET -> Root / "id" / videoId / "snapshots" as AuthenticatedRequestContext(user, requestId) =>
         videoService
-          .fetchById(videoId)
-          .productR(videoService.fetchVideoSnapshots(videoId))
+          .fetchById(videoId, user.nonAdminUserId)
+          .productR(videoService.fetchVideoSnapshots(videoId, user.nonAdminUserId))
           .flatMap(snapshots => Ok(IterableResponse(snapshots)))
     }
   }

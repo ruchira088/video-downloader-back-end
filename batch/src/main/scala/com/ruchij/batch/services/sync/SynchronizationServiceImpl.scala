@@ -135,7 +135,7 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
         saveVideo(video).recoverWith {
           case throwable =>
             videoService
-              .deleteById(video.videoMetadata.id, deleteVideoFile = false)
+              .deleteById(video.videoMetadata.id, None, deleteVideoFile = false)
               .productR(ApplicativeError[F, Throwable].raiseError(throwable))
         }
       }

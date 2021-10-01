@@ -38,14 +38,14 @@ class VideoServiceImpl[F[_]: Sync, T[_]: MonadError[*[_], Throwable]](
     logger.debug[F](s"Inserting Video videoMetadataKey=$videoMetadataKey fileResourceKey=$fileResourceKey")
       .productR {
         transaction(videoDao.insert(videoMetadataKey, fileResourceKey, FiniteDuration(0, TimeUnit.MILLISECONDS)))
-          .productR(fetchById(videoMetadataKey))
+          .productR(fetchById(videoMetadataKey, None))
       }
       .productL {
         logger.debug[F](s"Successfully inserted Video videoMetadataKey=$videoMetadataKey fileResourceKey=$fileResourceKey")
       }
 
-  override def fetchById(videoId: String): F[Video] =
-    OptionT(transaction(videoDao.findById(videoId)))
+  override def fetchById(videoId: String, maybeUserId: Option[String]): F[Video] =
+    OptionT(transaction(videoDao.findById(videoId, maybeUserId)))
       .getOrElseF {
         ApplicativeError[F, Throwable].raiseError {
           ResourceNotFoundException(s"Unable to find video with ID: $videoId")
@@ -67,9 +67,9 @@ class VideoServiceImpl[F[_]: Sync, T[_]: MonadError[*[_], Throwable]](
       videoDao.search(term, durationRange, sizeRange, pageNumber, pageSize, sortBy, order, videoSites, maybeUserId)
     }
 
-  override def fetchVideoSnapshots(videoId: String): F[Seq[Snapshot]] =
+  override def fetchVideoSnapshots(videoId: String, maybeUserId: Option[String]): F[Seq[Snapshot]] =
     transaction {
-      snapshotDao.findByVideo(videoId)
+      snapshotDao.findByVideo(videoId, maybeUserId)
     }
 
   override def incrementWatchTime(videoId: String, duration: FiniteDuration): F[FiniteDuration] =
@@ -88,21 +88,21 @@ class VideoServiceImpl[F[_]: Sync, T[_]: MonadError[*[_], Throwable]](
         }
       }
 
-  override def update(videoId: String, maybeTitle: Option[String], maybeSize: Option[Long]): F[Video] =
+  override def update(videoId: String, maybeTitle: Option[String], maybeSize: Option[Long], maybeUserId: Option[String]): F[Video] =
     transaction {
-      OptionT(videoDao.findById(videoId)).semiflatMap { video =>
+      OptionT(videoDao.findById(videoId, maybeUserId)).semiflatMap { video =>
         videoMetadataDao
           .update(videoId, maybeTitle, maybeSize)
           .product(fileResourceDao.update(video.fileResource.id, maybeSize))
       }.value
-    }.productR(fetchById(videoId))
+    }.productR(fetchById(videoId, maybeUserId))
 
-  override def deleteById(videoId: String, deleteVideoFile: Boolean): F[Video] =
-    fetchById(videoId)
+  override def deleteById(videoId: String, maybeUserId: Option[String], deleteVideoFile: Boolean): F[Video] =
+    fetchById(videoId, maybeUserId)
       .flatTap { video =>
         transaction {
           snapshotDao
-            .findByVideo(videoId)
+            .findByVideo(videoId, maybeUserId)
             .productL(snapshotDao.deleteByVideo(videoId))
             .flatTap {
               _.toList.traverse { snapshot =>

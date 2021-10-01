@@ -25,7 +25,7 @@ trait VideoDao[F[_]] {
 
   def incrementWatchTime(videoId: String, finiteDuration: FiniteDuration): F[Option[FiniteDuration]]
 
-  def findById(videoId: String): F[Option[Video]]
+  def findById(videoId: String, maybeUserId: Option[String]): F[Option[Video]]
 
   def findByVideoFileResourceId(fileResourceId: String): F[Option[Video]]
 
