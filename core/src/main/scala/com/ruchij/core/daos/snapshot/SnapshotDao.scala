@@ -7,5 +7,7 @@ trait SnapshotDao[F[_]] {
 
   def findByVideo(videoId: String, maybeUserId: Option[String]): F[Seq[Snapshot]]
 
+  def hasPermission(snapshotFileResourceId: String, userId: String): F[Boolean]
+
   def deleteByVideo(videoId: String): F[Int]
 }

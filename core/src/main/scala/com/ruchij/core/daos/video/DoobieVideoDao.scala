@@ -117,6 +117,16 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
       }
       .value
 
+  override def hasVideoFilePermission(videoFileResourceId: String, userId: String): ConnectionIO[Boolean] =
+    sql"""
+      SELECT COUNT(*) FROM video
+        JOIN permission ON video.video_metadata_id = permission.video_id
+        WHERE video.file_resource_id = $videoFileResourceId AND permission.user_id = $userId
+    """
+      .query[Int]
+      .unique
+      .map(_ == 1)
+
   override val count: ConnectionIO[Int] =
     sql"SELECT COUNT(*) FROM video".query[Int].unique
 

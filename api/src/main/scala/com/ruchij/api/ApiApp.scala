@@ -200,7 +200,8 @@ object ApiApp extends IOApp {
       apiServiceConfiguration.storageConfiguration
     )
 
-    val assetService = new AssetServiceImpl[F, ConnectionIO](DoobieFileResourceDao, repositoryService)
+    val assetService =
+      new AssetServiceImpl[F, ConnectionIO](DoobieFileResourceDao, DoobieSnapshotDao, DoobieVideoDao, repositoryService)
 
     val schedulingService = new ApiSchedulingServiceImpl[F, ConnectionIO](
       videoAnalysisService,

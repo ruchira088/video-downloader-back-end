@@ -31,6 +31,8 @@ trait VideoDao[F[_]] {
 
   def deleteById(videoId: String): F[Option[Video]]
 
+  def hasVideoFilePermission(videoFileResourceId: String, userId: String): F[Boolean]
+
   val count: F[Int]
 
   val duration: F[FiniteDuration]

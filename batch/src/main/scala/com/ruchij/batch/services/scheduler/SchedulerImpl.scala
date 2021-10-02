@@ -255,7 +255,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad, M[_]](
         chunk =>
           httpMetricSubscriber.commit(chunk)
             .productR {
-              logger.debug[F] {
+              logger.trace[F] {
                 s"HttpMetricSubscriber(groupId=batch-scheduler) committed ${chunk.size} messages"
               }
             }
