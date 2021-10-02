@@ -39,7 +39,9 @@ class ApiSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], T
   private val logger = Logger[ApiSchedulingServiceImpl[F, T]]
 
   override def schedule(uri: Uri, userId: String): F[ScheduledVideoDownload] =
-    VideoSite.fromUri(uri).toType[F, Throwable]
+    VideoSite
+      .fromUri(uri)
+      .toType[F, Throwable]
       .flatMap {
         case customVideoSite: CustomVideoSite => customVideoSite.processUri[F](uri)
         case _ => Applicative[F].pure(uri)
@@ -56,15 +58,16 @@ class ApiSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], T
             SortBy.Date,
             Order.Descending,
             None,
+            None,
             None
           )
-        }
-          .map(_.toList)
+        }.map(_.toList)
           .flatMap {
             case Nil => newScheduledVideoDownload(processedUri, userId)
 
             case scheduledVideoDownload :: _ =>
-              existingScheduledVideoDownload(processedUri, scheduledVideoDownload.videoMetadata.id, userId).as(scheduledVideoDownload)
+              existingScheduledVideoDownload(processedUri, scheduledVideoDownload.videoMetadata.id, userId)
+                .as(scheduledVideoDownload)
           }
       }
 
@@ -72,17 +75,17 @@ class ApiSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], T
     for {
       timestamp <- JodaClock[F].timestamp
 
-      _ <-
-        transaction {
-          videoPermissionDao.find(Some(userId), Some(videoId))
-            .flatMap {
-              permissions =>
-                if (permissions.isEmpty) videoPermissionDao.insert(VideoPermission(timestamp, videoId, userId)).one
-                else ApplicativeError[T, Throwable].raiseError[Unit](ResourceConflictException(s"$uri has already been scheduled"))
-            }
-        }
-    }
-    yield (): Unit
+      _ <- transaction {
+        videoPermissionDao
+          .find(Some(userId), Some(videoId))
+          .flatMap { permissions =>
+            if (permissions.isEmpty) videoPermissionDao.insert(VideoPermission(timestamp, videoId, userId)).one
+            else
+              ApplicativeError[T, Throwable]
+                .raiseError[Unit](ResourceConflictException(s"$uri has already been scheduled"))
+          }
+      }
+    } yield (): Unit
 
   private def newScheduledVideoDownload(uri: Uri, userId: String): F[ScheduledVideoDownload] =
     for {
@@ -98,11 +101,14 @@ class ApiSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], T
         None
       )
 
-      _ <-
-        transaction {
-          schedulingDao.insert(scheduledVideoDownload).one
-            .product(videoPermissionDao.insert(VideoPermission(timestamp, scheduledVideoDownload.videoMetadata.id, userId)))
-        }
+      _ <- transaction {
+        schedulingDao
+          .insert(scheduledVideoDownload)
+          .one
+          .product(
+            videoPermissionDao.insert(VideoPermission(timestamp, scheduledVideoDownload.videoMetadata.id, userId))
+          )
+      }
       _ <- logger.info(s"Scheduled to download video at $uri")
 
       _ <- scheduledVideoDownloadPublisher.publishOne(scheduledVideoDownload)
@@ -118,14 +124,27 @@ class ApiSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], T
     sortBy: SortBy,
     order: Order,
     schedulingStatuses: Option[NonEmptyList[SchedulingStatus]],
-    videoSites: Option[NonEmptyList[VideoSite]]
+    videoSites: Option[NonEmptyList[VideoSite]],
+    maybeUserId: Option[String]
   ): F[Seq[ScheduledVideoDownload]] =
     if (sortBy == SortBy.WatchTime)
       ApplicativeError[F, Throwable].raiseError {
         new IllegalArgumentException("Searching for scheduled videos by watch_time is not valid")
       } else
       transaction(
-        schedulingDao.search(term, videoUrls, durationRange, sizeRange, pageNumber, pageSize, sortBy, order, schedulingStatuses, videoSites)
+        schedulingDao.search(
+          term,
+          videoUrls,
+          durationRange,
+          sizeRange,
+          pageNumber,
+          pageSize,
+          sortBy,
+          order,
+          schedulingStatuses,
+          videoSites,
+          maybeUserId
+        )
       )
 
   override def updateSchedulingStatus(id: String, status: SchedulingStatus): F[ScheduledVideoDownload] =
@@ -135,8 +154,7 @@ class ApiSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], T
           scheduledVideoDownload <- OptionT(schedulingDao.getById(id))
           _ <- OptionT.liftF(scheduledVideoDownload.status.validateTransition(status).toType[T, Throwable])
           updated <- OptionT(schedulingDao.updateSchedulingStatusById(id, status, timestamp))
-        }
-        yield updated
+        } yield updated
       }
       .flatMap { maybeUpdatedT =>
         OptionT(transaction(maybeUpdatedT.value))
@@ -151,13 +169,16 @@ class ApiSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], T
       }
 
   override def updateWorkerStatus(workerStatus: WorkerStatus): F[Unit] =
-    configurationService.put(ApiConfigKey.WorkerStatus, workerStatus)
+    configurationService
+      .put(ApiConfigKey.WorkerStatus, workerStatus)
       .productR {
         workerStatusPublisher.publishOne(WorkerStatusUpdate(workerStatus))
       }
 
   override val getWorkerStatus: F[WorkerStatus] =
-    configurationService.get[WorkerStatus, ApiConfigKey](ApiConfigKey.WorkerStatus).map(_.getOrElse(WorkerStatus.Available))
+    configurationService
+      .get[WorkerStatus, ApiConfigKey](ApiConfigKey.WorkerStatus)
+      .map(_.getOrElse(WorkerStatus.Available))
 
   override def updateDownloadProgress(id: String, downloadedBytes: Long): F[ScheduledVideoDownload] =
     for {

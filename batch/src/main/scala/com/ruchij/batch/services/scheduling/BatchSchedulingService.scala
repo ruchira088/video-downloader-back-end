@@ -9,12 +9,6 @@ import scala.concurrent.duration.FiniteDuration
 
 trait BatchSchedulingService[F[_]] {
 
-  def findBySchedulingStatus(
-    schedulingStatus: SchedulingStatus,
-    pageNumber: Int,
-    pageSize: Int
-  ): F[Seq[ScheduledVideoDownload]]
-
   val acquireTask: OptionT[F, ScheduledVideoDownload]
 
   val staleTask: OptionT[F, ScheduledVideoDownload]

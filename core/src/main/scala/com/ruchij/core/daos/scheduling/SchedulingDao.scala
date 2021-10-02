@@ -39,7 +39,8 @@ trait SchedulingDao[F[_]] {
     sortBy: SortBy,
     order: Order,
     schedulingStatuses: Option[NonEmptyList[SchedulingStatus]],
-    videoSites: Option[NonEmptyList[VideoSite]]
+    videoSites: Option[NonEmptyList[VideoSite]],
+    maybeUserId: Option[String]
   ): F[Seq[ScheduledVideoDownload]]
 
   def staleTask(timestamp: DateTime): F[Option[ScheduledVideoDownload]]

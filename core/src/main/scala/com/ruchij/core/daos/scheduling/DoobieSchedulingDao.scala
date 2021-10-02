@@ -130,9 +130,10 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
     sortBy: SortBy,
     order: Order,
     schedulingStatuses: Option[NonEmptyList[SchedulingStatus]],
-    videoSites: Option[NonEmptyList[VideoSite]]
+    videoSites: Option[NonEmptyList[VideoSite]],
+    maybeUserId: Option[String]
   ): ConnectionIO[Seq[ScheduledVideoDownload]] =
-    (SelectQuery
+    (SelectQuery ++ (if (maybeUserId.isEmpty) Fragment.empty else fr"JOIN permission ON scheduled_video.video_metadata_id = permission.video_id")
       ++
         whereAndOpt(
           term.map(searchTerm => fr"video_metadata.title ILIKE ${"%" + searchTerm + "%"}"),
@@ -142,7 +143,8 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
           durationRange.min.map(minDuration => fr"video_metadata.duration >= $minDuration"),
           sizeRange.max.map(maxSize => fr"video_metadata.size <= $maxSize"),
           sizeRange.min.map(minSize => fr"video_metadata.size >= $minSize"),
-          videoSites.map(sites => in(fr"video_metadata.video_site", sites))
+          videoSites.map(sites => in(fr"video_metadata.video_site", sites)),
+          maybeUserId.map(userId => fr"permission.user_id = $userId")
         )
       ++ fr"ORDER BY"
       ++ schedulingSortByFiledName(sortBy)
@@ -150,7 +152,6 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       ++ fr"LIMIT $pageSize OFFSET ${pageNumber * pageSize}")
       .query[ScheduledVideoDownload]
       .to[Seq]
-
 
   override def staleTask(timestamp: DateTime): ConnectionIO[Option[ScheduledVideoDownload]] =
     sql"""

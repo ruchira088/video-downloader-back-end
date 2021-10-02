@@ -59,7 +59,8 @@ object SchedulingRoutes {
             pagingQuery.maybeSortBy.getOrElse(SortBy.Date),
             pagingQuery.order,
             statuses,
-            videoSites
+            videoSites,
+            user.nonAdminUserId
           )
 
           response <- Ok {
