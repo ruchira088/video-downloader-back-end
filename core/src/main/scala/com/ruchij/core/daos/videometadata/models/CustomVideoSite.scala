@@ -8,7 +8,7 @@ import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherToF}
 import com.ruchij.core.utils.JsoupSelector
 import com.ruchij.core.utils.MatcherUtils.IntNumber
 import enumeratum.{Enum, EnumEntry}
-import org.http4s.Uri
+import org.http4s.{Query, Uri}
 import org.jsoup.nodes.Document
 
 import java.util.concurrent.TimeUnit
@@ -27,6 +27,8 @@ sealed trait CustomVideoSite extends VideoSite with EnumEntry { self =>
   def duration[F[_]: MonadError[*[_], Throwable]]: Selector[F, FiniteDuration]
 
   def downloadUri[F[_]: MonadError[*[_], Throwable]]: Selector[F, Uri]
+
+  def processUri[F[_]: MonadError[*[_],Throwable]](uri: Uri): F[Uri] = Applicative[F].pure(uri)
 
   def test(uri: Uri): Boolean = uri.host.exists(_.value.toLowerCase.contains(hostname.toLowerCase))
 }
@@ -85,6 +87,9 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
         .flatMapF {
           case NonEmptyList(element, _) => JsoupSelector.src[F](element)
         }
+
+    override def processUri[F[_] : MonadError[*[_], Throwable]](uri: Uri): F[Uri] =
+      Applicative[F].pure(uri.copy(query = Query.empty))
   }
 
   case object SpankBang extends CustomVideoSite {

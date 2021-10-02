@@ -50,10 +50,10 @@ class VideoAnalysisServiceImpl[F[_]: Sync: Clock, T[_]: Monad](
 
   def createMetadata(uri: Uri): F[VideoMetadata] =
     for {
-      videoAnalysisResult @ VideoAnalysisResult(_, videoSite, title, duration, size, thumbnailUri) <- analyze(uri)
-      _ <- logger.info[F](s"Uri=${uri.renderString} Result=$videoAnalysisResult")
+      videoAnalysisResult @ VideoAnalysisResult(processedUri, videoSite, title, duration, size, thumbnailUri) <- analyze(uri)
+      _ <- logger.info[F](s"Uri=${processedUri.renderString} Result=$videoAnalysisResult")
 
-      videoId <- hashingService.hash(uri.renderString).map(hash => s"${videoSite.name.toLowerCase}-$hash")
+      videoId <- hashingService.hash(processedUri.renderString).map(hash => s"${videoSite.name.toLowerCase}-$hash")
 
       timestamp <- JodaClock[F].timestamp
 
@@ -76,7 +76,7 @@ class VideoAnalysisServiceImpl[F[_]: Sync: Clock, T[_]: Monad](
             }
         }
 
-      videoMetadata = VideoMetadata(uri, videoId, videoSite, title, duration, size, thumbnail)
+      videoMetadata = VideoMetadata(processedUri, videoId, videoSite, title, duration, size, thumbnail)
 
       _ <- transaction {
         fileResourceDao
@@ -90,8 +90,9 @@ class VideoAnalysisServiceImpl[F[_]: Sync: Clock, T[_]: Monad](
       .flatMap {
         case customVideoSite: CustomVideoSite =>
           for {
-            document <- uriInfoForCustomVideoSite(uri)
-            videoAnalysisResult <- analyze(uri, customVideoSite).run(document)
+            processedUri <- customVideoSite.processUri[F](uri)
+            document <- uriInfoForCustomVideoSite(processedUri)
+            videoAnalysisResult <- analyze(processedUri, customVideoSite).run(document)
           }
           yield videoAnalysisResult
 
