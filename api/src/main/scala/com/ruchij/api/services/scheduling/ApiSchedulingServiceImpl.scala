@@ -3,7 +3,7 @@ package com.ruchij.api.services.scheduling
 import cats.data.{NonEmptyList, OptionT}
 import cats.effect.{Concurrent, Timer}
 import cats.implicits._
-import cats.{ApplicativeError, MonadError, ~>}
+import cats.{Applicative, ApplicativeError, MonadError, ~>}
 import com.ruchij.api.daos.permission.VideoPermissionDao
 import com.ruchij.api.daos.permission.models.VideoPermission
 import com.ruchij.api.exceptions.ResourceConflictException
@@ -12,7 +12,7 @@ import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.SchedulingDao.notFound
 import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownload, SchedulingStatus}
-import com.ruchij.core.daos.videometadata.models.VideoSite
+import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoSite}
 import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Publisher
@@ -39,26 +39,33 @@ class ApiSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], T
   private val logger = Logger[ApiSchedulingServiceImpl[F, T]]
 
   override def schedule(uri: Uri, userId: String): F[ScheduledVideoDownload] =
-    transaction {
-      schedulingDao.search(
-        None,
-        Some(NonEmptyList.of(uri)),
-        RangeValue.all[FiniteDuration],
-        RangeValue.all[Long],
-        0,
-        1,
-        SortBy.Date,
-        Order.Descending,
-        None,
-        None
-      )
-    }
-      .map(_.toList)
+    VideoSite.fromUri(uri).toType[F, Throwable]
       .flatMap {
-        case Nil => newScheduledVideoDownload(uri, userId)
+        case customVideoSite: CustomVideoSite => customVideoSite.processUri[F](uri)
+        case _ => Applicative[F].pure(uri)
+      }
+      .flatMap { processedUri =>
+        transaction {
+          schedulingDao.search(
+            None,
+            Some(NonEmptyList.of(processedUri)),
+            RangeValue.all[FiniteDuration],
+            RangeValue.all[Long],
+            0,
+            1,
+            SortBy.Date,
+            Order.Descending,
+            None,
+            None
+          )
+        }
+          .map(_.toList)
+          .flatMap {
+            case Nil => newScheduledVideoDownload(processedUri, userId)
 
-        case scheduledVideoDownload :: _ =>
-            existingScheduledVideoDownload(uri, scheduledVideoDownload.videoMetadata.id, userId).as(scheduledVideoDownload)
+            case scheduledVideoDownload :: _ =>
+              existingScheduledVideoDownload(processedUri, scheduledVideoDownload.videoMetadata.id, userId).as(scheduledVideoDownload)
+          }
       }
 
   private def existingScheduledVideoDownload(uri: Uri, videoId: String, userId: String): F[Unit] =
