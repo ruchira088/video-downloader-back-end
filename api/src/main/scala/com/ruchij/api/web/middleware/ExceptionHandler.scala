@@ -8,20 +8,20 @@ import cats.implicits._
 import com.ruchij.api.exceptions.{AuthenticationException, ResourceConflictException}
 import com.ruchij.api.web.responses.ErrorResponse
 import com.ruchij.core.circe.Encoders.throwableEncoder
-import com.ruchij.core.exceptions.{AggregatedException, ExternalServiceException, JSoupException, ResourceNotFoundException, ValidationException}
+import com.ruchij.core.exceptions.{AggregatedException, ExternalServiceException, JSoupException, ResourceNotFoundException, UnsupportedVideoUrlException, ValidationException}
 import com.ruchij.core.logging.Logger
 import io.circe.DecodingFailure
 import io.circe.generic.auto.exportEncoder
 import org.http4s.dsl.impl.EntityResponseGenerator
 import org.http4s.circe.CirceEntityEncoder.circeEntityEncoder
-import org.http4s.{HttpApp, MessageFailure, Request, Response, Status}
+import org.http4s.{ContextRequest, MessageFailure, Response, Status}
 
 object ExceptionHandler {
   private val logger = Logger[ExceptionHandler.type]
 
-  def apply[F[_]: Sync](httpApp: HttpApp[F]): HttpApp[F] =
-    Kleisli[F, Request[F], Response[F]] { request =>
-      Sync[F].handleErrorWith(httpApp.run(request)) { throwable =>
+  def apply[F[_]: Sync, A](contextHttpApp: Kleisli[F, ContextRequest[F, A], Response[F]]): Kleisli[F, ContextRequest[F, A], Response[F]] =
+    Kleisli[F, ContextRequest[F, A], Response[F]] { contextRequest =>
+      Sync[F].handleErrorWith(contextHttpApp.run(contextRequest)) { throwable =>
         entityResponseGenerator[F](throwable)(throwableResponseBody(throwable))
           .map(errorResponseMapper(throwable))
           .flatMap(logErrors[F](throwable))
@@ -38,7 +38,7 @@ object ExceptionHandler {
 
     case _: AuthenticationException => Status.Unauthorized
 
-    case _: DecodingFailure | _: IllegalArgumentException | _: MessageFailure | _: ValidationException =>
+    case _: DecodingFailure | _: IllegalArgumentException | _: MessageFailure | _: ValidationException | _: UnsupportedVideoUrlException =>
       Status.BadRequest
 
     case _: JSoupException | _: ExternalServiceException => Status.BadGateway

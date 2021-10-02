@@ -203,7 +203,7 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
                           .productR(videoService.insert(scheduledVideoDownload.videoMetadata.id, fileResource.id))
                           .productL {
                             if (fileSize > scheduledVideoDownload.videoMetadata.size) {
-                              videoService.update(scheduledVideoDownload.videoMetadata.id, None, Some(fileSize))
+                              videoService.update(scheduledVideoDownload.videoMetadata.id, None, Some(fileSize), None)
                             } else Applicative[F].unit
                           }
                           .flatTap { video =>

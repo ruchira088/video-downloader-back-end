@@ -86,7 +86,7 @@ class DoobiePlaylistDao(fileResourceDao: FileResourceDao[ConnectionIO], videoDao
             .to[List]
             .flatMap { videoIds =>
               videoIds
-                .traverse { videoId => videoDao.findById(videoId) }
+                .traverse { videoId => videoDao.findById(videoId, None) }
                 .map { videos => videos.collect { case Some(video) => video }}
             }
         }

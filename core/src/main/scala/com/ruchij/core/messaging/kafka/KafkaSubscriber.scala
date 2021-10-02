@@ -29,7 +29,7 @@ class KafkaSubscriber[F[_]: ConcurrentEffect: ContextShift: Timer, A](kafkaConfi
       .evalTap(_.subscribeTo(topic.name))
       .flatMap {
         _.stream.evalMap { committableConsumerRecord =>
-          logger.debug[F](s"Received: topic=${committableConsumerRecord.record.topic}, consumerGroupId=${committableConsumerRecord.offset.consumerGroupId}, value=${committableConsumerRecord.record.value}")
+          logger.trace[F](s"Received: topic=${committableConsumerRecord.record.topic}, consumerGroupId=${committableConsumerRecord.offset.consumerGroupId}, value=${committableConsumerRecord.record.value}")
             .as {
               CommittableRecord(committableConsumerRecord.record.value, committableConsumerRecord)
             }

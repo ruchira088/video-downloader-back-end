@@ -19,16 +19,19 @@ trait VideoDao[F[_]] {
     pageSize: Int,
     sortBy: SortBy,
     order: Order,
-    videoSites: Option[NonEmptyList[VideoSite]]
+    videoSites: Option[NonEmptyList[VideoSite]],
+    maybeUserId: Option[String]
   ): F[Seq[Video]]
 
   def incrementWatchTime(videoId: String, finiteDuration: FiniteDuration): F[Option[FiniteDuration]]
 
-  def findById(videoId: String): F[Option[Video]]
+  def findById(videoId: String, maybeUserId: Option[String]): F[Option[Video]]
 
   def findByVideoFileResourceId(fileResourceId: String): F[Option[Video]]
 
   def deleteById(videoId: String): F[Option[Video]]
+
+  def hasVideoFilePermission(videoFileResourceId: String, userId: String): F[Boolean]
 
   val count: F[Int]
 

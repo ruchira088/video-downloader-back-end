@@ -10,7 +10,7 @@ import org.http4s.Uri
 import scala.concurrent.duration.FiniteDuration
 
 trait ApiSchedulingService[F[_]] {
-  def schedule(uri: Uri): F[ScheduledVideoDownload]
+  def schedule(uri: Uri, userId: String): F[ScheduledVideoDownload]
 
   def search(
     term: Option[String],

@@ -13,17 +13,17 @@ import scala.concurrent.duration.FiniteDuration
 trait VideoService[F[_]] {
   def insert(videoMetadataKey: String, fileResourceKey: String): F[Video]
 
-  def fetchById(videoId: String): F[Video]
+  def fetchById(videoId: String, maybeUserId: Option[String]): F[Video]
 
-  def fetchVideoSnapshots(videoId: String): F[Seq[Snapshot]]
+  def fetchVideoSnapshots(videoId: String, maybeUserId: Option[String]): F[Seq[Snapshot]]
 
   def fetchByVideoFileResourceId(videoFileResourceId: String): F[Video]
 
   def incrementWatchTime(videoId: String, duration: FiniteDuration): F[FiniteDuration]
 
-  def update(videoId: String, maybeTitle: Option[String], maybeSize: Option[Long]): F[Video]
+  def update(videoId: String, maybeTitle: Option[String], maybeSize: Option[Long], maybeUserId: Option[String]): F[Video]
 
-  def deleteById(videoId: String, deleteVideoFile: Boolean): F[Video]
+  def deleteById(videoId: String, maybeUserId: Option[String], deleteVideoFile: Boolean): F[Video]
 
   def search(
     term: Option[String],
@@ -33,7 +33,8 @@ trait VideoService[F[_]] {
     pageSize: Int,
     sortBy: SortBy,
     order: Order,
-    videoSites: Option[NonEmptyList[VideoSite]]
+    videoSites: Option[NonEmptyList[VideoSite]],
+    maybeUserId: Option[String]
   ): F[Seq[Video]]
 
   val summary: F[VideoServiceSummary]

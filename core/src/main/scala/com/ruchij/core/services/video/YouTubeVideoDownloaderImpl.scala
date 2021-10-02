@@ -1,16 +1,18 @@
 package com.ruchij.core.services.video
 
+import cats.ApplicativeError
 import cats.data.{Kleisli, OptionT}
 import cats.effect.{Async, Bracket, Sync}
 import cats.implicits._
 import com.ruchij.core.daos.videometadata.models.VideoSite
+import com.ruchij.core.exceptions.UnsupportedVideoUrlException
 import com.ruchij.core.services.cli.CliCommandRunner
 import com.ruchij.core.services.video.models.{VideoAnalysisResult, YTDataSize, YTDataUnit, YTDownloaderMetadata, YTDownloaderProgress}
 import com.ruchij.core.types.FunctionKTypes._
 import com.ruchij.core.services.video.models.YTDataSize.ytDataSizeOrdering
 import com.ruchij.core.utils.JsoupSelector
 import fs2.Stream
-import io.circe.{parser => JsonParser}
+import io.circe.{Error, parser => JsonParser}
 import io.circe.generic.auto._
 import org.http4s.Uri
 import org.http4s.circe.decodeUri
@@ -30,7 +32,12 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
       .run(s"""youtube-dl "${uri.renderString}" -j""")
       .compile
       .string
-      .flatMap(output => JsonParser.decode[YTDownloaderMetadata](output).toType[F, Throwable])
+      .flatMap {
+        output =>
+          Bracket[F, Throwable].recoverWith(JsonParser.decode[YTDownloaderMetadata](output).toType[F, Throwable]) {
+            case _: Error => ApplicativeError[F, Throwable].raiseError(UnsupportedVideoUrlException(uri))
+          }
+      }
       .flatMap { metadata =>
         VideoSite.fromUri(uri).toType[F, Throwable]
           .product {

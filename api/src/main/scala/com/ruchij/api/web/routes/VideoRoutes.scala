@@ -2,10 +2,10 @@ package com.ruchij.api.web.routes
 
 import cats.effect.Sync
 import cats.implicits._
-import com.ruchij.api.daos.user.models.User
+import com.ruchij.api.services.models.Context.AuthenticatedRequestContext
 import com.ruchij.api.web.requests.{VideoMetadataRequest, VideoMetadataUpdateRequest}
 import com.ruchij.api.web.requests.queryparams.SearchQuery
-import com.ruchij.api.web.requests.RequestOps.AuthRequestOpsSyntax
+import com.ruchij.api.web.requests.RequestOps.ContextRequestOpsSyntax
 import com.ruchij.api.web.requests.queryparams.SingleValueQueryParameter.DeleteVideoFileQueryParameter
 import com.ruchij.core.services.video.{VideoAnalysisService, VideoService}
 import com.ruchij.core.circe.Encoders._
@@ -13,7 +13,7 @@ import com.ruchij.api.web.responses.{IterableResponse, SearchResult}
 import com.ruchij.core.services.models.SortBy
 import com.ruchij.core.services.video.VideoAnalysisService.{Existing, NewlyCreated}
 import io.circe.generic.auto._
-import org.http4s.AuthedRoutes
+import org.http4s.ContextRoutes
 import org.http4s.circe.CirceEntityCodec.{circeEntityDecoder, circeEntityEncoder}
 import org.http4s.circe.{decodeUri, encodeUri}
 import org.http4s.dsl.Http4sDsl
@@ -21,26 +21,50 @@ import org.http4s.dsl.Http4sDsl
 object VideoRoutes {
   def apply[F[_]: Sync](videoService: VideoService[F], videoAnalysisService: VideoAnalysisService[F])(
     implicit dsl: Http4sDsl[F]
-  ): AuthedRoutes[User, F] = {
+  ): ContextRoutes[AuthenticatedRequestContext, F] = {
     import dsl._
 
-    AuthedRoutes.of[User, F] {
-      case GET -> Root / "search" :? queryParameters as user =>
+    ContextRoutes.of[AuthenticatedRequestContext, F] {
+      case GET -> Root / "search" :? queryParameters as AuthenticatedRequestContext(user, requestId) =>
         for {
-          SearchQuery(term, _, durationRange, sizeRange,  _, videoSites, pagingQuery) <-
-            SearchQuery.fromQueryParameters[F].run(queryParameters)
+          SearchQuery(term, _, durationRange, sizeRange, _, videoSites, pagingQuery) <- SearchQuery
+            .fromQueryParameters[F]
+            .run(queryParameters)
 
-          videos <- videoService.search(term, durationRange, sizeRange, pagingQuery.pageNumber, pagingQuery.pageSize, pagingQuery.maybeSortBy.getOrElse(SortBy.Date), pagingQuery.order, videoSites)
+          videos <- videoService.search(
+            term,
+            durationRange,
+            sizeRange,
+            pagingQuery.pageNumber,
+            pagingQuery.pageSize,
+            pagingQuery.maybeSortBy.getOrElse(SortBy.Date),
+            pagingQuery.order,
+            videoSites,
+            user.nonAdminUserId
+          )
 
-          response <- Ok(SearchResult(videos, pagingQuery.pageNumber, pagingQuery.pageSize, term, None, None, durationRange, sizeRange, pagingQuery.maybeSortBy, pagingQuery.order))
+          response <- Ok(
+            SearchResult(
+              videos,
+              pagingQuery.pageNumber,
+              pagingQuery.pageSize,
+              term,
+              None,
+              None,
+              durationRange,
+              sizeRange,
+              pagingQuery.maybeSortBy,
+              pagingQuery.order
+            )
+          )
         } yield response
 
-      case GET -> Root / "summary" as user =>
+      case GET -> Root / "summary" as AuthenticatedRequestContext(user, requestId) =>
         videoService.summary.flatMap(videoServiceSummary => Ok(videoServiceSummary))
 
-      case authRequest @ POST -> Root / "metadata" as user =>
+      case contextRequest @ POST -> Root / "metadata" as AuthenticatedRequestContext(user, requestId) =>
         for {
-          videoMetadataRequest <- authRequest.to[VideoMetadataRequest]
+          videoMetadataRequest <- contextRequest.to[VideoMetadataRequest]
 
           result <- videoAnalysisService.metadata(videoMetadataRequest.url.withoutFragment)
 
@@ -50,25 +74,25 @@ object VideoRoutes {
           }
         } yield response
 
-      case GET -> Root / "id" / videoId as user => Ok(videoService.fetchById(videoId))
+      case GET -> Root / "id" / videoId as AuthenticatedRequestContext(user, requestId) =>
+        Ok(videoService.fetchById(videoId, user.nonAdminUserId))
 
-      case DELETE -> Root / "id" / videoId :? DeleteVideoFileQueryParameter(deleteVideoFile) as user =>
-        Ok(videoService.deleteById(videoId, deleteVideoFile))
+      case DELETE -> Root / "id" / videoId :? DeleteVideoFileQueryParameter(deleteVideoFile) as AuthenticatedRequestContext(user, requestId) =>
+        Ok(videoService.deleteById(videoId, user.nonAdminUserId, deleteVideoFile))
 
-      case authRequest @ PATCH -> Root / "id" / videoId / "metadata" as user =>
+      case contextRequest @ PATCH -> Root / "id" / videoId / "metadata" as AuthenticatedRequestContext(user, requestId) =>
         for {
-          videoMetadataUpdateRequest <- authRequest.to[VideoMetadataUpdateRequest]
+          videoMetadataUpdateRequest <- contextRequest.to[VideoMetadataUpdateRequest]
 
-          updatedVideo <- videoService.update(videoId, videoMetadataUpdateRequest.title, None)
+          updatedVideo <- videoService.update(videoId, videoMetadataUpdateRequest.title, None, user.nonAdminUserId)
 
           response <- Ok(updatedVideo)
-        }
-        yield response
+        } yield response
 
-      case GET -> Root / "id" / videoId / "snapshots" as user =>
+      case GET -> Root / "id" / videoId / "snapshots" as AuthenticatedRequestContext(user, requestId) =>
         videoService
-          .fetchById(videoId)
-          .productR(videoService.fetchVideoSnapshots(videoId))
+          .fetchById(videoId, user.nonAdminUserId)
+          .productR(videoService.fetchVideoSnapshots(videoId, user.nonAdminUserId))
           .flatMap(snapshots => Ok(IterableResponse(snapshots)))
     }
   }

@@ -1,8 +1,15 @@
 package com.ruchij.api.services.scheduling
 
-import cats.effect.{IO, Resource, Timer}
+import cats.effect.{Blocker, IO, Resource, Timer}
+import com.ruchij.api.daos.credentials.DoobieCredentialsDao
+import com.ruchij.api.daos.permission.DoobieVideoPermissionDao
+import com.ruchij.api.daos.user.DoobieUserDao
+import com.ruchij.api.daos.user.models.Email
+import com.ruchij.api.services.authentication.AuthenticationService.Password
 import com.ruchij.api.services.config.models.ApiConfigKey
 import com.ruchij.api.services.config.models.ApiConfigKey.ApiConfigKeySpace
+import com.ruchij.api.services.hashing.BCryptPasswordHashingService
+import com.ruchij.api.services.user.UserServiceImpl
 import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
@@ -17,7 +24,7 @@ import com.ruchij.core.services.config.ConfigurationServiceImpl
 import com.ruchij.core.services.download.Http4sDownloadService
 import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.repository.InMemoryRepositoryService
-import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
+import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, YouTubeVideoDownloader}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.Providers
@@ -149,7 +156,17 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
             None
           )
 
-          downloadProgressPubSub <- Fs2PubSub[IO, DownloadProgress]
+          passwordHashingService = new BCryptPasswordHashingService[IO](
+            Blocker.liftExecutionContext(ExecutionContext.global)
+          )
+          userService = new UserServiceImpl[IO, ConnectionIO](
+            passwordHashingService,
+            DoobieUserDao,
+            DoobieCredentialsDao
+          )
+
+          user <- userService.create("Ruchira", "Jayasekara", Email("admin@ruchij.com"), Password("Password"))
+
           scheduledVideoDownloadUpdatesPubSub <- Fs2PubSub[IO, ScheduledVideoDownload]
           workerStatusUpdatesPubSub <- Fs2PubSub[IO, WorkerStatusUpdate]
 
@@ -158,10 +175,11 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
             scheduledVideoDownloadUpdatesPubSub,
             workerStatusUpdatesPubSub,
             configurationService,
-            DoobieSchedulingDao
+            DoobieSchedulingDao,
+            DoobieVideoPermissionDao
           )
 
-          scheduledVideoDownload <- apiSchedulingService.schedule(videoUrl)
+          scheduledVideoDownload <- apiSchedulingService.schedule(videoUrl, user.id)
           _ <- IO.delay { scheduledVideoDownload mustBe expectedScheduledDownloadVideo }
 
           receivedMessages <- scheduledVideoDownloadUpdatesPubSub

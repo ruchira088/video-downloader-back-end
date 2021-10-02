@@ -5,6 +5,7 @@ import cats.implicits._
 import cats.~>
 import com.ruchij.api.config.ApiServiceConfiguration
 import com.ruchij.api.daos.credentials.DoobieCredentialsDao
+import com.ruchij.api.daos.permission.DoobieVideoPermissionDao
 import com.ruchij.api.daos.playlist.DoobiePlaylistDao
 import com.ruchij.api.daos.user.DoobieUserDao
 import com.ruchij.api.models.ApiMessageBrokers
@@ -199,14 +200,16 @@ object ApiApp extends IOApp {
       apiServiceConfiguration.storageConfiguration
     )
 
-    val assetService = new AssetServiceImpl[F, ConnectionIO](DoobieFileResourceDao, repositoryService)
+    val assetService =
+      new AssetServiceImpl[F, ConnectionIO](DoobieFileResourceDao, DoobieSnapshotDao, DoobieVideoDao, repositoryService)
 
     val schedulingService = new ApiSchedulingServiceImpl[F, ConnectionIO](
       videoAnalysisService,
       messageBrokers.scheduledVideoDownloadPublisher,
       messageBrokers.workerStatusUpdatesPublisher,
       configurationService,
-      DoobieSchedulingDao
+      DoobieSchedulingDao,
+      DoobieVideoPermissionDao
     )
 
     val userService = new UserServiceImpl[F, ConnectionIO](passwordHashingService, DoobieUserDao, DoobieCredentialsDao)

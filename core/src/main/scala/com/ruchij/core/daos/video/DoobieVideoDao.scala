@@ -55,9 +55,10 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
     pageSize: Int,
     sortBy: SortBy,
     order: Order,
-    videoSites: Option[NonEmptyList[VideoSite]]
+    videoSites: Option[NonEmptyList[VideoSite]],
+    maybeUserId: Option[String]
   ): ConnectionIO[Seq[Video]] =
-    (SelectQuery
+    (SelectQuery ++ permissionJoin(maybeUserId)
       ++
         whereAndOpt(
           term.map(searchTerm => fr"video_metadata.title ILIKE ${"%" + searchTerm + "%"}"),
@@ -65,7 +66,8 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
           durationRange.max.map(maximum => fr"video_metadata.duration <= $maximum"),
           sizeRange.min.map(minimum => fr"video_metadata.size >= $minimum"),
           sizeRange.max.map(maximum => fr"video_metadata.size <= $maximum"),
-          videoSites.map(sites => in(fr"video_metadata.video_site", sites))
+          videoSites.map(sites => in(fr"video_metadata.video_site", sites)),
+          maybeUserId.map(userId => fr"permission.user_id = $userId")
         )
       ++ fr"ORDER BY"
       ++ videoSortByFieldName(sortBy)
@@ -74,8 +76,15 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
       .query[Video]
       .to[Seq]
 
-  override def findById(id: String): ConnectionIO[Option[Video]] =
-    (SelectQuery ++ fr"WHERE video_metadata_id = $id").query[Video].option
+  override def findById(id: String, maybeUserId: Option[String]): ConnectionIO[Option[Video]] =
+    (SelectQuery ++ permissionJoin(maybeUserId) ++
+      whereAndOpt(Some(fr"video_metadata_id = $id"), maybeUserId.map(userId => fr"permission.user_id = $userId"))
+      )
+      .query[Video]
+      .option
+
+  private def permissionJoin(maybeUserId: Option[String]): Fragment =
+    if (maybeUserId.isEmpty) Fragment.empty else fr"JOIN permission ON video_metadata.id = permission.video_id"
 
   val videoSortByFieldName: SortBy => Fragment =
     sortByFieldName.orElse {
@@ -98,7 +107,7 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
       .value
 
   override def deleteById(videoId: String): ConnectionIO[Option[Video]] =
-    OptionT(findById(videoId))
+    OptionT(findById(videoId, None))
       .flatMap { video =>
         sql"DELETE FROM video WHERE video_metadata_id = $videoId"
           .update
@@ -107,6 +116,16 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
           .as(video)
       }
       .value
+
+  override def hasVideoFilePermission(videoFileResourceId: String, userId: String): ConnectionIO[Boolean] =
+    sql"""
+      SELECT COUNT(*) FROM video
+        JOIN permission ON video.video_metadata_id = permission.video_id
+        WHERE video.file_resource_id = $videoFileResourceId AND permission.user_id = $userId
+    """
+      .query[Int]
+      .unique
+      .map(_ == 1)
 
   override val count: ConnectionIO[Int] =
     sql"SELECT COUNT(*) FROM video".query[Int].unique
