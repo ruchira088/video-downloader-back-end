@@ -18,6 +18,7 @@ import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.services.video.models.VideoServiceSummary
+import org.http4s.Uri
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
@@ -54,6 +55,7 @@ class VideoServiceImpl[F[_]: Sync, T[_]: MonadError[*[_], Throwable]](
 
   override def search(
     term: Option[String],
+    videoUrls: Option[NonEmptyList[Uri]],
     durationRange: RangeValue[FiniteDuration],
     sizeRange: RangeValue[Long],
     pageNumber: Int,
@@ -64,7 +66,7 @@ class VideoServiceImpl[F[_]: Sync, T[_]: MonadError[*[_], Throwable]](
     maybeUserId: Option[String]
   ): F[Seq[Video]] =
     transaction {
-      videoDao.search(term, durationRange, sizeRange, pageNumber, pageSize, sortBy, order, videoSites, maybeUserId)
+      videoDao.search(term, videoUrls, durationRange, sizeRange, pageNumber, pageSize, sortBy, order, videoSites, maybeUserId)
     }
 
   override def fetchVideoSnapshots(videoId: String, maybeUserId: Option[String]): F[Seq[Snapshot]] =

@@ -27,12 +27,13 @@ object VideoRoutes {
     ContextRoutes.of[AuthenticatedRequestContext, F] {
       case GET -> Root / "search" :? queryParameters as AuthenticatedRequestContext(user, requestId) =>
         for {
-          SearchQuery(term, _, durationRange, sizeRange, _, videoSites, pagingQuery) <- SearchQuery
+          SearchQuery(term, _, durationRange, sizeRange, urls, videoSites, pagingQuery) <- SearchQuery
             .fromQueryParameters[F]
             .run(queryParameters)
 
           videos <- videoService.search(
             term,
+            urls,
             durationRange,
             sizeRange,
             pagingQuery.pageNumber,
@@ -49,7 +50,7 @@ object VideoRoutes {
               pagingQuery.pageNumber,
               pagingQuery.pageSize,
               term,
-              None,
+              urls,
               None,
               durationRange,
               sizeRange,

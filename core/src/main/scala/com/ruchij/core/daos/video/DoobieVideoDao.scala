@@ -12,6 +12,7 @@ import doobie.Fragments.{in, whereAndOpt}
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import doobie.util.fragment.Fragment
+import org.http4s.Uri
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
@@ -49,6 +50,7 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
 
   override def search(
     term: Option[String],
+    videoUrls: Option[NonEmptyList[Uri]],
     durationRange: RangeValue[FiniteDuration],
     sizeRange: RangeValue[Long],
     pageNumber: Int,
@@ -62,6 +64,7 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
       ++
         whereAndOpt(
           term.map(searchTerm => fr"video_metadata.title ILIKE ${"%" + searchTerm + "%"}"),
+          videoUrls.map(urls => in(fr"video_metadata.url", urls)),
           durationRange.min.map(minimum => fr"video_metadata.duration >= $minimum"),
           durationRange.max.map(maximum => fr"video_metadata.duration <= $maximum"),
           sizeRange.min.map(minimum => fr"video_metadata.size >= $minimum"),

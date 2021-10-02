@@ -5,6 +5,7 @@ import com.ruchij.core.daos.scheduling.models.RangeValue
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.services.models.{Order, SortBy}
+import org.http4s.Uri
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -13,6 +14,7 @@ trait VideoDao[F[_]] {
 
   def search(
     term: Option[String],
+    videoUrls: Option[NonEmptyList[Uri]],
     durationRange: RangeValue[FiniteDuration],
     sizeRange: RangeValue[Long],
     pageNumber: Int,

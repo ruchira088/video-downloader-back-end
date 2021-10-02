@@ -61,7 +61,8 @@ class ApiSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], T
             None,
             None
           )
-        }.map(_.toList)
+        }
+          .map(_.toList)
           .flatMap {
             case Nil => newScheduledVideoDownload(processedUri, userId)
 
