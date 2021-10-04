@@ -29,6 +29,7 @@ import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.daos.snapshot.DoobieSnapshotDao
+import com.ruchij.core.daos.title.DoobieVideoTitleDao
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.kv.keys.KeySpacedKeyEncoder.keySpacedKeyEncoder
@@ -188,7 +189,8 @@ object ApiApp extends IOApp {
         DoobieVideoMetadataDao,
         DoobieSnapshotDao,
         DoobieSchedulingDao,
-        DoobieFileResourceDao
+        DoobieFileResourceDao,
+        DoobieVideoTitleDao
       )
 
     val playlistDao = new DoobiePlaylistDao(DoobieFileResourceDao, DoobieVideoDao)

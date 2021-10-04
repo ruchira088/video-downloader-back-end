@@ -16,6 +16,7 @@ import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.daos.snapshot.DoobieSnapshotDao
+import com.ruchij.core.daos.title.DoobieVideoTitleDao
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.logging.Logger
@@ -126,7 +127,8 @@ object BatchApp extends IOApp {
             DoobieVideoMetadataDao,
             DoobieSnapshotDao,
             DoobieSchedulingDao,
-            DoobieFileResourceDao
+            DoobieFileResourceDao,
+            DoobieVideoTitleDao
           )
 
           videoSnapshotService = new VideoSnapshotServiceImpl[F](cliCommandRunner, repositoryService, hashingService)

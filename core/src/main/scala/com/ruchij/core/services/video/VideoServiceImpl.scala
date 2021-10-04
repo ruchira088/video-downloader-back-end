@@ -9,11 +9,13 @@ import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.models.RangeValue
 import com.ruchij.core.daos.snapshot.SnapshotDao
 import com.ruchij.core.daos.snapshot.models.Snapshot
+import com.ruchij.core.daos.title.VideoTitleDao
+import com.ruchij.core.daos.title.models.VideoTitle
 import com.ruchij.core.daos.video.VideoDao
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.VideoSite
-import com.ruchij.core.exceptions.ResourceNotFoundException
+import com.ruchij.core.exceptions.{InvalidConditionException, ResourceNotFoundException}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.repository.RepositoryService
@@ -29,7 +31,8 @@ class VideoServiceImpl[F[_]: Sync, T[_]: MonadError[*[_], Throwable]](
   videoMetadataDao: VideoMetadataDao[T],
   snapshotDao: SnapshotDao[T],
   schedulingDao: SchedulingDao[T],
-  fileResourceDao: FileResourceDao[T]
+  fileResourceDao: FileResourceDao[T],
+  videoTitleDao: VideoTitleDao[T]
 )(implicit transaction: T ~> F)
     extends VideoService[F] {
 
@@ -45,13 +48,24 @@ class VideoServiceImpl[F[_]: Sync, T[_]: MonadError[*[_], Throwable]](
         logger.debug[F](s"Successfully inserted Video videoMetadataKey=$videoMetadataKey fileResourceKey=$fileResourceKey")
       }
 
+  private def userScopedVideoTitle(video: Video, userId: String): T[Video] =
+    OptionT(videoTitleDao.find(video.videoMetadata.id, userId))
+      .map(videoTitle => video.copy(video.videoMetadata.copy(title = videoTitle.title)))
+      .getOrElse(video)
+
   override def fetchById(videoId: String, maybeUserId: Option[String]): F[Video] =
-    OptionT(transaction(videoDao.findById(videoId, maybeUserId)))
-      .getOrElseF {
-        ApplicativeError[F, Throwable].raiseError {
-          ResourceNotFoundException(s"Unable to find video with ID: $videoId")
+    transaction {
+      OptionT(videoDao.findById(videoId, maybeUserId))
+        .semiflatMap {
+          video =>
+            maybeUserId.fold(Applicative[T].pure(video)) { userId => userScopedVideoTitle(video, userId) }
         }
-      }
+        .getOrElseF {
+          ApplicativeError[T, Throwable].raiseError {
+            ResourceNotFoundException(s"Unable to find video with ID: $videoId")
+          }
+        }
+    }
 
   override def search(
     term: Option[String],
@@ -67,6 +81,11 @@ class VideoServiceImpl[F[_]: Sync, T[_]: MonadError[*[_], Throwable]](
   ): F[Seq[Video]] =
     transaction {
       videoDao.search(term, videoUrls, durationRange, sizeRange, pageNumber, pageSize, sortBy, order, videoSites, maybeUserId)
+        .flatMap { videos =>
+          maybeUserId.fold(Applicative[T].pure(videos)) { userId =>
+            videos.traverse(video => userScopedVideoTitle(video, userId))
+          }
+        }
     }
 
   override def fetchVideoSnapshots(videoId: String, maybeUserId: Option[String]): F[Seq[Snapshot]] =
@@ -92,12 +111,31 @@ class VideoServiceImpl[F[_]: Sync, T[_]: MonadError[*[_], Throwable]](
 
   override def update(videoId: String, maybeTitle: Option[String], maybeSize: Option[Long], maybeUserId: Option[String]): F[Video] =
     transaction {
-      OptionT(videoDao.findById(videoId, maybeUserId)).semiflatMap { video =>
-        videoMetadataDao
-          .update(videoId, maybeTitle, maybeSize)
-          .product(fileResourceDao.update(video.fileResource.id, maybeSize))
-      }.value
-    }.productR(fetchById(videoId, maybeUserId))
+      OptionT(videoDao.findById(videoId, maybeUserId))
+        .semiflatMap { video =>
+          maybeUserId.product(maybeTitle) match {
+            case Some((userId, title)) =>
+              OptionT(videoTitleDao.find(videoId, userId))
+                .foldF(videoTitleDao.insert(VideoTitle(videoId, userId, title))) {
+                  _ => videoTitleDao.update(videoId, userId, title)
+                }
+                .productR {
+                  if (maybeSize.isEmpty) Applicative[T].pure((): Unit)
+                  else ApplicativeError[T, Throwable].raiseError[Unit] {
+                    InvalidConditionException("Users cannot update the video file size")
+                  }
+                }
+
+            case _ =>
+              videoMetadataDao
+                .update(videoId, maybeTitle, maybeSize)
+                .product(fileResourceDao.update(video.fileResource.id, maybeSize))
+                .as((): Unit)
+          }
+        }
+        .value
+    }
+      .productR(fetchById(videoId, maybeUserId))
 
   override def deleteById(videoId: String, maybeUserId: Option[String], deleteVideoFile: Boolean): F[Video] =
     fetchById(videoId, maybeUserId)
