@@ -48,18 +48,9 @@ class VideoServiceImpl[F[_]: Sync, T[_]: MonadError[*[_], Throwable]](
         logger.debug[F](s"Successfully inserted Video videoMetadataKey=$videoMetadataKey fileResourceKey=$fileResourceKey")
       }
 
-  private def userScopedVideoTitle(video: Video, userId: String): T[Video] =
-    OptionT(videoTitleDao.find(video.videoMetadata.id, userId))
-      .map(videoTitle => video.copy(video.videoMetadata.copy(title = videoTitle.title)))
-      .getOrElse(video)
-
   override def fetchById(videoId: String, maybeUserId: Option[String]): F[Video] =
     transaction {
       OptionT(videoDao.findById(videoId, maybeUserId))
-        .semiflatMap {
-          video =>
-            maybeUserId.fold(Applicative[T].pure(video)) { userId => userScopedVideoTitle(video, userId) }
-        }
         .getOrElseF {
           ApplicativeError[T, Throwable].raiseError {
             ResourceNotFoundException(s"Unable to find video with ID: $videoId")
@@ -81,11 +72,6 @@ class VideoServiceImpl[F[_]: Sync, T[_]: MonadError[*[_], Throwable]](
   ): F[Seq[Video]] =
     transaction {
       videoDao.search(term, videoUrls, durationRange, sizeRange, pageNumber, pageSize, sortBy, order, videoSites, maybeUserId)
-        .flatMap { videos =>
-          maybeUserId.fold(Applicative[T].pure(videos)) { userId =>
-            videos.traverse(video => userScopedVideoTitle(video, userId))
-          }
-        }
     }
 
   override def fetchVideoSnapshots(videoId: String, maybeUserId: Option[String]): F[Seq[Snapshot]] =

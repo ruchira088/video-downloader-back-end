@@ -12,8 +12,11 @@ import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.SchedulingDao.notFound
 import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownload, SchedulingStatus}
-import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoSite}
+import com.ruchij.core.daos.title.VideoTitleDao
+import com.ruchij.core.daos.title.models.VideoTitle
+import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata, VideoSite}
 import com.ruchij.core.daos.workers.models.WorkerStatus
+import com.ruchij.core.exceptions.InvalidConditionException
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.services.config.ConfigurationService
@@ -32,6 +35,7 @@ class ApiSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], T
   workerStatusPublisher: Publisher[F, WorkerStatusUpdate],
   configurationService: ConfigurationService[F, ApiConfigKey],
   schedulingDao: SchedulingDao[T],
+  videoTitleDao: VideoTitleDao[T],
   videoPermissionDao: VideoPermissionDao[T]
 )(implicit transaction: T ~> F)
     extends ApiSchedulingService[F] {
@@ -67,26 +71,34 @@ class ApiSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], T
             case Nil => newScheduledVideoDownload(processedUri, userId)
 
             case scheduledVideoDownload :: _ =>
-              existingScheduledVideoDownload(processedUri, scheduledVideoDownload.videoMetadata.id, userId)
+              existingScheduledVideoDownload(processedUri, scheduledVideoDownload.videoMetadata, userId)
                 .as(scheduledVideoDownload)
           }
       }
 
-  private def existingScheduledVideoDownload(uri: Uri, videoId: String, userId: String): F[Unit] =
+  private def existingScheduledVideoDownload(uri: Uri, videoMetadata: VideoMetadata, userId: String): F[Unit] =
     for {
       timestamp <- JodaClock[F].timestamp
 
-      _ <- transaction {
-        videoPermissionDao
-          .find(Some(userId), Some(videoId))
-          .flatMap { permissions =>
-            if (permissions.isEmpty) videoPermissionDao.insert(VideoPermission(timestamp, videoId, userId)).one
-            else
+      result <- transaction {
+        videoPermissionDao.find(Some(userId), Some(videoMetadata.id))
+          .product(videoTitleDao.find(videoMetadata.id, userId))
+          .flatMap { case (permissions, maybeTitle) =>
+            if (permissions.isEmpty && maybeTitle.isEmpty)
+              videoPermissionDao.insert(VideoPermission(timestamp, videoMetadata.id, userId)).one
+                .productR {
+                  videoTitleDao.insert(VideoTitle(videoMetadata.id, userId, videoMetadata.title)).one
+                }
+                .as((): Unit)
+            else if (permissions.nonEmpty && maybeTitle.nonEmpty)
               ApplicativeError[T, Throwable]
                 .raiseError[Unit](ResourceConflictException(s"$uri has already been scheduled"))
+            else
+              ApplicativeError[T, Throwable]
+                .raiseError[Unit](InvalidConditionException(s"Video title and video permissions are in an invalid state for userId=$userId, videoId=${videoMetadata.id}"))
           }
       }
-    } yield (): Unit
+    } yield result
 
   private def newScheduledVideoDownload(uri: Uri, userId: String): F[ScheduledVideoDownload] =
     for {
@@ -103,12 +115,15 @@ class ApiSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], T
       )
 
       _ <- transaction {
-        schedulingDao
-          .insert(scheduledVideoDownload)
-          .one
-          .product(
+        schedulingDao.insert(scheduledVideoDownload).one
+          .productR {
+            videoTitleDao.insert {
+              VideoTitle(scheduledVideoDownload.videoMetadata.id, userId, scheduledVideoDownload.videoMetadata.title)
+            }
+          }
+          .product {
             videoPermissionDao.insert(VideoPermission(timestamp, scheduledVideoDownload.videoMetadata.id, userId))
-          )
+          }
       }
       _ <- logger.info(s"Scheduled to download video at $uri")
 

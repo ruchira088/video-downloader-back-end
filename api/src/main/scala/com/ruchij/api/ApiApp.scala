@@ -211,6 +211,7 @@ object ApiApp extends IOApp {
       messageBrokers.workerStatusUpdatesPublisher,
       configurationService,
       DoobieSchedulingDao,
+      DoobieVideoTitleDao,
       DoobieVideoPermissionDao
     )
 
