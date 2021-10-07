@@ -215,7 +215,13 @@ object ApiApp extends IOApp {
       DoobieVideoPermissionDao
     )
 
-    val userService = new UserServiceImpl[F, ConnectionIO](passwordHashingService, DoobieUserDao, DoobieCredentialsDao)
+    val userService = new UserServiceImpl[F, ConnectionIO](
+      passwordHashingService,
+      DoobieUserDao,
+      DoobieCredentialsDao,
+      DoobieVideoTitleDao,
+      DoobieVideoPermissionDao
+    )
 
     for {
       backgroundService <- BackgroundServiceImpl.create[F, M](

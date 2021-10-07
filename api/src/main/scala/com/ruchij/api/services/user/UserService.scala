@@ -5,4 +5,6 @@ import com.ruchij.api.services.authentication.AuthenticationService.Password
 
 trait UserService[F[_]] {
   def create(firstName: String, lastName: String, email: Email, password: Password): F[User]
+
+  def delete(userId: String, adminUser: User): F[User]
 }

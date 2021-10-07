@@ -24,4 +24,7 @@ object DoobieVideoPermissionDao extends VideoPermissionDao[ConnectionIO] {
       ))
       .query[VideoPermission]
       .to[Seq]
+
+  override def deleteByUserId(userId: String): ConnectionIO[Int] =
+    sql"DELETE FROM permission WHERE user_id = $userId".update.run
 }

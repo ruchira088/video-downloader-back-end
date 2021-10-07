@@ -8,4 +8,6 @@ trait VideoTitleDao[F[_]] {
   def find(videoId: String, userId: String): F[Option[VideoTitle]]
 
   def update(videoId: String, userId: String, title: String): F[Int]
+
+  def deleteByUserId(userId: String): F[Int]
 }

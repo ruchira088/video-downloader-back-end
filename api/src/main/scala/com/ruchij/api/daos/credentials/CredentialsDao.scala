@@ -6,4 +6,6 @@ trait CredentialsDao[F[_]] {
   def insert(credentials: Credentials): F[Int]
 
   def findCredentialsByUserId(userId: String): F[Option[Credentials]]
+
+  def deleteByUserId(userId: String): F[Int]
 }

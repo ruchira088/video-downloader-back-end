@@ -163,7 +163,9 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
           userService = new UserServiceImpl[IO, ConnectionIO](
             passwordHashingService,
             DoobieUserDao,
-            DoobieCredentialsDao
+            DoobieCredentialsDao,
+            DoobieVideoTitleDao,
+            DoobieVideoPermissionDao
           )
 
           user <- userService.create("Ruchira", "Jayasekara", Email("admin@ruchij.com"), Password("Password"))

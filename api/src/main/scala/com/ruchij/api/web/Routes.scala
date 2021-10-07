@@ -45,7 +45,7 @@ object Routes {
     val contextRoutes: ContextRoutes[RequestContext, F] =
       WebServerRoutes(blockerIO) <+>
         ContextRouter[F, RequestContext](
-          "/users" -> UserRoutes(userService),
+          "/users" -> UserRoutes(userService, authenticationService),
           "/authentication" -> AuthenticationRoutes(authenticationService),
           "/schedule" -> authMiddleware(SchedulingRoutes(apiSchedulingService, downloadProgressStream)),
           "/videos" -> authMiddleware(VideoRoutes(videoService, videoAnalysisService)),

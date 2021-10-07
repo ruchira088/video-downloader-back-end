@@ -22,4 +22,7 @@ object DoobieVideoTitleDao extends VideoTitleDao[ConnectionIO] {
     sql"UPDATE video_title SET title = $title WHERE video_id = $videoId AND user_id = $userId"
       .update
       .run
+
+  override def deleteByUserId(userId: String): ConnectionIO[Int] =
+    sql"DELETE FROM video_title WHERE user_id = $userId".update.run
 }

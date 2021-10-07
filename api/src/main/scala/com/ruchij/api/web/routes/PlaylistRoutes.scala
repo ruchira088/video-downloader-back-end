@@ -24,14 +24,14 @@ object PlaylistRoutes {
     import dsl._
 
     ContextRoutes.of[AuthenticatedRequestContext, F] {
-      case contextRequest @ POST -> Root as AuthenticatedRequestContext(user, requestId) =>
+      case contextRequest @ POST -> Root as _ =>
         for {
           CreatePlaylistRequest(title, description) <- contextRequest.to[CreatePlaylistRequest]
           playlist <- playlistService.create(title, description)
           response <- Created(playlist)
         } yield response
 
-      case GET -> Root :? queryParameters as AuthenticatedRequestContext(user, requestId) =>
+      case GET -> Root :? queryParameters as _ =>
         for {
           pageQuery <- PagingQuery.from[F, PlaylistSortBy].run(queryParameters)
           maybeSearchTerm <- SearchTermQueryParameter.parse[F].run(queryParameters)
@@ -48,13 +48,13 @@ object PlaylistRoutes {
           response <- Ok(PagingResponse(playlists, pageQuery.pageSize, pageQuery.pageNumber, pageQuery.order, pageQuery.maybeSortBy))
         } yield response
 
-      case GET -> Root / "id" / playlistId as AuthenticatedRequestContext(user, requestId) =>
+      case GET -> Root / "id" / playlistId as _ =>
         for {
           playlist <- playlistService.fetchById(playlistId)
           response <- Ok(playlist)
         } yield response
 
-      case contextRequest @ PUT -> Root / "id" / playlistId as AuthenticatedRequestContext(user, requestId) =>
+      case contextRequest @ PUT -> Root / "id" / playlistId as _ =>
         for {
           UpdatePlaylistRequest(maybeTitle, maybeDescription, maybeVideoIdList) <- contextRequest.to[UpdatePlaylistRequest]
           playlist <- playlistService.updatePlaylist(playlistId, maybeTitle, maybeDescription, maybeVideoIdList)
@@ -62,15 +62,15 @@ object PlaylistRoutes {
         }
         yield response
 
-      case authRequest @ PUT -> Root / "id" / playlistId / "album-art" as AuthenticatedRequestContext(user, requestId) =>
+      case authRequest @ PUT -> Root / "id" / playlistId / "album-art" as _ =>
         authRequest.to[FileAsset[F]]
           .flatMap { fileAsset => playlistService.addAlbumArt(playlistId, fileAsset.fileName, fileAsset.mediaType, fileAsset.data) }
           .flatMap(playlist => Ok(playlist))
 
-      case DELETE -> Root / "id" / playlistId / "album-art" as AuthenticatedRequestContext(user, requestId) =>
+      case DELETE -> Root / "id" / playlistId / "album-art" as _ =>
         playlistService.removeAlbumArt(playlistId).flatMap(playlist => Ok(playlist))
 
-      case DELETE -> Root / "id" / playlistId as AuthenticatedRequestContext(user, requestId) =>
+      case DELETE -> Root / "id" / playlistId as _ =>
         playlistService.deletePlaylist(playlistId).flatMap(playlist => Ok(playlist))
     }
   }

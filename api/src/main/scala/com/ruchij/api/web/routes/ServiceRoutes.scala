@@ -15,11 +15,11 @@ object ServiceRoutes {
     import dsl._
 
     ContextRoutes.of[RequestContext, F] {
-      case GET -> Root / "info" as RequestContext(requestId) =>
+      case GET -> Root / "info" as _ =>
         healthService.serviceInformation
           .flatMap(serviceInformation => Ok(serviceInformation))
 
-      case GET -> Root / "health" as RequestContext(requestId) =>
+      case GET -> Root / "health" as _ =>
         healthService.healthCheck
           .flatMap { healthCheck =>
             if (healthCheck.isHealthy) Ok(healthCheck) else ServiceUnavailable(healthCheck)

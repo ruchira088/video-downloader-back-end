@@ -25,7 +25,7 @@ object VideoRoutes {
     import dsl._
 
     ContextRoutes.of[AuthenticatedRequestContext, F] {
-      case GET -> Root / "search" :? queryParameters as AuthenticatedRequestContext(user, requestId) =>
+      case GET -> Root / "search" :? queryParameters as AuthenticatedRequestContext(user, _) =>
         for {
           SearchQuery(term, _, durationRange, sizeRange, urls, videoSites, pagingQuery) <- SearchQuery
             .fromQueryParameters[F]
@@ -60,10 +60,10 @@ object VideoRoutes {
           )
         } yield response
 
-      case GET -> Root / "summary" as AuthenticatedRequestContext(user, requestId) =>
+      case GET -> Root / "summary" as _ =>
         videoService.summary.flatMap(videoServiceSummary => Ok(videoServiceSummary))
 
-      case contextRequest @ POST -> Root / "metadata" as AuthenticatedRequestContext(user, requestId) =>
+      case contextRequest @ POST -> Root / "metadata" as _ =>
         for {
           videoMetadataRequest <- contextRequest.to[VideoMetadataRequest]
 
@@ -75,13 +75,13 @@ object VideoRoutes {
           }
         } yield response
 
-      case GET -> Root / "id" / videoId as AuthenticatedRequestContext(user, requestId) =>
+      case GET -> Root / "id" / videoId as AuthenticatedRequestContext(user, _) =>
         Ok(videoService.fetchById(videoId, user.nonAdminUserId))
 
-      case DELETE -> Root / "id" / videoId :? DeleteVideoFileQueryParameter(deleteVideoFile) as AuthenticatedRequestContext(user, requestId) =>
+      case DELETE -> Root / "id" / videoId :? DeleteVideoFileQueryParameter(deleteVideoFile) as AuthenticatedRequestContext(user, _) =>
         Ok(videoService.deleteById(videoId, user.nonAdminUserId, deleteVideoFile))
 
-      case contextRequest @ PATCH -> Root / "id" / videoId / "metadata" as AuthenticatedRequestContext(user, requestId) =>
+      case contextRequest @ PATCH -> Root / "id" / videoId / "metadata" as AuthenticatedRequestContext(user, _) =>
         for {
           videoMetadataUpdateRequest <- contextRequest.to[VideoMetadataUpdateRequest]
 
@@ -90,7 +90,7 @@ object VideoRoutes {
           response <- Ok(updatedVideo)
         } yield response
 
-      case GET -> Root / "id" / videoId / "snapshots" as AuthenticatedRequestContext(user, requestId) =>
+      case GET -> Root / "id" / videoId / "snapshots" as AuthenticatedRequestContext(user, _) =>
         videoService
           .fetchById(videoId, user.nonAdminUserId)
           .productR(videoService.fetchVideoSnapshots(videoId, user.nonAdminUserId))
