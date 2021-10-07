@@ -5,7 +5,7 @@ import cats.arrow.FunctionK
 import cats.data.{Kleisli, NonEmptyList}
 import cats.effect.Sync
 import cats.implicits._
-import com.ruchij.api.exceptions.{AuthenticationException, ResourceConflictException}
+import com.ruchij.api.exceptions.{AuthenticationException, AuthorizationException, ResourceConflictException}
 import com.ruchij.api.web.responses.ErrorResponse
 import com.ruchij.core.circe.Encoders.throwableEncoder
 import com.ruchij.core.exceptions.{AggregatedException, ExternalServiceException, JSoupException, ResourceNotFoundException, UnsupportedVideoUrlException, ValidationException}
@@ -37,6 +37,8 @@ object ExceptionHandler {
     case _: ResourceNotFoundException => Status.NotFound
 
     case _: AuthenticationException => Status.Unauthorized
+
+    case _: AuthorizationException => Status.Forbidden
 
     case _: DecodingFailure | _: IllegalArgumentException | _: MessageFailure | _: ValidationException | _: UnsupportedVideoUrlException =>
       Status.BadRequest
