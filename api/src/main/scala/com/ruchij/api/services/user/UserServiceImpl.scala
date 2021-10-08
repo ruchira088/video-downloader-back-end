@@ -13,7 +13,7 @@ import com.ruchij.api.exceptions.{AuthorizationException, ResourceConflictExcept
 import com.ruchij.api.services.authentication.AuthenticationService.Password
 import com.ruchij.api.services.hashing.PasswordHashingService
 import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
-import com.ruchij.core.daos.title.VideoTitleDao
+import com.ruchij.api.daos.title.VideoTitleDao
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.types.{JodaClock, RandomGenerator}
 
@@ -55,8 +55,8 @@ class UserServiceImpl[F[+ _]: RandomGenerator[*[_], UUID]: MonadError[*[_], Thro
   override def delete(userId: String, adminUser: User): F[User] =
     if (adminUser.role == Role.Admin)
       transaction {
-        videoTitleDao.deleteByUserId(userId)
-          .productR(videoPermissionDao.deleteByUserId(userId))
+        videoTitleDao.delete(None, Some(userId))
+          .productR(videoPermissionDao.delete(Some(userId), None))
           .productR(credentialsDao.deleteByUserId(userId))
           .productR {
             OptionT(userDao.findById(userId))

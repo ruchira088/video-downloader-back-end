@@ -10,13 +10,13 @@ import com.ruchij.batch.services.scheduler.{Scheduler, SchedulerImpl}
 import com.ruchij.batch.services.scheduling.BatchSchedulingServiceImpl
 import com.ruchij.batch.services.snapshots.VideoSnapshotServiceImpl
 import com.ruchij.batch.services.sync.SynchronizationServiceImpl
+import com.ruchij.batch.services.video.BatchVideoServiceImpl
 import com.ruchij.batch.services.worker.WorkExecutorImpl
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.daos.snapshot.DoobieSnapshotDao
-import com.ruchij.core.daos.title.DoobieVideoTitleDao
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.logging.Logger
@@ -67,25 +67,25 @@ object BatchApp extends IOApp {
   def program[F[+ _]: ConcurrentEffect: ContextShift: Timer](
     batchServiceConfiguration: BatchServiceConfiguration
   ): Resource[F, Scheduler[F]] =
-    DoobieTransactor.create[F](batchServiceConfiguration.databaseConfiguration)
+    DoobieTransactor
+      .create[F](batchServiceConfiguration.databaseConfiguration)
       .map(_.trans)
       .flatMap { implicit transaction =>
         for {
-          httpClient <-
-            AsyncHttpClient.resource { AsyncHttpClient.configure(_.setRequestTimeout((24 hours).toMillis.toInt)) }
-              .map(FollowRedirect(maxRedirects = 10))
+          httpClient <- AsyncHttpClient
+            .resource { AsyncHttpClient.configure(_.setRequestTimeout((24 hours).toMillis.toInt)) }
+            .map(FollowRedirect(maxRedirects = 10))
 
-          ioThreadPool <-
-            Resource.make(Sync[F].delay(Executors.newCachedThreadPool())) { executorService =>
-              Sync[F].delay(executorService.shutdown())
-            }
+          ioThreadPool <- Resource.make(Sync[F].delay(Executors.newCachedThreadPool())) { executorService =>
+            Sync[F].delay(executorService.shutdown())
+          }
           blockerIO = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(ioThreadPool))
 
           processorCount <- Resource.eval(Sync[F].delay(Runtime.getRuntime.availableProcessors()))
-          cpuBlockingThreadPool <-
-            Resource.make(Sync[F].delay(Executors.newFixedThreadPool(processorCount))) { executorService =>
+          cpuBlockingThreadPool <- Resource.make(Sync[F].delay(Executors.newFixedThreadPool(processorCount))) {
+            executorService =>
               Sync[F].delay(executorService.shutdown())
-            }
+          }
           blockerCPU = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(cpuBlockingThreadPool))
 
           workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
@@ -110,11 +110,19 @@ object BatchApp extends IOApp {
           )
 
           downloadProgressPublisher <- KafkaPublisher[F, DownloadProgress](batchServiceConfiguration.kafkaConfiguration)
-          scheduledVideoDownloadPubSub <- KafkaPubSub[F, ScheduledVideoDownload](batchServiceConfiguration.kafkaConfiguration)
-          workerStatusUpdatesSubscriber = new KafkaSubscriber[F, WorkerStatusUpdate](batchServiceConfiguration.kafkaConfiguration)
+          scheduledVideoDownloadPubSub <- KafkaPubSub[F, ScheduledVideoDownload](
+            batchServiceConfiguration.kafkaConfiguration
+          )
+          workerStatusUpdatesSubscriber = new KafkaSubscriber[F, WorkerStatusUpdate](
+            batchServiceConfiguration.kafkaConfiguration
+          )
           httpMetricsSubscriber = new KafkaSubscriber[F, HttpMetric](batchServiceConfiguration.kafkaConfiguration)
 
-          batchSchedulingService = new BatchSchedulingServiceImpl[F, ConnectionIO, CommittableConsumerRecord[F, Unit, *]](
+          batchSchedulingService = new BatchSchedulingServiceImpl[F, ConnectionIO, CommittableConsumerRecord[
+            F,
+            Unit,
+            *
+          ]](
             downloadProgressPublisher,
             workerStatusUpdatesSubscriber,
             scheduledVideoDownloadPubSub,
@@ -126,9 +134,15 @@ object BatchApp extends IOApp {
             DoobieVideoDao,
             DoobieVideoMetadataDao,
             DoobieSnapshotDao,
-            DoobieSchedulingDao,
             DoobieFileResourceDao,
-            DoobieVideoTitleDao
+            DoobieSchedulingDao
+          )
+
+          batchVideoService = new BatchVideoServiceImpl[F, ConnectionIO](
+            videoService,
+            DoobieVideoDao,
+            DoobieVideoMetadataDao,
+            DoobieFileResourceDao
           )
 
           videoSnapshotService = new VideoSnapshotServiceImpl[F](cliCommandRunner, repositoryService, hashingService)
@@ -146,7 +160,7 @@ object BatchApp extends IOApp {
             DoobieVideoMetadataDao,
             DoobieSchedulingDao,
             DoobieFileSyncDao,
-            videoService,
+            batchVideoService,
             videoEnrichmentService,
             hashingService,
             fileTypeDetector,
@@ -161,7 +175,7 @@ object BatchApp extends IOApp {
             repositoryService,
             batchSchedulingService,
             videoAnalysisService,
-            videoService,
+            batchVideoService,
             downloadService,
             youtubeVideoDownloader,
             videoEnrichmentService,
@@ -171,7 +185,7 @@ object BatchApp extends IOApp {
           scheduler = new SchedulerImpl(
             batchSchedulingService,
             synchronizationService,
-            videoService,
+            batchVideoService,
             workExecutor,
             httpMetricsSubscriber,
             workerDao,

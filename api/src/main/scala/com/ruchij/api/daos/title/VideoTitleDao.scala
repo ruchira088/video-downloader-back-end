@@ -1,6 +1,6 @@
-package com.ruchij.core.daos.title
+package com.ruchij.api.daos.title
 
-import com.ruchij.core.daos.title.models.VideoTitle
+import com.ruchij.api.daos.title.models.VideoTitle
 
 trait VideoTitleDao[F[_]] {
   def insert(videoTitle: VideoTitle): F[Int]
@@ -9,5 +9,5 @@ trait VideoTitleDao[F[_]] {
 
   def update(videoId: String, userId: String, title: String): F[Int]
 
-  def deleteByUserId(userId: String): F[Int]
+  def delete(maybeVideoId: Option[String], maybeUserId: Option[String]): F[Int]
 }

@@ -1,8 +1,10 @@
-package com.ruchij.core.daos.title
+package com.ruchij.api.daos.title
 
-import com.ruchij.core.daos.title.models.VideoTitle
+import cats.ApplicativeError
+import com.ruchij.api.daos.title.models.VideoTitle
 import doobie.free.connection.ConnectionIO
 import doobie.implicits.toSqlInterpolator
+import doobie.util.fragments.whereAndOpt
 
 object DoobieVideoTitleDao extends VideoTitleDao[ConnectionIO] {
   override def insert(videoTitle: VideoTitle): ConnectionIO[Int] =
@@ -23,6 +25,13 @@ object DoobieVideoTitleDao extends VideoTitleDao[ConnectionIO] {
       .update
       .run
 
-  override def deleteByUserId(userId: String): ConnectionIO[Int] =
-    sql"DELETE FROM video_title WHERE user_id = $userId".update.run
+  override def delete(maybeVideoId: Option[String], maybeUserId: Option[String]): ConnectionIO[Int] =
+    if (maybeVideoId.isEmpty && maybeUserId.isEmpty)
+      ApplicativeError[ConnectionIO, Throwable].raiseError {
+        new IllegalArgumentException("Both videoId and userId cannot be empty")
+      }
+    else
+      (fr"DELETE FROM video_title" ++ whereAndOpt(maybeVideoId.map(videoId => fr"video_id = $videoId"), maybeUserId.map(userId => fr"user_id = $userId")))
+        .update
+        .run
 }

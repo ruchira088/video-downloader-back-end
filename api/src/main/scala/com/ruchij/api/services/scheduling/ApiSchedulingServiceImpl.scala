@@ -12,8 +12,8 @@ import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.SchedulingDao.notFound
 import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownload, SchedulingStatus}
-import com.ruchij.core.daos.title.VideoTitleDao
-import com.ruchij.core.daos.title.models.VideoTitle
+import com.ruchij.api.daos.title.VideoTitleDao
+import com.ruchij.api.daos.title.models.VideoTitle
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata, VideoSite}
 import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.exceptions.InvalidConditionException

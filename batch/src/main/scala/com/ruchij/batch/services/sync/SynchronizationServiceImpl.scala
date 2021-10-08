@@ -12,6 +12,7 @@ import com.ruchij.batch.services.enrichment.{SeekableByteChannelConverter, Video
 import com.ruchij.batch.services.sync.SynchronizationServiceImpl._
 import com.ruchij.batch.services.sync.models.FileSyncResult.{ExistingVideo, IgnoredFile, SyncError, VideoSynced}
 import com.ruchij.batch.services.sync.models.{FileSyncResult, SynchronizationResult}
+import com.ruchij.batch.services.video.BatchVideoService
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.SchedulingDao
@@ -24,7 +25,6 @@ import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.hashing.HashingService
 import com.ruchij.core.services.repository.FileRepositoryService.FileRepository
 import com.ruchij.core.services.repository.FileTypeDetector
-import com.ruchij.core.services.video.VideoService
 import com.ruchij.core.types.FunctionKTypes._
 import com.ruchij.core.types.JodaClock
 import fs2.Stream
@@ -41,7 +41,7 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
   videoMetadataDao: VideoMetadataDao[T],
   schedulingDao: SchedulingDao[T],
   fileSyncDao: FileSyncDao[T],
-  videoService: VideoService[F],
+  batchVideoService: BatchVideoService[F],
   videoEnrichmentService: VideoEnrichmentService[F],
   hashingService: HashingService[F],
   fileTypeDetector: FileTypeDetector[F, A],
@@ -110,23 +110,23 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
           }
           .value
       }.flatMap {
-          case None =>
-            transaction(fileSyncDao.insert(FileSync(startTimestamp, videoPath, None)))
-              .flatMap { count =>
-                if (count == 1)
-                  addVideo(videoPath)
-                    .productL {
-                      JodaClock[F].timestamp.flatMap { finishTimestamp =>
-                        transaction(fileSyncDao.complete(videoPath, finishTimestamp))
-                      }
-                    } else Applicative[F].pure(IgnoredFile(videoPath))
-              }
-              .handleErrorWith { throwable =>
-                logger.warn(throwable.getMessage).as(IgnoredFile(videoPath))
-              }
+        case None =>
+          transaction(fileSyncDao.insert(FileSync(startTimestamp, videoPath, None)))
+            .flatMap { count =>
+              if (count == 1)
+                addVideo(videoPath)
+                  .productL {
+                    JodaClock[F].timestamp.flatMap { finishTimestamp =>
+                      transaction(fileSyncDao.complete(videoPath, finishTimestamp))
+                    }
+                  } else Applicative[F].pure(IgnoredFile(videoPath))
+            }
+            .handleErrorWith { throwable =>
+              logger.warn(throwable.getMessage).as(IgnoredFile(videoPath))
+            }
 
-          case _ => Applicative[F].pure(ExistingVideo(videoPath))
-        }
+        case _ => Applicative[F].pure(ExistingVideo(videoPath))
+      }
     }
 
   def addVideo(videoPath: String): F[FileSyncResult] =
@@ -134,8 +134,8 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
       .flatMap { video =>
         saveVideo(video).recoverWith {
           case throwable =>
-            videoService
-              .deleteById(video.videoMetadata.id, None, deleteVideoFile = false)
+            batchVideoService
+              .deleteById(video.videoMetadata.id, deleteVideoFile = false)
               .productR(ApplicativeError[F, Throwable].raiseError(throwable))
         }
       }
@@ -210,7 +210,7 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
             .productR(fileResourceDao.insert(video.fileResource))
         }
       }
-      .productR(videoService.insert(video.videoMetadata.id, video.fileResource.id))
+      .productR(batchVideoService.insert(video.videoMetadata.id, video.fileResource.id))
       .flatTap { video =>
         Bracket[F, Throwable].handleErrorWith(videoEnrichmentService.videoSnapshots(video).as((): Unit)) { _ =>
           Applicative[F].unit

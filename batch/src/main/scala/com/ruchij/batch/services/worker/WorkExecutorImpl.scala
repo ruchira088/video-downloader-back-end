@@ -10,6 +10,7 @@ import com.ruchij.batch.daos.workers.WorkerDao
 import com.ruchij.batch.daos.workers.models.Worker
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService
 import com.ruchij.batch.services.scheduling.BatchSchedulingService
+import com.ruchij.batch.services.video.BatchVideoService
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
@@ -21,7 +22,7 @@ import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.download.DownloadService
 import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.services.video.models.YTDownloaderProgress
-import com.ruchij.core.services.video.{VideoAnalysisService, VideoService, YouTubeVideoDownloader}
+import com.ruchij.core.services.video.{VideoAnalysisService, YouTubeVideoDownloader}
 import com.ruchij.core.types.JodaClock
 import fs2.Stream
 import fs2.concurrent.Topic
@@ -36,7 +37,7 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
   repositoryService: RepositoryService[F],
   batchSchedulingService: BatchSchedulingService[F],
   videoAnalysisService: VideoAnalysisService[F],
-  videoService: VideoService[F],
+  batchVideoService: BatchVideoService[F],
   downloadService: DownloadService[F],
   youTubeVideoDownloader: YouTubeVideoDownloader[F],
   videoEnrichmentService: VideoEnrichmentService[F],
@@ -58,24 +59,20 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
 
             downloadService.download(downloadUri, videoPath)
           }
-          .flatMap {
-            downloadResult =>
-              Resource.eval(JodaClock[F].timestamp)
-                .map {
-                  timestamp =>
-                    (
-                      downloadResult.data,
-                      Applicative[F].pure {
-                        FileResource(
-                          scheduledVideoDownload.videoMetadata.id,
-                          timestamp,
-                          downloadResult.downloadedFileKey,
-                          downloadResult.mediaType,
-                          downloadResult.size
-                        )
-                      }
-                    )
-                }
+          .flatMap { downloadResult =>
+            Resource
+              .eval(JodaClock[F].timestamp)
+              .map { timestamp =>
+                (downloadResult.data, Applicative[F].pure {
+                  FileResource(
+                    scheduledVideoDownload.videoMetadata.id,
+                    timestamp,
+                    downloadResult.downloadedFileKey,
+                    downloadResult.mediaType,
+                    downloadResult.size
+                  )
+                })
+              }
           }
 
       case _ =>
@@ -83,59 +80,66 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
 
         Resource.pure[F, (Stream[F, Long], F[FileResource])] {
           (
-          Stream.eval(Topic[F, Option[YTDownloaderProgress]](None))
-            .flatMap { topic =>
-              val progressStream: Stream[F, YTDownloaderProgress] =
-                topic.subscribe(Int.MaxValue).collect { case Some(progress) => progress }
+            Stream
+              .eval(Topic[F, Option[YTDownloaderProgress]](None))
+              .flatMap { topic =>
+                val progressStream: Stream[F, YTDownloaderProgress] =
+                  topic.subscribe(Int.MaxValue).collect { case Some(progress) => progress }
 
-              Stream.eval(Deferred[F, Either[Throwable, Unit]])
-                .flatMap { deferred =>
-                  progressStream
-                    .concurrently {
-                      topic.publish {
-                        youTubeVideoDownloader.downloadVideo(scheduledVideoDownload.videoMetadata.url, videoFilePath)
-                          .map(Some.apply)
-                          .onFinalizeCase {
-                            case ExitCase.Error(throwable) => deferred.complete(Left(throwable))
-                            case _ => deferred.complete(Right((): Unit))
-                          }
+                Stream
+                  .eval(Deferred[F, Either[Throwable, Unit]])
+                  .flatMap { deferred =>
+                    progressStream
+                      .concurrently {
+                        topic.publish {
+                          youTubeVideoDownloader
+                            .downloadVideo(scheduledVideoDownload.videoMetadata.url, videoFilePath)
+                            .map(Some.apply)
+                            .onFinalizeCase {
+                              case ExitCase.Error(throwable) => deferred.complete(Left(throwable))
+                              case _ => deferred.complete(Right((): Unit))
+                            }
+                        }
                       }
-                    }
-                    .concurrently {
-                      progressStream.groupWithin(Int.MaxValue, 10 seconds)
-                        .evalMap {
-                          chunk =>
-                            OptionT.fromOption[F](chunk.last)
+                      .concurrently {
+                        progressStream
+                          .groupWithin(Int.MaxValue, 10 seconds)
+                          .evalMap { chunk =>
+                            OptionT
+                              .fromOption[F](chunk.last)
                               .semiflatMap { progress =>
                                 if (scheduledVideoDownload.videoMetadata.size < math.round(progress.totalSize.bytes)) {
                                   transaction {
-                                    videoMetadataDao.update(scheduledVideoDownload.videoMetadata.id, None, Some(math.round(progress.totalSize.bytes)))
-                                  }
-                                    .as((): Unit)
+                                    videoMetadataDao.update(
+                                      scheduledVideoDownload.videoMetadata.id,
+                                      None,
+                                      Some(math.round(progress.totalSize.bytes))
+                                    )
+                                  }.as((): Unit)
                                 } else Applicative[F].unit
                               }
                               .value
-                        }
-                        .interruptWhen(deferred)
-                    }
-                    .interruptWhen(deferred)
-                    .map(progress => math.round((progress.completed / 100) * progress.totalSize.bytes))
-                }
-            }
-          ,
+                          }
+                          .interruptWhen(deferred)
+                      }
+                      .interruptWhen(deferred)
+                      .map(progress => math.round((progress.completed / 100) * progress.totalSize.bytes))
+                  }
+              },
             OptionT {
-              repositoryService.list(storageConfiguration.videoFolder)
-                .find(fileKey => fileKey.split('/').lastOption.exists(_.startsWith(scheduledVideoDownload.videoMetadata.id)))
+              repositoryService
+                .list(storageConfiguration.videoFolder)
+                .find(
+                  fileKey => fileKey.split('/').lastOption.exists(_.startsWith(scheduledVideoDownload.videoMetadata.id))
+                )
                 .compile
                 .last
-            }
-              .flatMap { file =>
+            }.flatMap { file =>
                 for {
                   fileSize <- OptionT(repositoryService.size(file))
                   fileType <- OptionT(repositoryService.fileType(file))
                   timestamp <- OptionT.liftF(JodaClock[F].timestamp)
-                }
-                yield FileResource(scheduledVideoDownload.videoMetadata.id, timestamp, file, fileType, fileSize)
+                } yield FileResource(scheduledVideoDownload.videoMetadata.id, timestamp, file, fileType, fileSize)
               }
               .getOrElseF {
                 ApplicativeError[F, Throwable].raiseError {
@@ -152,27 +156,28 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
     interrupt: Stream[F, Boolean]
   ): F[FileResource] =
     download(scheduledVideoDownload)
-      .use { case (data, fileResourceF) =>
-        data
-          .observe {
-            _.groupWithin(Int.MaxValue, 30 seconds).evalMap { _ =>
-              JodaClock[F].timestamp.flatMap { timestamp =>
-                transaction(workerDao.updateHeartBeat(workerId, timestamp))
-                  .productR(Applicative[F].unit)
+      .use {
+        case (data, fileResourceF) =>
+          data
+            .observe {
+              _.groupWithin(Int.MaxValue, 30 seconds).evalMap { _ =>
+                JodaClock[F].timestamp.flatMap { timestamp =>
+                  transaction(workerDao.updateHeartBeat(workerId, timestamp))
+                    .productR(Applicative[F].unit)
+                }
               }
             }
-          }
-          .evalMap { byteCount =>
-            batchSchedulingService.publishDownloadProgress(scheduledVideoDownload.videoMetadata.id, byteCount)
-          }
-          .interruptWhen(interrupt)
-          .compile
-          .drain
-          .productR {
-            fileResourceF.flatTap { fileResource =>
-              transaction(fileResourceDao.insert(fileResource))
+            .evalMap { byteCount =>
+              batchSchedulingService.publishDownloadProgress(scheduledVideoDownload.videoMetadata.id, byteCount)
             }
-          }
+            .interruptWhen(interrupt)
+            .compile
+            .drain
+            .productR {
+              fileResourceF.flatTap { fileResource =>
+                transaction(fileResourceDao.insert(fileResource))
+              }
+            }
       }
 
   override def execute(
@@ -184,41 +189,49 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
       .info[F](s"Worker ${worker.id} started download for ${scheduledVideoDownload.videoMetadata.url}")
       .productR {
         downloadVideo(worker.id, scheduledVideoDownload, interrupt)
-          .flatMap {
-            fileResource =>
-              repositoryService.size(fileResource.path).flatMap { maybeSizeFile =>
-                maybeSizeFile
-                  .fold[F[Video]](ApplicativeError[F, Throwable].raiseError(ResourceNotFoundException(s"File not found at: ${fileResource.path}"))) {
-                    fileSize =>
-                      if (fileSize < scheduledVideoDownload.videoMetadata.size && CustomVideoSite.values.contains(scheduledVideoDownload.videoMetadata.videoSite))
-                        logger
-                          .warn[F](s"Worker ${worker.id} invalidly deemed as complete: ${scheduledVideoDownload.videoMetadata.url}")
-                          .productR(execute(scheduledVideoDownload, worker, interrupt))
-                      else
+          .flatMap { fileResource =>
+            repositoryService.size(fileResource.path).flatMap { maybeSizeFile =>
+              maybeSizeFile
+                .fold[F[Video]](
+                  ApplicativeError[F, Throwable]
+                    .raiseError(ResourceNotFoundException(s"File not found at: ${fileResource.path}"))
+                ) { fileSize =>
+                  if (fileSize < scheduledVideoDownload.videoMetadata.size && CustomVideoSite.values
+                      .contains(scheduledVideoDownload.videoMetadata.videoSite))
+                    logger
+                      .warn[F](
+                        s"Worker ${worker.id} invalidly deemed as complete: ${scheduledVideoDownload.videoMetadata.url}"
+                      )
+                      .productR(execute(scheduledVideoDownload, worker, interrupt))
+                  else
+                    batchSchedulingService
+                      .updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Downloaded)
+                      .productL {
                         batchSchedulingService
-                          .updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Downloaded)
-                          .productL {
-                            batchSchedulingService.publishDownloadProgress(scheduledVideoDownload.videoMetadata.id, fileSize)
+                          .publishDownloadProgress(scheduledVideoDownload.videoMetadata.id, fileSize)
+                      }
+                      .productR(batchVideoService.insert(scheduledVideoDownload.videoMetadata.id, fileResource.id))
+                      .productL {
+                        if (fileSize > scheduledVideoDownload.videoMetadata.size) {
+                          batchVideoService.update(scheduledVideoDownload.videoMetadata.id, fileSize)
+                        } else Applicative[F].unit
+                      }
+                      .flatTap { video =>
+                        Bracket[F, Throwable]
+                          .handleErrorWith(videoEnrichmentService.videoSnapshots(video).as((): Unit)) { _ =>
+                            Applicative[F].unit
                           }
-                          .productR(videoService.insert(scheduledVideoDownload.videoMetadata.id, fileResource.id))
-                          .productL {
-                            if (fileSize > scheduledVideoDownload.videoMetadata.size) {
-                              videoService.update(scheduledVideoDownload.videoMetadata.id, None, Some(fileSize), None)
-                            } else Applicative[F].unit
-                          }
-                          .flatTap { video =>
-                            Bracket[F, Throwable].handleErrorWith(videoEnrichmentService.videoSnapshots(video).as((): Unit)) { _ => Applicative[F].unit }
-                          }
-                          .productL {
-                            batchSchedulingService.completeScheduledVideoDownload(scheduledVideoDownload.videoMetadata.id)
-                          }
-                          .productL {
-                            logger.info[F](
-                              s"Worker ${worker.id} completed download for ${scheduledVideoDownload.videoMetadata.url}"
-                            )
-                          }
-                  }
-              }
+                      }
+                      .productL {
+                        batchSchedulingService.completeScheduledVideoDownload(scheduledVideoDownload.videoMetadata.id)
+                      }
+                      .productL {
+                        logger.info[F](
+                          s"Worker ${worker.id} completed download for ${scheduledVideoDownload.videoMetadata.url}"
+                        )
+                      }
+                }
+            }
           }
       }
 }

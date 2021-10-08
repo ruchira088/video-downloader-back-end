@@ -7,5 +7,5 @@ trait VideoPermissionDao[F[_]] {
 
   def find(userId: Option[String], scheduledVideoId: Option[String]): F[Seq[VideoPermission]]
 
-  def deleteByUserId(userId: String): F[Int]
+  def delete(maybeUserId: Option[String], maybeScheduledVideoId: Option[String]): F[Int]
 }
