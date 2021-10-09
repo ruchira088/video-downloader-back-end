@@ -8,6 +8,7 @@ import com.ruchij.api.services.models.Context.RequestContext
 import com.ruchij.api.services.playlist.PlaylistService
 import com.ruchij.api.services.scheduling.ApiSchedulingService
 import com.ruchij.api.services.user.UserService
+import com.ruchij.api.services.video.ApiVideoService
 import com.ruchij.api.web.middleware.Authenticator.AuthenticatedRequestContextMiddleware
 import com.ruchij.api.web.middleware._
 import com.ruchij.api.web.routes._
@@ -15,7 +16,7 @@ import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.messaging.models.HttpMetric
 import com.ruchij.core.services.asset.AssetService
 import com.ruchij.core.services.scheduling.models.DownloadProgress
-import com.ruchij.core.services.video.{VideoAnalysisService, VideoService}
+import com.ruchij.core.services.video.VideoAnalysisService
 import fs2.Stream
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.ContextRouter
@@ -26,7 +27,7 @@ object Routes {
 
   def apply[F[+ _]: Concurrent: Timer: ContextShift](
     userService: UserService[F],
-    videoService: VideoService[F],
+    apiVideoService: ApiVideoService[F],
     videoAnalysisService: VideoAnalysisService[F],
     apiSchedulingService: ApiSchedulingService[F],
     playlistService: PlaylistService[F],
@@ -45,10 +46,10 @@ object Routes {
     val contextRoutes: ContextRoutes[RequestContext, F] =
       WebServerRoutes(blockerIO) <+>
         ContextRouter[F, RequestContext](
-          "/users" -> UserRoutes(userService),
+          "/users" -> UserRoutes(userService, authenticationService),
           "/authentication" -> AuthenticationRoutes(authenticationService),
           "/schedule" -> authMiddleware(SchedulingRoutes(apiSchedulingService, downloadProgressStream)),
-          "/videos" -> authMiddleware(VideoRoutes(videoService, videoAnalysisService)),
+          "/videos" -> authMiddleware(VideoRoutes(apiVideoService, videoAnalysisService)),
           "/playlists" -> authMiddleware(PlaylistRoutes(playlistService)),
           "/assets" -> authMiddleware(AssetRoutes(assetService)),
           "/service" -> ServiceRoutes(healthService),

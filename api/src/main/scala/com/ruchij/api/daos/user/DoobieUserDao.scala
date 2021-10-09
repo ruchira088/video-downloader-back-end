@@ -27,4 +27,7 @@ object DoobieUserDao extends UserDao[ConnectionIO] {
 
   override def findById(userId: String): ConnectionIO[Option[User]] =
     (SelectQuery ++ fr"WHERE id = $userId").query[User].option
+
+  override def deleteById(userId: String): ConnectionIO[Int] =
+    sql"DELETE FROM api_user WHERE id = $userId".update.run
 }

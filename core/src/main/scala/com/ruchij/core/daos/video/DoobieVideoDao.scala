@@ -12,19 +12,21 @@ import doobie.Fragments.{in, whereAndOpt}
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import doobie.util.fragment.Fragment
+import org.http4s.Uri
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
 object DoobieVideoDao extends VideoDao[ConnectionIO] {
 
-  val SelectQuery =
+  def selectQuery(hasUserId: Boolean): Fragment =
     fr"""
        SELECT
         video_metadata.url,
         video_metadata.id,
         video_metadata.video_site,
-        video_metadata.title,
+    """ ++ (if (hasUserId) fr"video_title.title," else fr"video_metadata.title,") ++
+      fr"""
         video_metadata.duration,
         video_metadata.size,
         thumbnail.id, thumbnail.created_at, thumbnail.path, thumbnail.media_type, thumbnail.size,
@@ -35,10 +37,16 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
         video_file.size,
         video.watch_time
       FROM video
-      JOIN video_metadata ON video.video_metadata_id = video_metadata.id
-      JOIN file_resource AS thumbnail ON video_metadata.thumbnail_id = thumbnail.id
-      JOIN file_resource AS video_file ON video.file_resource_id = video_file.id
-    """
+      INNER JOIN video_metadata ON video.video_metadata_id = video_metadata.id
+      INNER JOIN file_resource AS thumbnail ON video_metadata.thumbnail_id = thumbnail.id
+      INNER JOIN file_resource AS video_file ON video.file_resource_id = video_file.id
+    """ ++ (
+      if (hasUserId)
+        fr"""
+          INNER JOIN permission ON permission.video_id = video.video_metadata_id
+          LEFT JOIN video_title ON video_title.video_id = video.video_metadata_id
+        """ else Fragment.empty
+      )
 
   override def insert(videoMetadataId: String, videoFileResourceId: String, finiteDuration: FiniteDuration): ConnectionIO[Int] =
     sql"""
@@ -49,6 +57,7 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
 
   override def search(
     term: Option[String],
+    videoUrls: Option[NonEmptyList[Uri]],
     durationRange: RangeValue[FiniteDuration],
     sizeRange: RangeValue[Long],
     pageNumber: Int,
@@ -58,16 +67,18 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
     videoSites: Option[NonEmptyList[VideoSite]],
     maybeUserId: Option[String]
   ): ConnectionIO[Seq[Video]] =
-    (SelectQuery ++ permissionJoin(maybeUserId)
+    (selectQuery(maybeUserId.nonEmpty)
       ++
         whereAndOpt(
           term.map(searchTerm => fr"video_metadata.title ILIKE ${"%" + searchTerm + "%"}"),
+          videoUrls.map(urls => in(fr"video_metadata.url", urls)),
           durationRange.min.map(minimum => fr"video_metadata.duration >= $minimum"),
           durationRange.max.map(maximum => fr"video_metadata.duration <= $maximum"),
           sizeRange.min.map(minimum => fr"video_metadata.size >= $minimum"),
           sizeRange.max.map(maximum => fr"video_metadata.size <= $maximum"),
           videoSites.map(sites => in(fr"video_metadata.video_site", sites)),
-          maybeUserId.map(userId => fr"permission.user_id = $userId")
+          maybeUserId.map(userId => fr"permission.user_id = $userId"),
+          maybeUserId.map(userId => fr"video_title.user_id = $userId")
         )
       ++ fr"ORDER BY"
       ++ videoSortByFieldName(sortBy)
@@ -77,14 +88,14 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
       .to[Seq]
 
   override def findById(id: String, maybeUserId: Option[String]): ConnectionIO[Option[Video]] =
-    (SelectQuery ++ permissionJoin(maybeUserId) ++
-      whereAndOpt(Some(fr"video_metadata_id = $id"), maybeUserId.map(userId => fr"permission.user_id = $userId"))
-      )
+    (selectQuery(maybeUserId.nonEmpty) ++
+      whereAndOpt(
+        Some(fr"video_metadata_id = $id"),
+        maybeUserId.map(userId => fr"permission.user_id = $userId"),
+        maybeUserId.map(userId => fr"video_title.user_id = $userId")
+      ))
       .query[Video]
       .option
-
-  private def permissionJoin(maybeUserId: Option[String]): Fragment =
-    if (maybeUserId.isEmpty) Fragment.empty else fr"JOIN permission ON video_metadata.id = permission.video_id"
 
   val videoSortByFieldName: SortBy => Fragment =
     sortByFieldName.orElse {
@@ -94,7 +105,7 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
     }
 
   override def findByVideoFileResourceId(fileResourceId: String): ConnectionIO[Option[Video]] =
-    (SelectQuery ++ fr"WHERE video_file.id = $fileResourceId").query[Video].option
+    (selectQuery(false) ++ fr"WHERE video_file.id = $fileResourceId").query[Video].option
 
   override def incrementWatchTime(videoId: String, finiteDuration: FiniteDuration): ConnectionIO[Option[FiniteDuration]] =
     sql"UPDATE video SET watch_time = watch_time + $finiteDuration WHERE video_metadata_id = $videoId"

@@ -35,7 +35,7 @@ object SchedulingRoutes {
     import dsl._
 
     ContextRoutes.of[AuthenticatedRequestContext, F] {
-      case contextRequest @ POST -> Root as AuthenticatedRequestContext(user, requestId) =>
+      case contextRequest @ POST -> Root as AuthenticatedRequestContext(user, _) =>
         for {
           scheduleRequest <- contextRequest.to[SchedulingRequest]
           scheduledVideoDownload <- apiSchedulingService.schedule(scheduleRequest.url.withoutFragment, user.id)
@@ -43,7 +43,7 @@ object SchedulingRoutes {
           response <- Ok(scheduledVideoDownload)
         } yield response
 
-      case GET -> Root / "search" :? queryParameters as AuthenticatedRequestContext(user, requestId) =>
+      case GET -> Root / "search" :? queryParameters as AuthenticatedRequestContext(user, _) =>
         for {
           SearchQuery(term, statuses, durationRange, sizeRange, videoUrls, videoSites, pagingQuery) <- SearchQuery
             .fromQueryParameters[F]
@@ -59,7 +59,8 @@ object SchedulingRoutes {
             pagingQuery.maybeSortBy.getOrElse(SortBy.Date),
             pagingQuery.order,
             statuses,
-            videoSites
+            videoSites,
+            user.nonAdminUserId
           )
 
           response <- Ok {
@@ -78,14 +79,14 @@ object SchedulingRoutes {
           }
         } yield response
 
-      case GET -> Root / "id" / videoId as AuthenticatedRequestContext(user, requestId) =>
+      case GET -> Root / "id" / videoId as _ =>
         apiSchedulingService
           .getById(videoId)
           .flatMap { scheduledVideoDownload =>
             Ok(scheduledVideoDownload)
           }
 
-      case authRequest @ PUT -> Root / "id" / videoId as AuthenticatedRequestContext(user, requestId) =>
+      case authRequest @ PUT -> Root / "id" / videoId as _ =>
         for {
           UpdateScheduledVideoRequest(schedulingStatus) <- authRequest.to[UpdateScheduledVideoRequest]
 
@@ -94,7 +95,7 @@ object SchedulingRoutes {
           response <- Ok(updatedScheduledVideoDownload)
         } yield response
 
-      case GET -> Root / "active" as AuthenticatedRequestContext(user, requestId) =>
+      case GET -> Root / "active" as _ =>
         Ok {
           downloadProgressStream
             .map { downloadProgress =>
@@ -110,13 +111,13 @@ object SchedulingRoutes {
             }
         }
 
-      case GET -> Root / "worker-status" as AuthenticatedRequestContext(user, requestId) =>
+      case GET -> Root / "worker-status" as _ =>
         apiSchedulingService.getWorkerStatus.flatMap {
           workerStatus => Ok(WorkerStatusResponse(workerStatus))
         }
 
 
-      case authRequest @ PUT -> Root / "worker-status" as AuthenticatedRequestContext(user, requestId) =>
+      case authRequest @ PUT -> Root / "worker-status" as _ =>
         for {
           workerStatusUpdateRequest <- authRequest.to[WorkerStatusUpdateRequest]
 

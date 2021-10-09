@@ -18,4 +18,7 @@ object DoobieCredentialsDao extends CredentialsDao[ConnectionIO] {
     sql"SELECT user_id, last_updated_at, hashed_password FROM credentials WHERE user_id = $userId"
       .query[Credentials]
       .option
+
+  override def deleteByUserId(userId: String): ConnectionIO[Int] =
+    sql"DELETE FROM credentials WHERE user_id = $userId".update.run
 }

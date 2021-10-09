@@ -101,6 +101,11 @@ workflows:
             - build-and-test
           post-steps:
             - slack/status
+          filters: &filters
+            branches:
+              only:
+                - master
+                - dev
 
       - build-and-publish-docker-image:
           name: build-and-publish-api-docker-image
@@ -110,6 +115,7 @@ workflows:
             - build-and-test
           post-steps:
             - slack/status
+          filters: *filters
 
       - build-and-publish-docker-image:
           name: build-and-publish-batch-docker-image
@@ -119,6 +125,7 @@ workflows:
             - build-and-test
           post-steps:
             - slack/status
+          filters: *filters
 
       - build-and-publish-docker-image:
           name: build-and-publish-db-backup-docker-image
@@ -128,11 +135,13 @@ workflows:
             - build-and-test
           post-steps:
             - slack/status
+          filters: *filters
 
       - build-terraform-resources:
           context: aws-credentials
           requires:
             - build-and-test
+          filters: *filters
 
       - deploy-to-k8s:
           context: aws-credentials
@@ -144,6 +153,7 @@ workflows:
             - build-and-publish-db-backup-docker-image
           post-steps:
             - slack/status
+          filters: *filters
 
   docker-ci:
     jobs:

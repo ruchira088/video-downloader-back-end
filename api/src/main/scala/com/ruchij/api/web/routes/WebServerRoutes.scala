@@ -11,7 +11,7 @@ object WebServerRoutes {
     import dsl._
 
     ContextRoutes[RequestContext, F] {
-      case contextRequest @ GET -> Root / (fileName @ "favicon.ico") as RequestContext(requestId) =>
+      case contextRequest @ GET -> Root / (fileName @ "favicon.ico") as _ =>
         StaticFile.fromResource(fileName, blocker, Some(contextRequest.req))
 
       case _ => OptionT.none[F, Response[F]]

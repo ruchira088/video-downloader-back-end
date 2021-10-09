@@ -8,4 +8,6 @@ trait UserDao[F[_]] {
   def findByEmail(email: Email): F[Option[User]]
 
   def findById(userId: String): F[Option[User]]
+
+  def deleteById(userId: String): F[Int]
 }

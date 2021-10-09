@@ -98,8 +98,7 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
     private val VideoDuration: Regex = "(\\d+):(\\d+)".r
 
     override def title[F[_] : MonadError[*[_], Throwable]]: Selector[F, String] =
-      JsoupSelector.singleElement[F]("#video div.left h1[title]")
-        .flatMapF(JsoupSelector.text[F])
+      JsoupSelector.singleElement[F]("#video div.left h1[title]").flatMapF(JsoupSelector.text[F])
 
     override def thumbnailUri[F[_] : MonadError[*[_], Throwable]]: Selector[F, Uri] =
       JsoupSelector.singleElement[F]("#player_wrapper_outer div.play_cover img.player_thumb")
@@ -121,6 +120,42 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
     override def downloadUri[F[_] : MonadError[*[_], Throwable]]: Selector[F, Uri] =
       JsoupSelector.singleElement[F]("#video_container source")
         .flatMapF(JsoupSelector.src[F])
+  }
+
+  case object XFreeHD extends CustomVideoSite {
+    override val hostname: String = "www.xfreehd.com"
+
+    override def title[F[_] : MonadError[*[_], Throwable]]: Selector[F, String] =
+      JsoupSelector.singleElement[F]("h1.big-title-truncate").flatMapF(JsoupSelector.text[F])
+
+    override def thumbnailUri[F[_] : MonadError[*[_], Throwable]]: Selector[F, Uri] =
+      videoPlayerAttributeUri[F]("data-img")
+
+    override def duration[F[_] : MonadError[*[_], Throwable]]: Selector[F, FiniteDuration] =
+      videoPlayerAttributeUri[F]("data-vtt")
+        .map {
+          uri =>
+            uri.query.params.get("time")
+              .flatMap(_.toIntOption)
+              .map(seconds => FiniteDuration(seconds, TimeUnit.SECONDS))
+              .getOrElse(FiniteDuration(0, TimeUnit.SECONDS))
+        }
+
+    override def downloadUri[F[_] : MonadError[*[_], Throwable]]: Selector[F, Uri] =
+      JsoupSelector.nonEmptyElementList("#hdPlayer source")
+        .flatMapF {
+          elements =>
+            JsoupSelector.src {
+              elements
+                .find(element => Option(element.attr("title")).contains("HD"))
+                .getOrElse(elements.last)
+            }
+        }
+
+    private def videoPlayerAttributeUri[F[_]: MonadError[*[_], Throwable]](attributeName: String): Selector[F, Uri] =
+      JsoupSelector.singleElement[F]("#hdPlayer")
+        .flatMapF(videoElement => JsoupSelector.attribute(videoElement, attributeName))
+        .flatMapF(uriString => Uri.fromString(uriString).toType[F, Throwable])
   }
 
   override def values: IndexedSeq[CustomVideoSite] = findValues

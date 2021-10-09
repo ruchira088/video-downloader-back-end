@@ -1,3 +1,3 @@
 package com.ruchij.api.web.requests
 
-case class VideoMetadataUpdateRequest(title: Option[String])
+case class VideoMetadataUpdateRequest(title: String)

@@ -7,12 +7,13 @@ import com.ruchij.api.services.health.HealthService
 import com.ruchij.api.services.playlist.PlaylistService
 import com.ruchij.api.services.scheduling.ApiSchedulingService
 import com.ruchij.api.services.user.UserService
+import com.ruchij.api.services.video.ApiVideoService
 import com.ruchij.api.web.Routes
 import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.messaging.models.HttpMetric
 import com.ruchij.core.services.asset.AssetService
 import com.ruchij.core.services.scheduling.models.DownloadProgress
-import com.ruchij.core.services.video.{VideoAnalysisService, VideoService}
+import com.ruchij.core.services.video.VideoAnalysisService
 import fs2.Stream
 import org.http4s.HttpApp
 import org.scalamock.scalatest.MockFactory
@@ -24,7 +25,7 @@ import scala.concurrent.ExecutionContext
 trait MockedRoutes[F[+ _]] extends MockFactory with OneInstancePerTest {
 
   val userService: UserService[F] = mock[UserService[F]]
-  val videoService: VideoService[F] = mock[VideoService[F]]
+  val apiVideoService: ApiVideoService[F] = mock[ApiVideoService[F]]
   val playlistService: PlaylistService[F] = mock[PlaylistService[F]]
   val videoAnalysisService: VideoAnalysisService[F] = mock[VideoAnalysisService[F]]
   val apiSchedulingService: ApiSchedulingService[F] = mock[ApiSchedulingService[F]]
@@ -44,7 +45,7 @@ trait MockedRoutes[F[+ _]] extends MockFactory with OneInstancePerTest {
     concurrent.delay {
       Routes(
         userService,
-        videoService,
+        apiVideoService,
         videoAnalysisService,
         apiSchedulingService,
         playlistService,

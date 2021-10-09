@@ -21,7 +21,7 @@ object AuthenticationRoutes {
 
     val unauthenticatedRoutes =
       ContextRoutes.of[RequestContext, F] {
-        case contextRequest @ POST -> Root / "login" as RequestContext(requestId) =>
+        case contextRequest @ POST -> Root / "login" as _ =>
           for {
             LoginRequest(email, password) <- contextRequest.to[LoginRequest]
 
@@ -34,9 +34,9 @@ object AuthenticationRoutes {
 
     val authenticatedRoutes =
       AuthedRoutes.of[AuthenticatedRequestContext, F] {
-        case GET -> Root / "user" as AuthenticatedRequestContext(user, requestId) => Ok(user)
+        case GET -> Root / "user" as AuthenticatedRequestContext(user, _) => Ok(user)
 
-        case authRequest @ DELETE -> Root / "logout" as AuthenticatedRequestContext(user, requestId) =>
+        case authRequest @ DELETE -> Root / "logout" as AuthenticatedRequestContext(user, _) =>
           Authenticator.authenticationSecret(authRequest.req)
             .fold[F[Response[F]]](NoContent()) { secret =>
               authenticationService.logout(secret)

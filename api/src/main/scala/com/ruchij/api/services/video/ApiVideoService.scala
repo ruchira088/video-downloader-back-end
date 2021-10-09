@@ -1,16 +1,24 @@
-package com.ruchij.core.daos.video
+package com.ruchij.api.services.video
 
 import cats.data.NonEmptyList
 import com.ruchij.core.daos.scheduling.models.RangeValue
+import com.ruchij.core.daos.snapshot.models.Snapshot
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.services.models.{Order, SortBy}
+import com.ruchij.core.services.video.models.VideoServiceSummary
 import org.http4s.Uri
 
 import scala.concurrent.duration.FiniteDuration
 
-trait VideoDao[F[_]] {
-  def insert(videoMetadataId: String, videoFileResourceId: String, watchTime: FiniteDuration): F[Int]
+trait ApiVideoService[F[_]] {
+  def fetchById(videoId: String, maybeUserId: Option[String]): F[Video]
+
+  def fetchVideoSnapshots(videoId: String, maybeUserId: Option[String]): F[Seq[Snapshot]]
+
+  def update(videoId: String, title: String, maybeUserId: Option[String]): F[Video]
+
+  def deleteById(videoId: String, maybeUserId: Option[String], deleteVideoFile: Boolean): F[Video]
 
   def search(
     term: Option[String],
@@ -25,21 +33,5 @@ trait VideoDao[F[_]] {
     maybeUserId: Option[String]
   ): F[Seq[Video]]
 
-  def incrementWatchTime(videoId: String, finiteDuration: FiniteDuration): F[Option[FiniteDuration]]
-
-  def findById(videoId: String, maybeUserId: Option[String]): F[Option[Video]]
-
-  def findByVideoFileResourceId(fileResourceId: String): F[Option[Video]]
-
-  def deleteById(videoId: String): F[Option[Video]]
-
-  def hasVideoFilePermission(videoFileResourceId: String, userId: String): F[Boolean]
-
-  val count: F[Int]
-
-  val duration: F[FiniteDuration]
-
-  val size: F[Long]
-
-  val sites: F[Set[VideoSite]]
+  val summary: F[VideoServiceSummary]
 }

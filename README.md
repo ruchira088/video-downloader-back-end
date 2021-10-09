@@ -1,4 +1,5 @@
 ## Video Downloader Backend
+[![CircleCI](https://circleci.com/gh/ruchira088/video-downloader-back-end/tree/dev.svg?style=svg)](https://circleci.com/gh/ruchira088/video-downloader-back-end/tree/dev)
 
 ### Instructions to set-up local JKS
 
