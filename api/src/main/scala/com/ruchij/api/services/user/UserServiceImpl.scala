@@ -76,6 +76,25 @@ class UserServiceImpl[F[+ _]: RandomGenerator[*[_], UUID]: MonadError[*[_], Thro
     }
     yield credentialsResetToken
 
+  override def resetPassword(userId: String, resetToken: String, password: Password): F[User] =
+    JodaClock[F].timestamp.product(passwordHashingService.hashPassword(password))
+      .flatMap { case (timestamp, hashedPassword) =>
+        transaction {
+          OptionT(credentialsResetTokenDao.find(userId, resetToken))
+            .filter { resetToken =>
+              resetToken.createdAt.plus(UserService.ResetTokenValidity.toMillis).isAfter(timestamp)
+            }
+            .semiflatMap(_ => credentialsDao.update(Credentials(userId, timestamp, hashedPassword)))
+            .semiflatMap(_ => credentialsResetTokenDao.delete(userId, resetToken))
+            .productR(OptionT(userDao.findById(userId)))
+            .getOrElseF {
+              ApplicativeError[G, Throwable].raiseError {
+                ResourceNotFoundException("Reset password token in not valid")
+              }
+            }
+        }
+    }
+
   override def delete(userId: String, adminUser: User): F[User] =
     if (adminUser.role == Role.Admin)
       transaction {
