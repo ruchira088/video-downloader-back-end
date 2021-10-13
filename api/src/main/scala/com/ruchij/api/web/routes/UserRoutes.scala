@@ -6,8 +6,9 @@ import com.ruchij.api.services.authentication.AuthenticationService
 import com.ruchij.api.services.models.Context.{AuthenticatedRequestContext, RequestContext}
 import com.ruchij.api.services.user.UserService
 import com.ruchij.api.web.middleware.Authenticator
-import com.ruchij.api.web.requests.CreateUserRequest
+import com.ruchij.api.web.requests.{CreateUserRequest, ResetPasswordRequest}
 import com.ruchij.api.web.requests.RequestOps.ContextRequestOpsSyntax
+import com.ruchij.api.web.responses.ResultResponse
 import com.ruchij.core.circe.Decoders._
 import com.ruchij.core.circe.Encoders._
 import io.circe.generic.auto.{exportDecoder, exportEncoder}
@@ -29,6 +30,14 @@ object UserRoutes {
             user <- userService.create(firstName, lastName, email, password)
             response <- Created(user)
           } yield response
+
+        case contextRequest @ PUT -> Root / "password-reset" as _ =>
+          for {
+            ResetPasswordRequest(email) <- contextRequest.to[ResetPasswordRequest]
+            _ <- userService.forgotPassword(email)
+            response <- Ok(ResultResponse(s"Password reset token sent to ${email.value}"))
+          }
+          yield response
       }
 
     val authenticatedRoutes =

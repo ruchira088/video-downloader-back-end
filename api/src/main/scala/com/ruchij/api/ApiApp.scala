@@ -7,6 +7,7 @@ import com.ruchij.api.config.ApiServiceConfiguration
 import com.ruchij.api.daos.credentials.DoobieCredentialsDao
 import com.ruchij.api.daos.permission.DoobieVideoPermissionDao
 import com.ruchij.api.daos.playlist.DoobiePlaylistDao
+import com.ruchij.api.daos.resettoken.DoobieCredentialsResetToken
 import com.ruchij.api.daos.user.DoobieUserDao
 import com.ruchij.api.models.ApiMessageBrokers
 import com.ruchij.api.services.authentication._
@@ -227,6 +228,7 @@ object ApiApp extends IOApp {
       passwordHashingService,
       DoobieUserDao,
       DoobieCredentialsDao,
+      DoobieCredentialsResetToken,
       DoobieVideoTitleDao,
       DoobieVideoPermissionDao
     )

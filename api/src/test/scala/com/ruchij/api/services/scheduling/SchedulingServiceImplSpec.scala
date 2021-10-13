@@ -3,6 +3,7 @@ package com.ruchij.api.services.scheduling
 import cats.effect.{Blocker, IO, Resource, Timer}
 import com.ruchij.api.daos.credentials.DoobieCredentialsDao
 import com.ruchij.api.daos.permission.DoobieVideoPermissionDao
+import com.ruchij.api.daos.resettoken.DoobieCredentialsResetToken
 import com.ruchij.api.daos.user.DoobieUserDao
 import com.ruchij.api.daos.user.models.Email
 import com.ruchij.api.services.authentication.AuthenticationService.Password
@@ -164,6 +165,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
             passwordHashingService,
             DoobieUserDao,
             DoobieCredentialsDao,
+            DoobieCredentialsResetToken,
             DoobieVideoTitleDao,
             DoobieVideoPermissionDao
           )
