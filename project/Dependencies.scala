@@ -3,7 +3,7 @@ import sbt._
 object Dependencies
 {
   val ScalaVersion = "2.13.6"
-  val Http4sVersion = "0.22.5"
+  val Http4sVersion = "0.22.7"
   val CirceVersion = "0.14.1"
   val TestContainersVersion = "1.16.0"
 
@@ -47,7 +47,7 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.0"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "7.15.0"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "8.0.0"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.24"
 
