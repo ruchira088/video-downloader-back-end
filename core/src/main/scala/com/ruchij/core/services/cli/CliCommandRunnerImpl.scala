@@ -11,7 +11,7 @@ import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
 import scala.sys.process._
 
-class CliCommandRunnerImpl[F[_]: Async] extends CliCommandRunner[F] {
+class CliCommandRunnerImpl[F[_]: Async](dispatcher: Dispatcher[F]) extends CliCommandRunner[F] {
 
   private val logger = Logger[CliCommandRunnerImpl[F]]
 
@@ -19,7 +19,6 @@ class CliCommandRunnerImpl[F[_]: Async] extends CliCommandRunner[F] {
     for {
       _ <- Stream.eval(logger.info(s"Executing CLI command: $command"))
       queue <- Stream.eval(Queue.unbounded[F, String])
-      dispatcher <- Stream.resource(Dispatcher[F])
 
       process <- Stream.eval {
         Sync[F].blocking {

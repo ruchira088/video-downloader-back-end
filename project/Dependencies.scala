@@ -53,8 +53,6 @@ object Dependencies
 
   lazy val h2 = "com.h2database" % "h2" % "1.4.200"
 
-  lazy val jcodec = "org.jcodec" % "jcodec" % "0.2.5"
-
   lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.1.0"
 
   lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.0.0"

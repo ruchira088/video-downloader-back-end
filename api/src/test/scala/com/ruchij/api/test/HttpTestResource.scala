@@ -2,6 +2,7 @@ package com.ruchij.api.test
 
 import cats.effect.Resource
 import cats.effect.kernel.Async
+import cats.effect.std.Dispatcher
 import cats.{ApplicativeError, Id}
 import com.ruchij.api.ApiApp
 import com.ruchij.api.config.{ApiServiceConfiguration, ApiStorageConfiguration, AuthenticationConfiguration, HttpConfiguration}
@@ -75,6 +76,7 @@ object HttpTestResource {
       healthCheckPubSub <- Resource.eval(Fs2PubSub[F, HealthCheckMessage])
       httpMetricPubSub <- Resource.eval(Fs2PubSub[F, HttpMetric])
       workerStatusUpdatesPubSub <- Resource.eval(Fs2PubSub[F, WorkerStatusUpdate])
+      dispatcher <- Dispatcher[F]
 
       messageBrokers = ApiMessageBrokers(
         downloadProgressPubSub,
@@ -89,6 +91,7 @@ object HttpTestResource {
           client,
           redisKeyValueStore,
           messageBrokers,
+          dispatcher,
           apiServiceConfiguration
         )(Async[F], JodaClock[F], transactor)
       }

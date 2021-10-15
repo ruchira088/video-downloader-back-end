@@ -2,6 +2,7 @@ package com.ruchij.batch
 
 import cats.effect._
 import cats.effect.kernel.Async
+import cats.effect.std.Dispatcher
 import com.ruchij.batch.config.BatchServiceConfiguration
 import com.ruchij.batch.daos.filesync.DoobieFileSyncDao
 import com.ruchij.batch.daos.workers.DoobieWorkerDao
@@ -75,9 +76,11 @@ object BatchApp extends IOApp {
             .resource { AsyncHttpClient.configure(_.setRequestTimeout((24 hours).toMillis.toInt)) }
             .map(FollowRedirect(maxRedirects = 10))
 
+          dispatcher <- Dispatcher[F]
+
           workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
 
-          cliCommandRunner = new CliCommandRunnerImpl[F]
+          cliCommandRunner = new CliCommandRunnerImpl[F](dispatcher)
 
           youtubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](cliCommandRunner, httpClient)
 
@@ -150,6 +153,7 @@ object BatchApp extends IOApp {
             batchVideoService,
             videoEnrichmentService,
             hashingService,
+            cliCommandRunner,
             fileTypeDetector,
             batchServiceConfiguration.storageConfiguration
           )

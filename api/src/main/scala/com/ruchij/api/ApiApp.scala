@@ -1,6 +1,7 @@
 package com.ruchij.api
 
 import cats.effect.kernel.Async
+import cats.effect.std.Dispatcher
 import cats.effect.{ExitCode, IO, IOApp, Resource}
 import cats.implicits._
 import cats.~>
@@ -100,6 +101,7 @@ object ApiApp extends IOApp {
           healthCheckPubSub <- KafkaPubSub[F, HealthCheckMessage](apiServiceConfiguration.kafkaConfiguration)
           metricsPublisher <- KafkaPublisher[F, HttpMetric](apiServiceConfiguration.kafkaConfiguration)
           workerStatusUpdatePubSub <- KafkaPubSub[F, WorkerStatusUpdate](apiServiceConfiguration.kafkaConfiguration)
+          dispatcher <- Dispatcher[F]
 
           messageBrokers = ApiMessageBrokers(
             downloadProgressPubSub,
@@ -114,6 +116,7 @@ object ApiApp extends IOApp {
               httpClient,
               redisKeyValueStore,
               messageBrokers,
+              dispatcher,
               apiServiceConfiguration
             )
           }
@@ -124,6 +127,7 @@ object ApiApp extends IOApp {
     client: Client[F],
     keyValueStore: KeyValueStore[F],
     messageBrokers: ApiMessageBrokers[F, M],
+    dispatcher: Dispatcher[F],
     apiServiceConfiguration: ApiServiceConfiguration
   )(implicit transaction: ConnectionIO ~> F): F[HttpApp[F]] = {
     val healthCheckKeyStore: KeySpacedKeyValueStore[F, HealthCheckKey, DateTime] =
@@ -144,6 +148,7 @@ object ApiApp extends IOApp {
     val downloadService: Http4sDownloadService[F] = new Http4sDownloadService[F](client, repositoryService)
     val hashingService: MurmurHash3Service[F] = new MurmurHash3Service[F]
     val passwordHashingService = new BCryptPasswordHashingService[F]
+    val cliCommandRunner = new CliCommandRunnerImpl[F](dispatcher)
 
     val authenticationService: AuthenticationService[F] =
       new AuthenticationServiceImpl[F, ConnectionIO](
@@ -154,7 +159,7 @@ object ApiApp extends IOApp {
         apiServiceConfiguration.authenticationConfiguration.sessionDuration
       )
 
-    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](new CliCommandRunnerImpl[F], client)
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](cliCommandRunner, client)
 
     val videoAnalysisService: VideoAnalysisServiceImpl[F, ConnectionIO] =
       new VideoAnalysisServiceImpl[F, ConnectionIO](
