@@ -30,7 +30,7 @@ import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, YouTubeVideoDownloader}
 import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import com.ruchij.core.test.Providers
-import com.ruchij.core.test.external.embedded.EmbeddedExternalServiceProvider
+import com.ruchij.core.external.embedded.EmbeddedExternalServiceProvider
 import com.ruchij.core.types.JodaClock
 import doobie.ConnectionIO
 import fs2.Stream

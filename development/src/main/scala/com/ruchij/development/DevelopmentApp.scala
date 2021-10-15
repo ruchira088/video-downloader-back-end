@@ -11,9 +11,9 @@ import com.ruchij.batch.config.{BatchServiceConfiguration, BatchStorageConfigura
 import com.ruchij.batch.services.scheduler.Scheduler
 import com.ruchij.core.config.{ApplicationInformation, KafkaConfiguration, RedisConfiguration}
 import com.ruchij.core.exceptions.ResourceNotFoundException
-import com.ruchij.core.test.external.containers.ContainerExternalServiceProvider
-import com.ruchij.core.test.external.ExternalServiceProvider
-import com.ruchij.core.test.external.ExternalServiceProvider.HashedAdminPassword
+import com.ruchij.core.external.ExternalServiceProvider
+import com.ruchij.core.external.ExternalServiceProvider.HashedAdminPassword
+import com.ruchij.core.external.containers.ContainerExternalServiceProvider
 import com.ruchij.core.types.JodaClock
 import com.ruchij.migration.MigrationApp
 import com.ruchij.migration.config.{AdminConfiguration, DatabaseConfiguration, MigrationServiceConfiguration}

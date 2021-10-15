@@ -1,11 +1,11 @@
-package com.ruchij.core.test.external.embedded
+package com.ruchij.core.external.embedded
 
 import cats.MonadError
 import cats.effect.{Resource, Sync}
 import cats.implicits._
 import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration}
-import com.ruchij.core.test.external.ExternalServiceProvider
-import com.ruchij.core.test.external.embedded.EmbeddedExternalServiceProvider.availablePort
+import com.ruchij.core.external.ExternalServiceProvider
+import com.ruchij.core.external.embedded.EmbeddedExternalServiceProvider.availablePort
 import com.ruchij.core.types.RandomGenerator
 import com.ruchij.migration.config.DatabaseConfiguration
 import io.github.embeddedkafka.EmbeddedKafkaConfig

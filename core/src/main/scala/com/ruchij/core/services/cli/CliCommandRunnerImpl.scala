@@ -1,6 +1,6 @@
 package com.ruchij.core.services.cli
 
-import cats.effect.std.Dispatcher
+import cats.effect.std.{Dispatcher, Queue}
 import cats.effect.{Async, Sync}
 import cats.implicits._
 import com.ruchij.core.exceptions.CliCommandException
@@ -19,7 +19,7 @@ class CliCommandRunnerImpl[F[_]: Async] extends CliCommandRunner[F] {
   override def run(command: String): Stream[F, String] =
     for {
       _ <- Stream.eval(logger.info(s"Executing CLI command: $command"))
-      topic <- Stream.eval(Topic[F, String])
+      queue <- Stream.eval(Queue.unbounded[F, String])
       dispatcher <- Stream.resource(Dispatcher[F])
 
       process <- Stream.eval {
@@ -27,7 +27,7 @@ class CliCommandRunnerImpl[F[_]: Async] extends CliCommandRunner[F] {
           command.run {
             new ProcessLogger {
               override def out(output: => String): Unit =
-                dispatcher.unsafeRunSync(topic.publish1(output))
+                dispatcher.unsafeRunSync(queue.offer(output))
 
               override def err(error: => String): Unit =
                 dispatcher.unsafeRunSync {
@@ -40,8 +40,8 @@ class CliCommandRunnerImpl[F[_]: Async] extends CliCommandRunner[F] {
         }
       }
 
-      line <- topic
-        .subscribe(Int.MaxValue)
+      line <-
+        Stream.eval(queue.take).repeat
         .evalTap(logger.debug[F])
         .interruptWhen {
           Stream

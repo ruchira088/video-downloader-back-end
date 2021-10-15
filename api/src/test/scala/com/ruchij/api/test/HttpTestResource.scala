@@ -13,7 +13,7 @@ import com.ruchij.core.kv.RedisKeyValueStore
 import com.ruchij.core.messaging.inmemory.Fs2PubSub
 import com.ruchij.core.messaging.models.HttpMetric
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
-import com.ruchij.core.test.external.ExternalServiceProvider
+import com.ruchij.core.external.ExternalServiceProvider
 import com.ruchij.core.types.JodaClock
 import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.effect.Log.Stdout.instance

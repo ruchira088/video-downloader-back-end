@@ -12,7 +12,7 @@ import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata}
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.test.IOSupport.runIO
-import com.ruchij.core.test.external.embedded.EmbeddedExternalServiceProvider
+import com.ruchij.core.external.embedded.EmbeddedExternalServiceProvider
 import com.ruchij.core.types.JodaClock
 import doobie.ConnectionIO
 import org.http4s.MediaType

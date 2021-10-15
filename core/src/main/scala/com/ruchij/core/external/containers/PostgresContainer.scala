@@ -1,4 +1,4 @@
-package com.ruchij.core.test.external.containers
+package com.ruchij.core.external.containers
 
 import org.testcontainers.containers.PostgreSQLContainer
 

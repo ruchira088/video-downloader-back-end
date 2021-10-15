@@ -58,16 +58,16 @@ lazy val core =
           redis4CatsEffects,
           jsoup,
           scalaLogging,
-          logbackClassic
+          logbackClassic,
+          embeddedRedis,
+          embeddedKafkaSchemaRegistry,
+          testContainers,
+          kafkaTestContainer,
+          postgresqlTestContainer
         ) ++
           Seq(
             scalaTest,
-            scalaMock,
-            embeddedRedis,
-            embeddedKafkaSchemaRegistry,
-            testContainers,
-            kafkaTestContainer,
-            postgresqlTestContainer
+            scalaMock
           ).map(_ % Test)
     )
     .dependsOn(migrationApplication)

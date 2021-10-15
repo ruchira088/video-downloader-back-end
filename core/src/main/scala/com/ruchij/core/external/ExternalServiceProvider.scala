@@ -1,4 +1,4 @@
-package com.ruchij.core.test.external
+package com.ruchij.core.external
 
 import cats.effect.{Async, Resource}
 import cats.~>
