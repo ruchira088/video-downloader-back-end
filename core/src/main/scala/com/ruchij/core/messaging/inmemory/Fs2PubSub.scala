@@ -8,14 +8,14 @@ import com.ruchij.core.messaging.models.CommittableRecord
 import fs2.concurrent.Topic
 import fs2.{Pipe, Stream}
 
-class Fs2PubSub[F[_]: Applicative, A] private (topic: Topic[F, Option[A]]) extends PubSub[F, CommittableRecord[Id, *], A] {
+class Fs2PubSub[F[_]: Applicative, A] private (topic: Topic[F, A]) extends PubSub[F, CommittableRecord[Id, *], A] {
 
-  override val publish: Pipe[F, A, Unit] = input => topic.publish(input.map(Some.apply))
+  override val publish: Pipe[F, A, Unit] = input => topic.publish(input)
 
-  override def publishOne(input: A): F[Unit] = topic.publish1(Some(input))
+  override def publishOne(input: A): F[Unit] = topic.publish1(input).as((): Unit)
 
   override def subscribe(groupId: String): Stream[F, CommittableRecord[Id, A]] =
-    topic.subscribe(Int.MaxValue).collect { case Some(value) => CommittableRecord[Id, A](value, value) }
+    topic.subscribe(Int.MaxValue).map { value => CommittableRecord[Id, A](value, value) }
 
   override def commit[H[_] : Foldable : Functor](values: H[CommittableRecord[Id, A]]): F[Unit] =
     Applicative[F].unit
@@ -23,5 +23,5 @@ class Fs2PubSub[F[_]: Applicative, A] private (topic: Topic[F, Option[A]]) exten
 
 object Fs2PubSub {
   def apply[F[_]: Concurrent, A]: F[Fs2PubSub[F, A]] =
-    Topic[F, Option[A]](None).map(topic => new Fs2PubSub[F, A](topic))
+    Topic[F, A].map(topic => new Fs2PubSub[F, A](topic))
 }

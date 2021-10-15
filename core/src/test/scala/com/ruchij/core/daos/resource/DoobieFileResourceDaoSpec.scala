@@ -3,7 +3,6 @@ package com.ruchij.core.daos.resource
 import cats.effect.IO
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.test.IOSupport.runIO
-import com.ruchij.core.test.Providers._
 import com.ruchij.core.test.external.embedded.EmbeddedExternalServiceProvider
 import com.ruchij.core.types.JodaClock
 import org.http4s.MediaType

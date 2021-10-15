@@ -2,7 +2,7 @@ package com.ruchij.batch.services.snapshots
 
 import cats.ApplicativeError
 import cats.data.OptionT
-import cats.effect.{Clock, Sync}
+import cats.effect.Sync
 import cats.implicits._
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.exceptions.ResourceNotFoundException
@@ -13,7 +13,7 @@ import com.ruchij.core.types.JodaClock
 
 import scala.concurrent.duration.FiniteDuration
 
-class VideoSnapshotServiceImpl[F[_]: Sync: Clock](
+class VideoSnapshotServiceImpl[F[_]: Sync: JodaClock](
   cliCommandRunner: CliCommandRunner[F],
   fileRepositoryService: FileRepositoryService[F],
   hashingService: HashingService[F]

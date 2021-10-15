@@ -1,11 +1,12 @@
 package com.ruchij.api.test.mixins.io
 
-import cats.effect.{Concurrent, ContextShift, IO}
+import cats.effect.IO
+import cats.effect.kernel.Async
 import com.ruchij.api.test.mixins.MockedRoutes
-
-import scala.concurrent.ExecutionContext
+import com.ruchij.core.types.JodaClock
 
 trait MockedRoutesIO extends MockedRoutes[IO] {
-  override val contextShift: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
-  override val concurrent: Concurrent[IO] = IO.ioConcurrentEffect(contextShift)
+  override val async: Async[IO] = Async[IO]
+
+  override val jodaClock: JodaClock[IO] = JodaClock[IO]
 }

@@ -1,14 +1,14 @@
 package com.ruchij.core.kv
 
 import cats.Applicative
-import cats.effect.Bracket
+import cats.effect.kernel.MonadCancelThrow
 import cats.implicits._
 import com.ruchij.core.kv.codecs.{KVDecoder, KVEncoder}
 import dev.profunktor.redis4cats.RedisCommands
 
 import scala.concurrent.duration.FiniteDuration
 
-class RedisKeyValueStore[F[_]: Bracket[*[_], Throwable]](redisCommands: RedisCommands[F, String, String]) extends KeyValueStore[F] {
+class RedisKeyValueStore[F[_]: MonadCancelThrow](redisCommands: RedisCommands[F, String, String]) extends KeyValueStore[F] {
   override type InsertionResult = Unit
   override type DeletionResult = Unit
 
@@ -17,7 +17,7 @@ class RedisKeyValueStore[F[_]: Bracket[*[_], Throwable]](redisCommands: RedisCom
       encodedKey <- KVEncoder[F, K].encode(key)
       fetchedValue <- redisCommands.get(encodedKey)
       value <- fetchedValue.fold[F[Option[V]]](Applicative[F].pure(None)) { stringValue =>
-        Bracket[F, Throwable].handleErrorWith[Option[V]](KVDecoder[F, V].decode(stringValue).map(Some.apply)) { _ => remove(key).as(None) }
+        MonadCancelThrow[F].handleErrorWith[Option[V]](KVDecoder[F, V].decode(stringValue).map(Some.apply)) { _ => remove(key).as(None) }
       }
     } yield value
 

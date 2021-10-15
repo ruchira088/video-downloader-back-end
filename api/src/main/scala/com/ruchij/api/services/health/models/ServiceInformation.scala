@@ -1,6 +1,6 @@
 package com.ruchij.api.services.health.models
 
-import cats.effect.{Clock, Sync}
+import cats.effect.Sync
 import cats.implicits._
 import com.eed3si9n.ruchij.api.BuildInfo
 import com.ruchij.core.config.ApplicationInformation
@@ -24,7 +24,7 @@ case class ServiceInformation(
 )
 
 object ServiceInformation {
-  def create[F[_]: Sync: Clock](applicationInformation: ApplicationInformation): F[ServiceInformation] =
+  def create[F[_]: Sync: JodaClock](applicationInformation: ApplicationInformation): F[ServiceInformation] =
     for {
       timestamp <- JodaClock[F].timestamp
       javaVersion <- Sync[F].delay(Properties.javaVersion)

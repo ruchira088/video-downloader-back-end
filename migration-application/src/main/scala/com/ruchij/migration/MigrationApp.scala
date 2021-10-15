@@ -1,6 +1,6 @@
 package com.ruchij.migration
 
-import cats.effect.{Blocker, ContextShift, ExitCode, IO, IOApp, Sync}
+import cats.effect.{ExitCode, IO, IOApp, Sync}
 import cats.implicits._
 import com.ruchij.migration.config.MigrationServiceConfiguration
 import org.flywaydb.core.Flyway
@@ -15,14 +15,12 @@ object MigrationApp extends IOApp {
       configObjectSource <- IO.delay(ConfigSource.defaultApplication)
       serviceConfiguration <- IO.defer(IO.fromEither(MigrationServiceConfiguration.load(configObjectSource)))
 
-      _ <- Blocker[IO].use { blocker =>
-        migration[IO](serviceConfiguration, blocker)
-      }
+      _ <- migration[IO](serviceConfiguration)
     } yield ExitCode.Success
 
-  def migration[F[_]: Sync: ContextShift](migrationServiceConfiguration: MigrationServiceConfiguration, blocker: Blocker): F[MigrateResult] =
+  def migration[F[_]: Sync](migrationServiceConfiguration: MigrationServiceConfiguration): F[MigrateResult] =
     for {
-      flyway <- blocker.delay {
+      flyway <- Sync[F].blocking {
         Flyway
           .configure()
           .dataSource(
@@ -37,6 +35,6 @@ object MigrationApp extends IOApp {
           .load()
       }
 
-      result <- blocker.delay(flyway.migrate())
+      result <- Sync[F].blocking(flyway.migrate())
     } yield result
 }

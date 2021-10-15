@@ -1,8 +1,9 @@
 package com.ruchij.batch.services.worker
 
 import cats.data.OptionT
-import cats.effect.concurrent.Deferred
-import cats.effect.{Bracket, Concurrent, ExitCase, Resource, Timer}
+import cats.effect.kernel.{Deferred, MonadCancelThrow}
+import cats.effect.kernel.Resource.ExitCase
+import cats.effect.{Async, Resource}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, ~>}
 import com.ruchij.batch.config.BatchStorageConfiguration
@@ -30,7 +31,7 @@ import fs2.concurrent.Topic
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
 
-class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
+class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
   fileResourceDao: FileResourceDao[T],
   workerDao: WorkerDao[T],
   videoMetadataDao: VideoMetadataDao[T],
@@ -81,10 +82,9 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
         Resource.pure[F, (Stream[F, Long], F[FileResource])] {
           (
             Stream
-              .eval(Topic[F, Option[YTDownloaderProgress]](None))
+              .eval(Topic[F, YTDownloaderProgress])
               .flatMap { topic =>
-                val progressStream: Stream[F, YTDownloaderProgress] =
-                  topic.subscribe(Int.MaxValue).collect { case Some(progress) => progress }
+                val progressStream: Stream[F, YTDownloaderProgress] = topic.subscribe(Int.MaxValue)
 
                 Stream
                   .eval(Deferred[F, Either[Throwable, Unit]])
@@ -94,10 +94,9 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
                         topic.publish {
                           youTubeVideoDownloader
                             .downloadVideo(scheduledVideoDownload.videoMetadata.url, videoFilePath)
-                            .map(Some.apply)
                             .onFinalizeCase {
-                              case ExitCase.Error(throwable) => deferred.complete(Left(throwable))
-                              case _ => deferred.complete(Right((): Unit))
+                              case ExitCase.Errored(throwable) => deferred.complete(Left(throwable)).as((): Unit)
+                              case _ => deferred.complete(Right((): Unit)).as((): Unit)
                             }
                         }
                       }
@@ -166,6 +165,7 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
                     .productR(Applicative[F].unit)
                 }
               }
+                .productR(Stream.empty)
             }
             .evalMap { byteCount =>
               batchSchedulingService.publishDownloadProgress(scheduledVideoDownload.videoMetadata.id, byteCount)
@@ -217,7 +217,7 @@ class WorkExecutorImpl[F[_]: Concurrent: Timer, T[_]](
                         } else Applicative[F].unit
                       }
                       .flatTap { video =>
-                        Bracket[F, Throwable]
+                        MonadCancelThrow[F]
                           .handleErrorWith(videoEnrichmentService.videoSnapshots(video).as((): Unit)) { _ =>
                             Applicative[F].unit
                           }

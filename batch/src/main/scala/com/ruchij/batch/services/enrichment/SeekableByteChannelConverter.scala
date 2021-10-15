@@ -1,8 +1,7 @@
 package com.ruchij.batch.services.enrichment
 
-import java.nio.file.Path
-
 import cats.effect.Sync
+import fs2.io.file.Path
 import org.jcodec.common.AutoFileChannelWrapper
 import org.jcodec.common.io.SeekableByteChannel
 
@@ -12,5 +11,5 @@ trait SeekableByteChannelConverter[F[_], -A] {
 
 object SeekableByteChannelConverter {
   implicit def pathSeekableByteChannelConverter[F[_]: Sync]: SeekableByteChannelConverter[F, Path] =
-    (path: Path) => Sync[F].delay(new AutoFileChannelWrapper(path.toFile))
+    (path: Path) => Sync[F].blocking(new AutoFileChannelWrapper(path.toNioPath.toFile))
 }

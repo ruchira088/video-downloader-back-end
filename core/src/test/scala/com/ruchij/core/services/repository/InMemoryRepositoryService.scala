@@ -4,7 +4,7 @@ import java.util.concurrent.ConcurrentHashMap
 import cats.{Applicative, ApplicativeError}
 import cats.effect.Sync
 import cats.implicits._
-import fs2.Stream
+import fs2.{INothing, Stream}
 import org.http4s.MediaType
 
 import scala.jdk.CollectionConverters._
@@ -15,14 +15,14 @@ class InMemoryRepositoryService[F[_]: Sync](concurrentHashMap: ConcurrentHashMap
 
   override type BackedType = String
 
-  override def write(key: String, data: Stream[F, Byte]): Stream[F, Unit] =
+  override def write(key: String, data: Stream[F, Byte]): Stream[F, INothing] =
     Stream.eval[F, Unit] {
       data.compile.toList
         .flatMap {
           bytes => Sync[F].delay(concurrentHashMap.put(key, bytes))
         }
-        .as((): Unit)
     }
+      .productR(Stream.empty)
 
   override def read(key: String, start: Option[Long], end: Option[Long]): F[Option[Stream[F, Byte]]] =
     Sync[F].delay(Option(concurrentHashMap.get(key)))

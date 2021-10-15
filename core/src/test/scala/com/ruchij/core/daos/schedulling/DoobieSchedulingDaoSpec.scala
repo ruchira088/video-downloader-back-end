@@ -12,7 +12,6 @@ import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata}
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.test.IOSupport.runIO
-import com.ruchij.core.test.Providers.contextShift
 import com.ruchij.core.test.external.embedded.EmbeddedExternalServiceProvider
 import com.ruchij.core.types.JodaClock
 import doobie.ConnectionIO
@@ -33,7 +32,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
       new EmbeddedExternalServiceProvider[IO].transactor.use {
         transaction =>
           for {
-            timestamp <- JodaClock.create[IO].timestamp
+            timestamp <- JodaClock[IO].timestamp
             thumbnailFileResource = FileResource("thumbnail-id", timestamp, "/opt/image/thumbnail.jpg", MediaType.image.jpeg, 100)
             _ <- transaction {
               DoobieFileResourceDao.insert(thumbnailFileResource)
@@ -173,7 +172,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
   it should "complete the scheduled download video task" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestamp <- JodaClock.create[IO].timestamp
+        timestamp <- JodaClock[IO].timestamp
         maybeUpdated <-
           transaction {
             DoobieSchedulingDao.markScheduledVideoDownloadAsComplete(scheduledVideoDownload.videoMetadata.id, timestamp)
@@ -193,7 +192,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
   it should "update the status of the scheduled video download" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestamp <- JodaClock.create[IO].timestamp
+        timestamp <- JodaClock[IO].timestamp
         maybeUpdated <-
           transaction {
             DoobieSchedulingDao.updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Active, timestamp)
@@ -212,7 +211,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
   it should "update the download progress" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestamp <- JodaClock.create[IO].timestamp
+        timestamp <- JodaClock[IO].timestamp
         maybeUpdated <-
           transaction {
             DoobieSchedulingDao.updateDownloadProgress(scheduledVideoDownload.videoMetadata.id, 2021, timestamp)
@@ -231,7 +230,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
   it should "update timed-out tasks and return a stale task" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestampOne <- JodaClock.create[IO].timestamp
+        timestampOne <- JodaClock[IO].timestamp
         timestampTwo = timestampOne.plusSeconds(20)
 
         timedOutTasks <-
@@ -274,7 +273,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
   it should "acquire queued scheduled video downloads" in runTest {
     (scheduledVideDownload, transaction) =>
       for {
-        timestamp <- JodaClock.create[IO].timestamp
+        timestamp <- JodaClock[IO].timestamp
 
         _ <- transaction {
           DoobieSchedulingDao.updateSchedulingStatusById(scheduledVideDownload.videoMetadata.id, SchedulingStatus.Queued, timestamp)

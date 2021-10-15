@@ -1,6 +1,6 @@
 package com.ruchij.core.test.external
 
-import cats.effect.{Async, Blocker, ContextShift, Resource}
+import cats.effect.{Async, Resource}
 import cats.~>
 import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration}
 import com.ruchij.core.daos.doobie.DoobieTransactor
@@ -21,27 +21,22 @@ trait ExternalServiceProvider[F[_]] {
 object ExternalServiceProvider {
   val HashedAdminPassword = "$2a$10$m5CQAirrrJKRqG3oalNSU.TUOn56v88isxMbNPi8cXXI35gY20hO." // The password is "top-secret"
 
-  def transactor[F[_]: Async: ContextShift](
+  def transactor[F[_]: Async](
     databaseConfig: DatabaseConfiguration
   )(implicit executionContext: ExecutionContext): Resource[F, ConnectionIO ~> F] =
     for {
-      blocker <- Resource.pure(Blocker.liftExecutionContext(executionContext))
-
       hikariTransactor <- DoobieTransactor
-        .create[F](databaseConfig, executionContext, Blocker.liftExecutionContext(executionContext))
+        .create[F](databaseConfig, executionContext)
 
-      migrationResult <- Resource.eval {
-        MigrationApp.migration(
-          MigrationServiceConfiguration(databaseConfig, AdminConfiguration(HashedAdminPassword)),
-          blocker
-        )
-      }
+      migrationResult <-
+        Resource.eval {
+          MigrationApp.migration(MigrationServiceConfiguration(databaseConfig, AdminConfiguration(HashedAdminPassword)))
+        }
     } yield hikariTransactor.trans
 
   implicit class ExternalServiceProviderOps[F[_]](externalServiceProvider: ExternalServiceProvider[F]) {
     def transactor(
       implicit async: Async[F],
-      contextShift: ContextShift[F],
       executionContext: ExecutionContext
     ): Resource[F, ConnectionIO ~> F] =
       externalServiceProvider.databaseConfiguration

@@ -1,7 +1,8 @@
 package com.ruchij.api.services.health
 
 import cats.data.OptionT
-import cats.effect.{Concurrent, Timer}
+import cats.effect.{Clock, Concurrent}
+import cats.effect.kernel.Async
 import cats.implicits._
 import cats.~>
 import com.eed3si9n.ruchij.api.BuildInfo
@@ -22,7 +23,7 @@ import org.joda.time.DateTime
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class HealthServiceImpl[F[_]: Timer: Concurrent](
+class HealthServiceImpl[F[_]: Async: JodaClock](
   fileRepositoryService: FileRepositoryService[F],
   keySpacedKeyValueStore: KeySpacedKeyValueStore[F, HealthCheckKey, DateTime],
   healthCheckStream: Stream[F, HealthCheckMessage],
@@ -113,7 +114,7 @@ class HealthServiceImpl[F[_]: Timer: Concurrent](
       }
 
   val timeout: F[HealthStatus.Unhealthy.type] =
-    Timer[F].sleep(20 seconds).as(HealthStatus.Unhealthy)
+    Clock[F].sleep(20 seconds).as(HealthStatus.Unhealthy)
 
   override val serviceInformation: F[ServiceInformation] =
     ServiceInformation.create[F](applicationInformation)
@@ -125,10 +126,10 @@ class HealthServiceImpl[F[_]: Timer: Concurrent](
       keyValueStoreStatusFiber <- Concurrent[F].start(check(keyValueStoreCheck))
       pubSubStatusFiber <- Concurrent[F].start(check(pubSubCheck))
 
-      databaseStatus <- databaseStatusFiber.join
-      fileRepositoryStatus <- fileRepositoryStatusFiber.join
-      keyValueStoreStatus <- keyValueStoreStatusFiber.join
-      pubSubStatus <- pubSubStatusFiber.join
+      databaseStatus <- databaseStatusFiber.join.flatMap(_.embedNever)
+      fileRepositoryStatus <- fileRepositoryStatusFiber.join.flatMap(_.embedNever)
+      keyValueStoreStatus <- keyValueStoreStatusFiber.join.flatMap(_.embedNever)
+      pubSubStatus <- pubSubStatusFiber.join.flatMap(_.embedNever)
     } yield HealthCheck(databaseStatus, fileRepositoryStatus, keyValueStoreStatus, pubSubStatus)
 
 }

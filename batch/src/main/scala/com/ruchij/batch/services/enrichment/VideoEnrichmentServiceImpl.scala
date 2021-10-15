@@ -1,6 +1,6 @@
 package com.ruchij.batch.services.enrichment
 
-import cats.effect.{Clock, ContextShift, Sync}
+import cats.effect.Sync
 import cats.implicits._
 import cats.{Monad, ~>}
 import com.ruchij.batch.services.snapshots.VideoSnapshotService
@@ -14,7 +14,7 @@ import org.http4s.MediaType
 
 import scala.concurrent.duration.FiniteDuration
 
-class VideoEnrichmentServiceImpl[F[_]: Sync: Clock: ContextShift,T[_]: Monad](
+class VideoEnrichmentServiceImpl[F[_]: Sync,T[_]: Monad](
   videoSnapshotService: VideoSnapshotService[F],
   snapshotDao: SnapshotDao[T],
   fileResourceDao: FileResourceDao[T],

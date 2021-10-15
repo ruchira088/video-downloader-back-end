@@ -8,7 +8,7 @@ import fs2.Stream
 trait BackgroundService[F[_]] {
   type Result
 
-  val run: F[Fiber[F, Result]]
+  val run: F[Fiber[F, Throwable, Result]]
 
   val downloadProgress: Stream[F, DownloadProgress]
 

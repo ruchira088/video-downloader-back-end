@@ -1,7 +1,7 @@
 package com.ruchij.api.web.requests
 
 import cats.data.EitherT
-import cats.effect.Sync
+import cats.effect.kernel.Async
 import fs2.Stream
 import org.http4s.multipart.Multipart
 import org.http4s.{DecodeResult, EntityDecoder, InvalidMessageBodyFailure, MediaType}
@@ -9,7 +9,7 @@ import org.http4s.{DecodeResult, EntityDecoder, InvalidMessageBodyFailure, Media
 case class FileAsset[F[_]](fileName: String, mediaType: MediaType, data: Stream[F, Byte])
 
 object FileAsset {
-  implicit def fileAssetDecoder[F[_]: Sync]: EntityDecoder[F, FileAsset[F]] =
+  implicit def fileAssetDecoder[F[_]: Async]: EntityDecoder[F, FileAsset[F]] =
     EntityDecoder[F, Multipart[F]]
       .flatMapR { multipart =>
         multipart.parts

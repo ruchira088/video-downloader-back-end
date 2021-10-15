@@ -2,7 +2,7 @@ package com.ruchij.core.services.video
 
 import cats.ApplicativeError
 import cats.data.{Kleisli, OptionT}
-import cats.effect.{Async, Bracket, Sync}
+import cats.effect.{Async, MonadCancelThrow, Sync}
 import cats.implicits._
 import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.exceptions.UnsupportedVideoUrlException
@@ -34,7 +34,7 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
       .string
       .flatMap {
         output =>
-          Bracket[F, Throwable].recoverWith(JsonParser.decode[YTDownloaderMetadata](output).toType[F, Throwable]) {
+          MonadCancelThrow[F].recoverWith(JsonParser.decode[YTDownloaderMetadata](output).toType[F, Throwable]) {
             case _: Error => ApplicativeError[F, Throwable].raiseError(UnsupportedVideoUrlException(uri))
           }
       }
@@ -43,7 +43,7 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
           .product {
             OptionT.fromOption[F](metadata.thumbnail)
               .getOrElseF {
-                Bracket[F, Throwable].handleError(retrieveThumbnailFromUri.run(uri)) {_ =>
+                MonadCancelThrow[F].handleError(retrieveThumbnailFromUri.run(uri)) {_ =>
                   uri"https://s3.ap-southeast-2.amazonaws.com/assets.video-downloader.ruchij.com/video-placeholder.png"
                 }
               }

@@ -2,10 +2,9 @@ package com.ruchij.core.services.video
 
 import cats.effect.IO
 import com.ruchij.core.services.cli.CliCommandRunner
-import com.ruchij.core.services.video.models.{YTDataSize, YTDownloaderProgress}
 import com.ruchij.core.services.video.models.YTDataUnit.MiB
+import com.ruchij.core.services.video.models.{YTDataSize, YTDownloaderProgress}
 import com.ruchij.core.test.IOSupport.runIO
-import com.ruchij.core.test.Providers.contextShift
 import fs2.Stream
 import org.http4s.client.Client
 import org.http4s.implicits.http4sLiteralsSyntax
@@ -14,7 +13,6 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import java.util.concurrent.TimeUnit
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.language.postfixOps
 

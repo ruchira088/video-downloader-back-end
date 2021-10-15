@@ -1,8 +1,8 @@
 package com.ruchij.api.web.routes
 
-import cats.effect.Sync
+import cats.effect.Async
 import cats.implicits._
-import com.ruchij.core.circe.Encoders._
+
 import com.ruchij.api.daos.playlist.models.PlaylistSortBy
 import com.ruchij.api.services.models.Context.AuthenticatedRequestContext
 import com.ruchij.api.services.playlist.PlaylistService
@@ -12,6 +12,8 @@ import com.ruchij.api.web.requests.queryparams.PagingQuery
 import com.ruchij.api.web.requests.queryparams.QueryParameter.enumQueryParamDecoder
 import com.ruchij.api.web.requests.queryparams.SingleValueQueryParameter.SearchTermQueryParameter
 import com.ruchij.api.web.responses.PagingResponse
+import com.ruchij.core.circe.Decoders._
+import com.ruchij.core.circe.Encoders._
 import io.circe.generic.auto._
 import org.http4s.ContextRoutes
 import org.http4s.circe.CirceEntityCodec._
@@ -20,7 +22,7 @@ import org.http4s.dsl.Http4sDsl
 
 object PlaylistRoutes {
 
-  def apply[F[_]: Sync](playlistService: PlaylistService[F])(implicit dsl: Http4sDsl[F]): ContextRoutes[AuthenticatedRequestContext, F] = {
+  def apply[F[_]: Async](playlistService: PlaylistService[F])(implicit dsl: Http4sDsl[F]): ContextRoutes[AuthenticatedRequestContext, F] = {
     import dsl._
 
     ContextRoutes.of[AuthenticatedRequestContext, F] {

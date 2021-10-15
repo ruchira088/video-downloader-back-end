@@ -1,7 +1,7 @@
 package com.ruchij.batch.services.sync
 
 import cats.data.OptionT
-import cats.effect.{Blocker, Bracket, Clock, Concurrent, ContextShift, Sync}
+import cats.effect.{Async, MonadCancelThrow, Sync}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Functor, MonadError, ~>}
 import com.ruchij.batch.config.BatchStorageConfiguration
@@ -35,7 +35,7 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 import scala.util.matching.Regex
 
-class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_]: MonadError[*[_], Throwable]](
+class SynchronizationServiceImpl[F[+ _]: Async: JodaClock, A, T[_]: MonadError[*[_], Throwable]](
   fileRepositoryService: FileRepository[F, A],
   fileResourceDao: FileResourceDao[T],
   videoMetadataDao: VideoMetadataDao[T],
@@ -45,7 +45,6 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
   videoEnrichmentService: VideoEnrichmentService[F],
   hashingService: HashingService[F],
   fileTypeDetector: FileTypeDetector[F, A],
-  ioBlocker: Blocker,
   storageConfiguration: BatchStorageConfiguration
 )(implicit seekableByteChannelConverter: SeekableByteChannelConverter[F, A], transaction: T ~> F)
     extends SynchronizationService[F] {
@@ -78,7 +77,7 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
 
   def isFileSupported(filePath: String): F[Boolean] =
     if (SupportedFileTypes.exists(_.fileExtensions.exists(extension => filePath.endsWith("." + extension)))) {
-      Bracket[F, Throwable]
+      MonadCancelThrow[F]
         .handleError {
           for {
             path <- fileRepositoryService.backedType(filePath)
@@ -212,18 +211,18 @@ class SynchronizationServiceImpl[F[+ _]: Concurrent: ContextShift: Clock, A, T[_
       }
       .productR(batchVideoService.insert(video.videoMetadata.id, video.fileResource.id))
       .flatTap { video =>
-        Bracket[F, Throwable].handleErrorWith(videoEnrichmentService.videoSnapshots(video).as((): Unit)) { _ =>
+        MonadCancelThrow[F].handleErrorWith(videoEnrichmentService.videoSnapshots(video).as((): Unit)) { _ =>
           Applicative[F].unit
         }
       }
   }
 
   def videoDuration(videoPath: String): F[FiniteDuration] =
-    ioBlocker.blockOn {
+    Sync[F].defer {
       for {
         backedType <- fileRepositoryService.backedType(videoPath)
         seekableByteChannel <- seekableByteChannelConverter.convert(backedType)
-        frameGrab <- Sync[F].delay(FrameGrab.createFrameGrab(seekableByteChannel))
+        frameGrab <- Sync[F].blocking(FrameGrab.createFrameGrab(seekableByteChannel))
 
         seconds <- Sync[F].delay(frameGrab.getVideoTrack.getMeta.getTotalDuration)
       } yield FiniteDuration(math.floor(seconds).toLong, TimeUnit.SECONDS)

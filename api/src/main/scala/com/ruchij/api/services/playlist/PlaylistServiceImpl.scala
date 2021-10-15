@@ -1,7 +1,7 @@
 package com.ruchij.api.services.playlist
 
 import cats.data.OptionT
-import cats.effect.{Clock, Sync}
+import cats.effect.Sync
 import cats.implicits._
 import cats.{ApplicativeError, MonadError, ~>}
 import com.ruchij.api.daos.playlist.PlaylistDao
@@ -19,7 +19,7 @@ import org.http4s.MediaType
 
 import java.util.UUID
 
-class PlaylistServiceImpl[F[+ _]: Sync: Clock: RandomGenerator[*[_], UUID], G[_]: MonadError[*[_], Throwable]](
+class PlaylistServiceImpl[F[+ _]: Sync: JodaClock: RandomGenerator[*[_], UUID], G[_]: MonadError[*[_], Throwable]](
   playlistDao: PlaylistDao[G],
   fileResourceDao: FileResourceDao[G],
   repositoryService: RepositoryService[F],

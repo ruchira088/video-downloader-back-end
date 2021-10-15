@@ -1,7 +1,7 @@
 package com.ruchij.batch.services.scheduling
 
 import cats.data.OptionT
-import cats.effect.{Concurrent, Timer}
+import cats.effect.Async
 import cats.implicits._
 import cats.{ApplicativeError, MonadError, ~>}
 import com.ruchij.core.daos.scheduling.SchedulingDao
@@ -17,7 +17,7 @@ import fs2.Stream
 
 import scala.concurrent.duration.FiniteDuration
 
-class BatchSchedulingServiceImpl[F[_]: Concurrent: Timer, T[_]: MonadError[*[_], Throwable], M[_]](
+class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadError[*[_], Throwable], M[_]](
   downloadProgressPublisher: Publisher[F, DownloadProgress],
   workerStatusSubscriber: Subscriber[F, CommittableRecord[M, *], WorkerStatusUpdate],
   scheduledVideoDownloadPubSub: PubSub[F, CommittableRecord[M, *], ScheduledVideoDownload],
