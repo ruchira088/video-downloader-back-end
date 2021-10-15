@@ -57,7 +57,6 @@ class FileRepositoryService[F[_]: Sync: Files](fileTypeDetector: FileTypeDetecto
     Stream
       .eval(backedType(key))
       .flatMap(path => Files[F].walk(path, Int.MaxValue, followLinks = true))
-      .drop(1) // drop the parent key
       .map(_.toString)
 
   override def backedType(key: Key): F[Path] = FileRepositoryService.parsePath[F](key)

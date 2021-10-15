@@ -6,7 +6,6 @@ import cats.implicits._
 import com.ruchij.core.exceptions.CliCommandException
 import com.ruchij.core.logging.Logger
 import fs2.Stream
-import fs2.concurrent.Topic
 
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
@@ -27,10 +26,10 @@ class CliCommandRunnerImpl[F[_]: Async] extends CliCommandRunner[F] {
           command.run {
             new ProcessLogger {
               override def out(output: => String): Unit =
-                dispatcher.unsafeRunSync(queue.offer(output))
+                dispatcher.unsafeRunAndForget(queue.offer(output))
 
               override def err(error: => String): Unit =
-                dispatcher.unsafeRunSync {
+                dispatcher.unsafeRunAndForget {
                   logger.error[F](s"Exception thrown by CLI command: $command", CliCommandException(error))
                 }
 
@@ -47,8 +46,11 @@ class CliCommandRunnerImpl[F[_]: Async] extends CliCommandRunner[F] {
           Stream
             .eval(Sync[F].delay(process.isAlive()))
             .repeat
-            .metered(1 second)
-            .map(isAlive => !isAlive)
+            .metered(100 milliseconds)
+            .filter(isAlive => !isAlive)
+            .productR {
+              Stream.eval(queue.size).map(_ == 0).repeat
+            }
         }
         .onFinalize {
           Sync[F]
@@ -58,7 +60,7 @@ class CliCommandRunnerImpl[F[_]: Async] extends CliCommandRunner[F] {
                 Sync[F]
                   .delay(process.destroy())
                   .productR(logger.info(s"Process was killed: $command"))
-              else logger.debug(s"Completed: $command")
+              else logger.debug(s"Completed command: $command")
             }
         }
     } yield line

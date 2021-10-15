@@ -2,20 +2,20 @@ package com.ruchij.batch.services.snapshots
 
 import cats.ApplicativeError
 import cats.data.OptionT
-import cats.effect.Sync
+import cats.effect.Async
 import cats.implicits._
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.services.cli.CliCommandRunner
 import com.ruchij.core.services.hashing.HashingService
-import com.ruchij.core.services.repository.FileRepositoryService
+import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.types.JodaClock
 
 import scala.concurrent.duration.FiniteDuration
 
-class VideoSnapshotServiceImpl[F[_]: Sync: JodaClock](
+class VideoSnapshotServiceImpl[F[_]: Async: JodaClock](
   cliCommandRunner: CliCommandRunner[F],
-  fileRepositoryService: FileRepositoryService[F],
+  repositoryService: RepositoryService[F],
   hashingService: HashingService[F]
 ) extends VideoSnapshotService[F] {
 
@@ -25,12 +25,12 @@ class VideoSnapshotServiceImpl[F[_]: Sync: JodaClock](
     snapshotDestination: String
   ): F[FileResource] =
     cliCommandRunner
-      .run(s"ffmpeg -ss ${videoTimestamp.toSeconds} -i $videoFileKey -frames:v 1 -q:v 2 $snapshotDestination -y -v error")
+      .run(s"""ffmpeg -ss ${videoTimestamp.toSeconds} -i "$videoFileKey" -frames:v 1 -q:v 2 "$snapshotDestination" -y -v error""")
       .compile
       .drain
       .productR {
-        OptionT(fileRepositoryService.size(snapshotDestination))
-          .product(OptionT(fileRepositoryService.fileType(snapshotDestination)))
+        OptionT(repositoryService.size(snapshotDestination))
+          .product(OptionT(repositoryService.fileType(snapshotDestination)))
           .getOrElseF {
             ApplicativeError[F, Throwable]
               .raiseError(ResourceNotFoundException(s"Unable to find file resource at $snapshotDestination"))
