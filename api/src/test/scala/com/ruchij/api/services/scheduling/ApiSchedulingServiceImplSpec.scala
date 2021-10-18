@@ -3,7 +3,7 @@ package com.ruchij.api.services.scheduling
 import cats.effect.{IO, Resource}
 import com.ruchij.api.daos.credentials.DoobieCredentialsDao
 import com.ruchij.api.daos.permission.DoobieVideoPermissionDao
-import com.ruchij.api.daos.resettoken.DoobieCredentialsResetToken
+import com.ruchij.api.daos.resettoken.DoobieCredentialsResetTokenDao
 import com.ruchij.api.daos.title.DoobieVideoTitleDao
 import com.ruchij.api.daos.user.DoobieUserDao
 import com.ruchij.api.daos.user.models.Email
@@ -163,7 +163,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFa
             passwordHashingService,
             DoobieUserDao,
             DoobieCredentialsDao,
-            DoobieCredentialsResetToken,
+            DoobieCredentialsResetTokenDao,
             DoobieVideoTitleDao,
             DoobieVideoPermissionDao
           )

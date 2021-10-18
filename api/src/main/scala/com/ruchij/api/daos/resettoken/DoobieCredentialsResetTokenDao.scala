@@ -5,7 +5,7 @@ import com.ruchij.api.daos.resettoken.models.CredentialsResetToken
 import doobie.free.connection.ConnectionIO
 import doobie.implicits.toSqlInterpolator
 
-object DoobieCredentialsResetToken extends CredentialsResetTokenDao[ConnectionIO] {
+object DoobieCredentialsResetTokenDao extends CredentialsResetTokenDao[ConnectionIO] {
 
   override def insert(credentialsResetToken: CredentialsResetToken): ConnectionIO[Int] =
     sql"""
