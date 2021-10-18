@@ -62,7 +62,7 @@ class SynchronizationServiceImpl[F[+ _]: Async: JodaClock, A, T[_]: MonadError[*
             if (isVideoFilePath) syncVideo(filePath)
             else
               logger
-                .debug(s"Ignoring $filePath")
+                .trace(s"Ignoring $filePath")
                 .productR(Applicative[F].pure(IgnoredFile(filePath)))
           }
       }
