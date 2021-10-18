@@ -1,4 +1,4 @@
-package com.ruchij.api.dasos.credentials
+package com.ruchij.api.daos.credentials
 
 import cats.effect.IO
 import cats.implicits._
