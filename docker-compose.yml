@@ -1,24 +1,7 @@
 version: "3.8"
 
-#x-volumes: &docker-volumes
-#  - "~/.sbt:/root/.sbt"
-#  - "~/Library/Caches/Coursier:/root/.cache/coursier" # MacOS Coursier cache
-#  #      - "~/.cache/coursier:/root/.cache/coursier" # Linux Coursier cache
-#  #      - "~/AppData/Local/Coursier/Cache:/root/.cache/coursier" # Windows Coursier cache
-#  - ".:/opt/video-downloader-back-end"
-#  - "/opt/video-downloader-back-end/project/target"
-#  - "/opt/video-downloader-back-end/migration-application/target"
-#  - "/opt/video-downloader-back-end/core/target"
-#  - "/opt/video-downloader-back-end/api/target"
-#  - "/opt/video-downloader-back-end/batch/target"
-#  - "/root/.sbt/1.0/plugins"
-#  - "./videos:/opt/videos"
-#  - "./images:/opt/images"
-
 x-batch: &batch-app
   image: video-downloader-batch:latest
-    #    build: .
-    #    command: batch/run
   depends_on:
     postgres:
       condition: service_healthy
@@ -26,8 +9,6 @@ x-batch: &batch-app
       condition: service_completed_successfully
     redis:
       condition: service_started
-  #    ports:
-  #      - 5006:5005
   volumes:
     - "./videos:/opt/videos"
     - "./images:/opt/images"
@@ -57,8 +38,6 @@ services:
 
   api:
     image: video-downloader-api:latest
-#    build: .
-#    command: api/run
     depends_on:
       postgres:
         condition: service_healthy
@@ -68,7 +47,6 @@ services:
         condition: service_started
     ports:
       - 8000:8000
-#      - 5005:5005
     volumes:
       - "./videos:/opt/videos"
       - "./images:/opt/images"
