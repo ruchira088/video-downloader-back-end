@@ -17,7 +17,7 @@ object Dependencies
 
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.2.9"
 
-  lazy val fs2Io = "co.fs2" %% "fs2-io" % "3.1.5"
+  lazy val fs2Io = "co.fs2" %% "fs2-io" % "3.1.6"
 
   lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "2.2.0"
 
