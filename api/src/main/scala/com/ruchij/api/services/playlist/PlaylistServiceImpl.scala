@@ -27,11 +27,11 @@ class PlaylistServiceImpl[F[+ _]: Sync: JodaClock: RandomGenerator[*[_], UUID], 
 )(implicit transaction: G ~> F)
     extends PlaylistService[F] {
 
-  override def create(title: String, description: Option[String]): F[Playlist] =
+  override def create(title: String, description: Option[String], userId: String): F[Playlist] =
     for {
       id <- RandomGenerator[F, UUID].generate
       timestamp <- JodaClock[F].timestamp
-      playlist = Playlist(id.toString, timestamp, title, description, Seq.empty, None)
+      playlist = Playlist(id.toString, userId, timestamp, title, description, Seq.empty, None)
       _ <- transaction(playlistDao.insert(playlist).one)
     } yield playlist
 
@@ -39,35 +39,38 @@ class PlaylistServiceImpl[F[+ _]: Sync: JodaClock: RandomGenerator[*[_], UUID], 
     playlistId: String,
     maybeTitle: Option[String],
     maybeDescription: Option[String],
-    maybeVideoIdList: Option[Seq[String]]
+    maybeVideoIdList: Option[Seq[String]],
+    maybeUserId: Option[String]
   ): F[Playlist] =
     OptionT {
       transaction {
         playlistDao
-          .update(playlistId, maybeTitle, maybeDescription, maybeVideoIdList, None)
-          .productR(playlistDao.findById(playlistId))
+          .update(playlistId, maybeTitle, maybeDescription, maybeVideoIdList, None, maybeUserId)
+          .productR(playlistDao.findById(playlistId, maybeUserId))
       }
     }.getOrElseF(playlistNotFound(playlistId))
 
-  override def fetchById(playlistId: String): F[Playlist] =
-    OptionT(transaction(playlistDao.findById(playlistId))).getOrElseF(playlistNotFound(playlistId))
+  override def fetchById(playlistId: String, maybeUserId: Option[String]): F[Playlist] =
+    OptionT(transaction(playlistDao.findById(playlistId, maybeUserId))).getOrElseF(playlistNotFound(playlistId))
 
   override def search(
     maybeSearchTerm: Option[String],
     pageSize: Int,
     pageNumber: Int,
     order: Order,
-    playlistSortBy: PlaylistSortBy
+    playlistSortBy: PlaylistSortBy,
+    maybeUserId: Option[String]
   ): F[Seq[Playlist]] =
     transaction {
-      playlistDao.search(maybeSearchTerm, pageSize, pageNumber, order, playlistSortBy)
+      playlistDao.search(maybeSearchTerm, pageSize, pageNumber, order, playlistSortBy, maybeUserId)
     }
 
   override def addAlbumArt(
     playlistId: String,
     fileName: String,
     mediaType: MediaType,
-    data: Stream[F, Byte]
+    data: Stream[F, Byte],
+    maybeUserId: Option[String]
   ): F[Playlist] =
     for {
       timestamp <- JodaClock[F].timestamp
@@ -82,29 +85,29 @@ class PlaylistServiceImpl[F[+ _]: Sync: JodaClock: RandomGenerator[*[_], UUID], 
       maybePlaylist <- transaction {
         fileResourceDao
           .insert(fileResource)
-          .productR { playlistDao.update(playlistId, None, None, None, Some(Right(fileResource.id))).singleUpdate.value }
-          .productR { playlistDao.findById(playlistId) }
+          .productR { playlistDao.update(playlistId, None, None, None, Some(Right(fileResource.id)), maybeUserId).singleUpdate.value }
+          .productR { playlistDao.findById(playlistId, maybeUserId) }
       }
 
       playlist <- OptionT.fromOption[F](maybePlaylist).getOrElseF(playlistNotFound(playlistId))
     } yield playlist
 
-  override def removeAlbumArt(playlistId: String): F[Playlist] =
+  override def removeAlbumArt(playlistId: String, maybeUserId: Option[String]): F[Playlist] =
     transaction {
       playlistDao
-        .update(playlistId, None, None, None, Some(Left((): Unit)))
+        .update(playlistId, None, None, None, Some(Left((): Unit)), maybeUserId)
         .singleUpdate
         .value
-        .productR(playlistDao.findById(playlistId))
+        .productR(playlistDao.findById(playlistId, maybeUserId))
     }.flatMap { maybePlaylist =>
         OptionT.fromOption[F](maybePlaylist).getOrElseF(playlistNotFound(playlistId))
       }
 
-  override def deletePlaylist(playlistId: String): F[Playlist] =
+  override def deletePlaylist(playlistId: String, maybeUserId: Option[String]): F[Playlist] =
     transaction {
       playlistDao
-        .findById(playlistId)
-        .productL(playlistDao.deleteById(playlistId))
+        .findById(playlistId, maybeUserId)
+        .productL(playlistDao.deleteById(playlistId, maybeUserId))
     }.flatMap { maybePlaylist =>
         OptionT.fromOption[F](maybePlaylist).getOrElseF(playlistNotFound(playlistId))
       }

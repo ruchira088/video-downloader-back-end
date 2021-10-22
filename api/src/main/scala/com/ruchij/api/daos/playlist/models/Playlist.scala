@@ -6,6 +6,7 @@ import org.joda.time.DateTime
 
 case class Playlist(
   id: String,
+  userId: String,
   createdAt: DateTime,
   title: String,
   description: Option[String],

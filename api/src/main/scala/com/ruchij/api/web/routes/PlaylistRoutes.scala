@@ -26,14 +26,14 @@ object PlaylistRoutes {
     import dsl._
 
     ContextRoutes.of[AuthenticatedRequestContext, F] {
-      case contextRequest @ POST -> Root as _ =>
+      case contextRequest @ POST -> Root as AuthenticatedRequestContext(user, _) =>
         for {
           CreatePlaylistRequest(title, description) <- contextRequest.to[CreatePlaylistRequest]
-          playlist <- playlistService.create(title, description)
+          playlist <- playlistService.create(title, description, user.id)
           response <- Created(playlist)
         } yield response
 
-      case GET -> Root :? queryParameters as _ =>
+      case GET -> Root :? queryParameters as AuthenticatedRequestContext(user, _) =>
         for {
           pageQuery <- PagingQuery.from[F, PlaylistSortBy].run(queryParameters)
           maybeSearchTerm <- SearchTermQueryParameter.parse[F].run(queryParameters)
@@ -44,36 +44,37 @@ object PlaylistRoutes {
               pageQuery.pageSize,
               pageQuery.pageNumber,
               pageQuery.order,
-              pageQuery.maybeSortBy.getOrElse(PlaylistSortBy.CreatedAt)
+              pageQuery.maybeSortBy.getOrElse(PlaylistSortBy.CreatedAt),
+              user.nonAdminUserId
             )
 
           response <- Ok(PagingResponse(playlists, pageQuery.pageSize, pageQuery.pageNumber, pageQuery.order, pageQuery.maybeSortBy))
         } yield response
 
-      case GET -> Root / "id" / playlistId as _ =>
+      case GET -> Root / "id" / playlistId as AuthenticatedRequestContext(user, _) =>
         for {
-          playlist <- playlistService.fetchById(playlistId)
+          playlist <- playlistService.fetchById(playlistId, user.nonAdminUserId)
           response <- Ok(playlist)
         } yield response
 
-      case contextRequest @ PUT -> Root / "id" / playlistId as _ =>
+      case contextRequest @ PUT -> Root / "id" / playlistId as AuthenticatedRequestContext(user, _) =>
         for {
           UpdatePlaylistRequest(maybeTitle, maybeDescription, maybeVideoIdList) <- contextRequest.to[UpdatePlaylistRequest]
-          playlist <- playlistService.updatePlaylist(playlistId, maybeTitle, maybeDescription, maybeVideoIdList)
+          playlist <- playlistService.updatePlaylist(playlistId, maybeTitle, maybeDescription, maybeVideoIdList, user.nonAdminUserId)
           response <- Ok(playlist)
         }
         yield response
 
-      case authRequest @ PUT -> Root / "id" / playlistId / "album-art" as _ =>
+      case authRequest @ PUT -> Root / "id" / playlistId / "album-art" as AuthenticatedRequestContext(user, _) =>
         authRequest.to[FileAsset[F]]
-          .flatMap { fileAsset => playlistService.addAlbumArt(playlistId, fileAsset.fileName, fileAsset.mediaType, fileAsset.data) }
+          .flatMap { fileAsset => playlistService.addAlbumArt(playlistId, fileAsset.fileName, fileAsset.mediaType, fileAsset.data, user.nonAdminUserId) }
           .flatMap(playlist => Ok(playlist))
 
-      case DELETE -> Root / "id" / playlistId / "album-art" as _ =>
-        playlistService.removeAlbumArt(playlistId).flatMap(playlist => Ok(playlist))
+      case DELETE -> Root / "id" / playlistId / "album-art" as AuthenticatedRequestContext(user, _) =>
+        playlistService.removeAlbumArt(playlistId, user.nonAdminUserId).flatMap(playlist => Ok(playlist))
 
-      case DELETE -> Root / "id" / playlistId as _ =>
-        playlistService.deletePlaylist(playlistId).flatMap(playlist => Ok(playlist))
+      case DELETE -> Root / "id" / playlistId as AuthenticatedRequestContext(user, _) =>
+        playlistService.deletePlaylist(playlistId, user.nonAdminUserId).flatMap(playlist => Ok(playlist))
     }
   }
 
