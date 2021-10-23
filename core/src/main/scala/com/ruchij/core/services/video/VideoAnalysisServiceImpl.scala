@@ -1,7 +1,7 @@
 package com.ruchij.core.services.video
 
 import cats.data.Kleisli
-import cats.effect.{Clock, Sync}
+import cats.effect.{Async, Sync}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Monad, ~>}
 import com.ruchij.core.config.StorageConfiguration
@@ -16,8 +16,8 @@ import com.ruchij.core.services.download.DownloadService
 import com.ruchij.core.services.hashing.HashingService
 import com.ruchij.core.services.video.VideoAnalysisService.{Existing, NewlyCreated, VideoMetadataResult}
 import com.ruchij.core.services.video.models.VideoAnalysisResult
-import com.ruchij.core.types.JodaClock
 import com.ruchij.core.types.FunctionKTypes._
+import com.ruchij.core.types.JodaClock
 import com.ruchij.core.utils.Http4sUtils
 import org.http4s.client.Client
 import org.http4s.headers.`Content-Length`
@@ -25,7 +25,7 @@ import org.http4s.{Method, Request, Uri}
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 
-class VideoAnalysisServiceImpl[F[_]: Sync: Clock, T[_]: Monad](
+class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
   hashingService: HashingService[F],
   downloadService: DownloadService[F],
   youTubeVideoDownloader: YouTubeVideoDownloader[F],

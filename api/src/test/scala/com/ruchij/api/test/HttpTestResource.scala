@@ -1,14 +1,11 @@
 package com.ruchij.api.test
 
-import cats.effect.{Blocker, ConcurrentEffect, ContextShift, Resource, Timer}
+import cats.effect.Resource
+import cats.effect.kernel.Async
+import cats.effect.std.Dispatcher
 import cats.{ApplicativeError, Id}
 import com.ruchij.api.ApiApp
-import com.ruchij.api.config.{
-  ApiServiceConfiguration,
-  ApiStorageConfiguration,
-  AuthenticationConfiguration,
-  HttpConfiguration
-}
+import com.ruchij.api.config.{ApiServiceConfiguration, ApiStorageConfiguration, AuthenticationConfiguration, HttpConfiguration}
 import com.ruchij.api.models.ApiMessageBrokers
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.core.config.{ApplicationInformation, KafkaConfiguration}
@@ -17,7 +14,8 @@ import com.ruchij.core.kv.RedisKeyValueStore
 import com.ruchij.core.messaging.inmemory.Fs2PubSub
 import com.ruchij.core.messaging.models.HttpMetric
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
-import com.ruchij.core.test.external.ExternalServiceProvider
+import com.ruchij.core.external.ExternalServiceProvider
+import com.ruchij.core.types.JodaClock
 import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.effect.Log.Stdout.instance
 import org.http4s.client.Client
@@ -42,7 +40,7 @@ object HttpTestResource {
 
   val KafkaConfig: KafkaConfiguration = KafkaConfiguration("N/A", Uri())
 
-  def create[F[+ _]: ConcurrentEffect: Timer: ContextShift](
+  def create[F[+ _]: Async: JodaClock](
     externalServiceProvider: ExternalServiceProvider[F]
   )(implicit executionContext: ExecutionContext): Resource[F, TestResources[F]] =
     create[F](externalServiceProvider, Client[F] { _ =>
@@ -51,7 +49,7 @@ object HttpTestResource {
       }
     })
 
-  def create[F[+ _]: ConcurrentEffect: Timer: ContextShift](
+  def create[F[+ _]: Async: JodaClock](
     externalServiceProvider: ExternalServiceProvider[F],
     client: Client[F]
   )(implicit executionContext: ExecutionContext): Resource[F, TestResources[F]] =
@@ -78,6 +76,7 @@ object HttpTestResource {
       healthCheckPubSub <- Resource.eval(Fs2PubSub[F, HealthCheckMessage])
       httpMetricPubSub <- Resource.eval(Fs2PubSub[F, HttpMetric])
       workerStatusUpdatesPubSub <- Resource.eval(Fs2PubSub[F, WorkerStatusUpdate])
+      dispatcher <- Dispatcher[F]
 
       messageBrokers = ApiMessageBrokers(
         downloadProgressPubSub,
@@ -92,10 +91,9 @@ object HttpTestResource {
           client,
           redisKeyValueStore,
           messageBrokers,
-          Blocker.liftExecutionContext(executionContext),
-          Blocker.liftExecutionContext(executionContext),
+          dispatcher,
           apiServiceConfiguration
-        )(ConcurrentEffect[F], ContextShift[F], Timer[F], transactor)
+        )(Async[F], JodaClock[F], transactor)
       }
     } yield (apiServiceConfiguration, messageBrokers, httpApp)
 

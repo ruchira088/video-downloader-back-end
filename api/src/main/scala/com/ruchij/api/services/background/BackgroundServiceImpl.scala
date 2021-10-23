@@ -1,6 +1,7 @@
 package com.ruchij.api.services.background
 
-import cats.effect.{Concurrent, Fiber, Sync, Timer}
+import cats.effect.kernel.Async
+import cats.effect.{Concurrent, Fiber, Sync}
 import cats.implicits._
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.api.services.scheduling.ApiSchedulingService
@@ -16,12 +17,12 @@ import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
 import scala.reflect.{ClassTag, classTag}
 
-class BackgroundServiceImpl[F[_]: Timer: Concurrent, M[_]](
+class BackgroundServiceImpl[F[_]: Async, M[_]](
   apiSchedulingService: ApiSchedulingService[F],
   downloadProgressSubscriber: Subscriber[F, CommittableRecord[M, *], DownloadProgress],
-  downloadProgressTopic: Topic[F, Option[DownloadProgress]],
+  downloadProgressTopic: Topic[F, DownloadProgress],
   healthCheckSubscriber: Subscriber[F, CommittableRecord[M, *], HealthCheckMessage],
-  healthCheckTopic: Topic[F, Option[HealthCheckMessage]],
+  healthCheckTopic: Topic[F, HealthCheckMessage],
   subscriberGroupId: String
 ) extends BackgroundService[F] {
 
@@ -31,11 +32,9 @@ class BackgroundServiceImpl[F[_]: Timer: Concurrent, M[_]](
 
   override val downloadProgress: Stream[F, DownloadProgress] =
     downloadProgressTopic.subscribe(Int.MaxValue)
-      .collect { case Some(value) => value }
 
   override val healthChecks: Stream[F, HealthCheckMessage] =
     healthCheckTopic.subscribe(Int.MaxValue)
-      .collect { case Some(value) => value }
 
   private val publishToHealthCheckTopic: Stream[F, Unit] =
     publishToTopic(healthCheckSubscriber, healthCheckTopic)
@@ -43,11 +42,11 @@ class BackgroundServiceImpl[F[_]: Timer: Concurrent, M[_]](
   private val publishToDownloadProgressTopic: Stream[F, Unit] =
     publishToTopic(downloadProgressSubscriber, downloadProgressTopic)
 
-  private def publishToTopic[A: ClassTag](subscriber: Subscriber[F, CommittableRecord[M, *], A], topic: Topic[F, Option[A]]): Stream[F, Unit] =
+  private def publishToTopic[A: ClassTag](subscriber: Subscriber[F, CommittableRecord[M, *], A], topic: Topic[F, A]): Stream[F, Unit] =
     subscriber
       .subscribe(subscriberGroupId)
       .evalTap {
-        committableRecord => topic.publish1(Some(committableRecord.value))
+        committableRecord => topic.publish1(committableRecord.value)
       }
       .groupWithin(20, 5 seconds)
       .evalMap {
@@ -83,7 +82,7 @@ class BackgroundServiceImpl[F[_]: Timer: Concurrent, M[_]](
         Stream.emits[F, ScheduledVideoDownload](scheduledVideoDownloads)
       }
 
-  override val run: F[Fiber[F, Unit]] =
+  override val run: F[Fiber[F, Throwable, Unit]] =
     Concurrent[F].start {
       publishToDownloadProgressTopic
         .concurrently(updateScheduledVideoDownloads)
@@ -94,14 +93,14 @@ class BackgroundServiceImpl[F[_]: Timer: Concurrent, M[_]](
 }
 
 object BackgroundServiceImpl {
-  def create[F[_]: Concurrent: Timer, M[_]](
+  def create[F[_]: Async, M[_]](
     apiSchedulingService: ApiSchedulingService[F],
     downloadProgressSubscriber: Subscriber[F, CommittableRecord[M, *], DownloadProgress],
     healthCheckSubscriber: Subscriber[F, CommittableRecord[M, *], HealthCheckMessage],
     subscriberGroupId: String
   ): F[BackgroundServiceImpl[F, M]] =
-    Topic[F, Option[DownloadProgress]](None)
-      .product(Topic[F, Option[HealthCheckMessage]](None))
+    Topic[F, DownloadProgress]
+      .product(Topic[F, HealthCheckMessage])
       .map {
         case (downloadProgressTopic, healthCheckTopic) =>
           new BackgroundServiceImpl[F, M](

@@ -1,7 +1,8 @@
 package com.ruchij.core.services.download
 
 import cats.ApplicativeError
-import cats.effect.{Concurrent, ContextShift, Resource, Timer}
+import cats.effect.Resource
+import cats.effect.kernel.Temporal
 import cats.implicits._
 import com.ruchij.core.exceptions.ExternalServiceException
 import com.ruchij.core.services.download.models.DownloadResult
@@ -13,7 +14,7 @@ import org.http4s.{Headers, Request, Uri}
 
 import scala.concurrent.duration.DurationInt
 
-class Http4sDownloadService[F[_]: Concurrent: ContextShift: Timer](
+class Http4sDownloadService[F[_]: Temporal](
   client: Client[F],
   repositoryService: RepositoryService[F]
 ) extends DownloadService[F] {

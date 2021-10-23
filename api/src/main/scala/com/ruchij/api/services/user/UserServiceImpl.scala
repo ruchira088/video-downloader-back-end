@@ -1,28 +1,30 @@
 package com.ruchij.api.services.user
 
 import cats.data.OptionT
-import cats.effect.Clock
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadError, ~>}
 import com.ruchij.api.daos.credentials.CredentialsDao
 import com.ruchij.api.daos.credentials.models.Credentials
 import com.ruchij.api.daos.permission.VideoPermissionDao
+import com.ruchij.api.daos.resettoken.CredentialsResetTokenDao
+import com.ruchij.api.daos.resettoken.models.CredentialsResetToken
+import com.ruchij.api.daos.title.VideoTitleDao
 import com.ruchij.api.daos.user.UserDao
 import com.ruchij.api.daos.user.models.{Email, Role, User}
 import com.ruchij.api.exceptions.{AuthorizationException, ResourceConflictException}
 import com.ruchij.api.services.authentication.AuthenticationService.Password
 import com.ruchij.api.services.hashing.PasswordHashingService
 import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
-import com.ruchij.api.daos.title.VideoTitleDao
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.types.{JodaClock, RandomGenerator}
 
 import java.util.UUID
 
-class UserServiceImpl[F[+ _]: RandomGenerator[*[_], UUID]: MonadError[*[_], Throwable]: Clock, G[_]: MonadError[*[_], Throwable]](
+class UserServiceImpl[F[+ _]: RandomGenerator[*[_], UUID]: MonadError[*[_], Throwable]: JodaClock, G[_]: MonadError[*[_], Throwable]](
   passwordHashingService: PasswordHashingService[F],
   userDao: UserDao[G],
   credentialsDao: CredentialsDao[G],
+  credentialsResetTokenDao: CredentialsResetTokenDao[G],
   videoTitleDao: VideoTitleDao[G],
   videoPermissionDao: VideoPermissionDao[G]
 )(implicit transaction: G ~> F)
@@ -51,6 +53,46 @@ class UserServiceImpl[F[+ _]: RandomGenerator[*[_], UUID]: MonadError[*[_], Thro
         }
 
     } yield user
+
+  override def forgotPassword(email: Email): F[CredentialsResetToken] =
+    for {
+      token <- RandomGenerator[F, UUID].generate.map(_.toString)
+      timestamp <- JodaClock[F].timestamp
+
+      credentialsResetToken <- transaction {
+        OptionT(userDao.findByEmail(email))
+          .semiflatMap { user =>
+            val resetToken = CredentialsResetToken(user.id, timestamp, token)
+
+            credentialsResetTokenDao.insert(resetToken).as(resetToken)
+          }
+          .getOrElseF {
+            ApplicativeError[G, Throwable].raiseError {
+              ResourceNotFoundException(s"Unable to find user with email=${email.value}")
+            }
+          }
+      }
+    }
+    yield credentialsResetToken
+
+  override def resetPassword(userId: String, resetToken: String, password: Password): F[User] =
+    JodaClock[F].timestamp.product(passwordHashingService.hashPassword(password))
+      .flatMap { case (timestamp, hashedPassword) =>
+        transaction {
+          OptionT(credentialsResetTokenDao.find(userId, resetToken))
+            .filter { resetToken =>
+              resetToken.createdAt.plus(UserService.ResetTokenValidity.toMillis).isAfter(timestamp)
+            }
+            .semiflatMap(_ => credentialsDao.update(Credentials(userId, timestamp, hashedPassword)))
+            .semiflatMap(_ => credentialsResetTokenDao.delete(userId, resetToken))
+            .productR(OptionT(userDao.findById(userId)))
+            .getOrElseF {
+              ApplicativeError[G, Throwable].raiseError {
+                ResourceNotFoundException("Reset password token in not valid")
+              }
+            }
+        }
+    }
 
   override def delete(userId: String, adminUser: User): F[User] =
     if (adminUser.role == Role.Admin)

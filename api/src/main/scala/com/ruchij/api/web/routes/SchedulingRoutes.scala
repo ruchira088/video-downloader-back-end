@@ -1,34 +1,34 @@
 package com.ruchij.api.web.routes
 
-import cats.effect.{Concurrent, Timer}
+import cats.effect.Async
 import cats.implicits._
 import com.ruchij.api.services.models.Context.AuthenticatedRequestContext
 import com.ruchij.api.services.scheduling.ApiSchedulingService
-import com.ruchij.api.web.requests.{SchedulingRequest, UpdateScheduledVideoRequest, WorkerStatusUpdateRequest}
-import com.ruchij.api.web.requests.UpdateScheduledVideoRequest.updateScheduledVideoRequestValidator
 import com.ruchij.api.web.requests.RequestOps.ContextRequestOpsSyntax
+import com.ruchij.api.web.requests.UpdateScheduledVideoRequest.updateScheduledVideoRequestValidator
 import com.ruchij.api.web.requests.queryparams.SearchQuery
-import com.ruchij.core.services.scheduling.models.DownloadProgress
-import com.ruchij.core.types.JodaClock
+import com.ruchij.api.web.requests.{SchedulingRequest, UpdateScheduledVideoRequest, WorkerStatusUpdateRequest}
 import com.ruchij.api.web.responses.EventStreamEventType.{ActiveDownload, HeartBeat}
+import com.ruchij.api.web.responses.{EventStreamHeartBeat, SearchResult, WorkerStatusResponse}
 import com.ruchij.core.circe.Decoders._
 import com.ruchij.core.circe.Encoders._
-import com.ruchij.api.web.responses.{EventStreamHeartBeat, SearchResult, WorkerStatusResponse}
 import com.ruchij.core.services.models.SortBy
+import com.ruchij.core.services.scheduling.models.DownloadProgress
+import com.ruchij.core.types.JodaClock
 import fs2.Stream
 import io.circe.Encoder
 import io.circe.generic.auto._
 import io.circe.syntax._
-import org.http4s.circe.CirceEntityCodec.{circeEntityDecoder, circeEntityEncoder}
+import org.http4s.circe.CirceEntityCodec._
 import org.http4s.circe._
-import org.http4s.{ContextRoutes, ServerSentEvent}
 import org.http4s.dsl.Http4sDsl
+import org.http4s.{ContextRoutes, ServerSentEvent}
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
 object SchedulingRoutes {
-  def apply[F[+ _]: Concurrent: Timer](
+  def apply[F[+ _]: Async: JodaClock](
     apiSchedulingService: ApiSchedulingService[F],
     downloadProgressStream: Stream[F, DownloadProgress]
   )(implicit dsl: Http4sDsl[F]): ContextRoutes[AuthenticatedRequestContext, F] = {

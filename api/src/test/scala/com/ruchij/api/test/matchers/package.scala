@@ -7,7 +7,7 @@ import org.http4s.{MediaType, Status}
 package object matchers {
   val beJsonContentType: ContentTypeMatcher[IO] = new ContentTypeMatcher[IO](MediaType.application.json)
 
-  def haveJson(json: Json): JsonResponseMatcher[IO] = new JsonResponseMatcher[IO](json)
+  def haveJson(json: Json): JsonResponseMatcher = new JsonResponseMatcher(json)
 
   def haveStatus(status: Status): ResponseStatusMatcher[IO] = new ResponseStatusMatcher[IO](status)
 }

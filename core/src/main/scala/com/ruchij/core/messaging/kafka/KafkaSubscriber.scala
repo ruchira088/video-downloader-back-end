@@ -1,8 +1,8 @@
 package com.ruchij.core.messaging.kafka
 
-import cats.{Foldable, Functor}
-import cats.effect.{ConcurrentEffect, ContextShift, Timer}
+import cats.effect.Async
 import cats.implicits.toFunctorOps
+import cats.{Foldable, Functor}
 import com.ruchij.core.config.KafkaConfiguration
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Subscriber
@@ -10,7 +10,7 @@ import com.ruchij.core.messaging.models.CommittableRecord
 import fs2.Stream
 import fs2.kafka._
 
-class KafkaSubscriber[F[_]: ConcurrentEffect: ContextShift: Timer, A](kafkaConfiguration: KafkaConfiguration)(
+class KafkaSubscriber[F[_]: Async, A](kafkaConfiguration: KafkaConfiguration)(
   implicit topic: KafkaTopic[A]
 ) extends Subscriber[F, CommittableRecord[CommittableConsumerRecord[F, Unit, *], *], A] {
 

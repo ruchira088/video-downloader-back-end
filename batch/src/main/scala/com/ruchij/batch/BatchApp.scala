@@ -1,7 +1,8 @@
 package com.ruchij.batch
 
-import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
-import cats.implicits._
+import cats.effect._
+import cats.effect.kernel.Async
+import cats.effect.std.Dispatcher
 import com.ruchij.batch.config.BatchServiceConfiguration
 import com.ruchij.batch.daos.filesync.DoobieFileSyncDao
 import com.ruchij.batch.daos.workers.DoobieWorkerDao
@@ -28,6 +29,7 @@ import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, YouTubeVideoDownloaderImpl}
+import com.ruchij.core.types.JodaClock
 import doobie.free.connection.ConnectionIO
 import fs2.kafka.CommittableConsumerRecord
 import org.apache.tika.Tika
@@ -35,8 +37,6 @@ import org.http4s.asynchttpclient.client.AsyncHttpClient
 import org.http4s.client.middleware.FollowRedirect
 import pureconfig.ConfigSource
 
-import java.util.concurrent.Executors
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
 
@@ -64,7 +64,7 @@ object BatchApp extends IOApp {
         }
     } yield ExitCode.Success
 
-  def program[F[+ _]: ConcurrentEffect: ContextShift: Timer](
+  def program[F[+ _]: Async: JodaClock](
     batchServiceConfiguration: BatchServiceConfiguration
   ): Resource[F, Scheduler[F]] =
     DoobieTransactor
@@ -76,29 +76,19 @@ object BatchApp extends IOApp {
             .resource { AsyncHttpClient.configure(_.setRequestTimeout((24 hours).toMillis.toInt)) }
             .map(FollowRedirect(maxRedirects = 10))
 
-          ioThreadPool <- Resource.make(Sync[F].delay(Executors.newCachedThreadPool())) { executorService =>
-            Sync[F].delay(executorService.shutdown())
-          }
-          blockerIO = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(ioThreadPool))
-
-          processorCount <- Resource.eval(Sync[F].delay(Runtime.getRuntime.availableProcessors()))
-          cpuBlockingThreadPool <- Resource.make(Sync[F].delay(Executors.newFixedThreadPool(processorCount))) {
-            executorService =>
-              Sync[F].delay(executorService.shutdown())
-          }
-          blockerCPU = Blocker.liftExecutionContext(ExecutionContext.fromExecutor(cpuBlockingThreadPool))
+          dispatcher <- Dispatcher[F]
 
           workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
 
-          cliCommandRunner = new CliCommandRunnerImpl[F]
+          cliCommandRunner = new CliCommandRunnerImpl[F](dispatcher)
 
           youtubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](cliCommandRunner, httpClient)
 
-          fileTypeDetector = new PathFileTypeDetector[F](new Tika(), blockerIO)
+          fileTypeDetector = new PathFileTypeDetector[F](new Tika())
 
-          repositoryService = new FileRepositoryService[F](fileTypeDetector, blockerIO)
+          repositoryService = new FileRepositoryService[F](fileTypeDetector)
           downloadService = new Http4sDownloadService[F](httpClient, repositoryService)
-          hashingService = new MurmurHash3Service[F](blockerCPU)
+          hashingService = new MurmurHash3Service[F]
           videoAnalysisService = new VideoAnalysisServiceImpl[F, ConnectionIO](
             hashingService,
             downloadService,
@@ -163,8 +153,8 @@ object BatchApp extends IOApp {
             batchVideoService,
             videoEnrichmentService,
             hashingService,
+            cliCommandRunner,
             fileTypeDetector,
-            blockerIO,
             batchServiceConfiguration.storageConfiguration
           )
 

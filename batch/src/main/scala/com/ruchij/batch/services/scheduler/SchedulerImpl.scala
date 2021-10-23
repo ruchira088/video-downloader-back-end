@@ -1,12 +1,13 @@
 package com.ruchij.batch.services.scheduler
 
 import cats.data.OptionT
-import cats.effect.{Bracket, Clock, Concurrent, ExitCase, Timer}
+import cats.effect.kernel.Outcome.{Canceled, Errored}
+import cats.effect.{Async, MonadCancelThrow}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Monad, ~>}
 import com.ruchij.batch.config.WorkerConfiguration
-import com.ruchij.batch.daos.workers.models.Worker
 import com.ruchij.batch.daos.workers.WorkerDao
+import com.ruchij.batch.daos.workers.models.Worker
 import com.ruchij.batch.services.scheduler.Scheduler.PausedVideoDownload
 import com.ruchij.batch.services.scheduler.SchedulerImpl.WorkerPollPeriod
 import com.ruchij.batch.services.scheduling.BatchSchedulingService
@@ -32,7 +33,7 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.language.postfixOps
 
-class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad, M[_]](
+class SchedulerImpl[F[_]: Async: JodaClock, T[_]: Monad, M[_]](
   batchSchedulingService: BatchSchedulingService[F],
   synchronizationService: SynchronizationService[F],
   batchVideoService: BatchVideoService[F],
@@ -74,7 +75,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad, M[_]](
     scheduledVideoDownloadUpdates: Stream[F, ScheduledVideoDownload],
     workerStatusUpdates: Stream[F, WorkerStatusUpdate]
   ): F[Option[Video]] =
-    Bracket[F, Throwable].bracketCase {
+    MonadCancelThrow[F].bracketCase {
       batchSchedulingService.staleTask.orElse(batchSchedulingService.acquireTask).value
     } { taskOpt =>
       OptionT
@@ -130,12 +131,12 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad, M[_]](
         }
         .value
     } {
-      case (Some(scheduledVideoDownload), ExitCase.Error(_)) =>
+      case (Some(scheduledVideoDownload), Errored(_)) =>
         batchSchedulingService
           .updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Error)
           .productR(Applicative[F].unit)
 
-      case (Some(scheduledVideoDownload), ExitCase.Canceled) =>
+      case (Some(scheduledVideoDownload), Canceled()) =>
         batchSchedulingService
           .updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Queued)
           .productR(Applicative[F].unit)
@@ -154,12 +155,12 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad, M[_]](
 
   override val run: Stream[F, Video] =
     Stream
-      .eval(Topic[F, Option[ScheduledVideoDownload]](None))
-      .product(Stream.eval(Topic[F, Option[WorkerStatusUpdate]](None)))
+      .eval(Topic[F, ScheduledVideoDownload])
+      .product(Stream.eval(Topic[F, WorkerStatusUpdate]))
       .flatMap {
         case (scheduledVideoDownloadsTopic, workerStatusUpdatesTopic) =>
           val workerStatusUpdates: Stream[F, WorkerStatusUpdate] =
-            workerStatusUpdatesTopic.subscribe(Int.MaxValue).collect { case Some(value) => value }
+            workerStatusUpdatesTopic.subscribe(Int.MaxValue)
 
           idleWorkers
             .concurrently(publishScheduledVideoDownloadsUpdatesToTopic(scheduledVideoDownloadsTopic))
@@ -169,9 +170,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad, M[_]](
             .concurrently(cleanUpStaleWorkers)
             .concurrently(updateWorkersAndScheduledVideoDownloads(workerStatusUpdates))
             .parEvalMapUnordered(workerConfiguration.maxConcurrentDownloads) { worker =>
-              performWorkDuringWorkPeriod(worker, scheduledVideoDownloadsTopic.subscribe(Int.MaxValue).collect {
-                case Some(value) => value
-              }, workerStatusUpdates)
+              performWorkDuringWorkPeriod(worker, scheduledVideoDownloadsTopic.subscribe(Int.MaxValue), workerStatusUpdates)
             }
             .collect {
               case Some(video) => video
@@ -203,7 +202,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad, M[_]](
     scheduledVideoDownloadUpdates: Stream[F, ScheduledVideoDownload],
     workerStatusUpdates: Stream[F, WorkerStatusUpdate]
   ): F[Option[Video]] =
-    Bracket[F, Throwable].guarantee {
+    MonadCancelThrow[F].guarantee(
       SchedulerImpl
         .isWorkPeriod[F](workerConfiguration.startTime, workerConfiguration.endTime)
         .flatMap { isWorkPeriod =>
@@ -213,8 +212,9 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad, M[_]](
                 case throwable =>
                   logger.error[F]("Error occurred in work scheduler", throwable).as(None)
               } else OptionT.none[F, Video].value
-        }
-    }(releaseWorker(worker))
+        },
+      releaseWorker(worker)
+    )
 
   def updateVideoWatchTimes(minimumChunkSize: Long): Stream[F, Unit] =
     httpMetricSubscriber
@@ -262,14 +262,14 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad, M[_]](
           }
       }
 
-  def publishScheduledVideoDownloadsUpdatesToTopic(topic: Topic[F, Option[ScheduledVideoDownload]]): Stream[F, Unit] =
+  def publishScheduledVideoDownloadsUpdatesToTopic(topic: Topic[F, ScheduledVideoDownload]): Stream[F, Unit] =
     topic.publish {
-      batchSchedulingService.subscribeToScheduledVideoDownloadUpdates(s"batch-scheduler-$instanceId").map(Some.apply)
+      batchSchedulingService.subscribeToScheduledVideoDownloadUpdates(s"batch-scheduler-$instanceId")
     }
 
-  def publishWorkerStatusUpdatesToTopic(topic: Topic[F, Option[WorkerStatusUpdate]]): Stream[F, Unit] =
+  def publishWorkerStatusUpdatesToTopic(topic: Topic[F, WorkerStatusUpdate]): Stream[F, Unit] =
     topic.publish {
-      batchSchedulingService.subscribeToWorkerStatusUpdates(s"batch-scheduler-$instanceId").map(Some.apply)
+      batchSchedulingService.subscribeToWorkerStatusUpdates(s"batch-scheduler-$instanceId")
     }
 
   val cleanUpStaleScheduledVideoDownloads: Stream[F, ScheduledVideoDownload] =
@@ -326,7 +326,7 @@ class SchedulerImpl[F[_]: Concurrent: Timer, T[_]: Monad, M[_]](
 object SchedulerImpl {
   val WorkerPollPeriod: FiniteDuration = 1 second
 
-  def isWorkPeriod[F[_]: Clock: Monad](start: LocalTime, end: LocalTime): F[Boolean] = {
+  def isWorkPeriod[F[_]: JodaClock: Monad](start: LocalTime, end: LocalTime): F[Boolean] =
     if (start == end)
       Applicative[F].pure(true)
     else
@@ -339,5 +339,4 @@ object SchedulerImpl {
           else
             localTime.isAfter(start) || localTime.isBefore(end)
         }
-  }
 }

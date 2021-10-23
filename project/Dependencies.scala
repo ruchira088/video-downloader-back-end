@@ -3,9 +3,9 @@ import sbt._
 object Dependencies
 {
   val ScalaVersion = "2.13.6"
-  val Http4sVersion = "0.22.5"
+  val Http4sVersion = "0.23.6"
   val CirceVersion = "0.14.1"
-  val TestContainersVersion = "1.16.0"
+  val TestContainersVersion = "1.16.1"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -15,15 +15,15 @@ object Dependencies
 
   lazy val http4sCirce = "org.http4s" %% "http4s-circe" % Http4sVersion
 
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "2.5.4"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.2.9"
 
-  lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.5.9"
+  lazy val fs2Io = "co.fs2" %% "fs2-io" % "3.1.6"
 
-  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "1.8.0"
+  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "2.2.0"
 
-  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "1.8.0"
+  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "2.2.0"
 
-  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "6.2.0"
+  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "6.2.1"
 
   lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.7.1"
 
@@ -37,9 +37,9 @@ object Dependencies
 
   lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.7"
 
-  lazy val doobie = "org.tpolecat" %% "doobie-core" % "0.13.4"
+  lazy val doobie = "org.tpolecat" %% "doobie-core" % "1.0.0-RC1"
 
-  lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "0.13.4"
+  lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "1.0.0-RC1"
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.14.3"
 
@@ -47,23 +47,21 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.0"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "7.15.0"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "8.0.2"
 
-  lazy val postgresql = "org.postgresql" % "postgresql" % "42.2.24"
+  lazy val postgresql = "org.postgresql" % "postgresql" % "42.3.0"
 
   lazy val h2 = "com.h2database" % "h2" % "1.4.200"
 
-  lazy val jcodec = "org.jcodec" % "jcodec" % "0.2.5"
+  lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.1.0"
 
-  lazy val apacheTika = "org.apache.tika" % "tika-core" % "1.27"
-
-  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "0.14.0"
+  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.0.0"
 
   lazy val jbcrypt = "org.mindrot" % "jbcrypt" % "0.4"
 
   lazy val embeddedRedis = "com.github.kstyrc" % "embedded-redis" % "0.6"
 
-  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "6.2.0"
+  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "6.2.1"
 
   lazy val testContainers = "org.testcontainers" % "testcontainers" % TestContainersVersion
 

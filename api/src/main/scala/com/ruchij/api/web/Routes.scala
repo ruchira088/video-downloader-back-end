@@ -1,6 +1,6 @@
 package com.ruchij.api.web
 
-import cats.effect.{Blocker, Concurrent, ContextShift, Timer}
+import cats.effect.Async
 import cats.implicits._
 import com.ruchij.api.services.authentication.AuthenticationService
 import com.ruchij.api.services.health.HealthService
@@ -17,6 +17,7 @@ import com.ruchij.core.messaging.models.HttpMetric
 import com.ruchij.core.services.asset.AssetService
 import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.services.video.VideoAnalysisService
+import com.ruchij.core.types.JodaClock
 import fs2.Stream
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.ContextRouter
@@ -25,7 +26,7 @@ import org.http4s.{ContextRoutes, HttpApp}
 
 object Routes {
 
-  def apply[F[+ _]: Concurrent: Timer: ContextShift](
+  def apply[F[+ _]: Async: JodaClock](
     userService: UserService[F],
     apiVideoService: ApiVideoService[F],
     videoAnalysisService: VideoAnalysisService[F],
@@ -36,7 +37,6 @@ object Routes {
     authenticationService: AuthenticationService[F],
     downloadProgressStream: Stream[F, DownloadProgress],
     metricPublisher: Publisher[F, HttpMetric],
-    blockerIO: Blocker
   ): HttpApp[F] = {
     implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
 
@@ -44,7 +44,7 @@ object Routes {
       Authenticator.middleware[F](authenticationService, strict = true)
 
     val contextRoutes: ContextRoutes[RequestContext, F] =
-      WebServerRoutes(blockerIO) <+>
+      WebServerRoutes[F] <+>
         ContextRouter[F, RequestContext](
           "/users" -> UserRoutes(userService, authenticationService),
           "/authentication" -> AuthenticationRoutes(authenticationService),

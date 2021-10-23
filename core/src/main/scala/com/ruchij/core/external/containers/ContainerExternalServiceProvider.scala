@@ -1,9 +1,9 @@
-package com.ruchij.core.test.external.containers
+package com.ruchij.core.external.containers
 
 import cats.effect.{Resource, Sync}
 import cats.implicits._
 import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration}
-import com.ruchij.core.test.external.ExternalServiceProvider
+import com.ruchij.core.external.ExternalServiceProvider
 import com.ruchij.migration.config.DatabaseConfiguration
 import org.testcontainers.containers.{GenericContainer, KafkaContainer, Network}
 import org.testcontainers.utility.DockerImageName

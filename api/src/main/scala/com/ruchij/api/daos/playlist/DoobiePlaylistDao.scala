@@ -19,9 +19,10 @@ class DoobiePlaylistDao(fileResourceDao: FileResourceDao[ConnectionIO], videoDao
 
   override def insert(playlist: Playlist): ConnectionIO[Int] =
     sql"""
-        INSERT INTO playlist (id, created_at, title, description, album_art_id)
+        INSERT INTO playlist (id, user_id, created_at, title, description, album_art_id)
             VALUES(
                 ${playlist.id},
+                ${playlist.userId},
                 ${playlist.createdAt},
                 ${playlist.title},
                 ${playlist.description},
@@ -44,7 +45,8 @@ class DoobiePlaylistDao(fileResourceDao: FileResourceDao[ConnectionIO], videoDao
     maybeTitle: Option[String],
     maybeDescription: Option[String],
     maybeVideoIds: Option[Seq[String]],
-    maybeAlbumArt: Option[Either[Unit, String]]
+    maybeAlbumArt: Option[Either[Unit, String]],
+    maybeUserId: Option[String]
   ): ConnectionIO[Int] = {
     val playlistTableUpdate =
       if (List(maybeTitle, maybeDescription, maybeAlbumArt).exists(_.nonEmpty))
@@ -52,51 +54,59 @@ class DoobiePlaylistDao(fileResourceDao: FileResourceDao[ConnectionIO], videoDao
           setOpt(
             maybeTitle.map(title => fr"title = $title"),
             maybeDescription.map(description => fr"description = $description"),
-            maybeAlbumArt.map(_.fold(_ => fr"album_art_id = NULL", fileResourceId => fr"album_art_id = $fileResourceId"))
-          ) ++ fr"WHERE id = $playlistId").update.run
+            maybeAlbumArt.map(
+              _.fold(_ => fr"album_art_id = NULL", fileResourceId => fr"album_art_id = $fileResourceId")
+            )
+          ) ++ whereAndOpt(Some(fr"id = $playlistId"), maybeUserId.map(userId => fr"user_id = $userId"))).update.run
       else Applicative[ConnectionIO].pure(0)
 
-    playlistTableUpdate.product {
-        maybeVideoIds.fold(Applicative[ConnectionIO].pure(0)) {
-          videoIds =>
-            sql"DELETE FROM playlist_video WHERE playlist_id = $playlistId".update.run
-              .product {
-                videoIds.traverse { videoId =>
-                  sql"INSERT INTO playlist_video (playlist_id, video_id) VALUES ($playlistId, $videoId)"
-                    .update
-                    .run
-                }
+    playlistTableUpdate
+      .product {
+        maybeVideoIds.fold(Applicative[ConnectionIO].pure(0)) { videoIds =>
+          sql"DELETE FROM playlist_video WHERE playlist_id = $playlistId".update.run
+            .product {
+              videoIds.traverse { videoId =>
+                sql"INSERT INTO playlist_video (playlist_id, video_id) VALUES ($playlistId, $videoId)".update.run
               }
-              .map { case (deletions, additions) => deletions + additions.sum }
+            }
+            .map { case (deletions, additions) => deletions + additions.sum }
         }
       }
-      .map { case (playlistUpdates, playlistVideoUpdates)  => playlistUpdates + playlistVideoUpdates }
+      .map { case (playlistUpdates, playlistVideoUpdates) => playlistUpdates + playlistVideoUpdates }
   }
 
-  override def findById(playlistId: String): ConnectionIO[Option[Playlist]] =
+  override def findById(playlistId: String, maybeUserId: Option[String]): ConnectionIO[Option[Playlist]] =
     OptionT {
-      sql"SELECT id, created_at, title, description, album_art_id FROM playlist WHERE id = $playlistId"
-        .query[(String, DateTime, String, Option[String], Option[String])]
+      (fr"SELECT id, user_id, created_at, title, description, album_art_id FROM playlist" ++
+        whereAndOpt(Some(fr"id = $playlistId"), maybeUserId.map(userId => fr"user_id = $userId")))
+        .query[(String, String, DateTime, String, Option[String], Option[String])]
         .option
-    }
-      .product {
+    }.product {
         OptionT.liftF {
           sql"SELECT video_id FROM playlist_video WHERE playlist_id = $playlistId"
             .query[String]
             .to[List]
             .flatMap { videoIds =>
               videoIds
-                .traverse { videoId => videoDao.findById(videoId, None) }
-                .map { videos => videos.collect { case Some(video) => video }}
+                .traverse { videoId =>
+                  videoDao.findById(videoId, None)
+                }
+                .map { videos =>
+                  videos.collect { case Some(video) => video }
+                }
             }
         }
       }
       .semiflatMap {
-        case ((id, createdAt, title, maybeDescription, maybeAlbumArt), videos) =>
-          maybeAlbumArt
-            .traverse(albumArt => fileResourceDao.getById(albumArt))
+        case ((id, userId, createdAt, title, maybeDescription, maybeAlbumArt), videos) =>
+          OptionT
+            .fromOption[ConnectionIO](maybeAlbumArt)
+            .flatMapF(albumArt => fileResourceDao.getById(albumArt))
             .map { fileResource =>
-              Playlist(id, createdAt, title, maybeDescription, videos, fileResource.flatten)
+              Playlist(id, userId, createdAt, title, maybeDescription, videos, Some(fileResource))
+            }
+            .getOrElse {
+              Playlist(id, userId, createdAt, title, maybeDescription, videos, None)
             }
       }
       .value
@@ -106,32 +116,47 @@ class DoobiePlaylistDao(fileResourceDao: FileResourceDao[ConnectionIO], videoDao
     pageSize: Int,
     pageNumber: Int,
     order: Order,
-    sortBy: PlaylistSortBy
+    sortBy: PlaylistSortBy,
+    maybeUserId: Option[String]
   ): ConnectionIO[Seq[Playlist]] =
     (fr"SELECT id FROM playlist" ++
-      whereAndOpt(maybeSearchTerm.map(searchTerm => fr"title ILIKE ${"%" + searchTerm + "%"} OR description ILIKE ${"%" + searchTerm + "%"}")) ++
+      whereAndOpt(
+        maybeSearchTerm.map(
+          searchTerm => fr"title ILIKE ${"%" + searchTerm + "%"} OR description ILIKE ${"%" + searchTerm + "%"}"
+        ),
+        maybeUserId.map(userId => fr"user_id = $userId")
+      ) ++
       fr"ORDER BY" ++
       sortBy.fragment ++
       ordering(order) ++
       fr"LIMIT $pageSize OFFSET ${pageNumber * pageSize}")
       .query[String]
       .to[List]
-      .flatMap {
-        playlistIds =>
-          playlistIds
-            .traverse { playlistId => findById(playlistId) }
-            .map(_.flattenOption)
+      .flatMap { playlistIds =>
+        playlistIds
+          .traverse { playlistId =>
+            findById(playlistId, maybeUserId)
+          }
+          .map(_.flattenOption)
       }
 
-  override def deleteById(playlistId: String): ConnectionIO[Int] =
-    sql"DELETE FROM playlist_video WHERE playlist_id = $playlistId"
-      .update
-      .run
-      .product {
-        sql"DELETE FROM playlist WHERE id = $playlistId".update.run
+  override def deleteById(playlistId: String, maybeUserId: Option[String]): ConnectionIO[Int] =
+    maybeUserId
+      .fold[ConnectionIO[Int]](Applicative[ConnectionIO].pure(1)) { userId =>
+        sql"SELECT COUNT(1) FROM playlist WHERE id = $playlistId AND user_id = $userId"
+          .query[Int]
+          .unique
       }
-      .map {
-        case (playlistVideoDeletions, playlistDeletion) => playlistVideoDeletions + playlistDeletion
+      .flatMap { count =>
+        if (count == 1) {
+          sql"DELETE FROM playlist_video WHERE playlist_id = $playlistId".update.run
+            .product {
+              sql"DELETE FROM playlist WHERE id = $playlistId".update.run
+            }
+            .map {
+              case (playlistVideoDeletions, playlistDeletion) => playlistVideoDeletions + playlistDeletion
+            }
+        } else Applicative[ConnectionIO].pure(0)
       }
 
 }

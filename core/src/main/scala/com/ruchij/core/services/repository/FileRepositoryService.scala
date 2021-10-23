@@ -1,39 +1,38 @@
 package com.ruchij.core.services.repository
 
-
-import java.nio.file.{FileVisitOption, Path, Paths, StandardOpenOption}
-import cats.effect.{Blocker, ContextShift, Sync}
+import cats.effect.Sync
 import cats.implicits._
 import cats.{Applicative, ApplicativeError}
-import fs2.Stream
-import fs2.io.file.{deleteIfExists, exists, readRange, walk, writeAll, size => fileSize}
+import fs2.{INothing, Stream}
+import fs2.io.file.{Files, Flags, Path}
 import org.http4s.MediaType
 
-class FileRepositoryService[F[_]: Sync: ContextShift](fileTypeDetector: FileTypeDetector[F, Path], ioBlocker: Blocker) extends RepositoryService[F] {
+import java.nio.file.Paths
+
+class FileRepositoryService[F[_]: Sync: Files](fileTypeDetector: FileTypeDetector[F, Path]) extends RepositoryService[F] {
 
   override type BackedType = Path
 
-  override def write(key: String, data: Stream[F, Byte]): Stream[F, Unit] =
+  override def write(key: String, data: Stream[F, Byte]): Stream[F, INothing] =
     for {
       path <- Stream.eval(backedType(key))
-      exists <- Stream.eval(exists(ioBlocker, path))
+      exists <- Stream.eval(Files[F].exists(path))
 
       result <- data.through {
-        writeAll(path, ioBlocker, if (exists) List(StandardOpenOption.APPEND) else List(StandardOpenOption.CREATE))
+        Files[F].writeAll(path, if (exists) Flags.Append else Flags.Write)
       }
     } yield result
 
   override def read(key: String, start: Option[Long], end: Option[Long]): F[Option[Stream[F, Byte]]] =
     backedType(key)
       .flatMap { path =>
-        exists(ioBlocker, path)
+        Files[F].exists(path)
           .flatMap { exists =>
             if (exists)
               Sync[F].delay(
                 Some(
-                  readRange(
+                  Files[F].readRange(
                     path,
-                    ioBlocker,
                     FileRepositoryService.CHUNK_SIZE,
                     start.getOrElse(0),
                     end.getOrElse(Long.MaxValue)
@@ -48,17 +47,16 @@ class FileRepositoryService[F[_]: Sync: ContextShift](fileTypeDetector: FileType
   override def size(key: String): F[Option[Long]] =
     for {
       path <- backedType(key)
-      fileExists <- exists(ioBlocker, path)
+      fileExists <- Files[F].exists(path)
 
-      bytes <- if (fileExists) fileSize(ioBlocker, path).map[Option[Long]](Some.apply)
+      bytes <- if (fileExists) Files[F].size(path).map[Option[Long]](Some.apply)
       else Applicative[F].pure[Option[Long]](None)
     } yield bytes
 
   override def list(key: Key): Stream[F, Key] =
     Stream
       .eval(backedType(key))
-      .flatMap(path => walk(ioBlocker, path, Seq(FileVisitOption.FOLLOW_LINKS)))
-      .drop(1) // drop the parent key
+      .flatMap(path => Files[F].walk(path, Int.MaxValue, followLinks = true))
       .map(_.toString)
 
   override def backedType(key: Key): F[Path] = FileRepositoryService.parsePath[F](key)
@@ -66,13 +64,13 @@ class FileRepositoryService[F[_]: Sync: ContextShift](fileTypeDetector: FileType
   override def delete(key: Key): F[Boolean] =
     for {
       path <- backedType(key)
-      result <- deleteIfExists(ioBlocker, path)
+      result <- Files[F].deleteIfExists(path)
     } yield result
 
   override def fileType(key: Key): F[Option[MediaType]] =
     for {
       path <- backedType(key)
-      fileExists <- exists(ioBlocker, path)
+      fileExists <- Files[F].exists(path)
 
       result <- if (fileExists) fileTypeDetector.detect(path).map(Some.apply) else Applicative[F].pure(None)
     }
@@ -85,5 +83,5 @@ object FileRepositoryService {
   val CHUNK_SIZE: Int = 4096
 
   def parsePath[F[_]](path: String)(implicit applicativeError: ApplicativeError[F, Throwable]): F[Path] =
-    applicativeError.catchNonFatal(Paths.get(path))
+    applicativeError.catchNonFatal(Path.fromNioPath(Paths.get(path)))
 }

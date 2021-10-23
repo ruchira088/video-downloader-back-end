@@ -10,8 +10,6 @@ alias:
 
 jobs:
   build-ci-docker-image:
-    machine:
-
     docker:
       - image: cimg/base:stable
     steps:

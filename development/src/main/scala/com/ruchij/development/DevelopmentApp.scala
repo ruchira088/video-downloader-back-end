@@ -2,7 +2,7 @@ package com.ruchij.development
 
 import cats.ApplicativeError
 import cats.data.OptionT
-import cats.effect.{Blocker, ConcurrentEffect, ContextShift, ExitCode, IO, IOApp, Resource, Sync, Timer}
+import cats.effect.{Async, ExitCode, IO, IOApp, Resource, Sync}
 import cats.implicits._
 import com.ruchij.api.ApiApp
 import com.ruchij.api.config.{ApiServiceConfiguration, ApiStorageConfiguration, AuthenticationConfiguration, HttpConfiguration}
@@ -11,9 +11,10 @@ import com.ruchij.batch.config.{BatchServiceConfiguration, BatchStorageConfigura
 import com.ruchij.batch.services.scheduler.Scheduler
 import com.ruchij.core.config.{ApplicationInformation, KafkaConfiguration, RedisConfiguration}
 import com.ruchij.core.exceptions.ResourceNotFoundException
-import com.ruchij.core.test.external.containers.ContainerExternalServiceProvider
-import com.ruchij.core.test.external.ExternalServiceProvider
-import com.ruchij.core.test.external.ExternalServiceProvider.HashedAdminPassword
+import com.ruchij.core.external.ExternalServiceProvider
+import com.ruchij.core.external.ExternalServiceProvider.HashedAdminPassword
+import com.ruchij.core.external.containers.ContainerExternalServiceProvider
+import com.ruchij.core.types.JodaClock
 import com.ruchij.migration.MigrationApp
 import com.ruchij.migration.config.{AdminConfiguration, DatabaseConfiguration, MigrationServiceConfiguration}
 import org.http4s.HttpApp
@@ -22,7 +23,6 @@ import org.joda.time.LocalTime
 
 import java.security.KeyStore
 import javax.net.ssl.{KeyManagerFactory, SSLContext}
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
 
@@ -70,7 +70,7 @@ object DevelopmentApp extends IOApp {
     program[IO](new ContainerExternalServiceProvider[IO]).use {
       case (api, batch, sslContext) =>
         for {
-          _ <- BlazeServerBuilder[IO](ExecutionContext.global)
+          _ <- BlazeServerBuilder[IO]
             .withHttpApp(api)
             .withoutBanner
             .bindHttp(HttpConfig.port, HttpConfig.host)
@@ -85,7 +85,7 @@ object DevelopmentApp extends IOApp {
         } yield ExitCode.Success
     }
 
-  def program[F[+ _]: ConcurrentEffect: Timer: ContextShift](
+  def program[F[+ _]: Async: JodaClock](
     externalServiceProvider: ExternalServiceProvider[F]
   ): Resource[F, (HttpApp[F], Scheduler[F], SSLContext)] =
     for {
@@ -93,13 +93,12 @@ object DevelopmentApp extends IOApp {
       kafkaConfig <- externalServiceProvider.kafkaConfiguration
       databaseConfig <- externalServiceProvider.databaseConfiguration
 
-      blocker <- Blocker[F]
-      sslContext <- Resource.eval(blocker.blockOn(createSslContext[F]))
+      sslContext <- Resource.eval(createSslContext[F])
 
       _ <-
         Resource.eval {
           MigrationApp.migration[F](
-            MigrationServiceConfiguration(databaseConfig, AdminConfiguration(HashedAdminPassword)), blocker)
+            MigrationServiceConfiguration(databaseConfig, AdminConfiguration(HashedAdminPassword)))
         }
 
 
@@ -113,15 +112,15 @@ object DevelopmentApp extends IOApp {
 
       _ <- Resource
         .make {
-          OptionT(Sync[F].delay(Option(getClass.getResourceAsStream(KeyStoreResource))))
+          OptionT(Sync[F].blocking(Option(getClass.getResourceAsStream(KeyStoreResource))))
             .getOrElseF {
               ApplicativeError[F, Throwable].raiseError {
                 ResourceNotFoundException(s"Unable to find KeyStore at $KeyStoreResource")
               }
             }
-        }(inputStream => Sync[F].delay(inputStream.close()))
+        }(inputStream => Sync[F].blocking(inputStream.close()))
         .use { inputStream =>
-          Sync[F].delay(keyStore.load(inputStream, KeyStorePassword.toCharArray))
+          Sync[F].blocking(keyStore.load(inputStream, KeyStorePassword.toCharArray))
         }
 
       algorithm <- Sync[F].delay(KeyManagerFactory.getDefaultAlgorithm)

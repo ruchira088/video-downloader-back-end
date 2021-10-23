@@ -11,18 +11,20 @@ trait PlaylistDao[F[_]] {
     maybeTitle: Option[String],
     maybeDescription: Option[String],
     maybeVideoIds: Option[Seq[String]],
-    maybeAlbumArt: Option[Either[Unit, String]]
+    maybeAlbumArt: Option[Either[Unit, String]],
+    maybeUserId: Option[String]
   ): F[Int]
 
-  def findById(playlistId: String): F[Option[Playlist]]
+  def findById(playlistId: String, maybeUserId: Option[String]): F[Option[Playlist]]
 
   def search(
     maybeSearchTerm: Option[String],
     pageSize: Int,
     pageNumber: Int,
     order: Order,
-    sortBy: PlaylistSortBy
+    sortBy: PlaylistSortBy,
+    maybeUserId: Option[String]
   ): F[Seq[Playlist]]
 
-  def deleteById(playlistId: String): F[Int]
+  def deleteById(playlistId: String, maybeUserId: Option[String]): F[Int]
 }

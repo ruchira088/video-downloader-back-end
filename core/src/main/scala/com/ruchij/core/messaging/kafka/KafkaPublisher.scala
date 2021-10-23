@@ -1,6 +1,6 @@
 package com.ruchij.core.messaging.kafka
 
-import cats.effect.{ConcurrentEffect, ContextShift, Resource, Sync}
+import cats.effect.{Async, Resource, Sync}
 import cats.implicits._
 import com.ruchij.core.config.KafkaConfiguration
 import com.ruchij.core.logging.Logger
@@ -35,7 +35,7 @@ class KafkaPublisher[F[_]: Sync, A](topicName: String, kafkaProducer: KafkaProdu
 }
 
 object KafkaPublisher {
-  def apply[F[_]: ConcurrentEffect: ContextShift, A](kafkaConfiguration: KafkaConfiguration)(
+  def apply[F[_]: Async, A](kafkaConfiguration: KafkaConfiguration)(
     implicit topic: KafkaTopic[A]
   ): Resource[F, KafkaPublisher[F, A]] =
     KafkaProducer.resource {

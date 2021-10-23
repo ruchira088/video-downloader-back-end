@@ -1,6 +1,6 @@
 package com.ruchij.api.web.routes
 
-import cats.effect.Sync
+import cats.effect.Async
 import cats.implicits._
 import com.ruchij.api.services.models.Context.AuthenticatedRequestContext
 import com.ruchij.api.services.video.ApiVideoService
@@ -9,18 +9,19 @@ import com.ruchij.api.web.requests.queryparams.SearchQuery
 import com.ruchij.api.web.requests.RequestOps.ContextRequestOpsSyntax
 import com.ruchij.api.web.requests.queryparams.SingleValueQueryParameter.DeleteVideoFileQueryParameter
 import com.ruchij.core.services.video.VideoAnalysisService
+import com.ruchij.core.circe.Decoders._
 import com.ruchij.core.circe.Encoders._
 import com.ruchij.api.web.responses.{IterableResponse, SearchResult}
 import com.ruchij.core.services.models.SortBy
 import com.ruchij.core.services.video.VideoAnalysisService.{Existing, NewlyCreated}
 import io.circe.generic.auto._
 import org.http4s.ContextRoutes
-import org.http4s.circe.CirceEntityCodec.{circeEntityDecoder, circeEntityEncoder}
-import org.http4s.circe.{decodeUri, encodeUri}
+import org.http4s.circe.CirceEntityCodec._
+import org.http4s.circe._
 import org.http4s.dsl.Http4sDsl
 
 object VideoRoutes {
-  def apply[F[_]: Sync](apiVideoService: ApiVideoService[F], videoAnalysisService: VideoAnalysisService[F])(
+  def apply[F[_]: Async](apiVideoService: ApiVideoService[F], videoAnalysisService: VideoAnalysisService[F])(
     implicit dsl: Http4sDsl[F]
   ): ContextRoutes[AuthenticatedRequestContext, F] = {
     import dsl._

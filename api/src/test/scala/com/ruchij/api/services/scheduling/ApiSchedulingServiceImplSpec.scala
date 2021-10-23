@@ -1,8 +1,10 @@
 package com.ruchij.api.services.scheduling
 
-import cats.effect.{Blocker, IO, Resource, Timer}
+import cats.effect.{IO, Resource}
 import com.ruchij.api.daos.credentials.DoobieCredentialsDao
 import com.ruchij.api.daos.permission.DoobieVideoPermissionDao
+import com.ruchij.api.daos.resettoken.DoobieCredentialsResetTokenDao
+import com.ruchij.api.daos.title.DoobieVideoTitleDao
 import com.ruchij.api.daos.user.DoobieUserDao
 import com.ruchij.api.daos.user.models.Email
 import com.ruchij.api.services.authentication.AuthenticationService.Password
@@ -15,7 +17,6 @@ import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
-import com.ruchij.api.daos.title.DoobieVideoTitleDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata}
 import com.ruchij.core.kv.{InMemoryKeyValueStore, KeySpacedKeyValueStore}
@@ -27,10 +28,10 @@ import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.repository.InMemoryRepositoryService
 import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, YouTubeVideoDownloader}
-import com.ruchij.core.test.IOSupport.runIO
+import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import com.ruchij.core.test.Providers
-import com.ruchij.core.test.Providers.{blocker, contextShift}
-import com.ruchij.core.test.external.embedded.EmbeddedExternalServiceProvider
+import com.ruchij.core.external.embedded.EmbeddedExternalServiceProvider
+import com.ruchij.core.types.JodaClock
 import doobie.ConnectionIO
 import fs2.Stream
 import org.http4s._
@@ -49,14 +50,14 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory with OptionValues {
+class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory with OptionValues {
   import ExecutionContext.Implicits.global
 
   "SchedulingServiceImpl" should "save the scheduled video task" in runIO {
     val videoUrl: Uri = uri"https://www.pornone.com/caught/caught-my-bbc-roommate-spying/276979928/"
 
     val dateTime = DateTime.now()
-    implicit val timer: Timer[IO] = Providers.stubTimer(dateTime)
+    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](dateTime)
 
     val client =
       Client[IO] { request =>
@@ -106,7 +107,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
       }
 
     val storageConfiguration = new StorageConfiguration { override val imageFolder: String = "/images" }
-    val hashingService = new MurmurHash3Service[IO](blocker)
+    val hashingService = new MurmurHash3Service[IO]
     val repositoryService = new InMemoryRepositoryService[IO](new ConcurrentHashMap())
     val downloadService = new Http4sDownloadService[IO](client, repositoryService)
     val configurationService =
@@ -131,7 +132,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
 
           videoId <- hashingService.hash(videoUrl.renderString).map(hash => s"pornone-$hash")
           fileId <- hashingService
-            .hash(uri"https://th-eu3.pornone.com/t/b81.jpg".renderString)
+            .hash("https://th-eu3.pornone.com/t/b81.jpg")
             .map(hash => s"$videoId-$hash")
 
           expectedScheduledDownloadVideo = ScheduledVideoDownload(
@@ -157,13 +158,12 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
             None
           )
 
-          passwordHashingService = new BCryptPasswordHashingService[IO](
-            Blocker.liftExecutionContext(ExecutionContext.global)
-          )
+          passwordHashingService = new BCryptPasswordHashingService[IO]
           userService = new UserServiceImpl[IO, ConnectionIO](
             passwordHashingService,
             DoobieUserDao,
             DoobieCredentialsDao,
+            DoobieCredentialsResetTokenDao,
             DoobieVideoTitleDao,
             DoobieVideoPermissionDao
           )
@@ -172,6 +172,16 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
 
           scheduledVideoDownloadUpdatesPubSub <- Fs2PubSub[IO, ScheduledVideoDownload]
           workerStatusUpdatesPubSub <- Fs2PubSub[IO, WorkerStatusUpdate]
+
+          receivedMessagesFiber <- scheduledVideoDownloadUpdatesPubSub
+            .subscribe("SchedulingServiceImplSpec")
+            .take(1)
+            .compile
+            .toList
+            .map {
+              _.map { case CommittableRecord(message, _) => message }
+            }
+            .start
 
           apiSchedulingService = new ApiSchedulingServiceImpl[IO, ConnectionIO](
             videoAnalysisService,
@@ -186,14 +196,7 @@ class SchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFacto
           scheduledVideoDownload <- apiSchedulingService.schedule(videoUrl, user.id)
           _ <- IO.delay { scheduledVideoDownload mustBe expectedScheduledDownloadVideo }
 
-          receivedMessages <- scheduledVideoDownloadUpdatesPubSub
-            .subscribe("SchedulingServiceImplSpec")
-            .take(1)
-            .compile
-            .toList
-            .map {
-              _.map { case CommittableRecord(message, _) => message }
-            }
+          receivedMessages <- receivedMessagesFiber.join.flatMap(_.embedNever).withTimeout(5 seconds)
 
           _ <- IO.delay { receivedMessages.headOption mustBe Some(expectedScheduledDownloadVideo) }
         } yield (): Unit
