@@ -1,4 +1,4 @@
-package com.ruchij.core.test
+package com.ruchij.core.test.data
 
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.video.models.Video
@@ -11,7 +11,8 @@ import org.joda.time.DateTime
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
 
-object TestData {
+object CoreTestData {
+
   val Timestamp = new DateTime(2021, 10, 20, 20, 12, 8, 321)
 
   val SpankBangVideo: Video =
@@ -46,7 +47,7 @@ object TestData {
       VideoMetadata(
         uri"https://www.youtube.com/watch?v=S5n9emOr7SQ",
         "youtube-7488acd8",
-        YTDownloaderSite("YouTube"),
+        YTDownloaderSite("youtube"),
         "Ed Sheeran - Cross Me",
         215 seconds,
         56702481,
@@ -58,13 +59,7 @@ object TestData {
           10096
         )
       ),
-      FileResource(
-        "youtube-7488acd8",
-        Timestamp,
-        "/home/videos-1/youtube-7488acd8.mp4",
-        MediaType.video.mp4,
-        56702481
-      ),
+      FileResource("youtube-7488acd8", Timestamp, "/home/videos-1/youtube-7488acd8.mp4", MediaType.video.mp4, 56702481),
       13 minutes
     )
 

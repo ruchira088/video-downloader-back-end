@@ -52,8 +52,7 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
       }
 
     ignoreHttpMetrics() *>
-      createRoutes()
-        .flatMap(_.run(GET(uri"/service/info")))
+      createRoutes().run(GET(uri"/service/info"))
         .flatMap { response =>
           IO.delay {
             response must beJsonContentType
@@ -80,8 +79,7 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
       }
 
     ignoreHttpMetrics() *>
-      createRoutes()
-        .flatMap(_.run(GET(uri"/service/health")))
+      createRoutes().run(GET(uri"/service/health"))
         .flatMap { response =>
           IO.delay {
             response must beJsonContentType
@@ -108,8 +106,7 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
       }
 
     ignoreHttpMetrics() *>
-      createRoutes()
-        .flatMap(_.run(GET(uri"/service/health")))
+      createRoutes().run(GET(uri"/service/health"))
         .flatMap { response =>
           IO.delay {
             response must beJsonContentType

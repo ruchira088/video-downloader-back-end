@@ -35,22 +35,19 @@ trait MockedRoutes[F[+ _]] extends MockFactory with OneInstancePerTest {
   val async: Async[F]
   val jodaClock: JodaClock[F]
 
-  def createRoutes(): F[HttpApp[F]] =
-    async.delay {
-      Routes(
-        userService,
-        apiVideoService,
-        videoAnalysisService,
-        apiSchedulingService,
-        playlistService,
-        assetService,
-        healthService,
-        authenticationService,
-        downloadProgressStream,
-        metricPublisher,
-      )(async, jodaClock)
-    }
-
+  def createRoutes(): HttpApp[F] =
+    Routes(
+      userService,
+      apiVideoService,
+      videoAnalysisService,
+      apiSchedulingService,
+      playlistService,
+      assetService,
+      healthService,
+      authenticationService,
+      downloadProgressStream,
+      metricPublisher,
+    )(async, jodaClock)
 
   def ignoreHttpMetrics(): F[Unit] =
     async.delay {
