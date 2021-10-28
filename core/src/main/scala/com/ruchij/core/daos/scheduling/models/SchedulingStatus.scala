@@ -50,5 +50,9 @@ object SchedulingStatus extends Enum[SchedulingStatus] {
       Set(Acquired, Error, Paused)
   }
 
+  case object Deleted extends SchedulingStatus {
+    override val validTransitionStatuses: Set[SchedulingStatus] = Set.empty
+  }
+
   override def values: IndexedSeq[SchedulingStatus] = findValues
 }

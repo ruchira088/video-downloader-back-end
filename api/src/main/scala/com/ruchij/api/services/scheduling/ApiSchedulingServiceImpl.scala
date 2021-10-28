@@ -65,8 +65,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadError[*[_], Th
             None,
             None
           )
-        }
-          .map(_.toList)
+        }.map(_.toList)
           .flatMap {
             case Nil => newScheduledVideoDownload(processedUri, userId)
 
@@ -81,21 +80,29 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadError[*[_], Th
       timestamp <- JodaClock[F].timestamp
 
       result <- transaction {
-        videoPermissionDao.find(Some(userId), Some(videoMetadata.id))
+        videoPermissionDao
+          .find(Some(userId), Some(videoMetadata.id))
           .product(videoTitleDao.find(videoMetadata.id, userId))
-          .flatMap { case (permissions, maybeTitle) =>
-            if (permissions.isEmpty && maybeTitle.isEmpty)
-              videoPermissionDao.insert(VideoPermission(timestamp, videoMetadata.id, userId)).one
-                .productR {
-                  videoTitleDao.insert(VideoTitle(videoMetadata.id, userId, videoMetadata.title)).one
-                }
-                .as((): Unit)
-            else if (permissions.nonEmpty && maybeTitle.nonEmpty)
-              ApplicativeError[T, Throwable]
-                .raiseError[Unit](ResourceConflictException(s"$uri has already been scheduled"))
-            else
-              ApplicativeError[T, Throwable]
-                .raiseError[Unit](InvalidConditionException(s"Video title and video permissions are in an invalid state for userId=$userId, videoId=${videoMetadata.id}"))
+          .flatMap {
+            case (permissions, maybeTitle) =>
+              if (permissions.isEmpty && maybeTitle.isEmpty)
+                videoPermissionDao
+                  .insert(VideoPermission(timestamp, videoMetadata.id, userId))
+                  .one
+                  .productR {
+                    videoTitleDao.insert(VideoTitle(videoMetadata.id, userId, videoMetadata.title)).one
+                  }
+                  .as((): Unit)
+              else if (permissions.nonEmpty && maybeTitle.nonEmpty)
+                ApplicativeError[T, Throwable]
+                  .raiseError[Unit](ResourceConflictException(s"$uri has already been scheduled"))
+              else
+                ApplicativeError[T, Throwable]
+                  .raiseError[Unit](
+                    InvalidConditionException(
+                      s"Video title and video permissions are in an invalid state for userId=$userId, videoId=${videoMetadata.id}"
+                    )
+                  )
           }
       }
     } yield result
@@ -115,7 +122,9 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadError[*[_], Th
       )
 
       _ <- transaction {
-        schedulingDao.insert(scheduledVideoDownload).one
+        schedulingDao
+          .insert(scheduledVideoDownload)
+          .one
           .productR {
             videoTitleDao.insert {
               VideoTitle(scheduledVideoDownload.videoMetadata.id, userId, scheduledVideoDownload.videoMetadata.title)
@@ -211,14 +220,22 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadError[*[_], Th
           if (List(SchedulingStatus.Completed, SchedulingStatus.Downloaded).contains(scheduledVideoDownload.status))
             ApplicativeError[T, Throwable].raiseError[Int] {
               ValidationException("Unable to delete scheduled video downloads that are completed or downloaded")
-            }
-          else
-            videoPermissionDao.delete(maybeUserId, Some(id))
+            } else
+            videoPermissionDao
+              .delete(maybeUserId, Some(id))
               .productR(videoTitleDao.delete(Some(id), maybeUserId))
               .productR {
                 if (maybeUserId.isEmpty) schedulingDao.deleteById(id) else Applicative[T].pure(0)
               }
         }
         .getOrElseF(ApplicativeError[T, Throwable].raiseError(notFound(id)))
-    }
+    }.flatTap { scheduledVideoDownload =>
+        if (maybeUserId.isEmpty) {
+          JodaClock[F].timestamp.flatMap { timestamp =>
+            scheduledVideoDownloadPublisher.publishOne(
+              scheduledVideoDownload.copy(lastUpdatedAt = timestamp, status = SchedulingStatus.Deleted)
+            )
+          }
+        } else Applicative[F].unit
+      }
 }
