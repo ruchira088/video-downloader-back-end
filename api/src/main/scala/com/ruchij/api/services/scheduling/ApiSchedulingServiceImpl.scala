@@ -229,13 +229,13 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadError[*[_], Th
               }
         }
         .getOrElseF(ApplicativeError[T, Throwable].raiseError(notFound(id)))
-    }.flatTap { scheduledVideoDownload =>
+    }
+      .flatMap { scheduledVideoDownload =>
         if (maybeUserId.isEmpty) {
           JodaClock[F].timestamp.flatMap { timestamp =>
-            scheduledVideoDownloadPublisher.publishOne(
-              scheduledVideoDownload.copy(lastUpdatedAt = timestamp, status = SchedulingStatus.Deleted)
-            )
+            val deleted = scheduledVideoDownload.copy(lastUpdatedAt = timestamp, status = SchedulingStatus.Deleted)
+            scheduledVideoDownloadPublisher.publishOne(deleted).as(deleted)
           }
-        } else Applicative[F].unit
+        } else Applicative[F].pure(scheduledVideoDownload)
       }
 }
