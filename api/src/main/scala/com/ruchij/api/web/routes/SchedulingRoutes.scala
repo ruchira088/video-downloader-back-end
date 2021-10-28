@@ -79,12 +79,16 @@ object SchedulingRoutes {
           }
         } yield response
 
-      case GET -> Root / "id" / videoId as _ =>
+      case GET -> Root / "id" / videoId as AuthenticatedRequestContext(user, _) =>
         apiSchedulingService
-          .getById(videoId)
+          .getById(videoId, user.nonAdminUserId)
           .flatMap { scheduledVideoDownload =>
             Ok(scheduledVideoDownload)
           }
+
+      case DELETE -> Root / "id" / videoId as AuthenticatedRequestContext(user, _) =>
+        apiSchedulingService.deleteById(videoId, user.nonAdminUserId)
+          .flatMap { scheduledVideoDownload => Ok(scheduledVideoDownload) }
 
       case authRequest @ PUT -> Root / "id" / videoId as _ =>
         for {

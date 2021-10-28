@@ -66,7 +66,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
             }
 
             maybeScheduledVideoDownload <-
-              transaction { DoobieSchedulingDao.getById(scheduledVideoDownload.videoMetadata.id) }
+              transaction { DoobieSchedulingDao.getById(scheduledVideoDownload.videoMetadata.id, None) }
 
             _ <- IO.delay {
               maybeScheduledVideoDownload.value.videoMetadata.id mustBe videoMetadata.id
@@ -298,13 +298,13 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
   it should "delete the scheduled video download" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        maybeDeleted <- transaction(DoobieSchedulingDao.deleteById(scheduledVideoDownload.videoMetadata.id))
+        deletionResult <- transaction(DoobieSchedulingDao.deleteById(scheduledVideoDownload.videoMetadata.id))
 
-        _ <- IO.delay {  maybeDeleted.value mustBe scheduledVideoDownload }
+        _ <- IO.delay {  deletionResult mustBe 1 }
 
-        maybeDeleteAgain <- transaction(DoobieSchedulingDao.deleteById(scheduledVideoDownload.videoMetadata.id))
+        repeatDeletionResult <- transaction(DoobieSchedulingDao.deleteById(scheduledVideoDownload.videoMetadata.id))
 
-        _ <- IO.delay {  maybeDeleteAgain mustBe None }
+        _ <- IO.delay {  repeatDeletionResult mustBe 0 }
       }
       yield (): Unit
   }

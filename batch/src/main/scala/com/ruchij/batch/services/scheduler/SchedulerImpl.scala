@@ -98,7 +98,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: Monad, M[_]](
                   scheduledVideoDownloadUpdates
                     .map { value: ScheduledVideoDownload =>
                       value.videoMetadata.id == scheduledVideoDownload.videoMetadata.id &&
-                      List(SchedulingStatus.Paused).contains(value.status) &&
+                      List(SchedulingStatus.Paused, SchedulingStatus.Deleted).contains(value.status) &&
                       value.lastUpdatedAt.isAfter(timestamp)
                     }
                     .merge {
