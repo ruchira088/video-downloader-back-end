@@ -7,7 +7,6 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import java.io.IOException
-import scala.language.postfixOps
 
 class CliCommandRunnerImplSpec extends AnyFlatSpec with Matchers {
 
