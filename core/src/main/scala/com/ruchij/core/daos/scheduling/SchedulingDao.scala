@@ -13,7 +13,7 @@ import scala.concurrent.duration.FiniteDuration
 trait SchedulingDao[F[_]] {
   def insert(scheduledVideoDownload: ScheduledVideoDownload): F[Int]
 
-  def getById(id: String): F[Option[ScheduledVideoDownload]]
+  def getById(id: String, maybeUserId: Option[String]): F[Option[ScheduledVideoDownload]]
 
   def markScheduledVideoDownloadAsComplete(id: String, timestamp: DateTime): F[Option[ScheduledVideoDownload]]
 
@@ -27,7 +27,7 @@ trait SchedulingDao[F[_]] {
 
   def updateDownloadProgress(id: String, downloadedBytes: Long, timestamp: DateTime): F[Option[ScheduledVideoDownload]]
 
-  def deleteById(id: String): F[Option[ScheduledVideoDownload]]
+  def deleteById(id: String): F[Int]
 
   def search(
     term: Option[String],

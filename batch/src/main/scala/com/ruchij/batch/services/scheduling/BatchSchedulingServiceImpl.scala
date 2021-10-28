@@ -41,7 +41,7 @@ class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadError[*[_], 
     JodaClock[F].timestamp
       .map { timestamp =>
         for {
-          scheduledVideoDownload <- OptionT(schedulingDao.getById(id))
+          scheduledVideoDownload <- OptionT(schedulingDao.getById(id, None))
           _ <- OptionT.liftF(scheduledVideoDownload.status.validateTransition(status).toType[T, Throwable])
           updated <- OptionT(schedulingDao.updateSchedulingStatusById(id, status, timestamp))
         }

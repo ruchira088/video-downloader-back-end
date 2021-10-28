@@ -40,7 +40,7 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
             .query[String]
             .unique
             .flatMap { scheduledVideoId =>
-              OptionT(schedulingDao.getById(scheduledVideoId)).getOrElseF {
+              OptionT(schedulingDao.getById(scheduledVideoId, None)).getOrElseF {
                 ApplicativeError[ConnectionIO, Throwable].raiseError {
                   ResourceNotFoundException(s"ScheduleVideoDownload not found. ID = $scheduledVideoId")
                 }

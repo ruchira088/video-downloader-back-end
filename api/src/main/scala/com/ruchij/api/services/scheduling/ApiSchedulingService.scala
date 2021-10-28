@@ -28,11 +28,13 @@ trait ApiSchedulingService[F[_]] {
 
   def updateSchedulingStatus(id: String, status: SchedulingStatus): F[ScheduledVideoDownload]
 
-  def getById(id: String): F[ScheduledVideoDownload]
+  def getById(id: String, maybeUserId: Option[String]): F[ScheduledVideoDownload]
 
   def updateWorkerStatus(workerStatus: WorkerStatus): F[Unit]
 
   val getWorkerStatus: F[WorkerStatus]
 
   def updateDownloadProgress(id: String, downloadedBytes: Long): F[ScheduledVideoDownload]
+
+  def deleteById(id: String, maybeUserId: Option[String]): F[ScheduledVideoDownload]
 }

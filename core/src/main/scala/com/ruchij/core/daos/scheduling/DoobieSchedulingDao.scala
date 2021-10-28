@@ -41,12 +41,15 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
         file_resource.created_at, file_resource.path, file_resource.media_type, file_resource.size,
         scheduled_video.completed_at
       FROM scheduled_video
-      JOIN video_metadata ON scheduled_video.video_metadata_id = video_metadata.id
-      JOIN file_resource ON video_metadata.thumbnail_id = file_resource.id
+      INNER JOIN video_metadata ON scheduled_video.video_metadata_id = video_metadata.id
+      INNER JOIN file_resource ON video_metadata.thumbnail_id = file_resource.id
     """
 
-  override def getById(id: String): ConnectionIO[Option[ScheduledVideoDownload]] =
-    (SelectQuery ++ fr"WHERE scheduled_video.video_metadata_id = $id").query[ScheduledVideoDownload].option
+  override def getById(id: String, maybeUserId: Option[String]): ConnectionIO[Option[ScheduledVideoDownload]] =
+    (SelectQuery ++ (if (maybeUserId.isEmpty) Fragment.empty else fr"INNER JOIN permission ON video_metadata.id = permission.video_id") ++
+      whereAndOpt(Some(fr"scheduled_video.video_metadata_id = $id"), maybeUserId.map(userId => fr"permission.user_id = $userId")))
+      .query[ScheduledVideoDownload]
+      .option
 
   override def markScheduledVideoDownloadAsComplete(id: String, timestamp: DateTime): ConnectionIO[Option[ScheduledVideoDownload]] =
       sql"""
@@ -59,7 +62,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
         .update
         .run
         .singleUpdate
-        .productR(OptionT(getById(id)))
+        .productR(OptionT(getById(id, None)))
         .value
 
   override def updateSchedulingStatusById(
@@ -75,7 +78,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
         .update
         .run
         .singleUpdate
-        .productR(OptionT(getById(id)))
+        .productR(OptionT(getById(id, None)))
         .value
 
   override def updateSchedulingStatus(from: SchedulingStatus, to: SchedulingStatus): ConnectionIO[Seq[ScheduledVideoDownload]] =
@@ -111,14 +114,10 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
         .run
         .singleUpdate
         .value
-        .productR(getById(id))
+        .productR(getById(id, None))
 
-  override def deleteById(id: String): ConnectionIO[Option[ScheduledVideoDownload]] =
-    OptionT(getById(id))
-      .productL {
-        sql"DELETE FROM scheduled_video WHERE video_metadata_id = $id".update.run.singleUpdate
-      }
-      .value
+  override def deleteById(id: String): ConnectionIO[Int] =
+    sql"DELETE FROM scheduled_video WHERE video_metadata_id = $id".update.run
 
   override def search(
     term: Option[String],
@@ -171,7 +170,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
               .update
               .run
               .singleUpdate
-              .productR(OptionT(getById(videoMetadataId)))
+              .productR(OptionT(getById(videoMetadataId, None)))
               .value
 
         case None => Applicative[ConnectionIO].pure(None)
@@ -203,7 +202,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       }
       .flatMap {
         _.collect { case (videoMetadataId, 1) => videoMetadataId }
-          .traverse(getById)
+          .traverse(getById(_, None))
           .map(_.flatten)
       }
 
@@ -226,7 +225,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
               .update
               .run
               .singleUpdate
-              .productR(OptionT(getById(videoMetadataId)))
+              .productR(OptionT(getById(videoMetadataId, None)))
               .value
         }
       }

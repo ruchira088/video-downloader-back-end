@@ -98,7 +98,7 @@ class SynchronizationServiceImpl[F[+ _]: Async: JodaClock, A, T[_]: MonadError[*
           .orElse {
             OptionT
               .fromOption[T](videoIdFromVideoFile(videoPath))
-              .flatMapF(videoId => schedulingDao.getById(videoId).map(_.as((): Unit)))
+              .flatMapF(videoId => schedulingDao.getById(videoId, None).map(_.as((): Unit)))
           }
           .orElse {
             OptionT(fileSyncDao.findByPath(videoPath))
