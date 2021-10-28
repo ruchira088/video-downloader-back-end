@@ -207,6 +207,9 @@ object ApiApp extends IOApp {
       messageBrokers.scheduledVideoDownloadPublisher,
       messageBrokers.workerStatusUpdatesPublisher,
       configurationService,
+      repositoryService,
+      DoobieVideoMetadataDao,
+      DoobieFileResourceDao,
       DoobieSchedulingDao,
       DoobieVideoTitleDao,
       DoobieVideoPermissionDao

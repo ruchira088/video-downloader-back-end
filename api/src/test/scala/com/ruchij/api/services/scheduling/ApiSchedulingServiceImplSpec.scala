@@ -188,6 +188,9 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFa
             scheduledVideoDownloadUpdatesPubSub,
             workerStatusUpdatesPubSub,
             configurationService,
+            repositoryService,
+            DoobieVideoMetadataDao,
+            DoobieFileResourceDao,
             DoobieSchedulingDao,
             DoobieVideoTitleDao,
             DoobieVideoPermissionDao
