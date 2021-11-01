@@ -9,7 +9,7 @@
         <appender-ref ref="STD_OUT"/>
     </appender>
 
-    <logger name="com.ruchij" level="DEBUG" additivity="false">
+    <logger name="com.ruchij" level="TRACE" additivity="false">
         <appender-ref ref="ASYNC"/>
     </logger>
     <root level="WARN">
