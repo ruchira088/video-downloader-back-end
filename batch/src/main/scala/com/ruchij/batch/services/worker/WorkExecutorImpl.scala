@@ -50,31 +50,31 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
 
   def download(scheduledVideoDownload: ScheduledVideoDownload): Resource[F, (Stream[F, Long], F[FileResource])] =
     scheduledVideoDownload.videoMetadata.videoSite match {
-      case _: CustomVideoSite =>
-        Resource
-          .eval(videoAnalysisService.downloadUri(scheduledVideoDownload.videoMetadata.url))
-          .flatMap { downloadUri =>
-            val videoFileName = downloadUri.path.segments.lastOption.map(_.encoded).getOrElse("video.unknown")
-            val videoPath =
-              s"${storageConfiguration.videoFolder}/${scheduledVideoDownload.videoMetadata.id}-$videoFileName"
-
-            downloadService.download(downloadUri, videoPath)
-          }
-          .flatMap { downloadResult =>
-            Resource
-              .eval(JodaClock[F].timestamp)
-              .map { timestamp =>
-                (downloadResult.data, Applicative[F].pure {
-                  FileResource(
-                    scheduledVideoDownload.videoMetadata.id,
-                    timestamp,
-                    downloadResult.downloadedFileKey,
-                    downloadResult.mediaType,
-                    downloadResult.size
-                  )
-                })
-              }
-          }
+//      case _: CustomVideoSite =>
+//        Resource
+//          .eval(videoAnalysisService.downloadUri(scheduledVideoDownload.videoMetadata.url))
+//          .flatMap { downloadUri =>
+//            val videoFileName = downloadUri.path.segments.lastOption.map(_.encoded).getOrElse("video.unknown")
+//            val videoPath =
+//              s"${storageConfiguration.videoFolder}/${scheduledVideoDownload.videoMetadata.id}-$videoFileName"
+//
+//            downloadService.download(downloadUri, videoPath)
+//          }
+//          .flatMap { downloadResult =>
+//            Resource
+//              .eval(JodaClock[F].timestamp)
+//              .map { timestamp =>
+//                (downloadResult.data, Applicative[F].pure {
+//                  FileResource(
+//                    scheduledVideoDownload.videoMetadata.id,
+//                    timestamp,
+//                    downloadResult.downloadedFileKey,
+//                    downloadResult.mediaType,
+//                    downloadResult.size
+//                  )
+//                })
+//              }
+//          }
 
       case _ =>
         val videoFilePath = s"${storageConfiguration.videoFolder}/${scheduledVideoDownload.videoMetadata.id}"
