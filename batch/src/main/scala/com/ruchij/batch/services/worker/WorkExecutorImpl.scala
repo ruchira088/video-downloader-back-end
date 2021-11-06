@@ -102,22 +102,17 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
                       }
                       .concurrently {
                         progressStream
-                          .groupWithin(Int.MaxValue, 10 seconds)
-                          .evalMap { chunk =>
-                            OptionT
-                              .fromOption[F](chunk.last)
-                              .semiflatMap { progress =>
-                                if (scheduledVideoDownload.videoMetadata.size < math.round(progress.totalSize.bytes)) {
-                                  transaction {
-                                    videoMetadataDao.update(
-                                      scheduledVideoDownload.videoMetadata.id,
-                                      None,
-                                      Some(math.round(progress.totalSize.bytes))
-                                    )
-                                  }.as((): Unit)
-                                } else Applicative[F].unit
-                              }
-                              .value
+                          .debounce(10 seconds)
+                          .evalMap { progress =>
+                            if (scheduledVideoDownload.videoMetadata.size < math.round(progress.totalSize.bytes)) {
+                              transaction {
+                                videoMetadataDao.update(
+                                  scheduledVideoDownload.videoMetadata.id,
+                                  None,
+                                  Some(math.round(progress.totalSize.bytes))
+                                )
+                              }.as((): Unit)
+                            } else Applicative[F].unit
                           }
                           .interruptWhen(deferred)
                       }
@@ -158,14 +153,14 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
       .use {
         case (data, fileResourceF) =>
           data
-            .observe {
-              _.groupWithin(Int.MaxValue, 30 seconds).evalMap { _ =>
-                JodaClock[F].timestamp.flatMap { timestamp =>
-                  transaction(workerDao.updateHeartBeat(workerId, timestamp))
-                    .productR(Applicative[F].unit)
-                }
+            .concurrently {
+              Stream.fixedRate(30 seconds).evalMap {
+                _ =>
+                  JodaClock[F].timestamp.flatMap { timestamp =>
+                    transaction(workerDao.updateHeartBeat(workerId, timestamp))
+                      .productR(Applicative[F].unit)
+                  }
               }
-                .productR(Stream.empty)
             }
             .evalMap { byteCount =>
               batchSchedulingService.publishDownloadProgress(scheduledVideoDownload.videoMetadata.id, byteCount)

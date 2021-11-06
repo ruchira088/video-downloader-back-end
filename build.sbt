@@ -134,7 +134,7 @@ val mergeReleaseToMaster = { state: State =>
 
   val userInput: Option[ProcessBuilder] =
     SimpleReader
-      .readLine("Push changes to the remote master branch? (y/n) [y]")
+      .readLine("Push changes to the remote master branch (y/n)? [y]")
       .map(_.toUpperCase) match {
       case Some("Y") | Some("") =>
         updatedState.log.info(s"Pushing changes to remote master ($releaseTag)...")
