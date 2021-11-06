@@ -53,7 +53,10 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
       videoAnalysisResult @ VideoAnalysisResult(processedUri, videoSite, title, duration, size, thumbnailUri) <- analyze(uri)
       _ <- logger.info[F](s"Uri=${processedUri.renderString} Result=$videoAnalysisResult")
 
-      videoId <- hashingService.hash(processedUri.renderString).map(hash => s"${videoSite.name.toLowerCase}-$hash")
+      videoId <-
+        hashingService.hash(processedUri.renderString)
+          .product(hashingService.hash(title))
+          .map { case (urlHash, titleHash) => s"${videoSite.name.toLowerCase}-$urlHash$titleHash" }
 
       timestamp <- JodaClock[F].timestamp
 

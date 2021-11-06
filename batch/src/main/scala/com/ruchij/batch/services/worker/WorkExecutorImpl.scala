@@ -50,31 +50,31 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
 
   def download(scheduledVideoDownload: ScheduledVideoDownload): Resource[F, (Stream[F, Long], F[FileResource])] =
     scheduledVideoDownload.videoMetadata.videoSite match {
-//      case _: CustomVideoSite =>
-//        Resource
-//          .eval(videoAnalysisService.downloadUri(scheduledVideoDownload.videoMetadata.url))
-//          .flatMap { downloadUri =>
-//            val videoFileName = downloadUri.path.segments.lastOption.map(_.encoded).getOrElse("video.unknown")
-//            val videoPath =
-//              s"${storageConfiguration.videoFolder}/${scheduledVideoDownload.videoMetadata.id}-$videoFileName"
-//
-//            downloadService.download(downloadUri, videoPath)
-//          }
-//          .flatMap { downloadResult =>
-//            Resource
-//              .eval(JodaClock[F].timestamp)
-//              .map { timestamp =>
-//                (downloadResult.data, Applicative[F].pure {
-//                  FileResource(
-//                    scheduledVideoDownload.videoMetadata.id,
-//                    timestamp,
-//                    downloadResult.downloadedFileKey,
-//                    downloadResult.mediaType,
-//                    downloadResult.size
-//                  )
-//                })
-//              }
-//          }
+      case _: CustomVideoSite =>
+        Resource
+          .eval(videoAnalysisService.downloadUri(scheduledVideoDownload.videoMetadata.url))
+          .flatMap { downloadUri =>
+            val videoFileName = downloadUri.path.segments.lastOption.map(_.encoded).getOrElse("video.unknown")
+            val videoPath =
+              s"${storageConfiguration.videoFolder}/${scheduledVideoDownload.videoMetadata.id}-$videoFileName"
+
+            downloadService.download(downloadUri, videoPath)
+          }
+          .flatMap { downloadResult =>
+            Resource
+              .eval(JodaClock[F].timestamp)
+              .map { timestamp =>
+                (downloadResult.data, Applicative[F].pure {
+                  FileResource(
+                    scheduledVideoDownload.videoMetadata.id,
+                    timestamp,
+                    downloadResult.downloadedFileKey,
+                    downloadResult.mediaType,
+                    downloadResult.size
+                  )
+                })
+              }
+          }
 
       case _ =>
         val videoFilePath = s"${storageConfiguration.videoFolder}/${scheduledVideoDownload.videoMetadata.id}"
@@ -102,22 +102,17 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
                       }
                       .concurrently {
                         progressStream
-                          .groupWithin(Int.MaxValue, 10 seconds)
-                          .evalMap { chunk =>
-                            OptionT
-                              .fromOption[F](chunk.last)
-                              .semiflatMap { progress =>
-                                if (scheduledVideoDownload.videoMetadata.size < math.round(progress.totalSize.bytes)) {
-                                  transaction {
-                                    videoMetadataDao.update(
-                                      scheduledVideoDownload.videoMetadata.id,
-                                      None,
-                                      Some(math.round(progress.totalSize.bytes))
-                                    )
-                                  }.as((): Unit)
-                                } else Applicative[F].unit
-                              }
-                              .value
+                          .debounce(10 seconds)
+                          .evalMap { progress =>
+                            if (scheduledVideoDownload.videoMetadata.size < math.round(progress.totalSize.bytes)) {
+                              transaction {
+                                videoMetadataDao.update(
+                                  scheduledVideoDownload.videoMetadata.id,
+                                  None,
+                                  Some(math.round(progress.totalSize.bytes))
+                                )
+                              }.as((): Unit)
+                            } else Applicative[F].unit
                           }
                           .interruptWhen(deferred)
                       }
@@ -158,14 +153,14 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
       .use {
         case (data, fileResourceF) =>
           data
-            .observe {
-              _.groupWithin(Int.MaxValue, 30 seconds).evalMap { _ =>
-                JodaClock[F].timestamp.flatMap { timestamp =>
-                  transaction(workerDao.updateHeartBeat(workerId, timestamp))
-                    .productR(Applicative[F].unit)
-                }
+            .concurrently {
+              Stream.fixedRate(30 seconds).evalMap {
+                _ =>
+                  JodaClock[F].timestamp.flatMap { timestamp =>
+                    transaction(workerDao.updateHeartBeat(workerId, timestamp))
+                      .productR(Applicative[F].unit)
+                  }
               }
-                .productR(Stream.empty)
             }
             .evalMap { byteCount =>
               batchSchedulingService.publishDownloadProgress(scheduledVideoDownload.videoMetadata.id, byteCount)

@@ -12,8 +12,6 @@ import org.http4s.client.Client
 import org.http4s.headers.{Range, `Content-Length`, `Content-Type`}
 import org.http4s.{Headers, Request, Uri}
 
-import scala.concurrent.duration.DurationInt
-
 class Http4sDownloadService[F[_]: Temporal](
   client: Client[F],
   repositoryService: RepositoryService[F]
@@ -52,7 +50,7 @@ class Http4sDownloadService[F[_]: Temporal](
                     .observe { data =>
                       repositoryService.write(fileKey, data)
                     }
-                    .groupWithin(Int.MaxValue, 250 milliseconds)
+                    .chunks
                     .scan(initialSize) { case (total, chunk) => total + chunk.size }
                 }
             }
