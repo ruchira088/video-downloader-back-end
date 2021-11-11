@@ -1,7 +1,7 @@
 package com.ruchij.batch.services.worker
 
 import cats.data.OptionT
-import cats.effect.kernel.{Deferred, MonadCancelThrow}
+import cats.effect.kernel.Deferred
 import cats.effect.kernel.Resource.ExitCase
 import cats.effect.{Async, Resource}
 import cats.implicits._
@@ -211,12 +211,7 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
                           batchVideoService.update(scheduledVideoDownload.videoMetadata.id, fileSize)
                         } else Applicative[F].unit
                       }
-                      .flatTap { video =>
-                        MonadCancelThrow[F]
-                          .handleErrorWith(videoEnrichmentService.videoSnapshots(video).as((): Unit)) { _ =>
-                            Applicative[F].unit
-                          }
-                      }
+                      .flatTap(videoEnrichmentService.videoSnapshots)
                       .productL {
                         batchSchedulingService.completeScheduledVideoDownload(scheduledVideoDownload.videoMetadata.id)
                       }

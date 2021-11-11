@@ -4,8 +4,8 @@ import cats.ApplicativeError
 import cats.data.OptionT
 import cats.effect.Async
 import cats.implicits._
+import com.ruchij.batch.exceptions.SynchronizationException
 import com.ruchij.core.daos.resource.models.FileResource
-import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.services.cli.CliCommandRunner
 import com.ruchij.core.services.hashing.HashingService
 import com.ruchij.core.services.repository.RepositoryService
@@ -33,7 +33,11 @@ class VideoSnapshotServiceImpl[F[_]: Async: JodaClock](
           .product(OptionT(repositoryService.fileType(snapshotDestination)))
           .getOrElseF {
             ApplicativeError[F, Throwable]
-              .raiseError(ResourceNotFoundException(s"Unable to find file resource at $snapshotDestination"))
+              .raiseError {
+                SynchronizationException {
+                  s"Snapshot service was unable to take snapshot of $videoFileKey at ${videoTimestamp.toSeconds}s"
+                }
+              }
           }
           .flatMap {
             case (fileSize, fileType) =>
