@@ -107,6 +107,9 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
   override def findByVideoFileResourceId(fileResourceId: String): ConnectionIO[Option[Video]] =
     (selectQuery(false) ++ fr"WHERE video_file.id = $fileResourceId").query[Video].option
 
+  override def findByVideoPath(videoPath: String): ConnectionIO[Option[Video]] =
+    (selectQuery(false) ++ fr"WHERE video_file.path = $videoPath").query[Video].option
+
   override def incrementWatchTime(videoId: String, finiteDuration: FiniteDuration): ConnectionIO[Option[FiniteDuration]] =
     sql"UPDATE video SET watch_time = watch_time + $finiteDuration WHERE video_metadata_id = $videoId"
       .update

@@ -17,6 +17,7 @@ import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
+import com.ruchij.core.daos.video.VideoDao
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
@@ -41,6 +42,7 @@ class SynchronizationServiceImpl[F[+ _]: Async: JodaClock, A, T[_]: MonadError[*
   videoMetadataDao: VideoMetadataDao[T],
   schedulingDao: SchedulingDao[T],
   fileSyncDao: FileSyncDao[T],
+  videoDao: VideoDao[T],
   batchVideoService: BatchVideoService[F],
   videoEnrichmentService: VideoEnrichmentService[F],
   hashingService: HashingService[F],
@@ -94,7 +96,7 @@ class SynchronizationServiceImpl[F[+ _]: Async: JodaClock, A, T[_]: MonadError[*
   def syncVideo(videoPath: String): F[FileSyncResult] =
     JodaClock[F].timestamp.flatMap { startTimestamp =>
       transaction {
-        OptionT(fileResourceDao.findByPath(videoPath).map(_.as((): Unit)))
+        OptionT(videoDao.findByVideoPath(videoPath).map(_.as((): Unit)))
           .orElse {
             OptionT
               .fromOption[T](videoIdFromVideoFile(videoPath))
@@ -111,9 +113,17 @@ class SynchronizationServiceImpl[F[+ _]: Async: JodaClock, A, T[_]: MonadError[*
           .value
       }.flatMap {
         case None =>
-          transaction(fileSyncDao.insert(FileSync(startTimestamp, videoPath, None)))
+          transaction {
+            fileSyncDao.insert(FileSync(startTimestamp, videoPath, None))
+              .product {
+                OptionT(fileResourceDao.findByPath(videoPath))
+                  .semiflatMap(fileResource => fileResourceDao.deleteById(fileResource.id))
+                  .getOrElse(0)
+              }
+              .map { case (insertion, deletion) => insertion + deletion }
+          }
             .flatMap { count =>
-              if (count == 1)
+              if (count > 0)
                 addVideo(videoPath)
                   .productL {
                     JodaClock[F].timestamp.flatMap { finishTimestamp =>
