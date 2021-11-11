@@ -211,12 +211,7 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
                           batchVideoService.update(scheduledVideoDownload.videoMetadata.id, fileSize)
                         } else Applicative[F].unit
                       }
-                      .flatTap { video =>
-                        MonadCancelThrow[F]
-                          .handleErrorWith(videoEnrichmentService.videoSnapshots(video).as((): Unit)) { _ =>
-                            Applicative[F].unit
-                          }
-                      }
+                      .flatTap(videoEnrichmentService.videoSnapshots)
                       .productL {
                         batchSchedulingService.completeScheduledVideoDownload(scheduledVideoDownload.videoMetadata.id)
                       }

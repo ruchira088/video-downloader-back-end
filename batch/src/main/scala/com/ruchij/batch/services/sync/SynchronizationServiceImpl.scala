@@ -214,11 +214,7 @@ class SynchronizationServiceImpl[F[+ _]: Async: JodaClock, A, T[_]: MonadError[*
         }
       }
       .productR(batchVideoService.insert(video.videoMetadata.id, video.fileResource.id))
-      .flatTap { video =>
-        MonadCancelThrow[F].handleErrorWith(videoEnrichmentService.videoSnapshots(video).as((): Unit)) { _ =>
-          Applicative[F].unit
-        }
-      }
+      .flatTap(videoEnrichmentService.videoSnapshots)
   }
 
   def videoDuration(videoPath: String): F[FiniteDuration] =
