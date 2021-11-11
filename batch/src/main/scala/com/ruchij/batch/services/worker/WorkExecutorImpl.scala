@@ -1,7 +1,7 @@
 package com.ruchij.batch.services.worker
 
 import cats.data.OptionT
-import cats.effect.kernel.{Deferred, MonadCancelThrow}
+import cats.effect.kernel.Deferred
 import cats.effect.kernel.Resource.ExitCase
 import cats.effect.{Async, Resource}
 import cats.implicits._

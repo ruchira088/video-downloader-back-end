@@ -6,7 +6,6 @@ import cats.effect.Async
 import cats.implicits._
 import com.ruchij.batch.exceptions.SynchronizationException
 import com.ruchij.core.daos.resource.models.FileResource
-import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.services.cli.CliCommandRunner
 import com.ruchij.core.services.hashing.HashingService
 import com.ruchij.core.services.repository.RepositoryService
