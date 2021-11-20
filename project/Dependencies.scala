@@ -23,7 +23,7 @@ object Dependencies
 
   lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "2.2.0"
 
-  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "6.2.1"
+  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.0.0"
 
   lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.7.1"
 
@@ -61,7 +61,7 @@ object Dependencies
 
   lazy val embeddedRedis = "com.github.kstyrc" % "embedded-redis" % "0.6"
 
-  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "6.2.1"
+  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "7.0.0"
 
   lazy val testContainers = "org.testcontainers" % "testcontainers" % TestContainersVersion
 
