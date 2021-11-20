@@ -2,7 +2,7 @@ import sbt._
 
 object Dependencies
 {
-  val ScalaVersion = "2.13.6"
+  val ScalaVersion = "2.13.7"
   val Http4sVersion = "0.23.6"
   val CirceVersion = "0.14.1"
   val TestContainersVersion = "1.16.2"
@@ -17,7 +17,7 @@ object Dependencies
 
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.2.9"
 
-  lazy val fs2Io = "co.fs2" %% "fs2-io" % "3.1.6"
+  lazy val fs2Io = "co.fs2" %% "fs2-io" % "3.2.2"
 
   lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "2.2.0"
 
@@ -47,7 +47,7 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.0"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "8.0.3"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "8.0.5"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.3.1"
 
@@ -69,13 +69,11 @@ object Dependencies
 
   lazy val postgresqlTestContainer = "org.testcontainers" % "postgresql" % TestContainersVersion
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.6"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.7"
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4"
 
   lazy val kindProjector = "org.typelevel" %% "kind-projector" % "0.13.2" cross CrossVersion.full
-
-  lazy val scalaTypedHoles = "com.github.cb372" % "scala-typed-holes" % "0.1.9" cross CrossVersion.full
 
   lazy val betterMonadicFor = "com.olegpy" %% "better-monadic-for" % "0.3.1"
 
