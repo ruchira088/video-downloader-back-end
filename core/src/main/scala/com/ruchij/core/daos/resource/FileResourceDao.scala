@@ -2,7 +2,6 @@ package com.ruchij.core.daos.resource
 
 import com.ruchij.core.daos.resource.models.FileResource
 
-
 trait FileResourceDao[F[_]] {
   def insert(resource: FileResource): F[Int]
 
