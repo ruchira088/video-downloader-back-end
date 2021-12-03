@@ -15,7 +15,7 @@ object Dependencies
 
   lazy val http4sCirce = "org.http4s" %% "http4s-circe" % Http4sVersion
 
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.2.9"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.3.0"
 
   lazy val fs2Io = "co.fs2" %% "fs2-io" % "3.2.2"
 
@@ -47,7 +47,7 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.1"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "8.1.0"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "8.2.0"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.3.1"
 
