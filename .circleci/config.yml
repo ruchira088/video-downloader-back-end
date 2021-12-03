@@ -88,13 +88,17 @@ workflows:
   video-downloader-back-end:
     jobs:
       - build-and-test:
+          context:
+            - slack-webhook
           post-steps:
             - slack/status
 
       - build-and-publish-docker-image:
           name: build-and-publish-migration-docker-image
           app: migration
-          context: aws-credentials
+          context:
+            - aws-credentials
+            - slack-webhook
           requires:
             - build-and-test
           post-steps:
@@ -108,7 +112,9 @@ workflows:
       - build-and-publish-docker-image:
           name: build-and-publish-api-docker-image
           app: api
-          context: aws-credentials
+          context:
+            - aws-credentials
+            - slack-webhook
           requires:
             - build-and-test
           post-steps:
@@ -118,7 +124,9 @@ workflows:
       - build-and-publish-docker-image:
           name: build-and-publish-batch-docker-image
           app: batch
-          context: aws-credentials
+          context:
+            - aws-credentials
+            - slack-webhook
           requires:
             - build-and-test
           post-steps:
@@ -128,7 +136,9 @@ workflows:
       - build-and-publish-docker-image:
           name: build-and-publish-db-backup-docker-image
           app: db-backup
-          context: aws-credentials
+          context:
+            - aws-credentials
+            - slack-webhook
           requires:
             - build-and-test
           post-steps:
@@ -136,13 +146,19 @@ workflows:
           filters: *filters
 
       - build-terraform-resources:
-          context: aws-credentials
+          context:
+            - aws-credentials
+            - slack-webhook
           requires:
             - build-and-test
+          post-steps:
+            - slack/status
           filters: *filters
 
       - deploy-to-k8s:
-          context: aws-credentials
+          context:
+            - aws-credentials
+            - slack-webhook
           requires:
             - build-terraform-resources
             - build-and-publish-migration-docker-image
@@ -156,7 +172,9 @@ workflows:
   docker-ci:
     jobs:
       - build-ci-docker-image:
-          context: aws-credentials
+          context:
+            - aws-credentials
+            - slack-webhook
           post-steps:
             - slack/status
     triggers:
