@@ -3,7 +3,7 @@ import sbt._
 object Dependencies
 {
   val ScalaVersion = "2.13.7"
-  val Http4sVersion = "0.23.6"
+  val Http4sVersion = "0.23.7"
   val CirceVersion = "0.14.1"
   val TestContainersVersion = "1.16.2"
 
@@ -23,7 +23,7 @@ object Dependencies
 
   lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "2.2.0"
 
-  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.0.0"
+  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.0.1"
 
   lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.7.1"
 
@@ -47,7 +47,7 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.1"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "8.2.0"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "8.2.1"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.3.1"
 
