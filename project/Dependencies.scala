@@ -15,9 +15,9 @@ object Dependencies
 
   lazy val http4sCirce = "org.http4s" %% "http4s-circe" % Http4sVersion
 
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.3.0"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.3.1"
 
-  lazy val fs2Io = "co.fs2" %% "fs2-io" % "3.2.2"
+  lazy val fs2Io = "co.fs2" %% "fs2-io" % "3.2.3"
 
   lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "2.2.0"
 
@@ -47,13 +47,13 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.1"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "8.2.1"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "8.2.3"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.3.1"
 
-  lazy val h2 = "com.h2database" % "h2" % "1.4.200"
+  lazy val h2 = "com.h2database" % "h2" % "2.0.202"
 
-  lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.1.0"
+  lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.2.0"
 
   lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.0.0"
 
@@ -69,7 +69,7 @@ object Dependencies
 
   lazy val postgresqlTestContainer = "org.testcontainers" % "postgresql" % TestContainersVersion
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.7"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.9"
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4"
 
