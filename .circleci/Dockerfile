@@ -1,4 +1,4 @@
-FROM cimg/openjdk:8.0
+FROM cimg/openjdk:17.0
 
 # Install sbt
 RUN echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | sudo tee /etc/apt/sources.list.d/sbt.list && \
