@@ -24,14 +24,14 @@ object ExceptionHandler {
       Sync[F].handleErrorWith(contextHttpApp.run(contextRequest)) { throwable =>
         entityResponseGenerator[F](throwable)(throwableResponseBody(throwable))
           .map(errorResponseMapper(throwable))
-          .flatMap(logErrors[F](throwable))
+          .flatTap(logErrors[F](throwable))
       }
     }
 
-  def logErrors[F[_]: Sync](throwable: Throwable)(response: Response[F]): F[Response[F]] =
+  def logErrors[F[_]: Sync](throwable: Throwable)(response: Response[F]): F[Unit] =
     if (response.status >= Status.InternalServerError)
-      logger.error[F](s"${response.status} status code returned", throwable).as(response)
-    else logger.warn[F](throwable.getMessage).as(response)
+      logger.error[F](s"${response.status} status code returned", throwable)
+    else logger.warn[F](throwable.getMessage)
 
   val throwableStatusMapper: Throwable => Status = {
     case _: ResourceNotFoundException => Status.NotFound
