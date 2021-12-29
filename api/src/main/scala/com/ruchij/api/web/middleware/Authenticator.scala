@@ -9,6 +9,7 @@ import com.ruchij.api.services.authentication.AuthenticationService
 import com.ruchij.api.services.authentication.AuthenticationService.Secret
 import com.ruchij.api.services.authentication.models.AuthenticationToken
 import com.ruchij.api.services.models.Context.{AuthenticatedRequestContext, RequestContext}
+import com.ruchij.api.web.headers.`X-User-ID`
 import com.ruchij.core.types.FunctionKTypes._
 import org.http4s._
 import org.http4s.headers.Authorization
@@ -64,6 +65,11 @@ object Authenticator {
                   }
               }
               .flatMapF(response => OptionT.liftF(addCookie[F](authenticationToken, response)))
+              .map { response =>
+                response.withHeaders {
+                  response.headers.put(`X-User-ID`(user.id))
+                }
+              }
         }
         .mapF[OptionT[F, *], Response[F]] { optionT =>
           optionT.orElseF(onFailure[F](strict))
