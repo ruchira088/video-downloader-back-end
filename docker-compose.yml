@@ -94,11 +94,10 @@ services:
       POSTGRES_PASSWORD: "password"
 
   redis:
-    image: bitnami/redis
+    image: redis
+    command: "redis-server --requirepass redis-password"
     ports:
       - 6379:6379
-    environment:
-      REDIS_PASSWORD: "redis-password"
 
   kafka-cluster:
     image: landoop/fast-data-dev
