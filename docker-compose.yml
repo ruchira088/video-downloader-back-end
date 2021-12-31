@@ -13,7 +13,7 @@ services:
       - "./nginx/default.conf:/etc/nginx/conf.d/default.conf"
 
   api-1: &api-app
-    image: video-downloader-api:latest
+    image: video-downloader-api
     depends_on:
       postgres:
         condition: service_healthy
@@ -32,8 +32,8 @@ services:
       REDIS_HOSTNAME: "redis"
       REDIS_PORT: "6379"
       REDIS_PASSWORD: "redis-password"
-      KAFKA_BROKERS: "kafka-cluster:9092"
-      SCHEMA_REGISTRY: "http://kafka-cluster:8081"
+      KAFKA_BROKERS: "kafka-broker:9092"
+      SCHEMA_REGISTRY: "http://schema-registry:8081"
       VIDEO_FOLDER: "/opt/videos"
       IMAGE_FOLDER: "/opt/images"
 
@@ -41,7 +41,7 @@ services:
     *api-app
 
   batch-1: &batch-app
-    image: video-downloader-batch:latest
+    image: video-downloader-batch
     depends_on:
       postgres:
         condition: service_healthy
@@ -60,8 +60,8 @@ services:
       REDIS_HOSTNAME: "redis"
       REDIS_PORT: "6379"
       REDIS_PASSWORD: "redis-password"
-      KAFKA_BROKERS: "kafka-cluster:9092"
-      SCHEMA_REGISTRY: "http://kafka-cluster:8081"
+      KAFKA_BROKERS: "kafka-broker:9092"
+      SCHEMA_REGISTRY: "http://schema-registry:8081"
       VIDEO_FOLDER: "/opt/videos"
       IMAGE_FOLDER: "/opt/images"
 
@@ -69,7 +69,7 @@ services:
     *batch-app
 
   migration-application:
-    image: video-downloader-migration-application:latest
+    image: video-downloader-migration-application
     depends_on:
       postgres:
         condition: service_healthy
@@ -99,11 +99,36 @@ services:
     ports:
       - 6379:6379
 
-  kafka-cluster:
-    image: landoop/fast-data-dev
+  zookeeper:
+    image: zookeeper
+
+  kafka-broker:
+    image: confluentinc/cp-kafka
+    depends_on:
+      - zookeeper
     environment:
-      ADV_HOST: kafka-cluster
-      USER: admin
-      PASSWORD: Passw0rd
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-broker:9092
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry
+    depends_on:
+      - kafka-broker
     ports:
-      - 3030:3030
+      - 8081:8081
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: "schema-registry"
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "kafka-broker:9092"
+
+  schema-registry-ui:
+    image: landoop/schema-registry-ui
+    depends_on:
+      - schema-registry
+    ports:
+      - 8001:8000
+    environment:
+      SCHEMAREGISTRY_URL: "http://schema-registry:8081"
+      PROXY: "true"
