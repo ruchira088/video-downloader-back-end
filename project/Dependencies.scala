@@ -3,9 +3,9 @@ import sbt._
 object Dependencies
 {
   val ScalaVersion = "2.13.8"
-  val Http4sVersion = "0.23.7"
+  val Http4sVersion = "0.23.9"
   val CirceVersion = "0.14.1"
-  val TestContainersVersion = "1.16.2"
+  val TestContainersVersion = "1.16.3"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -15,7 +15,7 @@ object Dependencies
 
   lazy val http4sCirce = "org.http4s" %% "http4s-circe" % Http4sVersion
 
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.3.4"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.3.5"
 
   lazy val fs2Io = "co.fs2" %% "fs2-io" % "3.2.4"
 
@@ -47,11 +47,11 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.1"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "8.4.1"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "8.4.3"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.3.1"
 
-  lazy val h2 = "com.h2database" % "h2" % "2.0.206"
+  lazy val h2 = "com.h2database" % "h2" % "2.1.210"
 
   lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.2.1"
 
@@ -61,7 +61,7 @@ object Dependencies
 
   lazy val embeddedRedis = "com.github.kstyrc" % "embedded-redis" % "0.6"
 
-  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "7.0.0"
+  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "7.0.1"
 
   lazy val testContainers = "org.testcontainers" % "testcontainers" % TestContainersVersion
 
@@ -77,7 +77,7 @@ object Dependencies
 
   lazy val betterMonadicFor = "com.olegpy" %% "better-monadic-for" % "0.3.1"
 
-  lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.10"
+  lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.11"
 
   lazy val scalaMock = "org.scalamock" %% "scalamock" % "5.2.0"
 
