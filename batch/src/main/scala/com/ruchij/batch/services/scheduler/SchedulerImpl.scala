@@ -132,8 +132,11 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: Monad, M[_]](
         .value
     } {
       case (Some(scheduledVideoDownload), Errored(_)) =>
-        batchSchedulingService
-          .updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Error)
+        batchVideoService.deleteById(scheduledVideoDownload.videoMetadata.id, deleteVideoFile = false)
+          .productR {
+            batchSchedulingService
+              .updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Error)
+          }
           .productR(Applicative[F].unit)
 
       case (Some(scheduledVideoDownload), Canceled()) =>

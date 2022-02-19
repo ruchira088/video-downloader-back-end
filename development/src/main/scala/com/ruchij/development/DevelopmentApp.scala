@@ -13,7 +13,7 @@ import com.ruchij.core.config.{ApplicationInformation, KafkaConfiguration, Redis
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.external.ExternalServiceProvider
 import com.ruchij.core.external.ExternalServiceProvider.HashedAdminPassword
-import com.ruchij.core.external.containers.ContainerExternalServiceProvider
+import com.ruchij.core.external.embedded.EmbeddedExternalServiceProvider
 import com.ruchij.core.types.JodaClock
 import com.ruchij.migration.MigrationApp
 import com.ruchij.migration.config.{AdminConfiguration, DatabaseConfiguration, MigrationServiceConfiguration}
@@ -67,7 +67,7 @@ object DevelopmentApp extends IOApp {
   val KeyStorePassword = "changeit"
 
   override def run(args: List[String]): IO[ExitCode] =
-    program[IO](new ContainerExternalServiceProvider[IO]).use {
+    program[IO](new EmbeddedExternalServiceProvider[IO]).use {
       case (api, batch, sslContext) =>
         for {
           _ <- BlazeServerBuilder[IO]
