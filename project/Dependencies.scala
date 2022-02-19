@@ -3,7 +3,7 @@ import sbt._
 object Dependencies
 {
   val ScalaVersion = "2.13.8"
-  val Http4sVersion = "0.23.9"
+  val Http4sVersion = "0.23.10"
   val CirceVersion = "0.14.1"
   val TestContainersVersion = "1.16.3"
 
@@ -35,7 +35,7 @@ object Dependencies
 
   lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.7.0"
 
-  lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.7"
+  lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.8"
 
   lazy val doobie = "org.tpolecat" %% "doobie-core" % "1.0.0-RC2"
 
@@ -47,15 +47,15 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.1"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "8.4.3"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "8.5.0"
 
-  lazy val postgresql = "org.postgresql" % "postgresql" % "42.3.1"
+  lazy val postgresql = "org.postgresql" % "postgresql" % "42.3.3"
 
   lazy val h2 = "com.h2database" % "h2" % "2.1.210"
 
-  lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.2.1"
+  lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.3.0"
 
-  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.0.0"
+  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.1.1"
 
   lazy val jbcrypt = "org.mindrot" % "jbcrypt" % "0.4"
 
