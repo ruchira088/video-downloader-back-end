@@ -18,6 +18,9 @@ import com.ruchij.core.types.JodaClock
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import fs2.Stream
+import org.http4s.Request
+import org.http4s.Method.GET
+import org.http4s.client.Client
 import org.joda.time.DateTime
 
 import scala.concurrent.duration._
@@ -28,6 +31,7 @@ class HealthServiceImpl[F[_]: Async: JodaClock](
   keySpacedKeyValueStore: KeySpacedKeyValueStore[F, HealthCheckKey, DateTime],
   healthCheckStream: Stream[F, HealthCheckMessage],
   healthCheckPublisher: Publisher[F, HealthCheckMessage],
+  client: Client[F],
   applicationInformation: ApplicationInformation,
   storageConfiguration: StorageConfiguration
 )(implicit transaction: ConnectionIO ~> F)
@@ -35,7 +39,7 @@ class HealthServiceImpl[F[_]: Async: JodaClock](
 
   private val logger = Logger[HealthServiceImpl[F]]
 
-  val keyValueStoreCheck: F[HealthStatus] =
+  private val keyValueStoreCheck: F[HealthStatus] =
     JodaClock[F].timestamp
       .flatMap { timestamp =>
         keySpacedKeyValueStore
@@ -49,7 +53,7 @@ class HealthServiceImpl[F[_]: Async: JodaClock](
           .productL(keySpacedKeyValueStore.remove(HealthCheckKey(timestamp)))
       }
 
-  val databaseCheck: F[HealthStatus] =
+  private val databaseCheck: F[HealthStatus] =
     transaction {
       sql"SELECT 1".query[Int].unique.map {
         case 1 => HealthStatus.Healthy
@@ -57,7 +61,7 @@ class HealthServiceImpl[F[_]: Async: JodaClock](
       }
     }
 
-  val pubSubCheck: F[HealthStatus] =
+  private val pubSubCheck: F[HealthStatus] =
     JodaClock[F].timestamp
       .flatMap { dateTime =>
         healthCheckStream
@@ -78,7 +82,7 @@ class HealthServiceImpl[F[_]: Async: JodaClock](
           .as(HealthStatus.Healthy)
       }
 
-  val fileRepositoryCheck: F[HealthStatus] =
+  private val fileRepositoryCheck: F[HealthStatus] =
     for {
       timestamp <- JodaClock[F].timestamp.map(_.toString("HH-mm-ss-SSS"))
 
@@ -86,6 +90,9 @@ class HealthServiceImpl[F[_]: Async: JodaClock](
 
       imageResult <- fileHealthCheck(imageFileKey)
     } yield imageResult
+
+  private val internetConnectivityCheck: F[HealthStatus] =
+    client.status(Request[F](GET, HealthService.ConnectivityUrl)).as(HealthStatus.Healthy)
 
   def fileHealthCheck(fileKey: String): F[HealthStatus] =
     OptionT
@@ -114,7 +121,7 @@ class HealthServiceImpl[F[_]: Async: JodaClock](
       }
 
   val timeout: F[HealthStatus.Unhealthy.type] =
-    Clock[F].sleep(20 seconds).as(HealthStatus.Unhealthy)
+    Clock[F].sleep(10 seconds).as(HealthStatus.Unhealthy)
 
   override val serviceInformation: F[ServiceInformation] =
     ServiceInformation.create[F](applicationInformation)
@@ -125,11 +132,12 @@ class HealthServiceImpl[F[_]: Async: JodaClock](
       fileRepositoryStatusFiber <- Concurrent[F].start(check(fileRepositoryCheck))
       keyValueStoreStatusFiber <- Concurrent[F].start(check(keyValueStoreCheck))
       pubSubStatusFiber <- Concurrent[F].start(check(pubSubCheck))
+      internetConnectivityStatusFiber <- Concurrent[F].start(check(internetConnectivityCheck))
 
       databaseStatus <- databaseStatusFiber.join.flatMap(_.embedNever)
       fileRepositoryStatus <- fileRepositoryStatusFiber.join.flatMap(_.embedNever)
       keyValueStoreStatus <- keyValueStoreStatusFiber.join.flatMap(_.embedNever)
       pubSubStatus <- pubSubStatusFiber.join.flatMap(_.embedNever)
-    } yield HealthCheck(databaseStatus, fileRepositoryStatus, keyValueStoreStatus, pubSubStatus)
-
+      internetConnectivityStatus <- internetConnectivityStatusFiber.join.flatMap(_.embedNever)
+    } yield HealthCheck(databaseStatus, fileRepositoryStatus, keyValueStoreStatus, pubSubStatus, internetConnectivityStatus)
 }

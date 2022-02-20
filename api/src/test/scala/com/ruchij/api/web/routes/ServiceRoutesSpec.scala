@@ -68,13 +68,14 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
         "database" : "Healthy",
         "fileRepository" : "Healthy",
         "keyValueStore" : "Healthy",
-        "pubSubStatus" : "Healthy"
+        "pubSubStatus" : "Healthy",
+        "internetConnectivity": "Healthy"
       }"""
 
     (() => healthService.healthCheck).expects()
       .returns {
         IO.pure {
-          HealthCheck(HealthStatus.Healthy, HealthStatus.Healthy, HealthStatus.Healthy, HealthStatus.Healthy)
+          HealthCheck(HealthStatus.Healthy, HealthStatus.Healthy, HealthStatus.Healthy, HealthStatus.Healthy, HealthStatus.Healthy)
         }
       }
 
@@ -95,13 +96,14 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
         "database" : "Healthy",
         "fileRepository" : "Unhealthy",
         "keyValueStore" : "Healthy",
-        "pubSubStatus" : "Healthy"
+        "pubSubStatus" : "Healthy",
+        "internetConnectivity": "Unhealthy"
       }"""
 
     (() => healthService.healthCheck).expects()
       .returns {
         IO.pure {
-          HealthCheck(HealthStatus.Healthy, HealthStatus.Unhealthy, HealthStatus.Healthy, HealthStatus.Healthy)
+          HealthCheck(HealthStatus.Healthy, HealthStatus.Unhealthy, HealthStatus.Healthy, HealthStatus.Healthy, HealthStatus.Unhealthy)
         }
       }
 

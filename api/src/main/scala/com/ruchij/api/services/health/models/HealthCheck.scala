@@ -6,7 +6,8 @@ case class HealthCheck(
   database: HealthStatus,
   fileRepository: HealthStatus,
   keyValueStore: HealthStatus,
-  pubSubStatus: HealthStatus
+  pubSubStatus: HealthStatus,
+  internetConnectivity: HealthStatus
 ) { self =>
   val isHealthy: Boolean =
     Generic[HealthCheck].to(self).toList.forall(_ == HealthStatus.Healthy)

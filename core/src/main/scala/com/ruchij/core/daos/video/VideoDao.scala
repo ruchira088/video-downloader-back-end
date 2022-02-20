@@ -33,7 +33,7 @@ trait VideoDao[F[_]] {
 
   def findByVideoPath(videoPath: String): F[Option[Video]]
 
-  def deleteById(videoId: String): F[Option[Video]]
+  def deleteById(videoId: String): F[Int]
 
   def hasVideoFilePermission(videoFileResourceId: String, userId: String): F[Boolean]
 
