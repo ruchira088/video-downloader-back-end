@@ -11,11 +11,9 @@ import com.ruchij.api.daos.title.models.VideoTitle
 import com.ruchij.api.exceptions.ResourceConflictException
 import com.ruchij.api.services.config.models.ApiConfigKey
 import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
-import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.SchedulingDao.notFound
 import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownload, SchedulingStatus}
-import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata, VideoSite}
 import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.exceptions.{InvalidConditionException, ValidationException}
@@ -23,9 +21,8 @@ import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.services.config.ConfigurationService
 import com.ruchij.core.services.models.{Order, SortBy}
-import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
-import com.ruchij.core.services.video.VideoAnalysisService
+import com.ruchij.core.services.video.{VideoAnalysisService, VideoService}
 import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherToF}
 import com.ruchij.core.types.JodaClock
 import org.http4s.Uri
@@ -33,13 +30,11 @@ import org.http4s.Uri
 import scala.concurrent.duration.FiniteDuration
 
 class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadError[*[_], Throwable]](
+  videoService: VideoService[F, T],
   videoAnalysisService: VideoAnalysisService[F],
   scheduledVideoDownloadPublisher: Publisher[F, ScheduledVideoDownload],
   workerStatusPublisher: Publisher[F, WorkerStatusUpdate],
   configurationService: ConfigurationService[F, ApiConfigKey],
-  repositoryService: RepositoryService[F],
-  videoMetadataDao: VideoMetadataDao[T],
-  fileResourceDao: FileResourceDao[T],
   schedulingDao: SchedulingDao[T],
   videoTitleDao: VideoTitleDao[T],
   videoPermissionDao: VideoPermissionDao[T]
@@ -231,24 +226,25 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadError[*[_], Th
               .delete(maybeUserId, Some(id))
               .productR(videoTitleDao.delete(Some(id), maybeUserId))
               .productR {
-                if (maybeUserId.isEmpty)
-                  List(
-                    schedulingDao.deleteById(id),
-                    videoMetadataDao.deleteById(id),
-                    fileResourceDao.deleteById(scheduledVideoDownload.videoMetadata.thumbnail.id)
-                  ).sequence.map(_.sum)
-                else Applicative[T].pure(0)
+                if (maybeUserId.isEmpty) schedulingDao.deleteById(id) else Applicative[T].pure(0)
               }
         }
         .getOrElseF(ApplicativeError[T, Throwable].raiseError(notFound(id)))
     }.flatMap { scheduledVideoDownload =>
-        if (maybeUserId.isEmpty) {
-          JodaClock[F].timestamp.flatMap { timestamp =>
-            val deleted = scheduledVideoDownload.copy(lastUpdatedAt = timestamp, status = SchedulingStatus.Deleted)
-            scheduledVideoDownloadPublisher.publishOne(deleted)
-              .productR(repositoryService.delete(scheduledVideoDownload.videoMetadata.thumbnail.path))
-              .as(deleted)
-          }
-        } else Applicative[F].pure(scheduledVideoDownload)
-      }
+      if (maybeUserId.isEmpty) {
+        JodaClock[F].timestamp.flatMap { timestamp =>
+          val deleted = scheduledVideoDownload.copy(lastUpdatedAt = timestamp, status = SchedulingStatus.Deleted)
+
+          ApplicativeError[F, Throwable]
+            .handleError {
+              videoService
+                .deleteById(scheduledVideoDownload.videoMetadata.id, deleteVideoFile = false)(_ => Applicative[T].unit)
+                .as(1)
+            }(_ => 0)
+            .productR {
+              scheduledVideoDownloadPublisher.publishOne(deleted).as(deleted)
+            }
+        }
+      } else Applicative[F].pure(scheduledVideoDownload)
+    }
 }

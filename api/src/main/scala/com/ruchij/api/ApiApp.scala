@@ -202,13 +202,11 @@ object ApiApp extends IOApp {
       new AssetServiceImpl[F, ConnectionIO](DoobieFileResourceDao, DoobieSnapshotDao, DoobieVideoDao, repositoryService)
 
     val schedulingService = new ApiSchedulingServiceImpl[F, ConnectionIO](
+      videoService,
       videoAnalysisService,
       messageBrokers.scheduledVideoDownloadPublisher,
       messageBrokers.workerStatusUpdatesPublisher,
       configurationService,
-      repositoryService,
-      DoobieVideoMetadataDao,
-      DoobieFileResourceDao,
       DoobieSchedulingDao,
       DoobieVideoTitleDao,
       DoobieVideoPermissionDao

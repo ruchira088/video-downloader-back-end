@@ -1,7 +1,6 @@
 package com.ruchij.core.daos.video
 
-import cats.data.{NonEmptyList, OptionT}
-import cats.implicits._
+import cats.data.NonEmptyList
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 import com.ruchij.core.daos.doobie.DoobieUtils.{SingleUpdateOps, ordering, sortByFieldName}
 import com.ruchij.core.daos.scheduling.models.RangeValue
@@ -120,16 +119,10 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
       }
       .value
 
-  override def deleteById(videoId: String): ConnectionIO[Option[Video]] =
-    OptionT(findById(videoId, None))
-      .flatMap { video =>
-        sql"DELETE FROM video WHERE video_metadata_id = $videoId"
-          .update
-          .run
-          .singleUpdate
-          .as(video)
-      }
-      .value
+  override def deleteById(videoId: String): ConnectionIO[Int] =
+    sql"DELETE FROM video WHERE video_metadata_id = $videoId"
+      .update
+      .run
 
   override def hasVideoFilePermission(videoFileResourceId: String, userId: String): ConnectionIO[Boolean] =
     sql"""

@@ -17,6 +17,8 @@ import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
+import com.ruchij.core.daos.snapshot.DoobieSnapshotDao
+import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata}
 import com.ruchij.core.kv.{InMemoryKeyValueStore, KeySpacedKeyValueStore}
@@ -27,7 +29,7 @@ import com.ruchij.core.services.download.Http4sDownloadService
 import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.repository.InMemoryRepositoryService
 import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
-import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, YouTubeVideoDownloader}
+import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, YouTubeVideoDownloader}
 import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import com.ruchij.core.test.Providers
 import com.ruchij.core.external.embedded.EmbeddedExternalServiceProvider
@@ -130,6 +132,9 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFa
             )
           }
 
+          videoService =
+            new VideoServiceImpl[IO, ConnectionIO](repositoryService, DoobieVideoDao, DoobieSnapshotDao, DoobieFileResourceDao)
+
           videoId = "pornone-74a97714ca4b7cb"
 
           expectedScheduledDownloadVideo = ScheduledVideoDownload(
@@ -181,13 +186,11 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFa
             .start
 
           apiSchedulingService = new ApiSchedulingServiceImpl[IO, ConnectionIO](
+            videoService,
             videoAnalysisService,
             scheduledVideoDownloadUpdatesPubSub,
             workerStatusUpdatesPubSub,
             configurationService,
-            repositoryService,
-            DoobieVideoMetadataDao,
-            DoobieFileResourceDao,
             DoobieSchedulingDao,
             DoobieVideoTitleDao,
             DoobieVideoPermissionDao
