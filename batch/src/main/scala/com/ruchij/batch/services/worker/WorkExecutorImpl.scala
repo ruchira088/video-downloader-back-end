@@ -154,12 +154,11 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
         case (data, fileResourceF) =>
           data
             .concurrently {
-              Stream.fixedRate(30 seconds).evalMap {
-                _ =>
-                  JodaClock[F].timestamp.flatMap { timestamp =>
-                    transaction(workerDao.updateHeartBeat(workerId, timestamp))
-                      .productR(Applicative[F].unit)
-                  }
+              Stream.fixedRate(30 seconds).evalMap { _ =>
+                JodaClock[F].timestamp.flatMap { timestamp =>
+                  transaction(workerDao.updateHeartBeat(workerId, timestamp))
+                    .productR(Applicative[F].unit)
+                }
               }
             }
             .debounce(250 milliseconds)
@@ -169,11 +168,7 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
             .interruptWhen(interrupt)
             .compile
             .drain
-            .productR {
-              fileResourceF.flatTap { fileResource =>
-                transaction(fileResourceDao.insert(fileResource))
-              }
-            }
+            .productR(fileResourceF)
       }
 
   override def execute(
@@ -186,43 +181,36 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
       .productR {
         downloadVideo(worker.id, scheduledVideoDownload, interrupt)
           .flatMap { fileResource =>
-            repositoryService.size(fileResource.path).flatMap { maybeSizeFile =>
-              maybeSizeFile
-                .fold[F[Video]](
-                  ApplicativeError[F, Throwable]
-                    .raiseError(ResourceNotFoundException(s"File not found at: ${fileResource.path}"))
-                ) { fileSize =>
-                  if (fileSize < scheduledVideoDownload.videoMetadata.size && CustomVideoSite.values
-                      .contains(scheduledVideoDownload.videoMetadata.videoSite))
-                    logger
-                      .warn[F](
-                        s"Worker ${worker.id} invalidly deemed as complete: ${scheduledVideoDownload.videoMetadata.url}"
-                      )
-                      .productR(execute(scheduledVideoDownload, worker, interrupt))
-                  else
-                    batchSchedulingService
-                      .updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Downloaded)
-                      .productL {
-                        batchSchedulingService
-                          .publishDownloadProgress(scheduledVideoDownload.videoMetadata.id, fileSize)
-                      }
-                      .productR(batchVideoService.insert(scheduledVideoDownload.videoMetadata.id, fileResource.id))
-                      .productL {
-                        if (fileSize > scheduledVideoDownload.videoMetadata.size) {
-                          batchVideoService.update(scheduledVideoDownload.videoMetadata.id, fileSize)
-                        } else Applicative[F].unit
-                      }
-                      .flatTap(videoEnrichmentService.videoSnapshots)
-                      .productL {
-                        batchSchedulingService.completeScheduledVideoDownload(scheduledVideoDownload.videoMetadata.id)
-                      }
-                      .productL {
-                        logger.info[F](
-                          s"Worker ${worker.id} completed download for ${scheduledVideoDownload.videoMetadata.url}"
-                        )
-                      }
+            if (fileResource.size < scheduledVideoDownload.videoMetadata.size && CustomVideoSite.values
+                .contains(scheduledVideoDownload.videoMetadata.videoSite))
+              logger
+                .warn[F](
+                  s"Worker ${worker.id} invalidly deemed as complete: ${scheduledVideoDownload.videoMetadata.url}"
+                )
+                .productR(execute(scheduledVideoDownload, worker, interrupt))
+            else
+              batchSchedulingService
+                .updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Downloaded)
+                .productL {
+                  batchSchedulingService
+                    .publishDownloadProgress(scheduledVideoDownload.videoMetadata.id, fileResource.size)
                 }
-            }
+                .productL(transaction(fileResourceDao.insert(fileResource)))
+                .productR(batchVideoService.insert(scheduledVideoDownload.videoMetadata.id, fileResource.id))
+                .productL {
+                  if (fileResource.size > scheduledVideoDownload.videoMetadata.size) {
+                    batchVideoService.update(scheduledVideoDownload.videoMetadata.id, fileResource.size)
+                  } else Applicative[F].unit
+                }
+                .flatTap(videoEnrichmentService.videoSnapshots)
+                .productL {
+                  batchSchedulingService.completeScheduledVideoDownload(scheduledVideoDownload.videoMetadata.id)
+                }
+                .productL {
+                  logger.info[F](
+                    s"Worker ${worker.id} completed download for ${scheduledVideoDownload.videoMetadata.url}"
+                  )
+                }
           }
       }
 }

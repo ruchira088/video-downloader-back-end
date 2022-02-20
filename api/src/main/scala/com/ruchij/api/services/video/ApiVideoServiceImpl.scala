@@ -9,6 +9,7 @@ import com.ruchij.core.daos.scheduling.models.RangeValue
 import com.ruchij.core.daos.snapshot.SnapshotDao
 import com.ruchij.core.daos.snapshot.models.Snapshot
 import com.ruchij.api.daos.title.VideoTitleDao
+import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.video.VideoDao
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
@@ -23,6 +24,7 @@ import scala.concurrent.duration.FiniteDuration
 class ApiVideoServiceImpl[F[_]: Monad, G[_]: MonadError[*[_], Throwable]](
   videoService: VideoService[F, G],
   videoDao: VideoDao[G],
+  schedulingDao: SchedulingDao[G],
   videoMetadataDao: VideoMetadataDao[G],
   snapshotDao: SnapshotDao[G],
   videoTitleDao: VideoTitleDao[G],
@@ -65,6 +67,7 @@ class ApiVideoServiceImpl[F[_]: Monad, G[_]: MonadError[*[_], Throwable]](
           videoTitleDao
             .delete(Some(videoId), None)
             .productR(videoPermissionDao.delete(None, Some(videoId)))
+            .productR(schedulingDao.deleteById(videoId))
             .as((): Unit)
         }
     }

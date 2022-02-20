@@ -175,15 +175,14 @@ object ApiApp extends IOApp {
     val videoService = new VideoServiceImpl[F, ConnectionIO](
       repositoryService,
       DoobieVideoDao,
-      DoobieVideoMetadataDao,
       DoobieSnapshotDao,
-      DoobieFileResourceDao,
-      DoobieSchedulingDao
+      DoobieFileResourceDao
     )
 
     val apiVideoService = new ApiVideoServiceImpl[F, ConnectionIO](
       videoService,
       DoobieVideoDao,
+      DoobieSchedulingDao,
       DoobieVideoMetadataDao,
       DoobieSnapshotDao,
       DoobieVideoTitleDao,

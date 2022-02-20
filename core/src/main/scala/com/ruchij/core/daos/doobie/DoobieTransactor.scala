@@ -1,7 +1,7 @@
 package com.ruchij.core.daos.doobie
 
 import cats.effect.{Async, Resource}
-import com.ruchij.core.daos.doobie.DatabaseDriverType.parseFromConnectionUrl
+import com.ruchij.core.daos.doobie.DatabaseDriver.parseFromConnectionUrl
 import com.ruchij.migration.config.DatabaseConfiguration
 import doobie.hikari.HikariTransactor
 import doobie.util.ExecutionContexts
