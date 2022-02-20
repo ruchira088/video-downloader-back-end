@@ -236,6 +236,7 @@ object ApiApp extends IOApp {
         healthCheckKeyStore,
         backgroundService.healthChecks,
         messageBrokers.healthCheckPubSub,
+        client,
         apiServiceConfiguration.applicationInformation,
         apiServiceConfiguration.storageConfiguration
       )
