@@ -15,17 +15,17 @@ object Dependencies
 
   lazy val http4sCirce = "org.http4s" %% "http4s-circe" % Http4sVersion
 
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.3.5"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.3.7"
 
-  lazy val fs2Io = "co.fs2" %% "fs2-io" % "3.2.4"
+  lazy val fs2Io = "co.fs2" %% "fs2-io" % "3.2.5"
 
-  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "2.3.0"
+  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "2.4.0"
 
-  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "2.3.0"
+  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "2.4.0"
 
   lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.0.1"
 
-  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.7.1"
+  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.8.0"
 
   lazy val circeGeneric = "io.circe" %% "circe-generic" % CirceVersion
 
@@ -47,7 +47,7 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.1"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "8.5.0"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "8.5.2"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.3.3"
 
@@ -69,7 +69,7 @@ object Dependencies
 
   lazy val postgresqlTestContainer = "org.testcontainers" % "postgresql" % TestContainersVersion
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.10"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.11"
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4"
 
