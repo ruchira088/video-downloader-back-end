@@ -103,4 +103,9 @@ class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadError[*[_], 
             .as(committableRecord.value)
       }
 
+  override def publishScheduledVideoDownload(id: String): F[ScheduledVideoDownload] =
+    OptionT(transaction(schedulingDao.getById(id, None)))
+      .getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
+      .flatTap(scheduledVideoDownloadPubSub.publishOne)
+
 }

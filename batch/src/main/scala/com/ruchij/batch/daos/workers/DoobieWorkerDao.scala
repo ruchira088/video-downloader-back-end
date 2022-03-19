@@ -7,6 +7,7 @@ import com.ruchij.batch.daos.workers.models.Worker
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
 import com.ruchij.core.daos.scheduling.SchedulingDao
+import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import doobie.free.connection.ConnectionIO
@@ -77,19 +78,29 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
     workerId: String,
     scheduledVideoId: String,
     timestamp: DateTime
-  ): ConnectionIO[Option[Worker]] =
+  ): ConnectionIO[Option[Worker]] = {
       sql"""
-          UPDATE worker
-            SET task_assigned_at = $timestamp, heart_beat_at = $timestamp, status = ${WorkerStatus.Active}
-            WHERE
-                  id = $workerId AND
-                  task_assigned_at IS NULL AND
-                  status = ${WorkerStatus.Reserved} AND
-                  heart_beat_at IS NULL
+        UPDATE scheduled_video
+            SET status = ${SchedulingStatus.Active}, last_updated_at = $timestamp
+            WHERE video_metadata_id = $scheduledVideoId AND status != ${SchedulingStatus.Active}
       """
         .update
         .run
         .singleUpdate
+        .productR {
+          sql"""
+            UPDATE worker
+              SET task_assigned_at = $timestamp, heart_beat_at = $timestamp, status = ${WorkerStatus.Active}
+              WHERE
+                    id = $workerId AND
+                    task_assigned_at IS NULL AND
+                    status = ${WorkerStatus.Reserved} AND
+                    heart_beat_at IS NULL
+          """
+            .update
+            .run
+            .singleUpdate
+        }
         .productR {
           sql"""
             INSERT INTO worker_task(worker_id, scheduled_video_id, created_at)
@@ -101,6 +112,7 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
         }
         .productR(OptionT(getById(workerId)))
         .value
+  }
 
   override def completeTask(
     workerId: String,

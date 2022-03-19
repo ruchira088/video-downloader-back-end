@@ -27,4 +27,6 @@ trait BatchSchedulingService[F[_]] {
 
   def subscribeToScheduledVideoDownloadUpdates(groupId: String): Stream[F, ScheduledVideoDownload]
 
+  def publishScheduledVideoDownload(id: String): F[ScheduledVideoDownload]
+
 }
