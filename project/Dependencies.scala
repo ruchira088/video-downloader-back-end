@@ -23,7 +23,7 @@ object Dependencies
 
   lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "2.4.0"
 
-  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.1.0"
+  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.1.1"
 
   lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.8.3"
 
@@ -47,7 +47,7 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.1"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "8.5.8"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "8.5.10"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.3.4"
 
@@ -61,7 +61,7 @@ object Dependencies
 
   lazy val embeddedRedis = "com.github.kstyrc" % "embedded-redis" % "0.6"
 
-  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "7.0.2"
+  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "7.1.0"
 
   lazy val testContainers = "org.testcontainers" % "testcontainers" % TestContainersVersion
 
@@ -77,7 +77,7 @@ object Dependencies
 
   lazy val betterMonadicFor = "com.olegpy" %% "better-monadic-for" % "0.3.1"
 
-  lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.11"
+  lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.12"
 
   lazy val scalaMock = "org.scalamock" %% "scalamock" % "5.2.0"
 
