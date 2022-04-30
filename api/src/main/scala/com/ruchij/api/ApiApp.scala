@@ -52,6 +52,7 @@ import com.ruchij.core.types.JodaClock
 import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.effect.Log.Stdout.instance
 import doobie.free.connection.ConnectionIO
+import doobie.hikari.HikariTransactor
 import fs2.kafka.CommittableConsumerRecord
 import org.apache.tika.Tika
 import org.http4s.HttpApp
@@ -84,57 +85,56 @@ object ApiApp extends IOApp {
   def create[F[+ _]: Async: JodaClock](
     apiServiceConfiguration: ApiServiceConfiguration
   ): Resource[F, HttpApp[F]] =
-    DoobieTransactor
-      .create[F](apiServiceConfiguration.databaseConfiguration)
-      .map(_.trans)
-      .flatMap { implicit transaction =>
-        for {
-          httpClient <- AsyncHttpClient.resource().map(FollowRedirect(maxRedirects = 10))
+    for {
+      hikariTransactor <- DoobieTransactor.create[F](apiServiceConfiguration.databaseConfiguration)
+      httpClient <- AsyncHttpClient.resource().map(FollowRedirect(maxRedirects = 10))
 
-          redisCommands <- Redis[F].utf8(apiServiceConfiguration.redisConfiguration.uri)
-          redisKeyValueStore = new RedisKeyValueStore[F](redisCommands)
+      redisCommands <- Redis[F].utf8(apiServiceConfiguration.redisConfiguration.uri)
+      redisKeyValueStore = new RedisKeyValueStore[F](redisCommands)
 
-          downloadProgressPubSub <- KafkaPubSub[F, DownloadProgress](apiServiceConfiguration.kafkaConfiguration)
-          scheduledVideoDownloadPubSub <- KafkaPubSub[F, ScheduledVideoDownload](
-            apiServiceConfiguration.kafkaConfiguration
-          )
-          healthCheckPubSub <- KafkaPubSub[F, HealthCheckMessage](apiServiceConfiguration.kafkaConfiguration)
-          metricsPublisher <- KafkaPublisher[F, HttpMetric](apiServiceConfiguration.kafkaConfiguration)
-          workerStatusUpdatePubSub <- KafkaPubSub[F, WorkerStatusUpdate](apiServiceConfiguration.kafkaConfiguration)
-          dispatcher <- Dispatcher[F]
+      downloadProgressPubSub <- KafkaPubSub[F, DownloadProgress](apiServiceConfiguration.kafkaConfiguration)
+      scheduledVideoDownloadPubSub <- KafkaPubSub[F, ScheduledVideoDownload](
+        apiServiceConfiguration.kafkaConfiguration
+      )
+      healthCheckPubSub <- KafkaPubSub[F, HealthCheckMessage](apiServiceConfiguration.kafkaConfiguration)
+      metricsPublisher <- KafkaPublisher[F, HttpMetric](apiServiceConfiguration.kafkaConfiguration)
+      workerStatusUpdatePubSub <- KafkaPubSub[F, WorkerStatusUpdate](apiServiceConfiguration.kafkaConfiguration)
+      dispatcher <- Dispatcher[F]
 
-          messageBrokers = ApiMessageBrokers(
-            downloadProgressPubSub,
-            scheduledVideoDownloadPubSub,
-            healthCheckPubSub,
-            workerStatusUpdatePubSub,
-            metricsPublisher
-          )
+      messageBrokers = ApiMessageBrokers(
+        downloadProgressPubSub,
+        scheduledVideoDownloadPubSub,
+        healthCheckPubSub,
+        workerStatusUpdatePubSub,
+        metricsPublisher
+      )
 
-          httpApp <- Resource.eval {
-            program[F, CommittableConsumerRecord[F, Unit, *]](
-              httpClient,
-              redisKeyValueStore,
-              messageBrokers,
-              dispatcher,
-              apiServiceConfiguration
-            )
-          }
-        } yield httpApp
+      httpApp <- Resource.eval {
+        program[F, CommittableConsumerRecord[F, Unit, *]](
+          hikariTransactor,
+          httpClient,
+          redisKeyValueStore,
+          messageBrokers,
+          dispatcher,
+          apiServiceConfiguration
+        )
       }
+    } yield httpApp
 
   def program[F[+ _]: Async: JodaClock, M[_]](
+    hikariTransactor: HikariTransactor[F],
     client: Client[F],
     keyValueStore: KeyValueStore[F],
     messageBrokers: ApiMessageBrokers[F, M],
     dispatcher: Dispatcher[F],
     apiServiceConfiguration: ApiServiceConfiguration
-  )(implicit transaction: ConnectionIO ~> F): F[HttpApp[F]] = {
+  ): F[HttpApp[F]] = {
+    implicit val transactor: ConnectionIO ~> F = hikariTransactor.trans
+
     val healthCheckKeyStore: KeySpacedKeyValueStore[F, HealthCheckKey, DateTime] =
       new KeySpacedKeyValueStore(HealthCheckKeySpace, keyValueStore)
 
-    val authenticationKeyStore
-      : KeySpacedKeyValueStore[F, AuthenticationToken.AuthenticationTokenKey, AuthenticationToken] =
+    val authenticationKeyStore: KeySpacedKeyValueStore[F, AuthenticationToken.AuthenticationTokenKey, AuthenticationToken] =
       new KeySpacedKeyValueStore(AuthenticationKeySpace, keyValueStore)
 
     val configurationService: ConfigurationService[F, ApiConfigKey] =

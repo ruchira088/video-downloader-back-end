@@ -21,6 +21,9 @@ trait ExternalServiceProvider[F[_]] {
 object ExternalServiceProvider {
   val HashedAdminPassword = "$2a$10$m5CQAirrrJKRqG3oalNSU.TUOn56v88isxMbNPi8cXXI35gY20hO." // The password is "top-secret"
 
+  def migrationServiceConfiguration(databaseConfiguration: DatabaseConfiguration): MigrationServiceConfiguration =
+    MigrationServiceConfiguration(databaseConfiguration, AdminConfiguration(HashedAdminPassword))
+
   def transactor[F[_]: Async](
     databaseConfig: DatabaseConfiguration
   )(implicit executionContext: ExecutionContext): Resource[F, ConnectionIO ~> F] =
@@ -28,10 +31,7 @@ object ExternalServiceProvider {
       hikariTransactor <- DoobieTransactor
         .create[F](databaseConfig, executionContext)
 
-      migrationResult <-
-        Resource.eval {
-          MigrationApp.migration(MigrationServiceConfiguration(databaseConfig, AdminConfiguration(HashedAdminPassword)))
-        }
+      migrationResult <- Resource.eval(MigrationApp.migration(migrationServiceConfiguration(databaseConfig)))
     } yield hikariTransactor.trans
 
   implicit class ExternalServiceProviderOps[F[_]](externalServiceProvider: ExternalServiceProvider[F]) {
