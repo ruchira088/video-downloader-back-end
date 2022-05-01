@@ -22,7 +22,7 @@ class KafkaSubscriber[F[_]: Async, A](kafkaConfiguration: KafkaConfiguration)(
         KafkaConsumer.resource {
           ConsumerSettings[F, Unit, A](RecordDeserializer[F, Unit], topic.deserializer[F](kafkaConfiguration))
             .withBootstrapServers(kafkaConfiguration.bootstrapServers)
-            .withAutoOffsetReset(AutoOffsetReset.Latest)
+            .withAutoOffsetReset(AutoOffsetReset.Earliest)
             .withGroupId(groupId)
         }
       }

@@ -28,10 +28,10 @@ class EmbeddedExternalServiceProvider[F[+ _]: Sync]
         Resource
           .make {
             Sync[F]
-              .delay(RedisServer.builder().port(port).build())
-              .flatTap(redisServer => Sync[F].delay(redisServer.start()))
+              .blocking(RedisServer.builder().port(port).build())
+              .flatTap(redisServer => Sync[F].blocking(redisServer.start()))
           } { redisServer =>
-            Sync[F].delay(redisServer.stop())
+            Sync[F].blocking(redisServer.stop())
           }
           .as(RedisConfiguration("localhost", port, None))
       }
@@ -49,9 +49,9 @@ class EmbeddedExternalServiceProvider[F[+ _]: Sync]
 
       embeddedKafkaWithSR <- Resource.make(
         Sync[F]
-          .delay(EmbeddedKafka.start()(EmbeddedKafkaSchemaRegistryConfig(kafkaPort, zookeeperPort, schemaRegistryPort)))
+          .blocking(EmbeddedKafka.start()(EmbeddedKafkaSchemaRegistryConfig(kafkaPort, zookeeperPort, schemaRegistryPort)))
       ) { kafka =>
-        Sync[F].delay(kafka.stop(false))
+        Sync[F].blocking(kafka.stop(false))
       }
     } yield kafkaConfiguration
 
@@ -76,9 +76,9 @@ object EmbeddedExternalServiceProvider {
       .flatMap { port =>
         MonadError[F, Throwable].handleErrorWith {
           Sync[F]
-            .delay(new ServerSocket(port))
+            .blocking(new ServerSocket(port))
             .flatMap { serverSocket =>
-              Sync[F].delay(serverSocket.close())
+              Sync[F].blocking(serverSocket.close())
             }
             .as(port)
         } { _ =>

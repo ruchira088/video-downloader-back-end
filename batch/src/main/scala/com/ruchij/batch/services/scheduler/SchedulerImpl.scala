@@ -81,12 +81,11 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: Monad, M[_]](
       OptionT
         .fromOption[F](taskOpt)
         .product(OptionT.liftF(JodaClock[F].timestamp))
-        .flatMapF {
+        .flatMap {
           case (task, timestamp) =>
-            batchSchedulingService
-              .updateSchedulingStatusById(task.videoMetadata.id, SchedulingStatus.Active)
-              .product(transaction(workerDao.assignTask(worker.id, task.videoMetadata.id, timestamp)))
-              .as(Option(timestamp -> task))
+            OptionT(transaction(workerDao.assignTask(worker.id, task.videoMetadata.id, timestamp)))
+              .product { OptionT.liftF { batchSchedulingService.publishScheduledVideoDownload(task.videoMetadata.id) }}
+              .as(timestamp -> task)
         }
         .flatMapF {
           case (timestamp, scheduledVideoDownload) =>

@@ -162,6 +162,7 @@ services:
       start_period: 10s
       interval: 10s
       timeout: 5s
+      retries: 10
     depends_on:
       kafka-broker:
         condition: service_healthy

@@ -9,19 +9,21 @@ import com.ruchij.api.config.{ApiServiceConfiguration, ApiStorageConfiguration, 
 import com.ruchij.api.models.ApiMessageBrokers
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.core.config.{ApplicationInformation, KafkaConfiguration}
+import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
+import com.ruchij.core.external.ExternalServiceProvider
+import com.ruchij.core.external.ExternalServiceProvider.migrationServiceConfiguration
 import com.ruchij.core.kv.RedisKeyValueStore
 import com.ruchij.core.messaging.inmemory.Fs2PubSub
 import com.ruchij.core.messaging.models.HttpMetric
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
-import com.ruchij.core.external.ExternalServiceProvider
 import com.ruchij.core.types.JodaClock
+import com.ruchij.migration.MigrationApp
 import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.effect.Log.Stdout.instance
 import org.http4s.client.Client
 import org.http4s.{HttpApp, Uri}
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
@@ -42,7 +44,7 @@ object HttpTestResource {
 
   def create[F[+ _]: Async: JodaClock](
     externalServiceProvider: ExternalServiceProvider[F]
-  )(implicit executionContext: ExecutionContext): Resource[F, TestResources[F]] =
+  ): Resource[F, TestResources[F]] =
     create[F](externalServiceProvider, Client[F] { _ =>
       Resource.eval {
         ApplicativeError[F, Throwable].raiseError(new NotImplementedError("Client has not been implemented"))
@@ -52,14 +54,15 @@ object HttpTestResource {
   def create[F[+ _]: Async: JodaClock](
     externalServiceProvider: ExternalServiceProvider[F],
     client: Client[F]
-  )(implicit executionContext: ExecutionContext): Resource[F, TestResources[F]] =
+  ): Resource[F, TestResources[F]] =
     for {
       redisConfiguration <- externalServiceProvider.redisConfiguration
       redisCommands <- Redis[F].utf8(redisConfiguration.uri)
       redisKeyValueStore = new RedisKeyValueStore[F](redisCommands)
 
       databaseConfiguration <- externalServiceProvider.databaseConfiguration
-      transactor <- ExternalServiceProvider.transactor(databaseConfiguration)
+      _ <- Resource.eval(MigrationApp.migration(migrationServiceConfiguration(databaseConfiguration)))
+      hikariTransactor <- DoobieTransactor.create(databaseConfiguration)
 
       apiServiceConfiguration = ApiServiceConfiguration(
         HttpConfig,
@@ -88,12 +91,13 @@ object HttpTestResource {
 
       httpApp <- Resource.eval {
         ApiApp.program[F, Id](
+          hikariTransactor,
           client,
           redisKeyValueStore,
           messageBrokers,
           dispatcher,
           apiServiceConfiguration
-        )(Async[F], JodaClock[F], transactor)
+        )(Async[F], JodaClock[F])
       }
     } yield (apiServiceConfiguration, messageBrokers, httpApp)
 
