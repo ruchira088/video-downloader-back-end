@@ -1,7 +1,7 @@
 version: "3.8"
 
 services:
-  nginx:
+  load-balancer:
     image: nginx
     healthcheck:
       test: "/opt/scripts/wait-for-it.sh localhost:443"
@@ -11,6 +11,7 @@ services:
     depends_on:
       - api-1
       - api-2
+      - api-3
     ports:
       - 8443:443
     volumes:
@@ -54,6 +55,9 @@ services:
       IMAGE_FOLDER: "/opt/images"
 
   api-2:
+    *api-app
+
+  api-3:
     *api-app
 
   batch-1: &batch-app

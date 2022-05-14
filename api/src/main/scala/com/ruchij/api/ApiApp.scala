@@ -56,12 +56,14 @@ import doobie.hikari.HikariTransactor
 import fs2.kafka.CommittableConsumerRecord
 import org.apache.tika.Tika
 import org.http4s.HttpApp
-import org.http4s.asynchttpclient.client.AsyncHttpClient
 import org.http4s.blaze.server.BlazeServerBuilder
 import org.http4s.client.Client
-import org.http4s.client.middleware.FollowRedirect
+import org.http4s.jdkhttpclient.JdkHttpClient
 import org.joda.time.DateTime
 import pureconfig.ConfigSource
+
+import java.net.http.HttpClient
+import java.net.http.HttpClient.Redirect
 
 object ApiApp extends IOApp {
 
@@ -70,7 +72,7 @@ object ApiApp extends IOApp {
       configObjectSource <- IO.delay(ConfigSource.defaultApplication)
       webServiceConfiguration <- ApiServiceConfiguration.parse[IO](configObjectSource)
 
-      _ <- create[IO](webServiceConfiguration)
+      result <- create[IO](webServiceConfiguration)
         .use { httpApp =>
           BlazeServerBuilder[IO]
             .withHttpApp(httpApp)
@@ -78,16 +80,19 @@ object ApiApp extends IOApp {
             .bindHttp(webServiceConfiguration.httpConfiguration.port, webServiceConfiguration.httpConfiguration.host)
             .serve
             .compile
-            .drain
+            .lastOrError
         }
-    } yield ExitCode.Success
+    } yield result
 
   def create[F[+ _]: Async: JodaClock](
     apiServiceConfiguration: ApiServiceConfiguration
   ): Resource[F, HttpApp[F]] =
     for {
       hikariTransactor <- DoobieTransactor.create[F](apiServiceConfiguration.databaseConfiguration)
-      httpClient <- AsyncHttpClient.resource().map(FollowRedirect(maxRedirects = 10))
+      httpClient <-
+        JdkHttpClient {
+          HttpClient.newBuilder().followRedirects(Redirect.NORMAL).build()
+        }
 
       redisCommands <- Redis[F].utf8(apiServiceConfiguration.redisConfiguration.uri)
       redisKeyValueStore = new RedisKeyValueStore[F](redisCommands)

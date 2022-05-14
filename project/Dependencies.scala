@@ -3,7 +3,7 @@ import sbt._
 object Dependencies
 {
   val ScalaVersion = "2.13.8"
-  val Http4sVersion = "0.23.10"
+  val Http4sVersion = "0.23.11"
   val CirceVersion = "0.14.1"
   val TestContainersVersion = "1.17.1"
 
@@ -11,13 +11,13 @@ object Dependencies
 
   lazy val http4sBlazeServer = "org.http4s" %% "http4s-blaze-server" % Http4sVersion
 
-  lazy val http4sAsyncHttpClient = "org.http4s" %% "http4s-async-http-client" % Http4sVersion
-
   lazy val http4sCirce = "org.http4s" %% "http4s-circe" % Http4sVersion
+
+  lazy val http4sJdkHttpClient = "org.http4s" %% "http4s-jdk-http-client" % "0.7.0"
 
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.3.11"
 
-  lazy val fs2Io = "co.fs2" %% "fs2-io" % "3.2.5"
+  lazy val fs2Io = "co.fs2" %% "fs2-io" % "3.2.7"
 
   lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "2.4.0"
 
@@ -49,11 +49,11 @@ object Dependencies
 
   lazy val flywayCore = "org.flywaydb" % "flyway-core" % "8.5.10"
 
-  lazy val postgresql = "org.postgresql" % "postgresql" % "42.3.4"
+  lazy val postgresql = "org.postgresql" % "postgresql" % "42.3.5"
 
   lazy val h2 = "com.h2database" % "h2" % "2.1.212"
 
-  lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.3.0"
+  lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.4.0"
 
   lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.1.1"
 

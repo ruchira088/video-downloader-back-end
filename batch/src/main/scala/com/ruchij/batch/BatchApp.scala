@@ -33,12 +33,12 @@ import com.ruchij.core.types.JodaClock
 import doobie.free.connection.ConnectionIO
 import fs2.kafka.CommittableConsumerRecord
 import org.apache.tika.Tika
-import org.http4s.asynchttpclient.client.AsyncHttpClient
-import org.http4s.client.middleware.FollowRedirect
+import org.http4s.jdkhttpclient.JdkHttpClient
 import pureconfig.ConfigSource
 
-import scala.concurrent.duration.DurationInt
-import scala.language.postfixOps
+import java.net.http.HttpClient
+import java.net.http.HttpClient.Redirect
+import java.time.Duration
 
 object BatchApp extends IOApp {
 
@@ -72,9 +72,12 @@ object BatchApp extends IOApp {
       .map(_.trans)
       .flatMap { implicit transaction =>
         for {
-          httpClient <- AsyncHttpClient
-            .resource { AsyncHttpClient.configure(_.setRequestTimeout((24 hours).toMillis.toInt)) }
-            .map(FollowRedirect(maxRedirects = 10))
+          httpClient <- JdkHttpClient[F] {
+            HttpClient.newBuilder()
+              .followRedirects(Redirect.NORMAL)
+              .connectTimeout(Duration.ofHours(24))
+              .build()
+          }
 
           dispatcher <- Dispatcher[F]
 

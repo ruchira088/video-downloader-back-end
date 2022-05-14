@@ -39,7 +39,7 @@ lazy val core =
           catsEffect,
           circeGeneric,
           circeParser,
-          http4sAsyncHttpClient,
+          http4sJdkHttpClient,
           http4sDsl,
           http4sCirce,
           fs2Kafka,
