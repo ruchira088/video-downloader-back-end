@@ -2,18 +2,23 @@ version: "3.8"
 
 services:
   load-balancer:
-    image: nginx
+    image: nginx:stable-alpine
     healthcheck:
-      test: "/opt/scripts/wait-for-it.sh localhost:443"
+      test: "/opt/scripts/wait-for -t 3 localhost:443"
       start_period: 5s
       interval: 10s
       timeout: 5s
     depends_on:
-      - api-1
-      - api-2
-      - api-3
+      api-1:
+        condition: service_healthy
+      api-2:
+        condition: service_healthy
+      api-3:
+        condition: service_healthy
+      front-end:
+        condition: service_healthy
     ports:
-      - 8443:443
+      - 443:443
     volumes:
       - "./nginx/ssl:/etc/ssl"
       - "./nginx/default.conf:/etc/nginx/conf.d/default.conf"
@@ -90,6 +95,9 @@ services:
       IMAGE_FOLDER: "/opt/images"
 
   batch-2:
+    *batch-app
+
+  batch-3:
     *batch-app
 
   migration-application:
@@ -193,5 +201,15 @@ services:
     environment:
       SCHEMAREGISTRY_URL: "http://schema-registry:8081"
       PROXY: "true"
+    volumes:
+      - "./docker-compose/scripts:/opt/scripts"
+
+  front-end:
+    image: video-downloader-front-end
+    healthcheck:
+      test: "/opt/scripts/wait-for -t 3 localhost:80"
+      start_period: 5s
+      interval: 3s
+      timeout: 2s
     volumes:
       - "./docker-compose/scripts:/opt/scripts"
