@@ -15,7 +15,11 @@ services:
         condition: service_healthy
       api-3:
         condition: service_healthy
-      front-end:
+      front-end-1:
+        condition: service_healthy
+      front-end-2:
+        condition: service_healthy
+      front-end-3:
         condition: service_healthy
     ports:
       - 443:443
@@ -204,7 +208,7 @@ services:
     volumes:
       - "./docker-compose/scripts:/opt/scripts"
 
-  front-end:
+  front-end-1: &front-end
     image: video-downloader-front-end
     healthcheck:
       test: "/opt/scripts/wait-for -t 3 localhost:80"
@@ -213,3 +217,7 @@ services:
       timeout: 2s
     volumes:
       - "./docker-compose/scripts:/opt/scripts"
+
+  front-end-2: *front-end
+
+  front-end-3: *front-end
