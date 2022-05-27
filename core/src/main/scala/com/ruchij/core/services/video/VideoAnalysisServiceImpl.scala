@@ -19,9 +19,11 @@ import com.ruchij.core.services.video.models.VideoAnalysisResult
 import com.ruchij.core.types.FunctionKTypes._
 import com.ruchij.core.types.JodaClock
 import com.ruchij.core.utils.Http4sUtils
+import org.http4s.Method.{GET, HEAD}
+import org.http4s.Uri
 import org.http4s.client.Client
+import org.http4s.client.dsl.Http4sClientDsl
 import org.http4s.headers.`Content-Length`
-import org.http4s.{Method, Request, Uri}
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 
@@ -37,6 +39,9 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
     extends VideoAnalysisService[F] {
 
   private val logger = Logger[VideoAnalysisServiceImpl[F, T]]
+
+  private val clientDsl = Http4sClientDsl[F]
+  import clientDsl._
 
   override def metadata(uri: Uri): F[VideoMetadataResult] =
     for {
@@ -126,7 +131,7 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
 
   private def uriInfoForCustomVideoSite(uri: Uri): F[Document] =
     for {
-      html <- client.expect[String](uri)
+      html <- client.run(GET(uri)).use(_.as[String])
       document <- Sync[F].catchNonFatal(Jsoup.parse(html))
     } yield document
 
@@ -142,7 +147,7 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
 
       size <- Kleisli.liftF {
         client
-          .run(Request[F](Method.HEAD, downloadUri))
+          .run(HEAD(downloadUri))
           .use { response =>
             if (response.status.isSuccess)
               Http4sUtils.header[F, `Content-Length`].map(_.length).run(response)

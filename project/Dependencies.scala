@@ -3,9 +3,9 @@ import sbt._
 object Dependencies
 {
   val ScalaVersion = "2.13.8"
-  val Http4sVersion = "0.23.11"
-  val CirceVersion = "0.14.1"
-  val TestContainersVersion = "1.17.1"
+  val Http4sVersion = "0.23.12"
+  val CirceVersion = "0.14.2"
+  val TestContainersVersion = "1.17.2"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -15,7 +15,7 @@ object Dependencies
 
   lazy val http4sJdkHttpClient = "org.http4s" %% "http4s-jdk-http-client" % "0.7.0"
 
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.3.11"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.3.12"
 
   lazy val fs2Io = "co.fs2" %% "fs2-io" % "3.2.7"
 
@@ -49,13 +49,13 @@ object Dependencies
 
   lazy val flywayCore = "org.flywaydb" % "flyway-core" % "8.5.11"
 
-  lazy val postgresql = "org.postgresql" % "postgresql" % "42.3.5"
+  lazy val postgresql = "org.postgresql" % "postgresql" % "42.3.6"
 
   lazy val h2 = "com.h2database" % "h2" % "2.1.212"
 
   lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.4.0"
 
-  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.1.1"
+  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.2.0"
 
   lazy val jbcrypt = "org.mindrot" % "jbcrypt" % "0.4"
 
@@ -71,7 +71,7 @@ object Dependencies
 
   lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.11"
 
-  lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4"
+  lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
 
   lazy val kindProjector = "org.typelevel" %% "kind-projector" % "0.13.2" cross CrossVersion.full
 
