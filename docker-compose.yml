@@ -144,41 +144,37 @@ services:
     image: zookeeper
     healthcheck:
       test: "/opt/scripts/wait-for -t 3 zookeeper:2181"
-      start_period: 10s
-      interval: 10s
-      timeout: 5s
+      start_period: 5s
+      interval: 5s
+      timeout: 2s
     environment:
       ZOO_LOG4J_PROP: ERROR,CONSOLE
     volumes:
       - "./docker-compose/scripts:/opt/scripts"
 
   kafka-broker:
-    image: confluentinc/cp-kafka
+    image: wurstmeister/kafka
     healthcheck:
       test: "/opt/scripts/wait-for -t 3 kafka-broker:9092"
-      start_period: 10s
-      interval: 10s
-      timeout: 5s
+      start_period: 5s
+      interval: 5s
+      timeout: 2s
     depends_on:
       zookeeper:
         condition: service_healthy
     environment:
-      KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-broker:9092
+      KAFKA_ADVERTISED_HOST_NAME: kafka-broker
     volumes:
       - "./docker-compose/scripts:/opt/scripts"
 
   schema-registry:
-    image: confluentinc/cp-schema-registry
+    image: ghcr.io/arm64-compat/confluentinc/cp-schema-registry:7.1.1
     healthcheck:
       test: "/opt/scripts/wait-for -t 3 schema-registry:8081"
-      start_period: 10s
-      interval: 10s
-      timeout: 5s
-      retries: 10
+      start_period: 5s
+      interval: 5s
+      timeout: 2s
     depends_on:
       kafka-broker:
         condition: service_healthy
