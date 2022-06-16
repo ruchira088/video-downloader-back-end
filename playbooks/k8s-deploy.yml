@@ -108,26 +108,6 @@
                 - name: Deploy application
                   command: kubectl apply -f k8s-output/kafka-fast-data --kubeconfig {{ kubeconfig }}
 
-        - name: Deploy DB migration
-          block:
-            - name: Create ConfigMap
-              command: kubectl apply -f k8s-output/db-migration/ConfigMap.yaml --kubeconfig {{ kubeconfig }}
-
-            - name: Create Secrets
-              command: kubectl apply -f k8s-output/db-migration/Secrets.yaml --kubeconfig {{ kubeconfig }}
-
-            - name: Deploy Job
-              command: kubectl apply -f k8s-output/db-migration --kubeconfig {{ kubeconfig }}
-
-            - name: Wait Job to complete
-              command: |
-                kubectl wait \
-                  --for=condition=complete \
-                  job/database-migration-job-{{ git_commit }} \
-                  --kubeconfig {{ kubeconfig }} \
-                  -n {{ namespace }} \
-                  --timeout=120s
-
         - name: Deploy DB backup
           block:
             - name: Create ConfigMap
@@ -161,6 +141,26 @@
                       --kubeconfig {{ kubeconfig }} \
                       -n {{ namespace }} \
                       --timeout=120s
+
+        - name: Deploy DB migration
+          block:
+            - name: Create ConfigMap
+              command: kubectl apply -f k8s-output/db-migration/ConfigMap.yaml --kubeconfig {{ kubeconfig }}
+
+            - name: Create Secrets
+              command: kubectl apply -f k8s-output/db-migration/Secrets.yaml --kubeconfig {{ kubeconfig }}
+
+            - name: Deploy Job
+              command: kubectl apply -f k8s-output/db-migration --kubeconfig {{ kubeconfig }}
+
+            - name: Wait Job to complete
+              command: |
+                kubectl wait \
+                  --for=condition=complete \
+                  job/database-migration-job-{{ git_commit }} \
+                  --kubeconfig {{ kubeconfig }} \
+                  -n {{ namespace }} \
+                  --timeout=120s
 
         - name: Deploy api
           block:
