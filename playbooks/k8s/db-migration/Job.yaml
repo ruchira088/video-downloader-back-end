@@ -9,7 +9,7 @@ spec:
     spec:
       restartPolicy: Never
       containers:
-        - name: database-migration-containter
+        - name: database-migration-container
           image: ruchira088/video-downloader-migration-application:{{ git_branch }}-{{ git_commit }}
           envFrom:
             - configMapRef:
