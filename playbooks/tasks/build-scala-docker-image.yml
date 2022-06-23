@@ -24,7 +24,7 @@
   shell: |
     docker build \
       -f docker-output/Dockerfile-{{ app_name }} \
-      -t video-downloader-{{ app_name }}:latest \
+      -t video-downloader-{{ app_name }}:{{ git_branch }} \
       -t video-downloader-{{ app_name }}:{{ git_branch }}-{{ git_commit }} \
       -t video-downloader-{{ app_name }}:{{ git_branch }}-{{ ansible_date_time.iso8601_basic_short }} \
       ../{{ app_name }}/target/universal/

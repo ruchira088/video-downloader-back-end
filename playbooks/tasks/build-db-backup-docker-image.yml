@@ -21,7 +21,7 @@
   shell: |
     docker build \
       -f docker-output/Dockerfile-db-backup \
-      -t video-downloader-db-backup:latest \
+      -t video-downloader-db-backup:{{ git_branch }} \
       -t video-downloader-db-backup:{{ git_branch }}-{{ git_commit }} \
       -t video-downloader-db-backup:{{ git_branch }}-{{ ansible_date_time.iso8601_basic_short }} \
       ../db-backup
