@@ -1,5 +1,6 @@
 package com.ruchij.core.types
 
+import cats.arrow.FunctionK
 import cats.{Applicative, ApplicativeError, ~>}
 
 object FunctionKTypes {
@@ -13,4 +14,5 @@ object FunctionKTypes {
         either.fold(ApplicativeError[F, L].raiseError, Applicative[F].pure)
     }
 
+  implicit def identityFunctionK[F[_]]: ~>[F, F] = FunctionK.id[F]
 }

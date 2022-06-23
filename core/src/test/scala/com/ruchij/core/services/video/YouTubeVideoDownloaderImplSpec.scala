@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.language.postfixOps
 
-class YouTubeVideoDownloaderSpec extends AnyFlatSpec with MockFactory with Matchers {
+class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   "videoInformation(Uri)" should "return video metadata information for the URI" in runIO {
     val cliCommandRunner = mock[CliCommandRunner[IO]]

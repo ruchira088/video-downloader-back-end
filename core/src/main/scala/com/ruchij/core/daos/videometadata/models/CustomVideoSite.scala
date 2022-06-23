@@ -2,7 +2,7 @@ package com.ruchij.core.daos.videometadata.models
 
 import cats.data.{Kleisli, NonEmptyList}
 import cats.{Applicative, ApplicativeError, MonadError}
-import com.ruchij.core.daos.videometadata.models.CustomVideoSite.Selector
+import com.ruchij.core.daos.videometadata.models.CustomVideoSite.{Selector, SpankBang}
 import com.ruchij.core.exceptions.InvalidConditionException
 import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherToF}
 import com.ruchij.core.utils.JsoupSelector
@@ -36,6 +36,19 @@ sealed trait CustomVideoSite extends VideoSite with EnumEntry { self =>
 object CustomVideoSite extends Enum[CustomVideoSite] {
 
   type Selector[F[_], A] = Kleisli[F, Document, A]
+
+  private val VideoDuration: Regex = "(\\d+):(\\d+)".r
+
+  private def parseDuration[F[_]: ApplicativeError[*[_], Throwable]](duration: String): F[FiniteDuration] =
+    duration match {
+      case VideoDuration(IntNumber(minutes), IntNumber(seconds)) =>
+        Applicative[F].pure(FiniteDuration(minutes * 60 + seconds, TimeUnit.SECONDS))
+
+      case duration =>
+        ApplicativeError[F, Throwable].raiseError {
+          new IllegalArgumentException(s"""Unable to parse "$duration" as a duration""")
+        }
+    }
 
   def notApplicable[F[_]: ApplicativeError[*[_], Throwable], A]: Kleisli[F, Document, A] =
     Kleisli.liftF[F, Document, A] {
@@ -95,8 +108,6 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
   case object SpankBang extends CustomVideoSite {
     override val hostname: String = "spankbang.com"
 
-    private val VideoDuration: Regex = "(\\d+):(\\d+)".r
-
     override def title[F[_] : MonadError[*[_], Throwable]]: Selector[F, String] =
       JsoupSelector.singleElement[F]("#video div.left h1[title]").flatMapF(JsoupSelector.text[F])
 
@@ -107,15 +118,8 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
     override def duration[F[_] : MonadError[*[_], Throwable]]: Selector[F, FiniteDuration] =
       JsoupSelector.singleElement[F]("#player_wrapper_outer .hd-time .i-length")
         .flatMapF(JsoupSelector.text[F])
-        .flatMapF {
-          case VideoDuration(IntNumber(minutes), IntNumber(seconds)) =>
-            Applicative[F].pure(FiniteDuration(minutes * 60 + seconds, TimeUnit.SECONDS))
+        .flatMapF(parseDuration[F])
 
-          case duration =>
-            ApplicativeError[F, Throwable].raiseError {
-              new IllegalArgumentException(s"""Unable to parse "$duration" as a duration""")
-            }
-        }
 
     override def downloadUri[F[_] : MonadError[*[_], Throwable]]: Selector[F, Uri] =
       JsoupSelector.singleElement[F]("#video_container source")
@@ -156,6 +160,24 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
       JsoupSelector.singleElement[F]("#hdPlayer")
         .flatMapF(videoElement => JsoupSelector.attribute(videoElement, attributeName))
         .flatMapF(uriString => Uri.fromString(uriString).toType[F, Throwable])
+  }
+
+  case object TXXX extends CustomVideoSite {
+    override val hostname: String = "txxx.com"
+
+    override def title[F[_] : MonadError[*[_], Throwable]]: Selector[F, String] =
+      JsoupSelector.singleElement[F](".video-title h1").flatMapF(JsoupSelector.text[F])
+
+    override def thumbnailUri[F[_] : MonadError[*[_], Throwable]]: Selector[F, Uri] =
+      JsoupSelector.singleElement[F](".jw-preview").map(element => Uri.unsafeFromString("https://www.youtube.com/"))
+
+    override def duration[F[_] : MonadError[*[_], Throwable]]: Selector[F, FiniteDuration] =
+      JsoupSelector.singleElement[F](".jw-text-duration")
+        .flatMapF(JsoupSelector.text[F])
+        .flatMapF(parseDuration[F])
+
+    override def downloadUri[F[_] : MonadError[*[_], Throwable]]: Selector[F, Uri] =
+      Kleisli.pure(Uri.unsafeFromString("https://www.youtube.com/"))
   }
 
   override def values: IndexedSeq[CustomVideoSite] = findValues

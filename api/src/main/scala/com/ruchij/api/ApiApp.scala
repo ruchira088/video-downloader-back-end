@@ -2,7 +2,7 @@ package com.ruchij.api
 
 import cats.effect.kernel.Async
 import cats.effect.std.Dispatcher
-import cats.effect.{ExitCode, IO, IOApp, Resource}
+import cats.effect.{ExitCode, IO, IOApp, Resource, Sync}
 import cats.implicits._
 import cats.~>
 import com.ruchij.api.config.ApiServiceConfiguration
@@ -89,10 +89,14 @@ object ApiApp extends IOApp {
   ): Resource[F, HttpApp[F]] =
     for {
       hikariTransactor <- DoobieTransactor.create[F](apiServiceConfiguration.databaseConfiguration)
-      httpClient <-
-        JdkHttpClient {
-          HttpClient.newBuilder().followRedirects(Redirect.NORMAL).build()
+
+      javaHttpClient <-
+        Resource.eval {
+          Sync[F].blocking {
+            HttpClient.newBuilder().followRedirects(Redirect.NORMAL).build()
+          }
         }
+      httpClient <- JdkHttpClient(javaHttpClient)
 
       redisCommands <- Redis[F].utf8(apiServiceConfiguration.redisConfiguration.uri)
       redisKeyValueStore = new RedisKeyValueStore[F](redisCommands)

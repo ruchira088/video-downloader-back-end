@@ -72,12 +72,17 @@ object BatchApp extends IOApp {
       .map(_.trans)
       .flatMap { implicit transaction =>
         for {
-          httpClient <- JdkHttpClient[F] {
-            HttpClient.newBuilder()
-              .followRedirects(Redirect.NORMAL)
-              .connectTimeout(Duration.ofHours(24))
-              .build()
+          javaHttpClient <- Resource.eval {
+            Sync[F].blocking {
+              HttpClient
+                .newBuilder()
+                .followRedirects(Redirect.NORMAL)
+                .connectTimeout(Duration.ofHours(24))
+                .build()
+            }
           }
+
+          httpClient <- JdkHttpClient[F](javaHttpClient)
 
           dispatcher <- Dispatcher[F]
 
