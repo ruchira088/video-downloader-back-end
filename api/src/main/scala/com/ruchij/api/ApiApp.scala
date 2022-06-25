@@ -45,6 +45,7 @@ import com.ruchij.core.services.cli.CliCommandRunnerImpl
 import com.ruchij.core.services.config.{ConfigurationService, ConfigurationServiceImpl}
 import com.ruchij.core.services.download.Http4sDownloadService
 import com.ruchij.core.services.hashing.MurmurHash3Service
+import com.ruchij.core.services.renderer.SpaSiteRendererImpl
 import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, YouTubeVideoDownloaderImpl}
@@ -170,12 +171,15 @@ object ApiApp extends IOApp {
 
     val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](cliCommandRunner, client)
 
+    val spaSiteRenderer = new SpaSiteRendererImpl[F](client, apiServiceConfiguration.spaSiteRendererConfiguration)
+
     val videoAnalysisService: VideoAnalysisServiceImpl[F, ConnectionIO] =
       new VideoAnalysisServiceImpl[F, ConnectionIO](
         hashingService,
         downloadService,
         youTubeVideoDownloader,
         client,
+        spaSiteRenderer,
         DoobieVideoMetadataDao,
         DoobieFileResourceDao,
         apiServiceConfiguration.storageConfiguration

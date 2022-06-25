@@ -2,14 +2,14 @@ package com.ruchij.development
 
 import cats.ApplicativeError
 import cats.data.OptionT
-import cats.effect.{Async, ExitCode, IO, IOApp, Resource, Sync}
+import cats.effect._
 import cats.implicits._
 import com.ruchij.api.ApiApp
 import com.ruchij.api.config.{ApiServiceConfiguration, ApiStorageConfiguration, AuthenticationConfiguration, HttpConfiguration}
 import com.ruchij.batch.BatchApp
 import com.ruchij.batch.config.{BatchServiceConfiguration, BatchStorageConfiguration, WorkerConfiguration}
 import com.ruchij.batch.services.scheduler.Scheduler
-import com.ruchij.core.config.{ApplicationInformation, KafkaConfiguration, RedisConfiguration}
+import com.ruchij.core.config.{ApplicationInformation, KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration}
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.external.ExternalServiceProvider
 import com.ruchij.core.external.ExternalServiceProvider.HashedAdminPassword
@@ -47,7 +47,8 @@ object DevelopmentApp extends IOApp {
   def apiConfig(
     databaseConfiguration: DatabaseConfiguration,
     redisConfiguration: RedisConfiguration,
-    kafkaConfiguration: KafkaConfiguration
+    kafkaConfiguration: KafkaConfiguration,
+    spaSiteRendererConfiguration: SpaSiteRendererConfiguration
   ): ApiServiceConfiguration =
     ApiServiceConfiguration(
       HttpConfig,
@@ -56,11 +57,23 @@ object DevelopmentApp extends IOApp {
       redisConfiguration,
       AuthenticationConfig,
       kafkaConfiguration,
+      spaSiteRendererConfiguration,
       ApplicationInfo
     )
 
-  def batchConfig(databaseConfiguration: DatabaseConfiguration, kafkaConfiguration: KafkaConfiguration): BatchServiceConfiguration =
-    BatchServiceConfiguration(BatchStorageConfig, WorkerConfig, databaseConfiguration, kafkaConfiguration, ApplicationInfo)
+  def batchConfig(
+    databaseConfiguration: DatabaseConfiguration,
+    kafkaConfiguration: KafkaConfiguration,
+    spaSiteRendererConfiguration: SpaSiteRendererConfiguration
+  ): BatchServiceConfiguration =
+    BatchServiceConfiguration(
+      BatchStorageConfig,
+      WorkerConfig,
+      databaseConfiguration,
+      kafkaConfiguration,
+      spaSiteRendererConfiguration,
+      ApplicationInfo
+    )
 
   val KeyStoreResource = "/localhost.jks"
 
@@ -92,18 +105,18 @@ object DevelopmentApp extends IOApp {
       redisConfig <- externalServiceProvider.redisConfiguration
       kafkaConfig <- externalServiceProvider.kafkaConfiguration
       databaseConfig <- externalServiceProvider.databaseConfiguration
+      spaSiteRendererConfig <- externalServiceProvider.spaSiteRendererConfiguration
 
       sslContext <- Resource.eval(createSslContext[F])
 
-      _ <-
-        Resource.eval {
-          MigrationApp.migration[F](
-            MigrationServiceConfiguration(databaseConfig, AdminConfiguration(HashedAdminPassword)))
-        }
+      _ <- Resource.eval {
+        MigrationApp.migration[F](
+          MigrationServiceConfiguration(databaseConfig, AdminConfiguration(HashedAdminPassword))
+        )
+      }
 
-
-      api <- ApiApp.create[F](apiConfig(databaseConfig, redisConfig, kafkaConfig))
-      batch <- BatchApp.program[F](batchConfig(databaseConfig, kafkaConfig))
+      api <- ApiApp.create[F](apiConfig(databaseConfig, redisConfig, kafkaConfig, spaSiteRendererConfig))
+      batch <- BatchApp.program[F](batchConfig(databaseConfig, kafkaConfig, spaSiteRendererConfig))
     } yield (api, batch, sslContext)
 
   def createSslContext[F[_]: Sync]: F[SSLContext] =

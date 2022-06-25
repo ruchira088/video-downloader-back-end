@@ -4,10 +4,11 @@ import cats.data.{Kleisli, NonEmptyList}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadError}
 import com.ruchij.core.daos.videometadata.models.CustomVideoSite.Selector
+import com.ruchij.core.daos.videometadata.models.WebPage
 import com.ruchij.core.exceptions.JSoupException._
 import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherToF}
 import org.http4s.Uri
-import org.jsoup.nodes.{Document, Element}
+import org.jsoup.nodes.Element
 
 import scala.jdk.CollectionConverters._
 
@@ -17,25 +18,25 @@ object JsoupSelector {
     nonEmptyElementList[F](css).flatMap {
       case NonEmptyList(head, Nil) => Kleisli.pure(head)
       case elements =>
-        Kleisli.ask[F, Document].flatMapF { document =>
-          ApplicativeError[F, Throwable].raiseError(MultipleElementsFoundException(document, css, elements))
+        Kleisli.ask[F, WebPage].flatMapF { webPage =>
+          ApplicativeError[F, Throwable].raiseError(MultipleElementsFoundException(webPage.uri, webPage.html, css, elements))
         }
     }
 
   def nonEmptyElementList[F[_]: MonadError[*[_], Throwable]](css: String): Selector[F, NonEmptyList[Element]] =
     select[F](css).flatMap {
       case Nil =>
-        Kleisli { document =>
-          ApplicativeError[F, Throwable].raiseError(NoMatchingElementsFoundException(document, css))
+        Kleisli { webPage =>
+          ApplicativeError[F, Throwable].raiseError(NoMatchingElementsFoundException(webPage.uri, webPage.html, css))
         }
 
       case head :: tail => Kleisli(_ => Applicative[F].pure(NonEmptyList(head, tail)))
     }
 
   def select[F[_]: ApplicativeError[*[_], Throwable]](css: String): Selector[F, List[Element]] =
-    Kleisli { document =>
+    Kleisli { webPage =>
       ApplicativeError[F, Throwable]
-        .catchNonFatal(document.select(css))
+        .catchNonFatal(webPage.html.select(css))
         .map(_.asScala.toList)
     }
 

@@ -1,11 +1,12 @@
 package com.ruchij.core.services.video
 
 import cats.effect.IO
-import com.ruchij.core.config.StorageConfiguration
+import com.ruchij.core.config.{SpaSiteRendererConfiguration, StorageConfiguration}
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.services.download.DownloadService
 import com.ruchij.core.services.hashing.HashingService
+import com.ruchij.core.services.renderer.SpaSiteRendererImpl
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.types.FunctionKTypes.identityFunctionK
 import org.http4s.implicits.http4sLiteralsSyntax
@@ -29,6 +30,8 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
           val videoMetadataDao = mock[VideoMetadataDao[IO]]
           val fileResourceDao = mock[FileResourceDao[IO]]
           val storageConfiguration = mock[StorageConfiguration]
+          val spaSiteRenderer =
+            new SpaSiteRendererImpl[IO](httpClient, SpaSiteRendererConfiguration(uri"http://localhost:8000"))
 
           val videoAnalysisServiceImpl =
             new VideoAnalysisServiceImpl[IO, IO](
@@ -36,14 +39,21 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
               downloadService,
               youTubeVideoDownloader,
               httpClient,
+              spaSiteRenderer,
               videoMetadataDao,
               fileResourceDao,
               storageConfiguration
             )
 
+          val videoUrl = uri"https://txxx.com/videos/18365405/blonde-gets-analized-by-a-black-cock-with-heather-gables/"
+
           for {
-            result <- videoAnalysisServiceImpl.analyze(uri"https://spankbang.com/4n8r4/video/hot+mature")
-            _ <- IO.blocking(println(result))
+            analysisResult <- videoAnalysisServiceImpl.analyze(videoUrl)
+            _ <- IO.blocking(println(analysisResult))
+
+            videoDownloadUrl <- videoAnalysisServiceImpl.downloadUri(videoUrl)
+            _ <- IO.blocking(println(videoDownloadUrl))
+
           } yield (): Unit
         }
       }

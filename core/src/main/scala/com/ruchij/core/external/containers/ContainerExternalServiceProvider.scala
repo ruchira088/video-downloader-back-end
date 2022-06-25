@@ -2,7 +2,7 @@ package com.ruchij.core.external.containers
 
 import cats.effect.{Resource, Sync}
 import cats.implicits._
-import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration}
+import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration}
 import com.ruchij.core.external.ExternalServiceProvider
 import com.ruchij.migration.config.DatabaseConfiguration
 import org.testcontainers.containers.{GenericContainer, KafkaContainer, Network}
@@ -13,7 +13,7 @@ class ContainerExternalServiceProvider[F[_]: Sync]
 
   override val redisConfiguration: Resource[F, RedisConfiguration] =
     ContainerExternalServiceProvider
-      .start(new RedisContainer)
+      .start(new RedisContainer())
       .evalMap(_.redisConfiguration[F])
 
   override val kafkaConfiguration: Resource[F, KafkaConfiguration] =
@@ -48,6 +48,8 @@ class ContainerExternalServiceProvider[F[_]: Sync]
     }
     yield DatabaseConfiguration(databaseUrl, postgresqlContainer.getUsername, postgresqlContainer.getPassword)
 
+  override val spaSiteRendererConfiguration: Resource[F, SpaSiteRendererConfiguration] =
+    ContainerExternalServiceProvider.start(new SpaRendererContainer()).evalMap(_.spaSiteRendererConfiguration)
 }
 
 object ContainerExternalServiceProvider {

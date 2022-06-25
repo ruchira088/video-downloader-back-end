@@ -14,8 +14,8 @@ class RedisContainer extends GenericContainer[RedisContainer]("bitnami/redis:6.0
 
   def redisConfiguration[F[_]: Sync]: F[RedisConfiguration] =
     for {
-      port <- Sync[F].delay(getMappedPort(Port))
-      host <- Sync[F].delay(getHost)
+      port <- Sync[F].blocking(getMappedPort(Port))
+      host <- Sync[F].blocking(getHost)
     } yield RedisConfiguration(host, port, Some(Password))
 
 }

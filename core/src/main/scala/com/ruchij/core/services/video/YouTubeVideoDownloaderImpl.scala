@@ -4,7 +4,7 @@ import cats.ApplicativeError
 import cats.data.{Kleisli, OptionT}
 import cats.effect.{Async, MonadCancelThrow, Sync}
 import cats.implicits._
-import com.ruchij.core.daos.videometadata.models.VideoSite
+import com.ruchij.core.daos.videometadata.models.{VideoSite, WebPage}
 import com.ruchij.core.exceptions.UnsupportedVideoUrlException
 import com.ruchij.core.services.cli.CliCommandRunner
 import com.ruchij.core.services.video.models.{VideoAnalysisResult, YTDataSize, YTDataUnit, YTDownloaderMetadata, YTDownloaderProgress}
@@ -19,7 +19,6 @@ import org.http4s.circe.decodeUri
 import org.http4s.client.Client
 import org.http4s.implicits.http4sLiteralsSyntax
 import org.jsoup.Jsoup
-import org.jsoup.nodes.Document
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
@@ -65,10 +64,11 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
     JsoupSelector.singleElement[F]("video")
       .flatMapF(videoElement => JsoupSelector.attribute[F](videoElement, "poster"))
       .flatMapF(property => Uri.fromString(property).toType[F, Throwable])
-      .compose[Uri, Document] {
+      .compose[Uri, WebPage] {
         uri: Uri =>
           client.expect[String](uri)
             .flatMap(html => Sync[F].catchNonFatal(Jsoup.parse(html)))
+            .map(document => WebPage(uri, document))
       }
 
   override val supportedSites: F[Seq[String]] =

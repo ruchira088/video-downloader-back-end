@@ -26,6 +26,7 @@ import com.ruchij.core.messaging.models.HttpMetric
 import com.ruchij.core.services.cli.CliCommandRunnerImpl
 import com.ruchij.core.services.download.Http4sDownloadService
 import com.ruchij.core.services.hashing.MurmurHash3Service
+import com.ruchij.core.services.renderer.SpaSiteRendererImpl
 import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, YouTubeVideoDownloaderImpl}
@@ -91,6 +92,7 @@ object BatchApp extends IOApp {
           cliCommandRunner = new CliCommandRunnerImpl[F](dispatcher)
 
           youtubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](cliCommandRunner, httpClient)
+          spaSiteRenderer = new SpaSiteRendererImpl[F](httpClient, batchServiceConfiguration.spaSiteRendererConfiguration)
 
           fileTypeDetector = new PathFileTypeDetector[F](new Tika())
 
@@ -102,6 +104,7 @@ object BatchApp extends IOApp {
             downloadService,
             youtubeVideoDownloader,
             httpClient,
+            spaSiteRenderer,
             DoobieVideoMetadataDao,
             DoobieFileResourceDao,
             batchServiceConfiguration.storageConfiguration

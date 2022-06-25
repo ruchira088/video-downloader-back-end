@@ -15,6 +15,8 @@ services:
         condition: service_healthy
       api-3:
         condition: service_healthy
+      spa-renderer:
+        condition: service_healthy
       front-end-1:
         condition: service_healthy
       front-end-2:
@@ -29,7 +31,7 @@ services:
       - "./docker-compose/scripts:/opt/scripts"
 
   api-1: &api-app
-    image: video-downloader-api
+    image: video-downloader-api:dev
     healthcheck:
       test: "/opt/scripts/wait-for-it.sh localhost:8000"
       start_period: 10s
@@ -46,6 +48,8 @@ services:
         condition: service_healthy
       schema-registry:
         condition: service_healthy
+      spa-renderer:
+        condition: service_healthy
     volumes:
       - "./videos:/opt/videos"
       - "./images:/opt/images"
@@ -60,6 +64,7 @@ services:
       REDIS_PASSWORD: "redis-password"
       KAFKA_BROKERS: "kafka-broker:9092"
       SCHEMA_REGISTRY: "http://schema-registry:8081"
+      SPA_SITE_RENDERER: "http://spa-renderer:8000"
       VIDEO_FOLDER: "/opt/videos"
       IMAGE_FOLDER: "/opt/images"
 
@@ -70,7 +75,7 @@ services:
     *api-app
 
   batch-1: &batch-app
-    image: video-downloader-batch
+    image: video-downloader-batch:dev
     depends_on:
       postgres:
         condition: service_healthy
@@ -81,6 +86,8 @@ services:
       kafka-broker:
         condition: service_healthy
       schema-registry:
+        condition: service_healthy
+      spa-renderer:
         condition: service_healthy
     volumes:
       - "./videos:/opt/videos"
@@ -95,6 +102,7 @@ services:
       REDIS_PASSWORD: "redis-password"
       KAFKA_BROKERS: "kafka-broker:9092"
       SCHEMA_REGISTRY: "http://schema-registry:8081"
+      SPA_SITE_RENDERER: "http://spa-renderer:8000"
       VIDEO_FOLDER: "/opt/videos"
       IMAGE_FOLDER: "/opt/images"
 
@@ -104,8 +112,18 @@ services:
   batch-3:
     *batch-app
 
+  spa-renderer:
+    image: video-downloader-spa-renderer:dev
+    healthcheck:
+      test: "/opt/scripts/wait-for -t 3 localhost:8000"
+      start_period: 10s
+      interval: 10s
+      timeout: 5s
+    volumes:
+      - "./docker-compose/scripts:/opt/scripts"
+
   migration-application:
-    image: video-downloader-migration-application
+    image: video-downloader-migration-application:dev
     depends_on:
       postgres:
         condition: service_healthy
@@ -205,7 +223,7 @@ services:
       - "./docker-compose/scripts:/opt/scripts"
 
   front-end-1: &front-end
-    image: video-downloader-front-end
+    image: video-downloader-front-end:dev
     healthcheck:
       test: "/opt/scripts/wait-for -t 3 localhost:80"
       start_period: 5s

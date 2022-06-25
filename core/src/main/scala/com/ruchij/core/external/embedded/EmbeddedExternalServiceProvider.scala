@@ -3,8 +3,9 @@ package com.ruchij.core.external.embedded
 import cats.MonadError
 import cats.effect.{Resource, Sync}
 import cats.implicits._
-import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration}
+import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration}
 import com.ruchij.core.external.ExternalServiceProvider
+import com.ruchij.core.external.containers.{ContainerExternalServiceProvider, SpaRendererContainer}
 import com.ruchij.core.external.embedded.EmbeddedExternalServiceProvider.availablePort
 import com.ruchij.core.types.RandomGenerator
 import com.ruchij.migration.config.DatabaseConfiguration
@@ -67,6 +68,9 @@ class EmbeddedExternalServiceProvider[F[+ _]: Sync]
       RandomGenerator[F, UUID].generate
         .map(uuid => h2InMemoryDatabaseConfiguration(uuid.toString.take(8)))
     }
+
+  override val spaSiteRendererConfiguration: Resource[F, SpaSiteRendererConfiguration] =
+    ContainerExternalServiceProvider.start(new SpaRendererContainer()).evalMap(_.spaSiteRendererConfiguration)
 }
 
 object EmbeddedExternalServiceProvider {

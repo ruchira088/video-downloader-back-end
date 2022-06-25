@@ -9,11 +9,12 @@ import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.CustomVideoSite.Selector
-import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata, VideoSite}
+import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata, VideoSite, WebPage}
 import com.ruchij.core.exceptions.{ExternalServiceException, ValidationException}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.download.DownloadService
 import com.ruchij.core.services.hashing.HashingService
+import com.ruchij.core.services.renderer.SpaSiteRenderer
 import com.ruchij.core.services.video.VideoAnalysisService.{Existing, NewlyCreated, VideoMetadataResult}
 import com.ruchij.core.services.video.models.VideoAnalysisResult
 import com.ruchij.core.types.FunctionKTypes._
@@ -32,6 +33,7 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
   downloadService: DownloadService[F],
   youTubeVideoDownloader: YouTubeVideoDownloader[F],
   client: Client[F],
+  spaSiteRenderer: SpaSiteRenderer[F],
   videoMetadataDao: VideoMetadataDao[T],
   fileResourceDao: FileResourceDao[T],
   storageConfiguration: StorageConfiguration
@@ -99,8 +101,8 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
         case customVideoSite: CustomVideoSite =>
           for {
             processedUri <- customVideoSite.processUri[F](uri)
-            document <- uriInfoForCustomVideoSite(processedUri)
-            videoAnalysisResult <- analyze(processedUri, customVideoSite).run(document)
+            document <- customVideoSiteHtmlDocument(processedUri, customVideoSite)
+            videoAnalysisResult <- analyze(processedUri, customVideoSite).run(WebPage(uri, document))
           }
           yield videoAnalysisResult
 
@@ -118,8 +120,8 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
       .flatMap {
         case customVideoSite: CustomVideoSite =>
           for {
-            document <- uriInfoForCustomVideoSite(uri)
-            downloadUri <- customVideoSite.downloadUri[F].run(document)
+            document <- customVideoSiteHtmlDocument(uri, customVideoSite)
+            downloadUri <- customVideoSite.downloadUri[F].run(WebPage(uri, document))
           }
           yield downloadUri
 
@@ -129,11 +131,19 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
           }
       }
 
-  private def uriInfoForCustomVideoSite(uri: Uri): F[Document] =
+  private def customVideoSiteHtmlDocument(uri: Uri, customVideoSite: CustomVideoSite): F[Document] =
     for {
-      html <- client.run(GET(uri)).use(_.as[String])
+      html <-
+        customVideoSite match {
+          case spaCustomVideoSite: CustomVideoSite.SpaCustomVideoSite =>
+            spaSiteRenderer.render(uri, spaCustomVideoSite.readyCssSelectors)
+
+          case _ => client.run(GET(uri)).use(_.as[String])
+        }
+
       document <- Sync[F].catchNonFatal(Jsoup.parse(html))
     } yield document
+
 
   def analyze(uri: Uri, customVideoSite: CustomVideoSite): Selector[F, VideoAnalysisResult] =
     for {

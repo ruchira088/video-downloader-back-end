@@ -1,7 +1,7 @@
 package com.ruchij.api.config
 
 import cats.effect.IO
-import com.ruchij.core.config.{ApplicationInformation, KafkaConfiguration, RedisConfiguration}
+import com.ruchij.core.config.{ApplicationInformation, KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.migration.config.DatabaseConfiguration
 import org.http4s.implicits.http4sLiteralsSyntax
@@ -60,6 +60,11 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
           schema-registry = "http://kafka-cluster:8081"
         }
 
+        spa-site-renderer-configuration {
+          uri = "http://spa-renderer-service:8000"
+          uri = $${SPA_SITE_RENDERER}
+        }
+
         application-information {
           instance-id = "localhost"
 
@@ -77,6 +82,7 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         RedisConfiguration("localhost", 6379, Some("redis-password")),
         AuthenticationConfiguration(30 days),
         KafkaConfiguration("kafka-cluster:9092", uri"http://kafka-cluster:8081"),
+        SpaSiteRendererConfiguration(uri"http://spa-renderer-service:8000"),
         ApplicationInformation("localhost", Some("my-branch"), Some("my-commit"), Some(new DateTime(2021, 8, 6, 1, 20, 0, 0, DateTimeZone.UTC)))
       )
 
