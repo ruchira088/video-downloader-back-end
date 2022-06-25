@@ -1,9 +1,11 @@
 package com.ruchij.core.services.video
 
 import cats.effect.IO
+import cats.implicits._
 import com.ruchij.core.config.{SpaSiteRendererConfiguration, StorageConfiguration}
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
+import com.ruchij.core.external.containers.ContainerExternalServiceProvider
 import com.ruchij.core.services.download.DownloadService
 import com.ruchij.core.services.hashing.HashingService
 import com.ruchij.core.services.renderer.SpaSiteRendererImpl
@@ -23,39 +25,43 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
   "analyze(uri: Uri)" should "return metadata results for the video URL" in runIO {
     IO.blocking(HttpClient.newBuilder().followRedirects(Redirect.NORMAL).build())
       .flatMap { javaHttpClient =>
-        JdkHttpClient[IO](javaHttpClient).use { httpClient =>
-          val hashingService = mock[HashingService[IO]]
-          val downloadService = mock[DownloadService[IO]]
-          val youTubeVideoDownloader = mock[YouTubeVideoDownloader[IO]]
-          val videoMetadataDao = mock[VideoMetadataDao[IO]]
-          val fileResourceDao = mock[FileResourceDao[IO]]
-          val storageConfiguration = mock[StorageConfiguration]
-          val spaSiteRenderer =
-            new SpaSiteRendererImpl[IO](httpClient, SpaSiteRendererConfiguration(uri"http://localhost:8000"))
+        new ContainerExternalServiceProvider[IO].spaSiteRendererConfiguration
+          .product(JdkHttpClient[IO](javaHttpClient))
+          .use {
+            case (spaSiteRendererConfiguration, httpClient) =>
+              val hashingService = mock[HashingService[IO]]
+              val downloadService = mock[DownloadService[IO]]
+              val youTubeVideoDownloader = mock[YouTubeVideoDownloader[IO]]
+              val videoMetadataDao = mock[VideoMetadataDao[IO]]
+              val fileResourceDao = mock[FileResourceDao[IO]]
+              val storageConfiguration = mock[StorageConfiguration]
+              val spaSiteRenderer =
+                new SpaSiteRendererImpl[IO](httpClient, spaSiteRendererConfiguration)
 
-          val videoAnalysisServiceImpl =
-            new VideoAnalysisServiceImpl[IO, IO](
-              hashingService,
-              downloadService,
-              youTubeVideoDownloader,
-              httpClient,
-              spaSiteRenderer,
-              videoMetadataDao,
-              fileResourceDao,
-              storageConfiguration
-            )
+              val videoAnalysisServiceImpl =
+                new VideoAnalysisServiceImpl[IO, IO](
+                  hashingService,
+                  downloadService,
+                  youTubeVideoDownloader,
+                  httpClient,
+                  spaSiteRenderer,
+                  videoMetadataDao,
+                  fileResourceDao,
+                  storageConfiguration
+                )
 
-          val videoUrl = uri"https://txxx.com/videos/18365405/blonde-gets-analized-by-a-black-cock-with-heather-gables/"
+              val videoUrl =
+                uri"https://txxx.com/videos/18365405/blonde-gets-analized-by-a-black-cock-with-heather-gables/"
 
-          for {
-            analysisResult <- videoAnalysisServiceImpl.analyze(videoUrl)
-            _ <- IO.blocking(println(analysisResult))
+              for {
+                analysisResult <- videoAnalysisServiceImpl.analyze(videoUrl)
+                _ <- IO.blocking(println(analysisResult))
 
-            videoDownloadUrl <- videoAnalysisServiceImpl.downloadUri(videoUrl)
-            _ <- IO.blocking(println(videoDownloadUrl))
+                videoDownloadUrl <- videoAnalysisServiceImpl.downloadUri(videoUrl)
+                _ <- IO.blocking(println(videoDownloadUrl))
 
-          } yield (): Unit
-        }
+              } yield (): Unit
+          }
       }
   }
 
