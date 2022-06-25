@@ -2,10 +2,12 @@ package com.ruchij.core.services.video
 
 import cats.effect.IO
 import cats.implicits._
-import com.ruchij.core.config.{SpaSiteRendererConfiguration, StorageConfiguration}
+import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
+import com.ruchij.core.external.TestExternalServiceProvider
 import com.ruchij.core.external.containers.ContainerExternalServiceProvider
+import com.ruchij.core.external.local.LocalExternalServiceProvider
 import com.ruchij.core.services.download.DownloadService
 import com.ruchij.core.services.hashing.HashingService
 import com.ruchij.core.services.renderer.SpaSiteRendererImpl
@@ -19,50 +21,61 @@ import org.scalatest.matchers.must.Matchers
 
 import java.net.http.HttpClient
 import java.net.http.HttpClient.Redirect
+import scala.jdk.CollectionConverters.MapHasAsScala
 
 class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   "analyze(uri: Uri)" should "return metadata results for the video URL" in runIO {
-    IO.blocking(HttpClient.newBuilder().followRedirects(Redirect.NORMAL).build())
-      .flatMap { javaHttpClient =>
-        new ContainerExternalServiceProvider[IO].spaSiteRendererConfiguration
-          .product(JdkHttpClient[IO](javaHttpClient))
-          .use {
-            case (spaSiteRendererConfiguration, httpClient) =>
-              val hashingService = mock[HashingService[IO]]
-              val downloadService = mock[DownloadService[IO]]
-              val youTubeVideoDownloader = mock[YouTubeVideoDownloader[IO]]
-              val videoMetadataDao = mock[VideoMetadataDao[IO]]
-              val fileResourceDao = mock[FileResourceDao[IO]]
-              val storageConfiguration = mock[StorageConfiguration]
-              val spaSiteRenderer =
-                new SpaSiteRendererImpl[IO](httpClient, spaSiteRendererConfiguration)
+    IO.delay(System.getenv().asScala.toMap).flatMap { environmentVariables =>
+      val externalServiceProvider =
+        new TestExternalServiceProvider[IO](
+          new LocalExternalServiceProvider[IO],
+          new ContainerExternalServiceProvider[IO],
+          environmentVariables
+        )
 
-              val videoAnalysisServiceImpl =
-                new VideoAnalysisServiceImpl[IO, IO](
-                  hashingService,
-                  downloadService,
-                  youTubeVideoDownloader,
-                  httpClient,
-                  spaSiteRenderer,
-                  videoMetadataDao,
-                  fileResourceDao,
-                  storageConfiguration
-                )
+      IO.blocking(HttpClient.newBuilder().followRedirects(Redirect.NORMAL).build())
+        .flatMap { javaHttpClient =>
+          externalServiceProvider.spaSiteRendererConfiguration
+            .product(JdkHttpClient[IO](javaHttpClient))
+            .use {
+              case (spaSiteRendererConfiguration, httpClient) =>
+                val hashingService = mock[HashingService[IO]]
+                val downloadService = mock[DownloadService[IO]]
+                val youTubeVideoDownloader = mock[YouTubeVideoDownloader[IO]]
+                val videoMetadataDao = mock[VideoMetadataDao[IO]]
+                val fileResourceDao = mock[FileResourceDao[IO]]
+                val storageConfiguration = mock[StorageConfiguration]
+                val spaSiteRenderer =
+                  new SpaSiteRendererImpl[IO](httpClient, spaSiteRendererConfiguration)
 
-              val videoUrl =
-                uri"https://txxx.com/videos/18365405/blonde-gets-analized-by-a-black-cock-with-heather-gables/"
+                val videoAnalysisServiceImpl =
+                  new VideoAnalysisServiceImpl[IO, IO](
+                    hashingService,
+                    downloadService,
+                    youTubeVideoDownloader,
+                    httpClient,
+                    spaSiteRenderer,
+                    videoMetadataDao,
+                    fileResourceDao,
+                    storageConfiguration
+                  )
 
-              for {
-                analysisResult <- videoAnalysisServiceImpl.analyze(videoUrl)
-                _ <- IO.blocking(println(analysisResult))
+                val videoUrl =
+                  uri"https://txxx.com/videos/18365405/blonde-gets-analized-by-a-black-cock-with-heather-gables/"
 
-                videoDownloadUrl <- videoAnalysisServiceImpl.downloadUri(videoUrl)
-                _ <- IO.blocking(println(videoDownloadUrl))
+                for {
+                  analysisResult <- videoAnalysisServiceImpl.analyze(videoUrl)
+                  _ <- IO.blocking(println(analysisResult))
 
-              } yield (): Unit
-          }
-      }
+                  videoDownloadUrl <- videoAnalysisServiceImpl.downloadUri(videoUrl)
+                  _ <- IO.blocking(println(videoDownloadUrl))
+
+                } yield (): Unit
+            }
+        }
+
+    }
   }
 
 }

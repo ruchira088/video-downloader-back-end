@@ -23,9 +23,9 @@ jobs:
   build-and-test:
     docker:
       - image: ruchira088/docker-ci:vdbe
+      - image: ruchira088/video-downloader-spa-renderer:dev
     steps:
       - checkout
-      - setup_remote_docker
       - restore_cache: &dependency-cache-keys
           keys:
             - sbt-cache-{{ checksum "project/build.properties" }}-{{ checksum "project/plugins.sbt" }}-{{ checksum "project/Dependencies.scala" }}

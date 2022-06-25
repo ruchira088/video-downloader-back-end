@@ -8,7 +8,7 @@ import com.ruchij.api.ApiApp
 import com.ruchij.api.config.{ApiServiceConfiguration, ApiStorageConfiguration, AuthenticationConfiguration, HttpConfiguration}
 import com.ruchij.api.models.ApiMessageBrokers
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
-import com.ruchij.core.config.{ApplicationInformation, KafkaConfiguration}
+import com.ruchij.core.config.{ApplicationInformation, KafkaConfiguration, SpaSiteRendererConfiguration}
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.external.ExternalServiceProvider
@@ -42,6 +42,8 @@ object HttpTestResource {
 
   val KafkaConfig: KafkaConfiguration = KafkaConfiguration("N/A", Uri())
 
+  val SpaRendererConfig = SpaSiteRendererConfiguration(Uri())
+
   def create[F[+ _]: Async: JodaClock](
     externalServiceProvider: ExternalServiceProvider[F]
   ): Resource[F, TestResources[F]] =
@@ -71,6 +73,7 @@ object HttpTestResource {
         redisConfiguration,
         AuthenticationConfig,
         KafkaConfig,
+        SpaRendererConfig,
         ApplicationInfo
       )
 

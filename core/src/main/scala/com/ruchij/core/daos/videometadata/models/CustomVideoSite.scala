@@ -8,7 +8,6 @@ import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherToF}
 import com.ruchij.core.utils.JsoupSelector
 import com.ruchij.core.utils.MatcherUtils.IntNumber
 import enumeratum.{Enum, EnumEntry}
-import org.http4s.Uri.Path
 import org.http4s.implicits.http4sLiteralsSyntax
 import org.http4s.{Query, Uri}
 import org.jsoup.nodes.Document

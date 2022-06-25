@@ -56,7 +56,7 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
 
         spa-site-renderer-configuration {
           uri = "http://spa-renderer-service:8000"
-          uri = $${SPA_SITE_RENDERER}
+          uri = $${?SPA_SITE_RENDERER}
         }
 
         application-information {

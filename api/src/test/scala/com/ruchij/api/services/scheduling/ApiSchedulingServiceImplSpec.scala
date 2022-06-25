@@ -33,6 +33,7 @@ import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImp
 import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import com.ruchij.core.test.Providers
 import com.ruchij.core.external.embedded.EmbeddedExternalServiceProvider
+import com.ruchij.core.services.renderer.SpaSiteRenderer
 import com.ruchij.core.types.JodaClock
 import doobie.ConnectionIO
 import fs2.Stream
@@ -126,6 +127,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFa
               downloadService,
               mock[YouTubeVideoDownloader[IO]],
               client,
+              mock[SpaSiteRenderer[IO]],
               DoobieVideoMetadataDao,
               DoobieFileResourceDao,
               storageConfiguration
