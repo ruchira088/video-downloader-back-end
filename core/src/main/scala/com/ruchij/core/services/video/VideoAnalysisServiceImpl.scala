@@ -12,6 +12,7 @@ import com.ruchij.core.daos.videometadata.models.CustomVideoSite.Selector
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata, VideoSite, WebPage}
 import com.ruchij.core.exceptions.{ExternalServiceException, ValidationException}
 import com.ruchij.core.logging.Logger
+import com.ruchij.core.services.cli.CliCommandRunner
 import com.ruchij.core.services.download.DownloadService
 import com.ruchij.core.services.hashing.HashingService
 import com.ruchij.core.services.renderer.SpaSiteRenderer
@@ -28,12 +29,16 @@ import org.http4s.headers.`Content-Length`
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 
+import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.FiniteDuration
+
 class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
   hashingService: HashingService[F],
   downloadService: DownloadService[F],
   youTubeVideoDownloader: YouTubeVideoDownloader[F],
   client: Client[F],
   spaSiteRenderer: SpaSiteRenderer[F],
+  cliCommandRunner: CliCommandRunner[F],
   videoMetadataDao: VideoMetadataDao[T],
   fileResourceDao: FileResourceDao[T],
   storageConfiguration: StorageConfiguration
@@ -168,4 +173,22 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
           }
       }
     } yield VideoAnalysisResult(uri, customVideoSite, videoTitle, duration, size, thumbnailUri)
+
+  override def videoDurationFromPath(videoPath: String): F[FiniteDuration] =
+    cliCommandRunner.run(s"""ffprobe -i "$videoPath" -show_entries format=duration -v quiet -print_format csv="p=0"""")
+      .compile
+      .string
+      .flatMap { output =>
+        output.toDoubleOption match {
+          case None =>
+            ApplicativeError[F, Throwable].raiseError {
+              ValidationException(s"Unable to determine video duration for file at $videoPath")
+            }
+
+          case Some(seconds) =>
+            Applicative[F].pure {
+              FiniteDuration(math.floor(seconds).toLong, TimeUnit.SECONDS)
+            }
+        }
+      }
 }

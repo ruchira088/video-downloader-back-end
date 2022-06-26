@@ -8,6 +8,8 @@ import doobie.implicits._
 import doobie.util.fragments.setOpt
 import org.http4s.Uri
 
+import scala.concurrent.duration.FiniteDuration
+
 object DoobieVideoMetadataDao extends VideoMetadataDao[ConnectionIO] {
 
   val SelectQuery =
@@ -38,10 +40,14 @@ object DoobieVideoMetadataDao extends VideoMetadataDao[ConnectionIO] {
         )
     """.update.run
 
-  override def update(videoMetadataId: String, maybeTitle: Option[String], maybeSize: Option[Long]): ConnectionIO[Int] =
+  override def update(videoMetadataId: String, maybeTitle: Option[String], maybeSize: Option[Long], maybeDuration: Option[FiniteDuration]): ConnectionIO[Int] =
     if (List(maybeSize, maybeTitle).exists(_.nonEmpty))
       (fr"UPDATE video_metadata" ++
-        setOpt(maybeTitle.map(title => fr"title = $title"), maybeSize.map(size => fr"size = $size")) ++
+        setOpt(
+          maybeTitle.map(title => fr"title = $title"),
+          maybeSize.map(size => fr"size = $size"),
+          maybeDuration.map(duration => fr"duration = $duration")
+        ) ++
         fr"WHERE id = $videoMetadataId")
         .update
         .run

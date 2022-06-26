@@ -72,7 +72,7 @@ class BatchVideoServiceImpl[F[_]: Sync, G[_]: MonadError[*[_], Throwable]](
       OptionT(videoDao.findById(videoId, None))
         .semiflatMap { video =>
           videoMetadataDao
-            .update(videoId, None, Some(size))
+            .update(videoId, None, Some(size), None)
             .one
             .productR(fileResourceDao.update(video.fileResource.id, size).one)
         }

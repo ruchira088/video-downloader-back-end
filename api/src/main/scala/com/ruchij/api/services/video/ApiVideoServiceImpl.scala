@@ -45,7 +45,7 @@ class ApiVideoServiceImpl[F[_]: Monad, G[_]: MonadError[*[_], Throwable]](
       videoService
         .findVideoById(videoId, maybeUserId)
         .productR {
-          maybeUserId.fold(videoMetadataDao.update(videoId, Some(title), None).one) { userId =>
+          maybeUserId.fold(videoMetadataDao.update(videoId, Some(title), None, None).one) { userId =>
             videoTitleDao.update(videoId, userId, title).one
           }
         }

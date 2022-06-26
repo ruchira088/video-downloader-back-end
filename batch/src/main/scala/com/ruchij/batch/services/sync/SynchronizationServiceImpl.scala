@@ -7,7 +7,6 @@ import cats.{Applicative, ApplicativeError, Functor, MonadError, ~>}
 import com.ruchij.batch.config.BatchStorageConfiguration
 import com.ruchij.batch.daos.filesync.FileSyncDao
 import com.ruchij.batch.daos.filesync.models.FileSync
-import com.ruchij.batch.exceptions.SynchronizationException
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService
 import com.ruchij.batch.services.sync.SynchronizationServiceImpl._
 import com.ruchij.batch.services.sync.models.FileSyncResult.{ExistingVideo, IgnoredFile, SyncError, VideoSynced}
@@ -23,10 +22,10 @@ import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.logging.Logger
-import com.ruchij.core.services.cli.CliCommandRunner
 import com.ruchij.core.services.hashing.HashingService
 import com.ruchij.core.services.repository.FileRepositoryService.FileRepository
 import com.ruchij.core.services.repository.FileTypeDetector
+import com.ruchij.core.services.video.VideoAnalysisService
 import com.ruchij.core.types.FunctionKTypes._
 import com.ruchij.core.types.JodaClock
 import fs2.Stream
@@ -46,7 +45,7 @@ class SynchronizationServiceImpl[F[+ _]: Async: JodaClock, A, T[_]: MonadError[*
   batchVideoService: BatchVideoService[F],
   videoEnrichmentService: VideoEnrichmentService[F],
   hashingService: HashingService[F],
-  cliCommandRunner: CliCommandRunner[F],
+  videoAnalysisService: VideoAnalysisService[F],
   fileTypeDetector: FileTypeDetector[F, A],
   storageConfiguration: BatchStorageConfiguration
 )(implicit transaction: T ~> F)
@@ -160,7 +159,7 @@ class SynchronizationServiceImpl[F[+ _]: Async: JodaClock, A, T[_]: MonadError[*
   def videoFromPath(videoPath: String): F[Video] =
     for {
       _ <- logger.info[F](s"Sync started for $videoPath")
-      duration <- videoDuration(videoPath)
+      duration <- videoAnalysisService.videoDurationFromPath(videoPath)
 
       size <- OptionT(fileRepositoryService.size(videoPath))
         .getOrElseF {
@@ -216,24 +215,6 @@ class SynchronizationServiceImpl[F[+ _]: Async: JodaClock, A, T[_]: MonadError[*
       .productR(batchVideoService.insert(video.videoMetadata.id, video.fileResource.id))
       .flatTap(video => videoEnrichmentService.videoSnapshots(video).attempt)
   }
-
-  def videoDuration(videoPath: String): F[FiniteDuration] =
-    cliCommandRunner.run(s"""ffprobe -i "$videoPath" -show_entries format=duration -v quiet -print_format csv="p=0"""")
-      .compile
-      .string
-      .flatMap { output =>
-        output.toDoubleOption match {
-          case None =>
-            ApplicativeError[F, Throwable].raiseError {
-              SynchronizationException(s"Unable to determine video duration for file at $videoPath")
-            }
-
-          case Some(seconds) =>
-            Applicative[F].pure {
-              FiniteDuration(math.floor(seconds).toLong, TimeUnit.SECONDS)
-            }
-        }
-      }
 }
 
 object SynchronizationServiceImpl {

@@ -105,6 +105,7 @@ object BatchApp extends IOApp {
             youtubeVideoDownloader,
             httpClient,
             spaSiteRenderer,
+            cliCommandRunner,
             DoobieVideoMetadataDao,
             DoobieFileResourceDao,
             batchServiceConfiguration.storageConfiguration
@@ -163,7 +164,7 @@ object BatchApp extends IOApp {
             batchVideoService,
             videoEnrichmentService,
             hashingService,
-            cliCommandRunner,
+            videoAnalysisService,
             fileTypeDetector,
             batchServiceConfiguration.storageConfiguration
           )

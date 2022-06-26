@@ -8,6 +8,7 @@ import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.external.TestExternalServiceProvider
 import com.ruchij.core.external.containers.ContainerExternalServiceProvider
 import com.ruchij.core.external.local.LocalExternalServiceProvider
+import com.ruchij.core.services.cli.CliCommandRunner
 import com.ruchij.core.services.download.DownloadService
 import com.ruchij.core.services.hashing.HashingService
 import com.ruchij.core.services.renderer.SpaSiteRendererImpl
@@ -45,6 +46,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
                 val youTubeVideoDownloader = mock[YouTubeVideoDownloader[IO]]
                 val videoMetadataDao = mock[VideoMetadataDao[IO]]
                 val fileResourceDao = mock[FileResourceDao[IO]]
+                val cliCommandRunner: CliCommandRunner[IO] = mock[CliCommandRunner[IO]]
                 val storageConfiguration = mock[StorageConfiguration]
                 val spaSiteRenderer =
                   new SpaSiteRendererImpl[IO](httpClient, spaSiteRendererConfiguration)
@@ -56,6 +58,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
                     youTubeVideoDownloader,
                     httpClient,
                     spaSiteRenderer,
+                    cliCommandRunner,
                     videoMetadataDao,
                     fileResourceDao,
                     storageConfiguration

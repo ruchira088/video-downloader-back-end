@@ -109,7 +109,8 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
                                 videoMetadataDao.update(
                                   scheduledVideoDownload.videoMetadata.id,
                                   None,
-                                  Some(math.round(progress.totalSize.bytes))
+                                  Some(math.round(progress.totalSize.bytes)),
+                                  None
                                 )
                               }.as((): Unit)
                             } else Applicative[F].unit
@@ -191,6 +192,13 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
             else
               batchSchedulingService
                 .updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Downloaded)
+                .productL {
+                  if (scheduledVideoDownload.videoMetadata.duration.toMillis == 0)
+                    videoAnalysisService.videoDurationFromPath(fileResource.path)
+                      .flatMap(duration => transaction(videoMetadataDao.update(scheduledVideoDownload.videoMetadata.id, None, None, Some(duration))))
+                      .as((): Unit)
+                  else Applicative[F].unit
+                }
                 .productL {
                   batchSchedulingService
                     .publishDownloadProgress(scheduledVideoDownload.videoMetadata.id, fileResource.size)

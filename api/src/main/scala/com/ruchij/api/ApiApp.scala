@@ -180,6 +180,7 @@ object ApiApp extends IOApp {
         youTubeVideoDownloader,
         client,
         spaSiteRenderer,
+        cliCommandRunner,
         DoobieVideoMetadataDao,
         DoobieFileResourceDao,
         apiServiceConfiguration.storageConfiguration
