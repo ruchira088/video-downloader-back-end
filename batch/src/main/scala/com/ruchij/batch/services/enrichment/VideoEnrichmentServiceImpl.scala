@@ -10,6 +10,7 @@ import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.snapshot.SnapshotDao
 import com.ruchij.core.daos.snapshot.models.Snapshot
 import com.ruchij.core.daos.video.models.Video
+import com.ruchij.core.logging.Logger
 import org.http4s.MediaType
 
 import scala.concurrent.duration.FiniteDuration
@@ -21,14 +22,22 @@ class VideoEnrichmentServiceImpl[F[_]: Sync,T[_]: Monad](
   storageConfiguration: StorageConfiguration
 )(implicit transaction: T ~> F)
     extends VideoEnrichmentService[F] {
+  private val logger = Logger[VideoEnrichmentServiceImpl[F, T]]
 
   override val snapshotMediaType: MediaType = MediaType.image.jpeg
 
   override def videoSnapshots(video: Video): F[List[Snapshot]] =
-    VideoEnrichmentService
-      .snapshotTimestamps(video, VideoEnrichmentServiceImpl.SnapshotCount)
-      .toList
-      .traverse(createSnapshot(video, _))
+    logger.info(s"Taking video snapshots for id=${video.videoMetadata.id}")
+      .productR {
+        VideoEnrichmentService
+          .snapshotTimestamps(video, VideoEnrichmentServiceImpl.SnapshotCount)
+          .toList
+          .traverse(createSnapshot(video, _))
+      }
+      .productL {
+        logger.info(s"Completed video snapshots for id=${video.videoMetadata.id}")
+      }
+
 
   override def snapshotFileResource(
     videoPath: String,

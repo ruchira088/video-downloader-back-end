@@ -2,7 +2,7 @@ package com.ruchij.core.utils
 
 import cats.data.{Kleisli, NonEmptyList}
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, MonadError}
+import cats.{Applicative, ApplicativeError, MonadError, MonadThrow}
 import com.ruchij.core.daos.videometadata.models.CustomVideoSite.Selector
 import com.ruchij.core.daos.videometadata.models.WebPage
 import com.ruchij.core.exceptions.JSoupException._
@@ -42,6 +42,9 @@ object JsoupSelector {
 
   def text[F[_]: ApplicativeError[*[_], Throwable]](element: Element): F[String] =
     parseProperty[Throwable, F](element.text(), TextNotFoundInElementException(element))
+
+  def selectText[F[_]: MonadThrow](css: String): Selector[F, String] =
+    singleElement[F](css).flatMapF(text[F])
 
   def src[F[_]: MonadError[*[_], Throwable]](element: Element): F[Uri] =
     attribute[F](element, "src")
