@@ -67,6 +67,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
                 val videoUrl =
                   uri"https://txxx.com/videos/18365405/blonde-gets-analized-by-a-black-cock-with-heather-gables/"
 
+                // TODO Update the test
                 for {
                   analysisResult <- videoAnalysisServiceImpl.analyze(videoUrl)
                   _ <- IO.blocking(println(analysisResult))
