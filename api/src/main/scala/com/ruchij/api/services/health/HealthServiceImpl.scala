@@ -1,15 +1,15 @@
 package com.ruchij.api.services.health
 
 import cats.data.OptionT
-import cats.effect.{Clock, Concurrent}
 import cats.effect.kernel.Async
+import cats.effect.{Clock, Concurrent}
 import cats.implicits._
 import cats.~>
 import com.eed3si9n.ruchij.api.BuildInfo
 import com.ruchij.api.services.health.models.kv.HealthCheckKey
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.api.services.health.models.{HealthCheck, HealthStatus, ServiceInformation}
-import com.ruchij.core.config.{ApplicationInformation, StorageConfiguration}
+import com.ruchij.core.config.{ApplicationInformation, SpaSiteRendererConfiguration, StorageConfiguration}
 import com.ruchij.core.kv.KeySpacedKeyValueStore
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Publisher
@@ -18,9 +18,11 @@ import com.ruchij.core.types.JodaClock
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import fs2.Stream
-import org.http4s.Request
 import org.http4s.Method.GET
+import org.http4s.Status
+import org.http4s.Uri.Path
 import org.http4s.client.Client
+import org.http4s.client.dsl.Http4sClientDsl
 import org.joda.time.DateTime
 
 import scala.concurrent.duration._
@@ -33,11 +35,16 @@ class HealthServiceImpl[F[_]: Async: JodaClock](
   healthCheckPublisher: Publisher[F, HealthCheckMessage],
   client: Client[F],
   applicationInformation: ApplicationInformation,
-  storageConfiguration: StorageConfiguration
+  storageConfiguration: StorageConfiguration,
+  spaSiteRendererConfiguration: SpaSiteRendererConfiguration
 )(implicit transaction: ConnectionIO ~> F)
     extends HealthService[F] {
 
   private val logger = Logger[HealthServiceImpl[F]]
+
+  private val clientDsl = new Http4sClientDsl[F] {}
+
+  import clientDsl._
 
   private val keyValueStoreCheck: F[HealthStatus] =
     JodaClock[F].timestamp
@@ -67,7 +74,8 @@ class HealthServiceImpl[F[_]: Async: JodaClock](
         healthCheckStream
           .concurrently {
             healthCheckPublisher.publish {
-              Stream.emit[F, HealthCheckMessage] { HealthCheckMessage(applicationInformation.instanceId, dateTime) }
+              Stream
+                .emit[F, HealthCheckMessage] { HealthCheckMessage(applicationInformation.instanceId, dateTime) }
                 .repeat
                 .take(10)
             }
@@ -86,15 +94,27 @@ class HealthServiceImpl[F[_]: Async: JodaClock](
     for {
       timestamp <- JodaClock[F].timestamp.map(_.toString("HH-mm-ss-SSS"))
 
-      imageFileKey = s"${storageConfiguration.imageFolder}/image-health-check-$timestamp.txt"
+      fileKey = s"${storageConfiguration.imageFolder}/image-health-check-$timestamp.txt"
 
-      imageResult <- fileHealthCheck(imageFileKey)
-    } yield imageResult
+      fileResult <- fileHealthCheck(fileKey)
+    } yield fileResult
+
+  private val httpStatusHealthCheck: Status => HealthStatus = {
+    case Status.Ok => HealthStatus.Healthy
+    case _ => HealthStatus.Unhealthy
+  }
+
+  private val spaRendererCheck: F[HealthStatus] =
+    client
+      .status(GET(spaSiteRendererConfiguration.uri.withPath(Path.Root / "service" / "health-check")))
+      .map(httpStatusHealthCheck)
 
   private val internetConnectivityCheck: F[HealthStatus] =
-    client.status(Request[F](GET, HealthService.ConnectivityUrl)).as(HealthStatus.Healthy)
+    client
+      .status(GET(HealthService.ConnectivityUrl))
+      .map(httpStatusHealthCheck)
 
-  def fileHealthCheck(fileKey: String): F[HealthStatus] =
+  private def fileHealthCheck(fileKey: String): F[HealthStatus] =
     OptionT
       .liftF {
         fileRepositoryService.write(fileKey, Stream.emits[F, Byte](BuildInfo.toString.getBytes)).compile.drain
@@ -133,11 +153,21 @@ class HealthServiceImpl[F[_]: Async: JodaClock](
       keyValueStoreStatusFiber <- Concurrent[F].start(check(keyValueStoreCheck))
       pubSubStatusFiber <- Concurrent[F].start(check(pubSubCheck))
       internetConnectivityStatusFiber <- Concurrent[F].start(check(internetConnectivityCheck))
+      spaRendererStatusFiber <- Concurrent[F].start(check(spaRendererCheck))
 
-      databaseStatus <- databaseStatusFiber.join.flatMap(_.embedNever)
-      fileRepositoryStatus <- fileRepositoryStatusFiber.join.flatMap(_.embedNever)
-      keyValueStoreStatus <- keyValueStoreStatusFiber.join.flatMap(_.embedNever)
-      pubSubStatus <- pubSubStatusFiber.join.flatMap(_.embedNever)
-      internetConnectivityStatus <- internetConnectivityStatusFiber.join.flatMap(_.embedNever)
-    } yield HealthCheck(databaseStatus, fileRepositoryStatus, keyValueStoreStatus, pubSubStatus, internetConnectivityStatus)
+      databaseStatus <- databaseStatusFiber.joinWithNever
+      fileRepositoryStatus <- fileRepositoryStatusFiber.joinWithNever
+      keyValueStoreStatus <- keyValueStoreStatusFiber.joinWithNever
+      pubSubStatus <- pubSubStatusFiber.joinWithNever
+      internetConnectivityStatus <- internetConnectivityStatusFiber.joinWithNever
+      spaRendererStatus <- spaRendererStatusFiber.joinWithNever
+    } yield
+      HealthCheck(
+        databaseStatus,
+        fileRepositoryStatus,
+        keyValueStoreStatus,
+        pubSubStatus,
+        spaRendererStatus,
+        internetConnectivityStatus
+      )
 }

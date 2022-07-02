@@ -22,9 +22,9 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
         "serviceName": "video-downloader-api",
         "serviceVersion": "1.0.0",
         "organization": "com.ruchij",
-        "scalaVersion": "2.13.6",
-        "sbtVersion": "1.5.5",
-        "javaVersion": "1.8.0_302",
+        "scalaVersion": "2.13.8",
+        "sbtVersion": "1.6.2",
+        "javaVersion": "17.0.2",
         "currentTimestamp": "2021-08-01T10:10:00.000Z",
         "instanceId": "localhost",
         "gitBranch": "my-branch",
@@ -32,16 +32,17 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
         "buildTimestamp": null
       }"""
 
-    (() => healthService.serviceInformation).expects()
+    (() => healthService.serviceInformation)
+      .expects()
       .returns {
         IO.pure {
           ServiceInformation(
             "video-downloader-api",
             "1.0.0",
             "com.ruchij",
-            "2.13.6",
-            "1.5.5",
-            "1.8.0_302",
+            "2.13.8",
+            "1.6.2",
+            "17.0.2",
             new DateTime(2021, 8, 1, 10, 10, 0, 0, DateTimeZone.UTC),
             "localhost",
             Some("my-branch"),
@@ -52,7 +53,8 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
       }
 
     ignoreHttpMetrics() *>
-      createRoutes().run(GET(uri"/service/info"))
+      createRoutes()
+        .run(GET(uri"/service/info"))
         .flatMap { response =>
           IO.delay {
             response must beJsonContentType
@@ -68,19 +70,29 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
         "database" : "Healthy",
         "fileRepository" : "Healthy",
         "keyValueStore" : "Healthy",
-        "pubSubStatus" : "Healthy",
+        "pubSub" : "Healthy",
+        "spaRenderer": "Healthy",
         "internetConnectivity": "Healthy"
       }"""
 
-    (() => healthService.healthCheck).expects()
+    (() => healthService.healthCheck)
+      .expects()
       .returns {
         IO.pure {
-          HealthCheck(HealthStatus.Healthy, HealthStatus.Healthy, HealthStatus.Healthy, HealthStatus.Healthy, HealthStatus.Healthy)
+          HealthCheck(
+            HealthStatus.Healthy,
+            HealthStatus.Healthy,
+            HealthStatus.Healthy,
+            HealthStatus.Healthy,
+            HealthStatus.Healthy,
+            HealthStatus.Healthy
+          )
         }
       }
 
     ignoreHttpMetrics() *>
-      createRoutes().run(GET(uri"/service/health"))
+      createRoutes()
+        .run(GET(uri"/service/health"))
         .flatMap { response =>
           IO.delay {
             response must beJsonContentType
@@ -96,19 +108,29 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
         "database" : "Healthy",
         "fileRepository" : "Unhealthy",
         "keyValueStore" : "Healthy",
-        "pubSubStatus" : "Healthy",
+        "pubSub" : "Healthy",
+        "spaRenderer": "Healthy",
         "internetConnectivity": "Unhealthy"
       }"""
 
-    (() => healthService.healthCheck).expects()
+    (() => healthService.healthCheck)
+      .expects()
       .returns {
         IO.pure {
-          HealthCheck(HealthStatus.Healthy, HealthStatus.Unhealthy, HealthStatus.Healthy, HealthStatus.Healthy, HealthStatus.Unhealthy)
+          HealthCheck(
+            HealthStatus.Healthy,
+            HealthStatus.Unhealthy,
+            HealthStatus.Healthy,
+            HealthStatus.Healthy,
+            HealthStatus.Healthy,
+            HealthStatus.Unhealthy
+          )
         }
       }
 
     ignoreHttpMetrics() *>
-      createRoutes().run(GET(uri"/service/health"))
+      createRoutes()
+        .run(GET(uri"/service/health"))
         .flatMap { response =>
           IO.delay {
             response must beJsonContentType

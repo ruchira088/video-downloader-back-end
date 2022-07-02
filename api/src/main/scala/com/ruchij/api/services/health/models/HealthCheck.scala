@@ -6,7 +6,8 @@ case class HealthCheck(
   database: HealthStatus,
   fileRepository: HealthStatus,
   keyValueStore: HealthStatus,
-  pubSubStatus: HealthStatus,
+  pubSub: HealthStatus,
+  spaRenderer: HealthStatus,
   internetConnectivity: HealthStatus
 ) { self =>
   val isHealthy: Boolean =
