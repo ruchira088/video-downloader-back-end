@@ -2,7 +2,7 @@ package com.ruchij.api.services.user
 
 import cats.data.OptionT
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, MonadError, ~>}
+import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
 import com.ruchij.api.daos.credentials.CredentialsDao
 import com.ruchij.api.daos.credentials.models.Credentials
 import com.ruchij.api.daos.permission.VideoPermissionDao
@@ -20,7 +20,7 @@ import com.ruchij.core.types.{JodaClock, RandomGenerator}
 
 import java.util.UUID
 
-class UserServiceImpl[F[+ _]: RandomGenerator[*[_], UUID]: MonadError[*[_], Throwable]: JodaClock, G[_]: MonadError[*[_], Throwable]](
+class UserServiceImpl[F[+ _]: RandomGenerator[*[_], UUID]: MonadThrow: JodaClock, G[_]: MonadThrow](
   passwordHashingService: PasswordHashingService[F],
   userDao: UserDao[G],
   credentialsDao: CredentialsDao[G],

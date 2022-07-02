@@ -100,7 +100,7 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
       }
     } yield videoMetadata
 
-  def analyze(uri: Uri): F[VideoAnalysisResult] =
+  override def analyze(uri: Uri): F[VideoAnalysisResult] =
     VideoSite.fromUri(uri).toType[F, Throwable]
       .flatMap {
         case customVideoSite: CustomVideoSite =>

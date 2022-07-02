@@ -2,7 +2,7 @@ package com.ruchij.core.daos.videometadata.models
 
 import cats.data.{Kleisli, NonEmptyList, OptionT}
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, MonadError, MonadThrow}
+import cats.{Applicative, ApplicativeError, MonadThrow}
 import com.ruchij.core.circe.Decoders.finiteDurationDecoder
 import com.ruchij.core.daos.videometadata.models.CustomVideoSite.Selector
 import com.ruchij.core.exceptions.{InvalidConditionException, ValidationException}
@@ -10,9 +10,9 @@ import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherToF}
 import com.ruchij.core.utils.JsoupSelector
 import com.ruchij.core.utils.MatcherUtils.IntNumber
 import enumeratum.{Enum, EnumEntry}
+import org.http4s.circe.decodeUri
 import org.http4s.implicits.http4sLiteralsSyntax
 import org.http4s.{Query, Uri}
-import org.http4s.circe.decodeUri
 import org.jsoup.nodes.Document
 import io.circe.{parser => JsonParser}
 import io.circe.generic.auto.exportDecoder
@@ -26,15 +26,15 @@ sealed trait CustomVideoSite extends VideoSite with EnumEntry { self =>
 
   override val name: String = self.entryName
 
-  def title[F[_]: MonadError[*[_], Throwable]]: Selector[F, String]
+  def title[F[_]: MonadThrow]: Selector[F, String]
 
-  def thumbnailUri[F[_]: MonadError[*[_], Throwable]]: Selector[F, Uri]
+  def thumbnailUri[F[_]: MonadThrow]: Selector[F, Uri]
 
-  def duration[F[_]: MonadError[*[_], Throwable]]: Selector[F, FiniteDuration]
+  def duration[F[_]: MonadThrow]: Selector[F, FiniteDuration]
 
-  def downloadUri[F[_]: MonadError[*[_], Throwable]]: Selector[F, Uri]
+  def downloadUri[F[_]: MonadThrow]: Selector[F, Uri]
 
-  def processUri[F[_]: MonadError[*[_], Throwable]](uri: Uri): F[Uri] = Applicative[F].pure(uri)
+  def processUri[F[_]: MonadThrow](uri: Uri): F[Uri] = Applicative[F].pure(uri)
 
   def test(uri: Uri): Boolean = uri.host.exists(_.value.toLowerCase.contains(hostname.toLowerCase))
 }
@@ -95,27 +95,27 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
           case NonEmptyList(element, _) => JsoupSelector.src[F](element)
         }
 
-    override def processUri[F[_]: MonadError[*[_], Throwable]](uri: Uri): F[Uri] =
+    override def processUri[F[_]: MonadThrow](uri: Uri): F[Uri] =
       Applicative[F].pure(uri.copy(query = Query.empty))
   }
 
   case object SpankBang extends CustomVideoSite {
     override val hostname: String = "spankbang.com"
 
-    override def title[F[_]: MonadError[*[_], Throwable]]: Selector[F, String] =
+    override def title[F[_]: MonadThrow]: Selector[F, String] =
       JsoupSelector.selectText[F]("#video div.left h1[title]")
 
-    override def thumbnailUri[F[_]: MonadError[*[_], Throwable]]: Selector[F, Uri] =
+    override def thumbnailUri[F[_]: MonadThrow]: Selector[F, Uri] =
       JsoupSelector
         .singleElement[F]("#player_wrapper_outer div.play_cover img.player_thumb")
         .flatMapF(JsoupSelector.src[F])
 
-    override def duration[F[_]: MonadError[*[_], Throwable]]: Selector[F, FiniteDuration] =
+    override def duration[F[_]: MonadThrow]: Selector[F, FiniteDuration] =
       JsoupSelector
         .selectText[F]("#player_wrapper_outer .hd-time .i-length")
         .flatMapF(parseDuration[F])
 
-    override def downloadUri[F[_]: MonadError[*[_], Throwable]]: Selector[F, Uri] =
+    override def downloadUri[F[_]: MonadThrow]: Selector[F, Uri] =
       JsoupSelector
         .singleElement[F]("#video_container source")
         .flatMapF(JsoupSelector.src[F])
@@ -124,13 +124,13 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
   case object XFreeHD extends CustomVideoSite {
     override val hostname: String = "www.xfreehd.com"
 
-    override def title[F[_]: MonadError[*[_], Throwable]]: Selector[F, String] =
+    override def title[F[_]: MonadThrow]: Selector[F, String] =
       JsoupSelector.selectText[F]("h1.big-title-truncate")
 
-    override def thumbnailUri[F[_]: MonadError[*[_], Throwable]]: Selector[F, Uri] =
+    override def thumbnailUri[F[_]: MonadThrow]: Selector[F, Uri] =
       videoPlayerAttributeUri[F]("data-img")
 
-    override def duration[F[_]: MonadError[*[_], Throwable]]: Selector[F, FiniteDuration] =
+    override def duration[F[_]: MonadThrow]: Selector[F, FiniteDuration] =
       videoPlayerAttributeUri[F]("data-vtt")
         .map { uri =>
           uri.query.params
@@ -140,7 +140,7 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
             .getOrElse(FiniteDuration(0, TimeUnit.SECONDS))
         }
 
-    override def downloadUri[F[_]: MonadError[*[_], Throwable]]: Selector[F, Uri] =
+    override def downloadUri[F[_]: MonadThrow]: Selector[F, Uri] =
       JsoupSelector
         .nonEmptyElementList[F]("#hdPlayer source")
         .flatMapF { elements =>
@@ -151,7 +151,7 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
           }
         }
 
-    private def videoPlayerAttributeUri[F[_]: MonadError[*[_], Throwable]](attributeName: String): Selector[F, Uri] =
+    private def videoPlayerAttributeUri[F[_]: MonadThrow](attributeName: String): Selector[F, Uri] =
       JsoupSelector
         .singleElement[F]("#hdPlayer")
         .flatMapF(videoElement => JsoupSelector.attribute[F](videoElement, attributeName))
@@ -166,10 +166,10 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
 
     protected val titleCssSelector = ".video-title h1"
 
-    override def title[F[_]: MonadError[*[_], Throwable]]: Selector[F, String] =
+    override def title[F[_]: MonadThrow]: Selector[F, String] =
       JsoupSelector.selectText[F](titleCssSelector)
 
-    override def thumbnailUri[F[_]: MonadError[*[_], Throwable]]: Selector[F, Uri] =
+    override def thumbnailUri[F[_]: MonadThrow]: Selector[F, Uri] =
       JsoupSelector
         .singleElement[F](".jw-preview")
         .map(_.attr("style"))
@@ -181,12 +181,12 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
             )
         }
 
-    override def duration[F[_]: MonadError[*[_], Throwable]]: Selector[F, FiniteDuration] =
+    override def duration[F[_]: MonadThrow]: Selector[F, FiniteDuration] =
       JsoupSelector
         .selectText[F](".jw-text-duration")
         .flatMapF(parseDuration[F])
 
-    override def downloadUri[F[_]: MonadError[*[_], Throwable]]: Selector[F, Uri] =
+    override def downloadUri[F[_]: MonadThrow]: Selector[F, Uri] =
       JsoupSelector
         .singleElement[F]("video.jw-video")
         .map(element => element.attr("src"))

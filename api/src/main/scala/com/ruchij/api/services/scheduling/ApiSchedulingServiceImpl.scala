@@ -3,7 +3,7 @@ package com.ruchij.api.services.scheduling
 import cats.data.{NonEmptyList, OptionT}
 import cats.effect.Async
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, MonadError, ~>}
+import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
 import com.ruchij.api.daos.permission.VideoPermissionDao
 import com.ruchij.api.daos.permission.models.VideoPermission
 import com.ruchij.api.daos.title.VideoTitleDao
@@ -29,7 +29,7 @@ import org.http4s.Uri
 
 import scala.concurrent.duration.FiniteDuration
 
-class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadError[*[_], Throwable]](
+class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
   videoService: VideoService[F, T],
   videoAnalysisService: VideoAnalysisService[F],
   scheduledVideoDownloadPublisher: Publisher[F, ScheduledVideoDownload],

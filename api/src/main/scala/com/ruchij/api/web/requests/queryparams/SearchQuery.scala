@@ -1,6 +1,6 @@
 package com.ruchij.api.web.requests.queryparams
 
-import cats.MonadError
+import cats.MonadThrow
 import cats.data.{Kleisli, NonEmptyList}
 import com.ruchij.api.web.requests.queryparams.MultiValueQueryParameter.{SchedulingStatusesQueryParameter, VideoSiteQueryParameter, VideoUrlsQueryParameter}
 import com.ruchij.api.web.requests.queryparams.QueryParameter.{QueryParameters, enumQueryParamDecoder}
@@ -23,7 +23,7 @@ case class SearchQuery(
 )
 
 object SearchQuery {
-  def fromQueryParameters[F[_]: MonadError[*[_], Throwable]]: Kleisli[F, QueryParameters, SearchQuery] =
+  def fromQueryParameters[F[_]: MonadThrow]: Kleisli[F, QueryParameters, SearchQuery] =
     for {
       searchTerm <- SearchTermQueryParameter.parse[F]
       durationRange <- DurationRangeQueryParameter.parse[F]

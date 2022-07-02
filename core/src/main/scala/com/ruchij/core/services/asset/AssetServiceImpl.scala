@@ -2,7 +2,7 @@ package com.ruchij.core.services.asset
 
 import cats.data.OptionT
 import cats.implicits._
-import cats.{ApplicativeError, MonadError, ~>}
+import cats.{ApplicativeError, MonadThrow, ~>}
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.snapshot.SnapshotDao
 import com.ruchij.core.daos.video.VideoDao
@@ -12,7 +12,7 @@ import com.ruchij.core.services.asset.models.Asset
 import com.ruchij.core.services.asset.models.Asset.FileRange
 import com.ruchij.core.services.repository.RepositoryService
 
-class AssetServiceImpl[F[_]: MonadError[*[_], Throwable], T[_]](
+class AssetServiceImpl[F[_]: MonadThrow, T[_]](
   fileResourceDao: FileResourceDao[T],
   snapshotDao: SnapshotDao[T],
   videoDao: VideoDao[T],

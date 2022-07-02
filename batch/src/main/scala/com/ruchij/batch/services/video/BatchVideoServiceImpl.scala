@@ -3,7 +3,7 @@ package com.ruchij.batch.services.video
 import cats.data.OptionT
 import cats.effect.Sync
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, MonadError, ~>}
+import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
 import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.video.VideoDao
@@ -16,7 +16,7 @@ import com.ruchij.core.services.video.VideoService
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
-class BatchVideoServiceImpl[F[_]: Sync, G[_]: MonadError[*[_], Throwable]](
+class BatchVideoServiceImpl[F[_]: Sync, G[_]: MonadThrow](
   videoService: VideoService[F, G],
   videoDao: VideoDao[G],
   videoMetadataDao: VideoMetadataDao[G],

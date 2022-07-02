@@ -1,7 +1,7 @@
 package com.ruchij.core.kv.codecs
 
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, Monad, MonadError}
+import cats.{Applicative, ApplicativeError, Monad, MonadThrow}
 import com.ruchij.core.exceptions.InvalidConditionException
 import com.ruchij.core.kv.keys.KVStoreKey.KeySeparator
 import enumeratum.EnumEntry
@@ -38,7 +38,7 @@ object KVEncoder {
   ): KVEncoder[F, A] =
     (kvStoreKey: A) => encoder.encode(generic.to(kvStoreKey))
 
-  implicit def reprEncoder[F[_]: MonadError[*[_], Throwable], H, T <: HList](
+  implicit def reprEncoder[F[_]: MonadThrow, H, T <: HList](
     implicit headEncoder: KVEncoder[F, H],
     tailEncoder: KVEncoder[F, T]
   ): KVEncoder[F, H :: T] = {

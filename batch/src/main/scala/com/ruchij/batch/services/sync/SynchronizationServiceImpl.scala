@@ -3,7 +3,7 @@ package com.ruchij.batch.services.sync
 import cats.data.OptionT
 import cats.effect.{Async, MonadCancelThrow}
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, Functor, MonadError, ~>}
+import cats.{Applicative, ApplicativeError, Functor, MonadThrow, ~>}
 import com.ruchij.batch.config.BatchStorageConfiguration
 import com.ruchij.batch.daos.filesync.FileSyncDao
 import com.ruchij.batch.daos.filesync.models.FileSync
@@ -35,7 +35,7 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 import scala.util.matching.Regex
 
-class SynchronizationServiceImpl[F[+ _]: Async: JodaClock, A, T[_]: MonadError[*[_], Throwable]](
+class SynchronizationServiceImpl[F[+ _]: Async: JodaClock, A, T[_]: MonadThrow](
   fileRepositoryService: FileRepository[F, A],
   fileResourceDao: FileResourceDao[T],
   videoMetadataDao: VideoMetadataDao[T],

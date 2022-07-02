@@ -8,7 +8,7 @@ import enumeratum.{Enum, EnumEntry}
 
 import scala.concurrent.duration.FiniteDuration
 
-sealed trait ApiConfigKey[A] extends ConfigKey[A] with EnumEntry with KVStoreKey
+sealed trait ApiConfigKey[A] extends ConfigKey with EnumEntry with KVStoreKey
 
 object ApiConfigKey extends Enum[ApiConfigKey[_]] {
   case object WorkerStatus extends ApiConfigKey[WorkerStatus] {

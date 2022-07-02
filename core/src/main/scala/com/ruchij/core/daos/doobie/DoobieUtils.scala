@@ -2,7 +2,7 @@ package com.ruchij.core.daos.doobie
 
 import cats.data.OptionT
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, MonadError}
+import cats.{Applicative, ApplicativeError, MonadThrow}
 import com.ruchij.core.exceptions.InvalidConditionException
 import com.ruchij.core.services.models.{Order, SortBy}
 import doobie.implicits._
@@ -10,7 +10,7 @@ import doobie.util.fragment.Fragment
 
 object DoobieUtils {
 
-  implicit class SingleUpdateOps[F[_]: MonadError[*[_], Throwable]](value: F[Int]) {
+  implicit class SingleUpdateOps[F[_]: MonadThrow](value: F[Int]) {
     val one: F[Unit] =
       value.flatMap {
         case 1 => Applicative[F].unit

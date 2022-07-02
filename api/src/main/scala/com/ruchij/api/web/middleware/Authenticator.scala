@@ -2,7 +2,7 @@ package com.ruchij.api.web.middleware
 
 import cats.data.{Kleisli, OptionT}
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, Monad, MonadError}
+import cats.{Applicative, ApplicativeError, Monad, MonadThrow}
 import com.ruchij.api.daos.user.models.User
 import com.ruchij.api.exceptions.AuthenticationException
 import com.ruchij.api.services.authentication.AuthenticationService
@@ -48,7 +48,7 @@ object Authenticator {
       .map(cookie => Secret(cookie.content))
       .orElse(bearerToken(request))
 
-  def middleware[F[+ _]: MonadError[*[_], Throwable]](
+  def middleware[F[+ _]: MonadThrow](
     authenticationService: AuthenticationService[F],
     strict: Boolean
   ): AuthenticatedRequestContextMiddleware[F] =

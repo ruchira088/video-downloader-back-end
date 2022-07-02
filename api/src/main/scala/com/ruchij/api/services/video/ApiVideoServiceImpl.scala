@@ -2,7 +2,7 @@ package com.ruchij.api.services.video
 
 import cats.data.NonEmptyList
 import cats.implicits._
-import cats.{Monad, MonadError, ~>}
+import cats.{Monad, MonadThrow, ~>}
 import com.ruchij.api.daos.permission.VideoPermissionDao
 import com.ruchij.api.daos.title.VideoTitleDao
 import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
@@ -21,7 +21,7 @@ import org.http4s.Uri
 
 import scala.concurrent.duration.FiniteDuration
 
-class ApiVideoServiceImpl[F[_]: Monad, G[_]: MonadError[*[_], Throwable]](
+class ApiVideoServiceImpl[F[_]: Monad, G[_]: MonadThrow](
   videoService: VideoService[F, G],
   videoDao: VideoDao[G],
   schedulingDao: SchedulingDao[G],

@@ -21,20 +21,20 @@ import com.ruchij.core.daos.snapshot.DoobieSnapshotDao
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata}
+import com.ruchij.core.external.embedded.EmbeddedExternalServiceProvider
 import com.ruchij.core.kv.{InMemoryKeyValueStore, KeySpacedKeyValueStore}
 import com.ruchij.core.messaging.inmemory.Fs2PubSub
 import com.ruchij.core.messaging.models.CommittableRecord
+import com.ruchij.core.services.cli.CliCommandRunner
 import com.ruchij.core.services.config.ConfigurationServiceImpl
 import com.ruchij.core.services.download.Http4sDownloadService
 import com.ruchij.core.services.hashing.MurmurHash3Service
+import com.ruchij.core.services.renderer.SpaSiteRenderer
 import com.ruchij.core.services.repository.InMemoryRepositoryService
 import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, YouTubeVideoDownloader}
 import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import com.ruchij.core.test.Providers
-import com.ruchij.core.external.embedded.EmbeddedExternalServiceProvider
-import com.ruchij.core.services.cli.CliCommandRunner
-import com.ruchij.core.services.renderer.SpaSiteRenderer
 import com.ruchij.core.types.JodaClock
 import doobie.ConnectionIO
 import fs2.Stream
@@ -58,7 +58,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFa
   import ExecutionContext.Implicits.global
 
   "SchedulingServiceImpl" should "save the scheduled video task" in runIO {
-    val videoUrl: Uri = uri"https://www.pornone.com/caught/caught-my-bbc-roommate-spying/276979928/"
+    val videoUrl: Uri = uri"https://www.pornone.com/hello-world"
 
     val dateTime = DateTime.now()
     implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](dateTime)
@@ -68,35 +68,30 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFa
         Resource.eval {
           HttpRoutes
             .of[IO] {
-              case GET -> Root / "caught" / "caught-my-bbc-roommate-spying" / "276979928" / "" =>
+              case GET -> Root / "hello-world" =>
                 Ok {
-                  {
+                  """
                     <div>
-                      <div class="single-video">
-                        <div id="video_player">
-                          <div class="video-player-head">
-                            <h1>Caught My Bbc Roommate Spying</h1>
-                          </div>
-                          <video poster="https://th-eu3.pornone.com/t/b81.jpg"></video>
-                          <source src="https://s279.pornone.com/vid2/276979928_1920x1080_4000k.mp4"/>
-                        </div>
-                        <div id="video-info">
-                          <div class="video-duration">
-                            3 min 24 sec
-                          </div>
-                        </div>
-                      </div>
-
+                      <video id="pornone-video-player">
+                        <source src="https://pornone.com/video/hello_world_1920x1080_4000k.mp4"/>
+                      </video>
+                      <script data-react-helmet="true">
+                        {
+                          "name": "This is hello world",
+                          "thumbnailUrl": "https://pornone.com/thumbnail/hello-world.jpg",
+                          "duration": "P0DT0H35M34S"
+                        }
+                      </script>
                     </div>
-                  }.toString()
+                  """
                 }
 
-              case HEAD -> Root / "vid2" / "276979928_1920x1080_4000k.mp4" =>
+              case HEAD -> Root / "video" / "hello_world_1920x1080_4000k.mp4" =>
                 IO.pure {
                   Response[IO](status = Status.Ok, headers = Headers(`Content-Length`.unsafeFromLong(1988)))
                 }
 
-              case GET -> Root / "t" / "b81.jpg" =>
+              case GET -> Root / "thumbnail" / "hello-world.jpg" =>
                 IO.pure {
                   Response[IO](
                     status = Status.Ok,
@@ -139,7 +134,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFa
           videoService =
             new VideoServiceImpl[IO, ConnectionIO](repositoryService, DoobieVideoDao, DoobieSnapshotDao, DoobieFileResourceDao)
 
-          videoId = "pornone-74a97714ca4b7cb"
+          videoId = "pornone-8685422022d86a13"
 
           expectedScheduledDownloadVideo = ScheduledVideoDownload(
             dateTime,
@@ -150,13 +145,13 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFa
               videoUrl,
               videoId,
               CustomVideoSite.PornOne,
-              "Caught My Bbc Roommate Spying",
-              204 seconds,
+              "This is hello world",
+              (35 minutes) + (34 seconds),
               1988,
               FileResource(
-                s"$videoId-778d5eb",
+                s"$videoId-9e2c97c4",
                 dateTime,
-                s"${storageConfiguration.imageFolder}/thumbnail-$videoId-b81.jpg",
+                s"${storageConfiguration.imageFolder}/thumbnail-$videoId-hello-world.jpg",
                 MediaType.image.jpeg,
                 100
               )

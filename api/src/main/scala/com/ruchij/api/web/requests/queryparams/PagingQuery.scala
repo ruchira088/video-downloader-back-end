@@ -1,6 +1,6 @@
 package com.ruchij.api.web.requests.queryparams
 
-import cats.MonadError
+import cats.MonadThrow
 import cats.data.Kleisli
 import com.ruchij.api.web.requests.queryparams.QueryParameter.{QueryParameters, optionQueryParamDecoder}
 import com.ruchij.api.web.requests.queryparams.SingleValueQueryParameter.{OrderQueryParameter, PageNumberQueryParameter, PageSizeQueryParameter}
@@ -13,7 +13,7 @@ object PagingQuery {
   def sortByQueryParameter[A: QueryParamDecoder]: SingleValueQueryParameter[Option[A]] =
     new SingleValueQueryParameter[Option[A]]("sort-by", None) {}
 
-  def from[F[_]: MonadError[*[_], Throwable], A: QueryParamDecoder]: Kleisli[F, QueryParameters, PagingQuery[A]] =
+  def from[F[_]: MonadThrow, A: QueryParamDecoder]: Kleisli[F, QueryParameters, PagingQuery[A]] =
     for {
       pageSize <- PageSizeQueryParameter.parse[F]
       pageNumber <- PageNumberQueryParameter.parse[F]

@@ -2,7 +2,7 @@ package com.ruchij.core.utils
 
 import cats.data.{Kleisli, NonEmptyList}
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, MonadError, MonadThrow}
+import cats.{Applicative, ApplicativeError, MonadThrow}
 import com.ruchij.core.daos.videometadata.models.CustomVideoSite.Selector
 import com.ruchij.core.daos.videometadata.models.WebPage
 import com.ruchij.core.exceptions.JSoupException._
@@ -14,7 +14,7 @@ import scala.jdk.CollectionConverters._
 
 object JsoupSelector {
 
-  def singleElement[F[_]: MonadError[*[_], Throwable]](css: String): Selector[F, Element] =
+  def singleElement[F[_]: MonadThrow](css: String): Selector[F, Element] =
     nonEmptyElementList[F](css).flatMap {
       case NonEmptyList(head, Nil) => Kleisli.pure(head)
       case elements =>
@@ -23,7 +23,7 @@ object JsoupSelector {
         }
     }
 
-  def nonEmptyElementList[F[_]: MonadError[*[_], Throwable]](css: String): Selector[F, NonEmptyList[Element]] =
+  def nonEmptyElementList[F[_]: MonadThrow](css: String): Selector[F, NonEmptyList[Element]] =
     select[F](css).flatMap {
       case Nil =>
         Kleisli { webPage =>
@@ -46,7 +46,7 @@ object JsoupSelector {
   def selectText[F[_]: MonadThrow](css: String): Selector[F, String] =
     singleElement[F](css).flatMapF(text[F])
 
-  def src[F[_]: MonadError[*[_], Throwable]](element: Element): F[Uri] =
+  def src[F[_]: MonadThrow](element: Element): F[Uri] =
     attribute[F](element, "src")
       .flatMap { uri =>
         Uri.fromString(uri).toType[F, Throwable]

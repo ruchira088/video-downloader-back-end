@@ -3,7 +3,7 @@ package com.ruchij.api.services.authentication
 import cats.data.OptionT
 import cats.effect.kernel.Async
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, MonadError, ~>}
+import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
 import com.ruchij.api.daos.credentials.CredentialsDao
 import com.ruchij.api.daos.user.UserDao
 import com.ruchij.api.daos.user.models.{Email, User}
@@ -17,7 +17,7 @@ import com.ruchij.core.types.{JodaClock, RandomGenerator}
 
 import scala.concurrent.duration.FiniteDuration
 
-class AuthenticationServiceImpl[F[+ _]: Async: JodaClock: RandomGenerator[*[_], Secret], G[_]: MonadError[*[_], Throwable]](
+class AuthenticationServiceImpl[F[+ _]: Async: JodaClock: RandomGenerator[*[_], Secret], G[_]: MonadThrow](
   keySpacedKeyValueStore: KeySpacedKeyValueStore[F, AuthenticationTokenKey, AuthenticationToken],
   passwordHashingService: PasswordHashingService[F],
   userDao: UserDao[G],

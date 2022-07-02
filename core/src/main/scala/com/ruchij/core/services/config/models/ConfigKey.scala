@@ -1,5 +1,5 @@
 package com.ruchij.core.services.config.models
 
-trait ConfigKey[A] {
+trait ConfigKey {
   val key: String
 }

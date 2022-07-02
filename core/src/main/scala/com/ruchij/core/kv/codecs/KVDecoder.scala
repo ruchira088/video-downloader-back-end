@@ -1,7 +1,7 @@
 package com.ruchij.core.kv.codecs
 
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, Functor, Monad, MonadError}
+import cats.{Applicative, ApplicativeError, Functor, Monad, MonadError, MonadThrow}
 import com.ruchij.core.kv.keys.KVStoreKey.{KeyList, KeySeparator}
 import enumeratum.{Enum, EnumEntry}
 import org.joda.time.DateTime
@@ -38,12 +38,12 @@ object KVDecoder {
   implicit def stringKVDecoder[F[_]: Applicative]: KVDecoder[F, String] =
     (value: String) => Applicative[F].pure(value)
 
-  implicit def enumKVDecoder[F[_]: MonadError[*[_], Throwable], A <: EnumEntry](implicit enumValues: Enum[A]): KVDecoder[F, A] =
+  implicit def enumKVDecoder[F[_]: MonadThrow, A <: EnumEntry](implicit enumValues: Enum[A]): KVDecoder[F, A] =
     stringKVDecoder[F].mapEither {
       string => enumValues.withNameInsensitiveEither(string).left.map(_.getMessage)
     }
 
-  implicit def numericKVDecoder[F[_]: MonadError[*[_], Throwable], A: Numeric](
+  implicit def numericKVDecoder[F[_]: MonadThrow, A: Numeric](
     implicit classTag: ClassTag[A]
   ): KVDecoder[F, A] =
     stringKVDecoder[F].mapEither { value =>
@@ -54,18 +54,18 @@ object KVDecoder {
         )
     }
 
-  implicit def dateTimeKVDecoder[F[_]: MonadError[*[_], Throwable]]: KVDecoder[F, DateTime] =
+  implicit def dateTimeKVDecoder[F[_]: MonadThrow]: KVDecoder[F, DateTime] =
     stringKVDecoder[F].mapEither { value =>
       Try(DateTime.parse(value)).toEither.left.map(_.getMessage)
     }
 
-  implicit def genericKVDecoder[F[_]: MonadError[*[_], Throwable], A, Repr <: HList](
+  implicit def genericKVDecoder[F[_]: MonadThrow, A, Repr <: HList](
     implicit generic: Generic.Aux[A, Repr],
     decoder: KVDecoder[F, Repr]
   ): KVDecoder[F, A] =
     (value: String) => decoder.decode(value).map(generic.from)
 
-  implicit def reprKVDecoder[F[_]: MonadError[*[_], Throwable], H, T <: HList](
+  implicit def reprKVDecoder[F[_]: MonadThrow, H, T <: HList](
     implicit headKVDecoder: KVDecoder[F, H],
     tailKVDecoder: KVDecoder[F, T],
     headTermCount: TermCount[H]

@@ -1,6 +1,6 @@
 package com.ruchij.core.services.video
 
-import cats.{Applicative, ApplicativeError, Monad, MonadError, ~>}
+import cats.{Applicative, ApplicativeError, Monad, MonadThrow, ~>}
 import cats.data.OptionT
 import cats.implicits._
 import com.ruchij.core.daos.resource.FileResourceDao
@@ -11,7 +11,7 @@ import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.services.repository.RepositoryService
 
-class VideoServiceImpl[F[_]: Monad, G[_]: MonadError[*[_], Throwable]](
+class VideoServiceImpl[F[_]: Monad, G[_]: MonadThrow](
   repositoryService: RepositoryService[F],
   videoDao: VideoDao[G],
   snapshotDao: SnapshotDao[G],

@@ -8,7 +8,7 @@ import com.ruchij.core.kv.codecs.{KVCodec, KVDecoder, KVEncoder}
 import com.ruchij.core.kv.keys.KVStoreKey
 import com.ruchij.core.services.config.models.ConfigKey
 
-class ConfigurationServiceImpl[F[_]: Monad, G[_] <: ConfigKey[_] with KVStoreKey](
+class ConfigurationServiceImpl[F[_]: Monad, G[_] <: ConfigKey with KVStoreKey](
   keySpacedKeyValueStore: KeySpacedKeyValueStore[F, G[_], String]
 ) extends ConfigurationService[F, G] {
 
