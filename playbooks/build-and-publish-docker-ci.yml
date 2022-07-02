@@ -6,25 +6,20 @@
     - name: Gather git information
       import_tasks: tasks/git-info.yml
 
-    - name: Build Docker CI image
-      shell: |
-        docker build \
-          -t video-downloader-back-end-ci:latest \
-          -t video-downloader-back-end-ci:{{ git_commit }} \
-          -f ../.circleci/Dockerfile . \
-          --no-cache
-
     - name: Login to Docker Hub
       command: docker login -u {{ docker_username }} -p {{ docker_password }}
       vars:
         docker_username: "{{ lookup('aws_ssm', '/docker-hub/credentials/username', region='ap-southeast-2') }}"
         docker_password: "{{ lookup('aws_ssm', '/docker-hub/credentials/password', region='ap-southeast-2') }}"
 
-    - name: Publish Docker image
+    - name: Build Docker CI image
       shell: |
-        docker tag video-downloader-back-end-ci:{{ git_commit }} ruchira088/docker-ci:vdbe-{{ date }} && \
-        docker tag video-downloader-back-end-ci:{{ git_commit }} ruchira088/docker-ci:vdbe && \
-        docker push ruchira088/docker-ci:vdbe-{{ date }} && \
-        docker push ruchira088/docker-ci:vdbe
+        docker buildx build \
+          --push \
+          --platform linux/amd64 \
+          -t ruchira088/docker-ci:vdbe \
+          -t ruchira088/docker-ci:vdbe-{{ date }} \
+          -f ../.circleci/Dockerfile . \
+          --no-cache
       vars:
         date: "{{ ansible_date_time.date }}"
