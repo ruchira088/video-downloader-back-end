@@ -8,9 +8,4 @@ WORKDIR /opt/video-downloader-{{ app_name }}
 
 ADD video-downloader-{{ app_name }}-*.tgz .
 
-{% if ports is defined %}
-EXPOSE {{ ports }}
-{% else %}
-{% endif %}
-
 CMD [ "/opt/video-downloader-{{ app_name }}/bin/video-downloader-{{ app_name }}" ]
