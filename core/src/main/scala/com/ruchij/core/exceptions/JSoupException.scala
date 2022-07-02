@@ -26,5 +26,7 @@ object JSoupException {
       """
   }
 
-  case class TextNotFoundInElementException(element: Element) extends JSoupException
+  case class TextNotFoundInElementException(element: Element) extends JSoupException {
+    override def getMessage: String = s"Text not found in $element"
+  }
 }

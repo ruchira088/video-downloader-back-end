@@ -65,7 +65,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
                   )
 
                 val videoUrl =
-                  uri"https://txxx.com/videos/18365405/blonde-gets-analized-by-a-black-cock-with-heather-gables/"
+                  uri"https://pornone.com/bbc/sk-rl-tte-nik-l-onlyfans/277968339/"
 
                 // TODO Update the test
                 for {

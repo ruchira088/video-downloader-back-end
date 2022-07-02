@@ -2,7 +2,8 @@ package com.ruchij.core.daos.videometadata.models
 
 import cats.data.{Kleisli, NonEmptyList, OptionT}
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, MonadError}
+import cats.{Applicative, ApplicativeError, MonadError, MonadThrow}
+import com.ruchij.core.circe.Decoders.finiteDurationDecoder
 import com.ruchij.core.daos.videometadata.models.CustomVideoSite.Selector
 import com.ruchij.core.exceptions.{InvalidConditionException, ValidationException}
 import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherToF}
@@ -11,7 +12,10 @@ import com.ruchij.core.utils.MatcherUtils.IntNumber
 import enumeratum.{Enum, EnumEntry}
 import org.http4s.implicits.http4sLiteralsSyntax
 import org.http4s.{Query, Uri}
+import org.http4s.circe.decodeUri
 import org.jsoup.nodes.Document
+import io.circe.{parser => JsonParser}
+import io.circe.generic.auto.exportDecoder
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
@@ -67,39 +71,26 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
   case object PornOne extends CustomVideoSite {
     override val hostname: String = "pornone.com"
 
-    private val LessThanHour = "(\\d+) min (\\d+) sec".r
-    private val MoreThanHour = "(\\d+) hours (\\d+) min (\\d+) sec".r
+    private case class PornOneMetadata(name: String, thumbnailUrl: Uri, duration: FiniteDuration)
 
-    override def title[F[_]: MonadError[*[_], Throwable]]: Selector[F, String] =
-      JsoupSelector.selectText[F](".single-video .video-player-head h1")
+    private def metadata[F[_]: MonadThrow]: Selector[F, PornOneMetadata] =
+      JsoupSelector.singleElement[F]("script[data-react-helmet]")
+        .map(element => element.data())
+        .flatMapF(text => JsonParser.parse(text).toType[F, Throwable])
+        .flatMapF(_.as[PornOneMetadata].toType[F, Throwable])
 
-    override def thumbnailUri[F[_]: MonadError[*[_], Throwable]]: Selector[F, Uri] =
+    override def title[F[_]: MonadThrow]: Selector[F, String] =
+      metadata[F].map(_.name)
+
+    override def thumbnailUri[F[_]: MonadThrow]: Selector[F, Uri] =
+      metadata[F].map(_.thumbnailUrl)
+
+    override def duration[F[_]: MonadThrow]: Selector[F, FiniteDuration] =
+      metadata[F].map(_.duration)
+
+    override def downloadUri[F[_]: MonadThrow]: Selector[F, Uri] =
       JsoupSelector
-        .singleElement[F]("#video_player video")
-        .flatMapF(element => JsoupSelector.attribute[F](element, "poster"))
-        .flatMapF { urlString =>
-          Uri.fromString(urlString).toType[F, Throwable]
-        }
-
-    override def duration[F[_]: MonadError[*[_], Throwable]]: Selector[F, FiniteDuration] =
-      JsoupSelector
-        .selectText[F]("#video-info .video-duration")
-        .flatMapF {
-          case LessThanHour(IntNumber(minutes), IntNumber(seconds)) =>
-            Applicative[F].pure(FiniteDuration(minutes * 60 + seconds, TimeUnit.SECONDS))
-
-          case MoreThanHour(IntNumber(hours), IntNumber(minutes), IntNumber(seconds)) =>
-            Applicative[F].pure(FiniteDuration(hours * 3600 + minutes * 60 + seconds, TimeUnit.SECONDS))
-
-          case duration =>
-            ApplicativeError[F, Throwable].raiseError {
-              new IllegalArgumentException(s"""Unable to parse "$duration" as a duration""")
-            }
-        }
-
-    override def downloadUri[F[_]: MonadError[*[_], Throwable]]: Selector[F, Uri] =
-      JsoupSelector
-        .nonEmptyElementList[F]("#video_player source")
+        .nonEmptyElementList[F]("#pornone-video-player source")
         .flatMapF {
           case NonEmptyList(element, _) => JsoupSelector.src[F](element)
         }
