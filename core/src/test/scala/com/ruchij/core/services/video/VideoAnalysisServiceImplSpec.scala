@@ -33,7 +33,7 @@ import scala.language.postfixOps
 
 class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
-  "analyze(uri: Uri) in VideoAnalysisService" should "analyse a PornOne site" in runIO {
+  "analyze(uri: Uri) in VideoAnalysisService" should "analyse a PornOne video URL" in runIO {
     analyze[IO](uri"https://pornone.com/bbc/sk-rl-tte-nik-l-onlyfans/277968339/")
       .flatMap {
         videoAnalysisResult =>
@@ -47,7 +47,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
       }
   }
 
-  it should "analyse a SpankBang site" in runIO {
+  it should "analyse a SpankBang video URL" in runIO {
     analyze[IO](uri"https://spankbang.com/52kje/video/the+crooked+cops")
       .flatMap {
         videoAnalysisResult =>
@@ -61,7 +61,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
       }
   }
 
-  it should "analyse a XFreeHD site" in runIO {
+  it should "analyse a XFreeHD video URL" in runIO {
     analyze[IO](uri"https://www.xfreehd.com/video/343591/breaking-white-blonde-booty-giselle-palmer")
       .flatMap {
         videoAnalysisResult =>
@@ -75,7 +75,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
       }
   }
 
-  it should "analyse a TXXX site" in runIO {
+  it should "analyse a TXXX video URL" in runIO {
     analyze[IO](uri"https://txxx.com/videos/18387087/jax-slayher-kay-lovely-in-boyfriend-watches-kay-take-a-big-black-cock-newsensations2/")
       .flatMap {
         videoAnalysisResult =>
@@ -89,7 +89,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
       }
   }
 
-  it should "analyse a UPornia site" in runIO {
+  it should "analyse a UPornia video URL" in runIO {
     analyze[IO](uri"https://upornia.com/videos/4810631/gets-two-black-cocks-in-every-hole-with-bailey-nicole/")
       .flatMap {
         videoAnalysisResult =>
@@ -103,15 +103,29 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
       }
   }
 
-  it should "analyse a EPorner site" in runIO {
+  it should "analyse a EPorner video URL" in runIO {
     analyze[IO](uri"https://www.eporner.com/video-vQrAInk40ei/mc-kenzie-lee-in-an-all-black-guy-gangbang/")
       .flatMap {
         videoAnalysisResult =>
           IO.delay {
             videoAnalysisResult.title mustBe "Mc Kenzie Lee In An All Black Guy Gangbang"
             videoAnalysisResult.duration mustBe ((38 minutes) + (47 seconds))
-            videoAnalysisResult.thumbnail mustBe uri"https://static-au-cdn.eporner.com/thumbs/static4/6/63/639/6390316/11_360.jpg"
+            videoAnalysisResult.thumbnail.path mustBe uri"https://static-au-cdn.eporner.com/thumbs/static4/6/63/639/6390316/11_360.jpg".path
             videoAnalysisResult.videoSite mustBe YTDownloaderSite("eporner")
+          }
+      }
+  }
+
+  it should "analyse a YouTube video URL" in runIO {
+    analyze[IO](uri"https://www.youtube.com/watch?v=2Vv-BfVoq4g")
+      .flatMap {
+        videoAnalysisResult =>
+          IO.delay {
+            videoAnalysisResult.title mustBe "Ed Sheeran - Perfect (Official Music Video)"
+            videoAnalysisResult.duration mustBe ((4 minutes) + (40 seconds))
+            videoAnalysisResult.size mustBe 384432283
+            videoAnalysisResult.thumbnail mustBe uri"https://i.ytimg.com/vi/2Vv-BfVoq4g/hqdefault.jpg?sqp=-oaymwEcCNACELwBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLCLtYBwO0_7u3WciwGy6gOCDq8lxw"
+            videoAnalysisResult.videoSite mustBe YTDownloaderSite("youtube")
           }
       }
   }
