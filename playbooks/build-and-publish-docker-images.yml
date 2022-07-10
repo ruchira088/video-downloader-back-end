@@ -3,27 +3,10 @@
   connection: local
 
   tasks:
-    - name: Build Docker images
-      import_tasks: tasks/build-docker-images.yml
+    - name: Install dependencies
+      import_tasks: tasks/install-dependencies.yml
 
-    - name: Publish Docker images
-      block:
-        - name: Publish Docker image - DB migration
-          import_tasks: tasks/publish-docker-image.yml
-          vars:
-            app_name: migration-application
-
-        - name: Publish Docker image - api
-          import_tasks: tasks/publish-docker-image.yml
-          vars:
-            app_name: api
-
-        - name: Publish Docker image - batch
-          import_tasks: tasks/publish-docker-image.yml
-          vars:
-            app_name: batch
-
-        - name: Publish Docker image - DB backup
-          import_tasks: tasks/publish-docker-image.yml
-          vars:
-            app_name: db-backup
+    - name: Build & publish Docker images
+      import_tasks: tasks/build-and-publish-docker-images.yml
+      vars:
+        publish: true

@@ -15,9 +15,11 @@ spec:
         app: batch
         branch: {{ git_branch }}
     spec:
+      imagePullSecrets:
+        - name: docker-registry-credentials
       containers:
         - name: batch-container
-          image: ruchira088/video-downloader-batch:{{ git_branch }}-{{ git_commit }}
+          image: ghcr.io/ruchira088/video-downloader-batch:{{ git_branch }}-{{ git_commit }}
           envFrom:
             - configMapRef:
                 name: batch-data-config-map

@@ -6,59 +6,39 @@
     application: "{{ app }}"
 
   tasks:
+    - name: Install dependencies
+      import_tasks: tasks/install-dependencies.yml
+
     - name: Build & publish Migration Docker image
       when: application == "migration"
-      block:
-        - name: Build DB migration Docker image
-          import_tasks: tasks/build-scala-docker-image.yml
-          vars:
-            sbt_project: migrationApplication
-            app_name: migration-application
-            docker_file: Dockerfile-migration.j2
-
-        - name: Publish Docker image - Migration
-          import_tasks: tasks/publish-docker-image.yml
-          vars:
-            app_name: migration-application
+      import_tasks: tasks/build-and-publish-scala-docker-image.yml
+      vars:
+        sbt_project: migrationApplication
+        app_name: migration-application
+        docker_file: Dockerfile-migration.j2
+        publish: true
 
     - name: Build & publish API Docker image
       when: application == "api"
-      block:
-        - name: Build API Docker image
-          import_tasks: tasks/build-scala-docker-image.yml
-          vars:
-            sbt_project: api
-            app_name: api
-            ports: 8000
-            docker_file: Dockerfile.j2
-
-        - name: Publish Docker image - api
-          import_tasks: tasks/publish-docker-image.yml
-          vars:
-            app_name: api
+      import_tasks: tasks/build-and-publish-scala-docker-image.yml
+      vars:
+        sbt_project: api
+        app_name: api
+        ports: 8000
+        docker_file: Dockerfile.j2
+        publish: true
 
     - name: Build & publish Batch Docker image
       when: application == "batch"
-      block:
-        - name: Build Batch Docker image
-          import_tasks: tasks/build-scala-docker-image.yml
-          vars:
-            sbt_project: batch
-            app_name: batch
-            docker_file: Dockerfile.j2
-
-        - name: Publish Docker image - batch
-          import_tasks: tasks/publish-docker-image.yml
-          vars:
-            app_name: batch
+      import_tasks: tasks/build-and-publish-scala-docker-image.yml
+      vars:
+        sbt_project: batch
+        app_name: batch
+        docker_file: Dockerfile.j2
+        publish: true
 
     - name: Build & publish DB backup Docker image
       when: application == "db-backup"
-      block:
-        - name: Build DB backup Docker image
-          import_tasks: tasks/build-db-backup-docker-image.yml
-
-        - name: Publish Docker image - DB backup
-          import_tasks: tasks/publish-docker-image.yml
-          vars:
-            app_name: db-backup
+      import_tasks: tasks/build-and-publish-db-backup-docker-image.yml
+      vars:
+        publish: true

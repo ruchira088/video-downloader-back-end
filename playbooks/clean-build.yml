@@ -22,4 +22,6 @@
         rm -rf ../images/*.webp
 
     - name: Build Docker images
-      import_tasks: tasks/build-docker-images.yml
+      import_tasks: tasks/build-and-publish-docker-images.yml
+      vars:
+        publish: false

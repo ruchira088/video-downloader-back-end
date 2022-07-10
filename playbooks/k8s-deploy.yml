@@ -6,6 +6,9 @@
     - name: Gather git information
       import_tasks: tasks/git-info.yml
 
+    - name: Install dependencies
+      import_tasks: tasks/install-dependencies.yml
+
     - set_fact:
         k8s_vars:
           production:
@@ -34,6 +37,7 @@
         hostname: "{{ k8s_vars[env].hostname }}"
         kafka_fast_data_hostname: "{{ k8s_vars[env].kafka_fast_data_hostname }}"
         host_path_mappings: "{{ k8s_vars[env].host_path_mappings }}"
+        ghcr_credentials: "{{ lookup('aws_ssm', '/github/ghcr/docker-config', region='ap-southeast-2') }}"
 
     - name: Render K8s resource files
       import_tasks: tasks/k8s-resource-files.yml
@@ -45,6 +49,9 @@
       block:
         - name: Create Namespace
           command: kubectl apply -f k8s-output/Namespace.yaml --kubeconfig {{ kubeconfig }}
+
+        - name: Create Docker registry secret
+          command: kubectl apply -f k8s-output/DockerRegistryCredentials.yaml --kubeconfig {{ kubeconfig }}
 
         - name: Deploy Helm charts
           block:

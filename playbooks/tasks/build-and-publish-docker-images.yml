@@ -1,12 +1,12 @@
 - name: Build DB migration Docker image
-  import_tasks: build-scala-docker-image.yml
+  import_tasks: build-and-publish-scala-docker-image.yml
   vars:
     sbt_project: migrationApplication
     app_name: migration-application
     docker_file: Dockerfile-migration.j2
 
 - name: Build api Docker image
-  import_tasks: build-scala-docker-image.yml
+  import_tasks: build-and-publish-scala-docker-image.yml
   vars:
     sbt_project: api
     app_name: api
@@ -14,11 +14,11 @@
     docker_file: Dockerfile.j2
 
 - name: Build batch Docker image
-  import_tasks: build-scala-docker-image.yml
+  import_tasks: build-and-publish-scala-docker-image.yml
   vars:
     sbt_project: batch
     app_name: batch
     docker_file: Dockerfile.j2
 
 - name: Build DB backup Docker image
-  import_tasks: build-db-backup-docker-image.yml
+  import_tasks: build-and-publish-db-backup-docker-image.yml

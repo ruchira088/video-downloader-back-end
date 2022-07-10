@@ -1,0 +1,172 @@
+name: build-pipeline
+
+on:
+  push:
+    branches:
+      - "**"
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: 17
+          distribution: adopt
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          key: video-downloader-back-end-${{ runner.os }}-${{ hashFiles('**/build.properties') }}-${{ hashFiles('**/plugins.sbt') }}-${{ hashFiles('**/Dependencies.scala') }}
+          path: |
+            ~/.sbt
+            ~/.cache/coursier
+          restore-keys: |
+            video-downloader-back-end-${{ runner.os }}-${{ hashFiles('**/build.properties') }}-${{ hashFiles('**/plugins.sbt') }}
+            video-downloader-back-end-${{ runner.os }}-${{ hashFiles('**/build.properties') }}
+            video-downloader-back-end-${{ runner.os }}
+
+      - name: Fetch compile dependencies
+        run: sbt update
+
+      - name: Compile
+        run: sbt compile
+
+      - name: Fetch test dependencies
+        run: sbt "Test / update"
+
+      - name: Execute test suite
+        run: sbt test
+
+      - name: Send failure Slack message
+        if: failure()
+        uses: slackapi/slack-github-action@v1.19.0
+        with:
+          channel-id: C02HYP398KS
+          slack-message: |
+            :x: *FAILURE*
+            *Job:* compile-and-test
+            *${{ github.repository }}*
+            *Branch:* ${{ github.ref }}
+            *Commit:* `${{ github.sha }}`
+            *Last Commit Message:* ${{ github.event.head_commit.message }}
+            *URL:* ${{ github.server_url}}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+
+  build-and-publish-docker-images:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app:
+          - migration
+          - api
+          - batch
+          - db-backup
+    needs:
+      - compile-and-test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: 17
+          distribution: adopt
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          key: video-downloader-back-end-${{ runner.os }}-${{ hashFiles('**/build.properties') }}-${{ hashFiles('**/plugins.sbt') }}-${{ hashFiles('**/Dependencies.scala') }}
+          path: |
+            ~/.sbt
+            ~/.cache/coursier
+          restore-keys: |
+            video-downloader-back-end-${{ runner.os }}-${{ hashFiles('**/build.properties') }}-${{ hashFiles('**/plugins.sbt') }}
+            video-downloader-back-end-${{ runner.os }}-${{ hashFiles('**/build.properties') }}
+            video-downloader-back-end-${{ runner.os }}
+
+      - name: Build and publish Docker image - ${{ matrix.app }}
+        run: ansible-playbook playbooks/build-and-publish-docker-image.yml -e app=${{ matrix.app }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Send failure Slack message
+        if: failure()
+        uses: slackapi/slack-github-action@v1.19.0
+        with:
+          channel-id: C02HYP398KS
+          slack-message: |
+            :x: *FAILURE*
+            *App:* ${{ matrix.app }}
+            *Job:* build-and-publish-docker-image
+            *${{ github.repository }}*
+            *Branch:* ${{ github.ref }}
+            *Commit:* `${{ github.sha }}`
+            *Last Commit Message:* ${{ github.event.head_commit.message }}
+            *URL:* ${{ github.server_url}}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+
+  deploy-to-k8s:
+    runs-on: ubuntu-latest
+    needs:
+      - build-and-publish-docker-images
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to K8s server
+        run: ansible-playbook playbooks/k8s-deploy.yml
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Send failure Slack message
+        if: failure()
+        uses: slackapi/slack-github-action@v1.19.0
+        with:
+          channel-id: C02HYP398KS
+          slack-message: |
+            :x: *FAILURE*
+            *${{ github.repository }}*
+            *Job:* deploy-to-k8s
+            *Branch:* ${{ github.ref }}
+            *Commit:* `${{ github.sha }}`
+            *Last Commit Message:* ${{ github.event.head_commit.message }}
+            *URL:* ${{ github.server_url}}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+
+      - name: Send successful Slack message
+        uses: slackapi/slack-github-action@v1.19.0
+        with:
+          channel-id: C02HYP398KS
+          slack-message: |
+            :white_check_mark: *SUCCESS*
+            *${{ github.repository }}*
+            *Branch:* ${{ github.ref }}
+            *Commit:* `${{ github.sha }}`
+            *Last Commit Message:* ${{ github.event.head_commit.message }}
+            *URL:* ${{ github.server_url}}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
