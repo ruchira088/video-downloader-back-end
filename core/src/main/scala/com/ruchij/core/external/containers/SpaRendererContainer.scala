@@ -8,7 +8,7 @@ import org.http4s.Uri
 import org.testcontainers.containers.GenericContainer
 
 class SpaRendererContainer
-    extends GenericContainer[SpaRendererContainer]("ruchira088/video-downloader-spa-renderer:dev") {
+    extends GenericContainer[SpaRendererContainer]("ghcr.io/ruchira088/video-downloader-spa-renderer:dev") {
   private val Port = 8000
 
   withExposedPorts(Port)

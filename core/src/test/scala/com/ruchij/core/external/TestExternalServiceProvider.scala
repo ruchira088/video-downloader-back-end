@@ -2,20 +2,14 @@ package com.ruchij.core.external
 
 import cats.effect.Resource
 import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration}
-import com.ruchij.core.external.TestExternalServiceProvider.CiEnvName
-import com.ruchij.core.external.containers.ContainerExternalServiceProvider
-import com.ruchij.core.external.local.LocalExternalServiceProvider
+import com.ruchij.core.external.TestExternalServiceProvider.BranchName
 import com.ruchij.migration.config.DatabaseConfiguration
+import org.http4s.implicits.http4sLiteralsSyntax
 
 class TestExternalServiceProvider[F[_]](
-  localExternalServiceProvider: LocalExternalServiceProvider[F],
-  containerExternalServiceProvider: ContainerExternalServiceProvider[F],
+  externalServiceProvider: ExternalServiceProvider[F],
   environmentVariables: Map[String, String]
 ) extends ExternalServiceProvider[F] {
-
-  private val externalServiceProvider =
-    if (environmentVariables.get(CiEnvName).flatMap(_.toBooleanOption).getOrElse(false)) localExternalServiceProvider
-    else containerExternalServiceProvider
 
   override val redisConfiguration: Resource[F, RedisConfiguration] =
     externalServiceProvider.redisConfiguration
@@ -26,11 +20,17 @@ class TestExternalServiceProvider[F[_]](
   override val databaseConfiguration: Resource[F, DatabaseConfiguration] =
     externalServiceProvider.databaseConfiguration
 
-  override val spaSiteRendererConfiguration: Resource[F, SpaSiteRendererConfiguration] =
-    externalServiceProvider.spaSiteRendererConfiguration
+  private val isMasterBranch: Boolean =
+    environmentVariables.get(BranchName).exists(_.equalsIgnoreCase("master"))
 
+  override val spaSiteRendererConfiguration: Resource[F, SpaSiteRendererConfiguration] =
+    Resource.pure {
+      SpaSiteRendererConfiguration {
+        if (isMasterBranch) uri"https://spa-renderer.video.home.ruchij.com" else uri"https://spa-renderer.dev.video.dev.ruchij.com"
+      }
+    }
 }
 
 object TestExternalServiceProvider {
-  private val CiEnvName: String = "CI"
+  private val BranchName: String = "GITHUB_REF_NAME"
 }

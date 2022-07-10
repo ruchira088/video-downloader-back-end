@@ -160,7 +160,7 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
 
   sealed trait TxxxNetwork extends SpaCustomVideoSite {
     override lazy val readyCssSelectors: Seq[String] =
-      Seq(titleCssSelector, ".jw-video[src]", ".jw-preview[style]", ".jw-text-duration", "video.jw-video[src]")
+      Seq(titleCssSelector, ".jw-preview[style]", ".jw-text-duration", "video.jw-video[src]")
 
     private val ThumbnailUrl: Regex = ".*background-image: url\\(\"(\\S+)\"\\);.*".r
 

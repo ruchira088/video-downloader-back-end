@@ -9,7 +9,6 @@ import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.CustomVideoSite
 import com.ruchij.core.daos.videometadata.models.VideoSite.YTDownloaderSite
 import com.ruchij.core.external.TestExternalServiceProvider
-import com.ruchij.core.external.containers.ContainerExternalServiceProvider
 import com.ruchij.core.external.local.LocalExternalServiceProvider
 import com.ruchij.core.services.cli.{CliCommandRunner, CliCommandRunnerImpl}
 import com.ruchij.core.services.download.DownloadService
@@ -143,7 +142,6 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
     val externalServiceProvider =
       new TestExternalServiceProvider[F](
         new LocalExternalServiceProvider[F],
-        new ContainerExternalServiceProvider[F],
         environmentVariables
       )
 

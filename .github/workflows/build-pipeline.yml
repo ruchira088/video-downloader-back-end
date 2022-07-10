@@ -41,6 +41,12 @@ jobs:
       - name: Compile
         run: sbt compile
 
+      - name: Install ffmpeg
+        run: sudo apt-get install ffmpeg -y
+
+      - name: Install youtube-dl
+        run: pip install youtube-dl
+
       - name: Fetch test dependencies
         run: sbt "Test / update"
 
