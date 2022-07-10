@@ -3,3 +3,4 @@
     name:
       - boto3
       - botocore
+      - kubernetes
