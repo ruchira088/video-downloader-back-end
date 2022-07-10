@@ -6,7 +6,7 @@ import cats.{Applicative, ApplicativeError, MonadThrow}
 import com.ruchij.core.circe.Decoders.finiteDurationDecoder
 import com.ruchij.core.daos.videometadata.models.CustomVideoSite.Selector
 import com.ruchij.core.exceptions.{InvalidConditionException, ValidationException}
-import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherToF}
+import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, KleisliOption, eitherToF}
 import com.ruchij.core.utils.JsoupSelector
 import com.ruchij.core.utils.MatcherUtils.IntNumber
 import enumeratum.{Enum, EnumEntry}
@@ -74,8 +74,9 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
     private case class PornOneMetadata(name: String, thumbnailUrl: Uri, duration: FiniteDuration)
 
     private def metadata[F[_]: MonadThrow]: Selector[F, PornOneMetadata] =
-      JsoupSelector.singleElement[F]("script[data-react-helmet]")
-        .map(element => element.data())
+      JsoupSelector
+        .singleElement[F]("script[data-react-helmet]")
+        .map(_.data())
         .flatMapF(text => JsonParser.parse(text).toType[F, Throwable])
         .flatMapF(_.as[PornOneMetadata].toType[F, Throwable])
 
@@ -159,32 +160,47 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
   }
 
   sealed trait TxxxNetwork extends SpaCustomVideoSite {
+    case class TxxNetworkMetadata(name: String, thumbnailUrl: Option[Uri], duration: Option[FiniteDuration])
+
     override lazy val readyCssSelectors: Seq[String] =
-      Seq(titleCssSelector, ".jw-preview[style]", ".jw-text-duration", "video.jw-video[src]")
+      Seq(
+        ".jw-preview[style]",
+        ".jw-text-duration",
+        "video.jw-video[src]",
+        "script[type='application/ld+json']"
+      )
 
     private val ThumbnailUrl: Regex = ".*background-image: url\\(\"(\\S+)\"\\);.*".r
 
-    protected val titleCssSelector = ".video-title h1"
+    private def metadata[F[_]: MonadThrow]: Selector[F, TxxNetworkMetadata] =
+      JsoupSelector.singleElement[F]("script[type='application/ld+json']")
+        .map(_.data())
+        .flatMapF(data => JsonParser.parse(data).toType[F, Throwable])
+        .flatMapF(_.as[TxxNetworkMetadata].toType[F, Throwable])
 
     override def title[F[_]: MonadThrow]: Selector[F, String] =
-      JsoupSelector.selectText[F](titleCssSelector)
+      metadata[F].map(_.name)
 
     override def thumbnailUri[F[_]: MonadThrow]: Selector[F, Uri] =
-      JsoupSelector
-        .singleElement[F](".jw-preview")
-        .map(_.attr("style"))
-        .flatMapF {
-          case ThumbnailUrl(imageUrl) => Uri.fromString(imageUrl).toType[F, Throwable]
-          case _ =>
-            Applicative[F].pure(
-              uri"https://s3.ap-southeast-2.amazonaws.com/assets.video-downloader.ruchij.com/video-placeholder.png"
-            )
-        }
+      metadata[F].map(_.thumbnailUrl).or {
+        JsoupSelector
+          .singleElement[F](".jw-preview")
+          .map(_.attr("style"))
+          .flatMapF {
+            case ThumbnailUrl(imageUrl) => Uri.fromString(imageUrl).toType[F, Throwable]
+            case _ =>
+              Applicative[F].pure {
+                uri"https://s3.ap-southeast-2.amazonaws.com/assets.video-downloader.ruchij.com/video-placeholder.png"
+              }
+          }
+      }
 
     override def duration[F[_]: MonadThrow]: Selector[F, FiniteDuration] =
-      JsoupSelector
-        .selectText[F](".jw-text-duration")
-        .flatMapF(parseDuration[F])
+      metadata[F].map(_.duration).or {
+        JsoupSelector
+          .selectText[F](".jw-text-duration")
+          .flatMapF(parseDuration[F])
+      }
 
     override def downloadUri[F[_]: MonadThrow]: Selector[F, Uri] =
       JsoupSelector
@@ -231,17 +247,14 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
 
   case object HClips extends TxxxNetwork {
     override val hostname: String = "hclips.com"
-    override protected val titleCssSelector: String = "h1.video-page__title"
   }
 
   case object HotMovs extends TxxxNetwork {
     override val hostname: String = "hotmovs.com"
-    override protected val titleCssSelector: String = "h1.video-page__title"
   }
 
   case object HdZog extends TxxxNetwork {
     override val hostname: String = "hdzog.com"
-    override protected val titleCssSelector: String = ".video-page .video-page__header h1"
   }
 
   override def values: IndexedSeq[CustomVideoSite] = findValues

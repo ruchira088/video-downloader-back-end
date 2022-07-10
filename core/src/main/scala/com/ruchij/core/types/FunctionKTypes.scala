@@ -1,7 +1,8 @@
 package com.ruchij.core.types
 
 import cats.arrow.FunctionK
-import cats.{Applicative, ApplicativeError, ~>}
+import cats.data.Kleisli
+import cats.{Applicative, ApplicativeError, Monad, ~>}
 
 object FunctionKTypes {
   implicit class FunctionK2TypeOps[F[+ _, _], A, B](value: F[B, A]) {
@@ -15,4 +16,9 @@ object FunctionKTypes {
     }
 
   implicit def identityFunctionK[F[_]]: ~>[F, F] = FunctionK.id[F]
+
+  implicit class KleisliOption[F[_]: Monad, A, B](kleisli: Kleisli[F, A, Option[B]]) {
+    def or(other: => Kleisli[F, A, B]): Kleisli[F, A, B] =
+      kleisli.flatMap(_.fold(other)(value => Kleisli.pure[F, A, B](value)))
+  }
 }
