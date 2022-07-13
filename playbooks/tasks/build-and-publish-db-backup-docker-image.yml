@@ -38,7 +38,7 @@
       shell: |
         docker buildx build \
           --push \
-          --platform linux/arm64,linux/amd64 \
+          --platform {{ platform }} \
           -t ghcr.io/ruchira088/video-downloader-db-backup:{{ git_branch }} \
           -t ghcr.io/ruchira088/video-downloader-db-backup:{{ git_branch }}-{{ git_commit }} \
           -f docker-output/Dockerfile-db-backup \

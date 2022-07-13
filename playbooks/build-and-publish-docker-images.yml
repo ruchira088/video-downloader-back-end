@@ -2,6 +2,9 @@
 - hosts: localhost
   connection: local
 
+  vars:
+    platform: linux/arm64,linux/amd64
+
   tasks:
     - name: Install dependencies
       import_tasks: tasks/install-dependencies.yml
