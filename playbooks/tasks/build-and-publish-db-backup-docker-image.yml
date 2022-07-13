@@ -12,7 +12,7 @@
 
 - name: Generate the Dockerfile
   template:
-    src: ../db-backup/Dockerfile.j2
+    src: docker/Dockerfile-db-backup.j2
     dest: docker-output/Dockerfile-db-backup
   vars:
     build_timestamp: "{{ ansible_date_time.iso8601 }}"

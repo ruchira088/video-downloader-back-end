@@ -113,7 +113,7 @@ jobs:
             video-downloader-back-end-${{ runner.os }}
 
       - name: Build and publish Docker image - ${{ matrix.app }}
-        run: ansible-playbook playbooks/build-and-publish-docker-image.yml -e app=${{ matrix.app }} -e platform=${{ matrix.platform }}
+        run: ansible-playbook playbooks/build-and-publish-docker-image.yml -v -e app=${{ matrix.app }} -e platform=${{ matrix.platform }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
