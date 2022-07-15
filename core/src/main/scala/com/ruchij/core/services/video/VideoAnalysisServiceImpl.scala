@@ -116,8 +116,8 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
             ValidationException("Unable to analyse local URLs")
           }
 
-        case _ =>
-          youTubeVideoDownloader.videoInformation(uri)
+        case videoSite =>
+          videoSite.processUri[F](uri).flatMap(youTubeVideoDownloader.videoInformation)
       }
 
   override def downloadUri(uri: Uri): F[Uri] =

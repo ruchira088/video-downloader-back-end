@@ -34,8 +34,6 @@ sealed trait CustomVideoSite extends VideoSite with EnumEntry { self =>
 
   def downloadUri[F[_]: MonadThrow]: Selector[F, Uri]
 
-  def processUri[F[_]: MonadThrow](uri: Uri): F[Uri] = Applicative[F].pure(uri)
-
   def test(uri: Uri): Boolean = uri.host.exists(_.value.toLowerCase.contains(hostname.toLowerCase))
 }
 

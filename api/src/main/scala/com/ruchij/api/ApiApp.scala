@@ -79,7 +79,6 @@ object ApiApp extends IOApp {
             EmberServerBuilder
               .default[IO]
               .withHttpApp(httpApp)
-              .withHttp2
               .withHost(apiServiceConfiguration.httpConfiguration.host)
               .withPort(apiServiceConfiguration.httpConfiguration.port)
               .build

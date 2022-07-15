@@ -14,7 +14,7 @@ import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.SchedulingDao.notFound
 import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownload, SchedulingStatus}
-import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata, VideoSite}
+import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
 import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.exceptions.{InvalidConditionException, ValidationException}
 import com.ruchij.core.logging.Logger
@@ -47,10 +47,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
     VideoSite
       .fromUri(uri)
       .toType[F, Throwable]
-      .flatMap {
-        case customVideoSite: CustomVideoSite => customVideoSite.processUri[F](uri)
-        case _ => Applicative[F].pure(uri)
-      }
+      .flatMap(_.processUri[F](uri))
       .flatMap { processedUri =>
         transaction {
           schedulingDao.search(
