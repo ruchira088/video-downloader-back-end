@@ -22,8 +22,8 @@
   shell: |
     docker build \
       -f docker-output/Dockerfile-db-backup \
-      -t video-downloader-db-backup:{{ git_branch }} \
-      -t video-downloader-db-backup:{{ git_branch }}-{{ git_commit }} \
+      -t ghcr.io/ruchira088/video-downloader-db-backup:{{ git_branch }} \
+      -t ghcr.io/ruchira088/video-downloader-db-backup:{{ git_branch }}-{{ git_commit }} \
       ../db-backup
 
 - name: Build and publish Docker image

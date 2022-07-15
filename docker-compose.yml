@@ -31,7 +31,7 @@ services:
       - "./docker-compose/scripts:/opt/scripts"
 
   api-1: &api-app
-    image: video-downloader-api:dev
+    image: ghcr.io/ruchira088/video-downloader-api:dev
     healthcheck:
       test: "/opt/scripts/wait-for-it.sh localhost:8000"
       start_period: 10s
@@ -75,7 +75,7 @@ services:
     *api-app
 
   batch-1: &batch-app
-    image: video-downloader-batch:dev
+    image: ghcr.io/ruchira088/video-downloader-batch:dev
     depends_on:
       postgres:
         condition: service_healthy
