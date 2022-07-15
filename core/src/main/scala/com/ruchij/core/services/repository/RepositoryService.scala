@@ -1,6 +1,6 @@
 package com.ruchij.core.services.repository
 
-import fs2.{INothing, Stream}
+import fs2.Stream
 import org.http4s.MediaType
 
 trait RepositoryService[F[_]] {
@@ -8,7 +8,7 @@ trait RepositoryService[F[_]] {
   type BackedType
   type Key = String
 
-  def write(key: Key, data: Stream[F, Byte]): Stream[F, INothing]
+  def write(key: Key, data: Stream[F, Byte]): Stream[F, Nothing]
 
   def read(key: Key, start: Option[Long], end: Option[Long]): F[Option[Stream[F, Byte]]]
 

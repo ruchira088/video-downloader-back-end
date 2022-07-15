@@ -3,7 +3,7 @@ package com.ruchij.core.services.repository
 import cats.effect.Sync
 import cats.implicits._
 import cats.{Applicative, ApplicativeError}
-import fs2.{INothing, Stream}
+import fs2.Stream
 import fs2.io.file.{Files, Flags, Path}
 import org.http4s.MediaType
 
@@ -13,7 +13,7 @@ class FileRepositoryService[F[_]: Sync: Files](fileTypeDetector: FileTypeDetecto
 
   override type BackedType = Path
 
-  override def write(key: String, data: Stream[F, Byte]): Stream[F, INothing] =
+  override def write(key: String, data: Stream[F, Byte]): Stream[F, Nothing] =
     for {
       path <- Stream.eval(backedType(key))
       exists <- Stream.eval(Files[F].exists(path))

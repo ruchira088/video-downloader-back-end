@@ -1,12 +1,12 @@
 package com.ruchij.core.services.repository
 
-import java.util.concurrent.ConcurrentHashMap
-import cats.{Applicative, ApplicativeError}
 import cats.effect.Sync
 import cats.implicits._
-import fs2.{INothing, Stream}
+import cats.{Applicative, ApplicativeError}
+import fs2.Stream
 import org.http4s.MediaType
 
+import java.util.concurrent.ConcurrentHashMap
 import scala.jdk.CollectionConverters._
 import scala.util.Try
 
@@ -15,7 +15,7 @@ class InMemoryRepositoryService[F[_]: Sync](concurrentHashMap: ConcurrentHashMap
 
   override type BackedType = String
 
-  override def write(key: String, data: Stream[F, Byte]): Stream[F, INothing] =
+  override def write(key: String, data: Stream[F, Byte]): Stream[F, Nothing] =
     Stream.eval[F, Unit] {
       data.compile.toList
         .flatMap {
