@@ -41,7 +41,7 @@
       shell: |
         docker buildx build \
           --push \
-          --platform {{ platform }} \
+          --platform linux/arm64,linux/amd64 \
           -t ghcr.io/ruchira088/video-downloader-{{ app_name }}:{{ git_branch }} \
           -t ghcr.io/ruchira088/video-downloader-{{ app_name }}:{{ git_branch }}-{{ git_commit }} \
           -f docker-output/Dockerfile-{{ app_name }} \

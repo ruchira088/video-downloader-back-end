@@ -4,7 +4,6 @@
 
   vars:
     application: "{{ app }}"
-    platform: linux/arm64,linux/amd64
 
   tasks:
     - name: Install dependencies
