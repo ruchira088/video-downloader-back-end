@@ -18,7 +18,7 @@ import com.ruchij.core.services.video.models.VideoAnalysisResult
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.types.FunctionKTypes.identityFunctionK
 import com.ruchij.core.types.JodaClock
-import org.http4s.Uri
+import org.http4s.{Query, Uri}
 import org.http4s.implicits.http4sLiteralsSyntax
 import org.http4s.jdkhttpclient.JdkHttpClient
 import org.scalamock.scalatest.MockFactory
@@ -123,7 +123,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
             videoAnalysisResult.title mustBe "Ed Sheeran - Perfect (Official Music Video)"
             videoAnalysisResult.duration mustBe ((4 minutes) + (40 seconds))
             videoAnalysisResult.size mustBe 384432283
-            videoAnalysisResult.thumbnail mustBe uri"https://i.ytimg.com/vi/2Vv-BfVoq4g/hqdefault.jpg?sqp=-oaymwEcCNACELwBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLCLtYBwO0_7u3WciwGy6gOCDq8lxw"
+            videoAnalysisResult.thumbnail.copy(query = Query.empty) mustBe uri"https://i.ytimg.com/vi/2Vv-BfVoq4g/hqdefault.jpg"
             videoAnalysisResult.videoSite mustBe YTDownloaderSite("youtube")
           }
       }
