@@ -1,0 +1,17 @@
+FROM ghcr.io/ruchira088/video-downloader-db-backup-base:version-2022-07-15
+
+LABEL org.opencontainers.image.source https://github.com/ruchira088/video-downloader-back-end
+
+ENV GIT_BRANCH {{ git_branch }}
+ENV GIT_COMMIT {{ git_commit }}
+ENV BUILD_TIMESTAMP {{ build_timestamp }}
+
+RUN apt update && \
+    apt install python3-pip zip -y && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install awscli
+
+ADD ./run-db-backup.sh /opt/
+
+CMD [ "/opt/run-db-backup.sh" ]
