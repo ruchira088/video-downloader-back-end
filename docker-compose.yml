@@ -113,7 +113,7 @@ services:
     *batch-app
 
   spa-renderer:
-    image: video-downloader-spa-renderer:dev
+    image: ghcr.io/ruchira088/video-downloader-spa-renderer:dev
     healthcheck:
       test: "/opt/scripts/wait-for -t 3 localhost:8000"
       start_period: 10s
@@ -123,7 +123,7 @@ services:
       - "./docker-compose/scripts:/opt/scripts"
 
   migration-application:
-    image: video-downloader-migration-application:dev
+    image: ghcr.io/ruchira088/video-downloader-migration-application:dev
     depends_on:
       postgres:
         condition: service_healthy
@@ -223,7 +223,7 @@ services:
       - "./docker-compose/scripts:/opt/scripts"
 
   front-end-1: &front-end
-    image: video-downloader-front-end:dev
+    image: ghcr.io/ruchira088/video-downloader-front-end:dev
     healthcheck:
       test: "/opt/scripts/wait-for -t 3 localhost:80"
       start_period: 5s
