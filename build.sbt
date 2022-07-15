@@ -83,7 +83,7 @@ lazy val api =
       Universal / javaOptions ++= Seq("-Dlogback.configurationFile=/opt/data/logback.xml"),
       libraryDependencies ++=
         Seq(
-          http4sBlazeServer,
+          http4sEmberServer,
           http4sCirce,
           circeGeneric,
           circeParser,

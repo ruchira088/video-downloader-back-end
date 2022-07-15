@@ -4,6 +4,7 @@ import cats.effect.Resource
 import cats.effect.kernel.Async
 import cats.effect.std.Dispatcher
 import cats.{ApplicativeError, Id}
+import com.comcast.ip4s.IpLiteralSyntax
 import com.ruchij.api.ApiApp
 import com.ruchij.api.config.{ApiServiceConfiguration, ApiStorageConfiguration, AuthenticationConfiguration, HttpConfiguration}
 import com.ruchij.api.models.ApiMessageBrokers
@@ -35,14 +36,14 @@ object HttpTestResource {
   val ApplicationInfo: ApplicationInformation =
     ApplicationInformation("localhost", Some("N/A"), Some("N/A"), None)
 
-  val HttpConfig: HttpConfiguration = HttpConfiguration("localhost", 8000)
+  val HttpConfig: HttpConfiguration = HttpConfiguration(ipv4"127.0.0.1", port"8000")
 
   val AuthenticationConfig: AuthenticationConfiguration =
     AuthenticationConfiguration(30 days)
 
   val KafkaConfig: KafkaConfiguration = KafkaConfiguration("N/A", Uri())
 
-  val SpaRendererConfig = SpaSiteRendererConfiguration(Uri())
+  val SpaRendererConfig: SpaSiteRendererConfiguration = SpaSiteRendererConfiguration(Uri())
 
   def create[F[+ _]: Async: JodaClock](
     externalServiceProvider: ExternalServiceProvider[F]

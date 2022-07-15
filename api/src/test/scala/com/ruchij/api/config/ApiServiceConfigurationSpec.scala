@@ -1,6 +1,7 @@
 package com.ruchij.api.config
 
 import cats.effect.IO
+import com.comcast.ip4s.IpLiteralSyntax
 import com.ruchij.core.config.{ApplicationInformation, KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.migration.config.DatabaseConfiguration
@@ -76,7 +77,7 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
 
     val expectedApiServiceConfiguration =
       ApiServiceConfiguration(
-        HttpConfiguration("127.0.0.1", 80),
+        HttpConfiguration(ipv4"127.0.0.1", port"80"),
         ApiStorageConfiguration("./images"),
         DatabaseConfiguration("jdbc:h2:mem:video-downloader;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false", "", ""),
         RedisConfiguration("localhost", 6379, Some("redis-password")),

@@ -1,8 +1,8 @@
 package com.ruchij.api
 
+import cats.effect._
 import cats.effect.kernel.Async
 import cats.effect.std.Dispatcher
-import cats.effect.{ExitCode, IO, IOApp, Resource, Sync}
 import cats.implicits._
 import cats.~>
 import com.ruchij.api.config.ApiServiceConfiguration
@@ -57,8 +57,8 @@ import doobie.hikari.HikariTransactor
 import fs2.kafka.CommittableConsumerRecord
 import org.apache.tika.Tika
 import org.http4s.HttpApp
-import org.http4s.blaze.server.BlazeServerBuilder
 import org.http4s.client.Client
+import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.jdkhttpclient.JdkHttpClient
 import org.joda.time.DateTime
 import pureconfig.ConfigSource
@@ -71,41 +71,39 @@ object ApiApp extends IOApp {
   override def run(args: List[String]): IO[ExitCode] =
     for {
       configObjectSource <- IO.delay(ConfigSource.defaultApplication)
-      webServiceConfiguration <- ApiServiceConfiguration.parse[IO](configObjectSource)
+      apiServiceConfiguration <- ApiServiceConfiguration.parse[IO](configObjectSource)
 
-      result <- create[IO](webServiceConfiguration)
-        .use { httpApp =>
-          BlazeServerBuilder[IO]
-            .withHttpApp(httpApp)
-            .withoutBanner
-            .bindHttp(webServiceConfiguration.httpConfiguration.port, webServiceConfiguration.httpConfiguration.host)
-            .serve
-            .compile
-            .lastOrError
-        }
-    } yield result
+      _ <-
+        create[IO](apiServiceConfiguration)
+          .flatMap { httpApp =>
+            EmberServerBuilder
+              .default[IO]
+              .withHttpApp(httpApp)
+              .withHttp2
+              .withHost(apiServiceConfiguration.httpConfiguration.host)
+              .withPort(apiServiceConfiguration.httpConfiguration.port)
+              .build
+          }
+          .use(_ => IO.never)
+    }
+    yield ExitCode.Success
 
-  def create[F[+ _]: Async: JodaClock](
-    apiServiceConfiguration: ApiServiceConfiguration
-  ): Resource[F, HttpApp[F]] =
+  def create[F[+ _]: Async: JodaClock](apiServiceConfiguration: ApiServiceConfiguration): Resource[F, HttpApp[F]] =
     for {
       hikariTransactor <- DoobieTransactor.create[F](apiServiceConfiguration.databaseConfiguration)
 
-      javaHttpClient <-
-        Resource.eval {
-          Sync[F].blocking {
-            HttpClient.newBuilder().followRedirects(Redirect.NORMAL).build()
-          }
+      javaHttpClient <- Resource.eval {
+        Sync[F].blocking {
+          HttpClient.newBuilder().followRedirects(Redirect.NORMAL).build()
         }
+      }
       httpClient <- JdkHttpClient(javaHttpClient)
 
       redisCommands <- Redis[F].utf8(apiServiceConfiguration.redisConfiguration.uri)
       redisKeyValueStore = new RedisKeyValueStore[F](redisCommands)
 
       downloadProgressPubSub <- KafkaPubSub[F, DownloadProgress](apiServiceConfiguration.kafkaConfiguration)
-      scheduledVideoDownloadPubSub <- KafkaPubSub[F, ScheduledVideoDownload](
-        apiServiceConfiguration.kafkaConfiguration
-      )
+      scheduledVideoDownloadPubSub <- KafkaPubSub[F, ScheduledVideoDownload](apiServiceConfiguration.kafkaConfiguration)
       healthCheckPubSub <- KafkaPubSub[F, HealthCheckMessage](apiServiceConfiguration.kafkaConfiguration)
       metricsPublisher <- KafkaPublisher[F, HttpMetric](apiServiceConfiguration.kafkaConfiguration)
       workerStatusUpdatePubSub <- KafkaPubSub[F, WorkerStatusUpdate](apiServiceConfiguration.kafkaConfiguration)
@@ -144,7 +142,8 @@ object ApiApp extends IOApp {
     val healthCheckKeyStore: KeySpacedKeyValueStore[F, HealthCheckKey, DateTime] =
       new KeySpacedKeyValueStore(HealthCheckKeySpace, keyValueStore)
 
-    val authenticationKeyStore: KeySpacedKeyValueStore[F, AuthenticationToken.AuthenticationTokenKey, AuthenticationToken] =
+    val authenticationKeyStore
+      : KeySpacedKeyValueStore[F, AuthenticationToken.AuthenticationTokenKey, AuthenticationToken] =
       new KeySpacedKeyValueStore(AuthenticationKeySpace, keyValueStore)
 
     val configurationService: ConfigurationService[F, ApiConfigKey] =
@@ -186,12 +185,8 @@ object ApiApp extends IOApp {
         apiServiceConfiguration.storageConfiguration
       )
 
-    val videoService = new VideoServiceImpl[F, ConnectionIO](
-      repositoryService,
-      DoobieVideoDao,
-      DoobieSnapshotDao,
-      DoobieFileResourceDao
-    )
+    val videoService =
+      new VideoServiceImpl[F, ConnectionIO](repositoryService, DoobieVideoDao, DoobieSnapshotDao, DoobieFileResourceDao)
 
     val apiVideoService = new ApiVideoServiceImpl[F, ConnectionIO](
       videoService,

@@ -4,6 +4,7 @@ import cats.ApplicativeError
 import cats.data.OptionT
 import cats.effect._
 import cats.implicits._
+import com.comcast.ip4s.IpLiteralSyntax
 import com.ruchij.api.ApiApp
 import com.ruchij.api.config.{ApiServiceConfiguration, ApiStorageConfiguration, AuthenticationConfiguration, HttpConfiguration}
 import com.ruchij.batch.BatchApp
@@ -17,8 +18,9 @@ import com.ruchij.core.external.embedded.EmbeddedExternalServiceProvider
 import com.ruchij.core.types.JodaClock
 import com.ruchij.migration.MigrationApp
 import com.ruchij.migration.config.{AdminConfiguration, DatabaseConfiguration, MigrationServiceConfiguration}
+import fs2.io.net.tls.TLSContext
 import org.http4s.HttpApp
-import org.http4s.blaze.server.BlazeServerBuilder
+import org.http4s.ember.server.EmberServerBuilder
 import org.joda.time.LocalTime
 
 import java.security.KeyStore
@@ -39,7 +41,7 @@ object DevelopmentApp extends IOApp {
   val WorkerConfig: WorkerConfiguration =
     WorkerConfiguration(2, LocalTime.MIDNIGHT, LocalTime.MIDNIGHT)
 
-  val HttpConfig: HttpConfiguration = HttpConfiguration("0.0.0.0", 8443)
+  val HttpConfig: HttpConfiguration = HttpConfiguration(ipv4"0.0.0.0", port"443")
 
   val AuthenticationConfig: AuthenticationConfiguration =
     AuthenticationConfiguration(30 days)
@@ -80,19 +82,24 @@ object DevelopmentApp extends IOApp {
   val KeyStorePassword = "changeit"
 
   override def run(args: List[String]): IO[ExitCode] =
-    program[IO](new EmbeddedExternalServiceProvider[IO]).use {
-      case (api, batch, sslContext) =>
+    program[IO](new EmbeddedExternalServiceProvider[IO])
+      .flatMap {
+        case (api, batch) =>
+          Resource.eval(createSslContext[IO].map(TLSContext.Builder.forAsync[IO].fromSSLContext))
+            .flatMap { tlsContext =>
+              EmberServerBuilder
+                .default[IO]
+                .withHttpApp(api)
+                .withHost(HttpConfig.host)
+                .withPort(HttpConfig.port)
+                .withTLS(tlsContext)
+                .build
+            }
+          .as(batch)
+      }
+      .use {
+      batch =>
         for {
-          _ <- BlazeServerBuilder[IO]
-            .withHttpApp(api)
-            .withoutBanner
-            .bindHttp(HttpConfig.port, HttpConfig.host)
-            .withSslContext(sslContext)
-            .serve
-            .compile
-            .drain
-            .start
-
           _ <- batch.init
           _ <- batch.run.compile.drain
         } yield ExitCode.Success
@@ -100,14 +107,12 @@ object DevelopmentApp extends IOApp {
 
   def program[F[+ _]: Async: JodaClock](
     externalServiceProvider: ExternalServiceProvider[F]
-  ): Resource[F, (HttpApp[F], Scheduler[F], SSLContext)] =
+  ): Resource[F, (HttpApp[F], Scheduler[F])] =
     for {
       redisConfig <- externalServiceProvider.redisConfiguration
       kafkaConfig <- externalServiceProvider.kafkaConfiguration
       databaseConfig <- externalServiceProvider.databaseConfiguration
       spaSiteRendererConfig <- externalServiceProvider.spaSiteRendererConfiguration
-
-      sslContext <- Resource.eval(createSslContext[F])
 
       _ <- Resource.eval {
         MigrationApp.migration[F](
@@ -117,7 +122,7 @@ object DevelopmentApp extends IOApp {
 
       api <- ApiApp.create[F](apiConfig(databaseConfig, redisConfig, kafkaConfig, spaSiteRendererConfig))
       batch <- BatchApp.program[F](batchConfig(databaseConfig, kafkaConfig, spaSiteRendererConfig))
-    } yield (api, batch, sslContext)
+    } yield (api, batch)
 
   def createSslContext[F[_]: Sync]: F[SSLContext] =
     for {
