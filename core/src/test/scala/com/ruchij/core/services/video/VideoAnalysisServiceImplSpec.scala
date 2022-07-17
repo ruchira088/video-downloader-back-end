@@ -116,7 +116,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
   }
 
   it should "analyse a YouTube video URL" in runIO {
-    analyze[IO](uri"https://www.youtube.com/watch?v=2Vv-BfVoq4g")
+    analyze[IO](uri"https://www.youtube.com/watch?v=2Vv-BfVoq4g&list=RDMM-fR-duU1Qjk&start_radio=1")
       .flatMap {
         videoAnalysisResult =>
           IO.delay {

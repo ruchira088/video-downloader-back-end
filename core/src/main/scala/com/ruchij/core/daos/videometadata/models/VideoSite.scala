@@ -45,7 +45,11 @@ object VideoSite {
 
     override def processUri[F[_] : MonadThrow](uri: Uri): F[Uri] =
       uri.host.map(_.toString()) match {
-        case Some("www.youtube.com") => Applicative[F].pure(uri.removeQueryParam("list").removeQueryParam("index"))
+        case Some("www.youtube.com") =>
+          Applicative[F].pure {
+            uri.copy(query = uri.query.filter { case (key, _) => key == "v" })
+          }
+
         case _ => Applicative[F].pure(uri)
       }
   }
