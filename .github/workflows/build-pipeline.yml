@@ -26,14 +26,14 @@ jobs:
       - name: Cache dependencies
         uses: actions/cache@v3
         with:
-          key: video-downloader-back-end-${{ runner.os }}-${{ hashFiles('**/build.properties') }}-${{ hashFiles('**/plugins.sbt') }}-${{ hashFiles('**/Dependencies.scala') }}
+          key: ${{ runner.os }}-${{ hashFiles('**/build.properties') }}-${{ hashFiles('**/plugins.sbt') }}-${{ hashFiles('**/Dependencies.scala') }}
           path: |
             ~/.sbt
             ~/.cache/coursier
           restore-keys: |
-            video-downloader-back-end-${{ runner.os }}-${{ hashFiles('**/build.properties') }}-${{ hashFiles('**/plugins.sbt') }}
-            video-downloader-back-end-${{ runner.os }}-${{ hashFiles('**/build.properties') }}
-            video-downloader-back-end-${{ runner.os }}
+            ${{ runner.os }}-${{ hashFiles('**/build.properties') }}-${{ hashFiles('**/plugins.sbt') }}
+            ${{ runner.os }}-${{ hashFiles('**/build.properties') }}
+            ${{ runner.os }}
 
       - name: Fetch compile dependencies
         run: sbt update
@@ -100,14 +100,14 @@ jobs:
       - name: Cache dependencies
         uses: actions/cache@v3
         with:
-          key: video-downloader-back-end-${{ runner.os }}-${{ hashFiles('**/build.properties') }}-${{ hashFiles('**/plugins.sbt') }}-${{ hashFiles('**/Dependencies.scala') }}
+          key: ${{ runner.os }}-${{ hashFiles('**/build.properties') }}-${{ hashFiles('**/plugins.sbt') }}-${{ hashFiles('**/Dependencies.scala') }}
           path: |
             ~/.sbt
             ~/.cache/coursier
           restore-keys: |
-            video-downloader-back-end-${{ runner.os }}-${{ hashFiles('**/build.properties') }}-${{ hashFiles('**/plugins.sbt') }}
-            video-downloader-back-end-${{ runner.os }}-${{ hashFiles('**/build.properties') }}
-            video-downloader-back-end-${{ runner.os }}
+            ${{ runner.os }}-${{ hashFiles('**/build.properties') }}-${{ hashFiles('**/plugins.sbt') }}
+            ${{ runner.os }}-${{ hashFiles('**/build.properties') }}
+            ${{ runner.os }}
 
       - name: Build and publish Docker image - ${{ matrix.app }}
         run: ansible-playbook playbooks/build-and-publish-docker-image.yml -vvv -e app=${{ matrix.app }}
