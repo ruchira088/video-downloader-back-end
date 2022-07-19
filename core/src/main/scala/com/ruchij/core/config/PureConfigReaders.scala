@@ -24,9 +24,9 @@ object PureConfigReaders {
       Try(DateTime.parse(dateTime))
     }
 
-  implicit val hostConfigReader: ConfigReader[Host] = optionParser(Host.fromString)
+  implicit val hostConfigReader: ConfigReader[Host] = ConfigReader.fromNonEmptyStringOpt(Host.fromString)
 
-  implicit val portConfigReader: ConfigReader[Port] = optionParser(Port.fromString)
+  implicit val portConfigReader: ConfigReader[Port] = ConfigReader.fromNonEmptyStringOpt(Port.fromString)
 
   implicit val uriPureConfigReader: ConfigReader[Uri] =
     ConfigReader.fromNonEmptyString { input =>
@@ -54,10 +54,5 @@ object PureConfigReaders {
       parser(value).toEither.left.map { throwable =>
         CannotConvert(value, classTag.runtimeClass.getSimpleName, throwable.getMessage)
       }
-    }
-
-  private def optionParser[A: ClassTag](parser: String => Option[A]): ConfigReader[A] =
-    ConfigReader.fromNonEmptyString { input =>
-      parser(input).toRight(CannotConvert(input, classTag[A].runtimeClass.getSimpleName, "Parser failed"))
     }
 }
