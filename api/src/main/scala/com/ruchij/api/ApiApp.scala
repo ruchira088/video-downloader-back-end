@@ -29,6 +29,7 @@ import com.ruchij.api.services.scheduling.ApiSchedulingServiceImpl
 import com.ruchij.api.services.user.UserServiceImpl
 import com.ruchij.api.services.video.ApiVideoServiceImpl
 import com.ruchij.api.web.Routes
+import com.ruchij.core.commands.ScanVideosCommand
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
@@ -105,14 +106,16 @@ object ApiApp extends IOApp {
       scheduledVideoDownloadPubSub <- KafkaPubSub[F, ScheduledVideoDownload](apiServiceConfiguration.kafkaConfiguration)
       healthCheckPubSub <- KafkaPubSub[F, HealthCheckMessage](apiServiceConfiguration.kafkaConfiguration)
       metricsPublisher <- KafkaPublisher[F, HttpMetric](apiServiceConfiguration.kafkaConfiguration)
-      workerStatusUpdatePubSub <- KafkaPubSub[F, WorkerStatusUpdate](apiServiceConfiguration.kafkaConfiguration)
+      workerStatusUpdatePublisher <- KafkaPublisher[F, WorkerStatusUpdate](apiServiceConfiguration.kafkaConfiguration)
+      scanVideoCommandPublisher <- KafkaPublisher[F, ScanVideosCommand](apiServiceConfiguration.kafkaConfiguration)
       dispatcher <- Dispatcher[F]
 
       messageBrokers = ApiMessageBrokers(
         downloadProgressPubSub,
         scheduledVideoDownloadPubSub,
         healthCheckPubSub,
-        workerStatusUpdatePubSub,
+        workerStatusUpdatePublisher,
+        scanVideoCommandPublisher,
         metricsPublisher
       )
 
@@ -189,6 +192,7 @@ object ApiApp extends IOApp {
 
     val apiVideoService = new ApiVideoServiceImpl[F, ConnectionIO](
       videoService,
+      messageBrokers.scanVideosCommandPublisher,
       DoobieVideoDao,
       DoobieSchedulingDao,
       DoobieVideoMetadataDao,

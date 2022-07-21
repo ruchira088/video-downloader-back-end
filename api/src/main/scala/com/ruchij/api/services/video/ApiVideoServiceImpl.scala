@@ -2,9 +2,11 @@ package com.ruchij.api.services.video
 
 import cats.data.NonEmptyList
 import cats.implicits._
-import cats.{Monad, MonadThrow, ~>}
+import cats.{MonadThrow, ~>}
 import com.ruchij.api.daos.permission.VideoPermissionDao
 import com.ruchij.api.daos.title.VideoTitleDao
+import com.ruchij.api.services.video.models.VideoScanProgress
+import com.ruchij.core.commands.ScanVideosCommand
 import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.models.RangeValue
@@ -14,15 +16,18 @@ import com.ruchij.core.daos.video.VideoDao
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.VideoSite
+import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.video.VideoService
 import com.ruchij.core.services.video.models.VideoServiceSummary
+import com.ruchij.core.types.JodaClock
 import org.http4s.Uri
 
 import scala.concurrent.duration.FiniteDuration
 
-class ApiVideoServiceImpl[F[_]: Monad, G[_]: MonadThrow](
+class ApiVideoServiceImpl[F[_]: MonadThrow: JodaClock, G[_]: MonadThrow](
   videoService: VideoService[F, G],
+  videoScanPublisher: Publisher[F, ScanVideosCommand],
   videoDao: VideoDao[G],
   schedulingDao: SchedulingDao[G],
   videoMetadataDao: VideoMetadataDao[G],
@@ -108,4 +113,11 @@ class ApiVideoServiceImpl[F[_]: Monad, G[_]: MonadThrow](
         sites <- videoDao.sites
       } yield VideoServiceSummary(count, size, duration, sites)
     }
+
+  override val scanForVideos: F[VideoScanProgress] =
+    JodaClock[F].timestamp
+      .flatMap { timestamp =>
+        videoScanPublisher.publishOne(ScanVideosCommand(timestamp))
+          .as(VideoScanProgress.ScanStarted(timestamp))
+      }
 }

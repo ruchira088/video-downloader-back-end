@@ -4,6 +4,7 @@ import cats.effect.Async
 import cats.implicits._
 import com.ruchij.api.services.models.Context.AuthenticatedRequestContext
 import com.ruchij.api.services.video.ApiVideoService
+import com.ruchij.api.services.video.models.VideoScanProgress
 import com.ruchij.api.web.requests.{VideoMetadataRequest, VideoMetadataUpdateRequest}
 import com.ruchij.api.web.requests.queryparams.SearchQuery
 import com.ruchij.api.web.requests.RequestOps.ContextRequestOpsSyntax
@@ -11,7 +12,7 @@ import com.ruchij.api.web.requests.queryparams.SingleValueQueryParameter.DeleteV
 import com.ruchij.core.services.video.VideoAnalysisService
 import com.ruchij.core.circe.Decoders._
 import com.ruchij.core.circe.Encoders._
-import com.ruchij.api.web.responses.{IterableResponse, SearchResult}
+import com.ruchij.api.web.responses.{IterableResponse, SearchResult, VideoScanProgressResponse}
 import com.ruchij.core.services.models.SortBy
 import com.ruchij.core.services.video.VideoAnalysisService.{Existing, NewlyCreated}
 import io.circe.generic.auto._
@@ -64,6 +65,14 @@ object VideoRoutes {
 
       case GET -> Root / "summary" as _ =>
         apiVideoService.summary.flatMap(videoServiceSummary => Ok(videoServiceSummary))
+
+      case POST -> Root / "scan" as _ =>
+        apiVideoService.scanForVideos
+          .flatMap {
+            case VideoScanProgress.ScanInProgress(startedAt) => Ok(VideoScanProgressResponse(startedAt))
+
+            case VideoScanProgress.ScanStarted(startedAt) => Created(VideoScanProgressResponse(startedAt))
+          }
 
       case contextRequest @ POST -> Root / "metadata" as _ =>
         for {

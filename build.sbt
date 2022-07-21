@@ -14,7 +14,7 @@ inThisBuild {
     organization := "com.ruchij",
     scalaVersion := Dependencies.ScalaVersion,
     maintainer := "me@ruchij.com",
-    scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-Xfatal-warnings"),
+    scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-Xlint", "-Wconf:cat=lint-byname-implicit:s"),
     resolvers ++= Seq("Confluent" at "https://packages.confluent.io/maven/", "jitpack" at "https://jitpack.io"),
     addCompilerPlugin(kindProjector),
     addCompilerPlugin(betterMonadicFor)

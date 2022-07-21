@@ -1,6 +1,7 @@
 package com.ruchij.api.services.video
 
 import cats.data.NonEmptyList
+import com.ruchij.api.services.video.models.VideoScanProgress
 import com.ruchij.core.daos.scheduling.models.RangeValue
 import com.ruchij.core.daos.snapshot.models.Snapshot
 import com.ruchij.core.daos.video.models.Video
@@ -34,4 +35,6 @@ trait ApiVideoService[F[_]] {
   ): F[Seq[Video]]
 
   val summary: F[VideoServiceSummary]
+
+  val scanForVideos: F[VideoScanProgress]
 }

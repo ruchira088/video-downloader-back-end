@@ -8,7 +8,7 @@ import pureconfig.ConfigReader
 import pureconfig.error.CannotConvert
 
 import scala.collection.Factory
-import scala.reflect.{ClassTag, classTag}
+import scala.reflect.ClassTag
 import scala.util.Try
 
 object PureConfigReaders {

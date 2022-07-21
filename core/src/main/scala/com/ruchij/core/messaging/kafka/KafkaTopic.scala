@@ -1,6 +1,7 @@
 package com.ruchij.core.messaging.kafka
 
 import cats.effect.Sync
+import com.ruchij.core.commands.ScanVideosCommand
 import com.ruchij.core.config.KafkaConfiguration
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.messaging.kafka.Codecs._
@@ -50,5 +51,11 @@ object KafkaTopic {
     override val name: String = "worker-status-updates"
 
     override val codec: Codec[WorkerStatusUpdate] = Codec.derive[WorkerStatusUpdate]
+  }
+
+  implicit case object ScanVideoCommandTopic extends KafkaTopic[ScanVideosCommand] {
+    override val name: String = "scan-videos-command"
+
+    override val codec: Codec[ScanVideosCommand] = Codec.derive[ScanVideosCommand]
   }
 }

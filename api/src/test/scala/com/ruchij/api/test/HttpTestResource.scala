@@ -9,6 +9,7 @@ import com.ruchij.api.ApiApp
 import com.ruchij.api.config.{ApiServiceConfiguration, ApiStorageConfiguration, AuthenticationConfiguration, HttpConfiguration}
 import com.ruchij.api.models.ApiMessageBrokers
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
+import com.ruchij.core.commands.ScanVideosCommand
 import com.ruchij.core.config.{ApplicationInformation, KafkaConfiguration, SpaSiteRendererConfiguration}
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
@@ -83,6 +84,7 @@ object HttpTestResource {
       healthCheckPubSub <- Resource.eval(Fs2PubSub[F, HealthCheckMessage])
       httpMetricPubSub <- Resource.eval(Fs2PubSub[F, HttpMetric])
       workerStatusUpdatesPubSub <- Resource.eval(Fs2PubSub[F, WorkerStatusUpdate])
+      scanVideoCommandPubSub <- Resource.eval(Fs2PubSub[F, ScanVideosCommand])
       dispatcher <- Dispatcher[F]
 
       messageBrokers = ApiMessageBrokers(
@@ -90,6 +92,7 @@ object HttpTestResource {
         scheduledVideoDownloadPubSub,
         healthCheckPubSub,
         workerStatusUpdatesPubSub,
+        scanVideoCommandPubSub,
         httpMetricPubSub
       )
 
