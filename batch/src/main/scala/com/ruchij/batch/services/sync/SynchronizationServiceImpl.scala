@@ -54,28 +54,34 @@ class SynchronizationServiceImpl[F[+ _]: Async: JodaClock, A, T[_]: MonadThrow](
   private val logger = Logger[SynchronizationServiceImpl[F, A, T]]
 
   override val sync: F[SynchronizationResult] =
-    Stream
-      .emits[F, String](storageConfiguration.videoFolder :: storageConfiguration.otherVideoFolders)
-      .flatMap(fileRepositoryService.list)
-      .mapAsyncUnordered(MaxConcurrentSyncCount) { filePath =>
-        isFileSupported(filePath)
-          .flatMap { isVideoFilePath =>
-            if (isVideoFilePath) syncVideo(filePath)
-            else
-              logger
-                .trace(s"Ignoring $filePath")
-                .productR(Applicative[F].pure(IgnoredFile(filePath)))
+    logger.info[F]("Synchronization started")
+      .productR {
+        Stream
+          .emits[F, String](storageConfiguration.videoFolder :: storageConfiguration.otherVideoFolders)
+          .flatMap(fileRepositoryService.list)
+          .mapAsyncUnordered(MaxConcurrentSyncCount) { filePath =>
+            isFileSupported(filePath)
+              .flatMap { isVideoFilePath =>
+                if (isVideoFilePath) syncVideo(filePath)
+                else
+                  logger
+                    .trace(s"Ignoring $filePath")
+                    .productR(Applicative[F].pure(IgnoredFile(filePath)))
+              }
           }
-      }
-      .evalTap {
-        case VideoSynced(video) =>
-          logger.info[F](s"Sync completed for ${video.fileResource.path}")
+          .evalTap {
+            case VideoSynced(video) =>
+              logger.info[F](s"Sync completed for ${video.fileResource.path}")
 
-        case _ => Applicative[F].unit
+            case _ => Applicative[F].unit
+          }
+          .fold(SynchronizationResult.Zero)(_ + _)
+          .compile
+          .lastOrError
       }
-      .fold(SynchronizationResult.Zero)(_ + _)
-      .compile
-      .lastOrError
+      .flatTap { result =>
+        logger.info[F](result.prettyPrint)
+      }
 
   def isFileSupported(filePath: String): F[Boolean] =
     if (MediaType.video.all.exists(_.fileExtensions.exists(extension => filePath.endsWith("." + extension)))) {

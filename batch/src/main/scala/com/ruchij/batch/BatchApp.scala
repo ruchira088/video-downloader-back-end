@@ -13,6 +13,7 @@ import com.ruchij.batch.services.snapshots.VideoSnapshotServiceImpl
 import com.ruchij.batch.services.sync.SynchronizationServiceImpl
 import com.ruchij.batch.services.video.BatchVideoServiceImpl
 import com.ruchij.batch.services.worker.WorkExecutorImpl
+import com.ruchij.core.commands.ScanVideosCommand
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
@@ -118,7 +119,9 @@ object BatchApp extends IOApp {
           workerStatusUpdatesSubscriber = new KafkaSubscriber[F, WorkerStatusUpdate](
             batchServiceConfiguration.kafkaConfiguration
           )
+
           httpMetricsSubscriber = new KafkaSubscriber[F, HttpMetric](batchServiceConfiguration.kafkaConfiguration)
+          scanForVideosCommandSubscriber = new KafkaSubscriber[F, ScanVideosCommand](batchServiceConfiguration.kafkaConfiguration)
 
           batchSchedulingService = new BatchSchedulingServiceImpl[F, ConnectionIO, CommittableConsumerRecord[
             F,
@@ -189,6 +192,7 @@ object BatchApp extends IOApp {
             batchVideoService,
             workExecutor,
             httpMetricsSubscriber,
+            scanForVideosCommandSubscriber,
             workerDao,
             batchServiceConfiguration.workerConfiguration,
             batchServiceConfiguration.applicationInformation.instanceId

@@ -15,6 +15,7 @@ import com.ruchij.batch.services.sync.SynchronizationService
 import com.ruchij.batch.services.sync.models.SynchronizationResult
 import com.ruchij.batch.services.video.BatchVideoService
 import com.ruchij.batch.services.worker.WorkExecutor
+import com.ruchij.core.commands.ScanVideosCommand
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.workers.models.WorkerStatus
@@ -39,6 +40,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: Monad, M[_]](
   batchVideoService: BatchVideoService[F],
   workExecutor: WorkExecutor[F],
   httpMetricSubscriber: Subscriber[F, CommittableRecord[M, *], HttpMetric],
+  scanForVideosCommandSubscriber: Subscriber[F, CommittableRecord[M, *], ScanVideosCommand],
   workerDao: WorkerDao[T],
   workerConfiguration: WorkerConfiguration,
   instanceId: String
@@ -84,7 +86,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: Monad, M[_]](
         .flatMap {
           case (task, timestamp) =>
             OptionT(transaction(workerDao.assignTask(worker.id, task.videoMetadata.id, timestamp)))
-              .product { OptionT.liftF { batchSchedulingService.publishScheduledVideoDownload(task.videoMetadata.id) }}
+              .product { OptionT.liftF { batchSchedulingService.publishScheduledVideoDownload(task.videoMetadata.id) } }
               .as(timestamp -> task)
         }
         .flatMapF {
@@ -131,7 +133,8 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: Monad, M[_]](
         .value
     } {
       case (Some(scheduledVideoDownload), Errored(_)) =>
-        batchVideoService.deleteById(scheduledVideoDownload.videoMetadata.id, deleteVideoFile = false)
+        batchVideoService
+          .deleteById(scheduledVideoDownload.videoMetadata.id, deleteVideoFile = false)
           .productR {
             batchSchedulingService
               .updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Error)
@@ -156,27 +159,40 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: Monad, M[_]](
       .productR(Applicative[F].unit)
 
   override val run: Stream[F, Video] =
-    Stream
-      .eval(Topic[F, ScheduledVideoDownload])
-      .product(Stream.eval(Topic[F, WorkerStatusUpdate]))
-      .flatMap {
-        case (scheduledVideoDownloadsTopic, workerStatusUpdatesTopic) =>
-          val workerStatusUpdates: Stream[F, WorkerStatusUpdate] =
-            workerStatusUpdatesTopic.subscribe(Int.MaxValue)
+    for {
+      scheduledVideoDownloadsTopic <- Stream.eval(Topic[F, ScheduledVideoDownload])
+      workerStatusUpdatesTopic <- Stream.eval(Topic[F, WorkerStatusUpdate])
+      scanVideosCommandTopic <- Stream.eval(Topic[F, ScanVideosCommand])
 
-          idleWorkers
-            .concurrently(publishScheduledVideoDownloadsUpdatesToTopic(scheduledVideoDownloadsTopic))
-            .concurrently(publishWorkerStatusUpdatesToTopic(workerStatusUpdatesTopic))
-            .concurrently(cleanUpStaleScheduledVideoDownloads)
-            .concurrently(updateVideoWatchTimes(ChunkSize))
-            .concurrently(cleanUpStaleWorkers)
-            .concurrently(updateWorkersAndScheduledVideoDownloads(workerStatusUpdates))
-            .parEvalMapUnordered(workerConfiguration.maxConcurrentDownloads) { worker =>
-              performWorkDuringWorkPeriod(worker, scheduledVideoDownloadsTopic.subscribe(Int.MaxValue), workerStatusUpdates)
-            }
-            .collect {
-              case Some(video) => video
-            }
+      video <- run(scheduledVideoDownloadsTopic, workerStatusUpdatesTopic, scanVideosCommandTopic)
+    }
+    yield video
+
+  private def run(
+    scheduledVideoDownloadsTopic: Topic[F, ScheduledVideoDownload],
+    workerStatusUpdatesTopic: Topic[F, WorkerStatusUpdate],
+    scanVideosCommandTopic: Topic[F, ScanVideosCommand]
+  ): Stream[F, Video] =
+    idleWorkers
+      .concurrently(publishScheduledVideoDownloadsUpdatesToTopic(scheduledVideoDownloadsTopic))
+      .concurrently(publishWorkerStatusUpdatesToTopic(workerStatusUpdatesTopic))
+      .concurrently(publishScanForVideosCommandsToTopic(scanVideosCommandTopic))
+      .concurrently(cleanUpStaleScheduledVideoDownloads)
+      .concurrently(updateVideoWatchTimes(ChunkSize))
+      .concurrently(cleanUpStaleWorkers)
+      .concurrently(updateWorkersAndScheduledVideoDownloads(workerStatusUpdatesTopic.subscribe(Int.MaxValue)))
+      .concurrently {
+        scanVideosCommandTopic.subscribe(Int.MaxValue).evalMap { _ => synchronizationService.sync }
+      }
+      .parEvalMapUnordered(workerConfiguration.maxConcurrentDownloads) { worker =>
+        performWorkDuringWorkPeriod(
+          worker,
+          scheduledVideoDownloadsTopic.subscribe(Int.MaxValue),
+          workerStatusUpdatesTopic.subscribe(Int.MaxValue)
+        )
+      }
+      .collect {
+        case Some(video) => video
       }
 
   def updateWorkersAndScheduledVideoDownloads(
@@ -264,14 +280,20 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: Monad, M[_]](
           }
       }
 
-  def publishScheduledVideoDownloadsUpdatesToTopic(topic: Topic[F, ScheduledVideoDownload]): Stream[F, Unit] =
+  private def publishScheduledVideoDownloadsUpdatesToTopic(topic: Topic[F, ScheduledVideoDownload]): Stream[F, Unit] =
     topic.publish {
       batchSchedulingService.subscribeToScheduledVideoDownloadUpdates(s"batch-scheduler-$instanceId")
     }
 
-  def publishWorkerStatusUpdatesToTopic(topic: Topic[F, WorkerStatusUpdate]): Stream[F, Unit] =
+  private def publishWorkerStatusUpdatesToTopic(topic: Topic[F, WorkerStatusUpdate]): Stream[F, Unit] =
     topic.publish {
       batchSchedulingService.subscribeToWorkerStatusUpdates(s"batch-scheduler-$instanceId")
+    }
+
+  private def publishScanForVideosCommandsToTopic(topic: Topic[F, ScanVideosCommand]): Stream[F, Unit] =
+    topic.publish {
+      scanForVideosCommandSubscriber.subscribe(s"batch-scheduler")
+        .evalMap { record => scanForVideosCommandSubscriber.commit(List(record)).as(record.value) }
     }
 
   val cleanUpStaleScheduledVideoDownloads: Stream[F, ScheduledVideoDownload] =
