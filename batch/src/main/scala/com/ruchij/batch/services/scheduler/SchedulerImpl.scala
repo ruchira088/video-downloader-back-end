@@ -343,7 +343,6 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: Monad, M[_]](
       .productR(newWorkers)
       .flatMap(count => logger.info[F](s"New workers created: $count"))
       .productR(synchronizationService.sync)
-      .flatTap(result => logger.info[F](result.prettyPrint))
       .productL(logger.info[F]("Batch initialization completed"))
 }
 
