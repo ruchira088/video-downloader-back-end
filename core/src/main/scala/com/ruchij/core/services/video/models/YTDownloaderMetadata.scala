@@ -6,7 +6,7 @@ import org.http4s.Uri
 case class YTDownloaderMetadata(
   title: String,
   extractor: String,
-  duration: Int,
+  duration: Double,
   thumbnail: Option[Uri],
   formats: List[Format]
 )

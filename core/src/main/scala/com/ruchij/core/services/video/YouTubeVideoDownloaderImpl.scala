@@ -2,7 +2,8 @@ package com.ruchij.core.services.video
 
 import cats.ApplicativeError
 import cats.data.{Kleisli, OptionT}
-import cats.effect.{Async, MonadCancelThrow, Sync}
+import cats.effect.{Async, Sync}
+import cats.MonadThrow
 import cats.implicits._
 import com.ruchij.core.daos.videometadata.models.{VideoSite, WebPage}
 import com.ruchij.core.exceptions.UnsupportedVideoUrlException
@@ -33,7 +34,7 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
       .string
       .flatMap {
         output =>
-          MonadCancelThrow[F].recoverWith(JsonParser.decode[YTDownloaderMetadata](output).toType[F, Throwable]) {
+          MonadThrow[F].recoverWith(JsonParser.decode[YTDownloaderMetadata](output).toType[F, Throwable]) {
             case _: Error => ApplicativeError[F, Throwable].raiseError(UnsupportedVideoUrlException(uri))
           }
       }
@@ -42,21 +43,24 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
           .product {
             OptionT.fromOption[F](metadata.thumbnail)
               .getOrElseF {
-                MonadCancelThrow[F].handleError(retrieveThumbnailFromUri.run(uri)) {_ =>
+                MonadThrow[F].handleError(retrieveThumbnailFromUri.run(uri)) {_ =>
                   uri"https://s3.ap-southeast-2.amazonaws.com/assets.video-downloader.ruchij.com/video-placeholder.png"
                 }
               }
           }
-          .map {
+          .flatMap {
             case (videoSite, thumbnail) =>
-              VideoAnalysisResult(
-                uri,
-                videoSite,
-                metadata.title,
-                FiniteDuration(metadata.duration, TimeUnit.SECONDS),
-                metadata.formats.flatMap(_.filesize.map(_.toLong)).maxOption.getOrElse[Long](0),
-                thumbnail
-              )
+              MonadThrow[F].catchNonFatal(Math.floor(metadata.duration).toInt)
+                .map { seconds =>
+                  VideoAnalysisResult(
+                    uri,
+                    videoSite,
+                    metadata.title,
+                    FiniteDuration(seconds, TimeUnit.SECONDS),
+                    metadata.formats.flatMap(_.filesize.map(_.toLong)).maxOption.getOrElse[Long](0),
+                    thumbnail
+                  )
+                }
           }
       }
 
