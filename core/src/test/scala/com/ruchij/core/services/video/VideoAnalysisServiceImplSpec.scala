@@ -75,14 +75,14 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
   }
 
   it should "analyse a TXXX video URL" in runIO {
-    analyze[IO](uri"https://txxx.com/videos/18387087/jax-slayher-kay-lovely-in-boyfriend-watches-kay-take-a-big-black-cock-newsensations2/")
+    analyze[IO](uri"https://txxx.com/videos/17258955/first-time-bbc-with-balls-deep-anal/?fr=18404847&rp=1")
       .flatMap {
         videoAnalysisResult =>
           IO.delay {
-            videoAnalysisResult.title mustBe "Jax Slayher & Kay Lovely in Boyfriend Watches Kay Take A Big Black Cock - NewSensations"
-            videoAnalysisResult.duration mustBe ((12 minutes) + (34 seconds))
-            videoAnalysisResult.size mustBe 386306170
-            videoAnalysisResult.thumbnail mustBe uri"https://tn.txxx.tube/contents/videos_sources/18387000/18387087/screenshots/12.jpg"
+            videoAnalysisResult.title mustBe "First Time Bbc With Balls Deep Anal"
+            videoAnalysisResult.duration mustBe ((52 minutes) + (5 seconds))
+            videoAnalysisResult.size mustBe 431177059
+            videoAnalysisResult.thumbnail mustBe uri"https://tn.txxx.tube/contents/videos_sources/17258000/17258955/screenshots/1.jpg"
             videoAnalysisResult.videoSite mustBe CustomVideoSite.TXXX
           }
       }
