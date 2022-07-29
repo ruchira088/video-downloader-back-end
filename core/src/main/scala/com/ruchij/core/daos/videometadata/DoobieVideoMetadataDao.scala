@@ -5,6 +5,7 @@ import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 import com.ruchij.core.daos.videometadata.models.VideoMetadata
 import doobie.ConnectionIO
 import doobie.implicits._
+import doobie.util.fragment.Fragment
 import doobie.util.fragments.setOpt
 import org.http4s.Uri
 
@@ -40,18 +41,23 @@ object DoobieVideoMetadataDao extends VideoMetadataDao[ConnectionIO] {
         )
     """.update.run
 
-  override def update(videoMetadataId: String, maybeTitle: Option[String], maybeSize: Option[Long], maybeDuration: Option[FiniteDuration]): ConnectionIO[Int] =
-    if (List(maybeSize, maybeTitle).exists(_.nonEmpty))
-      (fr"UPDATE video_metadata" ++
-        setOpt(
-          maybeTitle.map(title => fr"title = $title"),
-          maybeSize.map(size => fr"size = $size"),
-          maybeDuration.map(duration => fr"duration = $duration")
-        ) ++
-        fr"WHERE id = $videoMetadataId")
-        .update
-        .run
+  override def update(
+    videoMetadataId: String,
+    maybeTitle: Option[String],
+    maybeSize: Option[Long],
+    maybeDuration: Option[FiniteDuration]
+  ): ConnectionIO[Int] = {
+    val setValues: List[Option[Fragment]] =
+      List(
+        maybeTitle.map(title => fr"title = $title"),
+        maybeSize.map(size => fr"size = $size"),
+        maybeDuration.map(duration => fr"duration = $duration")
+      )
+
+    if (setValues.flatMap(_.toList).nonEmpty)
+      (fr"UPDATE video_metadata" ++ setOpt(setValues: _*) ++ fr"WHERE id = $videoMetadataId").update.run
     else Applicative[ConnectionIO].pure(0)
+  }
 
   override def findById(videoMetadataId: String): ConnectionIO[Option[VideoMetadata]] =
     (SelectQuery ++ fr"WHERE video_metadata.id = $videoMetadataId")
@@ -64,7 +70,5 @@ object DoobieVideoMetadataDao extends VideoMetadataDao[ConnectionIO] {
       .option
 
   override def deleteById(videoMetadataId: String): ConnectionIO[Int] =
-    sql"DELETE FROM video_metadata WHERE id = $videoMetadataId"
-      .update
-      .run
+    sql"DELETE FROM video_metadata WHERE id = $videoMetadataId".update.run
 }
