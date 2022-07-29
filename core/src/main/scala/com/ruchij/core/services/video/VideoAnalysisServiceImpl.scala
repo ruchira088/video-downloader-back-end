@@ -8,7 +8,7 @@ import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
-import com.ruchij.core.daos.videometadata.models.CustomVideoSite.Selector
+import com.ruchij.core.daos.videometadata.models.CustomVideoSite.{HtmlCustomVideoSite, Selector, TxxxNetwork}
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata, VideoSite, WebPage}
 import com.ruchij.core.exceptions.{ExternalServiceException, ValidationException}
 import com.ruchij.core.logging.Logger
@@ -62,13 +62,15 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
 
   def createMetadata(uri: Uri): F[VideoMetadata] =
     for {
-      videoAnalysisResult @ VideoAnalysisResult(processedUri, videoSite, title, duration, size, thumbnailUri) <- analyze(uri)
+      videoAnalysisResult @ VideoAnalysisResult(processedUri, videoSite, title, duration, size, thumbnailUri) <- analyze(
+        uri
+      )
       _ <- logger.info[F](s"Uri=${processedUri.renderString} Result=$videoAnalysisResult")
 
-      videoId <-
-        hashingService.hash(processedUri.renderString)
-          .product(hashingService.hash(title))
-          .map { case (urlHash, titleHash) => s"${videoSite.name.toLowerCase}-$urlHash$titleHash" }
+      videoId <- hashingService
+        .hash(processedUri.renderString)
+        .product(hashingService.hash(title))
+        .map { case (urlHash, titleHash) => s"${videoSite.name.toLowerCase}-$urlHash$titleHash" }
 
       timestamp <- JodaClock[F].timestamp
 
@@ -101,15 +103,16 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
     } yield videoMetadata
 
   override def analyze(uri: Uri): F[VideoAnalysisResult] =
-    VideoSite.fromUri(uri).toType[F, Throwable]
+    VideoSite
+      .fromUri(uri)
+      .toType[F, Throwable]
       .flatMap {
         case customVideoSite: CustomVideoSite =>
           for {
             processedUri <- customVideoSite.processUri[F](uri)
             document <- customVideoSiteHtmlDocument(processedUri, customVideoSite)
             videoAnalysisResult <- analyze(processedUri, customVideoSite).run(WebPage(uri, document))
-          }
-          yield videoAnalysisResult
+          } yield videoAnalysisResult
 
         case VideoSite.Local =>
           ApplicativeError[F, Throwable].raiseError {
@@ -121,14 +124,21 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
       }
 
   override def downloadUri(uri: Uri): F[Uri] =
-    VideoSite.fromUri(uri).toType[F, Throwable]
+    VideoSite
+      .fromUri(uri)
+      .toType[F, Throwable]
       .flatMap {
-        case customVideoSite: CustomVideoSite =>
+        case htmlVideoSite: HtmlCustomVideoSite =>
           for {
-            document <- customVideoSiteHtmlDocument(uri, customVideoSite)
-            downloadUri <- customVideoSite.downloadUri[F].run(WebPage(uri, document))
-          }
-          yield downloadUri
+            document <- customVideoSiteHtmlDocument(uri, htmlVideoSite)
+            downloadUri <- htmlVideoSite.downloadUri[F].run(WebPage(uri, document))
+          } yield downloadUri
+
+        case txxxNetwork: TxxxNetwork =>
+          txxxNetwork.downloadUri(
+            uri,
+            javascript => spaSiteRenderer.executeJavaScript(uri, txxxNetwork.readyCssSelectors, javascript)
+          )
 
         case _ =>
           ApplicativeError[F, Throwable].raiseError {
@@ -138,17 +148,15 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
 
   private def customVideoSiteHtmlDocument(uri: Uri, customVideoSite: CustomVideoSite): F[Document] =
     for {
-      html <-
-        customVideoSite match {
-          case spaCustomVideoSite: CustomVideoSite.SpaCustomVideoSite =>
-            spaSiteRenderer.render(uri, spaCustomVideoSite.readyCssSelectors)
+      html <- customVideoSite match {
+        case spaCustomVideoSite: CustomVideoSite.SpaCustomVideoSite =>
+          spaSiteRenderer.render(uri, spaCustomVideoSite.readyCssSelectors)
 
-          case _ => client.run(GET(uri)).use(_.as[String])
-        }
+        case _ => client.run(GET(uri)).use(_.as[String])
+      }
 
       document <- Sync[F].catchNonFatal(Jsoup.parse(html))
     } yield document
-
 
   def analyze(uri: Uri, customVideoSite: CustomVideoSite): Selector[F, VideoAnalysisResult] =
     for {
@@ -156,7 +164,10 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
       thumbnailUri <- customVideoSite.thumbnailUri[F]
       duration <- customVideoSite.duration[F]
 
-      downloadUri <- customVideoSite.downloadUri[F]
+      downloadUri <- customVideoSite match {
+        case htmlVideoSite: HtmlCustomVideoSite => htmlVideoSite.downloadUri[F]
+        case _ => Kleisli.liftF(downloadUri(uri))
+      }
 
       _ <- Kleisli.liftF(logger.info[F](s"Download uri = $downloadUri for videoUri = $uri"))
 
@@ -175,7 +186,8 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
     } yield VideoAnalysisResult(uri, customVideoSite, videoTitle, duration, size, thumbnailUri)
 
   override def videoDurationFromPath(videoPath: String): F[FiniteDuration] =
-    cliCommandRunner.run(s"""ffprobe -i "$videoPath" -show_entries format=duration -v quiet -print_format csv="p=0"""")
+    cliCommandRunner
+      .run(s"""ffprobe -i "$videoPath" -show_entries format=duration -v quiet -print_format csv="p=0"""")
       .compile
       .string
       .flatMap { output =>

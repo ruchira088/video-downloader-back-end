@@ -1,11 +1,10 @@
 package com.ruchij.core.daos.videometadata.models
 
-import cats.data.{Kleisli, NonEmptyList, OptionT}
+import cats.data.{Kleisli, NonEmptyList}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadThrow}
 import com.ruchij.core.circe.Decoders.finiteDurationDecoder
 import com.ruchij.core.daos.videometadata.models.CustomVideoSite.Selector
-import com.ruchij.core.exceptions.{InvalidConditionException, ValidationException}
 import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, KleisliOption, eitherToF}
 import com.ruchij.core.utils.JsoupSelector
 import com.ruchij.core.utils.MatcherUtils.IntNumber
@@ -13,7 +12,6 @@ import enumeratum.{Enum, EnumEntry}
 import org.http4s.circe.decodeUri
 import org.http4s.implicits.http4sLiteralsSyntax
 import org.http4s.{Query, Uri}
-import org.jsoup.nodes.Document
 import io.circe.{parser => JsonParser}
 import io.circe.generic.auto.exportDecoder
 
@@ -31,8 +29,6 @@ sealed trait CustomVideoSite extends VideoSite with EnumEntry { self =>
   def thumbnailUri[F[_]: MonadThrow]: Selector[F, Uri]
 
   def duration[F[_]: MonadThrow]: Selector[F, FiniteDuration]
-
-  def downloadUri[F[_]: MonadThrow]: Selector[F, Uri]
 
   def test(uri: Uri): Boolean = uri.host.exists(_.value.toLowerCase.contains(hostname.toLowerCase))
 }
@@ -53,20 +49,15 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
         }
     }
 
-  def notApplicable[F[_]: ApplicativeError[*[_], Throwable], A]: Kleisli[F, Document, A] =
-    Kleisli.liftF[F, Document, A] {
-      ApplicativeError[F, Throwable].raiseError[A] {
-        InvalidConditionException {
-          "Unable to gather site metadata for local video"
-        }
-      }
-    }
+  sealed trait HtmlCustomVideoSite extends CustomVideoSite {
+    def downloadUri[F[_]: MonadThrow]: Selector[F, Uri]
+  }
 
   sealed trait SpaCustomVideoSite extends CustomVideoSite {
     val readyCssSelectors: Seq[String]
   }
 
-  case object PornOne extends CustomVideoSite {
+  case object PornOne extends HtmlCustomVideoSite {
     override val hostname: String = "pornone.com"
 
     private case class PornOneMetadata(name: String, thumbnailUrl: Uri, duration: FiniteDuration)
@@ -98,7 +89,7 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
       Applicative[F].pure(uri.copy(query = Query.empty))
   }
 
-  case object SpankBang extends CustomVideoSite {
+  case object SpankBang extends HtmlCustomVideoSite {
     override val hostname: String = "spankbang.com"
 
     override def title[F[_]: MonadThrow]: Selector[F, String] =
@@ -120,7 +111,7 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
         .flatMapF(JsoupSelector.src[F])
   }
 
-  case object XFreeHD extends CustomVideoSite {
+  case object XFreeHD extends HtmlCustomVideoSite {
     override val hostname: String = "www.xfreehd.com"
 
     override def title[F[_]: MonadThrow]: Selector[F, String] =
@@ -159,22 +150,33 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
 
   sealed trait TxxxNetwork extends SpaCustomVideoSite {
     case class TxxNetworkMetadata(name: String, thumbnailUrl: Option[Uri], duration: Option[FiniteDuration])
+    case class JsExecutionOutput(videoUrl: String)
+
+    private val javascript: String =
+      """
+        const run =
+          () => {
+            const playlist = window.jw_player?.getPlaylist()
+            const videoUrl = playlist[0]?.sources[0]?.file
+
+            return ({videoUrl})
+          }
+
+        run()
+      """
 
     override lazy val readyCssSelectors: Seq[String] =
-      Seq(
-        ".jw-preview[style]",
-        ".jw-text-duration",
-        "video.jw-video[src]",
-        "script[type='application/ld+json']"
-      )
+      Seq(".jw-preview[style]", ".jw-text-duration", "video.jw-video[src]", "script[type='application/ld+json']")
 
     private val ThumbnailUrl: Regex = ".*background-image: url\\(\"(\\S+)\"\\);.*".r
 
     private def metadata[F[_]: MonadThrow]: Selector[F, TxxNetworkMetadata] =
-      JsoupSelector.singleElement[F]("script[type='application/ld+json']")
+      JsoupSelector
+        .singleElement[F]("script[type='application/ld+json']")
         .map(_.data())
-        .flatMapF(data => JsonParser.parse(data).toType[F, Throwable])
-        .flatMapF(_.as[TxxNetworkMetadata].toType[F, Throwable])
+        .flatMapF { data =>
+          JsonParser.parse(data).flatMap(_.as[TxxNetworkMetadata]).toType[F, Throwable]
+        }
 
     override def title[F[_]: MonadThrow]: Selector[F, String] =
       metadata[F].map(_.name)
@@ -200,38 +202,21 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
           .flatMapF(parseDuration[F])
       }
 
-    override def downloadUri[F[_]: MonadThrow]: Selector[F, Uri] =
-      JsoupSelector
-        .singleElement[F]("video.jw-video")
-        .map(element => element.attr("src"))
-        .flatMap { uriPath =>
-          Kleisli
-            .ask[F, WebPage]
-            .flatMapF {
-              case WebPage(uri, _) =>
-                val videoUrlString =
-                  for {
-                    schema <- uri.scheme
-                    authority <- uri.authority
-                  } yield s"${schema.value}://$authority$uriPath"
+    def downloadUri[F[_]: MonadThrow](uri: Uri, execute: String => F[String]): F[Uri] =
+      execute(javascript)
+        .flatMap { data =>
+          JsonParser.parse(data).flatMap(_.as[JsExecutionOutput]).toType[F, Throwable]
+        }
+        .flatMap {
+          case JsExecutionOutput(videoPath) =>
+            val videoUriString =
+              if (videoPath.startsWith("/"))
+                uri.scheme
+                  .flatMap(scheme => uri.authority.map(authority => s"${scheme.value}://$authority$videoPath"))
+                  .getOrElse(videoPath)
+              else videoPath
 
-                OptionT
-                  .fromOption[F](videoUrlString)
-                  .flatMap { urlString =>
-                    OptionT
-                      .liftF(Uri.fromString(urlString).toType[F, Throwable])
-                      .handleErrorWith { _ =>
-                        OptionT.none
-                      }
-                  }
-                  .getOrElseF {
-                    ApplicativeError[F, Throwable].raiseError {
-                      ValidationException {
-                        s"Unable to extract video URL from Uri=$uri and VideoUri=$uriPath"
-                      }
-                    }
-                  }
-            }
+            Uri.fromString(videoUriString).toType[F, Throwable].map(_.removeQueryParam("f"))
         }
   }
 

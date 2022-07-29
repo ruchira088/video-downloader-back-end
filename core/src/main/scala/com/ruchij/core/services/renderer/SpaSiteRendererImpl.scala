@@ -2,7 +2,7 @@ package com.ruchij.core.services.renderer
 
 import cats.effect.Async
 import com.ruchij.core.config.SpaSiteRendererConfiguration
-import com.ruchij.core.services.renderer.models.SpaRendererRequest
+import com.ruchij.core.services.renderer.models.{JavaScriptExecutionRequest, SpaRendererRequest}
 import io.circe.generic.auto.exportEncoder
 import org.http4s.Method.POST
 import org.http4s.Uri
@@ -26,4 +26,11 @@ class SpaSiteRendererImpl[F[_]: Async](client: Client[F], spaSiteRendererConfigu
       )
     )
 
+  override def executeJavaScript(uri: Uri, readyCssSelectors: Seq[String], script: String): F[String] =
+    client.expect[String](
+      POST(
+        JavaScriptExecutionRequest(uri, readyCssSelectors, script),
+        spaSiteRendererConfiguration.uri.withPath(Path.Root / "render" / "execute")
+      )
+    )
 }
