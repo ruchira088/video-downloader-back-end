@@ -9,6 +9,9 @@
     - name: Install dependencies
       import_tasks: tasks/install-dependencies.yml
 
+    - name: Set config values and secrets
+      import_tasks: tasks/configs-and-secrets.yml
+
     - set_fact:
         k8s_vars:
           production:

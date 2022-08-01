@@ -35,7 +35,7 @@
     - name: Login to GitHub container registry
       command: docker login ghcr.io -u USERNAME -p {{ access_token }}
       vars:
-        access_token: "{{ lookup('aws_ssm', '/github/token', region='ap-southeast-2') }}"
+        access_token: "{{ lookup('aws_ssm', '/github/packages/read-write-token', region='ap-southeast-2') }}"
 
     - name: Publish Docker image
       shell: |
