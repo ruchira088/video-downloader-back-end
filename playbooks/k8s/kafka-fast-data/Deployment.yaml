@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: kafka-fast-data-container
-          image: lensesio/fast-data-dev:2.6
+          image: lensesio/fast-data-dev:2.6.2-L0
           envFrom:
             - configMapRef:
                 name: kafka-fast-data-config-map
