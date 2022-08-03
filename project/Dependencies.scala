@@ -47,9 +47,9 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.1"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.0.4"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.1.2"
 
-  lazy val postgresql = "org.postgresql" % "postgresql" % "42.4.0"
+  lazy val postgresql = "org.postgresql" % "postgresql" % "42.4.1"
 
   lazy val h2 = "com.h2database" % "h2" % "2.1.214"
 
@@ -77,7 +77,7 @@ object Dependencies
 
   lazy val betterMonadicFor = "com.olegpy" %% "better-monadic-for" % "0.3.1"
 
-  lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.12"
+  lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.13"
 
   lazy val scalaMock = "org.scalamock" %% "scalamock" % "5.2.0"
 
