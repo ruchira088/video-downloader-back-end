@@ -87,7 +87,7 @@
                             bitnami/postgresql
                       when: postgresql_output.resources | length == 0
 
-            - name: Deploy Redis Helm chart
+            - name: Deploy Redis
               block:
                 - name: Check Redis service in K8s
                   k8s_info:
