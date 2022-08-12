@@ -18,6 +18,7 @@
             namespace: video-downloader-back-end
             hostname: api.video.home.ruchij.com
             kafka_fast_data_hostname: kafka-fast-data.video.home.ruchij.com
+            app_node_selector:
             host_path_mappings:
               - host_path: /mnt/md0/Production/video-downloader/videos
                 pod_mount_path: /home/videos
@@ -29,10 +30,12 @@
             namespace: video-downloader-back-end-{{ git_branch }}
             hostname: api.{{ git_branch }}.video.dev.ruchij.com
             kafka_fast_data_hostname: kafka-fast-data.{{ git_branch }}.video.dev.ruchij.com
+            app_node_selector:
+              dataNode: "true"
             host_path_mappings:
-              - host_path: /root/video-downloader/dev/videos
+              - host_path: /mnt/data/videos
                 pod_mount_path: /home/videos
-              - host_path: /root/video-downloader/dev/images
+              - host_path: /mnt/data/images
                 pod_mount_path: /home/images
 
     - set_fact:
@@ -41,6 +44,7 @@
         kafka_fast_data_hostname: "{{ k8s_vars[env].kafka_fast_data_hostname }}"
         host_path_mappings: "{{ k8s_vars[env].host_path_mappings }}"
         ghcr_credentials: "{{ lookup('aws_ssm', '/github/ghcr/docker-config', region='ap-southeast-2') }}"
+        app_node_selector: "{{ k8s_vars[env].app_node_selector }}"
 
     - name: Render K8s resource files
       import_tasks: tasks/k8s-resource-files.yml

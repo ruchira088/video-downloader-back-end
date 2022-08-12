@@ -17,6 +17,13 @@ spec:
     spec:
       imagePullSecrets:
         - name: docker-registry-credentials
+{% if app_node_selector | length > 0 %}
+      nodeSelector:
+{% for key, value in app_node_selector.items() %}
+        {{ key }}: "{{ value }}"
+{% endfor %}
+{% else %}
+{% endif %}
       containers:
         - name: api-container
           image: ghcr.io/ruchira088/video-downloader-api:{{ git_branch }}-{{ git_commit }}
