@@ -17,7 +17,7 @@ object Dependencies
 
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.3.14"
 
-  lazy val fs2Io = "co.fs2" %% "fs2-io" % "3.2.8"
+  lazy val fs2Io = "co.fs2" %% "fs2-io" % "3.2.11"
 
   lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "2.5.0"
 
@@ -43,7 +43,7 @@ object Dependencies
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.15.2"
 
-  lazy val jodaTime = "joda-time" % "joda-time" % "2.10.14"
+  lazy val jodaTime = "joda-time" % "joda-time" % "2.11.0"
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.1"
 
