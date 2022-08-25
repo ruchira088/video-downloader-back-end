@@ -3,7 +3,7 @@ import sbt._
 object Dependencies
 {
   val ScalaVersion = "2.13.8"
-  val Http4sVersion = "0.23.14"
+  val Http4sVersion = "0.23.15"
   val CirceVersion = "0.14.2"
   val TestContainersVersion = "1.17.3"
 
@@ -41,7 +41,7 @@ object Dependencies
 
   lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "1.0.0-RC2"
 
-  lazy val jsoup = "org.jsoup" % "jsoup" % "1.15.2"
+  lazy val jsoup = "org.jsoup" % "jsoup" % "1.15.3"
 
   lazy val jodaTime = "joda-time" % "joda-time" % "2.11.0"
 
@@ -49,7 +49,7 @@ object Dependencies
 
   lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.1.6"
 
-  lazy val postgresql = "org.postgresql" % "postgresql" % "42.4.2"
+  lazy val postgresql = "org.postgresql" % "postgresql" % "42.5.0"
 
   lazy val h2 = "com.h2database" % "h2" % "2.1.214"
 
