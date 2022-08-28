@@ -26,6 +26,8 @@
                 pod_mount_path: /home/images
               - host_path: /mnt/md2/Production/video-downloader/videos
                 pod_mount_path: /home/videos-1
+              - host_path: /mnt/sda3/Production/video-downloader/videos
+                pod_mount_path: /home/videos-2
           development:
             namespace: video-downloader-back-end-{{ git_branch }}
             hostname: api.{{ git_branch }}.video.dev.ruchij.com
