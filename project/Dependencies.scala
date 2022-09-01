@@ -45,7 +45,7 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.1"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.2.0"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.2.1"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.5.0"
 
@@ -67,7 +67,7 @@ object Dependencies
 
   lazy val postgresqlTestContainer = "org.testcontainers" % "postgresql" % TestContainersVersion
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.11"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.4.0"
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
 
