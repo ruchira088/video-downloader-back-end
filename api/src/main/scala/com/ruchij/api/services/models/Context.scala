@@ -7,6 +7,6 @@ sealed trait Context {
 }
 
 object Context {
-  case class RequestContext(requestId: String) extends Context
-  case class AuthenticatedRequestContext(user: User, requestId: String) extends Context
+  final case class RequestContext(requestId: String) extends Context
+  final case class AuthenticatedRequestContext(user: User, requestId: String) extends Context
 }

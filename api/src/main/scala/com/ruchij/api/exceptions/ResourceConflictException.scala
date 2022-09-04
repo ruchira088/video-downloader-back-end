@@ -1,3 +1,3 @@
 package com.ruchij.api.exceptions
 
-case class ResourceConflictException(message: String) extends Exception(message)
+final case class ResourceConflictException(message: String) extends Exception(message)

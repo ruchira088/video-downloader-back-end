@@ -12,5 +12,5 @@ trait AssetService[F[_]] {
 }
 
 object AssetService {
-  case class FileByteRange(start: Long, end: Option[Long])
+  final case class FileByteRange(start: Long, end: Option[Long])
 }

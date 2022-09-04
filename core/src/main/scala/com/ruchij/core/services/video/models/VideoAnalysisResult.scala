@@ -5,7 +5,7 @@ import org.http4s.Uri
 
 import scala.concurrent.duration.FiniteDuration
 
-case class VideoAnalysisResult(
+final case class VideoAnalysisResult(
   url: Uri,
   videoSite: VideoSite,
   title: String,

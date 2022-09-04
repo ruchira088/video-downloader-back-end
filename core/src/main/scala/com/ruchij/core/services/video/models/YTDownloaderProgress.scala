@@ -5,7 +5,7 @@ import com.ruchij.core.utils.MatcherUtils.{DoubleNumber, FiniteDurationValue}
 import scala.concurrent.duration.FiniteDuration
 import scala.util.matching.Regex
 
-case class YTDownloaderProgress(
+final case class YTDownloaderProgress(
   completed: Double,
   totalSize: YTDataSize,
   downloadRatePerSecond: YTDataSize,

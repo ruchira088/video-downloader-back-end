@@ -3,7 +3,7 @@ package com.ruchij.api.web.headers
 import org.http4s.{Header, ParseFailure}
 import org.typelevel.ci.CIStringSyntax
 
-case class `X-User-ID`(value: String)
+final case class `X-User-ID`(value: String)
 
 object `X-User-ID` {
   implicit val userIdHeaderInstance: Header[`X-User-ID`, Header.Single] =

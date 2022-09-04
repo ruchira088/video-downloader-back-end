@@ -4,7 +4,7 @@ import cats.{Applicative, ApplicativeError}
 import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 import com.ruchij.core.exceptions.ValidationException
 
-case class UpdateScheduledVideoRequest(status: SchedulingStatus)
+final case class UpdateScheduledVideoRequest(status: SchedulingStatus)
 
 object UpdateScheduledVideoRequest {
   private val ValidInputStatuses = List(SchedulingStatus.Queued, SchedulingStatus.Paused)

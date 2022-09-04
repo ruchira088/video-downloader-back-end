@@ -28,12 +28,12 @@ object ExceptionHandler {
       }
     }
 
-  def logErrors[F[_]: Sync](throwable: Throwable)(response: Response[F]): F[Unit] =
+  private def logErrors[F[_]: Sync](throwable: Throwable)(response: Response[F]): F[Unit] =
     if (response.status >= Status.InternalServerError)
       logger.error[F](s"${response.status} status code returned", throwable)
     else logger.warn[F](throwable.getMessage)
 
-  val throwableStatusMapper: Throwable => Status = {
+  private val throwableStatusMapper: Throwable => Status = {
     case _: ResourceNotFoundException => Status.NotFound
 
     case _: AuthenticationException => Status.Unauthorized
@@ -52,7 +52,7 @@ object ExceptionHandler {
     case _ => Status.InternalServerError
   }
 
-  val throwableResponseBody: Throwable => ErrorResponse = {
+  private val throwableResponseBody: Throwable => ErrorResponse = {
     case AggregatedException(exceptions) =>
       ErrorResponse {
         exceptions.map(throwableResponseBody).flatMap(_.errorMessages)
@@ -68,14 +68,14 @@ object ExceptionHandler {
     case throwable => Option(throwable.getCause).fold(ErrorResponse(NonEmptyList.one(throwable.getMessage)))(throwableResponseBody)
   }
 
-  def errorResponseMapper[F[_]](throwable: Throwable)(response: Response[F]): Response[F] =
+  private def errorResponseMapper[F[_]](throwable: Throwable)(response: Response[F]): Response[F] =
     throwable match {
       case _: AuthenticationException => response.removeCookie(Authenticator.CookieName)
 
       case _ => response
     }
 
-  def entityResponseGenerator[F[_]](throwable: Throwable): EntityResponseGenerator[F, F] =
+  private def entityResponseGenerator[F[_]](throwable: Throwable): EntityResponseGenerator[F, F] =
     new EntityResponseGenerator[F, F] {
       override def status: Status = throwableStatusMapper(throwable)
 

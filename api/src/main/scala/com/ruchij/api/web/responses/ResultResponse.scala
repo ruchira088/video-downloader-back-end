@@ -1,3 +1,3 @@
 package com.ruchij.api.web.responses
 
-case class ResultResponse[A](result: A)
+final case class ResultResponse[A](result: A)

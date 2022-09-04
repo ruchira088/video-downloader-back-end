@@ -18,8 +18,8 @@ trait AuthenticationService[F[_]] {
 }
 
 object AuthenticationService {
-  case class Secret(value: String) extends AnyVal
-  case class Password(value: String) extends AnyVal
+  final case class Secret(value: String) extends AnyVal
+  final case class Password(value: String) extends AnyVal
 
   implicit def secretGenerator[F[+ _]: Sync]: RandomGenerator[F, Secret] =
     RandomGenerator[F, UUID].map(uuid => Secret(uuid.toString))

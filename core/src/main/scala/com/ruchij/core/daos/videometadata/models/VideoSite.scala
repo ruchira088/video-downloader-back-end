@@ -40,7 +40,7 @@ object VideoSite {
       ApplicativeError[F, Throwable].raiseError(ValidationException("Unable to process URIs for local videos"))
   }
 
-  case class YTDownloaderSite(site: String) extends VideoSite {
+  final case class YTDownloaderSite(site: String) extends VideoSite {
     override val name: String = site
 
     override def processUri[F[_] : MonadThrow](uri: Uri): F[Uri] =

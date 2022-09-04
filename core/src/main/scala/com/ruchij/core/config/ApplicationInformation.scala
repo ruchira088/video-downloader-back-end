@@ -2,7 +2,7 @@ package com.ruchij.core.config
 
 import org.joda.time.DateTime
 
-case class ApplicationInformation(
+final case class ApplicationInformation(
   instanceId: String,
   gitBranch: Option[String],
   gitCommit: Option[String],

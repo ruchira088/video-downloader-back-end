@@ -7,13 +7,13 @@ sealed trait FileSyncResult {
 }
 
 object FileSyncResult {
-  case class ExistingVideo(filePath: String) extends FileSyncResult
+  final case class ExistingVideo(filePath: String) extends FileSyncResult
 
-  case class VideoSynced(video: Video) extends FileSyncResult {
+  final case class VideoSynced(video: Video) extends FileSyncResult {
     override val filePath: String = video.fileResource.path
   }
 
-  case class SyncError(throwable: Throwable, filePath: String) extends FileSyncResult
+  final case class SyncError(throwable: Throwable, filePath: String) extends FileSyncResult
 
-  case class IgnoredFile(filePath: String) extends FileSyncResult
+  final case class IgnoredFile(filePath: String) extends FileSyncResult
 }

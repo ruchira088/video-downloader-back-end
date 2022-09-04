@@ -7,6 +7,6 @@ sealed trait VideoScanProgress {
 }
 
 object VideoScanProgress {
-  case class ScanInProgress(startedAt: DateTime) extends VideoScanProgress
-  case class ScanStarted(startedAt: DateTime) extends VideoScanProgress
+  final case class ScanInProgress(startedAt: DateTime) extends VideoScanProgress
+  final case class ScanStarted(startedAt: DateTime) extends VideoScanProgress
 }

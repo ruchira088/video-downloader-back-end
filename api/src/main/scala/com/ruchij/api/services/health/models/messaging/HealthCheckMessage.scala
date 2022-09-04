@@ -6,7 +6,7 @@ import org.joda.time.DateTime
 import vulcan.Codec
 import vulcan.generic._
 
-case class HealthCheckMessage(instanceId: String, dateTime: DateTime)
+final case class HealthCheckMessage(instanceId: String, dateTime: DateTime)
 
 object HealthCheckMessage {
   implicit case object HealthCheckTopic extends KafkaTopic[HealthCheckMessage] {

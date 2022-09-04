@@ -6,7 +6,7 @@ import org.joda.time.DateTime
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.language.postfixOps
 
-case class HealthCheckKey(dateTime: DateTime) extends KVStoreKey
+final case class HealthCheckKey(dateTime: DateTime) extends KVStoreKey
 
 object HealthCheckKey {
   implicit case object HealthCheckKeySpace extends KeySpace[HealthCheckKey, DateTime] {

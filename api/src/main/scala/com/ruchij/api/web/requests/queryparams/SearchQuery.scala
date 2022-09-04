@@ -12,7 +12,7 @@ import org.http4s.Uri
 
 import scala.concurrent.duration.FiniteDuration
 
-case class SearchQuery(
+final case class SearchQuery(
   term: Option[String],
   statuses: Option[NonEmptyList[SchedulingStatus]],
   durationRange: RangeValue[FiniteDuration],

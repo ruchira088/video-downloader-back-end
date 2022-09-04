@@ -7,10 +7,10 @@ import org.joda.time.DateTime
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-case class AuthenticationToken(userId: String, secret: Secret, expiresAt: DateTime, issuedAt: DateTime, renewals: Long)
+final case class AuthenticationToken(userId: String, secret: Secret, expiresAt: DateTime, issuedAt: DateTime, renewals: Long)
 
 object AuthenticationToken {
-  case class AuthenticationTokenKey(secret: Secret) extends KVStoreKey
+  final case class AuthenticationTokenKey(secret: Secret) extends KVStoreKey
 
   implicit case object AuthenticationKeySpace extends KeySpace[AuthenticationTokenKey, AuthenticationToken] {
     override val name: String = "authentication"

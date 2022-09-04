@@ -4,7 +4,7 @@ import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.video.models.Video
 import org.joda.time.DateTime
 
-case class Playlist(
+final case class Playlist(
   id: String,
   userId: String,
   createdAt: DateTime,

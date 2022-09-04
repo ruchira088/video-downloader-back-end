@@ -7,7 +7,7 @@ import com.ruchij.core.messaging.models.{CommittableRecord, HttpMetric}
 import com.ruchij.core.messaging.{PubSub, Publisher, Subscriber}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 
-case class ApiMessageBrokers[F[_], M[_]](
+final case class ApiMessageBrokers[F[_], M[_]](
   downloadProgressSubscriber: Subscriber[F, CommittableRecord[M, *], DownloadProgress],
   scheduledVideoDownloadPublisher: Publisher[F, ScheduledVideoDownload],
   healthCheckPubSub: PubSub[F, CommittableRecord[M, *], HealthCheckMessage],

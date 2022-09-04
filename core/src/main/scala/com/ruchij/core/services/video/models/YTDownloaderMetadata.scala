@@ -3,7 +3,7 @@ package com.ruchij.core.services.video.models
 import com.ruchij.core.services.video.models.YTDownloaderMetadata.Format
 import org.http4s.Uri
 
-case class YTDownloaderMetadata(
+final case class YTDownloaderMetadata(
   title: String,
   extractor: String,
   duration: Double,
@@ -12,5 +12,5 @@ case class YTDownloaderMetadata(
 )
 
 object YTDownloaderMetadata {
-  case class Format(filesize: Option[Double])
+  final case class Format(filesize: Option[Double])
 }

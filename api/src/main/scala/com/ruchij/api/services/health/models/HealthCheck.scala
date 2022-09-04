@@ -2,7 +2,7 @@ package com.ruchij.api.services.health.models
 
 import shapeless.Generic
 
-case class HealthCheck(
+final case class HealthCheck(
   database: HealthStatus,
   fileRepository: HealthStatus,
   keyValueStore: HealthStatus,

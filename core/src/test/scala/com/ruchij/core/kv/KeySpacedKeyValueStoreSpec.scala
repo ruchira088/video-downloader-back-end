@@ -49,8 +49,8 @@ class KeySpacedKeyValueStoreSpec extends AnyFlatSpec with Matchers {
 }
 
 object KeySpacedKeyValueStoreSpec {
-  case class PersonKey(id: Long) extends KVStoreKey
-  case class Person(id: Long, firstName: String, lastName: String)
+  final case class PersonKey(id: Long) extends KVStoreKey
+  final case class Person(id: Long, firstName: String, lastName: String)
 
   implicit case object PersonKeySpace extends KeySpace[PersonKey, Person] {
     override val name: String = "person"

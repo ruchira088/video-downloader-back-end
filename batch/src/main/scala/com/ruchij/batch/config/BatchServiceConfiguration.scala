@@ -9,7 +9,7 @@ import pureconfig.ConfigObjectSource
 import pureconfig.error.ConfigReaderException
 import pureconfig.generic.auto._
 
-case class BatchServiceConfiguration(
+final case class BatchServiceConfiguration(
   storageConfiguration: BatchStorageConfiguration,
   workerConfiguration: WorkerConfiguration,
   databaseConfiguration: DatabaseConfiguration,

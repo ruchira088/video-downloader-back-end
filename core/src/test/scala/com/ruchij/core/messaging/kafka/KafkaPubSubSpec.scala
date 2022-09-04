@@ -37,7 +37,7 @@ class KafkaPubSubSpec extends AnyFlatSpec with Matchers {
 }
 
 object KafkaPubSubSpec {
-  case class TestMessage(index: Int)
+  final case class TestMessage(index: Int)
 
   implicit case object TestMessageTopic extends KafkaTopic[TestMessage] {
     override val name: String = "test-topic"

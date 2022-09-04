@@ -9,7 +9,7 @@ import org.joda.time.DateTime
 
 import scala.util.Properties
 
-case class ServiceInformation(
+final case class ServiceInformation(
   serviceName: String,
   serviceVersion: String,
   organization: String,

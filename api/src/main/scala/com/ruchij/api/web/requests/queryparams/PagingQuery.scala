@@ -7,7 +7,7 @@ import com.ruchij.api.web.requests.queryparams.SingleValueQueryParameter.{OrderQ
 import com.ruchij.core.services.models.Order
 import org.http4s.QueryParamDecoder
 
-case class PagingQuery[A](pageSize: Int, pageNumber: Int, order: Order, maybeSortBy: Option[A])
+final case class PagingQuery[A](pageSize: Int, pageNumber: Int, order: Order, maybeSortBy: Option[A])
 
 object PagingQuery {
   def sortByQueryParameter[A: QueryParamDecoder]: SingleValueQueryParameter[Option[A]] =

@@ -6,7 +6,7 @@ import fs2.Stream
 import org.http4s.multipart.Multipart
 import org.http4s.{DecodeResult, EntityDecoder, InvalidMessageBodyFailure, MediaType}
 
-case class FileAsset[F[_]](fileName: String, mediaType: MediaType, data: Stream[F, Byte])
+final case class FileAsset[F[_]](fileName: String, mediaType: MediaType, data: Stream[F, Byte])
 
 object FileAsset {
   implicit def fileAssetDecoder[F[_]: Async]: EntityDecoder[F, FileAsset[F]] =

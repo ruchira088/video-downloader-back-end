@@ -9,7 +9,7 @@ import org.scalatest.matchers.must.Matchers
 
 class KVDecoderSpec extends AnyFlatSpec with Matchers {
 
-  "Simple case classes" should "be decoded" in {
+  "Simple final case classes" should "be decoded" in {
     runIO("1::John::Smith".decodeAs[IO, Person]) mustBe Person(1, "John", "Smith")
   }
 
@@ -28,7 +28,7 @@ class KVDecoderSpec extends AnyFlatSpec with Matchers {
       Left("Key is too short")
   }
 
-  "Nested case classes" should "be decoded" in {
+  "Nested final case classes" should "be decoded" in {
     runIO("1::John::Smith::2::Adam::Smith".decodeAs[IO, Student]) mustBe
       Student(Person(1, "John", "Smith"), Person(2, "Adam", "Smith"))
   }
@@ -51,8 +51,8 @@ class KVDecoderSpec extends AnyFlatSpec with Matchers {
 }
 
 object KVDecoderSpec {
-  case class Person(id: Int, firstName: String, lastName: String)
-  case class Student(self: Person, teacher: Person)
+  final case class Person(id: Int, firstName: String, lastName: String)
+  final case class Student(self: Person, teacher: Person)
 
   implicit class KVDecoderStringExtension(string: String) {
     def decodeAs[F[_], A](implicit decoder: KVDecoder[F, A]): F[A] = decoder.decode(string)

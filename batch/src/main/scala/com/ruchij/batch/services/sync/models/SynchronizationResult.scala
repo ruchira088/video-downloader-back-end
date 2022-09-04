@@ -2,7 +2,7 @@ package com.ruchij.batch.services.sync.models
 
 import FileSyncResult.{ExistingVideo, IgnoredFile, SyncError, VideoSynced}
 
-case class SynchronizationResult(existingVideoFiles: Long, syncedVideos: Long, syncErrors: Long, ignoredFiles: Long) {
+final case class SynchronizationResult(existingVideoFiles: Long, syncedVideos: Long, syncErrors: Long, ignoredFiles: Long) {
   self =>
 
   val + : FileSyncResult => SynchronizationResult = {

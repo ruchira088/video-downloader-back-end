@@ -4,7 +4,7 @@ import com.ruchij.core.exceptions.ValidationException
 
 import scala.math.Ordered.orderingToOrdered
 
-case class RangeValue[+A] (min: Option[A], max: Option[A])
+final case class RangeValue[+A] (min: Option[A], max: Option[A])
 
 object RangeValue {
   def all[A]: RangeValue[A] = RangeValue(None, None)

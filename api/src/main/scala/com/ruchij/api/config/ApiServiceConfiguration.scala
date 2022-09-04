@@ -9,7 +9,7 @@ import pureconfig.ConfigObjectSource
 import pureconfig.error.ConfigReaderException
 import pureconfig.generic.auto._
 
-case class ApiServiceConfiguration(
+final case class ApiServiceConfiguration(
   httpConfiguration: HttpConfiguration,
   storageConfiguration: ApiStorageConfiguration,
   databaseConfiguration: DatabaseConfiguration,

@@ -7,7 +7,7 @@ import org.http4s.Uri
 
 import scala.concurrent.duration.FiniteDuration
 
-case class SearchResult[A](
+final case class SearchResult[A](
   results: Seq[A],
   pageNumber: Int,
   pageSize: Int,

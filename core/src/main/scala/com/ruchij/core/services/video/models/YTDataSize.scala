@@ -4,7 +4,7 @@ import com.ruchij.core.utils.MatcherUtils.DoubleNumber
 
 import scala.util.matching.Regex
 
-case class YTDataSize(value: Double, unit: YTDataUnit) {
+final case class YTDataSize(value: Double, unit: YTDataUnit) {
   val bytes: Double = unit.toBytes(value)
 }
 

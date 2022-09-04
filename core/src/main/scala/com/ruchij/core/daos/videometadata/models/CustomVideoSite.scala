@@ -60,7 +60,7 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
   case object PornOne extends HtmlCustomVideoSite {
     override val hostname: String = "pornone.com"
 
-    private case class PornOneMetadata(name: String, thumbnailUrl: Uri, duration: FiniteDuration)
+    private final case class PornOneMetadata(name: String, thumbnailUrl: Uri, duration: FiniteDuration)
 
     private def metadata[F[_]: MonadThrow]: Selector[F, PornOneMetadata] =
       JsoupSelector
@@ -149,8 +149,8 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
   }
 
   sealed trait TxxxNetwork extends SpaCustomVideoSite {
-    case class TxxNetworkMetadata(name: String, thumbnailUrl: Option[Uri], duration: Option[FiniteDuration])
-    case class JsExecutionOutput(videoUrl: String)
+    final case class TxxNetworkMetadata(name: String, thumbnailUrl: Option[Uri], duration: Option[FiniteDuration])
+    final case class JsExecutionOutput(videoUrl: String)
 
     private val javascript: String =
       """

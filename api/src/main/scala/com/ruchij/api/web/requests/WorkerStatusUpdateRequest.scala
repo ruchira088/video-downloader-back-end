@@ -4,7 +4,7 @@ import cats.{Applicative, ApplicativeError}
 import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.exceptions.ValidationException
 
-case class WorkerStatusUpdateRequest(workerStatus: WorkerStatus)
+final case class WorkerStatusUpdateRequest(workerStatus: WorkerStatus)
 
 object WorkerStatusUpdateRequest {
   private val ValidUpdateStatuses = Seq(WorkerStatus.Paused, WorkerStatus.Available)

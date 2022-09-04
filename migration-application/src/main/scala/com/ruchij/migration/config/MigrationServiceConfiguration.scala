@@ -4,7 +4,7 @@ import pureconfig.ConfigObjectSource
 import pureconfig.error.ConfigReaderException
 import pureconfig.generic.auto._
 
-case class MigrationServiceConfiguration(
+final case class MigrationServiceConfiguration(
   databaseConfiguration: DatabaseConfiguration,
   adminConfiguration: AdminConfiguration
 )

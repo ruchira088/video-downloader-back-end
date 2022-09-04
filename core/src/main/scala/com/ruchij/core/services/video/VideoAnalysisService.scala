@@ -22,6 +22,6 @@ object VideoAnalysisService {
     val value: VideoMetadata
   }
 
-  case class Existing(value: VideoMetadata) extends VideoMetadataResult
-  case class NewlyCreated(value: VideoMetadata) extends VideoMetadataResult
+  final case class Existing(value: VideoMetadata) extends VideoMetadataResult
+  final case class NewlyCreated(value: VideoMetadata) extends VideoMetadataResult
 }

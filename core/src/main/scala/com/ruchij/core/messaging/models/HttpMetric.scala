@@ -4,7 +4,7 @@ import org.http4s.{MediaType, Method, Status, Uri}
 
 import scala.concurrent.duration.FiniteDuration
 
-case class HttpMetric(
+final case class HttpMetric(
   method: Method,
   uri: Uri,
   finiteDuration: FiniteDuration,
