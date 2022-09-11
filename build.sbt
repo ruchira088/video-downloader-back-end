@@ -43,6 +43,7 @@ lazy val core =
           http4sJdkHttpClient,
           http4sDsl,
           http4sCirce,
+          kafka,
           fs2Kafka,
           fs2KafkaVulkan,
           vulkanGeneric,
