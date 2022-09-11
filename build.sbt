@@ -27,7 +27,8 @@ lazy val migrationApplication =
     .settings(
       name := "video-downloader-migration-application",
       topLevelDirectory := None,
-      libraryDependencies ++= Seq(catsEffect, flywayCore, h2, postgresql, pureconfig, scalaLogging, logbackClassic)
+      libraryDependencies ++= Seq(catsEffect, flywayCore, h2, postgresql, pureconfig, scalaLogging, logbackClassic),
+      libraryDependencies ++= Seq(scalaTest).map(_ % Test)
     )
 
 lazy val core =
