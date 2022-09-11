@@ -52,19 +52,23 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
 
   override def metadata(uri: Uri): F[VideoMetadataResult] =
     for {
-      videoMetadataOpt <- transaction(videoMetadataDao.findByUrl(uri))
+      videoSite <- VideoSite.fromUri(uri).toType[F, Throwable]
+      processedUri <- videoSite.processUri[F](uri)
 
-      result <- videoMetadataOpt.fold[F[VideoMetadataResult]](createMetadata(uri).map(NewlyCreated)) { videoMetadata =>
-        Applicative[F].pure[VideoMetadataResult](Existing(videoMetadata))
+      videoMetadataOpt <- transaction(videoMetadataDao.findByUrl(processedUri))
+
+      result <- videoMetadataOpt.fold[F[VideoMetadataResult]](createMetadata(processedUri, videoSite).map(NewlyCreated)) {
+        videoMetadata =>
+          Applicative[F].pure[VideoMetadataResult](Existing(videoMetadata))
       }
 
     } yield result
 
-  def createMetadata(uri: Uri): F[VideoMetadata] =
+  def createMetadata(uri: Uri, videoSite: VideoSite): F[VideoMetadata] =
     for {
-      videoAnalysisResult @ VideoAnalysisResult(processedUri, videoSite, title, duration, size, thumbnailUri) <- analyze(
-        uri
-      )
+      videoAnalysisResult @ VideoAnalysisResult(processedUri, videoSite, title, duration, size, thumbnailUri) <-
+        analyze(uri, videoSite)
+
       _ <- logger.info[F](s"Uri=${processedUri.renderString} Result=$videoAnalysisResult")
 
       videoId <- hashingService
@@ -103,25 +107,27 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
     } yield videoMetadata
 
   override def analyze(uri: Uri): F[VideoAnalysisResult] =
-    VideoSite
-      .fromUri(uri)
-      .toType[F, Throwable]
-      .flatMap {
-        case customVideoSite: CustomVideoSite =>
-          for {
-            processedUri <- customVideoSite.processUri[F](uri)
-            document <- customVideoSiteHtmlDocument(processedUri, customVideoSite)
-            videoAnalysisResult <- analyze(processedUri, customVideoSite).run(WebPage(uri, document))
-          } yield videoAnalysisResult
+    for {
+      videoSite <- VideoSite.fromUri(uri).toType[F, Throwable]
+      processedUri <- videoSite.processUri[F](uri)
+      videoAnalysisResult <- analyze(processedUri, videoSite)
+    } yield videoAnalysisResult
 
-        case VideoSite.Local =>
-          ApplicativeError[F, Throwable].raiseError {
-            ValidationException("Unable to analyse local URLs")
-          }
+  private def analyze(processedUri: Uri, videoSite: VideoSite): F[VideoAnalysisResult] =
+    videoSite match {
+      case customVideoSite: CustomVideoSite =>
+        for {
+          document <- customVideoSiteHtmlDocument(processedUri, customVideoSite)
+          videoAnalysisResult <- analyze(processedUri, customVideoSite).run(WebPage(processedUri, document))
+        } yield videoAnalysisResult
 
-        case videoSite =>
-          videoSite.processUri[F](uri).flatMap(youTubeVideoDownloader.videoInformation)
-      }
+      case VideoSite.Local =>
+        ApplicativeError[F, Throwable].raiseError {
+          ValidationException("Unable to analyse local URLs")
+        }
+
+      case _ => youTubeVideoDownloader.videoInformation(processedUri)
+    }
 
   override def downloadUri(uri: Uri): F[Uri] =
     VideoSite
