@@ -14,13 +14,13 @@ trait AuthenticationService[F[_]] {
 
   def authenticate(secret: Secret): F[(AuthenticationToken, User)]
 
-  def logout(secret: Secret): F[AuthenticationToken]
+  def logout(secret: Secret): F[User]
 }
 
 object AuthenticationService {
   final case class Secret(value: String) extends AnyVal
   final case class Password(value: String) extends AnyVal
 
-  implicit def secretGenerator[F[+ _]: Sync]: RandomGenerator[F, Secret] =
+  implicit def secretGenerator[F[_]: Sync]: RandomGenerator[F, Secret] =
     RandomGenerator[F, UUID].map(uuid => Secret(uuid.toString))
 }

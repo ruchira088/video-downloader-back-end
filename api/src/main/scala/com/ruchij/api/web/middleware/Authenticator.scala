@@ -48,7 +48,7 @@ object Authenticator {
       .map(cookie => Secret(cookie.content))
       .orElse(bearerToken(request))
 
-  def middleware[F[+ _]: MonadThrow](
+  def middleware[F[_]: MonadThrow](
     authenticationService: AuthenticationService[F],
     strict: Boolean
   ): AuthenticatedRequestContextMiddleware[F] =
@@ -72,10 +72,10 @@ object Authenticator {
               }
         }
         .mapF[OptionT[F, *], Response[F]] { optionT =>
-          optionT.orElseF(onFailure[F](strict))
+          optionT.orElseF(onFailure[F](strict).map(identity[Option[Response[F]]]))
       }
 
-  private def onFailure[F[+ _]: ApplicativeError[*[_], Throwable]](strict: Boolean): F[None.type] =
+  private def onFailure[F[_]: ApplicativeError[*[_], Throwable]](strict: Boolean): F[None.type] =
     if (strict)
       ApplicativeError[F, Throwable].raiseError(AuthenticationException.MissingAuthenticationToken)
     else Applicative[F].pure(None)

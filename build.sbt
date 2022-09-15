@@ -66,10 +66,7 @@ lazy val core =
           kafkaTestContainer,
           postgresqlTestContainer
         ) ++
-          Seq(
-            scalaTest,
-            scalaMock
-          ).map(_ % Test)
+          Seq(scalaTest, scalaMock).map(_ % Test)
     )
     .dependsOn(migrationApplication)
 
@@ -84,17 +81,8 @@ lazy val api =
       topLevelDirectory := None,
       Universal / javaOptions ++= Seq("-Dlogback.configurationFile=/opt/data/logback.xml"),
       libraryDependencies ++=
-        Seq(
-          http4sEmberServer,
-          http4sCirce,
-          circeGeneric,
-          circeParser,
-          circeLiteral,
-          postgresql,
-          pureconfig,
-          jbcrypt,
-          logbackClassic
-        ) ++ Seq(scalaTest, pegdown).map(_ % Test)
+        Seq(http4sEmberServer, circeGeneric, circeParser, circeLiteral, postgresql, pureconfig, jbcrypt, logbackClassic)
+          ++ Seq(pegdown).map(_ % Test)
     )
     .dependsOn(core % "compile->compile;test->test")
 
@@ -106,14 +94,25 @@ lazy val batch =
       topLevelDirectory := None,
       Universal / javaOptions ++= Seq("-Dlogback.configurationFile=/opt/data/logback.xml"),
       libraryDependencies ++=
-        Seq(postgresql) ++ Seq(scalaTest, pegdown).map(_ % Test)
+        Seq(postgresql) ++ Seq(pegdown).map(_ % Test)
     )
     .dependsOn(core % "compile->compile;test->test")
+
+lazy val fallbackApi =
+  (project in file("./fallback-api"))
+    .enablePlugins(BuildInfoPlugin, JavaAppPackaging)
+    .settings(
+      name := "video-downloader-fallback-api",
+      topLevelDirectory := None,
+      Universal / javaOptions ++= Seq("-Dlogback.configurationFile=/opt/data/logback.xml"),
+      libraryDependencies ++= Seq(http4sEmberClient)
+    )
+    .dependsOn(api % "compile->compile;test->test")
 
 lazy val development =
   (project in file("./development"))
     .settings(name := "video-downloader-development")
-    .dependsOn(migrationApplication, core % "compile->test", api, batch)
+    .dependsOn(migrationApplication, core, api, batch)
 
 val verifyReleaseBranch = { state: State =>
   val git = Git.mkVcs(state.extract.get(baseDirectory))

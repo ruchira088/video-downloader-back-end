@@ -19,7 +19,7 @@ import org.http4s.HttpApp
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.OneInstancePerTest
 
-trait MockedRoutes[F[+ _]] extends MockFactory with OneInstancePerTest {
+trait MockedRoutes[F[_]] extends MockFactory with OneInstancePerTest {
 
   val userService: UserService[F] = mock[UserService[F]]
   val apiVideoService: ApiVideoService[F] = mock[ApiVideoService[F]]

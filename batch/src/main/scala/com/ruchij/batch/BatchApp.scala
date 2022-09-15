@@ -66,7 +66,7 @@ object BatchApp extends IOApp {
         }
     } yield ExitCode.Success
 
-  def program[F[+ _]: Async: JodaClock](
+  def program[F[_]: Async: JodaClock](
     batchServiceConfiguration: BatchServiceConfiguration
   ): Resource[F, Scheduler[F]] =
     DoobieTransactor

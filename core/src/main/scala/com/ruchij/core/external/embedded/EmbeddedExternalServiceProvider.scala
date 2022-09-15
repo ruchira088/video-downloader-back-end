@@ -19,7 +19,7 @@ import java.net.ServerSocket
 import java.util.UUID
 import scala.util.Random
 
-class EmbeddedExternalServiceProvider[F[+ _]: Sync]
+class EmbeddedExternalServiceProvider[F[_]: Sync]
     extends ExternalServiceProvider[F] {
 
   override val redisConfiguration: Resource[F, RedisConfiguration] =
@@ -74,7 +74,7 @@ class EmbeddedExternalServiceProvider[F[+ _]: Sync]
 }
 
 object EmbeddedExternalServiceProvider {
-  def availablePort[F[+ _]: Sync](init: Int): F[Int] =
+  def availablePort[F[_]: Sync](init: Int): F[Int] =
     RandomGenerator[F, Int](Random.nextInt() % 1000).generate
       .map(init + _)
       .flatMap { port =>

@@ -28,7 +28,7 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 
 object SchedulingRoutes {
-  def apply[F[+ _]: Async: JodaClock](
+  def apply[F[_]: Async: JodaClock](
     apiSchedulingService: ApiSchedulingService[F],
     downloadProgressStream: Stream[F, DownloadProgress]
   )(implicit dsl: Http4sDsl[F]): ContextRoutes[AuthenticatedRequestContext, F] = {

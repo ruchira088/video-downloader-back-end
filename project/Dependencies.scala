@@ -13,6 +13,8 @@ object Dependencies
 
   lazy val http4sCirce = "org.http4s" %% "http4s-circe" % Http4sVersion
 
+  lazy val http4sEmberClient = "org.http4s" %% "http4s-ember-client" % Http4sVersion
+
   lazy val http4sJdkHttpClient = "org.http4s" %% "http4s-jdk-http-client" % "0.7.0"
 
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.3.14"
@@ -35,7 +37,7 @@ object Dependencies
 
   lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.7.0"
 
-  lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.9"
+  lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.10"
 
   lazy val doobie = "org.tpolecat" %% "doobie-core" % "1.0.0-RC2"
 
@@ -69,7 +71,7 @@ object Dependencies
 
   lazy val postgresqlTestContainer = "org.testcontainers" % "postgresql" % TestContainersVersion
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.4.0"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.4.1"
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
 

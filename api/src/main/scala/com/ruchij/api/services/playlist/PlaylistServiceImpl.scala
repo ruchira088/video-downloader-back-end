@@ -19,7 +19,7 @@ import org.http4s.MediaType
 
 import java.util.UUID
 
-class PlaylistServiceImpl[F[+ _]: Sync: JodaClock: RandomGenerator[*[_], UUID], G[_]: MonadThrow](
+class PlaylistServiceImpl[F[_]: Sync: JodaClock: RandomGenerator[*[_], UUID], G[_]: MonadThrow](
   playlistDao: PlaylistDao[G],
   fileResourceDao: FileResourceDao[G],
   repositoryService: RepositoryService[F],

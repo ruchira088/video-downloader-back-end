@@ -35,7 +35,7 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 import scala.util.matching.Regex
 
-class SynchronizationServiceImpl[F[+ _]: Async: JodaClock, A, T[_]: MonadThrow](
+class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
   fileRepositoryService: FileRepository[F, A],
   fileResourceDao: FileResourceDao[T],
   videoMetadataDao: VideoMetadataDao[T],
@@ -66,7 +66,7 @@ class SynchronizationServiceImpl[F[+ _]: Async: JodaClock, A, T[_]: MonadThrow](
                 else
                   logger
                     .trace(s"Ignoring $filePath")
-                    .productR(Applicative[F].pure(IgnoredFile(filePath)))
+                    .productR(Applicative[F].pure[FileSyncResult](IgnoredFile(filePath)))
               }
           }
           .evalTap {
@@ -134,13 +134,13 @@ class SynchronizationServiceImpl[F[+ _]: Async: JodaClock, A, T[_]: MonadThrow](
                     JodaClock[F].timestamp.flatMap { finishTimestamp =>
                       transaction(fileSyncDao.complete(videoPath, finishTimestamp))
                     }
-                  } else Applicative[F].pure(IgnoredFile(videoPath))
+                  } else Applicative[F].pure[FileSyncResult](IgnoredFile(videoPath))
             }
             .handleErrorWith { throwable =>
-              logger.warn(throwable.getMessage).as(IgnoredFile(videoPath))
+              logger.warn(throwable.getMessage).as[FileSyncResult](IgnoredFile(videoPath))
             }
 
-        case _ => Applicative[F].pure(ExistingVideo(videoPath))
+        case _ => Applicative[F].pure[FileSyncResult](ExistingVideo(videoPath))
       }
     }
 
@@ -159,7 +159,7 @@ class SynchronizationServiceImpl[F[+ _]: Async: JodaClock, A, T[_]: MonadThrow](
         errorHandler[F](videoPath) {
           throwable =>
             logger.error[F](s"Unable to add video file at: $videoPath", throwable)
-        }
+        }.andThen(_.map(identity[FileSyncResult]))
       }
 
   def videoFromPath(videoPath: String): F[Video] =

@@ -12,7 +12,7 @@ import java.util.UUID
 
 object RequestContextMiddleware {
 
-  def apply[F[+ _]: RandomGenerator[*[_], UUID]: Monad](
+  def apply[F[_]: RandomGenerator[*[_], UUID]: Monad](
     contextHttpApp: Kleisli[F, ContextRequest[F, RequestContext], Response[F]]
   ): HttpApp[F] =
     Kleisli[F, Request[F], Response[F]] { request =>

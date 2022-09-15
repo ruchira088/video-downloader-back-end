@@ -105,7 +105,7 @@ object DevelopmentApp extends IOApp {
         } yield ExitCode.Success
     }
 
-  def program[F[+ _]: Async: JodaClock](
+  def program[F[_]: Async: JodaClock](
     externalServiceProvider: ExternalServiceProvider[F]
   ): Resource[F, (HttpApp[F], Scheduler[F])] =
     for {

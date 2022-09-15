@@ -26,7 +26,7 @@ import org.http4s.{ContextRoutes, HttpApp}
 
 object Routes {
 
-  def apply[F[+ _]: Async: JodaClock](
+  def apply[F[_]: Async: JodaClock](
     userService: UserService[F],
     apiVideoService: ApiVideoService[F],
     videoAnalysisService: VideoAnalysisService[F],

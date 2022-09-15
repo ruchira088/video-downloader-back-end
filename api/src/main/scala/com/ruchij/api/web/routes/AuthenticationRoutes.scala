@@ -16,7 +16,7 @@ import org.http4s.{AuthedRoutes, ContextRoutes, Response}
 import org.http4s.dsl.Http4sDsl
 
 object AuthenticationRoutes {
-  def apply[F[+ _]: Async](authenticationService: AuthenticationService[F])(implicit dsl: Http4sDsl[F]): ContextRoutes[RequestContext, F] = {
+  def apply[F[_]: Async](authenticationService: AuthenticationService[F])(implicit dsl: Http4sDsl[F]): ContextRoutes[RequestContext, F] = {
     import dsl._
 
     val unauthenticatedRoutes =
@@ -24,25 +24,22 @@ object AuthenticationRoutes {
         case contextRequest @ POST -> Root / "login" as _ =>
           for {
             LoginRequest(email, password) <- contextRequest.to[LoginRequest]
-
             authenticationToken <- authenticationService.login(email, password)
-
             response <- Created(authenticationToken).flatMap(Authenticator.addCookie[F](authenticationToken, _))
           }
           yield response
+
+        case contextRequest @ DELETE -> Root / "logout" as _ =>
+          Authenticator.authenticationSecret(contextRequest.req)
+            .fold[F[Response[F]]](NoContent()) { secret =>
+              authenticationService.logout(secret).flatMap(user => Ok(user))
+            }
+            .map(_.removeCookie(Authenticator.CookieName))
       }
 
     val authenticatedRoutes =
       AuthedRoutes.of[AuthenticatedRequestContext, F] {
         case GET -> Root / "user" as AuthenticatedRequestContext(user, _) => Ok(user)
-
-        case authRequest @ DELETE -> Root / "logout" as AuthenticatedRequestContext(user, _) =>
-          Authenticator.authenticationSecret(authRequest.req)
-            .fold[F[Response[F]]](NoContent()) { secret =>
-              authenticationService.logout(secret)
-                .productR(Ok(user))
-            }
-            .map(_.removeCookie(Authenticator.CookieName))
       }
 
     unauthenticatedRoutes <+> Authenticator.middleware(authenticationService, strict = true).apply(authenticatedRoutes)

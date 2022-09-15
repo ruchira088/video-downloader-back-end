@@ -20,7 +20,7 @@ import com.ruchij.core.types.{JodaClock, RandomGenerator}
 
 import java.util.UUID
 
-class UserServiceImpl[F[+ _]: RandomGenerator[*[_], UUID]: MonadThrow: JodaClock, G[_]: MonadThrow](
+class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: MonadThrow: JodaClock, G[_]: MonadThrow](
   passwordHashingService: PasswordHashingService[F],
   userDao: UserDao[G],
   credentialsDao: CredentialsDao[G],

@@ -13,6 +13,6 @@ class NoAuthenticationService[F[_]: ApplicativeError[*[_], Throwable]] extends A
   override def authenticate(secret: Secret): F[(AuthenticationToken, User)] =
     ApplicativeError[F, Throwable].raiseError(AuthenticationException.AuthenticationDisabled)
 
-  override def logout(secret: Secret): F[AuthenticationToken] =
+  override def logout(secret: Secret): F[User] =
     ApplicativeError[F, Throwable].raiseError(AuthenticationException.AuthenticationDisabled)
 }

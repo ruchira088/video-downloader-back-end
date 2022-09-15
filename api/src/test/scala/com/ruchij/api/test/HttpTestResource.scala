@@ -46,7 +46,7 @@ object HttpTestResource {
 
   val SpaRendererConfig: SpaSiteRendererConfiguration = SpaSiteRendererConfiguration(Uri())
 
-  def create[F[+ _]: Async: JodaClock](
+  def create[F[_]: Async: JodaClock](
     externalServiceProvider: ExternalServiceProvider[F]
   ): Resource[F, TestResources[F]] =
     create[F](externalServiceProvider, Client[F] { _ =>
@@ -55,7 +55,7 @@ object HttpTestResource {
       }
     })
 
-  def create[F[+ _]: Async: JodaClock](
+  def create[F[_]: Async: JodaClock](
     externalServiceProvider: ExternalServiceProvider[F],
     client: Client[F]
   ): Resource[F, TestResources[F]] =

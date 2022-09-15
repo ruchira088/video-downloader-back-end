@@ -12,12 +12,13 @@ import com.ruchij.api.services.authentication.AuthenticationService.{Password, S
 import com.ruchij.api.services.authentication.models.AuthenticationToken
 import com.ruchij.api.services.authentication.models.AuthenticationToken.AuthenticationTokenKey
 import com.ruchij.api.services.hashing.PasswordHashingService
+import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.kv.KeySpacedKeyValueStore
 import com.ruchij.core.types.{JodaClock, RandomGenerator}
 
 import scala.concurrent.duration.FiniteDuration
 
-class AuthenticationServiceImpl[F[+ _]: Async: JodaClock: RandomGenerator[*[_], Secret], G[_]: MonadThrow](
+class AuthenticationServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], Secret], G[_]: MonadThrow](
   keySpacedKeyValueStore: KeySpacedKeyValueStore[F, AuthenticationTokenKey, AuthenticationToken],
   passwordHashingService: PasswordHashingService[F],
   userDao: UserDao[G],
@@ -79,15 +80,14 @@ class AuthenticationServiceImpl[F[+ _]: Async: JodaClock: RandomGenerator[*[_], 
             )
             _ <- keySpacedKeyValueStore.put(AuthenticationTokenKey(secret), authenticationToken)
 
-            user <- OptionT(transaction(userDao.findById(userId)))
-              .getOrElseF(ApplicativeError[F, Throwable].raiseError(AuthenticationException("User has been deleted")))
+            user <- getUserById(authenticationToken.userId)
           } yield (authenticationToken, user)
       }
       .getOrElseF[(AuthenticationToken, User)] {
         ApplicativeError[F, Throwable].raiseError(AuthenticationException.MissingAuthenticationToken)
       }
 
-  override def logout(secret: Secret): F[AuthenticationToken] =
+  override def logout(secret: Secret): F[User] =
     OptionT(keySpacedKeyValueStore.get(AuthenticationTokenKey(secret)))
       .productL {
         OptionT.liftF(keySpacedKeyValueStore.remove(AuthenticationTokenKey(secret)))
@@ -102,4 +102,9 @@ class AuthenticationServiceImpl[F[+ _]: Async: JodaClock: RandomGenerator[*[_], 
       .getOrElseF[AuthenticationToken] {
         ApplicativeError[F, Throwable].raiseError(AuthenticationException.MissingAuthenticationToken)
       }
+      .flatMap(authenticationToken => getUserById(authenticationToken.userId))
+
+  private def getUserById(userId: String): F[User] =
+    OptionT(transaction(userDao.findById(userId)))
+      .getOrRaise(ResourceNotFoundException(s"User not found id=$userId"))
 }
