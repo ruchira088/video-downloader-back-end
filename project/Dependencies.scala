@@ -13,8 +13,6 @@ object Dependencies
 
   lazy val http4sCirce = "org.http4s" %% "http4s-circe" % Http4sVersion
 
-  lazy val http4sEmberClient = "org.http4s" %% "http4s-ember-client" % Http4sVersion
-
   lazy val http4sJdkHttpClient = "org.http4s" %% "http4s-jdk-http-client" % "0.7.0"
 
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.3.14"

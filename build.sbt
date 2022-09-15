@@ -98,17 +98,6 @@ lazy val batch =
     )
     .dependsOn(core % "compile->compile;test->test")
 
-lazy val fallbackApi =
-  (project in file("./fallback-api"))
-    .enablePlugins(BuildInfoPlugin, JavaAppPackaging)
-    .settings(
-      name := "video-downloader-fallback-api",
-      topLevelDirectory := None,
-      Universal / javaOptions ++= Seq("-Dlogback.configurationFile=/opt/data/logback.xml"),
-      libraryDependencies ++= Seq(http4sEmberClient)
-    )
-    .dependsOn(api % "compile->compile;test->test")
-
 lazy val development =
   (project in file("./development"))
     .settings(name := "video-downloader-development")
