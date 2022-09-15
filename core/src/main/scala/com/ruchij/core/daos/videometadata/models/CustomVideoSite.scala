@@ -5,7 +5,7 @@ import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadThrow}
 import com.ruchij.core.circe.Decoders.finiteDurationDecoder
 import com.ruchij.core.daos.videometadata.models.CustomVideoSite.Selector
-import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, KleisliOption, eitherToF}
+import com.ruchij.core.types.FunctionKTypes._
 import com.ruchij.core.utils.JsoupSelector
 import com.ruchij.core.utils.MatcherUtils.IntNumber
 import enumeratum.{Enum, EnumEntry}
@@ -149,8 +149,8 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
   }
 
   sealed trait TxxxNetwork extends SpaCustomVideoSite {
-    final case class TxxNetworkMetadata(name: String, thumbnailUrl: Option[Uri], duration: Option[FiniteDuration])
-    final case class JsExecutionOutput(videoUrl: String)
+    private case class TxxNetworkMetadata private (name: String, thumbnailUrl: Option[Uri], duration: Option[FiniteDuration])
+    private case class JsExecutionOutput private (videoUrl: String)
 
     private val javascript: String =
       """

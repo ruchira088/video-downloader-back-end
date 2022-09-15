@@ -23,7 +23,7 @@ import com.ruchij.core.services.config.ConfigurationService
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
 import com.ruchij.core.services.video.{VideoAnalysisService, VideoService}
-import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherToF}
+import com.ruchij.core.types.FunctionKTypes._
 import com.ruchij.core.types.JodaClock
 import org.http4s.Uri
 

@@ -3,7 +3,7 @@ package com.ruchij.api.web.responses
 import cats.effect.Sync
 import cats.implicits._
 import com.ruchij.core.services.asset.models.Asset
-import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherToF}
+import com.ruchij.core.types.FunctionKTypes._
 import com.ruchij.core.utils.Http4sUtils.ChunkSize
 import org.http4s.headers.{Range, `Accept-Ranges`, `Content-Length`, `Content-Range`, `Content-Type`}
 import org.http4s.{Headers, Response, Status}

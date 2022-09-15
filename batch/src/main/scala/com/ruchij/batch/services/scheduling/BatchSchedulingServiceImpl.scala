@@ -11,7 +11,7 @@ import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.models.CommittableRecord
 import com.ruchij.core.messaging.{PubSub, Publisher, Subscriber}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
-import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherToF}
+import com.ruchij.core.types.FunctionKTypes._
 import com.ruchij.core.types.JodaClock
 import fs2.Stream
 
