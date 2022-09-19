@@ -3,6 +3,7 @@ package com.ruchij.batch
 import cats.effect._
 import cats.effect.kernel.Async
 import cats.effect.std.Dispatcher
+import com.eed3si9n.ruchij.batch.BuildInfo
 import com.ruchij.batch.config.BatchServiceConfiguration
 import com.ruchij.batch.daos.filesync.DoobieFileSyncDao
 import com.ruchij.batch.daos.workers.DoobieWorkerDao
@@ -44,11 +45,12 @@ import java.time.Duration
 import java.util.UUID
 
 object BatchApp extends IOApp {
-
   private val logger = Logger[BatchApp.type]
 
   override def run(args: List[String]): IO[ExitCode] =
     for {
+      _ <- logger.info[IO](BuildInfo.toString)
+
       configObjectSource <- IO.delay(ConfigSource.defaultApplication)
       batchServiceConfiguration <- BatchServiceConfiguration.parse[IO](configObjectSource)
 

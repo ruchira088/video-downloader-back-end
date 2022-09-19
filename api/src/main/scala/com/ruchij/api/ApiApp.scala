@@ -5,6 +5,7 @@ import cats.effect.kernel.Async
 import cats.effect.std.Dispatcher
 import cats.implicits._
 import cats.~>
+import com.eed3si9n.ruchij.api.BuildInfo
 import com.ruchij.api.config.ApiServiceConfiguration
 import com.ruchij.api.daos.credentials.DoobieCredentialsDao
 import com.ruchij.api.daos.permission.DoobieVideoPermissionDao
@@ -39,6 +40,7 @@ import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.kv.keys.KeySpacedKeyEncoder.keySpacedKeyEncoder
 import com.ruchij.core.kv.{KeySpacedKeyValueStore, KeyValueStore, RedisKeyValueStore}
+import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.kafka.{KafkaPubSub, KafkaPublisher}
 import com.ruchij.core.messaging.models.HttpMetric
 import com.ruchij.core.services.asset.AssetServiceImpl
@@ -69,9 +71,12 @@ import java.net.http.HttpClient.Redirect
 import java.util.UUID
 
 object ApiApp extends IOApp {
+  private val logger = Logger[ApiApp.type]
 
   override def run(args: List[String]): IO[ExitCode] =
     for {
+      _ <- logger.info[IO](BuildInfo.toString)
+
       configObjectSource <- IO.delay(ConfigSource.defaultApplication)
       apiServiceConfiguration <- ApiServiceConfiguration.parse[IO](configObjectSource)
 

@@ -25,9 +25,21 @@ inThisBuild {
 
 lazy val migrationApplication =
   (project in file("./migration-application"))
-    .enablePlugins(JavaAppPackaging)
+    .enablePlugins(BuildInfoPlugin, JavaAppPackaging)
     .settings(
       name := "video-downloader-migration-application",
+      buildInfoKeys :=
+        Seq[BuildInfoKey](
+          name,
+          organization,
+          version,
+          scalaVersion,
+          sbtVersion,
+          buildTimestamp,
+          gitBranch,
+          gitCommit
+        ),
+      buildInfoPackage := "com.eed3si9n.ruchij.migration",
       topLevelDirectory := None,
       libraryDependencies ++= Seq(catsEffect, flywayCore, h2, postgresql, pureconfig, scalaLogging, logbackClassic),
       libraryDependencies ++= Seq(scalaTest).map(_ % Test)
@@ -85,9 +97,9 @@ lazy val api =
           version,
           scalaVersion,
           sbtVersion,
-          BuildInfoKey.action("buildTimestamp") { Instant.now() },
-          BuildInfoKey.action("gitBranch") { runGitCommand("git rev-parse --abbrev-ref HEAD") },
-          BuildInfoKey.action("gitCommit") { runGitCommand("git rev-parse --short HEAD") }
+          buildTimestamp,
+          gitBranch,
+          gitCommit
         ),
       buildInfoPackage := "com.eed3si9n.ruchij.api",
       topLevelDirectory := None,
@@ -100,9 +112,21 @@ lazy val api =
 
 lazy val batch =
   (project in file("./batch"))
-    .enablePlugins(JavaAppPackaging)
+    .enablePlugins(BuildInfoPlugin, JavaAppPackaging)
     .settings(
       name := "video-downloader-batch",
+      buildInfoKeys :=
+        Seq[BuildInfoKey](
+          name,
+          organization,
+          version,
+          scalaVersion,
+          sbtVersion,
+          buildTimestamp,
+          gitBranch,
+          gitCommit
+        ),
+      buildInfoPackage := "com.eed3si9n.ruchij.batch",
       topLevelDirectory := None,
       Universal / javaOptions ++= Seq("-Dlogback.configurationFile=/opt/data/logback.xml"),
       libraryDependencies ++=
@@ -181,6 +205,10 @@ viewCoverageResults := {
 
   Desktop.getDesktop.browse(coverageResults.toUri)
 }
+
+lazy val buildTimestamp = BuildInfoKey.action("buildTimestamp") { Instant.now() }
+lazy val gitBranch = BuildInfoKey.action("gitBranch") { runGitCommand("git rev-parse --abbrev-ref HEAD") }
+lazy val gitCommit =  BuildInfoKey.action("gitCommit") { runGitCommand("git rev-parse --short HEAD") }
 
 def runGitCommand(command: String): Option[String] = {
   val gitFolder = new File(".git")
