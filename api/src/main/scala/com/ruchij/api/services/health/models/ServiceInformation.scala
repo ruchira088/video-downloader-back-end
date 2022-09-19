@@ -3,7 +3,6 @@ package com.ruchij.api.services.health.models
 import cats.effect.Sync
 import cats.implicits._
 import com.eed3si9n.ruchij.api.BuildInfo
-import com.ruchij.core.config.ApplicationInformation
 import com.ruchij.core.types.JodaClock
 import org.joda.time.DateTime
 
@@ -17,14 +16,13 @@ final case class ServiceInformation(
   sbtVersion: String,
   javaVersion: String,
   currentTimestamp: DateTime,
-  instanceId: String,
   gitBranch: Option[String],
   gitCommit: Option[String],
-  buildTimestamp: Option[DateTime]
+  buildTimestamp: DateTime
 )
 
 object ServiceInformation {
-  def create[F[_]: Sync: JodaClock](applicationInformation: ApplicationInformation): F[ServiceInformation] =
+  def create[F[_]: Sync: JodaClock]: F[ServiceInformation] =
     for {
       timestamp <- JodaClock[F].timestamp
       javaVersion <- Sync[F].delay(Properties.javaVersion)
@@ -37,9 +35,8 @@ object ServiceInformation {
         BuildInfo.sbtVersion,
         javaVersion,
         timestamp,
-        applicationInformation.instanceId,
-        applicationInformation.gitBranch,
-        applicationInformation.gitCommit,
-        applicationInformation.buildTimestamp
+        BuildInfo.gitBranch,
+        BuildInfo.gitCommit,
+        new DateTime(BuildInfo.buildTimestamp.toEpochMilli)
       )
 }

@@ -4,7 +4,9 @@ import sbtrelease.ReleaseStateTransformations._
 import sbtrelease.Utilities.stateW
 
 import java.awt.Desktop
-import scala.sys.process.ProcessBuilder
+import java.time.Instant
+import scala.sys.process._
+import scala.util.Try
 
 val ReleaseBranch = "dev"
 val ProductionBranch = "master"
@@ -76,7 +78,17 @@ lazy val api =
     .settings(
       Test / fork := true,
       name := "video-downloader-api",
-      buildInfoKeys := Seq[BuildInfoKey](name, organization, version, scalaVersion, sbtVersion),
+      buildInfoKeys :=
+        Seq[BuildInfoKey](
+          name,
+          organization,
+          version,
+          scalaVersion,
+          sbtVersion,
+          BuildInfoKey.action("buildTimestamp") { Instant.now() },
+          BuildInfoKey.action("gitBranch") { runGitCommand("git rev-parse --abbrev-ref HEAD") },
+          BuildInfoKey.action("gitCommit") { runGitCommand("git rev-parse --short HEAD") }
+        ),
       buildInfoPackage := "com.eed3si9n.ruchij.api",
       topLevelDirectory := None,
       Universal / javaOptions ++= Seq("-Dlogback.configurationFile=/opt/data/logback.xml"),
@@ -168,6 +180,12 @@ viewCoverageResults := {
     target.value.toPath.resolve(s"scala-${scalaBinaryVersion.value}/scoverage-report/index.html")
 
   Desktop.getDesktop.browse(coverageResults.toUri)
+}
+
+def runGitCommand(command: String): Option[String] = {
+  val gitFolder = new File(".git")
+
+  if (gitFolder.exists()) Try(command !!).toOption.map(_.trim).filter(_.nonEmpty) else None
 }
 
 addCommandAlias("cleanCompile", "; clean; compile")

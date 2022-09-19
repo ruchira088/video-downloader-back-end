@@ -3,7 +3,7 @@ package com.ruchij.core.config
 import com.comcast.ip4s.{Host, Port}
 import enumeratum.{Enum, EnumEntry}
 import org.http4s.Uri
-import org.joda.time.{DateTime, LocalTime}
+import org.joda.time.LocalTime
 import pureconfig.ConfigReader
 import pureconfig.error.CannotConvert
 
@@ -17,11 +17,6 @@ object PureConfigReaders {
   implicit val localTimePureConfigReader: ConfigReader[LocalTime] =
     stringConfigParserTry { localTime =>
       Try(LocalTime.parse(localTime))
-    }
-
-  implicit val dateTimePureConfigReader: ConfigReader[DateTime] =
-    stringConfigParserTry { dateTime =>
-      Try(DateTime.parse(dateTime))
     }
 
   implicit val hostConfigReader: ConfigReader[Host] = ConfigReader.fromNonEmptyStringOpt(Host.fromString)

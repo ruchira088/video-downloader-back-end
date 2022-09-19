@@ -10,7 +10,7 @@ import com.ruchij.api.config.{ApiServiceConfiguration, ApiStorageConfiguration, 
 import com.ruchij.api.models.ApiMessageBrokers
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.core.commands.ScanVideosCommand
-import com.ruchij.core.config.{ApplicationInformation, KafkaConfiguration, SpaSiteRendererConfiguration}
+import com.ruchij.core.config.{KafkaConfiguration, SpaSiteRendererConfiguration}
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.external.ExternalServiceProvider
@@ -33,9 +33,6 @@ object HttpTestResource {
   type TestResources[F[_]] = (ApiServiceConfiguration, ApiMessageBrokers[F, Id], HttpApp[F])
 
   val ApiStorageConfig: ApiStorageConfiguration = ApiStorageConfiguration("./images")
-
-  val ApplicationInfo: ApplicationInformation =
-    ApplicationInformation("localhost", Some("N/A"), Some("N/A"), None)
 
   val HttpConfig: HttpConfiguration = HttpConfiguration(ipv4"127.0.0.1", port"8000")
 
@@ -75,8 +72,7 @@ object HttpTestResource {
         redisConfiguration,
         AuthenticationConfig,
         KafkaConfig,
-        SpaRendererConfig,
-        ApplicationInfo
+        SpaRendererConfig
       )
 
       downloadProgressPubSub <- Resource.eval(Fs2PubSub[F, DownloadProgress])

@@ -1,11 +1,11 @@
 package com.ruchij.batch.config
 
 import cats.effect.IO
-import com.ruchij.core.config.{ApplicationInformation, KafkaConfiguration, SpaSiteRendererConfiguration}
+import com.ruchij.core.config.{KafkaConfiguration, SpaSiteRendererConfiguration}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.migration.config.DatabaseConfiguration
 import org.http4s.implicits.http4sLiteralsSyntax
-import org.joda.time.{DateTime, DateTimeZone, LocalTime}
+import org.joda.time.LocalTime
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 import pureconfig.ConfigSource
@@ -58,14 +58,6 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
           uri = "http://spa-renderer-service:8000"
           uri = $${?SPA_SITE_RENDERER}
         }
-
-        application-information {
-          instance-id = "localhost"
-
-          git-branch = $${?GIT_BRANCH}
-          git-commit = $${?GIT_COMMIT}
-          build-timestamp = "2021-08-01T10:10:10.000Z"
-        }
       """
 
     val expectedBatchServiceConfiguration =
@@ -75,7 +67,6 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         DatabaseConfiguration("jdbc:h2:mem:video-downloader;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false", "my-user", "my-password"),
         KafkaConfiguration("kafka-cluster:9092", uri"http://kafka-cluster:8081"),
         SpaSiteRendererConfiguration(uri"http://spa-renderer-service:8000"),
-        ApplicationInformation("localhost", None, None, Some(new DateTime(2021, 8, 1, 10, 10, 10, 0, DateTimeZone.UTC)))
       )
 
     BatchServiceConfiguration.parse[IO](ConfigSource.string(configSource)).flatMap {

@@ -2,11 +2,10 @@ package com.ruchij.api.config
 
 import cats.effect.IO
 import com.comcast.ip4s.IpLiteralSyntax
-import com.ruchij.core.config.{ApplicationInformation, KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration}
+import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.migration.config.DatabaseConfiguration
 import org.http4s.implicits.http4sLiteralsSyntax
-import org.joda.time.{DateTime, DateTimeZone}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 import pureconfig.ConfigSource
@@ -65,14 +64,6 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
           uri = "http://spa-renderer-service:8000"
           uri = $${?SPA_SITE_RENDERER}
         }
-
-        application-information {
-          instance-id = "localhost"
-
-          git-branch = "my-branch"
-          git-commit = "my-commit"
-          build-timestamp = "2021-08-06T01:20:00.000Z"
-        }
       """
 
     val expectedApiServiceConfiguration =
@@ -83,8 +74,7 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         RedisConfiguration("localhost", 6379, Some("redis-password")),
         AuthenticationConfiguration(30 days),
         KafkaConfiguration("kafka-cluster:9092", uri"http://kafka-cluster:8081"),
-        SpaSiteRendererConfiguration(uri"http://spa-renderer-service:8000"),
-        ApplicationInformation("localhost", Some("my-branch"), Some("my-commit"), Some(new DateTime(2021, 8, 6, 1, 20, 0, 0, DateTimeZone.UTC)))
+        SpaSiteRendererConfiguration(uri"http://spa-renderer-service:8000")
       )
 
     ApiServiceConfiguration.parse[IO](ConfigSource.string(configSource)).flatMap {

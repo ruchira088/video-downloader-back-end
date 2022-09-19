@@ -25,11 +25,10 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
         "scalaVersion": "2.13.8",
         "sbtVersion": "1.6.2",
         "javaVersion": "17.0.2",
-        "currentTimestamp": "2021-08-01T10:10:00.000Z",
-        "instanceId": "localhost",
+        "currentTimestamp": "2022-08-01T10:10:00.000Z",
         "gitBranch": "my-branch",
         "gitCommit": "my-commit",
-        "buildTimestamp": null
+        "buildTimestamp": "2022-03-24T05:56:14.000Z"
       }"""
 
     (() => healthService.serviceInformation)
@@ -43,11 +42,10 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
             "2.13.8",
             "1.6.2",
             "17.0.2",
-            new DateTime(2021, 8, 1, 10, 10, 0, 0, DateTimeZone.UTC),
-            "localhost",
+            new DateTime(2022, 8, 1, 10, 10, 0, 0, DateTimeZone.UTC),
             Some("my-branch"),
             Some("my-commit"),
-            None
+            new DateTime(2022, 3, 24, 5, 56, 14, 0, DateTimeZone.UTC)
           )
         }
       }

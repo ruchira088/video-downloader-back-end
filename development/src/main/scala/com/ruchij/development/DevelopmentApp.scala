@@ -10,7 +10,7 @@ import com.ruchij.api.config.{ApiServiceConfiguration, ApiStorageConfiguration, 
 import com.ruchij.batch.BatchApp
 import com.ruchij.batch.config.{BatchServiceConfiguration, BatchStorageConfiguration, WorkerConfiguration}
 import com.ruchij.batch.services.scheduler.Scheduler
-import com.ruchij.core.config.{ApplicationInformation, KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration}
+import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration}
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.external.ExternalServiceProvider
 import com.ruchij.core.external.ExternalServiceProvider.HashedAdminPassword
@@ -35,9 +35,6 @@ object DevelopmentApp extends IOApp {
   val BatchStorageConfig: BatchStorageConfiguration =
     BatchStorageConfiguration("./videos", "./images", List.empty)
 
-  val ApplicationInfo: ApplicationInformation =
-    ApplicationInformation("localhost", Some("N/A"), Some("N/A"), None)
-
   val WorkerConfig: WorkerConfiguration =
     WorkerConfiguration(2, LocalTime.MIDNIGHT, LocalTime.MIDNIGHT)
 
@@ -59,8 +56,7 @@ object DevelopmentApp extends IOApp {
       redisConfiguration,
       AuthenticationConfig,
       kafkaConfiguration,
-      spaSiteRendererConfiguration,
-      ApplicationInfo
+      spaSiteRendererConfiguration
     )
 
   def batchConfig(
@@ -73,8 +69,7 @@ object DevelopmentApp extends IOApp {
       WorkerConfig,
       databaseConfiguration,
       kafkaConfiguration,
-      spaSiteRendererConfiguration,
-      ApplicationInfo
+      spaSiteRendererConfiguration
     )
 
   val KeyStoreResource = "/localhost.jks"

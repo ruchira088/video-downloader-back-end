@@ -9,12 +9,12 @@ import com.eed3si9n.ruchij.api.BuildInfo
 import com.ruchij.api.services.health.models.kv.HealthCheckKey
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.api.services.health.models.{HealthCheck, HealthStatus, ServiceInformation}
-import com.ruchij.core.config.{ApplicationInformation, SpaSiteRendererConfiguration, StorageConfiguration}
+import com.ruchij.core.config.{SpaSiteRendererConfiguration, StorageConfiguration}
 import com.ruchij.core.kv.KeySpacedKeyValueStore
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.services.repository.FileRepositoryService
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.{JodaClock, RandomGenerator}
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import fs2.Stream
@@ -25,16 +25,16 @@ import org.http4s.client.Client
 import org.http4s.client.dsl.Http4sClientDsl
 import org.joda.time.DateTime
 
+import java.util.UUID
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class HealthServiceImpl[F[_]: Async: JodaClock](
+class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
   fileRepositoryService: FileRepositoryService[F],
   keySpacedKeyValueStore: KeySpacedKeyValueStore[F, HealthCheckKey, DateTime],
   healthCheckStream: Stream[F, HealthCheckMessage],
   healthCheckPublisher: Publisher[F, HealthCheckMessage],
   client: Client[F],
-  applicationInformation: ApplicationInformation,
   storageConfiguration: StorageConfiguration,
   spaSiteRendererConfiguration: SpaSiteRendererConfiguration
 )(implicit transaction: ConnectionIO ~> F)
@@ -71,23 +71,27 @@ class HealthServiceImpl[F[_]: Async: JodaClock](
   private val pubSubCheck: F[HealthStatus] =
     JodaClock[F].timestamp
       .flatMap { dateTime =>
-        healthCheckStream
-          .concurrently {
-            healthCheckPublisher.publish {
-              Stream
-                .emit[F, HealthCheckMessage] { HealthCheckMessage(applicationInformation.instanceId, dateTime) }
-                .repeat
-                .take(10)
+        RandomGenerator[F, UUID].generate.map(_.toString).flatMap { instanceId =>
+          healthCheckStream
+            .concurrently {
+              healthCheckPublisher.publish {
+                Stream
+                  .emit[F, HealthCheckMessage] {
+                    HealthCheckMessage(instanceId, dateTime)
+                  }
+                  .repeat
+                  .take(10)
+              }
             }
-          }
-          .filter {
-            case HealthCheckMessage(instanceId, messageDateTime) =>
-              instanceId == applicationInformation.instanceId && dateTime.isEqual(messageDateTime)
-          }
-          .take(10)
-          .compile
-          .drain
-          .as(HealthStatus.Healthy)
+            .filter {
+              case HealthCheckMessage(instanceId, messageDateTime) =>
+                instanceId == instanceId && dateTime.isEqual(messageDateTime)
+            }
+            .take(10)
+            .compile
+            .drain
+            .as(HealthStatus.Healthy)
+        }
       }
 
   private val fileRepositoryCheck: F[HealthStatus] =
@@ -143,8 +147,7 @@ class HealthServiceImpl[F[_]: Async: JodaClock](
   val timeout: F[HealthStatus.Unhealthy.type] =
     Clock[F].sleep(10 seconds).as(HealthStatus.Unhealthy)
 
-  override val serviceInformation: F[ServiceInformation] =
-    ServiceInformation.create[F](applicationInformation)
+  override val serviceInformation: F[ServiceInformation] = ServiceInformation.create[F]
 
   override val healthCheck: F[HealthCheck] =
     for {

@@ -31,7 +31,7 @@ import com.ruchij.core.services.renderer.SpaSiteRendererImpl
 import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, YouTubeVideoDownloaderImpl}
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.{JodaClock, RandomGenerator}
 import doobie.free.connection.ConnectionIO
 import fs2.kafka.CommittableConsumerRecord
 import org.apache.tika.Tika
@@ -41,6 +41,7 @@ import pureconfig.ConfigSource
 import java.net.http.HttpClient
 import java.net.http.HttpClient.Redirect
 import java.time.Duration
+import java.util.UUID
 
 object BatchApp extends IOApp {
 
@@ -186,6 +187,8 @@ object BatchApp extends IOApp {
             batchServiceConfiguration.storageConfiguration
           )
 
+          instanceId <- Resource.eval(RandomGenerator[F, UUID].generate).map(_.toString)
+
           scheduler = new SchedulerImpl(
             batchSchedulingService,
             synchronizationService,
@@ -195,7 +198,7 @@ object BatchApp extends IOApp {
             scanForVideosCommandSubscriber,
             workerDao,
             batchServiceConfiguration.workerConfiguration,
-            batchServiceConfiguration.applicationInformation.instanceId
+            instanceId
           )
         } yield scheduler
       }

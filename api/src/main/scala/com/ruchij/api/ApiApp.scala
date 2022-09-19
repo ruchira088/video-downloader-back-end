@@ -50,7 +50,7 @@ import com.ruchij.core.services.renderer.SpaSiteRendererImpl
 import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, YouTubeVideoDownloaderImpl}
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.{JodaClock, RandomGenerator}
 import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.effect.Log.Stdout.instance
 import doobie.free.connection.ConnectionIO
@@ -66,6 +66,7 @@ import pureconfig.ConfigSource
 
 import java.net.http.HttpClient
 import java.net.http.HttpClient.Redirect
+import java.util.UUID
 
 object ApiApp extends IOApp {
 
@@ -234,11 +235,13 @@ object ApiApp extends IOApp {
     )
 
     for {
+      instanceId <- RandomGenerator[F, UUID].generate.map(_.toString)
+
       backgroundService <- BackgroundServiceImpl.create[F, M](
         schedulingService,
         messageBrokers.downloadProgressSubscriber,
         messageBrokers.healthCheckPubSub,
-        s"background-${apiServiceConfiguration.applicationInformation.instanceId}"
+        s"background-$instanceId"
       )
 
       healthService = new HealthServiceImpl[F](
@@ -247,7 +250,6 @@ object ApiApp extends IOApp {
         backgroundService.healthChecks,
         messageBrokers.healthCheckPubSub,
         client,
-        apiServiceConfiguration.applicationInformation,
         apiServiceConfiguration.storageConfiguration,
         apiServiceConfiguration.spaSiteRendererConfiguration
       )
