@@ -4,7 +4,7 @@ services:
   load-balancer:
     image: nginx:stable-alpine
     healthcheck:
-      test: "/opt/scripts/wait-for -t 3 localhost:443"
+      test: "/opt/scripts/wait-for.sh -t 3 localhost:443"
       start_period: 5s
       interval: 10s
       timeout: 5s
@@ -115,7 +115,7 @@ services:
   spa-renderer:
     image: ghcr.io/ruchira088/video-downloader-spa-renderer:dev
     healthcheck:
-      test: "/opt/scripts/wait-for -t 3 localhost:8000"
+      test: "/opt/scripts/wait-for.sh -t 3 localhost:8000"
       start_period: 10s
       interval: 10s
       timeout: 5s
@@ -161,7 +161,7 @@ services:
   zookeeper:
     image: zookeeper
     healthcheck:
-      test: "/opt/scripts/wait-for -t 3 zookeeper:2181"
+      test: "/opt/scripts/wait-for.sh -t 3 zookeeper:2181"
       start_period: 5s
       interval: 5s
       timeout: 2s
@@ -173,7 +173,7 @@ services:
   kafka-broker:
     image: wurstmeister/kafka
     healthcheck:
-      test: "/opt/scripts/wait-for -t 3 kafka-broker:9092"
+      test: "/opt/scripts/wait-for.sh -t 3 kafka-broker:9092"
       start_period: 5s
       interval: 5s
       timeout: 2s
@@ -189,7 +189,7 @@ services:
   schema-registry:
     image: ghcr.io/arm64-compat/confluentinc/cp-schema-registry:7.1.1
     healthcheck:
-      test: "/opt/scripts/wait-for -t 3 schema-registry:8081"
+      test: "/opt/scripts/wait-for.sh -t 3 schema-registry:8081"
       start_period: 5s
       interval: 5s
       timeout: 2s
@@ -207,7 +207,7 @@ services:
   schema-registry-ui:
     image: landoop/schema-registry-ui
     healthcheck:
-      test: "/opt/scripts/wait-for -t 3 schema-registry-ui:8000"
+      test: "/opt/scripts/wait-for.sh -t 3 schema-registry-ui:8000"
       start_period: 10s
       interval: 10s
       timeout: 5s
@@ -225,7 +225,7 @@ services:
   front-end-1: &front-end
     image: ghcr.io/ruchira088/video-downloader-front-end:dev
     healthcheck:
-      test: "/opt/scripts/wait-for -t 3 localhost:80"
+      test: "/opt/scripts/wait-for.sh -t 3 localhost:80"
       start_period: 5s
       interval: 3s
       timeout: 2s
