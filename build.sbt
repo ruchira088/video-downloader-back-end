@@ -216,6 +216,6 @@ def runGitCommand(command: String): Option[String] = {
   if (gitFolder.exists()) Try(command !!).toOption.map(_.trim).filter(_.nonEmpty) else None
 }
 
-addCommandAlias("cleanCompile", "; clean; compile")
-addCommandAlias("cleanTest", "; clean; test")
-addCommandAlias("testWithCoverage", "; clean; coverage; test; coverageAggregate; viewCoverageResults")
+addCommandAlias("cleanCompile", "clean; compile;")
+addCommandAlias("cleanTest", "clean; test;")
+addCommandAlias("testWithCoverage", "clean; coverageOn; test; coverageAggregate; coverageOff; viewCoverageResults;")
