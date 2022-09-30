@@ -16,7 +16,8 @@ final case class ApiServiceConfiguration(
   redisConfiguration: RedisConfiguration,
   authenticationConfiguration: AuthenticationConfiguration,
   kafkaConfiguration: KafkaConfiguration,
-  spaSiteRendererConfiguration: SpaSiteRendererConfiguration
+  spaSiteRendererConfiguration: SpaSiteRendererConfiguration,
+  fallbackApiConfiguration: FallbackApiConfiguration
 )
 
 object ApiServiceConfiguration {

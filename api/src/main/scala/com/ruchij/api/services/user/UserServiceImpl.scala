@@ -54,6 +54,8 @@ class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: MonadThrow: JodaClock, 
 
     } yield user
 
+  override def getById(userId: String): F[User] = transaction(fetchUser(userId))
+
   override def forgotPassword(email: Email): F[CredentialsResetToken] =
     for {
       token <- RandomGenerator[F, UUID].generate.map(_.toString)
@@ -100,17 +102,18 @@ class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: MonadThrow: JodaClock, 
         videoTitleDao.delete(None, Some(userId))
           .productR(videoPermissionDao.delete(Some(userId), None))
           .productR(credentialsDao.deleteByUserId(userId))
-          .productR {
-            OptionT(userDao.findById(userId))
-              .getOrElseF {
-                ApplicativeError[G, Throwable].raiseError {
-                  ResourceNotFoundException(s"User id=$userId does NOT exist")
-                }
-              }
-          }
+          .productR(fetchUser(userId))
           .productL(userDao.deleteById(userId).one)
       }
     else ApplicativeError[F, Throwable].raiseError {
       AuthorizationException(s"User does NOT have permission to delete user: $userId")
     }
+
+  private def fetchUser(userId: String): G[User] =
+    OptionT(userDao.findById(userId))
+      .getOrElseF {
+        ApplicativeError[G, Throwable].raiseError {
+          ResourceNotFoundException(s"User id=$userId does NOT exist")
+        }
+      }
 }

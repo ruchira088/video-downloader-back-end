@@ -6,7 +6,7 @@ import cats.effect.std.Dispatcher
 import cats.{ApplicativeError, Id}
 import com.comcast.ip4s.IpLiteralSyntax
 import com.ruchij.api.ApiApp
-import com.ruchij.api.config.{ApiServiceConfiguration, ApiStorageConfiguration, AuthenticationConfiguration, HttpConfiguration}
+import com.ruchij.api.config.{ApiServiceConfiguration, ApiStorageConfiguration, AuthenticationConfiguration, FallbackApiConfiguration, HttpConfiguration}
 import com.ruchij.api.models.ApiMessageBrokers
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.core.commands.ScanVideosCommand
@@ -43,6 +43,8 @@ object HttpTestResource {
 
   val SpaRendererConfig: SpaSiteRendererConfiguration = SpaSiteRendererConfiguration(Uri())
 
+  val FallbackApiConfig: FallbackApiConfiguration = FallbackApiConfiguration(Uri(), "")
+
   def create[F[_]: Async: JodaClock](
     externalServiceProvider: ExternalServiceProvider[F]
   ): Resource[F, TestResources[F]] =
@@ -72,7 +74,8 @@ object HttpTestResource {
         redisConfiguration,
         AuthenticationConfig,
         KafkaConfig,
-        SpaRendererConfig
+        SpaRendererConfig,
+        FallbackApiConfig
       )
 
       downloadProgressPubSub <- Resource.eval(Fs2PubSub[F, DownloadProgress])

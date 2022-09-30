@@ -20,6 +20,7 @@ import com.ruchij.api.services.authentication.models.AuthenticationToken.Authent
 import com.ruchij.api.services.background.BackgroundServiceImpl
 import com.ruchij.api.services.config.models.ApiConfigKey
 import com.ruchij.api.services.config.models.ApiConfigKey.{ApiConfigKeySpace, apiConfigKeySpacedKVEncoder}
+import com.ruchij.api.services.fallback.FallbackApiServiceImpl
 import com.ruchij.api.services.hashing.BCryptPasswordHashingService
 import com.ruchij.api.services.health.HealthServiceImpl
 import com.ruchij.api.services.health.models.kv.HealthCheckKey
@@ -239,11 +240,15 @@ object ApiApp extends IOApp {
       DoobieVideoPermissionDao
     )
 
+    val fallbackApiService = new FallbackApiServiceImpl[F](client, apiServiceConfiguration.fallbackApiConfiguration)
+
     for {
       instanceId <- RandomGenerator[F, UUID].generate.map(_.toString)
 
       backgroundService <- BackgroundServiceImpl.create[F, M](
         schedulingService,
+        fallbackApiService,
+        userService,
         messageBrokers.downloadProgressSubscriber,
         messageBrokers.healthCheckPubSub,
         s"background-$instanceId"

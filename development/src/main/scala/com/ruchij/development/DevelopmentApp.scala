@@ -6,7 +6,7 @@ import cats.effect._
 import cats.implicits._
 import com.comcast.ip4s.IpLiteralSyntax
 import com.ruchij.api.ApiApp
-import com.ruchij.api.config.{ApiServiceConfiguration, ApiStorageConfiguration, AuthenticationConfiguration, HttpConfiguration}
+import com.ruchij.api.config.{ApiServiceConfiguration, ApiStorageConfiguration, AuthenticationConfiguration, FallbackApiConfiguration, HttpConfiguration}
 import com.ruchij.batch.BatchApp
 import com.ruchij.batch.config.{BatchServiceConfiguration, BatchStorageConfiguration, WorkerConfiguration}
 import com.ruchij.batch.services.scheduler.Scheduler
@@ -47,7 +47,8 @@ object DevelopmentApp extends IOApp {
     databaseConfiguration: DatabaseConfiguration,
     redisConfiguration: RedisConfiguration,
     kafkaConfiguration: KafkaConfiguration,
-    spaSiteRendererConfiguration: SpaSiteRendererConfiguration
+    spaSiteRendererConfiguration: SpaSiteRendererConfiguration,
+    fallbackApiConfiguration: FallbackApiConfiguration
   ): ApiServiceConfiguration =
     ApiServiceConfiguration(
       HttpConfig,
@@ -56,7 +57,8 @@ object DevelopmentApp extends IOApp {
       redisConfiguration,
       AuthenticationConfig,
       kafkaConfiguration,
-      spaSiteRendererConfiguration
+      spaSiteRendererConfiguration,
+      fallbackApiConfiguration
     )
 
   def batchConfig(
@@ -115,7 +117,7 @@ object DevelopmentApp extends IOApp {
         )
       }
 
-      api <- ApiApp.create[F](apiConfig(databaseConfig, redisConfig, kafkaConfig, spaSiteRendererConfig))
+      api <- ApiApp.create[F](apiConfig(databaseConfig, redisConfig, kafkaConfig, spaSiteRendererConfig, ???))
       batch <- BatchApp.program[F](batchConfig(databaseConfig, kafkaConfig, spaSiteRendererConfig))
     } yield (api, batch)
 

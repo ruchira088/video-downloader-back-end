@@ -64,6 +64,11 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
           uri = "http://spa-renderer-service:8000"
           uri = $${?SPA_SITE_RENDERER}
         }
+
+        fallback-api-configuration {
+          uri = "https://fallback-api.video.dev.ruchij.com"
+          bearer-token = my-token
+        }
       """
 
     val expectedApiServiceConfiguration =
@@ -74,7 +79,8 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         RedisConfiguration("localhost", 6379, Some("redis-password")),
         AuthenticationConfiguration(30 days),
         KafkaConfiguration("kafka-cluster:9092", uri"http://kafka-cluster:8081"),
-        SpaSiteRendererConfiguration(uri"http://spa-renderer-service:8000")
+        SpaSiteRendererConfiguration(uri"http://spa-renderer-service:8000"),
+        FallbackApiConfiguration(uri"https://fallback-api.video.dev.ruchij.com", "my-token")
       )
 
     ApiServiceConfiguration.parse[IO](ConfigSource.string(configSource)).flatMap {

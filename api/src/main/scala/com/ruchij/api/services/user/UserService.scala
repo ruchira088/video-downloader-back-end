@@ -10,6 +10,8 @@ import scala.language.postfixOps
 trait UserService[F[_]] {
   def create(firstName: String, lastName: String, email: Email, password: Password): F[User]
 
+  def getById(userId: String): F[User]
+
   def forgotPassword(email: Email): F[CredentialsResetToken]
 
   def resetPassword(userId: String, resetToken: String, password: Password): F[User]
