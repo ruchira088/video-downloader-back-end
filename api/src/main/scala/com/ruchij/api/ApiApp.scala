@@ -261,7 +261,8 @@ object ApiApp extends IOApp {
         messageBrokers.healthCheckPubSub,
         client,
         apiServiceConfiguration.storageConfiguration,
-        apiServiceConfiguration.spaSiteRendererConfiguration
+        apiServiceConfiguration.spaSiteRendererConfiguration,
+        apiServiceConfiguration.fallbackApiConfiguration
       )
 
       _ <- backgroundService.run

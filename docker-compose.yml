@@ -25,6 +25,7 @@ services:
         condition: service_healthy
     ports:
       - 443:443
+      - 80:80
     volumes:
       - "./nginx/ssl:/etc/ssl"
       - "./nginx/default.conf:/etc/nginx/conf.d/default.conf"
@@ -38,7 +39,7 @@ services:
       interval: 10s
       timeout: 5s
     depends_on:
-      postgres:
+      postgres-main:
         condition: service_healthy
       migration-application:
         condition: service_completed_successfully
@@ -56,7 +57,7 @@ services:
       - "./api/src/main/resources/logback.xml:/opt/data/logback.xml"
       - "./docker-compose/scripts:/opt/scripts"
     environment:
-      DATABASE_URL: "jdbc:postgresql://postgres:5432/video-downloader"
+      DATABASE_URL: "jdbc:postgresql://postgres-main:5432/video-downloader"
       DATABASE_USER: "admin"
       DATABASE_PASSWORD: "password"
       REDIS_HOSTNAME: "redis"
@@ -65,6 +66,8 @@ services:
       KAFKA_BROKERS: "kafka-broker:9092"
       SCHEMA_REGISTRY: "http://schema-registry:8081"
       SPA_SITE_RENDERER: "http://spa-renderer:8000"
+      FALLBACK_API_URL: "http://fallback-api:8080"
+      FALLBACK_API_BEARER_TOKEN: "my-secret-token"
       VIDEO_FOLDER: "/opt/videos"
       IMAGE_FOLDER: "/opt/images"
 
@@ -77,7 +80,7 @@ services:
   batch-1: &batch-app
     image: ghcr.io/ruchira088/video-downloader-batch:dev
     depends_on:
-      postgres:
+      postgres-main:
         condition: service_healthy
       migration-application:
         condition: service_completed_successfully
@@ -94,7 +97,7 @@ services:
       - "./images:/opt/images"
       - "./batch/src/main/resources/logback.xml:/opt/data/logback.xml"
     environment:
-      DATABASE_URL: "jdbc:postgresql://postgres:5432/video-downloader"
+      DATABASE_URL: "jdbc:postgresql://postgres-main:5432/video-downloader"
       DATABASE_USER: "admin"
       DATABASE_PASSWORD: "password"
       REDIS_HOSTNAME: "redis"
@@ -122,17 +125,35 @@ services:
     volumes:
       - "./docker-compose/scripts:/opt/scripts"
 
-  migration-application:
-    image: ghcr.io/ruchira088/video-downloader-migration-application:dev
+  fallback-api:
+    image: ghcr.io/ruchira088/video-downloader-fallback-api:main
+    healthcheck:
+      test: "/opt/scripts/wait-for-it.sh localhost:8080"
+      start_period: 10s
+      interval: 10s
+      timeout: 5s
     depends_on:
-      postgres:
+      postgres-secondary:
         condition: service_healthy
+    volumes:
+      - "./docker-compose/scripts:/opt/scripts"
     environment:
-      DATABASE_URL: "jdbc:postgresql://postgres:5432/video-downloader"
+      ADMIN_BEARER_TOKEN: "my-secret-token"
+      DATABASE_URL: "jdbc:postgresql://postgres-secondary:5432/fallback-api"
       DATABASE_USER: "admin"
       DATABASE_PASSWORD: "password"
 
-  postgres:
+  migration-application:
+    image: ghcr.io/ruchira088/video-downloader-migration-application:dev
+    depends_on:
+      postgres-main:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "jdbc:postgresql://postgres-main:5432/video-downloader"
+      DATABASE_USER: "admin"
+      DATABASE_PASSWORD: "password"
+
+  postgres-main:
     image: postgres
 #    command: ["postgres", "-c", "log_statement=all"]
     healthcheck:
@@ -144,6 +165,21 @@ services:
       - 5432:5432
     environment:
       POSTGRES_DB: "video-downloader"
+      POSTGRES_USER: "admin"
+      POSTGRES_PASSWORD: "password"
+
+  postgres-secondary:
+    image: postgres
+    #    command: ["postgres", "-c", "log_statement=all"]
+    healthcheck:
+      test: "pg_isready -U admin -d fallback-api"
+      start_period: 10s
+      interval: 10s
+      timeout: 5s
+    ports:
+      - 5431:5432
+    environment:
+      POSTGRES_DB: "fallback-api"
       POSTGRES_USER: "admin"
       POSTGRES_PASSWORD: "password"
 

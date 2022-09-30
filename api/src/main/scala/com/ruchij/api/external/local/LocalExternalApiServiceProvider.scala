@@ -18,6 +18,6 @@ class LocalExternalApiServiceProvider[F[_]: Applicative]
     Resource.pure(RedisConfiguration("localhost", 6379, None))
 
   override val fallbackApiConfiguration: Resource[F, FallbackApiConfiguration] =
-    Resource.pure(FallbackApiConfiguration(uri"http://localhost:8001", "my-bearer-token"))
+    Resource.pure(FallbackApiConfiguration(uri"http://localhost:8080", "my-bearer-token"))
 
 }
