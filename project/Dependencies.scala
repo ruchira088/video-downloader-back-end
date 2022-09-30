@@ -5,7 +5,7 @@ object Dependencies
   val ScalaVersion = "2.13.9"
   val Http4sVersion = "0.23.16"
   val CirceVersion = "0.14.3"
-  val TestContainersVersion = "1.17.3"
+  val TestContainersVersion = "1.17.4"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -47,7 +47,7 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.1"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.3.1"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.4.0"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.5.0"
 
