@@ -3,7 +3,7 @@ package com.ruchij.core.daos.resource
 import cats.effect.IO
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.test.IOSupport.runIO
-import com.ruchij.core.external.embedded.EmbeddedExternalServiceProvider
+import com.ruchij.core.external.embedded.EmbeddedExternalCoreServiceProvider
 import com.ruchij.core.types.JodaClock
 import org.http4s.MediaType
 import org.scalatest.flatspec.AnyFlatSpec
@@ -14,7 +14,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 class DoobieFileResourceDaoSpec extends AnyFlatSpec with Matchers {
 
   "DoobieFileResource" should "perform CRUD operation" in runIO {
-    new EmbeddedExternalServiceProvider[IO].transactor
+    new EmbeddedExternalCoreServiceProvider[IO].transactor
       .use {
         transaction =>
           for {

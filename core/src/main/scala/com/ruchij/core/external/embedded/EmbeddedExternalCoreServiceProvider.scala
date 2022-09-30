@@ -3,39 +3,22 @@ package com.ruchij.core.external.embedded
 import cats.MonadError
 import cats.effect.{Resource, Sync}
 import cats.implicits._
-import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration}
-import com.ruchij.core.external.ExternalServiceProvider
-import com.ruchij.core.external.containers.{ContainerExternalServiceProvider, SpaRendererContainer}
-import com.ruchij.core.external.embedded.EmbeddedExternalServiceProvider.availablePort
+import com.ruchij.core.config.{KafkaConfiguration, SpaSiteRendererConfiguration}
+import com.ruchij.core.external.ExternalCoreServiceProvider
+import com.ruchij.core.external.embedded.EmbeddedExternalCoreServiceProvider.availablePort
 import com.ruchij.core.types.RandomGenerator
 import com.ruchij.migration.config.DatabaseConfiguration
 import io.github.embeddedkafka.EmbeddedKafkaConfig
 import io.github.embeddedkafka.schemaregistry.{EmbeddedKafka, EmbeddedKafkaConfig => EmbeddedKafkaSchemaRegistryConfig}
 import org.http4s.Uri
 import org.http4s.Uri.Scheme
-import redis.embedded.RedisServer
 
 import java.net.ServerSocket
 import java.util.UUID
 import scala.util.Random
 
-class EmbeddedExternalServiceProvider[F[_]: Sync]
-    extends ExternalServiceProvider[F] {
-
-  override val redisConfiguration: Resource[F, RedisConfiguration] =
-    Resource
-      .eval(EmbeddedExternalServiceProvider.availablePort[F](6300))
-      .flatMap { port =>
-        Resource
-          .make {
-            Sync[F]
-              .blocking(RedisServer.builder().port(port).build())
-              .flatTap(redisServer => Sync[F].blocking(redisServer.start()))
-          } { redisServer =>
-            Sync[F].blocking(redisServer.stop())
-          }
-          .as(RedisConfiguration("localhost", port, None))
-      }
+class EmbeddedExternalCoreServiceProvider[F[_]: Sync]
+    extends ExternalCoreServiceProvider[F] {
 
   override val kafkaConfiguration: Resource[F, KafkaConfiguration] =
     for {
@@ -68,12 +51,13 @@ class EmbeddedExternalServiceProvider[F[_]: Sync]
       RandomGenerator[F, UUID].generate
         .map(uuid => h2InMemoryDatabaseConfiguration(uuid.toString.take(8)))
     }
-
   override val spaSiteRendererConfiguration: Resource[F, SpaSiteRendererConfiguration] =
-    ContainerExternalServiceProvider.start(new SpaRendererContainer()).evalMap(_.spaSiteRendererConfiguration)
+    Resource.raiseError[F, SpaSiteRendererConfiguration, Throwable] {
+      new UnsupportedOperationException("Unable to start SPA site renderer in embedded external services")
+    }
 }
 
-object EmbeddedExternalServiceProvider {
+object EmbeddedExternalCoreServiceProvider {
   def availablePort[F[_]: Sync](init: Int): F[Int] =
     RandomGenerator[F, Int](Random.nextInt() % 1000).generate
       .map(init + _)

@@ -1,18 +1,15 @@
 package com.ruchij.core.external
 
 import cats.effect.Resource
-import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration}
-import com.ruchij.core.external.TestExternalServiceProvider.BranchName
+import com.ruchij.core.config.{KafkaConfiguration, SpaSiteRendererConfiguration}
+import com.ruchij.core.external.TestExternalCoreServiceProvider.BranchName
 import com.ruchij.migration.config.DatabaseConfiguration
 import org.http4s.implicits.http4sLiteralsSyntax
 
-class TestExternalServiceProvider[F[_]](
-  externalServiceProvider: ExternalServiceProvider[F],
+class TestExternalCoreServiceProvider[F[_]](
+  externalServiceProvider: ExternalCoreServiceProvider[F],
   environmentVariables: Map[String, String]
-) extends ExternalServiceProvider[F] {
-
-  override val redisConfiguration: Resource[F, RedisConfiguration] =
-    externalServiceProvider.redisConfiguration
+) extends ExternalCoreServiceProvider[F] {
 
   override val kafkaConfiguration: Resource[F, KafkaConfiguration] =
     externalServiceProvider.kafkaConfiguration
@@ -26,11 +23,12 @@ class TestExternalServiceProvider[F[_]](
   override val spaSiteRendererConfiguration: Resource[F, SpaSiteRendererConfiguration] =
     Resource.pure {
       SpaSiteRendererConfiguration {
-        if (isMasterBranch) uri"https://spa-renderer.video.home.ruchij.com" else uri"https://spa-renderer.dev.video.dev.ruchij.com"
+        if (isMasterBranch) uri"https://spa-renderer.video.home.ruchij.com"
+        else uri"https://spa-renderer.dev.video.dev.ruchij.com"
       }
     }
 }
 
-object TestExternalServiceProvider {
+object TestExternalCoreServiceProvider {
   private val BranchName: String = "GITHUB_REF_NAME"
 }

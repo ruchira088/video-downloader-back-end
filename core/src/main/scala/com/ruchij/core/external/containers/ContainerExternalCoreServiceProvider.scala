@@ -2,31 +2,25 @@ package com.ruchij.core.external.containers
 
 import cats.effect.{Resource, Sync}
 import cats.implicits._
-import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration}
-import com.ruchij.core.external.ExternalServiceProvider
+import com.ruchij.core.config.{KafkaConfiguration, SpaSiteRendererConfiguration}
+import com.ruchij.core.external.ExternalCoreServiceProvider
 import com.ruchij.migration.config.DatabaseConfiguration
 import org.testcontainers.containers.{GenericContainer, KafkaContainer, Network}
 import org.testcontainers.utility.DockerImageName
 
-class ContainerExternalServiceProvider[F[_]: Sync]
-    extends ExternalServiceProvider[F] {
-
-  override val redisConfiguration: Resource[F, RedisConfiguration] =
-    ContainerExternalServiceProvider
-      .start(new RedisContainer())
-      .evalMap(_.redisConfiguration[F])
-
+class ContainerExternalCoreServiceProvider[F[_]: Sync]
+    extends ExternalCoreServiceProvider[F] {
   override val kafkaConfiguration: Resource[F, KafkaConfiguration] =
     for {
       network <- Resource.eval(Sync[F].delay(Network.newNetwork()))
 
-      kafkaContainer <- ContainerExternalServiceProvider.start[F, KafkaContainer] {
+      kafkaContainer <- ContainerExternalCoreServiceProvider.start[F, KafkaContainer] {
         new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:6.0.4"))
           .withNetwork(network)
           .withNetworkAliases("kafka")
       }
 
-      schemaRegistryContainer <- ContainerExternalServiceProvider.start[F, SchemaRegistryContainer] {
+      schemaRegistryContainer <- ContainerExternalCoreServiceProvider.start[F, SchemaRegistryContainer] {
         new SchemaRegistryContainer(network, "kafka")
       }
 
@@ -37,7 +31,7 @@ class ContainerExternalServiceProvider[F[_]: Sync]
   override val databaseConfiguration: Resource[F, DatabaseConfiguration] =
     for {
       postgresqlContainer <-
-        ContainerExternalServiceProvider.start {
+        ContainerExternalCoreServiceProvider.start {
           new PostgresContainer()
             .withUsername("admin")
             .withPassword("password")
@@ -49,10 +43,10 @@ class ContainerExternalServiceProvider[F[_]: Sync]
     yield DatabaseConfiguration(databaseUrl, postgresqlContainer.getUsername, postgresqlContainer.getPassword)
 
   override val spaSiteRendererConfiguration: Resource[F, SpaSiteRendererConfiguration] =
-    ContainerExternalServiceProvider.start(new SpaRendererContainer()).evalMap(_.spaSiteRendererConfiguration)
+    ContainerExternalCoreServiceProvider.start(new SpaRendererContainer()).evalMap(_.spaSiteRendererConfiguration)
 }
 
-object ContainerExternalServiceProvider {
+object ContainerExternalCoreServiceProvider {
   def start[F[_]: Sync, A <: GenericContainer[A]](testContainer: => A): Resource[F, A] =
     Resource.make[F, A] {
       Sync[F]

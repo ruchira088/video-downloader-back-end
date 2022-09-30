@@ -6,15 +6,15 @@ import cats.effect.std.Dispatcher
 import cats.{ApplicativeError, Id}
 import com.comcast.ip4s.IpLiteralSyntax
 import com.ruchij.api.ApiApp
-import com.ruchij.api.config.{ApiServiceConfiguration, ApiStorageConfiguration, AuthenticationConfiguration, FallbackApiConfiguration, HttpConfiguration}
+import com.ruchij.api.config._
+import com.ruchij.api.external.ExternalApiServiceProvider
 import com.ruchij.api.models.ApiMessageBrokers
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.core.commands.ScanVideosCommand
 import com.ruchij.core.config.{KafkaConfiguration, SpaSiteRendererConfiguration}
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
-import com.ruchij.core.external.ExternalServiceProvider
-import com.ruchij.core.external.ExternalServiceProvider.migrationServiceConfiguration
+import com.ruchij.core.external.ExternalCoreServiceProvider.migrationServiceConfiguration
 import com.ruchij.core.kv.RedisKeyValueStore
 import com.ruchij.core.messaging.inmemory.Fs2PubSub
 import com.ruchij.core.messaging.models.HttpMetric
@@ -46,24 +46,24 @@ object HttpTestResource {
   val FallbackApiConfig: FallbackApiConfiguration = FallbackApiConfiguration(Uri(), "")
 
   def create[F[_]: Async: JodaClock](
-    externalServiceProvider: ExternalServiceProvider[F]
+    externalApiServiceProvider: ExternalApiServiceProvider[F]
   ): Resource[F, TestResources[F]] =
-    create[F](externalServiceProvider, Client[F] { _ =>
+    create[F](externalApiServiceProvider, Client[F] { _ =>
       Resource.eval {
         ApplicativeError[F, Throwable].raiseError(new NotImplementedError("Client has not been implemented"))
       }
     })
 
   def create[F[_]: Async: JodaClock](
-    externalServiceProvider: ExternalServiceProvider[F],
+    externalApiServiceProvider: ExternalApiServiceProvider[F],
     client: Client[F]
   ): Resource[F, TestResources[F]] =
     for {
-      redisConfiguration <- externalServiceProvider.redisConfiguration
+      redisConfiguration <- externalApiServiceProvider.redisConfiguration
       redisCommands <- Redis[F].utf8(redisConfiguration.uri)
       redisKeyValueStore = new RedisKeyValueStore[F](redisCommands)
 
-      databaseConfiguration <- externalServiceProvider.databaseConfiguration
+      databaseConfiguration <- externalApiServiceProvider.databaseConfiguration
       _ <- Resource.eval(MigrationApp.migration(migrationServiceConfiguration(databaseConfiguration)))
       hikariTransactor <- DoobieTransactor.create(databaseConfiguration)
 

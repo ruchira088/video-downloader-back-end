@@ -2,15 +2,12 @@ package com.ruchij.core.external.local
 
 import cats.Applicative
 import cats.effect.Resource
-import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration}
-import com.ruchij.core.external.ExternalServiceProvider
+import com.ruchij.core.config.{KafkaConfiguration, SpaSiteRendererConfiguration}
+import com.ruchij.core.external.ExternalCoreServiceProvider
 import com.ruchij.migration.config.DatabaseConfiguration
 import org.http4s.implicits.http4sLiteralsSyntax
 
-class LocalExternalServiceProvider[F[_]: Applicative] extends ExternalServiceProvider[F] {
-  override val redisConfiguration: Resource[F, RedisConfiguration] =
-    Resource.pure(RedisConfiguration("localhost", 6379, None))
-
+class LocalExternalCoreServiceProvider[F[_]: Applicative] extends ExternalCoreServiceProvider[F] {
   override val kafkaConfiguration: Resource[F, KafkaConfiguration] =
     Resource.pure(KafkaConfiguration("localhost:9092", uri"http://localhost:8081"))
 

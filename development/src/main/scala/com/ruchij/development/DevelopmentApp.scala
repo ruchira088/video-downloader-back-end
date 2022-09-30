@@ -6,15 +6,15 @@ import cats.effect._
 import cats.implicits._
 import com.comcast.ip4s.IpLiteralSyntax
 import com.ruchij.api.ApiApp
-import com.ruchij.api.config.{ApiServiceConfiguration, ApiStorageConfiguration, AuthenticationConfiguration, FallbackApiConfiguration, HttpConfiguration}
+import com.ruchij.api.config._
+import com.ruchij.api.external.ExternalApiServiceProvider
+import com.ruchij.api.external.embedded.EmbeddedExternalApiServiceProvider
 import com.ruchij.batch.BatchApp
 import com.ruchij.batch.config.{BatchServiceConfiguration, BatchStorageConfiguration, WorkerConfiguration}
 import com.ruchij.batch.services.scheduler.Scheduler
 import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration}
 import com.ruchij.core.exceptions.ResourceNotFoundException
-import com.ruchij.core.external.ExternalServiceProvider
-import com.ruchij.core.external.ExternalServiceProvider.HashedAdminPassword
-import com.ruchij.core.external.embedded.EmbeddedExternalServiceProvider
+import com.ruchij.core.external.ExternalCoreServiceProvider.HashedAdminPassword
 import com.ruchij.core.types.JodaClock
 import com.ruchij.migration.MigrationApp
 import com.ruchij.migration.config.{AdminConfiguration, DatabaseConfiguration, MigrationServiceConfiguration}
@@ -79,10 +79,11 @@ object DevelopmentApp extends IOApp {
   val KeyStorePassword = "changeit"
 
   override def run(args: List[String]): IO[ExitCode] =
-    program[IO](new EmbeddedExternalServiceProvider[IO])
+    program[IO](new EmbeddedExternalApiServiceProvider[IO])
       .flatMap {
         case (api, batch) =>
-          Resource.eval(createSslContext[IO].map(TLSContext.Builder.forAsync[IO].fromSSLContext))
+          Resource
+            .eval(createSslContext[IO].map(TLSContext.Builder.forAsync[IO].fromSSLContext))
             .flatMap { tlsContext =>
               EmberServerBuilder
                 .default[IO]
@@ -92,24 +93,24 @@ object DevelopmentApp extends IOApp {
                 .withTLS(tlsContext)
                 .build
             }
-          .as(batch)
+            .as(batch)
       }
-      .use {
-      batch =>
+      .use { batch =>
         for {
           _ <- batch.init
           _ <- batch.run.compile.drain
         } yield ExitCode.Success
-    }
+      }
 
   def program[F[_]: Async: JodaClock](
-    externalServiceProvider: ExternalServiceProvider[F]
+    externalApiServiceProvider: ExternalApiServiceProvider[F]
   ): Resource[F, (HttpApp[F], Scheduler[F])] =
     for {
-      redisConfig <- externalServiceProvider.redisConfiguration
-      kafkaConfig <- externalServiceProvider.kafkaConfiguration
-      databaseConfig <- externalServiceProvider.databaseConfiguration
-      spaSiteRendererConfig <- externalServiceProvider.spaSiteRendererConfiguration
+      redisConfig <- externalApiServiceProvider.redisConfiguration
+      kafkaConfig <- externalApiServiceProvider.kafkaConfiguration
+      databaseConfig <- externalApiServiceProvider.databaseConfiguration
+      spaSiteRendererConfig <- externalApiServiceProvider.spaSiteRendererConfiguration
+      fallbackApiConfig <- externalApiServiceProvider.fallbackApiConfiguration
 
       _ <- Resource.eval {
         MigrationApp.migration[F](
@@ -117,7 +118,7 @@ object DevelopmentApp extends IOApp {
         )
       }
 
-      api <- ApiApp.create[F](apiConfig(databaseConfig, redisConfig, kafkaConfig, spaSiteRendererConfig, ???))
+      api <- ApiApp.create[F](apiConfig(databaseConfig, redisConfig, kafkaConfig, spaSiteRendererConfig, fallbackApiConfig))
       batch <- BatchApp.program[F](batchConfig(databaseConfig, kafkaConfig, spaSiteRendererConfig))
     } yield (api, batch)
 

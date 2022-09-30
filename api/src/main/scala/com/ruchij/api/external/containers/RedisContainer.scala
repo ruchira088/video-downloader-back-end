@@ -1,4 +1,4 @@
-package com.ruchij.core.external.containers
+package com.ruchij.api.external.containers
 
 import cats.effect.Sync
 import cats.implicits._
