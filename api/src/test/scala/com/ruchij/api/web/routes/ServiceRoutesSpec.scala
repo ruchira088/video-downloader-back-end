@@ -70,6 +70,7 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
         "keyValueStore" : "Healthy",
         "pubSub" : "Healthy",
         "spaRenderer": "Healthy",
+        "fallbackApi": "Healthy",
         "internetConnectivity": "Healthy"
       }"""
 
@@ -78,6 +79,7 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
       .returns {
         IO.pure {
           HealthCheck(
+            HealthStatus.Healthy,
             HealthStatus.Healthy,
             HealthStatus.Healthy,
             HealthStatus.Healthy,
@@ -108,6 +110,7 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
         "keyValueStore" : "Healthy",
         "pubSub" : "Healthy",
         "spaRenderer": "Healthy",
+        "fallbackApi": "Unhealthy",
         "internetConnectivity": "Unhealthy"
       }"""
 
@@ -121,6 +124,7 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
             HealthStatus.Healthy,
             HealthStatus.Healthy,
             HealthStatus.Healthy,
+            HealthStatus.Unhealthy,
             HealthStatus.Unhealthy
           )
         }
