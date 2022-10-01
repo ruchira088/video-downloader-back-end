@@ -6,6 +6,7 @@ import cats.implicits._
 import com.ruchij.api.services.fallback.FallbackApiService
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.api.services.scheduling.ApiSchedulingService
+import com.ruchij.api.services.scheduling.models.ScheduledVideoResult
 import com.ruchij.api.services.user.UserService
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.logging.Logger
@@ -47,7 +48,7 @@ class BackgroundServiceImpl[F[_]: Async, M[_]](
   private val publishToDownloadProgressTopic: Stream[F, Unit] =
     publishToTopic(downloadProgressSubscriber, downloadProgressTopic)
 
-  private val persistFallbackApiScheduledUrls: Stream[F, ScheduledVideoDownload] =
+  private val persistFallbackApiScheduledUrls: Stream[F, ScheduledVideoResult] =
     fallbackApiService.scheduledUrls.evalMap { scheduledUrls =>
       userService.getById(scheduledUrls.userId)
         .flatMap { user => apiSchedulingService.schedule(scheduledUrls.url, user.id) }

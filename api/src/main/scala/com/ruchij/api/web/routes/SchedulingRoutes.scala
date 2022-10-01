@@ -38,9 +38,11 @@ object SchedulingRoutes {
       case contextRequest @ POST -> Root as AuthenticatedRequestContext(user, _) =>
         for {
           scheduleRequest <- contextRequest.to[SchedulingRequest]
-          scheduledVideoDownload <- apiSchedulingService.schedule(scheduleRequest.url.withoutFragment, user.id)
+          scheduledVideoResult <- apiSchedulingService.schedule(scheduleRequest.url.withoutFragment, user.id)
 
-          response <- Ok(scheduledVideoDownload)
+          response <-
+            if (scheduledVideoResult.isNew) Created(scheduledVideoResult.scheduledVideoDownload)
+            else Ok(scheduledVideoResult.scheduledVideoDownload)
         } yield response
 
       case GET -> Root / "search" :? queryParameters as AuthenticatedRequestContext(user, _) =>

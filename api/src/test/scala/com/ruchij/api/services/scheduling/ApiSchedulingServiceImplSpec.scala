@@ -11,6 +11,7 @@ import com.ruchij.api.services.authentication.AuthenticationService.Password
 import com.ruchij.api.services.config.models.ApiConfigKey
 import com.ruchij.api.services.config.models.ApiConfigKey.ApiConfigKeySpace
 import com.ruchij.api.services.hashing.BCryptPasswordHashingService
+import com.ruchij.api.services.scheduling.models.ScheduledVideoResult.NewlyScheduled
 import com.ruchij.api.services.user.UserServiceImpl
 import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
@@ -196,7 +197,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFa
           )
 
           scheduledVideoDownload <- apiSchedulingService.schedule(videoUrl, user.id)
-          _ <- IO.delay { scheduledVideoDownload mustBe expectedScheduledDownloadVideo }
+          _ <- IO.delay { scheduledVideoDownload mustBe NewlyScheduled(expectedScheduledDownloadVideo) }
 
           receivedMessages <- receivedMessagesFiber.join.flatMap(_.embedNever).withTimeout(5 seconds)
 

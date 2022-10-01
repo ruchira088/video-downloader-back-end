@@ -8,8 +8,8 @@ import com.ruchij.api.daos.permission.VideoPermissionDao
 import com.ruchij.api.daos.permission.models.VideoPermission
 import com.ruchij.api.daos.title.VideoTitleDao
 import com.ruchij.api.daos.title.models.VideoTitle
-import com.ruchij.api.exceptions.ResourceConflictException
 import com.ruchij.api.services.config.models.ApiConfigKey
+import com.ruchij.api.services.scheduling.models.ScheduledVideoResult
 import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.SchedulingDao.notFound
@@ -43,7 +43,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
 
   private val logger = Logger[ApiSchedulingServiceImpl[F, T]]
 
-  override def schedule(uri: Uri, userId: String): F[ScheduledVideoDownload] =
+  override def schedule(uri: Uri, userId: String): F[ScheduledVideoResult] =
     VideoSite
       .fromUri(uri)
       .toType[F, Throwable]
@@ -65,15 +65,19 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
           )
         }.map(_.toList)
           .flatMap {
-            case Nil => newScheduledVideoDownload(processedUri, userId)
+            case Nil => newScheduledVideoDownload(processedUri, userId).map(identity[ScheduledVideoResult])
 
             case scheduledVideoDownload :: _ =>
               existingScheduledVideoDownload(processedUri, scheduledVideoDownload.videoMetadata, userId)
-                .as(scheduledVideoDownload)
+                .map {
+                  created =>
+                    if (created) ScheduledVideoResult.NewlyScheduled(scheduledVideoDownload)
+                    else ScheduledVideoResult.AlreadyScheduled(scheduledVideoDownload)
+                }
           }
       }
 
-  private def existingScheduledVideoDownload(uri: Uri, videoMetadata: VideoMetadata, userId: String): F[Unit] =
+  private def existingScheduledVideoDownload(uri: Uri, videoMetadata: VideoMetadata, userId: String): F[Boolean] =
     for {
       timestamp <- JodaClock[F].timestamp
 
@@ -90,13 +94,11 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
                   .productR {
                     videoTitleDao.insert(VideoTitle(videoMetadata.id, userId, videoMetadata.title)).one
                   }
-                  .as((): Unit)
-              else if (permissions.nonEmpty && maybeTitle.nonEmpty)
-                ApplicativeError[T, Throwable]
-                  .raiseError[Unit](ResourceConflictException(s"$uri has already been scheduled"))
+                  .as(true)
+              else if (permissions.nonEmpty && maybeTitle.nonEmpty) Applicative[T].pure(false)
               else
                 ApplicativeError[T, Throwable]
-                  .raiseError[Unit](
+                  .raiseError[Boolean](
                     InvalidConditionException(
                       s"Video title and video permissions are in an invalid state for userId=$userId, videoId=${videoMetadata.id}"
                     )
@@ -105,7 +107,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
       }
     } yield result
 
-  private def newScheduledVideoDownload(uri: Uri, userId: String): F[ScheduledVideoDownload] =
+  private def newScheduledVideoDownload(uri: Uri, userId: String): F[ScheduledVideoResult.NewlyScheduled] =
     for {
       videoMetadataResult <- videoAnalysisService.metadata(uri)
       timestamp <- JodaClock[F].timestamp
@@ -135,7 +137,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
       _ <- logger.info(s"Scheduled to download video at $uri")
 
       _ <- scheduledVideoDownloadPublisher.publishOne(scheduledVideoDownload)
-    } yield scheduledVideoDownload
+    } yield ScheduledVideoResult.NewlyScheduled(scheduledVideoDownload)
 
   override def search(
     term: Option[String],

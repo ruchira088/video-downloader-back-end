@@ -1,6 +1,7 @@
 package com.ruchij.api.services.scheduling
 
 import cats.data.NonEmptyList
+import com.ruchij.api.services.scheduling.models.ScheduledVideoResult
 import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.daos.workers.models.WorkerStatus
@@ -10,7 +11,7 @@ import org.http4s.Uri
 import scala.concurrent.duration.FiniteDuration
 
 trait ApiSchedulingService[F[_]] {
-  def schedule(uri: Uri, userId: String): F[ScheduledVideoDownload]
+  def schedule(uri: Uri, userId: String): F[ScheduledVideoResult]
 
   def search(
     term: Option[String],
