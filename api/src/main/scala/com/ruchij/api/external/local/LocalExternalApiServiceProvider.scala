@@ -8,6 +8,9 @@ import com.ruchij.core.config.RedisConfiguration
 import com.ruchij.core.external.local.LocalExternalCoreServiceProvider
 import org.http4s.implicits.http4sLiteralsSyntax
 
+import scala.concurrent.duration.DurationInt
+import scala.language.postfixOps
+
 class LocalExternalApiServiceProvider[F[_]: Applicative]
     extends ExternalApiServiceProvider[F] {
 
@@ -18,6 +21,6 @@ class LocalExternalApiServiceProvider[F[_]: Applicative]
     Resource.pure(RedisConfiguration("localhost", 6379, None))
 
   override val fallbackApiConfiguration: Resource[F, FallbackApiConfiguration] =
-    Resource.pure(FallbackApiConfiguration(uri"http://localhost:8080", "my-bearer-token"))
+    Resource.pure(FallbackApiConfiguration(uri"http://localhost:8080", "my-bearer-token", 5 minutes))
 
 }

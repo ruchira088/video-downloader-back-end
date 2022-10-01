@@ -7,7 +7,9 @@ import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherLeftFuncto
 import org.http4s.Uri
 import org.testcontainers.containers.GenericContainer
 
+import scala.concurrent.duration.DurationInt
 import scala.jdk.CollectionConverters.MapHasAsJava
+import scala.language.postfixOps
 
 class FallbackApiContainer extends GenericContainer[FallbackApiContainer]("ghcr.io/ruchira088/video-downloader-fallback-api:main") {
   private val Port = 8080
@@ -22,6 +24,6 @@ class FallbackApiContainer extends GenericContainer[FallbackApiContainer]("ghcr.
       port <- Sync[F].blocking(getMappedPort(Port))
       uri <- Uri.fromString(s"http://$host:$port").toType[F, Throwable]
     }
-    yield FallbackApiConfiguration(uri, AdminBearerToken)
+    yield FallbackApiConfiguration(uri, AdminBearerToken, 5 minutes)
 
 }

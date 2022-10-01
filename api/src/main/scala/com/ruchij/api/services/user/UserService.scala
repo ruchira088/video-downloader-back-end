@@ -12,6 +12,8 @@ trait UserService[F[_]] {
 
   def getById(userId: String): F[User]
 
+  def getByEmail(email: Email): F[User]
+
   def forgotPassword(email: Email): F[CredentialsResetToken]
 
   def resetPassword(userId: String, resetToken: String, password: Password): F[User]

@@ -2,4 +2,6 @@ package com.ruchij.api.config
 
 import org.http4s.Uri
 
-final case class FallbackApiConfiguration(uri: Uri, bearerToken: String)
+import scala.concurrent.duration.FiniteDuration
+
+final case class FallbackApiConfiguration(uri: Uri, bearerToken: String, pollInterval: FiniteDuration)

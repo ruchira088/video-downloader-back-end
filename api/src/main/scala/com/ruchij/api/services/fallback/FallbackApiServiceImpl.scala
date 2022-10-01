@@ -33,7 +33,12 @@ class FallbackApiServiceImpl[F[_]: Async](client: Client[F], fallbackApiConfigur
 
   override val scheduledUrls: Stream[F, ScheduledUrl] =
     Stream.eval(fetchScheduledUrls)
-      .flatMap(urls => if (urls.isEmpty) Stream.empty else Stream.emits(urls) ++ scheduledUrls)
+      .flatMap {
+        urls =>
+          if (urls.isEmpty) Stream.sleep(fallbackApiConfiguration.pollInterval).productR(Stream.empty)
+          else Stream.emits(urls)
+      }
+      .append(scheduledUrls)
 
   override def commit(scheduledUrlId: String): F[ScheduledUrl] =
     client.expect[ScheduledUrl] {

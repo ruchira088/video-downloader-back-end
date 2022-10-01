@@ -70,6 +70,7 @@ services:
       FALLBACK_API_BEARER_TOKEN: "my-secret-token"
       VIDEO_FOLDER: "/opt/videos"
       IMAGE_FOLDER: "/opt/images"
+      FALLBACK_API_POLL_INTERVAL: "30 seconds"
 
   api-2:
     *api-app
@@ -139,6 +140,8 @@ services:
       - "./docker-compose/scripts:/opt/scripts"
     environment:
       ADMIN_BEARER_TOKEN: "my-secret-token"
+      # The password is "top-secret"
+      HASHED_ADMIN_PASSWORD: "$2a$10$m5CQAirrrJKRqG3oalNSU.TUOn56v88isxMbNPi8cXXI35gY20hO."
       DATABASE_URL: "jdbc:postgresql://postgres-secondary:5432/fallback-api"
       DATABASE_USER: "admin"
       DATABASE_PASSWORD: "password"
@@ -152,6 +155,8 @@ services:
       DATABASE_URL: "jdbc:postgresql://postgres-main:5432/video-downloader"
       DATABASE_USER: "admin"
       DATABASE_PASSWORD: "password"
+      # The password is "top-secret"
+      HASHED_ADMIN_PASSWORD: "$2a$10$m5CQAirrrJKRqG3oalNSU.TUOn56v88isxMbNPi8cXXI35gY20hO."
 
   postgres-main:
     image: postgres

@@ -68,6 +68,7 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         fallback-api-configuration {
           uri = "https://fallback-api.video.dev.ruchij.com"
           bearer-token = my-token
+          poll-interval = "5 minutes"
         }
       """
 
@@ -80,7 +81,7 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         AuthenticationConfiguration(30 days),
         KafkaConfiguration("kafka-cluster:9092", uri"http://kafka-cluster:8081"),
         SpaSiteRendererConfiguration(uri"http://spa-renderer-service:8000"),
-        FallbackApiConfiguration(uri"https://fallback-api.video.dev.ruchij.com", "my-token")
+        FallbackApiConfiguration(uri"https://fallback-api.video.dev.ruchij.com", "my-token", 5 minutes)
       )
 
     ApiServiceConfiguration.parse[IO](ConfigSource.string(configSource)).flatMap {

@@ -43,7 +43,7 @@ object HttpTestResource {
 
   val SpaRendererConfig: SpaSiteRendererConfiguration = SpaSiteRendererConfiguration(Uri())
 
-  val FallbackApiConfig: FallbackApiConfiguration = FallbackApiConfiguration(Uri(), "")
+  val FallbackApiConfig: FallbackApiConfiguration = FallbackApiConfiguration(Uri(), "", 5 minutes)
 
   def create[F[_]: Async: JodaClock](
     externalApiServiceProvider: ExternalApiServiceProvider[F]

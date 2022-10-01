@@ -54,7 +54,9 @@ class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: MonadThrow: JodaClock, 
 
     } yield user
 
-  override def getById(userId: String): F[User] = transaction(fetchUser(userId))
+  override def getById(userId: String): F[User] = transaction(fetchUserById(userId))
+
+  override def getByEmail(email: Email): F[User] = transaction(fetchUserByEmail(email))
 
   override def forgotPassword(email: Email): F[CredentialsResetToken] =
     for {
@@ -62,16 +64,11 @@ class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: MonadThrow: JodaClock, 
       timestamp <- JodaClock[F].timestamp
 
       credentialsResetToken <- transaction {
-        OptionT(userDao.findByEmail(email))
-          .semiflatMap { user =>
+        fetchUserByEmail(email)
+          .flatMap { user =>
             val resetToken = CredentialsResetToken(user.id, timestamp, token)
 
             credentialsResetTokenDao.insert(resetToken).as(resetToken)
-          }
-          .getOrElseF {
-            ApplicativeError[G, Throwable].raiseError {
-              ResourceNotFoundException(s"Unable to find user with email=${email.value}")
-            }
           }
       }
     }
@@ -102,14 +99,18 @@ class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: MonadThrow: JodaClock, 
         videoTitleDao.delete(None, Some(userId))
           .productR(videoPermissionDao.delete(Some(userId), None))
           .productR(credentialsDao.deleteByUserId(userId))
-          .productR(fetchUser(userId))
+          .productR(fetchUserById(userId))
           .productL(userDao.deleteById(userId).one)
       }
     else ApplicativeError[F, Throwable].raiseError {
       AuthorizationException(s"User does NOT have permission to delete user: $userId")
     }
 
-  private def fetchUser(userId: String): G[User] =
+  private def fetchUserByEmail(email: Email): G[User] =
+    OptionT(userDao.findByEmail(email))
+      .getOrRaise(ResourceNotFoundException(s"User not found email=${email.value}"))
+
+  private def fetchUserById(userId: String): G[User] =
     OptionT(userDao.findById(userId))
       .getOrElseF {
         ApplicativeError[G, Throwable].raiseError {

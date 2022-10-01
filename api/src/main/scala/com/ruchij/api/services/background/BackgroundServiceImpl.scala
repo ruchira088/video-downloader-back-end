@@ -16,8 +16,7 @@ import com.ruchij.core.services.scheduling.models.DownloadProgress
 import fs2.Stream
 import fs2.concurrent.Topic
 
-import java.util.concurrent.TimeUnit
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
 import scala.reflect.{ClassTag, classTag}
 
@@ -49,10 +48,12 @@ class BackgroundServiceImpl[F[_]: Async, M[_]](
     publishToTopic(downloadProgressSubscriber, downloadProgressTopic)
 
   private val persistFallbackApiScheduledUrls: Stream[F, ScheduledVideoResult] =
-    fallbackApiService.scheduledUrls.evalMap { scheduledUrls =>
-      userService.getById(scheduledUrls.userId)
-        .flatMap { user => apiSchedulingService.schedule(scheduledUrls.url, user.id) }
-    } ++ Stream.sleep(FiniteDuration(5, TimeUnit.MINUTES)).productR(persistFallbackApiScheduledUrls)
+    fallbackApiService.scheduledUrls.evalMap { scheduledUrl =>
+      fallbackApiService.userInformation(scheduledUrl.userId)
+        .flatMap { userInformation => userService.getByEmail(userInformation.email) }
+        .flatMap { user => apiSchedulingService.schedule(scheduledUrl.url, user.id) }
+        .productL(fallbackApiService.commit(scheduledUrl.id))
+    }
 
   private def publishToTopic[A: ClassTag](subscriber: Subscriber[F, CommittableRecord[M, *], A], topic: Topic[F, A]): Stream[F, Unit] =
     subscriber
