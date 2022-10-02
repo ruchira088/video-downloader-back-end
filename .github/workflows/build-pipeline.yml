@@ -65,7 +65,7 @@ jobs:
             *Branch:* ${{ github.ref }}
             *Commit:* `${{ github.sha }}`
             *Last Commit Message:* ${{ github.event.head_commit.message }}
-            *URL:* ${{ github.server_url}}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            *URL:* ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
@@ -128,7 +128,7 @@ jobs:
             *Branch:* ${{ github.ref }}
             *Commit:* `${{ github.sha }}`
             *Last Commit Message:* ${{ github.event.head_commit.message }}
-            *URL:* ${{ github.server_url}}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            *URL:* ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
@@ -159,7 +159,7 @@ jobs:
             *Branch:* ${{ github.ref }}
             *Commit:* `${{ github.sha }}`
             *Last Commit Message:* ${{ github.event.head_commit.message }}
-            *URL:* ${{ github.server_url}}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            *URL:* ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
@@ -173,6 +173,6 @@ jobs:
             *Branch:* ${{ github.ref }}
             *Commit:* `${{ github.sha }}`
             *Last Commit Message:* ${{ github.event.head_commit.message }}
-            *URL:* ${{ github.server_url}}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            *URL:* ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
