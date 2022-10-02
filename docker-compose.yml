@@ -23,6 +23,8 @@ services:
         condition: service_healthy
       front-end-3:
         condition: service_healthy
+      fallback-api:
+        condition: service_healthy
     ports:
       - 443:443
       - 80:80
@@ -141,7 +143,7 @@ services:
     environment:
       ADMIN_BEARER_TOKEN: "my-secret-token"
       # The password is "top-secret"
-      HASHED_ADMIN_PASSWORD: "$2a$10$m5CQAirrrJKRqG3oalNSU.TUOn56v88isxMbNPi8cXXI35gY20hO."
+      HASHED_ADMIN_PASSWORD: "$$2a$$10$$m5CQAirrrJKRqG3oalNSU.TUOn56v88isxMbNPi8cXXI35gY20hO."
       DATABASE_URL: "jdbc:postgresql://postgres-secondary:5432/fallback-api"
       DATABASE_USER: "admin"
       DATABASE_PASSWORD: "password"
@@ -156,7 +158,7 @@ services:
       DATABASE_USER: "admin"
       DATABASE_PASSWORD: "password"
       # The password is "top-secret"
-      HASHED_ADMIN_PASSWORD: "$2a$10$m5CQAirrrJKRqG3oalNSU.TUOn56v88isxMbNPi8cXXI35gY20hO."
+      HASHED_ADMIN_PASSWORD: "$$2a$$10$$m5CQAirrrJKRqG3oalNSU.TUOn56v88isxMbNPi8cXXI35gY20hO."
 
   postgres-main:
     image: postgres
