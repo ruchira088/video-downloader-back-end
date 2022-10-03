@@ -196,7 +196,7 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
 
     } yield Video(videoMetadata, videoFileResource, FiniteDuration(0, TimeUnit.MILLISECONDS))
 
-  def saveVideo(video: Video): F[Video] = {
+  def saveVideo(video: Video): F[Video] =
     JodaClock[F].timestamp
       .flatMap { timestamp =>
         transaction {
@@ -220,7 +220,6 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
       }
       .productR(batchVideoService.insert(video.videoMetadata.id, video.fileResource.id))
       .flatTap(video => videoEnrichmentService.videoSnapshots(video).attempt)
-  }
 }
 
 object SynchronizationServiceImpl {
