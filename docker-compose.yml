@@ -162,7 +162,7 @@ services:
 
   postgres-main:
     image: postgres
-#    command: ["postgres", "-c", "log_statement=all"]
+    command: ["postgres", "-c", "log_statement=all"]
     healthcheck:
       test: "pg_isready -U admin -d video-downloader"
       start_period: 10s
@@ -177,7 +177,7 @@ services:
 
   postgres-secondary:
     image: postgres
-    #    command: ["postgres", "-c", "log_statement=all"]
+    command: ["postgres", "-c", "log_statement=all"]
     healthcheck:
       test: "pg_isready -U admin -d fallback-api"
       start_period: 10s

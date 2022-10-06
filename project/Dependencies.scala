@@ -5,7 +5,7 @@ object Dependencies
   val ScalaVersion = "2.13.9"
   val Http4sVersion = "0.23.16"
   val CirceVersion = "0.14.3"
-  val TestContainersVersion = "1.17.4"
+  val TestContainersVersion = "1.17.5"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -53,7 +53,7 @@ object Dependencies
 
   lazy val h2 = "com.h2database" % "h2" % "2.1.214"
 
-  lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.4.1"
+  lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.5.0"
 
   lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.2.0"
 
