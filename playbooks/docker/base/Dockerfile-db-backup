@@ -6,4 +6,4 @@ RUN apt update && \
     apt install python3-pip zip -y && \
     rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install awscli
+RUN pip3 install --upgrade awscli

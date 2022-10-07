@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 : "${GIT_BRANCH:? Variable NOT defined}"
 : "${GIT_COMMIT:? Variable NOT defined}"
 : "${DATABASE_URL:? Variable NOT defined}"
