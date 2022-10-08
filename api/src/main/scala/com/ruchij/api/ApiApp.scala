@@ -106,9 +106,7 @@ object ApiApp extends IOApp {
       }
       httpClient <- JdkHttpClient(javaHttpClient)
 
-      redisCommands <- Redis[F].utf8(apiServiceConfiguration.redisConfiguration.uri)
-      redisKeyValueStore = new RedisKeyValueStore[F](redisCommands)
-
+      redisKeyValueStore <- RedisKeyValueStore.create[F](apiServiceConfiguration.redisConfiguration)
       downloadProgressPubSub <- KafkaPubSub[F, DownloadProgress](apiServiceConfiguration.kafkaConfiguration)
       scheduledVideoDownloadPubSub <- KafkaPubSub[F, ScheduledVideoDownload](apiServiceConfiguration.kafkaConfiguration)
       healthCheckPubSub <- KafkaPubSub[F, HealthCheckMessage](apiServiceConfiguration.kafkaConfiguration)

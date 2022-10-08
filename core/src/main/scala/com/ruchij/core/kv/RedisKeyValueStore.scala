@@ -1,9 +1,11 @@
 package com.ruchij.core.kv
 
+import cats.effect.kernel.{Async, Resource}
 import cats.implicits._
 import cats.{Applicative, MonadThrow}
+import com.ruchij.core.config.RedisConfiguration
 import com.ruchij.core.kv.codecs.{KVDecoder, KVEncoder}
-import dev.profunktor.redis4cats.RedisCommands
+import dev.profunktor.redis4cats.{Redis, RedisCommands}
 import dev.profunktor.redis4cats.effects.SetArgs
 import dev.profunktor.redis4cats.effects.SetArg.Ttl.Px
 
@@ -35,4 +37,11 @@ class RedisKeyValueStore[F[_]: MonadThrow](redisCommands: RedisCommands[F, Strin
       encodedKey <- KVEncoder[F, K].encode(key)
       _ <- redisCommands.del(encodedKey)
     } yield (): Unit
+}
+
+object RedisKeyValueStore {
+  import dev.profunktor.redis4cats.effect.Log.Stdout.instance
+
+  def create[F[_]: Async](redisConfiguration: RedisConfiguration): Resource[F, RedisKeyValueStore[F]] =
+    Redis[F].utf8(redisConfiguration.uri).map { redisCommands => new RedisKeyValueStore[F](redisCommands) }
 }

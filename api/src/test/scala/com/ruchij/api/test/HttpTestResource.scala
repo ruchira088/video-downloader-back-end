@@ -60,8 +60,7 @@ object HttpTestResource {
   ): Resource[F, TestResources[F]] =
     for {
       redisConfiguration <- externalApiServiceProvider.redisConfiguration
-      redisCommands <- Redis[F].utf8(redisConfiguration.uri)
-      redisKeyValueStore = new RedisKeyValueStore[F](redisCommands)
+      redisKeyValueStore <- RedisKeyValueStore.create[F](redisConfiguration)
 
       databaseConfiguration <- externalApiServiceProvider.databaseConfiguration
       _ <- Resource.eval(MigrationApp.migration(migrationServiceConfiguration(databaseConfiguration)))
