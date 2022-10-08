@@ -21,8 +21,6 @@ import com.ruchij.core.messaging.models.HttpMetric
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.types.JodaClock
 import com.ruchij.migration.MigrationApp
-import dev.profunktor.redis4cats.Redis
-import dev.profunktor.redis4cats.effect.Log.Stdout.instance
 import org.http4s.client.Client
 import org.http4s.{HttpApp, Uri}
 

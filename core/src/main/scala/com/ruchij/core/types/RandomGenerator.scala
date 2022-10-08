@@ -3,7 +3,7 @@ package com.ruchij.core.types
 import cats.data.NonEmptyList
 import cats.effect.Sync
 import cats.implicits._
-import cats.{Applicative, Functor, Monad, MonadThrow}
+import cats.{Applicative, Monad, MonadThrow}
 import com.ruchij.core.exceptions.ValidationException
 import org.joda.time.DateTime
 
@@ -32,7 +32,7 @@ object RandomGenerator {
   def from[F[_]: Sync, A](values: NonEmptyList[A]): RandomGenerator[F, A] =
     range(0, values.length).map(index => values.toList(index))
 
-  def eval[F[_]: Functor, A](value: F[A]): RandomGenerator[F, A] =
+  def eval[F[_], A](value: F[A]): RandomGenerator[F, A] =
     new RandomGenerator[F, A] {
       override def generate: F[A] = value
     }

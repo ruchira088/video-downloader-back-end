@@ -48,5 +48,4 @@ object DataGenerators {
 
   def customVideoSite[F[_]: Sync]: RandomGenerator[F, CustomVideoSite] =
     RandomGenerator.from(NonEmptyList.of(SpankBang, PornOne, XFreeHD, TXXX, UPornia, HdZog, HClips))
-
 }

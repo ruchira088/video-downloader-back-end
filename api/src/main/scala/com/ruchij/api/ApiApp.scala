@@ -54,8 +54,6 @@ import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeD
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, YouTubeVideoDownloaderImpl}
 import com.ruchij.core.types.{JodaClock, RandomGenerator}
-import dev.profunktor.redis4cats.Redis
-import dev.profunktor.redis4cats.effect.Log.Stdout.instance
 import doobie.free.connection.ConnectionIO
 import doobie.hikari.HikariTransactor
 import fs2.kafka.CommittableConsumerRecord
