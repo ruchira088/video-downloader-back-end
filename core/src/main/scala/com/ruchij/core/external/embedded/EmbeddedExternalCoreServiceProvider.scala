@@ -1,7 +1,7 @@
 package com.ruchij.core.external.embedded
 
 import cats.MonadError
-import cats.effect.{Resource, Sync}
+import cats.effect.{MonadCancelThrow, Resource, Sync}
 import cats.implicits._
 import com.ruchij.core.config.{KafkaConfiguration, SpaSiteRendererConfiguration}
 import com.ruchij.core.external.ExternalCoreServiceProvider
@@ -63,14 +63,14 @@ object EmbeddedExternalCoreServiceProvider {
       .map(init + _)
       .flatMap { port =>
         MonadError[F, Throwable].handleErrorWith {
-          Sync[F]
-            .blocking(new ServerSocket(port))
-            .flatMap { serverSocket =>
-              Sync[F].blocking(serverSocket.close())
-            }
-            .as(port)
-        } { _ =>
-          availablePort[F](init)
-        }
+          MonadCancelThrow[F].uncancelable { _ =>
+            Sync[F]
+              .blocking(new ServerSocket(port))
+              .flatMap { serverSocket =>
+                Sync[F].blocking(serverSocket.close())
+              }
+              .as(port)
+          }
+        }(_ => availablePort[F](init))
       }
 }

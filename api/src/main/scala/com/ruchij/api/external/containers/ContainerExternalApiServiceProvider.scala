@@ -13,13 +13,8 @@ class ContainerExternalApiServiceProvider[F[_]: Sync] extends ExternalApiService
   override protected val externalCoreServiceProvider: ExternalCoreServiceProvider[F] =
     new ContainerExternalCoreServiceProvider[F]
 
-  override val redisConfiguration: Resource[F, RedisConfiguration] =
-    ContainerExternalCoreServiceProvider
-      .start(new RedisContainer())
-      .evalMap(_.redisConfiguration[F])
+  override val redisConfiguration: Resource[F, RedisConfiguration] = RedisContainer.create[F]
 
   override val fallbackApiConfiguration: Resource[F, FallbackApiConfiguration] =
-    ContainerExternalCoreServiceProvider
-      .start(new FallbackApiContainer())
-      .evalMap(_.fallbackApiConfiguration)
+    FallbackApiContainer.create[F]
 }

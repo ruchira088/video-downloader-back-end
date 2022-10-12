@@ -20,39 +20,24 @@ class ContainerExternalCoreServiceProvider[F[_]: Sync]
           .withNetworkAliases("kafka")
       }
 
-      schemaRegistryContainer <- ContainerExternalCoreServiceProvider.start[F, SchemaRegistryContainer] {
-        new SchemaRegistryContainer(network, "kafka")
-      }
-
       kafkaBootstrapServers <- Resource.eval(Sync[F].delay(kafkaContainer.getBootstrapServers))
-      schemaRegistry <- Resource.eval(schemaRegistryContainer.schemaRegistryUrl[F])
-    } yield KafkaConfiguration(kafkaBootstrapServers, schemaRegistry)
+
+      schemaRegistryUrl <- SchemaRegistryContainer.create("kafka", network)
+    } yield KafkaConfiguration(kafkaBootstrapServers, schemaRegistryUrl)
 
   override val databaseConfiguration: Resource[F, DatabaseConfiguration] =
-    for {
-      postgresqlContainer <-
-        ContainerExternalCoreServiceProvider.start {
-          new PostgresContainer()
-            .withUsername("admin")
-            .withPassword("password")
-            .withDatabaseName("video-downloader")
-        }
-
-      databaseUrl <- Resource.eval(Sync[F].delay(postgresqlContainer.getJdbcUrl))
-    }
-    yield DatabaseConfiguration(databaseUrl, postgresqlContainer.getUsername, postgresqlContainer.getPassword)
+    PostgresContainer.create[F]
 
   override val spaSiteRendererConfiguration: Resource[F, SpaSiteRendererConfiguration] =
-    ContainerExternalCoreServiceProvider.start(new SpaRendererContainer()).evalMap(_.spaSiteRendererConfiguration)
+    SpaRendererContainer.create[F]
 }
 
 object ContainerExternalCoreServiceProvider {
-  def start[F[_]: Sync, A <: GenericContainer[A]](testContainer: => A): Resource[F, A] =
-    Resource.make[F, A] {
-      Sync[F]
-        .delay(testContainer)
-        .flatTap(container => Sync[F].delay(container.start()))
-    } { container =>
-      Sync[F].delay(container.stop()).productR(Sync[F].delay(container.close()))
+  def start[F[_]: Sync, A <: GenericContainer[A]](testContainer: A): Resource[F, A] =
+    Resource.make[F, A](Sync[F].delay(testContainer.start()).as(testContainer)) { container =>
+      Sync[F].delay {
+        container.stop()
+        container.close()
+      }
     }
 }
