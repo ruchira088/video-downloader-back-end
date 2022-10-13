@@ -8,6 +8,7 @@ import com.comcast.ip4s.IpLiteralSyntax
 import com.ruchij.api.ApiApp
 import com.ruchij.api.config._
 import com.ruchij.api.external.ExternalApiServiceProvider
+import com.ruchij.api.external.containers.ContainerExternalApiServiceProvider
 import com.ruchij.api.external.embedded.EmbeddedExternalApiServiceProvider
 import com.ruchij.batch.BatchApp
 import com.ruchij.batch.config.{BatchServiceConfiguration, BatchStorageConfiguration, WorkerConfiguration}
@@ -79,7 +80,7 @@ object DevelopmentApp extends IOApp {
   val KeyStorePassword = "changeit"
 
   override def run(args: List[String]): IO[ExitCode] =
-    program[IO](new EmbeddedExternalApiServiceProvider[IO])
+    program[IO](new ContainerExternalApiServiceProvider[IO])
       .flatMap {
         case (api, batch) =>
           Resource

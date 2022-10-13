@@ -8,7 +8,7 @@ import org.http4s.Uri
 import org.testcontainers.containers.{GenericContainer, Network}
 
 class SchemaRegistryContainer
-    extends GenericContainer[SchemaRegistryContainer]("confluentinc/cp-schema-registry:6.0.4")
+    extends GenericContainer[SchemaRegistryContainer]("confluentinc/cp-schema-registry:7.2.2")
 
 object SchemaRegistryContainer {
   private val Port = 8081
