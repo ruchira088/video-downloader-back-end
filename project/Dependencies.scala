@@ -43,7 +43,7 @@ object Dependencies
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.15.3"
 
-  lazy val jodaTime = "joda-time" % "joda-time" % "2.12.0"
+  lazy val jodaTime = "joda-time" % "joda-time" % "2.12.1"
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.1"
 
