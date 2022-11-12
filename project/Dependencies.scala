@@ -45,15 +45,15 @@ object Dependencies
 
   lazy val jodaTime = "joda-time" % "joda-time" % "2.12.1"
 
-  lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.1"
+  lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.2"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.7.0"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.8.1"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.5.0"
 
   lazy val h2 = "com.h2database" % "h2" % "2.1.214"
 
-  lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.5.0"
+  lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.6.0"
 
   lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.2.0"
 
