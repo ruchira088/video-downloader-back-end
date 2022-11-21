@@ -87,9 +87,9 @@ object BatchApp extends IOApp {
             }
           }
 
-          httpClient <- JdkHttpClient[F](javaHttpClient)
+          httpClient = JdkHttpClient[F](javaHttpClient)
 
-          dispatcher <- Dispatcher[F]
+          dispatcher <- Dispatcher.parallel[F]
 
           workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
 

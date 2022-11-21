@@ -151,8 +151,8 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
         val resources =
           for {
             spaSiteRendererConfiguration <- externalServiceProvider.spaSiteRendererConfiguration
-            httpClient <- JdkHttpClient[F](javaHttpClient)
-            dispatcher <- Dispatcher[F]
+            httpClient = JdkHttpClient[F](javaHttpClient)
+            dispatcher <- Dispatcher.parallel[F]
           }
           yield (spaSiteRendererConfiguration, httpClient, dispatcher)
 

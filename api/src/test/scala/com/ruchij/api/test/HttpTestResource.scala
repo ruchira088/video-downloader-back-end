@@ -81,7 +81,7 @@ object HttpTestResource {
       httpMetricPubSub <- Resource.eval(Fs2PubSub[F, HttpMetric])
       workerStatusUpdatesPubSub <- Resource.eval(Fs2PubSub[F, WorkerStatusUpdate])
       scanVideoCommandPubSub <- Resource.eval(Fs2PubSub[F, ScanVideosCommand])
-      dispatcher <- Dispatcher[F]
+      dispatcher <- Dispatcher.parallel[F]
 
       messageBrokers = ApiMessageBrokers(
         downloadProgressPubSub,

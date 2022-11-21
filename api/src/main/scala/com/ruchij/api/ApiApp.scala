@@ -102,7 +102,7 @@ object ApiApp extends IOApp {
           HttpClient.newBuilder().followRedirects(Redirect.NORMAL).build()
         }
       }
-      httpClient <- JdkHttpClient(javaHttpClient)
+      httpClient = JdkHttpClient(javaHttpClient)
 
       redisKeyValueStore <- RedisKeyValueStore.create[F](apiServiceConfiguration.redisConfiguration)
       downloadProgressPubSub <- KafkaPubSub[F, DownloadProgress](apiServiceConfiguration.kafkaConfiguration)
@@ -111,7 +111,7 @@ object ApiApp extends IOApp {
       metricsPublisher <- KafkaPublisher[F, HttpMetric](apiServiceConfiguration.kafkaConfiguration)
       workerStatusUpdatePublisher <- KafkaPublisher[F, WorkerStatusUpdate](apiServiceConfiguration.kafkaConfiguration)
       scanVideoCommandPublisher <- KafkaPublisher[F, ScanVideosCommand](apiServiceConfiguration.kafkaConfiguration)
-      dispatcher <- Dispatcher[F]
+      dispatcher <- Dispatcher.parallel[F]
 
       messageBrokers = ApiMessageBrokers(
         downloadProgressPubSub,

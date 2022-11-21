@@ -5,7 +5,7 @@ object Dependencies
   val ScalaVersion = "2.13.10"
   val Http4sVersion = "0.23.16"
   val CirceVersion = "0.14.3"
-  val TestContainersVersion = "1.17.5"
+  val TestContainersVersion = "1.17.6"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -13,9 +13,9 @@ object Dependencies
 
   lazy val http4sCirce = "org.http4s" %% "http4s-circe" % Http4sVersion
 
-  lazy val http4sJdkHttpClient = "org.http4s" %% "http4s-jdk-http-client" % "0.7.0"
+  lazy val http4sJdkHttpClient = "org.http4s" %% "http4s-jdk-http-client" % "0.8.0"
 
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.3.14"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.4.1"
 
   lazy val kafka = "org.apache.kafka" %% "kafka" % "7.2.2-ccs"
 
@@ -47,7 +47,7 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.2"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.8.1"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.8.2"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.5.0"
 
@@ -69,7 +69,7 @@ object Dependencies
 
   lazy val postgresqlTestContainer = "org.testcontainers" % "postgresql" % TestContainersVersion
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.4.4"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.4.5"
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
 
