@@ -11,7 +11,7 @@ import java.io.IOException
 class CliCommandRunnerImplSpec extends AnyFlatSpec with Matchers {
 
   "CliCommandRunnerImpl.run" should "execute the CLI commands" in runIO {
-    Dispatcher[IO].use { dispatcher =>
+    Dispatcher.parallel[IO].use { dispatcher =>
       val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
 
       cliCommandRunner.run("""echo "Hello World"""")
@@ -22,7 +22,7 @@ class CliCommandRunnerImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "return a failure if the CLI command exited unexpectedly" in runIO {
-    Dispatcher[IO].use { dispatcher =>
+    Dispatcher.parallel[IO].use { dispatcher =>
       val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
 
       cliCommandRunner.run("invalid-program")
