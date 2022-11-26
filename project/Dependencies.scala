@@ -17,15 +17,15 @@ object Dependencies
 
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.4.1"
 
-  lazy val kafka = "org.apache.kafka" %% "kafka" % "7.2.2-ccs"
+  lazy val kafka = "org.apache.kafka" %% "kafka" % "7.3.0-ccs"
 
   lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "2.5.0"
 
   lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "2.5.0"
 
-  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.2.2"
+  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.3.0"
 
-  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.8.3"
+  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.8.4"
 
   lazy val circeGeneric = "io.circe" %% "circe-generic" % CirceVersion
 
@@ -47,15 +47,15 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.2"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.8.2"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.8.3"
 
-  lazy val postgresql = "org.postgresql" % "postgresql" % "42.5.0"
+  lazy val postgresql = "org.postgresql" % "postgresql" % "42.5.1"
 
   lazy val h2 = "com.h2database" % "h2" % "2.1.214"
 
   lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.6.0"
 
-  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.2.0"
+  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.3.0"
 
   lazy val jbcrypt = "org.mindrot" % "jbcrypt" % "0.4"
 
