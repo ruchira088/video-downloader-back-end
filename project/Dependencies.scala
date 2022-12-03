@@ -15,7 +15,7 @@ object Dependencies
 
   lazy val http4sJdkHttpClient = "org.http4s" %% "http4s-jdk-http-client" % "0.8.0"
 
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.4.1"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.4.2"
 
   lazy val kafka = "org.apache.kafka" %% "kafka" % "7.3.0-ccs"
 
@@ -43,7 +43,7 @@ object Dependencies
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.15.3"
 
-  lazy val jodaTime = "joda-time" % "joda-time" % "2.12.1"
+  lazy val jodaTime = "joda-time" % "joda-time" % "2.12.2"
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.2"
 
@@ -61,7 +61,7 @@ object Dependencies
 
   lazy val embeddedRedis = "com.github.kstyrc" % "embedded-redis" % "0.6"
 
-  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "7.2.2"
+  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "7.3.0"
 
   lazy val testContainers = "org.testcontainers" % "testcontainers" % TestContainersVersion
 
