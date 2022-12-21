@@ -33,7 +33,6 @@
             hostname: api.{{ git_branch }}.video.dev.ruchij.com
             kafka_fast_data_hostname: kafka-fast-data.{{ git_branch }}.video.dev.ruchij.com
             app_node_selector:
-              dataNode: "true"
             host_path_mappings:
               - host_path: /mnt/data/videos
                 pod_mount_path: /home/videos
