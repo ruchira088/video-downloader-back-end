@@ -13,6 +13,7 @@
         docker buildx build \
           --push \
           --platform linux/arm64,linux/amd64 \
+          --no-cache \
           -t ghcr.io/ruchira088/video-downloader-scala-base:latest \
           -t ghcr.io/ruchira088/video-downloader-scala-base:version-{{ ansible_date_time.date }} \
           -f docker/base/Dockerfile .
@@ -22,6 +23,7 @@
         docker buildx build \
           --push \
           --platform linux/arm64,linux/amd64 \
+          --no-cache \
           -t ghcr.io/ruchira088/video-downloader-db-backup-base:latest \
           -t ghcr.io/ruchira088/video-downloader-db-backup-base:version-{{ ansible_date_time.date }} \
           -f docker/base/Dockerfile-db-backup .

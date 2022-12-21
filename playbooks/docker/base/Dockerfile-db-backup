@@ -1,4 +1,4 @@
-FROM postgres
+FROM postgres:15.1
 
 LABEL org.opencontainers.image.source https://github.com/ruchira088/video-downloader-back-end
 

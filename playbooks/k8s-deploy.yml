@@ -87,6 +87,7 @@
                         --set global.postgresql.auth.username="{{ secrets.database_user }}" \
                         --set global.postgresql.auth.password="{{ secrets.database_password }}" \
                         --set global.postgresql.auth.database=video-downloader \
+                        --set image.tag=15.1.0-debian-11-r12 \
                         --namespace {{ namespace }} \
                         bitnami/postgresql
                   when: postgresql_output.resources | length == 0
