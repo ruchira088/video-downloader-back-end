@@ -17,13 +17,6 @@ spec:
     spec:
       imagePullSecrets:
         - name: docker-registry-credentials
-{% if app_node_selector | length > 0 %}
-      nodeSelector:
-{% for key, value in app_node_selector.items() %}
-        {{ key }}: "{{ value }}"
-{% endfor %}
-{% else %}
-{% endif %}
       containers:
         - name: api-container
           image: ghcr.io/ruchira088/video-downloader-api:{{ git_branch }}-{{ git_commit }}
@@ -65,10 +58,6 @@ spec:
             - mountPath: {{ path_mapping.pod_mount_path }}
               name: path-mapping-{{ loop.index }}
 {% endfor %}
-{% for persistent_volume_claim in persistent_volume_claims %}
-            - mountPath: {{ persistent_volume_claim.pod_mount_path }}
-              name: {{ persistent_volume_claim.name }}
-{% endfor %}
       volumes:
         - name: file-config-map
           configMap:
@@ -78,9 +67,4 @@ spec:
           hostPath:
             path: {{ path_mapping.host_path }}
             type: Directory
-{% endfor %}
-{% for persistent_volume_claim in persistent_volume_claims %}
-        - name: {{ persistent_volume_claim.name }}
-          persistentVolumeClaim:
-            claimName: {{ persistent_volume_claim.name }}
 {% endfor %}

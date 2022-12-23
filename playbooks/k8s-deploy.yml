@@ -17,8 +17,6 @@
           production:
             namespace: video-downloader-back-end
             hostname: api.video.home.ruchij.com
-            kafka_fast_data_hostname: kafka-fast-data.video.home.ruchij.com
-            app_node_selector:
             host_path_mappings:
               - host_path: /mnt/md0/Production/video-downloader/videos
                 pod_mount_path: /home/videos
@@ -28,28 +26,20 @@
                 pod_mount_path: /home/videos-1
               - host_path: /mnt/sda3/Production/video-downloader/videos
                 pod_mount_path: /home/videos-2
-            persistent_volume_claims:
-
           development:
             namespace: video-downloader-back-end-{{ git_branch }}
             hostname: api.{{ git_branch }}.video.dev.ruchij.com
-            kafka_fast_data_hostname: kafka-fast-data.{{ git_branch }}.video.dev.ruchij.com
-            app_node_selector:
-            persistent_volume_claims:
-              - name: video-pvc
-                pod_mount_path: /home/videos
-              - name: image-pvc
-                pod_mount_path: /home/images
             host_path_mappings:
+              - host_path: /mnt/data/videos
+                pod_mount_path: /home/videos
+              - host_path: /mnt/data/images
+                pod_mount_path: /home/images
 
     - set_fact:
         namespace: "{{ k8s_vars[env].namespace }}"
         hostname: "{{ k8s_vars[env].hostname }}"
-        kafka_fast_data_hostname: "{{ k8s_vars[env].kafka_fast_data_hostname }}"
         host_path_mappings: "{{ k8s_vars[env].host_path_mappings }}"
-        persistent_volume_claims: "{{ k8s_vars[env].persistent_volume_claims }}"
         ghcr_credentials: "{{ lookup('aws_ssm', '/github/ghcr/docker-config', region='ap-southeast-2') }}"
-        app_node_selector: "{{ k8s_vars[env].app_node_selector }}"
 
     - name: Render K8s resource files
       import_tasks: tasks/k8s-resource-files.yml
@@ -64,10 +54,6 @@
 
         - name: Create Docker registry secret
           command: kubectl apply -f k8s-output/DockerRegistryCredentials.yaml --kubeconfig {{ kubeconfig }}
-
-        - name: Deploy PersistentVolumeClaim for development environments
-          when: env == "development"
-          command: kubectl apply -f k8s-output/PersistentVolumeClaims.yaml --kubeconfig {{ kubeconfig }}
 
         - name: Deploy Helm charts
           block:
@@ -119,16 +105,23 @@
                         bitnami/redis
                   when: redis_output.resources | length == 0
 
-            - name: Deploy Kafka Fast Data
+            - name: Deploy Kafka & Schema Registry
               block:
-                - name: Create ConfigMap
-                  command: kubectl apply -f k8s-output/kafka-fast-data/ConfigMap.yaml --kubeconfig {{ kubeconfig }}
+                - name: Check Confluent service in K8s
+                  k8s_info:
+                    kind: Service
+                    namespace: "{{ namespace }}"
+                    name: confluent-kafka
+                    kubeconfig: "{{ kubeconfig }}"
+                  register: confluent_output
 
-                - name: Create Secrets
-                  command: kubectl apply -f k8s-output/kafka-fast-data/Secrets.yaml --kubeconfig {{ kubeconfig }}
-
-                - name: Deploy application
-                  command: kubectl apply -f k8s-output/kafka-fast-data --kubeconfig {{ kubeconfig }}
+                - name: Install Confluent Helm chart
+                  shell: |
+                    KUBECONFIG={{ kubeconfig }} \
+                      helm install confluent \
+                        --namespace {{ namespace }} \
+                        bitnami/schema-registry
+                  when: confluent_output.resources | length == 0
 
         - name: Deploy DB backup
           block:

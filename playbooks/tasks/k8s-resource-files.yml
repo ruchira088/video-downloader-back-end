@@ -10,11 +10,6 @@
         path: k8s-output
         state: directory
 
-    - name: Create output directory - Kafka Fast Data
-      file:
-        path: k8s-output/kafka-fast-data
-        state: directory
-
     - name: Create output directory - DB migration
       file:
         path: k8s-output/db-migration
@@ -49,13 +44,6 @@
         dest: k8s-output/{{ item | basename }}
       with_fileglob:
         - k8s/*.yaml
-
-    - name: Render K8s resource files - Kafka Fast Data
-      template:
-        src: "{{ item }}"
-        dest: k8s-output/kafka-fast-data/{{ item | basename }}
-      with_fileglob:
-        - k8s/kafka-fast-data/*.yaml
 
     - name: Render K8s resource files - DB migration
       template:
