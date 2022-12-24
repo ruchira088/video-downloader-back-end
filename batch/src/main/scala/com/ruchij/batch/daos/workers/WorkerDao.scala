@@ -7,9 +7,13 @@ import org.joda.time.DateTime
 trait WorkerDao[F[_]] {
   val idleWorker: F[Option[Worker]]
 
+  val all: F[Seq[Worker]]
+
   def insert(worker: Worker): F[Int]
 
   def getById(workerId: String): F[Option[Worker]]
+
+  def setStatus(workerId: String, workerStatus: WorkerStatus): F[Int]
 
   def reserveWorker(workerId: String, timestamp: DateTime): F[Option[Worker]]
 

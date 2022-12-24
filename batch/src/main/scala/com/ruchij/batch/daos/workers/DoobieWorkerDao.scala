@@ -16,6 +16,16 @@ import org.joda.time.DateTime
 
 class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends WorkerDao[ConnectionIO] {
 
+  override val all: ConnectionIO[Seq[Worker]] =
+    sql"SELECT id FROM worker".query[String].to[Seq]
+      .flatMap { ids =>
+        ids.toList.traverse { id => getById(id).map(_.toList) }
+      }
+      .map(_.flatten)
+
+  override def setStatus(workerId: String, workerStatus: WorkerStatus): ConnectionIO[Int] =
+    sql"UPDATE worker SET status = $workerStatus WHERE id = $workerId".update.run
+
   override def insert(worker: Worker): ConnectionIO[Int] =
     sql"""
       INSERT INTO worker(id, status, heart_beat_at, task_assigned_at)

@@ -4,7 +4,7 @@ import cats.data.OptionT
 import cats.effect.kernel.Outcome.{Canceled, Errored}
 import cats.effect.{Async, MonadCancelThrow}
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, Monad, ~>}
+import cats.{Applicative, ApplicativeError, Monad, MonadThrow, ~>}
 import com.ruchij.batch.config.WorkerConfiguration
 import com.ruchij.batch.daos.workers.WorkerDao
 import com.ruchij.batch.daos.workers.models.Worker
@@ -12,7 +12,6 @@ import com.ruchij.batch.services.scheduler.Scheduler.PausedVideoDownload
 import com.ruchij.batch.services.scheduler.SchedulerImpl.WorkerPollPeriod
 import com.ruchij.batch.services.scheduling.BatchSchedulingService
 import com.ruchij.batch.services.sync.SynchronizationService
-import com.ruchij.batch.services.sync.models.SynchronizationResult
 import com.ruchij.batch.services.video.BatchVideoService
 import com.ruchij.batch.services.worker.WorkExecutor
 import com.ruchij.core.commands.ScanVideosCommand
@@ -34,7 +33,7 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.language.postfixOps
 
-class SchedulerImpl[F[_]: Async: JodaClock, T[_]: Monad, M[_]](
+class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
   batchSchedulingService: BatchSchedulingService[F],
   synchronizationService: SynchronizationService[F],
   batchVideoService: BatchVideoService[F],
@@ -47,11 +46,11 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: Monad, M[_]](
 )(implicit transaction: T ~> F)
     extends Scheduler[F] {
 
-  override type InitializationResult = SynchronizationResult
+  override type InitializationResult = Unit
 
   private val logger = Logger[SchedulerImpl[F, T, M]]
 
-  val idleWorkers: Stream[F, Worker] =
+  private val idleWorkers: Stream[F, Worker] =
     Stream
       .fixedRate[F](WorkerPollPeriod)
       .zipRight {
@@ -72,7 +71,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: Monad, M[_]](
       }
       .collect { case Some(worker) => worker }
 
-  def performWork(
+  private def performWork(
     worker: Worker,
     scheduledVideoDownloadUpdates: Stream[F, ScheduledVideoDownload],
     workerStatusUpdates: Stream[F, WorkerStatusUpdate]
@@ -149,7 +148,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: Monad, M[_]](
       case (_, _) => Applicative[F].unit
     }
 
-  def releaseWorker(worker: Worker): F[Unit] =
+  private def releaseWorker(worker: Worker): F[Unit] =
     OptionT(transaction(workerDao.releaseWorker(worker.id)))
       .getOrElseF {
         ApplicativeError[F, Throwable].raiseError {
@@ -165,8 +164,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: Monad, M[_]](
       scanVideosCommandTopic <- Stream.eval(Topic[F, ScanVideosCommand])
 
       video <- run(scheduledVideoDownloadsTopic, workerStatusUpdatesTopic, scanVideosCommandTopic)
-    }
-    yield video
+    } yield video
 
   private def run(
     scheduledVideoDownloadsTopic: Topic[F, ScheduledVideoDownload],
@@ -182,7 +180,9 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: Monad, M[_]](
       .concurrently(cleanUpStaleWorkers)
       .concurrently(updateWorkersAndScheduledVideoDownloads(workerStatusUpdatesTopic.subscribe(Int.MaxValue)))
       .concurrently {
-        scanVideosCommandTopic.subscribe(Int.MaxValue).evalMap { _ => synchronizationService.sync }
+        scanVideosCommandTopic.subscribe(Int.MaxValue).evalMap { _ =>
+          synchronizationService.sync
+        }
       }
       .parEvalMapUnordered(workerConfiguration.maxConcurrentDownloads) { worker =>
         performWorkDuringWorkPeriod(
@@ -195,7 +195,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: Monad, M[_]](
         case Some(video) => video
       }
 
-  def updateWorkersAndScheduledVideoDownloads(
+  private def updateWorkersAndScheduledVideoDownloads(
     workerStatusUpdates: Stream[F, WorkerStatusUpdate]
   ): Stream[F, Seq[Worker]] =
     workerStatusUpdates.evalMap { workerStatusUpdate =>
@@ -215,7 +215,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: Monad, M[_]](
       }
     }
 
-  def performWorkDuringWorkPeriod(
+  private def performWorkDuringWorkPeriod(
     worker: Worker,
     scheduledVideoDownloadUpdates: Stream[F, ScheduledVideoDownload],
     workerStatusUpdates: Stream[F, WorkerStatusUpdate]
@@ -234,7 +234,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: Monad, M[_]](
       releaseWorker(worker)
     )
 
-  def updateVideoWatchTimes(minimumChunkSize: Long): Stream[F, Unit] =
+  private def updateVideoWatchTimes(minimumChunkSize: Long): Stream[F, Unit] =
     httpMetricSubscriber
       .subscribe("batch-scheduler")
       .evalTap {
@@ -292,37 +292,50 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: Monad, M[_]](
 
   private def publishScanForVideosCommandsToTopic(topic: Topic[F, ScanVideosCommand]): Stream[F, Unit] =
     topic.publish {
-      scanForVideosCommandSubscriber.subscribe(s"batch-scheduler")
-        .evalMap { record => scanForVideosCommandSubscriber.commit(List(record)).as(record.value) }
+      scanForVideosCommandSubscriber
+        .subscribe(s"batch-scheduler")
+        .evalMap { record =>
+          scanForVideosCommandSubscriber.commit(List(record)).as(record.value)
+        }
     }
 
-  val cleanUpStaleScheduledVideoDownloads: Stream[F, ScheduledVideoDownload] =
+  private val cleanUpStaleScheduledVideoDownloads: Stream[F, ScheduledVideoDownload] =
     Stream
       .eval(batchSchedulingService.updateTimedOutTasks(2 minutes))
       .repeat
       .metered(30 seconds)
       .flatMap(Stream.emits)
 
-  val newWorkers: F[Int] =
-    Range(0, workerConfiguration.maxConcurrentDownloads).toList
-      .traverse { index =>
-        transaction(workerDao.getById(Worker.workerIdFromIndex(index))).map(index -> _)
-      }
-      .map {
-        _.collect {
-          case (index, None) => index
-        }
-      }
-      .flatMap {
-        _.traverse { index =>
-          transaction {
-            workerDao.insert(Worker(Worker.workerIdFromIndex(index), WorkerStatus.Available, None, None, None))
-          }.handleError(_ => 0)
-        }
-      }
-      .map(_.sum)
+  private val initWorkers: F[Int] =
+    transaction {
+      workerDao.all.flatMap { workers =>
+        val validWorkerIds =
+          Range(0, workerConfiguration.maxConcurrentDownloads).map(Worker.workerIdFromIndex)
 
-  val cleanUpStaleWorkers: Stream[F, Int] =
+        val workersToDelete =
+          workers.filter { worker =>
+            !validWorkerIds.contains(worker.id) && worker.status != WorkerStatus.Deleted
+          }
+
+        val workersToCreate =
+          validWorkerIds.filter(workerId => !workers.exists(_.id == workerId)).toList
+
+        workersToDelete
+          .traverse(worker => workerDao.setStatus(worker.id, WorkerStatus.Deleted))
+          .product {
+            workersToCreate.traverse { workerId =>
+              workerDao
+                .insert(Worker(workerId, WorkerStatus.Available, None, None, None))
+                .handleError(_ => 0)
+            }
+          }
+          .map {
+            case (deletions, insertions) => deletions.sum + insertions.sum
+          }
+      }
+    }
+
+  private val cleanUpStaleWorkers: Stream[F, Int] =
     Stream
       .eval(logger.info[F]("cleanUpStaleWorkersTask started"))
       .productR {
@@ -337,19 +350,19 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: Monad, M[_]](
           }
       }
 
-  override val init: F[SynchronizationResult] =
+  override val init: F[Unit] =
     logger
       .info[F]("Batch initialization started")
-      .productR(newWorkers)
+      .productR(initWorkers)
       .flatMap(count => logger.info[F](s"New workers created: $count"))
-      .productR(synchronizationService.sync)
+//      .productR(synchronizationService.sync)
       .productL(logger.info[F]("Batch initialization completed"))
 }
 
 object SchedulerImpl {
   val WorkerPollPeriod: FiniteDuration = 1 second
 
-  def isWorkPeriod[F[_]: JodaClock: Monad](start: LocalTime, end: LocalTime): F[Boolean] =
+  private def isWorkPeriod[F[_]: JodaClock: Monad](start: LocalTime, end: LocalTime): F[Boolean] =
     if (start == end)
       Applicative[F].pure(true)
     else
