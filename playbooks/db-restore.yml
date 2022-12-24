@@ -27,15 +27,15 @@
 
     - set_fact:
         namespace: "{{ k8s_vars[env].namespace }}"
-        job_id: {{ git_branch }}-{{ ansible_date_time.iso8601_basic_short | lower }}
+        job_id: "{{ git_branch }}-{{ ansible_date_time.iso8601_basic_short | lower }}"
         config_values:
           DATABASE_URL: postgresql:5432/video-downloader
-          BACKUP_FILE: {{ git_branch }}/{{ s3_backup_file }}
+          BACKUP_FILE: "{{ git_branch }}/{{ s3_backup_file }}"
         secrets:
           DATABASE_USER: "{{ lookup('aws_ssm', '/video-downloader/' + env + '/database/user', region='ap-southeast-2') }}"
           DATABASE_PASSWORD: "{{ lookup('aws_ssm', '/video-downloader/' + env + '/database/password', region='ap-southeast-2') }}"
-          AWS_ACCESS_KEY_ID: "{{ lookup('aws_ssm', '/video-downloader/shared/backup-creator/access-key-id', region='ap-southeast-2') }}"
-          AWS_SECRET_ACCESS_KEY: "{{ lookup('aws_ssm', '/video-downloader/shared/backup-creator/secret-access-key', region='ap-southeast-2') }}"
+          AWS_ACCESS_KEY_ID: "{{ lookup('aws_ssm', '/video-downloader/shared/db-restorer/access-key-id', region='ap-southeast-2') }}"
+          AWS_SECRET_ACCESS_KEY: "{{ lookup('aws_ssm', '/video-downloader/shared/db-restorer/secret-access-key', region='ap-southeast-2') }}"
 
     - name: Render DB restore K8s resource files
       import_tasks: tasks/k8s-db-restore-files.yml

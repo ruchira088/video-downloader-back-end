@@ -18,9 +18,6 @@
 - name: Gather git information
   import_tasks: tasks/git-info.yml
 
-- name: Set config values and secrets
-  import_tasks: tasks/configs-and-secrets.yml
-
 - name: Render K8s resource files
   block:
     - name: Render K8s resource files - DB restore
