@@ -39,6 +39,14 @@
 
     - name: Build & publish DB backup Docker image
       when: application == "db-backup"
-      import_tasks: tasks/build-and-publish-db-backup-docker-image.yml
+      import_tasks: tasks/build-and-publish-db-operation-docker-image.yml
       vars:
+        db_operation: backup
+        publish: true
+
+    - name: Build & publish DB restore Docker image
+      when: application == "db-restore"
+      import_tasks: tasks/build-and-publish-db-operation-docker-image.yml
+      vars:
+        db_operation: restore
         publish: true

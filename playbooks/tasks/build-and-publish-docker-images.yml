@@ -21,4 +21,11 @@
     docker_file: Dockerfile.j2
 
 - name: Build DB backup Docker image
-  import_tasks: build-and-publish-db-backup-docker-image.yml
+  import_tasks: tasks/build-and-publish-db-operation-docker-image.yml
+  vars:
+    db_operation: backup
+
+- name: Build DB restore Docker image
+  import_tasks: tasks/build-and-publish-db-operation-docker-image.yml
+  vars:
+    db_operation: restore

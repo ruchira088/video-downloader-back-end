@@ -12,8 +12,8 @@
 
 - name: Generate the Dockerfile
   template:
-    src: docker/apps/Dockerfile-db-backup.j2
-    dest: docker-output/Dockerfile-db-backup
+    src: docker/apps/Dockerfile-db-{{ db_operation }}.j2
+    dest: docker-output/Dockerfile-db-{{ db_operation }}
   vars:
     build_timestamp: "{{ ansible_date_time.iso8601 }}"
 
@@ -21,10 +21,10 @@
   when: not publish
   shell: |
     docker build \
-      -f docker-output/Dockerfile-db-backup \
-      -t ghcr.io/ruchira088/video-downloader-db-backup:{{ git_branch }} \
-      -t ghcr.io/ruchira088/video-downloader-db-backup:{{ git_branch }}-{{ git_commit }} \
-      ../db-backup
+      -f docker-output/Dockerfile-db-{{ db_operation }} \
+      -t ghcr.io/ruchira088/video-downloader-db-{{ db_operation }}:{{ git_branch }} \
+      -t ghcr.io/ruchira088/video-downloader-db-{{ db_operation }}:{{ git_branch }}-{{ git_commit }} \
+      ../db-{{ db_operation }}
 
 - name: Build and publish Docker image
   when: publish
@@ -39,10 +39,10 @@
         docker buildx build \
           --push \
           --platform linux/arm64,linux/amd64 \
-          -t ghcr.io/ruchira088/video-downloader-db-backup:{{ git_branch }} \
-          -t ghcr.io/ruchira088/video-downloader-db-backup:{{ git_branch }}-{{ git_commit }} \
-          -f docker-output/Dockerfile-db-backup \
-          ../db-backup
+          -t ghcr.io/ruchira088/video-downloader-db-{{ db_operation }}:{{ git_branch }} \
+          -t ghcr.io/ruchira088/video-downloader-db-{{ db_operation }}:{{ git_branch }}-{{ git_commit }} \
+          -f docker-output/Dockerfile-db-{{ db_operation }} \
+          ../db-{{ db_operation }}
 
 - name: Clean up output directory
   file:

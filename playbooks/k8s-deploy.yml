@@ -101,6 +101,7 @@
                       helm install redis \
                         --set auth.password="{{ secrets.redis_password }}" \
                         --set architecture=standalone \
+                        --set image.tag=7.0.7-debian-11-r2 \
                         --namespace {{ namespace }} \
                         bitnami/redis
                   when: redis_output.resources | length == 0
@@ -119,6 +120,7 @@
                   shell: |
                     KUBECONFIG={{ kubeconfig }} \
                       helm install confluent \
+                        --set image.tag=7.3.1-debian-11-r0 \
                         --namespace {{ namespace }} \
                         bitnami/schema-registry
                   when: confluent_output.resources | length == 0

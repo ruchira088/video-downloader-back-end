@@ -18,12 +18,12 @@
           -t ghcr.io/ruchira088/video-downloader-scala-base:version-{{ ansible_date_time.date }} \
           -f docker/base/Dockerfile .
 
-    - name: Build base DB backup image
+    - name: Build base DB operations image
       command: |
         docker buildx build \
           --push \
           --platform linux/arm64,linux/amd64 \
           --no-cache \
-          -t ghcr.io/ruchira088/video-downloader-db-backup-base:latest \
-          -t ghcr.io/ruchira088/video-downloader-db-backup-base:version-{{ ansible_date_time.date }} \
-          -f docker/base/Dockerfile-db-backup .
+          -t ghcr.io/ruchira088/video-downloader-db-operations-base:latest \
+          -t ghcr.io/ruchira088/video-downloader-db-operations-base:version-{{ ansible_date_time.date }} \
+          -f docker/base/Dockerfile-db-operations .

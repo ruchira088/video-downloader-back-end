@@ -1,0 +1,21 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-restore-job-{{ job_id }}
+  namespace: {{ namespace }}
+spec:
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: docker-registry-credentials
+      containers:
+        - name: database-restore-container
+          image: ghcr.io/ruchira088/video-downloader-db-restore:{{ git_branch }}
+          envFrom:
+            - configMapRef:
+                name: db-restore-config-map
+            - secretRef:
+                name: db-restore-secrets
+

@@ -1,0 +1,31 @@
+- name: Create output directories
+  block:
+    - name: Delete existing output directory
+      file:
+        path: k8s-output
+        state: absent
+
+    - name: Create main output directory
+      file:
+        path: k8s-output
+        state: directory
+
+    - name: Create output directory - DB restore
+      file:
+        path: k8s-output/db-restore
+        state: directory
+
+- name: Gather git information
+  import_tasks: tasks/git-info.yml
+
+- name: Set config values and secrets
+  import_tasks: tasks/configs-and-secrets.yml
+
+- name: Render K8s resource files
+  block:
+    - name: Render K8s resource files - DB restore
+      template:
+        src: "{{ item }}"
+        dest: k8s-output/db-restore/{{ item | basename }}
+      with_fileglob:
+        - k8s/db-restore/*.yaml

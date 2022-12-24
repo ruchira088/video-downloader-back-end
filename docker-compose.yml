@@ -161,7 +161,7 @@ services:
       HASHED_ADMIN_PASSWORD: "$$2a$$10$$m5CQAirrrJKRqG3oalNSU.TUOn56v88isxMbNPi8cXXI35gY20hO."
 
   postgres-main:
-    image: postgres:14
+    image: postgres:15
 #    command: ["postgres", "-c", "log_statement=all"]
     healthcheck:
       test: "pg_isready -U admin -d video-downloader"
@@ -176,7 +176,7 @@ services:
       POSTGRES_PASSWORD: "password"
 
   postgres-secondary:
-    image: postgres:14
+    image: postgres:15
 #    command: ["postgres", "-c", "log_statement=all"]
     healthcheck:
       test: "pg_isready -U admin -d fallback-api"
@@ -203,12 +203,12 @@ services:
       - 6379:6379
 
   zookeeper:
-    image: confluentinc/cp-zookeeper:7.2.2
+    image: confluentinc/cp-zookeeper:7.3.1
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
 
   kafka-broker:
-    image: confluentinc/cp-kafka:7.2.2
+    image: confluentinc/cp-kafka:7.3.1
     healthcheck:
       test: "/opt/scripts/wait-for.sh -t 3 kafka-broker:9092"
       start_period: 20s
@@ -227,7 +227,7 @@ services:
       - "./docker-compose/scripts:/opt/scripts"
 
   schema-registry:
-    image: confluentinc/cp-schema-registry:7.2.2
+    image: confluentinc/cp-schema-registry:7.3.1
     healthcheck:
       test: "/opt/scripts/wait-for.sh -t 3 schema-registry:8081"
       start_period: 5s
