@@ -3,7 +3,7 @@ resource "aws_s3_bucket" "assets_bucket" {
   bucket = "assets.video-downloader.ruchij.com"
 }
 
-resource "aws_s3_bucket_object" "placeholder_image" {
+resource "aws_s3_object" "placeholder_image" {
   bucket = aws_s3_bucket.assets_bucket.bucket
   key = "video-placeholder.png"
 
