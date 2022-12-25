@@ -18,7 +18,7 @@ import scala.concurrent.duration.FiniteDuration
 
 object DoobieVideoDao extends VideoDao[ConnectionIO] {
 
-  def selectQuery(hasUserId: Boolean): Fragment =
+  private def selectQuery(hasUserId: Boolean): Fragment =
     fr"""
        SELECT
         video_metadata.url,
@@ -96,7 +96,7 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
       .query[Video]
       .option
 
-  val videoSortByFieldName: SortBy => Fragment =
+  private val videoSortByFieldName: SortBy => Fragment =
     sortByFieldName.orElse {
       case SortBy.Date => fr"video.created_at"
       case SortBy.WatchTime => fr"video.watch_time"

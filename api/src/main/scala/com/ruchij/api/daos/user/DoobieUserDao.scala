@@ -6,7 +6,7 @@ import doobie.free.connection.ConnectionIO
 import doobie.implicits.toSqlInterpolator
 
 object DoobieUserDao extends UserDao[ConnectionIO] {
-  val SelectQuery =
+  private val SelectQuery =
     fr"SELECT id, created_at, first_name, last_name, email, role FROM api_user"
 
   override def insert(user: User): ConnectionIO[Int] =

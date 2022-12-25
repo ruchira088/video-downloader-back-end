@@ -80,8 +80,8 @@ class FileRepositoryService[F[_]: Sync: Files](fileTypeDetector: FileTypeDetecto
 object FileRepositoryService {
   type FileRepository[F[_], A] = RepositoryService[F] { type BackedType = A }
 
-  val CHUNK_SIZE: Int = 4096
+  private val CHUNK_SIZE: Int = 4096
 
-  def parsePath[F[_]](path: String)(implicit applicativeError: ApplicativeError[F, Throwable]): F[Path] =
+  private def parsePath[F[_]](path: String)(implicit applicativeError: ApplicativeError[F, Throwable]): F[Path] =
     applicativeError.catchNonFatal(Path.fromNioPath(Paths.get(path)))
 }

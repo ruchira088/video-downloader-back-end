@@ -64,5 +64,5 @@ class VideoEnrichmentServiceImpl[F[_]: Sync,T[_]: Monad](
 }
 
 object VideoEnrichmentServiceImpl {
-  val SnapshotCount = 12
+  private val SnapshotCount = 12
 }

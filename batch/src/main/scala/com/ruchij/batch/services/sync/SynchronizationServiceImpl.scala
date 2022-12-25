@@ -83,7 +83,7 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
         logger.info[F](result.prettyPrint)
       }
 
-  def isFileSupported(filePath: String): F[Boolean] =
+  private def isFileSupported(filePath: String): F[Boolean] =
     if (MediaType.video.all.exists(_.fileExtensions.exists(extension => filePath.endsWith("." + extension)))) {
       MonadCancelThrow[F]
         .handleError {
@@ -98,7 +98,7 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
     } else
       Applicative[F].pure(false)
 
-  def syncVideo(videoPath: String): F[FileSyncResult] =
+  private def syncVideo(videoPath: String): F[FileSyncResult] =
     JodaClock[F].timestamp.flatMap { startTimestamp =>
       transaction {
         OptionT(videoDao.findByVideoPath(videoPath).map(_.as((): Unit)))
@@ -144,7 +144,7 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
       }
     }
 
-  def addVideo(videoPath: String): F[FileSyncResult] =
+  private def addVideo(videoPath: String): F[FileSyncResult] =
     videoFromPath(videoPath)
       .flatMap { video =>
         saveVideo(video).recoverWith {
@@ -162,7 +162,7 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
         }.andThen(_.map(identity[FileSyncResult]))
       }
 
-  def videoFromPath(videoPath: String): F[Video] =
+  private def videoFromPath(videoPath: String): F[Video] =
     for {
       _ <- logger.info[F](s"Sync started for $videoPath")
       duration <- videoAnalysisService.videoDurationFromPath(videoPath)
@@ -196,7 +196,7 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
 
     } yield Video(videoMetadata, videoFileResource, FiniteDuration(0, TimeUnit.MILLISECONDS))
 
-  def saveVideo(video: Video): F[Video] =
+  private def saveVideo(video: Video): F[Video] =
     JodaClock[F].timestamp
       .flatMap { timestamp =>
         transaction {
@@ -228,14 +228,14 @@ object SynchronizationServiceImpl {
   private val MaxConcurrentSyncCount = 8
   private val VideoFileVideoIdPattern: Regex = "^([^-]+)-([^-\\.]+).*".r
 
-  def errorHandler[F[_]: Functor](
+  private def errorHandler[F[_]: Functor](
     videoPath: String
   )(handler: PartialFunction[Throwable, F[_]]): PartialFunction[Throwable, F[SyncError]] = {
     case throwable =>
       handler(throwable).as(SyncError(throwable, videoPath))
   }
 
-  def fileName(path: String): String =
+  private def fileName(path: String): String =
     path.split(PathDelimiter).lastOption.getOrElse(path)
 
   def videoIdFromVideoFile(videoFilePath: String): Option[String] =

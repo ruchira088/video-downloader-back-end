@@ -10,7 +10,7 @@ import org.http4s.QueryParamDecoder
 final case class PagingQuery[A](pageSize: Int, pageNumber: Int, order: Order, maybeSortBy: Option[A])
 
 object PagingQuery {
-  def sortByQueryParameter[A: QueryParamDecoder]: SingleValueQueryParameter[Option[A]] =
+  private def sortByQueryParameter[A: QueryParamDecoder]: SingleValueQueryParameter[Option[A]] =
     new SingleValueQueryParameter[Option[A]]("sort-by", None) {}
 
   def from[F[_]: MonadThrow, A: QueryParamDecoder]: Kleisli[F, QueryParameters, PagingQuery[A]] =

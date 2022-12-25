@@ -145,7 +145,7 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
         }
     }
 
-  def downloadVideo(
+  private def downloadVideo(
     workerId: String,
     scheduledVideoDownload: ScheduledVideoDownload,
     interrupt: Stream[F, Boolean]

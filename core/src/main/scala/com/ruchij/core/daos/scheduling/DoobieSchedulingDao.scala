@@ -230,7 +230,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
         }
       }
 
-  val schedulingSortByFiledName: SortBy => Fragment =
+  private val schedulingSortByFiledName: SortBy => Fragment =
     sortByFieldName.orElse {
       case SortBy.Date => fr"scheduled_video.scheduled_at"
       case _ => fr"RANDOM()"

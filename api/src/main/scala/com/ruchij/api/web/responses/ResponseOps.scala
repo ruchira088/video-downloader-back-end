@@ -10,7 +10,7 @@ import org.http4s.{Headers, Response, Status}
 
 object ResponseOps {
 
-  def assetResponse[F[_]: Sync](asset: Asset[F], maybeMaxChunkSize: Option[Long]): F[Response[F]] =
+  private def assetResponse[F[_]: Sync](asset: Asset[F], maybeMaxChunkSize: Option[Long]): F[Response[F]] =
     Sync[F].defer {
       `Content-Length`.fromLong(Math.min(asset.fileRange.end - asset.fileRange.start, maybeMaxChunkSize.getOrElse(Long.MaxValue)))
         .toType[F, Throwable]

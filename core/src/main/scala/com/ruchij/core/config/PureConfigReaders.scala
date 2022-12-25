@@ -44,7 +44,7 @@ object PureConfigReaders {
       enumValues.values.find(_.entryName.equalsIgnoreCase(value))
     }
 
-  def stringConfigParserTry[A](parser: String => Try[A])(implicit classTag: ClassTag[A]): ConfigReader[A] =
+  private def stringConfigParserTry[A](parser: String => Try[A])(implicit classTag: ClassTag[A]): ConfigReader[A] =
     ConfigReader.fromNonEmptyString { value =>
       parser(value).toEither.left.map { throwable =>
         CannotConvert(value, classTag.runtimeClass.getSimpleName, throwable.getMessage)

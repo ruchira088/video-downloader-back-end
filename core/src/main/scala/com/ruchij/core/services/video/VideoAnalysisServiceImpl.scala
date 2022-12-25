@@ -64,7 +64,7 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
 
     } yield result
 
-  def createMetadata(uri: Uri, videoSite: VideoSite): F[VideoMetadata] =
+  private def createMetadata(uri: Uri, videoSite: VideoSite): F[VideoMetadata] =
     for {
       videoAnalysisResult @ VideoAnalysisResult(processedUri, videoSite, title, duration, size, thumbnailUri) <-
         analyze(uri, videoSite)

@@ -142,7 +142,7 @@ class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
       }
       .getOrElse(HealthStatus.Unhealthy)
 
-  def check(serviceHealthCheck: F[HealthStatus]): F[HealthStatus] =
+  private def check(serviceHealthCheck: F[HealthStatus]): F[HealthStatus] =
     Concurrent[F]
       .race(serviceHealthCheck, timeout)
       .map(_.merge)
@@ -151,7 +151,7 @@ class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
           logger.error[F]("Health check error", throwable).as(HealthStatus.Unhealthy)
       }
 
-  val timeout: F[HealthStatus.Unhealthy.type] =
+  private val timeout: F[HealthStatus.Unhealthy.type] =
     Clock[F].sleep(10 seconds).as(HealthStatus.Unhealthy)
 
   override val serviceInformation: F[ServiceInformation] = ServiceInformation.create[F]

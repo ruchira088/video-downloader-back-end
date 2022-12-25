@@ -31,20 +31,20 @@ import scala.language.postfixOps
 
 object DevelopmentApp extends IOApp {
 
-  val ApiStorageConfig: ApiStorageConfiguration = ApiStorageConfiguration("./images")
+  private val ApiStorageConfig: ApiStorageConfiguration = ApiStorageConfiguration("./images")
 
-  val BatchStorageConfig: BatchStorageConfiguration =
+  private val BatchStorageConfig: BatchStorageConfiguration =
     BatchStorageConfiguration("./videos", "./images", List.empty)
 
-  val WorkerConfig: WorkerConfiguration =
+  private val WorkerConfig: WorkerConfiguration =
     WorkerConfiguration(2, LocalTime.MIDNIGHT, LocalTime.MIDNIGHT)
 
-  val HttpConfig: HttpConfiguration = HttpConfiguration(ipv4"0.0.0.0", port"443")
+  private val HttpConfig: HttpConfiguration = HttpConfiguration(ipv4"0.0.0.0", port"443")
 
-  val AuthenticationConfig: AuthenticationConfiguration =
+  private val AuthenticationConfig: AuthenticationConfiguration =
     AuthenticationConfiguration(30 days)
 
-  def apiConfig(
+  private def apiConfig(
     databaseConfiguration: DatabaseConfiguration,
     redisConfiguration: RedisConfiguration,
     kafkaConfiguration: KafkaConfiguration,
@@ -62,7 +62,7 @@ object DevelopmentApp extends IOApp {
       fallbackApiConfiguration
     )
 
-  def batchConfig(
+  private def batchConfig(
     databaseConfiguration: DatabaseConfiguration,
     kafkaConfiguration: KafkaConfiguration,
     spaSiteRendererConfiguration: SpaSiteRendererConfiguration
@@ -75,9 +75,9 @@ object DevelopmentApp extends IOApp {
       spaSiteRendererConfiguration
     )
 
-  val KeyStoreResource = "/localhost.jks"
+  private val KeyStoreResource = "/localhost.jks"
 
-  val KeyStorePassword = "changeit"
+  private val KeyStorePassword = "changeit"
 
   override def run(args: List[String]): IO[ExitCode] =
     program[IO](new ContainerExternalApiServiceProvider[IO])
@@ -103,7 +103,7 @@ object DevelopmentApp extends IOApp {
         } yield ExitCode.Success
       }
 
-  def program[F[_]: Async: JodaClock](
+  private def program[F[_]: Async: JodaClock](
     externalApiServiceProvider: ExternalApiServiceProvider[F]
   ): Resource[F, (HttpApp[F], Scheduler[F])] =
     for {
@@ -123,7 +123,7 @@ object DevelopmentApp extends IOApp {
       batch <- BatchApp.program[F](batchConfig(databaseConfig, kafkaConfig, spaSiteRendererConfig))
     } yield (api, batch)
 
-  def createSslContext[F[_]: Sync]: F[SSLContext] =
+  private def createSslContext[F[_]: Sync]: F[SSLContext] =
     for {
       keyStore <- Sync[F].delay(KeyStore.getInstance("JKS"))
 
