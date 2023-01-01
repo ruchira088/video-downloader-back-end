@@ -89,7 +89,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
         ids => ids.headOption.fold[ConnectionIO[Seq[ScheduledVideoDownload]]](Applicative[ConnectionIO].pure(Seq.empty)) { head =>
           val nonEmptyListIds = NonEmptyList(head, ids.tail.toList)
 
-          (sql"UPDATE scheduled_video SET status = $to" ++  fr"WHERE" ++ in(fr"video_metadata_id", nonEmptyListIds))
+          (fr"UPDATE scheduled_video SET status = $to" ++  fr"WHERE" ++ in(fr"video_metadata_id", nonEmptyListIds))
             .update
             .run
             .productR {
