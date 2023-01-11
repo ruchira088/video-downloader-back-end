@@ -244,23 +244,16 @@ services:
     volumes:
       - "./docker-compose/scripts:/opt/scripts"
 
-  schema-registry-ui:
-    image: landoop/schema-registry-ui
-    healthcheck:
-      test: "/opt/scripts/wait-for.sh -t 3 schema-registry-ui:8000"
-      start_period: 10s
-      interval: 10s
-      timeout: 5s
+  kpow:
+    image: factorhouse/kpow-ce
+    ports:
+      - 3000:3000
     depends_on:
       schema-registry:
         condition: service_healthy
-    ports:
-      - 8000:8000
     environment:
-      SCHEMAREGISTRY_URL: "http://schema-registry:8081"
-      PROXY: "true"
-    volumes:
-      - "./docker-compose/scripts:/opt/scripts"
+      BOOTSTRAP: kafka-broker:9092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
 
   front-end-1: &front-end
     image: ghcr.io/ruchira088/video-downloader-front-end:dev
