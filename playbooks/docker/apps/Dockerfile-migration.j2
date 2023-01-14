@@ -1,4 +1,4 @@
-FROM openjdk:17-slim
+FROM eclipse-temurin:17-jre
 
 LABEL org.opencontainers.image.source https://github.com/ruchira088/video-downloader-back-end
 
