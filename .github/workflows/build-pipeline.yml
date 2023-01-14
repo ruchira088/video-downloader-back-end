@@ -42,7 +42,7 @@ jobs:
         run: sbt compile
 
       - name: Install ffmpeg
-        run: sudo apt-get install ffmpeg -y
+        run: sudo apt-get update && sudo apt-get install ffmpeg -y
 
       - name: Install youtube-dl
         run: pip install youtube-dl
