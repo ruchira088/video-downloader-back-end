@@ -51,7 +51,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
           videoAnalysisResult.title mustBe "The Crooked Cops"
           videoAnalysisResult.duration mustBe ((38 minutes) + (44 seconds))
           videoAnalysisResult.size mustBe 676023587
-          videoAnalysisResult.thumbnail mustBe uri"https://tb-lb.sb-cd.com/t/8518010/8/5/w:300/t6-enh/the-crooked-cops.jpg"
+          videoAnalysisResult.thumbnail mustBe uri"https://tbi.sb-cd.com/t/8518010/8/5/w:300/t6-enh/the-crooked-cops.jpg"
           videoAnalysisResult.videoSite mustBe CustomVideoSite.SpankBang
         }
       }
