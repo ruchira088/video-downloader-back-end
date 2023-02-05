@@ -16,6 +16,7 @@ class ContainerExternalCoreServiceProvider[F[_]: Sync]
 
       kafkaContainer <- ContainerExternalCoreServiceProvider.start[F, KafkaContainer] {
         new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.2.2"))
+          .withEmbeddedZookeeper()
           .withNetwork(network)
           .withNetworkAliases("kafka")
       }

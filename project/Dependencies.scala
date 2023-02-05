@@ -15,7 +15,7 @@ object Dependencies
 
   lazy val http4sJdkHttpClient = "org.http4s" %% "http4s-jdk-http-client" % "0.8.0"
 
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.4.5"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.4.6"
 
   lazy val kafka = "org.apache.kafka" %% "kafka" % "7.3.1-ccs"
 
@@ -47,13 +47,13 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.2"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.14.0"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.14.1"
 
-  lazy val postgresql = "org.postgresql" % "postgresql" % "42.5.2"
+  lazy val postgresql = "org.postgresql" % "postgresql" % "42.5.3"
 
   lazy val h2 = "com.h2database" % "h2" % "2.1.214"
 
-  lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.6.0"
+  lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.7.0"
 
   lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.4.0"
 
