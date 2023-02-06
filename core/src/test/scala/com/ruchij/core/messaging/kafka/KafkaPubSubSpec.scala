@@ -10,6 +10,9 @@ import org.scalatest.matchers.must.Matchers
 import vulcan.Codec
 import vulcan.generic.MagnoliaCodec
 
+import scala.concurrent.duration.DurationInt
+import scala.language.postfixOps
+
 class KafkaPubSubSpec extends AnyFlatSpec with Matchers {
 
   "Kafka publisher and subscriber" should "be able to publish and subscribe to Kafka topic" in runIO {
@@ -19,6 +22,7 @@ class KafkaPubSubSpec extends AnyFlatSpec with Matchers {
       }
       .use { pubSub =>
         pubSub.subscribe("test-subscriber").take(10).compile.toList.start
+          .productL(IO.sleep(2 seconds))
           .productL {
             pubSub.publish { Stream.range[IO, Int](0, 10).map(index => TestMessage(index)) }
               .compile
