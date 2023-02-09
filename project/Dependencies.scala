@@ -4,7 +4,7 @@ object Dependencies
 {
   val ScalaVersion = "2.13.10"
   val Http4sVersion = "0.23.18"
-  val CirceVersion = "0.14.3"
+  val CirceVersion = "0.14.4"
   val TestContainersVersion = "1.17.6"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
@@ -13,7 +13,7 @@ object Dependencies
 
   lazy val http4sCirce = "org.http4s" %% "http4s-circe" % Http4sVersion
 
-  lazy val http4sJdkHttpClient = "org.http4s" %% "http4s-jdk-http-client" % "0.8.0"
+  lazy val http4sJdkHttpClient = "org.http4s" %% "http4s-jdk-http-client" % "0.9.0"
 
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.4.6"
 
