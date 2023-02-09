@@ -36,7 +36,7 @@ services:
   api-1: &api-app
     image: ghcr.io/ruchira088/video-downloader-api:dev
     healthcheck:
-      test: "/opt/scripts/wait-for-it.sh localhost:8000"
+      test: "curl -f http://localhost:8000/service/info"
       start_period: 10s
       interval: 10s
       timeout: 5s
@@ -57,7 +57,6 @@ services:
       - "./videos:/opt/videos"
       - "./images:/opt/images"
       - "./api/src/main/resources/logback.xml:/opt/data/logback.xml"
-      - "./docker-compose/scripts:/opt/scripts"
     environment:
       DATABASE_URL: "jdbc:postgresql://postgres-main:5432/video-downloader"
       DATABASE_USER: "admin"
@@ -258,12 +257,10 @@ services:
   front-end-1: &front-end
     image: ghcr.io/ruchira088/video-downloader-front-end:dev
     healthcheck:
-      test: "/opt/scripts/wait-for.sh -t 3 localhost:80"
+      test: "curl -f http://localhost"
       start_period: 5s
       interval: 3s
       timeout: 2s
-    volumes:
-      - "./docker-compose/scripts:/opt/scripts"
 
   front-end-2: *front-end
 
