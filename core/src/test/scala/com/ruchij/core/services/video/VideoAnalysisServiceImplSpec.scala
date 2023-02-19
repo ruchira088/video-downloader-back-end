@@ -115,7 +115,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
           videoAnalysisResult.title mustBe "Ed Sheeran - Perfect (Official Music Video)"
           videoAnalysisResult.duration mustBe ((4 minutes) + (40 seconds))
           videoAnalysisResult.size mustBe 384432283
-          videoAnalysisResult.thumbnail.copy(query = Query.empty) mustBe uri"https://i.ytimg.com/vi/2Vv-BfVoq4g/hqdefault.jpg"
+          videoAnalysisResult.thumbnail.copy(query = Query.empty) mustBe uri"https://i.ytimg.com/vi_webp/2Vv-BfVoq4g/sddefault.webp"
           videoAnalysisResult.videoSite mustBe YTDownloaderSite("youtube")
         }
       }

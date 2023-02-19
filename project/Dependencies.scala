@@ -41,15 +41,15 @@ object Dependencies
 
   lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "1.0.0-RC2"
 
-  lazy val jsoup = "org.jsoup" % "jsoup" % "1.15.3"
+  lazy val jsoup = "org.jsoup" % "jsoup" % "1.15.4"
 
   lazy val jodaTime = "joda-time" % "joda-time" % "2.12.2"
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.2"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.14.1"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.15.0"
 
-  lazy val postgresql = "org.postgresql" % "postgresql" % "42.5.3"
+  lazy val postgresql = "org.postgresql" % "postgresql" % "42.5.4"
 
   lazy val h2 = "com.h2database" % "h2" % "2.1.214"
 

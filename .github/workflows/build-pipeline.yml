@@ -44,8 +44,8 @@ jobs:
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install ffmpeg -y
 
-      - name: Install youtube-dl
-        run: pip install youtube-dl
+      - name: Install yt-dlp
+        run: pip install yt-dlp
 
       - name: Fetch test dependencies
         run: sbt "Test / update"

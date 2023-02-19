@@ -29,7 +29,7 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
 
   override def videoInformation(uri: Uri): F[VideoAnalysisResult] =
     cliCommandRunner
-      .run(s"""youtube-dl "${uri.renderString}" -j""")
+      .run(s"""yt-dlp "${uri.renderString}" -j""")
       .compile
       .string
       .flatMap {
@@ -77,7 +77,7 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
 
   override val supportedSites: F[Seq[String]] =
     Sync[F].defer {
-      cliCommandRunner.run("youtube-dl --list-extractors")
+      cliCommandRunner.run("yt-dlp --list-extractors")
         .compile
         .toVector
         .map(identity[Seq[String]])
@@ -85,7 +85,7 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
 
   override def downloadVideo(uri: Uri, pathWithoutExtension: String): Stream[F, YTDownloaderProgress] =
     cliCommandRunner
-      .run(s"""youtube-dl -o "$pathWithoutExtension.%(ext)s" "${uri.renderString}"""")
+      .run(s"""yt-dlp -o "$pathWithoutExtension.%(ext)s" "${uri.renderString}"""")
       .collect {
         case YTDownloaderProgress(progress) => progress
       }

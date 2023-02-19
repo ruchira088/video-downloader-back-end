@@ -65,7 +65,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
         |}""".stripMargin
 
     (cliCommandRunner.run _)
-      .expects("""youtube-dl "https://www.youtube.com/watch?v=4PrO20ALoCA" -j""")
+      .expects("""yt-dlp "https://www.youtube.com/watch?v=4PrO20ALoCA" -j""")
       .returns(Stream.emits[IO, String](cliOutput.split("\n")))
 
     youTubeVideoDownloader
@@ -94,7 +94,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
         |""".stripMargin
 
     (cliCommandRunner.run _)
-      .expects("youtube-dl --list-extractors")
+      .expects("yt-dlp --list-extractors")
       .returns {
         Stream.emits[IO, String] { cliOutput.split("\n").filter(_.nonEmpty) }
       }
@@ -115,7 +115,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
     val cliOutput =
       """[youtube] F1Zl1TRDJs0: Downloading webpage
         |[download] Destination: /home/ruchira/Videos/youtube-video-url-hash.mp4.f248
-        |[download]  0.3% of 180.0MiB at  6.1MiB/s ETA 00:32
+        |[download]   0.3% of   180.0MiB at     6.1MiB/s ETA 00:32
         |[download]  33.1% of 180.0MiB at  6.0MiB/s ETA 00:21
         |[download]  71.1% of 180.0MiB at  6.5MiB/s ETA 00:06
         |[download]  80.3% of 180.0MiB at  6.1MiB/s ETA 00:04
@@ -133,7 +133,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
 
     (cliCommandRunner.run _)
       .expects(
-        """youtube-dl -o "~/Videos/youtube-video-url-hash.%(ext)s" "https://www.youtube.com/watch?v=F1Zl1TRDJs0""""
+        """yt-dlp -o "~/Videos/youtube-video-url-hash.%(ext)s" "https://www.youtube.com/watch?v=F1Zl1TRDJs0""""
       )
       .returns {
         Stream.emits[IO, String] { cliOutput.split("\n") }

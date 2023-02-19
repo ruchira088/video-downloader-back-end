@@ -6,4 +6,4 @@ RUN apt-get update && \
     apt-get install ffmpeg python3-pip -y && \
     rm -rf /var/lib/apt/lists/
 
-RUN pip3 install youtube-dl
+RUN pip3 install yt-dlp
