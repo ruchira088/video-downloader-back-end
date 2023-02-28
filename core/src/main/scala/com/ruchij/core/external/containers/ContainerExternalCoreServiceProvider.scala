@@ -15,7 +15,7 @@ class ContainerExternalCoreServiceProvider[F[_]: Sync]
       network <- Resource.eval(Sync[F].delay(Network.newNetwork()))
 
       kafkaContainer <- ContainerExternalCoreServiceProvider.start[F, KafkaContainer] {
-        new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.3.1"))
+        new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.3.2"))
           .withNetwork(network)
           .withNetworkAliases("kafka")
       }
