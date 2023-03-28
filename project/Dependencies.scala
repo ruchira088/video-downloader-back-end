@@ -25,7 +25,7 @@ object Dependencies
 
   lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.3.2"
 
-  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.8.4"
+  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.9.0"
 
   lazy val circeGeneric = "io.circe" %% "circe-generic" % CirceVersion
 
@@ -43,11 +43,11 @@ object Dependencies
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.15.4"
 
-  lazy val jodaTime = "joda-time" % "joda-time" % "2.12.2"
+  lazy val jodaTime = "joda-time" % "joda-time" % "2.12.4"
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.2"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.16.0"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.16.1"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.6.0"
 
