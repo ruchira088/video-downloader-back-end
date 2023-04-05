@@ -5,7 +5,7 @@ import cats.implicits._
 import com.ruchij.migration.config.DatabaseConfiguration
 import org.testcontainers.containers.PostgreSQLContainer
 
-class PostgresContainer extends PostgreSQLContainer[PostgresContainer]("postgres:14")
+class PostgresContainer extends PostgreSQLContainer[PostgresContainer]("postgres:15")
 
 object PostgresContainer {
   def create[F[_]: Sync]: Resource[F, DatabaseConfiguration] =
