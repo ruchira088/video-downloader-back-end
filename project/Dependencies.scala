@@ -5,7 +5,7 @@ object Dependencies
   val ScalaVersion = "2.13.10"
   val Http4sVersion = "0.23.18"
   val CirceVersion = "0.14.5"
-  val TestContainersVersion = "1.17.6"
+  val TestContainersVersion = "1.18.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -17,13 +17,13 @@ object Dependencies
 
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.4.8"
 
-  lazy val kafka = "org.apache.kafka" %% "kafka" % "7.3.2-ccs"
+  lazy val kafka = "org.apache.kafka" %% "kafka" % "7.3.3-ccs"
 
   lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "2.5.0"
 
   lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "2.5.0"
 
-  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.3.2"
+  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.3.3"
 
   lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.9.0"
 
@@ -43,11 +43,11 @@ object Dependencies
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.15.4"
 
-  lazy val jodaTime = "joda-time" % "joda-time" % "2.12.4"
+  lazy val jodaTime = "joda-time" % "joda-time" % "2.12.5"
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.2"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.16.1"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.16.3"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.6.0"
 
@@ -55,7 +55,7 @@ object Dependencies
 
   lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.7.0"
 
-  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.4.0"
+  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.4.1"
 
   lazy val jbcrypt = "org.mindrot" % "jbcrypt" % "0.4"
 
