@@ -39,7 +39,7 @@ object KafkaPublisher {
     implicit topic: KafkaTopic[A]
   ): Resource[F, KafkaPublisher[F, A]] =
     KafkaProducer.resource {
-      ProducerSettings[F, Unit, A](RecordSerializer[F, Unit], topic.serializer[F](kafkaConfiguration))
+      ProducerSettings[F, Unit, A](GenericSerializer[F, Unit], topic.serializer[F](kafkaConfiguration))
         .withBootstrapServers(kafkaConfiguration.bootstrapServers)
     }
       .map { producer =>

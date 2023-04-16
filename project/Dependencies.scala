@@ -19,9 +19,9 @@ object Dependencies
 
   lazy val kafka = "org.apache.kafka" %% "kafka" % "7.3.3-ccs"
 
-  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "2.5.0"
+  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "3.0.0"
 
-  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "2.5.0"
+  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "3.0.0"
 
   lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.3.3"
 
@@ -45,7 +45,7 @@ object Dependencies
 
   lazy val jodaTime = "joda-time" % "joda-time" % "2.12.5"
 
-  lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.2"
+  lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.3"
 
   lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.16.3"
 

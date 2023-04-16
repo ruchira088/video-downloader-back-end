@@ -1,6 +1,7 @@
 package com.ruchij.core.messaging.kafka
 
 import cats.effect.Sync
+import cats.effect.kernel.Resource
 import com.ruchij.core.commands.ScanVideosCommand
 import com.ruchij.core.config.KafkaConfiguration
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
@@ -8,7 +9,7 @@ import com.ruchij.core.messaging.kafka.Codecs._
 import com.ruchij.core.messaging.models.HttpMetric
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import fs2.kafka.vulcan.{AvroSettings, SchemaRegistryClientSettings, avroDeserializer, avroSerializer}
-import fs2.kafka.{RecordDeserializer, RecordSerializer}
+import fs2.kafka.{ValueDeserializer, ValueSerializer}
 import vulcan.Codec
 import vulcan.generic._
 
@@ -17,13 +18,13 @@ trait KafkaTopic[A] {
 
   val codec: Codec[A]
 
-  def serializer[F[_]: Sync](kafkaConfiguration: KafkaConfiguration): RecordSerializer[F, A] =
-    avroSerializer[A](codec).using {
+  def serializer[F[_]: Sync](kafkaConfiguration: KafkaConfiguration): Resource[F, ValueSerializer[F, A]] =
+    avroSerializer[A](codec).forValue {
       AvroSettings { SchemaRegistryClientSettings(kafkaConfiguration.schemaRegistry.renderString) }
     }
 
-  def deserializer[F[_]: Sync](kafkaConfiguration: KafkaConfiguration): RecordDeserializer[F, A] =
-    avroDeserializer[A](codec).using {
+  def deserializer[F[_]: Sync](kafkaConfiguration: KafkaConfiguration): Resource[F, ValueDeserializer[F, A]] =
+    avroDeserializer[A](codec).forValue {
       AvroSettings { SchemaRegistryClientSettings(kafkaConfiguration.schemaRegistry.renderString) }
     }
 }
