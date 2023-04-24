@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15
+    command: ["postgres", "-c", "log_statement=all"]
+    restart: unless-stopped
+    healthcheck:
+      test: "pg_isready -U admin -d video-downloader"
+      start_period: 10s
+      interval: 10s
+      timeout: 5s
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_DB: "video-downloader"
+      POSTGRES_USER: "admin"
+      POSTGRES_PASSWORD: "password"
+
+  redis:
+    image: bitnami/redis:7.0
+    restart: unless-stopped
+    healthcheck:
+      test: "redis-cli ping"
+      start_period: 1s
+      interval: 2s
+      timeout: 1s
+    environment:
+      REDIS_PASSWORD: "redis-password"
+    ports:
+      - 6379:6379
