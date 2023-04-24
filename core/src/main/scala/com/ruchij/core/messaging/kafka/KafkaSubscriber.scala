@@ -23,10 +23,10 @@ class KafkaSubscriber[F[_]: Async, A](kafkaConfiguration: KafkaConfiguration)(
           ConsumerSettings[F, Unit, A](GenericDeserializer[F, Unit], topic.deserializer[F](kafkaConfiguration))
             .withBootstrapServers(kafkaConfiguration.bootstrapServers)
             .withAutoOffsetReset(AutoOffsetReset.Latest)
-            .withGroupId(groupId)
+            .withGroupId(kafkaConfiguration.label(groupId))
         }
       }
-      .evalTap(_.subscribeTo(kafkaConfiguration.topicName(topic.name)))
+      .evalTap(_.subscribeTo(kafkaConfiguration.label(topic.name)))
       .flatMap {
         _.stream.evalMap { committableConsumerRecord =>
           logger.trace[F](s"Received: topic=${committableConsumerRecord.record.topic}, consumerGroupId=${committableConsumerRecord.offset.consumerGroupId}, value=${committableConsumerRecord.record.value}")

@@ -49,8 +49,8 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         }
 
         kafka-configuration {
-          topic-prefix = "local"
-          topic-prefix = $${?KAFKA_TOPIC_PREFIX}
+          prefix = "local"
+          prefix = $${?KAFKA_PREFIX}
 
           bootstrap-servers = "kafka-cluster:9092"
 

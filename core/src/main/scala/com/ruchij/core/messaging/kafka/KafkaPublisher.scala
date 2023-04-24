@@ -43,6 +43,6 @@ object KafkaPublisher {
         .withBootstrapServers(kafkaConfiguration.bootstrapServers)
     }
       .map { producer =>
-        new KafkaPublisher[F, A](kafkaConfiguration.topicName(topic.name), producer)
+        new KafkaPublisher[F, A](kafkaConfiguration.label(topic.name), producer)
       }
 }
