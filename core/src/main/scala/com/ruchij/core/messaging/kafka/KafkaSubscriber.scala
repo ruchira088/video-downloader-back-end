@@ -1,7 +1,7 @@
 package com.ruchij.core.messaging.kafka
 
 import cats.effect.Async
-import cats.implicits.toFunctorOps
+import cats.implicits._
 import cats.{Foldable, Functor}
 import com.ruchij.core.config.KafkaConfiguration
 import com.ruchij.core.logging.Logger
@@ -17,23 +17,26 @@ class KafkaSubscriber[F[_]: Async, A](kafkaConfiguration: KafkaConfiguration)(
   private val logger = Logger[KafkaSubscriber[F, A]]
 
   override def subscribe(groupId: String): Stream[F, CommittableRecord[CommittableConsumerRecord[F, Unit, *], A]] =
-    Stream
-      .resource {
-        KafkaConsumer.resource {
-          ConsumerSettings[F, Unit, A](GenericDeserializer[F, Unit], topic.deserializer[F](kafkaConfiguration))
-            .withBootstrapServers(kafkaConfiguration.bootstrapServers)
-            .withAutoOffsetReset(AutoOffsetReset.Latest)
-            .withGroupId(kafkaConfiguration.label(groupId))
-        }
-      }
-      .evalTap(_.subscribeTo(kafkaConfiguration.label(topic.name)))
-      .flatMap {
-        _.stream.evalMap { committableConsumerRecord =>
-          logger.trace[F](s"Received: topic=${committableConsumerRecord.record.topic}, consumerGroupId=${committableConsumerRecord.offset.consumerGroupId}, value=${committableConsumerRecord.record.value}")
-            .as {
-              CommittableRecord(committableConsumerRecord.record.value, committableConsumerRecord)
+    Stream.eval(logger.info(s"$groupId subscribed to topic=${kafkaConfiguration.label(topic.name)}"))
+      .productR {
+        Stream
+          .resource {
+            KafkaConsumer.resource {
+              ConsumerSettings[F, Unit, A](GenericDeserializer[F, Unit], topic.deserializer[F](kafkaConfiguration))
+                .withBootstrapServers(kafkaConfiguration.bootstrapServers)
+                .withAutoOffsetReset(AutoOffsetReset.Latest)
+                .withGroupId(kafkaConfiguration.label(groupId))
             }
-        }
+          }
+          .evalTap(_.subscribeTo(kafkaConfiguration.label(topic.name)))
+          .flatMap {
+            _.stream.evalMap { committableConsumerRecord =>
+              logger.trace[F](s"Received: topic=${committableConsumerRecord.record.topic}, consumerGroupId=${committableConsumerRecord.offset.consumerGroupId}, value=${committableConsumerRecord.record.value}")
+                .as {
+                  CommittableRecord(committableConsumerRecord.record.value, committableConsumerRecord)
+                }
+            }
+          }
       }
 
   override def commit[H[_]: Foldable: Functor](values: H[CommittableRecord[CommittableConsumerRecord[F, Unit, *], A]]): F[Unit] =
