@@ -18,21 +18,17 @@
             namespace: video-downloader-back-end
             hostname: api.video.home.ruchij.com
             host_path_mappings:
-              - host_path: /mnt/md0/Production/video-downloader/videos
+              - host_path: /media/data/video-downloader/production/videos
                 pod_mount_path: /home/videos
-              - host_path: /home/ruchira/Data/Production/video-downloader/images
+              - host_path: /home/ruchira/Data/video-downloader/production/images
                 pod_mount_path: /home/images
-              - host_path: /mnt/md2/Production/video-downloader/videos
-                pod_mount_path: /home/videos-1
-              - host_path: /mnt/sda3/Production/video-downloader/videos
-                pod_mount_path: /home/videos-2
           development:
             namespace: video-downloader-back-end-{{ git_branch }}
             hostname: api.{{ git_branch }}.video.home.ruchij.com
             host_path_mappings:
-              - host_path: /home/ruchira/Data/Development/video-downloader/videos
+              - host_path: /media/data/video-downloader/development/videos
                 pod_mount_path: /home/videos
-              - host_path: /home/ruchira/Data/Development/video-downloader/images
+              - host_path: /home/ruchira/Data/video-downloader/development/images
                 pod_mount_path: /home/images
 
     - set_fact:
