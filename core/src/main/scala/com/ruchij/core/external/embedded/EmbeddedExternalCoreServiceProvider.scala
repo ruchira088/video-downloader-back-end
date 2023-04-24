@@ -27,6 +27,7 @@ class EmbeddedExternalCoreServiceProvider[F[_]: Sync]
       schemaRegistryPort <- Resource.eval(availablePort(EmbeddedKafkaSchemaRegistryConfig.defaultSchemaRegistryPort))
 
       kafkaConfiguration = KafkaConfiguration(
+        "local-dev",
         s"localhost:$kafkaPort",
         Uri(Some(Scheme.http), Some(Uri.Authority(port = Some(schemaRegistryPort))))
       )

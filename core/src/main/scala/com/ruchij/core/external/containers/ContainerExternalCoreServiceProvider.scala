@@ -23,7 +23,7 @@ class ContainerExternalCoreServiceProvider[F[_]: Sync]
       kafkaBootstrapServers <- Resource.eval(Sync[F].delay(kafkaContainer.getBootstrapServers))
 
       schemaRegistryUrl <- SchemaRegistryContainer.create("kafka", network)
-    } yield KafkaConfiguration(kafkaBootstrapServers, schemaRegistryUrl)
+    } yield KafkaConfiguration("local-dev", kafkaBootstrapServers, schemaRegistryUrl)
 
   override val databaseConfiguration: Resource[F, DatabaseConfiguration] =
     PostgresContainer.create[F]

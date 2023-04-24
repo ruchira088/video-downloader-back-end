@@ -26,7 +26,7 @@ class KafkaSubscriber[F[_]: Async, A](kafkaConfiguration: KafkaConfiguration)(
             .withGroupId(groupId)
         }
       }
-      .evalTap(_.subscribeTo(topic.name))
+      .evalTap(_.subscribeTo(kafkaConfiguration.topicName(topic.name)))
       .flatMap {
         _.stream.evalMap { committableConsumerRecord =>
           logger.trace[F](s"Received: topic=${committableConsumerRecord.record.topic}, consumerGroupId=${committableConsumerRecord.offset.consumerGroupId}, value=${committableConsumerRecord.record.value}")

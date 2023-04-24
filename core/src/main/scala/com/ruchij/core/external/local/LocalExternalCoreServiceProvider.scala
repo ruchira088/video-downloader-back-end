@@ -9,7 +9,7 @@ import org.http4s.implicits.http4sLiteralsSyntax
 
 class LocalExternalCoreServiceProvider[F[_]: Applicative] extends ExternalCoreServiceProvider[F] {
   override val kafkaConfiguration: Resource[F, KafkaConfiguration] =
-    Resource.pure(KafkaConfiguration("localhost:9092", uri"http://localhost:8081"))
+    Resource.pure(KafkaConfiguration("local-dev", "localhost:9092", uri"http://localhost:8081"))
 
   override val databaseConfiguration: Resource[F, DatabaseConfiguration] =
     Resource.pure(DatabaseConfiguration("jdbc:postgresql://localhost:5432/video-downloader", "admin", "password"))

@@ -49,6 +49,9 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         }
 
         kafka-configuration {
+          topic-prefix = "local"
+          topic-prefix = $${?KAFKA_TOPIC_PREFIX}
+
           bootstrap-servers = "kafka-cluster:9092"
 
           schema-registry = "http://kafka-cluster:8081"
@@ -65,7 +68,7 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         BatchStorageConfiguration("./videos", "./images", List("./video-folder-1", "./video-folder-2")),
         WorkerConfiguration(10, LocalTime.MIDNIGHT, LocalTime.MIDNIGHT),
         DatabaseConfiguration("jdbc:h2:mem:video-downloader;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false", "my-user", "my-password"),
-        KafkaConfiguration("kafka-cluster:9092", uri"http://kafka-cluster:8081"),
+        KafkaConfiguration("local", "kafka-cluster:9092", uri"http://kafka-cluster:8081"),
         SpaSiteRendererConfiguration(uri"http://spa-renderer-service:8000"),
       )
 

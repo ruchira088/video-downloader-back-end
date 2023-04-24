@@ -55,6 +55,9 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         }
 
         kafka-configuration {
+          topic-prefix = "local"
+          topic-prefix = $${?KAFKA_TOPIC_PREFIX}
+
           bootstrap-servers = "kafka-cluster:9092"
 
           schema-registry = "http://kafka-cluster:8081"
@@ -79,7 +82,7 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         DatabaseConfiguration("jdbc:h2:mem:video-downloader;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false", "", ""),
         RedisConfiguration("localhost", 6379, Some("redis-password")),
         AuthenticationConfiguration(30 days),
-        KafkaConfiguration("kafka-cluster:9092", uri"http://kafka-cluster:8081"),
+        KafkaConfiguration("local", "kafka-cluster:9092", uri"http://kafka-cluster:8081"),
         SpaSiteRendererConfiguration(uri"http://spa-renderer-service:8000"),
         FallbackApiConfiguration(uri"https://fallback-api.video.dev.ruchij.com", "my-token", 5 minutes)
       )
