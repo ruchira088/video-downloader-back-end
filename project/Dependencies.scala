@@ -15,7 +15,7 @@ object Dependencies
 
   lazy val http4sJdkHttpClient = "org.http4s" %% "http4s-jdk-http-client" % "0.9.0"
 
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.4.8"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.4.9"
 
   lazy val kafka = "org.apache.kafka" %% "kafka" % "7.3.3-ccs"
 
@@ -69,7 +69,7 @@ object Dependencies
 
   lazy val postgresqlTestContainer = "org.testcontainers" % "postgresql" % TestContainersVersion
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.4.6"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.4.7"
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
 
