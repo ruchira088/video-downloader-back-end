@@ -64,7 +64,7 @@ services:
       REDIS_HOSTNAME: "redis"
       REDIS_PORT: "6379"
       REDIS_PASSWORD: "redis-password"
-      KAFKA_BROKERS: "kafka-broker:9092"
+      KAFKA_BROKERS: "kafka-broker:29092"
       SCHEMA_REGISTRY: "http://schema-registry:8081"
       SPA_SITE_RENDERER: "http://spa-renderer:8000"
       FALLBACK_API_URL: "http://fallback-api:8080"
@@ -105,7 +105,7 @@ services:
       REDIS_HOSTNAME: "redis"
       REDIS_PORT: "6379"
       REDIS_PASSWORD: "redis-password"
-      KAFKA_BROKERS: "kafka-broker:9092"
+      KAFKA_BROKERS: "kafka-broker:29092"
       SCHEMA_REGISTRY: "http://schema-registry:8081"
       SPA_SITE_RENDERER: "http://spa-renderer:8000"
       VIDEO_FOLDER: "/opt/videos"
@@ -208,8 +208,10 @@ services:
 
   kafka-broker:
     image: confluentinc/cp-kafka:7.3.3
+    ports:
+      - 9092:9092
     healthcheck:
-      test: "/opt/scripts/wait-for.sh -t 3 kafka-broker:9092"
+      test: "/opt/scripts/wait-for.sh -t 3 kafka-broker:29092"
       start_period: 20s
       interval: 5s
       timeout: 2s
@@ -221,7 +223,10 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-broker:9092
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka-broker:29092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
     volumes:
       - "./docker-compose/scripts:/opt/scripts"
 
@@ -239,7 +244,7 @@ services:
       - 8081:8081
     environment:
       SCHEMA_REGISTRY_HOST_NAME: "schema-registry"
-      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "kafka-broker:9092"
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "kafka-broker:29092"
     volumes:
       - "./docker-compose/scripts:/opt/scripts"
 
@@ -251,7 +256,7 @@ services:
       schema-registry:
         condition: service_healthy
     environment:
-      BOOTSTRAP: kafka-broker:9092
+      BOOTSTRAP: kafka-broker:29092
       SCHEMA_REGISTRY_URL: http://schema-registry:8081
 
   front-end-1: &front-end
