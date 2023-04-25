@@ -1,7 +1,7 @@
 package com.ruchij.api.services.background
 
 import cats.effect.kernel.Async
-import cats.effect.{Concurrent, Fiber, Sync}
+import cats.effect.{Concurrent, Fiber, Spawn, Sync}
 import cats.implicits._
 import com.ruchij.api.services.fallback.FallbackApiService
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
@@ -54,6 +54,12 @@ class BackgroundServiceImpl[F[_]: Async, M[_]](
         .flatMap { user => apiSchedulingService.schedule(scheduledUrl.url, user.id) }
         .productL(fallbackApiService.commit(scheduledUrl.id))
     }
+      .handleErrorWith { throwable =>
+        Stream.eval {
+          logger.error[F]("Error occurred when fetching scheduled video URLs from Fallback API", throwable)
+        }
+          .productR(Stream.empty)
+      }
 
   private def publishToTopic[A: ClassTag](subscriber: Subscriber[F, CommittableRecord[M, *], A], topic: Topic[F, A]): Stream[F, Unit] =
     subscriber
