@@ -1,7 +1,7 @@
 package com.ruchij.api.services.background
 
 import cats.effect.kernel.Async
-import cats.effect.{Concurrent, Fiber, Spawn, Sync}
+import cats.effect.{Concurrent, Fiber, Sync}
 import cats.implicits._
 import com.ruchij.api.services.fallback.FallbackApiService
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
