@@ -15,7 +15,7 @@ object Dependencies
 
   lazy val http4sJdkHttpClient = "org.http4s" %% "http4s-jdk-http-client" % "0.9.0"
 
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.4.9"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.4.10"
 
   lazy val kafka = "org.apache.kafka" %% "kafka" % "7.3.3-ccs"
 
@@ -41,7 +41,7 @@ object Dependencies
 
   lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "1.0.0-RC2"
 
-  lazy val jsoup = "org.jsoup" % "jsoup" % "1.15.4"
+  lazy val jsoup = "org.jsoup" % "jsoup" % "1.16.1"
 
   lazy val jodaTime = "joda-time" % "joda-time" % "2.12.5"
 
