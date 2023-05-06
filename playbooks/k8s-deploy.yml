@@ -24,7 +24,7 @@
                 pod_mount_path: /home/images
           development:
             namespace: video-downloader-back-end-{{ git_branch }}
-            hostname: api.{{ git_branch }}.video.home.ruchij.com
+            hostname: api.{{ git_branch }}.video.dev.ruchij.com
             host_path_mappings:
               - host_path: /media/data/video-downloader/development/videos
                 pod_mount_path: /home/videos
