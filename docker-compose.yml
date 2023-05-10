@@ -202,12 +202,12 @@ services:
       - 6379:6379
 
   zookeeper:
-    image: confluentinc/cp-zookeeper:7.3.3
+    image: confluentinc/cp-zookeeper:7.4.0
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
 
   kafka-broker:
-    image: confluentinc/cp-kafka:7.3.3
+    image: confluentinc/cp-kafka:7.4.0
     ports:
       - 9092:9092
     healthcheck:
@@ -231,7 +231,7 @@ services:
       - "./docker-compose/scripts:/opt/scripts"
 
   schema-registry:
-    image: confluentinc/cp-schema-registry:7.3.3
+    image: confluentinc/cp-schema-registry:7.4.0
     healthcheck:
       test: "/opt/scripts/wait-for.sh -t 3 schema-registry:8081"
       start_period: 5s
