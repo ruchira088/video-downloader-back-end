@@ -3,9 +3,9 @@ import sbt._
 object Dependencies
 {
   val ScalaVersion = "2.13.10"
-  val Http4sVersion = "0.23.18"
+  val Http4sVersion = "0.23.19"
   val CirceVersion = "0.14.5"
-  val TestContainersVersion = "1.18.0"
+  val TestContainersVersion = "1.18.1"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -15,7 +15,7 @@ object Dependencies
 
   lazy val http4sJdkHttpClient = "org.http4s" %% "http4s-jdk-http-client" % "0.9.0"
 
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.4.10"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.0"
 
   lazy val kafka = "org.apache.kafka" %% "kafka" % "7.4.0-ccs"
 
@@ -45,7 +45,7 @@ object Dependencies
 
   lazy val jodaTime = "joda-time" % "joda-time" % "2.12.5"
 
-  lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.3"
+  lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.4"
 
   lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.17.0"
 
