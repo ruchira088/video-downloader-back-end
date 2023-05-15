@@ -154,12 +154,13 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
 
   private def customVideoSiteHtmlDocument(uri: Uri, customVideoSite: CustomVideoSite): F[Document] =
     for {
-      html <- customVideoSite match {
-        case spaCustomVideoSite: CustomVideoSite.SpaCustomVideoSite =>
-          spaSiteRenderer.render(uri, spaCustomVideoSite.readyCssSelectors)
+      html <-
+        customVideoSite match {
+          case spaCustomVideoSite: CustomVideoSite.SpaCustomVideoSite =>
+            spaSiteRenderer.render(uri, spaCustomVideoSite.readyCssSelectors)
 
-        case _ => client.run(GET(uri)).use(_.as[String])
-      }
+          case _ => client.run(GET(uri)).use(_.as[String])
+        }
 
       document <- Sync[F].catchNonFatal(Jsoup.parse(html))
     } yield document
