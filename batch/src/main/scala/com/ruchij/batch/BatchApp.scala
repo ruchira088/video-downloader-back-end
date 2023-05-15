@@ -34,6 +34,7 @@ import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatu
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, YouTubeVideoDownloaderImpl}
 import com.ruchij.core.types.{JodaClock, RandomGenerator}
 import doobie.free.connection.ConnectionIO
+import fs2.io.file.Files
 import fs2.kafka.CommittableConsumerRecord
 import org.apache.tika.Tika
 import org.http4s.jdkhttpclient.JdkHttpClient
@@ -69,7 +70,7 @@ object BatchApp extends IOApp {
         }
     } yield ExitCode.Success
 
-  def program[F[_]: Async: JodaClock](
+  def program[F[_]: Async: JodaClock: Files](
     batchServiceConfiguration: BatchServiceConfiguration
   ): Resource[F, Scheduler[F]] =
     DoobieTransactor

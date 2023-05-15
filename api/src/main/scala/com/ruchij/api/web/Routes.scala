@@ -19,6 +19,7 @@ import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.services.video.VideoAnalysisService
 import com.ruchij.core.types.JodaClock
 import fs2.Stream
+import fs2.compression.Compression
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.ContextRouter
 import org.http4s.server.middleware.{CORS, GZip}
@@ -26,7 +27,7 @@ import org.http4s.{ContextRoutes, HttpApp}
 
 object Routes {
 
-  def apply[F[_]: Async: JodaClock](
+  def apply[F[_]: Async: JodaClock: Compression](
     userService: UserService[F],
     apiVideoService: ApiVideoService[F],
     videoAnalysisService: VideoAnalysisService[F],

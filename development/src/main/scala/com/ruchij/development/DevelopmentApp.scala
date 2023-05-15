@@ -19,6 +19,8 @@ import com.ruchij.core.external.ExternalCoreServiceProvider.HashedAdminPassword
 import com.ruchij.core.types.JodaClock
 import com.ruchij.migration.MigrationApp
 import com.ruchij.migration.config.{AdminConfiguration, DatabaseConfiguration, MigrationServiceConfiguration}
+import fs2.compression.Compression
+import fs2.io.file.Files
 import fs2.io.net.tls.TLSContext
 import org.http4s.HttpApp
 import org.http4s.ember.server.EmberServerBuilder
@@ -103,7 +105,7 @@ object DevelopmentApp extends IOApp {
         } yield ExitCode.Success
       }
 
-  private def program[F[_]: Async: JodaClock](
+  private def program[F[_]: Async: JodaClock: Files: Compression](
     externalApiServiceProvider: ExternalApiServiceProvider[F]
   ): Resource[F, (HttpApp[F], Scheduler[F])] =
     for {

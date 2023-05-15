@@ -56,6 +56,8 @@ import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImp
 import com.ruchij.core.types.{JodaClock, RandomGenerator}
 import doobie.free.connection.ConnectionIO
 import doobie.hikari.HikariTransactor
+import fs2.compression.Compression
+import fs2.io.file.Files
 import fs2.kafka.CommittableConsumerRecord
 import org.apache.tika.Tika
 import org.http4s.HttpApp
@@ -93,7 +95,7 @@ object ApiApp extends IOApp {
     }
     yield ExitCode.Success
 
-  def create[F[_]: Async: JodaClock](apiServiceConfiguration: ApiServiceConfiguration): Resource[F, HttpApp[F]] =
+  def create[F[_]: Async: JodaClock: Files: Compression](apiServiceConfiguration: ApiServiceConfiguration): Resource[F, HttpApp[F]] =
     for {
       hikariTransactor <- DoobieTransactor.create[F](apiServiceConfiguration.databaseConfiguration)
 
@@ -134,7 +136,7 @@ object ApiApp extends IOApp {
       }
     } yield httpApp
 
-  def program[F[_]: Async: JodaClock, M[_]](
+  def program[F[_]: Async: JodaClock: Files: Compression, M[_]](
     hikariTransactor: HikariTransactor[F],
     client: Client[F],
     keyValueStore: KeyValueStore[F],
