@@ -15,6 +15,7 @@ import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.services.video.VideoAnalysisService
 import com.ruchij.core.types.JodaClock
 import fs2.Stream
+import fs2.compression.Compression
 import org.http4s.HttpApp
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.OneInstancePerTest
@@ -34,6 +35,7 @@ trait MockedRoutes[F[_]] extends MockFactory with OneInstancePerTest {
 
   val async: Async[F]
   val jodaClock: JodaClock[F]
+  val compression: Compression[F]
 
   def createRoutes(): HttpApp[F] =
     Routes(
@@ -47,7 +49,7 @@ trait MockedRoutes[F[_]] extends MockFactory with OneInstancePerTest {
       authenticationService,
       downloadProgressStream,
       metricPublisher,
-    )(async, jodaClock)
+    )(async, jodaClock, compression)
 
   def ignoreHttpMetrics(): F[Unit] =
     async.delay {
