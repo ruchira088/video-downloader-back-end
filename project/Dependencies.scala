@@ -13,7 +13,7 @@ object Dependencies
 
   lazy val http4sCirce = "org.http4s" %% "http4s-circe" % Http4sVersion
 
-  lazy val http4sJdkHttpClient = "org.http4s" %% "http4s-jdk-http-client" % "0.9.0"
+  lazy val http4sJdkHttpClient = "org.http4s" %% "http4s-jdk-http-client" % "0.9.1"
 
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.0"
 
@@ -77,7 +77,7 @@ object Dependencies
 
   lazy val betterMonadicFor = "com.olegpy" %% "better-monadic-for" % "0.3.1"
 
-  lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.15"
+  lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.16"
 
   lazy val scalaMock = "org.scalamock" %% "scalamock" % "5.2.0"
 
