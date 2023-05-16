@@ -47,13 +47,13 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.4"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.17.0"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.18.0"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.6.0"
 
   lazy val h2 = "com.h2database" % "h2" % "2.1.214"
 
-  lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.7.0"
+  lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.8.0"
 
   lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.4.1"
 
