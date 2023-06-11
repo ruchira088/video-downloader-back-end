@@ -22,7 +22,6 @@ import org.http4s.implicits.http4sLiteralsSyntax
 import org.http4s.jdkhttpclient.JdkHttpClient
 import org.http4s.{Query, Uri}
 import org.scalamock.scalatest.MockFactory
-import org.scalatest.Ignore
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
