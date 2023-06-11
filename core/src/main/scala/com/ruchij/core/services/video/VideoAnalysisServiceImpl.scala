@@ -8,7 +8,7 @@ import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
-import com.ruchij.core.daos.videometadata.models.CustomVideoSite.{HtmlCustomVideoSite, Selector, TxxxNetwork}
+import com.ruchij.core.daos.videometadata.models.CustomVideoSite.{HtmlCustomVideoSite, Selector, SpaCustomVideoSite, TxxxNetwork}
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata, VideoSite, WebPage}
 import com.ruchij.core.exceptions.{ExternalServiceException, ValidationException}
 import com.ruchij.core.logging.Logger
@@ -140,11 +140,8 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
             downloadUri <- htmlVideoSite.downloadUri[F].run(WebPage(uri, document))
           } yield downloadUri
 
-        case txxxNetwork: TxxxNetwork =>
-          txxxNetwork.downloadUri(
-            uri,
-            javascript => spaSiteRenderer.executeJavaScript(uri, txxxNetwork.readyCssSelectors, javascript)
-          )
+        case spaCustomVideoSite: SpaCustomVideoSite =>
+          spaCustomVideoSite.downloadUri[F](uri, spaSiteRenderer)
 
         case _ =>
           ApplicativeError[F, Throwable].raiseError {

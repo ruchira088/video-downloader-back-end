@@ -19,7 +19,8 @@ object JsoupSelector {
       case NonEmptyList(head, Nil) => Kleisli.pure(head)
       case elements =>
         Kleisli.ask[F, WebPage].flatMapF { webPage =>
-          ApplicativeError[F, Throwable].raiseError(MultipleElementsFoundException(webPage.uri, webPage.html, css, elements))
+          ApplicativeError[F, Throwable]
+            .raiseError(MultipleElementsFoundException(webPage.uri, webPage.html, css, elements))
         }
     }
 
@@ -43,14 +44,26 @@ object JsoupSelector {
   def text[F[_]: ApplicativeError[*[_], Throwable]](element: Element): F[String] =
     parseProperty[Throwable, F](element.text(), TextNotFoundInElementException(element))
 
-  def selectText[F[_]: MonadThrow](css: String): Selector[F, String] =
+  def extractText[F[_]: MonadThrow](css: String): Selector[F, String] =
     singleElement[F](css).flatMapF(text[F])
 
-  def src[F[_]: MonadThrow](element: Element): F[Uri] =
-    attribute[F](element, "src")
-      .flatMap { uri =>
-        Uri.fromString(uri).toType[F, Throwable]
-      }
+  def src[F[_]: MonadThrow](element: Element): Selector[F, Uri] =
+    Kleisli.liftF(attribute[F](element, "src"))
+      .flatMap(value => stringToUri[F](value).local[WebPage](_.uri))
+
+  def stringToUri[F[_]: MonadThrow](input: String): Kleisli[F, Uri, Uri] =
+    new Kleisli[F, Uri, Uri](uri => {
+      val protocol: String = uri.scheme.map(_.value).getOrElse("https")
+
+      if (input.startsWith("//")) {
+        Uri.fromString(s"$protocol:$input").toType[F, Throwable]
+      } else if (input.startsWith("/")) {
+        uri.host
+          .map(_.value)
+          .toType[F, Throwable](new IllegalArgumentException(s"Unable to determine host for $uri"))
+          .flatMap(host => Uri.fromString(s"$protocol://$host$input").toType[F, Throwable])
+      } else Uri.fromString(input).toType[F, Throwable]
+    })
 
   def attribute[F[_]: ApplicativeError[*[_], Throwable]](element: Element, attributeKey: String): F[String] =
     parseProperty[Throwable, F](element.attr(attributeKey), AttributeNotFoundInElementException(element, attributeKey))

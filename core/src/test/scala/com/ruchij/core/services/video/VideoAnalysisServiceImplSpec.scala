@@ -22,6 +22,7 @@ import org.http4s.implicits.http4sLiteralsSyntax
 import org.http4s.jdkhttpclient.JdkHttpClient
 import org.http4s.{Query, Uri}
 import org.scalamock.scalatest.MockFactory
+import org.scalatest.Ignore
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
@@ -46,19 +47,33 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
       .value
   }
 
-//  it should "analyse a SpankBang video URL" in runIO {
-//    analyze[IO](uri"https://spankbang.com/52kje/video/the+crooked+cops")
-//      .semiflatMap { videoAnalysisResult =>
-//        IO.delay {
-//          videoAnalysisResult.title mustBe "The Crooked Cops"
-//          videoAnalysisResult.duration mustBe ((38 minutes) + (44 seconds))
-//          videoAnalysisResult.size mustBe 676023587
-//          videoAnalysisResult.thumbnail mustBe uri"https://tbi.sb-cd.com/t/8518010/8/5/w:300/t6-enh/the-crooked-cops.jpg"
-//          videoAnalysisResult.videoSite mustBe CustomVideoSite.SpankBang
-//        }
-//      }
-//      .value
-//  }
+  it should "analyse a SxyPrn video URL" in runIO {
+    analyze[IO](uri"https://sxyprn.com/post/643866295675d.html?sk=Giada-Sgh&so=0&ss=latest")
+      .semiflatMap { videoAnalysisResult =>
+        IO.delay {
+          videoAnalysisResult.title must include("WTF Was that? Wet, Linda Black & Giada Sgh")
+          videoAnalysisResult.duration mustBe ((1 hour) + (6 minutes) + (37 seconds))
+          videoAnalysisResult.size mustBe 1184455539
+          videoAnalysisResult.thumbnail mustBe uri"https://s17.trafficdeposit.com/blog/img/5ed5660eab935/643866295675d/0.jpg"
+          videoAnalysisResult.videoSite mustBe CustomVideoSite.SxyPrn
+        }
+      }
+      .value
+  }
+
+  it should "analyse a SpankBang video URL" ignore runIO {
+    analyze[IO](uri"https://spankbang.com/52kje/video/the+crooked+cops")
+      .semiflatMap { videoAnalysisResult =>
+        IO.delay {
+          videoAnalysisResult.title mustBe "The Crooked Cops"
+          videoAnalysisResult.duration mustBe ((38 minutes) + (44 seconds))
+          videoAnalysisResult.size mustBe 676023587
+          videoAnalysisResult.thumbnail mustBe uri"https://tbi.sb-cd.com/t/8518010/8/5/w:300/t6-enh/the-crooked-cops.jpg"
+          videoAnalysisResult.videoSite mustBe CustomVideoSite.SpankBang
+        }
+      }
+      .value
+  }
 
   it should "analyse a XFreeHD video URL" in runIO {
     analyze[IO](uri"https://www.xfreehd.com/video/343591/breaking-white-blonde-booty-giselle-palmer")
