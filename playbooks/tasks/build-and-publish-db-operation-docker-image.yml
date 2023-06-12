@@ -17,6 +17,11 @@
   vars:
     build_timestamp: "{{ ansible_date_time.iso8601 }}"
 
+- name: Login to GitHub container registry
+  command: docker login ghcr.io -u USERNAME -p {{ access_token }}
+  vars:
+    access_token: "{{ lookup('aws_ssm', '/github/packages/read-write-token', region='ap-southeast-2') }}"
+
 - name: Build Docker image
   when: not publish
   shell: |
@@ -28,21 +33,14 @@
 
 - name: Build and publish Docker image
   when: publish
-  block:
-    - name: Login to GitHub container registry
-      command: docker login ghcr.io -u USERNAME -p {{ access_token }}
-      vars:
-        access_token: "{{ lookup('aws_ssm', '/github/packages/read-write-token', region='ap-southeast-2') }}"
-
-    - name: Publish Docker image
-      shell: |
-        docker buildx build \
-          --push \
-          --platform linux/arm64,linux/amd64 \
-          -t ghcr.io/ruchira088/video-downloader-db-{{ db_operation }}:{{ git_branch }} \
-          -t ghcr.io/ruchira088/video-downloader-db-{{ db_operation }}:{{ git_branch }}-{{ git_commit }} \
-          -f docker-output/Dockerfile-db-{{ db_operation }} \
-          ../db-{{ db_operation }}
+  shell: |
+    docker buildx build \
+      --push \
+      --platform linux/arm64,linux/amd64 \
+      -t ghcr.io/ruchira088/video-downloader-db-{{ db_operation }}:{{ git_branch }} \
+      -t ghcr.io/ruchira088/video-downloader-db-{{ db_operation }}:{{ git_branch }}-{{ git_commit }} \
+      -f docker-output/Dockerfile-db-{{ db_operation }} \
+      ../db-{{ db_operation }}
 
 - name: Clean up output directory
   file:
