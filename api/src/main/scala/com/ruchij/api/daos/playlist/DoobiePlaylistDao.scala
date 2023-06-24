@@ -1,7 +1,7 @@
 package com.ruchij.api.daos.playlist
 
 import cats.Applicative
-import cats.data.OptionT
+import cats.data.{NonEmptyList, OptionT}
 import cats.implicits._
 import com.ruchij.api.daos.playlist.models.{Playlist, PlaylistSortBy}
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
@@ -11,7 +11,7 @@ import com.ruchij.core.daos.video.VideoDao
 import com.ruchij.core.services.models.Order
 import doobie.free.connection.ConnectionIO
 import doobie.implicits.toSqlInterpolator
-import doobie.util.fragments.{setOpt, whereAndOpt}
+import doobie.util.fragments.{set, whereAndOpt}
 import org.joda.time.DateTime
 
 class DoobiePlaylistDao(fileResourceDao: FileResourceDao[ConnectionIO], videoDao: VideoDao[ConnectionIO])
@@ -48,17 +48,21 @@ class DoobiePlaylistDao(fileResourceDao: FileResourceDao[ConnectionIO], videoDao
     maybeAlbumArt: Option[Either[Unit, String]],
     maybeUserId: Option[String]
   ): ConnectionIO[Int] = {
-    val playlistTableUpdate =
-      if (List(maybeTitle, maybeDescription, maybeAlbumArt).exists(_.nonEmpty))
-        (fr"UPDATE playlist" ++
-          setOpt(
+    val playlistTableUpdate: ConnectionIO[Int] =
+      NonEmptyList
+        .fromList {
+          List(
             maybeTitle.map(title => fr"title = $title"),
             maybeDescription.map(description => fr"description = $description"),
             maybeAlbumArt.map(
               _.fold(_ => fr"album_art_id = NULL", fileResourceId => fr"album_art_id = $fileResourceId")
             )
-          ) ++ whereAndOpt(Some(fr"id = $playlistId"), maybeUserId.map(userId => fr"user_id = $userId"))).update.run
-      else Applicative[ConnectionIO].pure(0)
+          ).flatMap(_.toList)
+        }
+        .fold(Applicative[ConnectionIO].pure(0)) { setValues =>
+          (fr"UPDATE playlist" ++ set(setValues) ++
+            whereAndOpt(Some(fr"id = $playlistId"), maybeUserId.map(userId => fr"user_id = $userId"))).update.run
+        }
 
     playlistTableUpdate
       .product {

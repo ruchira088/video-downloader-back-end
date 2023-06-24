@@ -3,7 +3,7 @@ import sbt._
 object Dependencies
 {
   val ScalaVersion = "2.13.11"
-  val Http4sVersion = "0.23.19"
+  val Http4sVersion = "0.23.21"
   val CirceVersion = "0.14.5"
   val TestContainersVersion = "1.18.3"
 
@@ -37,9 +37,9 @@ object Dependencies
 
   lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.10"
 
-  lazy val doobie = "org.tpolecat" %% "doobie-core" % "1.0.0-RC2"
+  lazy val doobie = "org.tpolecat" %% "doobie-core" % "1.0.0-RC4"
 
-  lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "1.0.0-RC2"
+  lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "1.0.0-RC4"
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.16.1"
 
@@ -47,7 +47,7 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.4"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.19.4"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.20.0"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.6.0"
 
@@ -69,7 +69,7 @@ object Dependencies
 
   lazy val postgresqlTestContainer = "org.testcontainers" % "postgresql" % TestContainersVersion
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.4.7"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.4.8"
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
 
