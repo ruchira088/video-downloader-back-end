@@ -3,7 +3,7 @@ import sbt._
 object Dependencies
 {
   val ScalaVersion = "2.13.11"
-  val Http4sVersion = "0.23.21"
+  val Http4sVersion = "0.23.22"
   val CirceVersion = "0.14.5"
   val TestContainersVersion = "1.18.3"
 
@@ -15,7 +15,7 @@ object Dependencies
 
   lazy val http4sJdkHttpClient = "org.http4s" %% "http4s-jdk-http-client" % "0.9.1"
 
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.0"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.1"
 
   lazy val kafka = "org.apache.kafka" %% "kafka" % "7.4.0-ccs"
 
@@ -55,7 +55,7 @@ object Dependencies
 
   lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.8.0"
 
-  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.4.1"
+  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.4.3"
 
   lazy val jbcrypt = "org.mindrot" % "jbcrypt" % "0.4"
 
