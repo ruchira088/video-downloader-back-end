@@ -51,7 +51,7 @@ object Dependencies
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.6.0"
 
-  lazy val h2 = "com.h2database" % "h2" % "2.1.214"
+  lazy val h2 = "com.h2database" % "h2" % "2.2.220"
 
   lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.8.0"
 
