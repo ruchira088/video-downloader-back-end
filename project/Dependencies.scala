@@ -3,7 +3,7 @@ import sbt._
 object Dependencies
 {
   val ScalaVersion = "2.13.11"
-  val Http4sVersion = "0.23.22"
+  val Http4sVersion = "0.23.23"
   val CirceVersion = "0.14.5"
   val TestContainersVersion = "1.18.3"
 
@@ -33,7 +33,7 @@ object Dependencies
 
   lazy val circeLiteral = "io.circe" %% "circe-literal" % CirceVersion
 
-  lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.7.2"
+  lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.7.3"
 
   lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.10"
 
@@ -47,7 +47,7 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.4"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.20.1"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.21.0"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.6.0"
 
