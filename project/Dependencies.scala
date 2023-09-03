@@ -4,8 +4,8 @@ object Dependencies
 {
   val ScalaVersion = "2.13.11"
   val Http4sVersion = "0.23.23"
-  val CirceVersion = "0.14.5"
-  val TestContainersVersion = "1.18.3"
+  val CirceVersion = "0.14.6"
+  val TestContainersVersion = "1.19.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -17,13 +17,13 @@ object Dependencies
 
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.1"
 
-  lazy val kafka = "org.apache.kafka" %% "kafka" % "7.4.1-ccs"
+  lazy val kafka = "org.apache.kafka" %% "kafka" % "7.5.0-ccs"
 
   lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "3.0.1"
 
   lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "3.0.1"
 
-  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.4.1"
+  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.5.0"
 
   lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.9.0"
 
@@ -47,13 +47,13 @@ object Dependencies
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.4"
 
-  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.21.1"
+  lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.22.0"
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.6.0"
 
-  lazy val h2 = "com.h2database" % "h2" % "2.2.220"
+  lazy val h2 = "com.h2database" % "h2" % "2.2.222"
 
-  lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.8.0"
+  lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.9.0"
 
   lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.4.3"
 
@@ -61,7 +61,7 @@ object Dependencies
 
   lazy val embeddedRedis = "com.github.kstyrc" % "embedded-redis" % "0.6"
 
-  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "7.4.1"
+  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "7.5.0"
 
   lazy val testContainers = "org.testcontainers" % "testcontainers" % TestContainersVersion
 
