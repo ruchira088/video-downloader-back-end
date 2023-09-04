@@ -45,9 +45,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
 
   override def schedule(uri: Uri, userId: String): F[ScheduledVideoResult] =
     VideoSite
-      .fromUri(uri)
-      .toType[F, Throwable]
-      .flatMap(_.processUri[F](uri))
+      .processUri[F](uri)
       .flatMap { processedUri =>
         transaction {
           schedulingDao.search(
@@ -68,16 +66,15 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
             case Nil => newScheduledVideoDownload(processedUri, userId).map(identity[ScheduledVideoResult])
 
             case scheduledVideoDownload :: _ =>
-              existingScheduledVideoDownload(processedUri, scheduledVideoDownload.videoMetadata, userId)
-                .map {
-                  created =>
-                    if (created) ScheduledVideoResult.NewlyScheduled(scheduledVideoDownload)
-                    else ScheduledVideoResult.AlreadyScheduled(scheduledVideoDownload)
+              existingScheduledVideoDownload(scheduledVideoDownload.videoMetadata, userId)
+                .map { created =>
+                  if (created) ScheduledVideoResult.NewlyScheduled(scheduledVideoDownload)
+                  else ScheduledVideoResult.AlreadyScheduled(scheduledVideoDownload)
                 }
           }
       }
 
-  private def existingScheduledVideoDownload(uri: Uri, videoMetadata: VideoMetadata, userId: String): F[Boolean] =
+  private def existingScheduledVideoDownload(videoMetadata: VideoMetadata, userId: String): F[Boolean] =
     for {
       timestamp <- JodaClock[F].timestamp
 
@@ -141,7 +138,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
 
   override def search(
     term: Option[String],
-    videoUrls: Option[NonEmptyList[Uri]],
+    maybeVideoUrls: Option[NonEmptyList[Uri]],
     durationRange: RangeValue[FiniteDuration],
     sizeRange: RangeValue[Long],
     pageNumber: Int,
@@ -156,21 +153,24 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
       ApplicativeError[F, Throwable].raiseError {
         new IllegalArgumentException("Searching for scheduled videos by watch_time is not valid")
       } else
-      transaction(
-        schedulingDao.search(
-          term,
-          videoUrls,
-          durationRange,
-          sizeRange,
-          pageNumber,
-          pageSize,
-          sortBy,
-          order,
-          schedulingStatuses,
-          videoSites,
-          maybeUserId
-        )
-      )
+      maybeVideoUrls.traverse(_.traverse(videoUrl => VideoSite.processUri[F](videoUrl)))
+        .flatMap { maybeProcessedUrls =>
+          transaction(
+            schedulingDao.search(
+              term,
+              maybeProcessedUrls,
+              durationRange,
+              sizeRange,
+              pageNumber,
+              pageSize,
+              sortBy,
+              order,
+              schedulingStatuses,
+              videoSites,
+              maybeUserId
+            )
+          )
+        }
 
   override def updateSchedulingStatus(id: String, status: SchedulingStatus): F[ScheduledVideoDownload] =
     JodaClock[F].timestamp

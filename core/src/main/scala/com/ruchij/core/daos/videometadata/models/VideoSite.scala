@@ -1,7 +1,9 @@
 package com.ruchij.core.daos.videometadata.models
 
+import cats.implicits.toFlatMapOps
 import cats.{Applicative, ApplicativeError, MonadThrow}
 import com.ruchij.core.exceptions.ValidationException
+import com.ruchij.core.types.FunctionKTypes._
 import org.http4s.Uri
 
 trait VideoSite {
@@ -29,9 +31,9 @@ object VideoSite {
             }
           }
       }
-      .fold[Either[ValidationException, VideoSite]](Left(ValidationException(s"Unable infer video site from ${uri.renderString}"))) {
-        videoSite => Right(videoSite)
-      }
+      .toRight { ValidationException(s"Unable infer video site from ${uri.renderString}") }
+
+  def processUri[F[_]: MonadThrow](uri: Uri): F[Uri] = fromUri(uri).toType[F, Throwable].flatMap(_.processUri(uri))
 
   case object Local extends VideoSite {
     override val name: String = "Local"

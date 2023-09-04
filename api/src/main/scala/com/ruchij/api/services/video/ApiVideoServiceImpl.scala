@@ -79,7 +79,7 @@ class ApiVideoServiceImpl[F[_]: MonadThrow: JodaClock, G[_]: MonadThrow](
 
   override def search(
     term: Option[String],
-    videoUrls: Option[NonEmptyList[Uri]],
+    maybeVideoUrls: Option[NonEmptyList[Uri]],
     durationRange: RangeValue[FiniteDuration],
     sizeRange: RangeValue[Long],
     pageNumber: Int,
@@ -89,20 +89,24 @@ class ApiVideoServiceImpl[F[_]: MonadThrow: JodaClock, G[_]: MonadThrow](
     videoSites: Option[NonEmptyList[VideoSite]],
     maybeUserId: Option[String]
   ): F[Seq[Video]] =
-    transaction {
-      videoDao.search(
-        term,
-        videoUrls,
-        durationRange,
-        sizeRange,
-        pageNumber,
-        pageSize,
-        sortBy,
-        order,
-        videoSites,
-        maybeUserId
-      )
-    }
+    maybeVideoUrls
+      .traverse(_.traverse(videoUri => VideoSite.processUri[F](videoUri)))
+      .flatMap { maybeProcessedUrls =>
+        transaction {
+          videoDao.search(
+            term,
+            maybeProcessedUrls,
+            durationRange,
+            sizeRange,
+            pageNumber,
+            pageSize,
+            sortBy,
+            order,
+            videoSites,
+            maybeUserId
+          )
+        }
+      }
 
   override val summary: F[VideoServiceSummary] =
     transaction {
@@ -117,7 +121,8 @@ class ApiVideoServiceImpl[F[_]: MonadThrow: JodaClock, G[_]: MonadThrow](
   override val scanForVideos: F[VideoScanProgress] =
     JodaClock[F].timestamp
       .flatMap { timestamp =>
-        videoScanPublisher.publishOne(ScanVideosCommand(timestamp))
+        videoScanPublisher
+          .publishOne(ScanVideosCommand(timestamp))
           .as(VideoScanProgress.ScanStarted(timestamp))
       }
 }
