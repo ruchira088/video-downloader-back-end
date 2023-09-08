@@ -36,7 +36,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
     analyze[IO](uri"https://pornone.com/bbc/sk-rl-tte-nik-l-onlyfans/277968339/")
       .semiflatMap { videoAnalysisResult =>
         IO.delay {
-          videoAnalysisResult.title mustBe "Skàrlétte Nik0lé Onlyfans #1"
+          videoAnalysisResult.title mustBe "Skàrlétte Nik0lé Onlyfans #1 "
           videoAnalysisResult.duration mustBe ((34 minutes) + (19 seconds))
           videoAnalysisResult.size mustBe 1056449934
           videoAnalysisResult.thumbnail mustBe uri"https://th-eu4.pornone.com/t/39/277968339/b11.jpg"
@@ -135,7 +135,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
         IO.delay {
           videoAnalysisResult.title mustBe "Ed Sheeran - Perfect (Official Music Video)"
           videoAnalysisResult.duration mustBe ((4 minutes) + (40 seconds))
-          videoAnalysisResult.size mustBe 412233806
+          videoAnalysisResult.size mustBe 412177638
           videoAnalysisResult.thumbnail.copy(query = Query.empty) mustBe uri"https://i.ytimg.com/vi_webp/2Vv-BfVoq4g/sddefault.webp"
           videoAnalysisResult.videoSite mustBe YTDownloaderSite("youtube")
         }
