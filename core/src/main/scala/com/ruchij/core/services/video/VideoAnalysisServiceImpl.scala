@@ -3,7 +3,7 @@ package com.ruchij.core.services.video
 import cats.data.Kleisli
 import cats.effect.{Async, Sync}
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, Monad, ~>}
+import cats.{Applicative, ApplicativeError, Monad, MonadError, ~>}
 import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
@@ -114,19 +114,21 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
     } yield videoAnalysisResult
 
   private def analyze(processedUri: Uri, videoSite: VideoSite): F[VideoAnalysisResult] =
-    videoSite match {
-      case customVideoSite: CustomVideoSite =>
-        for {
-          document <- customVideoSiteHtmlDocument(processedUri, customVideoSite)
-          videoAnalysisResult <- analyze(processedUri, customVideoSite).run(WebPage(processedUri, document))
-        } yield videoAnalysisResult
+    runWithRetry(3, errorMessage => s"Error occurred when analyzing uri=$processedUri. ${errorMessage.getMessage}. Retrying...") {
+      videoSite match {
+        case customVideoSite: CustomVideoSite =>
+          for {
+            document <- customVideoSiteHtmlDocument(processedUri, customVideoSite)
+            videoAnalysisResult <- analyzeCustomVideoSite(processedUri, customVideoSite).run(WebPage(processedUri, document))
+          } yield videoAnalysisResult
 
-      case VideoSite.Local =>
-        ApplicativeError[F, Throwable].raiseError {
-          ValidationException("Unable to analyse local URLs")
-        }
+        case VideoSite.Local =>
+          ApplicativeError[F, Throwable].raiseError {
+            ValidationException("Unable to analyse local URLs")
+          }
 
-      case _ => youTubeVideoDownloader.videoInformation(processedUri)
+        case _ => youTubeVideoDownloader.videoInformation(processedUri)
+      }
     }
 
   override def downloadUri(uri: Uri): F[Uri] =
@@ -162,7 +164,7 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
       document <- Sync[F].catchNonFatal(Jsoup.parse(html))
     } yield document
 
-  def analyze(uri: Uri, customVideoSite: CustomVideoSite): Selector[F, VideoAnalysisResult] =
+  private def analyzeCustomVideoSite(uri: Uri, customVideoSite: CustomVideoSite): Selector[F, VideoAnalysisResult] =
     for {
       videoTitle <- customVideoSite.title[F]
       thumbnailUri <- customVideoSite.thumbnailUri[F]
@@ -207,4 +209,14 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
             }
         }
       }
+
+  private def runWithRetry[A](retryCount: Int, failureMessage: Throwable => String)(run: F[A]): F[A] =
+    run.handleErrorWith {
+      throwable =>
+        if (retryCount < 1) MonadError[F, Throwable].raiseError(throwable)
+        else logger.warn[F](failureMessage(throwable))
+          .productR(Sync[F].sleep(FiniteDuration(1, TimeUnit.SECONDS)))
+          .productR(runWithRetry(retryCount - 1, failureMessage)(run))
+    }
+
 }
