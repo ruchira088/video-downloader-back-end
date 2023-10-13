@@ -53,7 +53,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
           videoAnalysisResult.title must include("WTF Was that? Wet, Linda Black & Giada Sgh")
           videoAnalysisResult.duration mustBe ((1 hour) + (6 minutes) + (37 seconds))
           videoAnalysisResult.size mustBe 1184455539
-          videoAnalysisResult.thumbnail mustBe uri"https://s17.trafficdeposit.com/blog/img/5ed5660eab935/643866295675d/0.jpg"
+          videoAnalysisResult.thumbnail mustBe uri"https://b3.trafficdeposit.com/blog/0/17/img/5ed5660eab935/643866295675d/poster.jpg"
           videoAnalysisResult.videoSite mustBe CustomVideoSite.SxyPrn
         }
       }
