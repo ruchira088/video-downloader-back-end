@@ -19,9 +19,9 @@ object Dependencies
 
   lazy val kafka = "org.apache.kafka" %% "kafka" % "7.5.1-ccs"
 
-  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "3.1.0"
+  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "3.2.0"
 
-  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "3.1.0"
+  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "3.2.0"
 
   lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.5.1"
 
@@ -41,7 +41,7 @@ object Dependencies
 
   lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "1.0.0-RC4"
 
-  lazy val jsoup = "org.jsoup" % "jsoup" % "1.16.1"
+  lazy val jsoup = "org.jsoup" % "jsoup" % "1.16.2"
 
   lazy val jodaTime = "joda-time" % "joda-time" % "2.12.5"
 
@@ -53,9 +53,9 @@ object Dependencies
 
   lazy val h2 = "com.h2database" % "h2" % "2.2.224"
 
-  lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.9.0"
+  lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.9.1"
 
-  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.5.0"
+  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.5.2"
 
   lazy val jbcrypt = "org.mindrot" % "jbcrypt" % "0.4"
 

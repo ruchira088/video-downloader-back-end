@@ -36,7 +36,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
     analyze[IO](uri"https://pornone.com/bbc/sk-rl-tte-nik-l-onlyfans/277968339/")
       .semiflatMap { videoAnalysisResult =>
         IO.delay {
-          videoAnalysisResult.title mustBe "Skàrlétte Nik0lé Onlyfans #1 "
+          videoAnalysisResult.title mustBe "Skàrlétte Nik0lé Onlyfans #1"
           videoAnalysisResult.duration mustBe ((34 minutes) + (19 seconds))
           videoAnalysisResult.size mustBe 1056449934
           videoAnalysisResult.thumbnail mustBe uri"https://th-eu4.pornone.com/t/39/277968339/b11.jpg"
