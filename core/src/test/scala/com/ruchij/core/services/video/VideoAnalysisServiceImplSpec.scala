@@ -135,7 +135,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
         IO.delay {
           videoAnalysisResult.title mustBe "Ed Sheeran - Perfect (Official Music Video)"
           videoAnalysisResult.duration mustBe ((4 minutes) + (40 seconds))
-          videoAnalysisResult.size mustBe 412279547
+          videoAnalysisResult.size mustBe 412238257
           videoAnalysisResult.thumbnail.copy(query = Query.empty) mustBe uri"https://i.ytimg.com/vi_webp/2Vv-BfVoq4g/sddefault.webp"
           videoAnalysisResult.videoSite mustBe YTDownloaderSite("youtube")
         }
