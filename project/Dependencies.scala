@@ -3,9 +3,9 @@ import sbt._
 object Dependencies
 {
   val ScalaVersion = "2.13.12"
-  val Http4sVersion = "0.23.23"
+  val Http4sVersion = "0.23.24"
   val CirceVersion = "0.14.6"
-  val TestContainersVersion = "1.19.1"
+  val TestContainersVersion = "1.19.2"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -61,7 +61,7 @@ object Dependencies
 
   lazy val embeddedRedis = "com.github.kstyrc" % "embedded-redis" % "0.6"
 
-  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "7.5.1"
+  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "7.5.2"
 
   lazy val testContainers = "org.testcontainers" % "testcontainers" % TestContainersVersion
 
