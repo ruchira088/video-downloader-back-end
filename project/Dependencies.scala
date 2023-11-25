@@ -5,7 +5,7 @@ object Dependencies
   val ScalaVersion = "2.13.12"
   val Http4sVersion = "0.23.24"
   val CirceVersion = "0.14.6"
-  val TestContainersVersion = "1.19.2"
+  val TestContainersVersion = "1.19.3"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -37,9 +37,9 @@ object Dependencies
 
   lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.10"
 
-  lazy val doobie = "org.tpolecat" %% "doobie-core" % "1.0.0-RC4"
+  lazy val doobie = "org.tpolecat" %% "doobie-core" % "1.0.0-RC5"
 
-  lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "1.0.0-RC4"
+  lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "1.0.0-RC5"
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.16.2"
 
@@ -49,7 +49,7 @@ object Dependencies
 
   lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.22.3"
 
-  lazy val postgresql = "org.postgresql" % "postgresql" % "42.6.0"
+  lazy val postgresql = "org.postgresql" % "postgresql" % "42.7.0"
 
   lazy val h2 = "com.h2database" % "h2" % "2.2.224"
 
