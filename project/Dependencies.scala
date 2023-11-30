@@ -41,7 +41,7 @@ object Dependencies
 
   lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "1.0.0-RC5"
 
-  lazy val jsoup = "org.jsoup" % "jsoup" % "1.16.2"
+  lazy val jsoup = "org.jsoup" % "jsoup" % "1.17.1"
 
   lazy val jodaTime = "joda-time" % "joda-time" % "2.12.5"
 
@@ -69,7 +69,7 @@ object Dependencies
 
   lazy val postgresqlTestContainer = "org.testcontainers" % "postgresql" % TestContainersVersion
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.4.11"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.4.13"
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
 
