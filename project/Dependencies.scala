@@ -3,7 +3,7 @@ import sbt._
 object Dependencies
 {
   val ScalaVersion = "2.13.12"
-  val Http4sVersion = "0.23.24"
+  val Http4sVersion = "0.23.25"
   val CirceVersion = "0.14.6"
   val TestContainersVersion = "1.19.3"
 
@@ -41,7 +41,7 @@ object Dependencies
 
   lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "1.0.0-RC5"
 
-  lazy val jsoup = "org.jsoup" % "jsoup" % "1.17.1"
+  lazy val jsoup = "org.jsoup" % "jsoup" % "1.17.2"
 
   lazy val jodaTime = "joda-time" % "joda-time" % "2.12.5"
 
