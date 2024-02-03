@@ -1,4 +1,4 @@
-FROM eclipse-temurin:17-jre
+FROM eclipse-temurin:21-jre
 
 LABEL org.opencontainers.image.source https://github.com/ruchira088/video-downloader-back-end
 
