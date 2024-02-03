@@ -188,8 +188,7 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
 
     override def title[F[_]: MonadThrow]: Selector[F, String] =
       JsoupSelector
-        .singleElement[F]("#vid_container_id meta[itemprop=name]")
-        .flatMapF(JsoupSelector.attribute[F](_, "content"))
+        .extractText[F](".post_el_wrap .post_text")
 
     override def thumbnailUri[F[_]: MonadThrow]: Selector[F, Uri] =
       JsoupSelector

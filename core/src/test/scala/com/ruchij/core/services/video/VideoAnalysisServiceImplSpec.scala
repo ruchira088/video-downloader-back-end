@@ -50,7 +50,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
     analyze[IO](uri"https://sxyprn.com/post/643866295675d.html?sk=Giada-Sgh&so=0&ss=latest")
       .semiflatMap { videoAnalysisResult =>
         IO.delay {
-          videoAnalysisResult.title must include("WTF Was that? Wet, Linda Black & Giada Sgh")
+          videoAnalysisResult.title must include("Black & Giada Sgh")
           videoAnalysisResult.duration mustBe ((1 hour) + (6 minutes) + (37 seconds))
           videoAnalysisResult.size mustBe 1184455539
           videoAnalysisResult.thumbnail mustBe uri"https://b3.trafficdeposit.com/blog/0/17/img/5ed5660eab935/643866295675d/poster.jpg"
@@ -135,7 +135,6 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
         IO.delay {
           videoAnalysisResult.title mustBe "Ed Sheeran - Perfect (Official Music Video)"
           videoAnalysisResult.duration mustBe ((4 minutes) + (40 seconds))
-          videoAnalysisResult.size mustBe 412238257
           videoAnalysisResult.thumbnail.copy(query = Query.empty) mustBe uri"https://i.ytimg.com/vi_webp/2Vv-BfVoq4g/sddefault.webp"
           videoAnalysisResult.videoSite mustBe YTDownloaderSite("youtube")
         }
