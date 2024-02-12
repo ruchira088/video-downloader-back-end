@@ -5,6 +5,7 @@ import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadThrow}
 import com.ruchij.core.circe.Decoders.finiteDurationDecoder
 import com.ruchij.core.daos.videometadata.models.CustomVideoSite.Selector
+import com.ruchij.core.exceptions.ValidationException
 import com.ruchij.core.services.renderer.SpaSiteRenderer
 import com.ruchij.core.types.FunctionKTypes._
 import com.ruchij.core.utils.JsoupSelector
@@ -78,7 +79,7 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
   case object PornOne extends HtmlCustomVideoSite {
     override val hostname: String = "pornone.com"
 
-    private final case class PornOneMetadata(name: String, thumbnailUrl: Uri, duration: FiniteDuration)
+    private final case class PornOneMetadata(name: String, thumbnailUrl: List[Uri], duration: FiniteDuration)
 
     private def metadata[F[_]: MonadThrow]: Selector[F, PornOneMetadata] =
       JsoupSelector
@@ -91,7 +92,12 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
       metadata[F].map(_.name)
 
     override def thumbnailUri[F[_]: MonadThrow]: Selector[F, Uri] =
-      metadata[F].map(_.thumbnailUrl)
+      metadata[F].flatMapF {
+        pornOneMetadata =>
+          pornOneMetadata.thumbnailUrl.headOption.toType[F, Throwable] {
+            ValidationException("PornOne metadata .thumbnailUrl was empty")
+          }
+      }
 
     override def duration[F[_]: MonadThrow]: Selector[F, FiniteDuration] =
       metadata[F].map(_.duration)
