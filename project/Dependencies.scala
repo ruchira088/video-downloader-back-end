@@ -5,7 +5,7 @@ object Dependencies
   val ScalaVersion = "2.13.12"
   val Http4sVersion = "0.23.25"
   val CirceVersion = "0.14.6"
-  val TestContainersVersion = "1.19.4"
+  val TestContainersVersion = "1.19.5"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -17,13 +17,13 @@ object Dependencies
 
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.3"
 
-  lazy val kafka = "org.apache.kafka" %% "kafka" % "7.5.3-ccs"
+  lazy val kafka = "org.apache.kafka" %% "kafka" % "7.6.0-ccs"
 
   lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "3.2.0"
 
   lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "3.2.0"
 
-  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.5.3"
+  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.6.0"
 
   lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.10.1"
 
@@ -43,7 +43,7 @@ object Dependencies
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.17.2"
 
-  lazy val jodaTime = "joda-time" % "joda-time" % "2.12.6"
+  lazy val jodaTime = "joda-time" % "joda-time" % "2.12.7"
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.5"
 
@@ -77,7 +77,7 @@ object Dependencies
 
   lazy val betterMonadicFor = "com.olegpy" %% "better-monadic-for" % "0.3.1"
 
-  lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.17"
+  lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.18"
 
   lazy val scalaMock = "org.scalamock" %% "scalamock" % "5.2.0"
 

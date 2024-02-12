@@ -79,7 +79,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFa
                       <script data-react-helmet="true">
                         {
                           "name": "This is hello world",
-                          "thumbnailUrl": "https://pornone.com/thumbnail/hello-world.jpg",
+                          "thumbnailUrl": ["https://pornone.com/thumbnail/hello-world.jpg"],
                           "duration": "P0DT0H35M34S"
                         }
                       </script>
