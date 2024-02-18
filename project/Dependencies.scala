@@ -19,9 +19,9 @@ object Dependencies
 
   lazy val kafka = "org.apache.kafka" %% "kafka" % "7.6.0-ccs"
 
-  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "3.2.0"
+  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "3.3.1"
 
-  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "3.2.0"
+  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "3.3.1"
 
   lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.6.0"
 
@@ -69,7 +69,7 @@ object Dependencies
 
   lazy val postgresqlTestContainer = "org.testcontainers" % "postgresql" % TestContainersVersion
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.4.14"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.0"
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
 
