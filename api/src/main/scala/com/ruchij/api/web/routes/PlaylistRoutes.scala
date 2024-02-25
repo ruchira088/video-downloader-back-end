@@ -12,7 +12,6 @@ import com.ruchij.api.web.requests.queryparams.PagingQuery
 import com.ruchij.api.web.requests.queryparams.QueryParameter.enumQueryParamDecoder
 import com.ruchij.api.web.requests.queryparams.SingleValueQueryParameter.SearchTermQueryParameter
 import com.ruchij.api.web.responses.PagingResponse
-import com.ruchij.core.circe.Decoders._
 import com.ruchij.core.circe.Encoders._
 import io.circe.generic.auto._
 import org.http4s.ContextRoutes

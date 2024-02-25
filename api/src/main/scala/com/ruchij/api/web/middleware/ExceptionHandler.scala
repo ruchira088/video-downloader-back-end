@@ -7,7 +7,6 @@ import cats.effect.Sync
 import cats.implicits._
 import com.ruchij.api.exceptions.{AuthenticationException, AuthorizationException, ResourceConflictException}
 import com.ruchij.api.web.responses.ErrorResponse
-import com.ruchij.core.circe.Encoders.throwableEncoder
 import com.ruchij.core.exceptions.{AggregatedException, ExternalServiceException, JSoupException, ResourceNotFoundException, UnsupportedVideoUrlException, ValidationException}
 import com.ruchij.core.logging.Logger
 import io.circe.DecodingFailure
