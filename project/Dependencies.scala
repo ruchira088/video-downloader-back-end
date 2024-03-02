@@ -69,7 +69,7 @@ object Dependencies
 
   lazy val postgresqlTestContainer = "org.testcontainers" % "postgresql" % TestContainersVersion
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.0"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.1"
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
 
