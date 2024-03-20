@@ -8,7 +8,7 @@ spec:
     matchLabels:
       app: api
       branch: {{ git_branch }}
-  replicas: 1
+  replicas: {{ api_replicas }}
   template:
     metadata:
       labels:

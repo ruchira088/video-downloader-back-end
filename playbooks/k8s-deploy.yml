@@ -17,6 +17,7 @@
           production:
             namespace: video-downloader-back-end
             hostname: api.video.home.ruchij.com
+            api_replicas: 2
             host_path_mappings:
               - host_path: /media/data/video-downloader/production/videos
                 pod_mount_path: /home/videos
@@ -25,6 +26,7 @@
           development:
             namespace: video-downloader-back-end-{{ git_branch }}
             hostname: api.{{ git_branch }}.video.dev.ruchij.com
+            api_replicas: 1
             host_path_mappings:
               - host_path: /media/data/video-downloader/development/videos
                 pod_mount_path: /home/videos
@@ -34,6 +36,7 @@
     - set_fact:
         namespace: "{{ k8s_vars[env].namespace }}"
         hostname: "{{ k8s_vars[env].hostname }}"
+        api_replicas: "{{ k8s_vars[env].api_replicas }}"
         host_path_mappings: "{{ k8s_vars[env].host_path_mappings }}"
         ghcr_credentials: "{{ lookup('aws_ssm', '/github/ghcr/docker-config', region='ap-southeast-2') }}"
 
