@@ -17,13 +17,13 @@ object Dependencies
 
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.4"
 
-  lazy val kafka = "org.apache.kafka" %% "kafka" % "7.6.0-ccs"
+  lazy val kafka = "org.apache.kafka" %% "kafka" % "7.6.1-ccs"
 
   lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "3.4.0"
 
   lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "3.4.0"
 
-  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.6.0"
+  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.6.1"
 
   lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.10.1"
 
@@ -55,7 +55,7 @@ object Dependencies
 
   lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.9.2"
 
-  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.6.0"
+  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.7.0"
 
   lazy val jbcrypt = "org.mindrot" % "jbcrypt" % "0.4"
 
@@ -69,7 +69,7 @@ object Dependencies
 
   lazy val postgresqlTestContainer = "org.testcontainers" % "postgresql" % TestContainersVersion
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.3"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.4"
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
 
