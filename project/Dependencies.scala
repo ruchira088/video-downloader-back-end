@@ -2,9 +2,9 @@ import sbt._
 
 object Dependencies
 {
-  val ScalaVersion = "2.13.13"
+  val ScalaVersion = "2.13.14"
   val Http4sVersion = "0.23.26"
-  val CirceVersion = "0.14.6"
+  val CirceVersion = "0.14.7"
   val TestContainersVersion = "1.19.7"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
@@ -19,9 +19,9 @@ object Dependencies
 
   lazy val kafka = "org.apache.kafka" %% "kafka" % "7.6.1-ccs"
 
-  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "3.4.0"
+  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "3.5.1"
 
-  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "3.4.0"
+  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "3.5.1"
 
   lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.6.1"
 
@@ -61,7 +61,7 @@ object Dependencies
 
   lazy val embeddedRedis = "com.github.kstyrc" % "embedded-redis" % "0.6"
 
-  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "7.6.1"
+  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "7.6.1.1"
 
   lazy val testContainers = "org.testcontainers" % "testcontainers" % TestContainersVersion
 
@@ -69,7 +69,7 @@ object Dependencies
 
   lazy val postgresqlTestContainer = "org.testcontainers" % "postgresql" % TestContainersVersion
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.5"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.6"
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
 

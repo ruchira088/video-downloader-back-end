@@ -95,7 +95,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
           videoAnalysisResult.title mustBe "First Time Bbc With Balls Deep Anal"
           videoAnalysisResult.duration mustBe ((52 minutes) + (5 seconds))
           videoAnalysisResult.size mustBe 431177059
-          videoAnalysisResult.thumbnail mustBe uri"https://tn.txxx.tube/contents/videos_sources/17258000/17258955/screenshots/1.jpg"
+          videoAnalysisResult.thumbnail mustBe uri"https://tn.txxx.tube/contents/videos_screenshots/17258000/17258955/preview.jpg"
           videoAnalysisResult.videoSite mustBe CustomVideoSite.TXXX
         }
       }
@@ -109,7 +109,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
           videoAnalysisResult.title mustBe "Gets Two Black Cocks In Every Hole With Bailey Nicole"
           videoAnalysisResult.duration mustBe ((16 minutes) + (15 seconds))
           videoAnalysisResult.size mustBe 188184287
-          videoAnalysisResult.thumbnail mustBe uri"https://tn.upornia.com/contents/videos_sources/4810000/4810631/screenshots/1.jpg"
+          videoAnalysisResult.thumbnail mustBe uri"https://tn.upornia.com/contents/videos_screenshots/4810000/4810631/preview.jpg"
           videoAnalysisResult.videoSite mustBe CustomVideoSite.UPornia
         }
       }
@@ -135,9 +135,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
         IO.delay {
           videoAnalysisResult.title mustBe "Ed Sheeran - Perfect (Official Music Video)"
           videoAnalysisResult.duration mustBe ((4 minutes) + (40 seconds))
-
-          videoAnalysisResult.thumbnail.copy(query = Query.empty) mustBe uri"https://i.ytimg.com/vi_webp/2Vv-BfVoq4g/sddefault.webp"
-
+          videoAnalysisResult.thumbnail.copy(query = Query.empty) mustBe uri"https://i.ytimg.com/vi/2Vv-BfVoq4g/sddefault.jpg"
           videoAnalysisResult.videoSite mustBe YTDownloaderSite("youtube")
         }
       }
