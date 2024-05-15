@@ -47,13 +47,13 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
   }
 
   it should "analyse a SxyPrn video URL" in runIO {
-    analyze[IO](uri"https://sxyprn.com/post/643866295675d.html?sk=Giada-Sgh&so=0&ss=latest")
+    analyze[IO](uri"https://sxyprn.com/post/6432736917c9d.html")
       .semiflatMap { videoAnalysisResult =>
         IO.delay {
-          videoAnalysisResult.title must include("Black & Giada Sgh")
-          videoAnalysisResult.duration mustBe ((1 hour) + (6 minutes) + (37 seconds))
-          videoAnalysisResult.size mustBe 1184455539
-          videoAnalysisResult.thumbnail mustBe uri"https://b3.trafficdeposit.com/blog/0/17/img/5ed5660eab935/643866295675d/poster.jpg"
+          videoAnalysisResult.title must include("Jaidah")
+          videoAnalysisResult.duration mustBe (20 minutes)
+          videoAnalysisResult.size mustBe 467664779
+          videoAnalysisResult.thumbnail mustBe uri"https://b1.trafficdeposit.com/blog/1/4/img/63933c0ddaf6c/6432736917c9d/poster.jpg"
           videoAnalysisResult.videoSite mustBe CustomVideoSite.SxyPrn
         }
       }
