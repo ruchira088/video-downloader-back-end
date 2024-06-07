@@ -120,10 +120,11 @@ services:
   spa-renderer:
     image: ghcr.io/ruchira088/video-downloader-spa-renderer:dev
     healthcheck:
-      test: "/opt/scripts/wait-for.sh -t 3 localhost:8000"
+      test: "/opt/scripts/wait-for.sh -t 3 127.0.0.1:8000"
       start_period: 10s
       interval: 10s
       timeout: 5s
+      retries: 5
     volumes:
       - "./docker-compose/scripts:/opt/scripts"
 
@@ -160,7 +161,7 @@ services:
       HASHED_ADMIN_PASSWORD: "$$2a$$10$$m5CQAirrrJKRqG3oalNSU.TUOn56v88isxMbNPi8cXXI35gY20hO."
 
   postgres-main:
-    image: postgres:15
+    image: postgres:16
 #    command: ["postgres", "-c", "log_statement=all"]
     healthcheck:
       test: "pg_isready -U admin -d video-downloader"
@@ -175,8 +176,8 @@ services:
       POSTGRES_PASSWORD: "password"
 
   postgres-secondary:
-    image: postgres:15
-#    command: ["postgres", "-c", "log_statement=all"]
+    image: postgres:16
+    command: ["postgres", "-c", "log_statement=all"]
     healthcheck:
       test: "pg_isready -U admin -d fallback-api"
       start_period: 10s
@@ -202,12 +203,12 @@ services:
       - 6379:6379
 
   zookeeper:
-    image: confluentinc/cp-zookeeper:7.4.0
+    image: confluentinc/cp-zookeeper:7.6.1
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
 
   kafka-broker:
-    image: confluentinc/cp-kafka:7.4.0
+    image: confluentinc/cp-kafka:7.6.1
     ports:
       - 9092:9092
     healthcheck:
@@ -231,7 +232,7 @@ services:
       - "./docker-compose/scripts:/opt/scripts"
 
   schema-registry:
-    image: confluentinc/cp-schema-registry:7.4.0
+    image: confluentinc/cp-schema-registry:7.6.1
     healthcheck:
       test: "/opt/scripts/wait-for.sh -t 3 schema-registry:8081"
       start_period: 5s

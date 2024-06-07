@@ -4,7 +4,7 @@ import cats.effect.Sync
 import cats.implicits._
 import cats.{Applicative, ApplicativeError}
 import fs2.Stream
-import fs2.io.file.{Files, Flags, Path}
+import fs2.io.file.{Files, Flags, Path, WalkOptions}
 import org.http4s.MediaType
 
 import java.nio.file.Paths
@@ -56,7 +56,7 @@ class FileRepositoryService[F[_]: Sync: Files](fileTypeDetector: FileTypeDetecto
   override def list(key: Key): Stream[F, Key] =
     Stream
       .eval(backedType(key))
-      .flatMap(path => Files[F].walk(path, Int.MaxValue, followLinks = true))
+      .flatMap(path => Files[F].walk(path, WalkOptions.Default.withMaxDepth(Int.MaxValue).withFollowLinks(true)))
       .map(_.toString)
 
   override def backedType(key: Key): F[Path] = FileRepositoryService.parsePath[F](key)
