@@ -45,7 +45,7 @@ object Dependencies
 
   lazy val jodaTime = "joda-time" % "joda-time" % "2.12.7"
 
-  lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.6"
+  lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.7"
 
   lazy val flywayCore = "org.flywaydb" % "flyway-core" % "9.22.3"
 
