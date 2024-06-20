@@ -41,7 +41,7 @@ lazy val migrationApplication =
         ),
       buildInfoPackage := "com.eed3si9n.ruchij.migration",
       topLevelDirectory := None,
-      libraryDependencies ++= Seq(catsEffect, flywayCore, h2, postgresql, pureconfig, scalaLogging, logbackClassic),
+      libraryDependencies ++= Seq(catsEffect, flywayCore, flywayPostgresql, h2, postgresql, pureconfig, scalaLogging, logbackClassic),
       libraryDependencies ++= Seq(scalaTest).map(_ % Test)
     )
 

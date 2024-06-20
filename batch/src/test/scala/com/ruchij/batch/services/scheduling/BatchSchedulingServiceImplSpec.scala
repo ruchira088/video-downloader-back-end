@@ -25,7 +25,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   "acquireTask" should "not return duplicate tasks" in runIO {
-    val externalBatchServiceProvider: BatchResourcesProvider[IO] =
+    val batchServiceProvider: BatchResourcesProvider[IO] =
       new ContainerBatchResourcesProvider[IO]
 
     val downloadProgressPublisher = mock[Publisher[IO, DownloadProgress]]
@@ -35,7 +35,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     val concurrency = 500
     val size = 1_000
 
-    externalBatchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { implicit transactor =>
       val batchSchedulingServiceImpl =
         new BatchSchedulingServiceImpl[IO, ConnectionIO, Id](
           downloadProgressPublisher,
