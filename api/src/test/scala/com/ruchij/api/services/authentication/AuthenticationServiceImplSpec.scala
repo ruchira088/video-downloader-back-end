@@ -7,13 +7,12 @@ import com.ruchij.api.daos.resettoken.DoobieCredentialsResetTokenDao
 import com.ruchij.api.daos.title.DoobieVideoTitleDao
 import com.ruchij.api.daos.user.DoobieUserDao
 import com.ruchij.api.daos.user.models.Email
-import com.ruchij.api.external.embedded.EmbeddedExternalApiServiceProvider
+import com.ruchij.api.external.ApiResourcesProvider
+import com.ruchij.api.external.containers.ContainerApiResourcesProvider
+import com.ruchij.api.external.embedded.EmbeddedApiResourcesProvider
 import com.ruchij.api.services.authentication.AuthenticationService.{Password, Secret}
 import com.ruchij.api.services.authentication.models.AuthenticationToken
-import com.ruchij.api.services.authentication.models.AuthenticationToken.{
-  AuthenticationKeySpace,
-  AuthenticationTokenKey
-}
+import com.ruchij.api.services.authentication.models.AuthenticationToken.{AuthenticationKeySpace, AuthenticationTokenKey}
 import com.ruchij.api.services.hashing.BCryptPasswordHashingService
 import com.ruchij.api.services.user.{UserService, UserServiceImpl}
 import com.ruchij.api.test.matchers.haveDateTime
@@ -37,9 +36,9 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
     testCase: (RandomGenerator[IO, Secret], JodaClock[IO], UserService[IO], AuthenticationService[IO]) => IO[Unit]
   ): Unit =
     runIO {
-      val externalApiServiceProvider = new EmbeddedExternalApiServiceProvider[IO]
+      val apiResourcesProvider: ApiResourcesProvider[IO] = new ContainerApiResourcesProvider[IO]
 
-      externalApiServiceProvider.redisConfiguration
+      apiResourcesProvider.redisConfiguration
         .flatMap(redisConfig => RedisKeyValueStore.create[IO](redisConfig))
         .map { redisKeyValueStore =>
           new KeySpacedKeyValueStore[IO, AuthenticationTokenKey, AuthenticationToken](
@@ -48,7 +47,7 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
           )
         }
         .use { keySpacedKeyValueStore =>
-          externalApiServiceProvider.transactor.use { implicit transactor =>
+          apiResourcesProvider.transactor.use { implicit transactor =>
             implicit val jodaClock: JodaClock[IO] = mock[JodaClock[IO]]
             implicit val randomGenerator: RandomGenerator[IO, Secret] = mock[RandomGenerator[IO, Secret]]
 

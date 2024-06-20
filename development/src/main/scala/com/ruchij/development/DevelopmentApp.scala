@@ -7,15 +7,15 @@ import cats.implicits._
 import com.comcast.ip4s.IpLiteralSyntax
 import com.ruchij.api.ApiApp
 import com.ruchij.api.config._
-import com.ruchij.api.external.ExternalApiServiceProvider
-import com.ruchij.api.external.containers.ContainerExternalApiServiceProvider
-import com.ruchij.api.external.embedded.EmbeddedExternalApiServiceProvider
+import com.ruchij.api.external.ApiResourcesProvider
+import com.ruchij.api.external.containers.ContainerApiResourcesProvider
+import com.ruchij.api.external.embedded.EmbeddedApiResourcesProvider
 import com.ruchij.batch.BatchApp
 import com.ruchij.batch.config.{BatchServiceConfiguration, BatchStorageConfiguration, WorkerConfiguration}
 import com.ruchij.batch.services.scheduler.Scheduler
 import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration}
 import com.ruchij.core.exceptions.ResourceNotFoundException
-import com.ruchij.core.external.ExternalCoreServiceProvider.HashedAdminPassword
+import com.ruchij.core.external.CoreResourcesProvider.HashedAdminPassword
 import com.ruchij.core.types.JodaClock
 import com.ruchij.migration.MigrationApp
 import com.ruchij.migration.config.{AdminConfiguration, DatabaseConfiguration, MigrationServiceConfiguration}
@@ -82,7 +82,7 @@ object DevelopmentApp extends IOApp {
   private val KeyStorePassword = "changeit"
 
   override def run(args: List[String]): IO[ExitCode] =
-    program[IO](new ContainerExternalApiServiceProvider[IO])
+    program[IO](new ContainerApiResourcesProvider[IO])
       .flatMap {
         case (api, batch) =>
           Resource
@@ -106,7 +106,7 @@ object DevelopmentApp extends IOApp {
       }
 
   private def program[F[_]: Async: JodaClock: Files: Compression](
-    externalApiServiceProvider: ExternalApiServiceProvider[F]
+    externalApiServiceProvider: ApiResourcesProvider[F]
   ): Resource[F, (HttpApp[F], Scheduler[F])] =
     for {
       redisConfig <- externalApiServiceProvider.redisConfiguration

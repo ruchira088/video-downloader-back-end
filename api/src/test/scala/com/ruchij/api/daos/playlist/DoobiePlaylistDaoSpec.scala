@@ -5,7 +5,7 @@ import com.ruchij.api.daos.playlist.models.{Playlist, PlaylistSortBy}
 import com.ruchij.api.test.data.ApiTestData
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.video.DoobieVideoDao
-import com.ruchij.core.external.embedded.EmbeddedExternalCoreServiceProvider
+import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
 import com.ruchij.core.services.models.Order
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.data.CoreTestData
@@ -20,7 +20,7 @@ class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
   val doobiePlaylistDao = new DoobiePlaylistDao(DoobieFileResourceDao, DoobieVideoDao)
 
   "DoobiePlaylistDao" should "perform CRUD operations" in runIO {
-    new EmbeddedExternalCoreServiceProvider[IO].transactor.use { implicit transactor =>
+    new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
       for {
         _ <- transactor(ApiTestData.setUpData)
 

@@ -3,8 +3,8 @@ package com.ruchij.batch.services.scheduling
 import cats.Id
 import cats.effect.IO
 import cats.implicits._
-import com.ruchij.batch.external.ExternalBatchServiceProvider
-import com.ruchij.batch.external.containers.ContainerExternalBatchServiceProvider
+import com.ruchij.batch.external.BatchResourcesProvider
+import com.ruchij.batch.external.containers.ContainerBatchResourcesProvider
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
@@ -25,8 +25,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
 class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   "acquireTask" should "not return duplicate tasks" in runIO {
-    val externalBatchServiceProvider: ExternalBatchServiceProvider[IO] =
-      new ContainerExternalBatchServiceProvider[IO]
+    val externalBatchServiceProvider: BatchResourcesProvider[IO] =
+      new ContainerBatchResourcesProvider[IO]
 
     val downloadProgressPublisher = mock[Publisher[IO, DownloadProgress]]
     val workerStatusSubscriber = mock[Subscriber[IO, CommittableRecord[Id, *], WorkerStatusUpdate]]

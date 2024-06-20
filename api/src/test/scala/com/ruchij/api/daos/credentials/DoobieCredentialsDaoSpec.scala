@@ -7,7 +7,7 @@ import com.ruchij.api.daos.credentials.models.Credentials
 import com.ruchij.api.daos.credentials.models.Credentials.HashedPassword
 import com.ruchij.api.daos.user.DoobieUserDao
 import com.ruchij.api.daos.user.models.{Email, Role, User}
-import com.ruchij.core.external.embedded.EmbeddedExternalCoreServiceProvider
+import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
 import com.ruchij.core.test.IOSupport.runIO
 import org.joda.time.DateTime
 import org.scalatest.OptionValues
@@ -19,7 +19,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 class DoobieCredentialsDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
 
   "DoobieCredentialsDao" should "perform CRUD operations for Credentials in the database" in runIO {
-    new EmbeddedExternalCoreServiceProvider[IO].transactor.use { implicit transactor =>
+    new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
       val timestamp = new DateTime(2021, 10, 17, 22, 24, 10, 123)
 
       val user = User("my-user-id", timestamp, "John", "Doe", Email("john.doe@ruchij.com"), Role.Admin)

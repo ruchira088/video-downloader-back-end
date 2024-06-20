@@ -4,24 +4,24 @@ import cats.effect.Resource
 import cats.effect.kernel.Sync
 import cats.implicits._
 import com.ruchij.api.config.FallbackApiConfiguration
-import com.ruchij.api.external.ExternalApiServiceProvider
-import com.ruchij.api.external.containers.ContainerExternalApiServiceProvider
+import com.ruchij.api.external.ApiResourcesProvider
+import com.ruchij.api.external.containers.ContainerApiResourcesProvider
 import com.ruchij.core.config.{RedisConfiguration, SpaSiteRendererConfiguration}
-import com.ruchij.core.external.embedded.EmbeddedExternalCoreServiceProvider
+import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
 import redis.embedded.RedisServer
 
-class EmbeddedExternalApiServiceProvider[F[_]: Sync] extends ExternalApiServiceProvider[F] {
-  private val containerExternalApiServiceProvider = new ContainerExternalApiServiceProvider[F]
+class EmbeddedApiResourcesProvider[F[_]: Sync] extends ApiResourcesProvider[F] {
+  private val containerExternalApiServiceProvider = new ContainerApiResourcesProvider[F]
 
-  protected val externalCoreServiceProvider: EmbeddedExternalCoreServiceProvider[F] =
-    new EmbeddedExternalCoreServiceProvider[F]
+  protected val externalCoreServiceProvider: EmbeddedCoreResourcesProvider[F] =
+    new EmbeddedCoreResourcesProvider[F]
 
   override lazy val spaSiteRendererConfiguration: Resource[F, SpaSiteRendererConfiguration] =
     containerExternalApiServiceProvider.spaSiteRendererConfiguration
 
   override val redisConfiguration: Resource[F, RedisConfiguration] =
     Resource
-      .eval(EmbeddedExternalCoreServiceProvider.availablePort[F](6300))
+      .eval(EmbeddedCoreResourcesProvider.availablePort[F](6300))
       .flatMap { port =>
         Resource
           .make {

@@ -4,7 +4,7 @@ import cats.effect.kernel.{Resource, Sync}
 import cats.implicits._
 import com.ruchij.api.config.FallbackApiConfiguration
 import com.ruchij.api.external.containers.FallbackApiContainer.{AdminBearerToken, Port}
-import com.ruchij.core.external.containers.ContainerExternalCoreServiceProvider
+import com.ruchij.core.external.containers.ContainerCoreResourcesProvider
 import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherLeftFunctor, eitherToF}
 import org.http4s.Uri
 import org.testcontainers.containers.GenericContainer
@@ -27,7 +27,7 @@ object FallbackApiContainer {
 
   def create[F[_]: Sync]: Resource[F, FallbackApiConfiguration] =
     Resource.eval(Sync[F].delay(new FallbackApiContainer()))
-      .flatMap(fallbackApiContainer => ContainerExternalCoreServiceProvider.start(fallbackApiContainer))
+      .flatMap(fallbackApiContainer => ContainerCoreResourcesProvider.start(fallbackApiContainer))
       .evalMap { fallbackApiContainer =>
         for {
           host <- Sync[F].blocking(fallbackApiContainer.getHost())

@@ -4,7 +4,7 @@ import cats.effect.{Resource, Sync}
 import cats.implicits._
 import com.ruchij.api.external.containers.RedisContainer.Port
 import com.ruchij.core.config.RedisConfiguration
-import com.ruchij.core.external.containers.ContainerExternalCoreServiceProvider
+import com.ruchij.core.external.containers.ContainerCoreResourcesProvider
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy
 
@@ -21,7 +21,7 @@ object RedisContainer {
 
   def create[F[_]: Sync]: Resource[F, RedisConfiguration] =
     Resource.eval(Sync[F].delay(new RedisContainer().withEnv("REDIS_PASSWORD", Password)))
-      .flatMap(redisContainer => ContainerExternalCoreServiceProvider.start(redisContainer))
+      .flatMap(redisContainer => ContainerCoreResourcesProvider.start(redisContainer))
       .evalMap { redisContainer =>
         for {
           host <- Sync[F].blocking(redisContainer.getHost)

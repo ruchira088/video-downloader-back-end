@@ -4,8 +4,8 @@ import cats.MonadError
 import cats.effect.{MonadCancelThrow, Resource, Sync}
 import cats.implicits._
 import com.ruchij.core.config.{KafkaConfiguration, SpaSiteRendererConfiguration}
-import com.ruchij.core.external.ExternalCoreServiceProvider
-import com.ruchij.core.external.embedded.EmbeddedExternalCoreServiceProvider.availablePort
+import com.ruchij.core.external.CoreResourcesProvider
+import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider.availablePort
 import com.ruchij.core.types.RandomGenerator
 import com.ruchij.migration.config.DatabaseConfiguration
 import io.github.embeddedkafka.EmbeddedKafkaConfig
@@ -17,8 +17,8 @@ import java.net.ServerSocket
 import java.util.UUID
 import scala.util.Random
 
-class EmbeddedExternalCoreServiceProvider[F[_]: Sync]
-    extends ExternalCoreServiceProvider[F] {
+class EmbeddedCoreResourcesProvider[F[_]: Sync]
+    extends CoreResourcesProvider[F] {
 
   override val kafkaConfiguration: Resource[F, KafkaConfiguration] =
     for {
@@ -58,7 +58,7 @@ class EmbeddedExternalCoreServiceProvider[F[_]: Sync]
     }
 }
 
-object EmbeddedExternalCoreServiceProvider {
+object EmbeddedCoreResourcesProvider {
   def availablePort[F[_]: Sync](init: Int): F[Int] =
     RandomGenerator[F, Int](Random.nextInt() % 1000).generate
       .map(init + _)

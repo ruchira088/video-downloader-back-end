@@ -10,7 +10,7 @@ import doobie.free.connection.ConnectionIO
 
 import scala.concurrent.ExecutionContext
 
-trait ExternalCoreServiceProvider[F[_]] {
+trait CoreResourcesProvider[F[_]] {
   val kafkaConfiguration: Resource[F, KafkaConfiguration]
 
   val databaseConfiguration: Resource[F, DatabaseConfiguration]
@@ -18,7 +18,7 @@ trait ExternalCoreServiceProvider[F[_]] {
   val spaSiteRendererConfiguration: Resource[F, SpaSiteRendererConfiguration]
 }
 
-object ExternalCoreServiceProvider {
+object CoreResourcesProvider {
   val HashedAdminPassword = "$2a$10$m5CQAirrrJKRqG3oalNSU.TUOn56v88isxMbNPi8cXXI35gY20hO." // The password is "top-secret"
 
   def migrationServiceConfiguration(databaseConfiguration: DatabaseConfiguration): MigrationServiceConfiguration =
@@ -34,13 +34,13 @@ object ExternalCoreServiceProvider {
       migrationResult <- Resource.eval(MigrationApp.migration(migrationServiceConfiguration(databaseConfig)))
     } yield hikariTransactor.trans
 
-  implicit class ExternalServiceProviderOps[F[_]](externalServiceProvider: ExternalCoreServiceProvider[F]) {
+  implicit class ExternalServiceProviderOps[F[_]](externalServiceProvider: CoreResourcesProvider[F]) {
     def transactor(
       implicit async: Async[F],
       executionContext: ExecutionContext
     ): Resource[F, ConnectionIO ~> F] =
       externalServiceProvider.databaseConfiguration
-        .flatMap(databaseConfig => ExternalCoreServiceProvider.transactor(databaseConfig))
+        .flatMap(databaseConfig => CoreResourcesProvider.transactor(databaseConfig))
   }
 
 }

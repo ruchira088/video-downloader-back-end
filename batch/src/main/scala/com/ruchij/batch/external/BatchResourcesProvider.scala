@@ -2,11 +2,11 @@ package com.ruchij.batch.external
 
 import cats.effect.Resource
 import com.ruchij.core.config.{KafkaConfiguration, SpaSiteRendererConfiguration}
-import com.ruchij.core.external.ExternalCoreServiceProvider
+import com.ruchij.core.external.CoreResourcesProvider
 import com.ruchij.migration.config.DatabaseConfiguration
 
-trait ExternalBatchServiceProvider[F[_]] extends ExternalCoreServiceProvider[F] {
-  protected val externalCoreServiceProvider: ExternalCoreServiceProvider[F]
+trait BatchResourcesProvider[F[_]] extends CoreResourcesProvider[F] {
+  protected val externalCoreServiceProvider: CoreResourcesProvider[F]
 
   override lazy val kafkaConfiguration: Resource[F, KafkaConfiguration] =
     externalCoreServiceProvider.kafkaConfiguration

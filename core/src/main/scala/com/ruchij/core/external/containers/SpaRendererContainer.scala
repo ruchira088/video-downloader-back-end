@@ -22,7 +22,7 @@ object SpaRendererContainer {
   def create[F[_]: Sync]: Resource[F, SpaSiteRendererConfiguration] =
     Resource
       .eval(Sync[F].delay(new SpaRendererContainer()))
-      .flatMap(spaRendererContainer => ContainerExternalCoreServiceProvider.start(spaRendererContainer))
+      .flatMap(spaRendererContainer => ContainerCoreResourcesProvider.start(spaRendererContainer))
       .evalMap { spaRendererContainer =>
         for {
           port <- Sync[F].blocking(spaRendererContainer.getMappedPort(Port))

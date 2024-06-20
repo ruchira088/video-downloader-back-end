@@ -18,7 +18,7 @@ object PostgresContainer {
             .withDatabaseName("video-downloader")
         }
       }
-      .flatMap(postgresContainer => ContainerExternalCoreServiceProvider.start(postgresContainer))
+      .flatMap(postgresContainer => ContainerCoreResourcesProvider.start(postgresContainer))
       .evalMap { postgresContainer =>
         Sync[F]
           .blocking(postgresContainer.getJdbcUrl())

@@ -22,7 +22,7 @@ import com.ruchij.core.daos.snapshot.DoobieSnapshotDao
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata}
-import com.ruchij.core.external.embedded.EmbeddedExternalCoreServiceProvider
+import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
 import com.ruchij.core.kv.{InMemoryKeyValueStore, KeySpacedKeyValueStore}
 import com.ruchij.core.messaging.inmemory.Fs2PubSub
 import com.ruchij.core.messaging.models.CommittableRecord
@@ -115,7 +115,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFa
         new KeySpacedKeyValueStore[IO, ApiConfigKey[_], String](ApiConfigKeySpace, new InMemoryKeyValueStore[IO])
       )
 
-    new EmbeddedExternalCoreServiceProvider[IO].transactor
+    new EmbeddedCoreResourcesProvider[IO].transactor
       .use { implicit transaction =>
         for {
           videoAnalysisService <- IO.pure {

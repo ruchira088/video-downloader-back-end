@@ -3,11 +3,11 @@ package com.ruchij.api.external
 import cats.effect.Resource
 import com.ruchij.api.config.FallbackApiConfiguration
 import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration}
-import com.ruchij.core.external.ExternalCoreServiceProvider
+import com.ruchij.core.external.CoreResourcesProvider
 import com.ruchij.migration.config.DatabaseConfiguration
 
-trait ExternalApiServiceProvider[F[_]] extends ExternalCoreServiceProvider[F] {
-  protected val externalCoreServiceProvider: ExternalCoreServiceProvider[F]
+trait ApiResourcesProvider[F[_]] extends CoreResourcesProvider[F] {
+  protected val externalCoreServiceProvider: CoreResourcesProvider[F]
 
   override lazy val kafkaConfiguration: Resource[F, KafkaConfiguration] =
     externalCoreServiceProvider.kafkaConfiguration

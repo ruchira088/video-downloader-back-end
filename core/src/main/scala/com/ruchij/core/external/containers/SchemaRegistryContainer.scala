@@ -24,7 +24,7 @@ object SchemaRegistryContainer {
             .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", s"$kafkaBootstrapHost:9092")
         }
       }
-      .flatMap(schemaRegistryContainer => ContainerExternalCoreServiceProvider.start(schemaRegistryContainer))
+      .flatMap(schemaRegistryContainer => ContainerCoreResourcesProvider.start(schemaRegistryContainer))
       .evalMap { schemaRegistryContainer =>
         for {
           host <- Sync[F].delay(schemaRegistryContainer.getHost)
