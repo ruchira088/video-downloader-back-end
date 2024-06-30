@@ -9,7 +9,6 @@ import com.ruchij.api.daos.user.DoobieUserDao
 import com.ruchij.api.daos.user.models.Email
 import com.ruchij.api.external.ApiResourcesProvider
 import com.ruchij.api.external.containers.ContainerApiResourcesProvider
-import com.ruchij.api.external.embedded.EmbeddedApiResourcesProvider
 import com.ruchij.api.services.authentication.AuthenticationService.{Password, Secret}
 import com.ruchij.api.services.authentication.models.AuthenticationToken
 import com.ruchij.api.services.authentication.models.AuthenticationToken.{AuthenticationKeySpace, AuthenticationTokenKey}

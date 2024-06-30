@@ -9,7 +9,6 @@ import com.ruchij.api.ApiApp
 import com.ruchij.api.config._
 import com.ruchij.api.external.ApiResourcesProvider
 import com.ruchij.api.external.containers.ContainerApiResourcesProvider
-import com.ruchij.api.external.embedded.EmbeddedApiResourcesProvider
 import com.ruchij.batch.BatchApp
 import com.ruchij.batch.config.{BatchServiceConfiguration, BatchStorageConfiguration, WorkerConfiguration}
 import com.ruchij.batch.services.scheduler.Scheduler

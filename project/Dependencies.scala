@@ -25,7 +25,7 @@ object Dependencies
 
   lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.6.1"
 
-  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.10.1"
+  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.11.0"
 
   lazy val circeGeneric = "io.circe" %% "circe-generic" % CirceVersion
 
@@ -79,7 +79,7 @@ object Dependencies
 
   lazy val betterMonadicFor = "com.olegpy" %% "better-monadic-for" % "0.3.1"
 
-  lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.18"
+  lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.19"
 
   lazy val scalaMock = "org.scalamock" %% "scalamock" % "6.0.0"
 
