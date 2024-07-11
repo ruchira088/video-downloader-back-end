@@ -41,7 +41,7 @@ object Dependencies
 
   lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "1.0.0-RC5"
 
-  lazy val jsoup = "org.jsoup" % "jsoup" % "1.17.2"
+  lazy val jsoup = "org.jsoup" % "jsoup" % "1.18.1"
 
   lazy val jodaTime = "joda-time" % "joda-time" % "2.12.7"
 
