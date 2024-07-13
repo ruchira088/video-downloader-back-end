@@ -57,7 +57,7 @@ object Dependencies
 
   lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.9.2"
 
-  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.7.0"
+  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.7.1"
 
   lazy val jbcrypt = "org.mindrot" % "jbcrypt" % "0.4"
 
