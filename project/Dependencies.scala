@@ -5,7 +5,7 @@ object Dependencies
   val ScalaVersion = "2.13.14"
   val Http4sVersion = "0.23.27"
   val CirceVersion = "0.14.9"
-  val TestContainersVersion = "1.20.0"
+  val TestContainersVersion = "1.20.1"
   val FlywayVersion = "10.17.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
