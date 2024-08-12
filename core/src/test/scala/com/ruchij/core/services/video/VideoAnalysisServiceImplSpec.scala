@@ -135,7 +135,11 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
         IO.delay {
           videoAnalysisResult.title mustBe "Ed Sheeran - Perfect (Official Music Video)"
           videoAnalysisResult.duration mustBe ((4 minutes) + (40 seconds))
-          videoAnalysisResult.thumbnail.copy(query = Query.empty) must (be (uri"https://i.ytimg.com/vi/2Vv-BfVoq4g/hqdefault.jpg") or be (uri"https://i.ytimg.com/vi/2Vv-BfVoq4g/sddefault.jpg"))
+          Set(
+            uri"https://i.ytimg.com/vi/2Vv-BfVoq4g/hqdefault.jpg",
+            uri"https://i.ytimg.com/vi/2Vv-BfVoq4g/sddefault.jpg",
+            uri"https://i.ytimg.com/vi_webp/2Vv-BfVoq4g/sddefault.webp"
+          ) must contain(videoAnalysisResult.thumbnail.copy(query = Query.empty))
           videoAnalysisResult.videoSite mustBe YTDownloaderSite("youtube")
         }
       }
