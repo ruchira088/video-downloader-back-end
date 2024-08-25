@@ -6,7 +6,7 @@ object Dependencies
   val Http4sVersion = "0.23.27"
   val CirceVersion = "0.14.9"
   val TestContainersVersion = "1.20.1"
-  val FlywayVersion = "10.17.1"
+  val FlywayVersion = "10.17.2"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -52,7 +52,7 @@ object Dependencies
 
   lazy val flywayPostgresql = "org.flywaydb" % "flyway-database-postgresql"  % FlywayVersion
 
-  lazy val postgresql = "org.postgresql" % "postgresql" % "42.7.3"
+  lazy val postgresql = "org.postgresql" % "postgresql" % "42.7.4"
 
   lazy val h2 = "com.h2database" % "h2" % "2.3.232"
 
@@ -64,7 +64,7 @@ object Dependencies
 
   lazy val embeddedRedis = "com.github.kstyrc" % "embedded-redis" % "0.6"
 
-  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "7.6.2"
+  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "7.7.0"
 
   lazy val testContainers = "org.testcontainers" % "testcontainers" % TestContainersVersion
 
