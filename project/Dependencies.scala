@@ -4,7 +4,7 @@ object Dependencies
 {
   val ScalaVersion = "2.13.14"
   val Http4sVersion = "0.23.27"
-  val CirceVersion = "0.14.9"
+  val CirceVersion = "0.14.10"
   val TestContainersVersion = "1.20.1"
   val FlywayVersion = "10.17.3"
 
@@ -72,7 +72,7 @@ object Dependencies
 
   lazy val postgresqlTestContainer = "org.testcontainers" % "postgresql" % TestContainersVersion
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.7"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.8"
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
 
