@@ -6,7 +6,7 @@ object Dependencies
   val Http4sVersion = "0.23.28"
   val CirceVersion = "0.14.10"
   val TestContainersVersion = "1.20.1"
-  val FlywayVersion = "10.17.3"
+  val FlywayVersion = "10.18.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -18,13 +18,13 @@ object Dependencies
 
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.4"
 
-  lazy val kafka = "org.apache.kafka" %% "kafka" % "7.7.0-ccs"
+  lazy val kafka = "org.apache.kafka" %% "kafka" % "7.7.1-ccs"
 
   lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "3.5.1"
 
   lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "3.5.1"
 
-  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.7.0"
+  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.7.1"
 
   lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.11.0"
 
