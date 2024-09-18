@@ -44,7 +44,7 @@ object Dependencies
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.18.1"
 
-  lazy val jodaTime = "joda-time" % "joda-time" % "2.12.7"
+  lazy val jodaTime = "joda-time" % "joda-time" % "2.13.0"
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.7"
 
@@ -64,7 +64,7 @@ object Dependencies
 
   lazy val embeddedRedis = "com.github.kstyrc" % "embedded-redis" % "0.6"
 
-  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "7.7.0"
+  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "7.7.1"
 
   lazy val testContainers = "org.testcontainers" % "testcontainers" % TestContainersVersion
 
