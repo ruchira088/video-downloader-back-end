@@ -5,7 +5,6 @@ import java.sql.Timestamp
 import java.util.concurrent.TimeUnit
 import cats.Show
 import com.ruchij.core.daos.videometadata.models.VideoSite
-import doobie.implicits.javasql._
 import doobie.util.{Get, Put}
 import enumeratum.{Enum, EnumEntry}
 import org.http4s.{MediaType, Uri}

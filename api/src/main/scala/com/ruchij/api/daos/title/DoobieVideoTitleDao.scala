@@ -3,6 +3,7 @@ package com.ruchij.api.daos.title
 import cats.ApplicativeError
 import com.ruchij.api.daos.title.models.VideoTitle
 import doobie.free.connection.ConnectionIO
+import doobie.generic.auto._
 import doobie.implicits.toSqlInterpolator
 import doobie.util.fragments.whereAndOpt
 

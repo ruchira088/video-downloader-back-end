@@ -7,6 +7,7 @@ import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
 import com.ruchij.core.daos.doobie.DoobieCustomMappings.{dateTimeGet, dateTimePut}
 import doobie.free.connection.ConnectionIO
 import doobie.implicits.toSqlInterpolator
+import doobie.generic.auto._
 import org.joda.time.DateTime
 
 object DoobieFileSyncDao extends FileSyncDao[ConnectionIO] {

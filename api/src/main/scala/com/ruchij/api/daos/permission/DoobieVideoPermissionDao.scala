@@ -4,6 +4,7 @@ import cats.ApplicativeError
 import com.ruchij.core.daos.doobie.DoobieCustomMappings.{dateTimeGet, dateTimePut}
 import com.ruchij.api.daos.permission.models.VideoPermission
 import doobie.free.connection.ConnectionIO
+import doobie.generic.auto._
 import doobie.implicits.toSqlInterpolator
 import doobie.util.fragments.whereAndOpt
 
