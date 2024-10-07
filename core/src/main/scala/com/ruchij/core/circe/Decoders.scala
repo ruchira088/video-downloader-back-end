@@ -25,7 +25,7 @@ object Decoders {
       enumValues.withNameInsensitiveEither(enumString).left.map(_.getMessage)
     }
 
-  implicit def stringWrapperDecoder[A](implicit generic: Generic.Aux[A, String :: HNil]): Decoder[A] =
+  implicit def stringWrapperDecoder[A <: AnyVal](implicit generic: Generic.Aux[A, String :: HNil]): Decoder[A] =
     Decoder.decodeString.emap {
       value => if (value.trim.isEmpty) Left("Cannot be empty") else Right(generic.from(value :: HNil))
     }

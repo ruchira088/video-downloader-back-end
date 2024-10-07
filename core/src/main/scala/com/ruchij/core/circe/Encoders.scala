@@ -32,6 +32,6 @@ object Encoders {
 
   implicit val mediaTypeEncoder: Encoder[MediaType] = Encoder.encodeString.contramap[MediaType](Show[MediaType].show)
 
-  implicit def stringWrapperEncoder[A](implicit generic: Generic.Aux[A, String :: HNil]): Encoder[A] =
+  implicit def stringWrapperEncoder[A <: AnyVal](implicit generic: Generic.Aux[A, String :: HNil]): Encoder[A] =
     Encoder[String].contramap[A](value => generic.to(value).head)
 }
