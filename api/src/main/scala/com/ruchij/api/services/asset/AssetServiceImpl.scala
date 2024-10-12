@@ -1,15 +1,16 @@
-package com.ruchij.core.services.asset
+package com.ruchij.api.services.asset
 
 import cats.data.OptionT
 import cats.implicits._
 import cats.{ApplicativeError, MonadThrow, ~>}
+import com.ruchij.api.services.asset.models.Asset
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.snapshot.SnapshotDao
 import com.ruchij.core.daos.video.VideoDao
 import com.ruchij.core.exceptions.ResourceNotFoundException
-import com.ruchij.core.services.asset.AssetService.FileByteRange
-import com.ruchij.core.services.asset.models.Asset
-import com.ruchij.core.services.asset.models.Asset.FileRange
+import AssetService.FileByteRange
+import Asset.FileRange
+import com.ruchij.api.daos.user.models.User
 import com.ruchij.core.services.repository.RepositoryService
 
 class AssetServiceImpl[F[_]: MonadThrow, T[_]](
@@ -20,8 +21,8 @@ class AssetServiceImpl[F[_]: MonadThrow, T[_]](
 )(implicit transaction: T ~> F)
     extends AssetService[F] {
 
-  override def videoFile(id: String, maybeUserId: Option[String], maybeFileByteRange: Option[FileByteRange]): F[Asset[F]] =
-    maybeUserId.fold(retrieve(id, maybeFileByteRange)) { userId =>
+  override def videoFile(id: String, user: User, maybeFileByteRange: Option[FileByteRange]): F[Asset[F]] =
+    user.nonAdminUserId.fold(retrieve(id, maybeFileByteRange)) { userId =>
       transaction(videoDao.hasVideoFilePermission(id, userId)).flatMap {
         hasPermission =>
           if (hasPermission) retrieve(id, maybeFileByteRange) else
@@ -29,8 +30,8 @@ class AssetServiceImpl[F[_]: MonadThrow, T[_]](
       }
     }
 
-  override def snapshot(id: String, maybeUserId: Option[String]): F[Asset[F]] =
-    maybeUserId.fold(retrieve(id, None)) { userId =>
+  override def snapshot(id: String, user: User): F[Asset[F]] =
+    user.nonAdminUserId.fold(retrieve(id, None)) { userId =>
       transaction(snapshotDao.hasPermission(id, userId))
         .flatMap {
           hasPermission =>

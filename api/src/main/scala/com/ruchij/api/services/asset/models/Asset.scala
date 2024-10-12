@@ -1,7 +1,7 @@
-package com.ruchij.core.services.asset.models
+package com.ruchij.api.services.asset.models
 
 import com.ruchij.core.daos.resource.models.FileResource
-import com.ruchij.core.services.asset.models.Asset.FileRange
+import Asset.FileRange
 import fs2.Stream
 
 final case class Asset[F[_]](fileResource: FileResource, stream: Stream[F, Byte], fileRange: FileRange)

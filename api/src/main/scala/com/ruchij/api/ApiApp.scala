@@ -14,6 +14,7 @@ import com.ruchij.api.daos.resettoken.DoobieCredentialsResetTokenDao
 import com.ruchij.api.daos.title.DoobieVideoTitleDao
 import com.ruchij.api.daos.user.DoobieUserDao
 import com.ruchij.api.models.ApiMessageBrokers
+import com.ruchij.api.services.asset.AssetServiceImpl
 import com.ruchij.api.services.authentication._
 import com.ruchij.api.services.authentication.models.AuthenticationToken
 import com.ruchij.api.services.authentication.models.AuthenticationToken.AuthenticationKeySpace
@@ -44,7 +45,6 @@ import com.ruchij.core.kv.{KeySpacedKeyValueStore, KeyValueStore, RedisKeyValueS
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.kafka.{KafkaPubSub, KafkaPublisher}
 import com.ruchij.core.messaging.models.HttpMetric
-import com.ruchij.core.services.asset.AssetServiceImpl
 import com.ruchij.core.services.cli.CliCommandRunnerImpl
 import com.ruchij.core.services.config.{ConfigurationService, ConfigurationServiceImpl}
 import com.ruchij.core.services.download.Http4sDownloadService

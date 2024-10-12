@@ -2,6 +2,7 @@ package com.ruchij.api.web
 
 import cats.effect.Async
 import cats.implicits._
+import com.ruchij.api.services.asset.AssetService
 import com.ruchij.api.services.authentication.AuthenticationService
 import com.ruchij.api.services.health.HealthService
 import com.ruchij.api.services.models.Context.RequestContext
@@ -14,7 +15,6 @@ import com.ruchij.api.web.middleware._
 import com.ruchij.api.web.routes._
 import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.messaging.models.HttpMetric
-import com.ruchij.core.services.asset.AssetService
 import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.services.video.VideoAnalysisService
 import com.ruchij.core.types.JodaClock

@@ -1,6 +1,7 @@
 package com.ruchij.api.test.mixins
 
 import cats.effect.kernel.Async
+import com.ruchij.api.services.asset.AssetService
 import com.ruchij.api.services.authentication.AuthenticationService
 import com.ruchij.api.services.health.HealthService
 import com.ruchij.api.services.playlist.PlaylistService
@@ -10,7 +11,6 @@ import com.ruchij.api.services.video.ApiVideoService
 import com.ruchij.api.web.Routes
 import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.messaging.models.HttpMetric
-import com.ruchij.core.services.asset.AssetService
 import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.services.video.VideoAnalysisService
 import com.ruchij.core.types.JodaClock

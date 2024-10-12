@@ -4,10 +4,10 @@ import cats.Applicative
 import cats.data.NonEmptyList
 import cats.effect.Sync
 import cats.implicits._
+import com.ruchij.api.services.asset.AssetService
 import com.ruchij.api.services.models.Context.AuthenticatedRequestContext
 import com.ruchij.api.web.responses.ResponseOps.AssetResponseOps
-import com.ruchij.core.services.asset.AssetService
-import com.ruchij.core.services.asset.AssetService.FileByteRange
+import AssetService.FileByteRange
 import org.http4s.ContextRoutes
 import org.http4s.dsl.Http4sDsl
 import org.http4s.headers.Range
@@ -21,7 +21,7 @@ object AssetRoutes {
           assetService.thumbnail(id).flatMap(_.asResponse)
 
       case GET -> Root / "snapshot" / "id" / id as AuthenticatedRequestContext(user, _) =>
-        assetService.snapshot(id, user.nonAdminUserId).flatMap(_.asResponse)
+        assetService.snapshot(id, user).flatMap(_.asResponse)
 
       case authRequest @ GET -> Root / "video" / "id" / id as AuthenticatedRequestContext(user, _) =>
         for {
@@ -32,7 +32,7 @@ object AssetRoutes {
           videoFileAsset <-
             assetService.videoFile(
               id,
-              user.nonAdminUserId,
+              user,
               maybeRange.map(subRange => FileByteRange(subRange.first, subRange.second))
             )
 
