@@ -10,7 +10,6 @@ import com.ruchij.api.web.requests.queryparams.SearchQuery
 import com.ruchij.api.web.requests.RequestOps.ContextRequestOpsSyntax
 import com.ruchij.api.web.requests.queryparams.SingleValueQueryParameter.DeleteVideoFileQueryParameter
 import com.ruchij.core.services.video.VideoAnalysisService
-import com.ruchij.core.circe.Decoders._
 import com.ruchij.core.circe.Encoders._
 import com.ruchij.api.web.responses.{IterableResponse, SearchResult, VideoScanProgressResponse}
 import com.ruchij.core.services.models.SortBy
