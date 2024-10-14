@@ -2,6 +2,7 @@ package com.ruchij.api.web.routes
 
 import cats.effect.Async
 import cats.implicits._
+import com.ruchij.api.daos.user.models.Role.Admin
 import com.ruchij.api.services.models.Context.AuthenticatedRequestContext
 import com.ruchij.api.services.video.ApiVideoService
 import com.ruchij.api.services.video.models.VideoScanProgress
@@ -62,10 +63,10 @@ object VideoRoutes {
           )
         } yield response
 
-      case GET -> Root / "summary" as _ =>
+      case GET -> Root / "summary" as AuthenticatedRequestContext(user, _) if user.role == Admin =>
         apiVideoService.summary.flatMap(videoServiceSummary => Ok(videoServiceSummary))
 
-      case POST -> Root / "scan" as _ =>
+      case POST -> Root / "scan" as AuthenticatedRequestContext(user, _) if user.role == Admin =>
         apiVideoService.scanForVideos
           .flatMap {
             case VideoScanProgress.ScanInProgress(startedAt) => Ok(VideoScanProgressResponse(startedAt))
