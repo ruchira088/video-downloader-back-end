@@ -6,7 +6,7 @@ import com.ruchij.core.commands.ScanVideosCommand
 import com.ruchij.core.config.KafkaConfiguration
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.messaging.kafka.Codecs._
-import com.ruchij.core.messaging.models.HttpMetric
+import com.ruchij.core.messaging.models.{HttpMetric, VideoWatchMetric}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import fs2.kafka.vulcan.{AvroSettings, SchemaRegistryClientSettings, avroDeserializer, avroSerializer}
 import fs2.kafka.{ValueDeserializer, ValueSerializer}
@@ -58,5 +58,12 @@ object KafkaTopic {
     override val name: String = "scan-videos-command"
 
     override val codec: Codec[ScanVideosCommand] = Codec.derive[ScanVideosCommand]
+  }
+
+  implicit case object VideoWatchMetricTopic extends KafkaTopic[VideoWatchMetric] {
+
+    override val name: String = "video-watch-metric"
+
+    override val codec: Codec[VideoWatchMetric] = Codec.derive[VideoWatchMetric]
   }
 }

@@ -13,6 +13,8 @@ import org.http4s.dsl.Http4sDsl
 import org.http4s.headers.Range
 
 object AssetRoutes {
+  private val MaxVideoServeSize = 5 * 1000 * 1000 // 5MB
+
   def apply[F[_]: Sync](assetService: AssetService[F])(implicit dsl: Http4sDsl[F]): ContextRoutes[AuthenticatedRequestContext, F] = {
     import dsl._
 
@@ -33,10 +35,11 @@ object AssetRoutes {
             assetService.videoFile(
               id,
               user,
-              maybeRange.map(subRange => FileByteRange(subRange.first, subRange.second))
+              maybeRange.map(subRange => FileByteRange(subRange.first, subRange.second)),
+              Some(MaxVideoServeSize)
             )
 
-          response <- videoFileAsset.asChunkSizeLimitedResponse
+          response <- videoFileAsset.asResponse
         }
         yield response
     }

@@ -4,15 +4,14 @@ import cats.effect.Sync
 import cats.implicits._
 import com.ruchij.api.services.asset.models.Asset
 import com.ruchij.core.types.FunctionKTypes._
-import com.ruchij.core.utils.Http4sUtils.ChunkSize
 import org.http4s.headers.{Range, `Accept-Ranges`, `Content-Length`, `Content-Range`, `Content-Type`}
 import org.http4s.{Headers, Response, Status}
 
 object ResponseOps {
 
-  private def assetResponse[F[_]: Sync](asset: Asset[F], maybeMaxChunkSize: Option[Long]): F[Response[F]] =
+  private def assetResponse[F[_]: Sync](asset: Asset[F]): F[Response[F]] =
     Sync[F].defer {
-      `Content-Length`.fromLong(Math.min(asset.fileRange.end - asset.fileRange.start, maybeMaxChunkSize.getOrElse(Long.MaxValue)))
+      `Content-Length`.fromLong(asset.fileRange.end - asset.fileRange.start)
         .toType[F, Throwable]
         .map { contentLength =>
           val headers =
@@ -21,7 +20,7 @@ object ResponseOps {
           if (contentLength.length < asset.fileResource.size)
             Response(
               status = Status.PartialContent,
-              body = asset.stream.take(contentLength.length),
+              body = asset.stream,
               headers =
                 headers ++
                   Headers(
@@ -38,8 +37,6 @@ object ResponseOps {
 
 
   implicit class AssetResponseOps[F[_]: Sync](asset: Asset[F]) {
-    val asChunkSizeLimitedResponse: F[Response[F]] = assetResponse[F](asset, Some(ChunkSize))
-
-    val asResponse: F[Response[F]] = assetResponse[F](asset, None)
+    val asResponse: F[Response[F]] = assetResponse[F](asset)
   }
 }

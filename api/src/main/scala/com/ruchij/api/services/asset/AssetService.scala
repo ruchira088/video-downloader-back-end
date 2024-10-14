@@ -5,7 +5,12 @@ import AssetService.FileByteRange
 import com.ruchij.api.daos.user.models.User
 
 trait AssetService[F[_]] {
-  def videoFile(id: String, user: User, fileByteRange: Option[FileByteRange]): F[Asset[F]]
+  def videoFile(
+    id: String,
+    user: User,
+    fileByteRange: Option[FileByteRange],
+    maybeMaxStreamSize: Option[Long]
+  ): F[Asset[F]]
 
   def snapshot(id: String, user: User): F[Asset[F]]
 

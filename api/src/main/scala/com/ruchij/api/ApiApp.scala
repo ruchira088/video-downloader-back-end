@@ -44,7 +44,7 @@ import com.ruchij.core.kv.keys.KeySpacedKeyEncoder.keySpacedKeyEncoder
 import com.ruchij.core.kv.{KeySpacedKeyValueStore, KeyValueStore, RedisKeyValueStore}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.kafka.{KafkaPubSub, KafkaPublisher}
-import com.ruchij.core.messaging.models.HttpMetric
+import com.ruchij.core.messaging.models.{HttpMetric, VideoWatchMetric}
 import com.ruchij.core.services.cli.CliCommandRunnerImpl
 import com.ruchij.core.services.config.{ConfigurationService, ConfigurationServiceImpl}
 import com.ruchij.core.services.download.Http4sDownloadService
@@ -110,7 +110,8 @@ object ApiApp extends IOApp {
       downloadProgressPubSub <- KafkaPubSub[F, DownloadProgress](apiServiceConfiguration.kafkaConfiguration)
       scheduledVideoDownloadPubSub <- KafkaPubSub[F, ScheduledVideoDownload](apiServiceConfiguration.kafkaConfiguration)
       healthCheckPubSub <- KafkaPubSub[F, HealthCheckMessage](apiServiceConfiguration.kafkaConfiguration)
-      metricsPublisher <- KafkaPublisher[F, HttpMetric](apiServiceConfiguration.kafkaConfiguration)
+      httpMetricsPublisher <- KafkaPublisher[F, HttpMetric](apiServiceConfiguration.kafkaConfiguration)
+      videoWatchMetricsPublisher <- KafkaPublisher[F, VideoWatchMetric](apiServiceConfiguration.kafkaConfiguration)
       workerStatusUpdatePublisher <- KafkaPublisher[F, WorkerStatusUpdate](apiServiceConfiguration.kafkaConfiguration)
       scanVideoCommandPublisher <- KafkaPublisher[F, ScanVideosCommand](apiServiceConfiguration.kafkaConfiguration)
       dispatcher <- Dispatcher.parallel[F]
@@ -121,7 +122,8 @@ object ApiApp extends IOApp {
         healthCheckPubSub,
         workerStatusUpdatePublisher,
         scanVideoCommandPublisher,
-        metricsPublisher
+        httpMetricsPublisher,
+        videoWatchMetricsPublisher
       )
 
       httpApp <- Resource.eval {
@@ -216,7 +218,13 @@ object ApiApp extends IOApp {
     )
 
     val assetService =
-      new AssetServiceImpl[F, ConnectionIO](DoobieFileResourceDao, DoobieSnapshotDao, DoobieVideoDao, repositoryService)
+      new AssetServiceImpl[F, ConnectionIO](
+        DoobieFileResourceDao,
+        DoobieSnapshotDao,
+        DoobieVideoDao,
+        repositoryService,
+        messageBrokers.videoWatchMetricsPublisher
+      )
 
     val schedulingService = new ApiSchedulingServiceImpl[F, ConnectionIO](
       videoService,
@@ -276,7 +284,7 @@ object ApiApp extends IOApp {
         healthService,
         authenticationService,
         backgroundService.downloadProgress,
-        messageBrokers.metricsPublisher
+        messageBrokers.httpMetricsPublisher
       )
   }
 

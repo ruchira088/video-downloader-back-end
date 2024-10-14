@@ -21,10 +21,10 @@ import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Subscriber
-import com.ruchij.core.messaging.models.{CommittableRecord, HttpMetric}
+import com.ruchij.core.messaging.models.{CommittableRecord, VideoWatchMetric}
 import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
+import com.ruchij.core.services.video.VideoWatchHistoryService
 import com.ruchij.core.types.JodaClock
-import com.ruchij.core.utils.Http4sUtils.ChunkSize
 import fs2.Stream
 import fs2.concurrent.Topic
 import org.joda.time.LocalTime
@@ -37,8 +37,9 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
   batchSchedulingService: BatchSchedulingService[F],
   synchronizationService: SynchronizationService[F],
   batchVideoService: BatchVideoService[F],
+  videoWatchHistoryService: VideoWatchHistoryService[F],
   workExecutor: WorkExecutor[F],
-  httpMetricSubscriber: Subscriber[F, CommittableRecord[M, *], HttpMetric],
+  videoWatchMetricsSubscriber: Subscriber[F, CommittableRecord[M, *], VideoWatchMetric],
   scanForVideosCommandSubscriber: Subscriber[F, CommittableRecord[M, *], ScanVideosCommand],
   workerDao: WorkerDao[T],
   workerConfiguration: WorkerConfiguration,
@@ -176,7 +177,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
       .concurrently(publishWorkerStatusUpdatesToTopic(workerStatusUpdatesTopic))
       .concurrently(publishScanForVideosCommandsToTopic(scanVideosCommandTopic))
       .concurrently(cleanUpStaleScheduledVideoDownloads)
-      .concurrently(updateVideoWatchTimes(ChunkSize))
+      .concurrently(updateVideoWatchTimes)
       .concurrently(cleanUpStaleWorkers)
       .concurrently(updateWorkersAndScheduledVideoDownloads(workerStatusUpdatesTopic.subscribe(Int.MaxValue)))
       .concurrently {
@@ -234,48 +235,42 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
       releaseWorker(worker)
     )
 
-  private def updateVideoWatchTimes(minimumChunkSize: Long): Stream[F, Unit] =
-    httpMetricSubscriber
+  private val updateVideoWatchTimes: Stream[F, Unit] =
+    videoWatchMetricsSubscriber
       .subscribe("batch-scheduler")
       .evalTap {
-        case CommittableRecord(httpMetric, _) =>
-          httpMetric.contentType
-            .product(httpMetric.size)
-            .flatMap {
-              case (contentType, size) =>
-                if (contentType.isVideo && size >= minimumChunkSize)
-                  httpMetric.uri.path.segments.lastOption.map(lastSegment => (lastSegment.encoded, size))
-                else None
-            }
-            .fold(Applicative[F].unit) {
-              case (resourceId, size) =>
-                ApplicativeError[F, Throwable].handleErrorWith {
-                  batchVideoService
-                    .fetchByVideoFileResourceId(resourceId)
-                    .flatMap { video =>
-                      val watchDuration =
-                        FiniteDuration(
-                          math.round((size.toDouble / video.fileResource.size) * video.videoMetadata.duration.toMillis),
-                          TimeUnit.MILLISECONDS
-                        )
+        case CommittableRecord(videoWatchMetric: VideoWatchMetric, _) =>
+          batchVideoService
+            .fetchByVideoFileResourceId(videoWatchMetric.videoFileResourceId)
+            .flatMap { video =>
+              val watchDuration =
+                FiniteDuration(
+                  math.round(
+                    (videoWatchMetric.size.toDouble / video.fileResource.size) * video.videoMetadata.duration.toMillis
+                  ),
+                  TimeUnit.MILLISECONDS
+                )
 
-                      batchVideoService
-                        .incrementWatchTime(video.videoMetadata.id, watchDuration)
-                        .productR(Applicative[F].unit)
-                    }
-                } { throwable =>
-                  logger
-                    .error[F](s"Unable to update watch time for ${httpMetric.uri}", throwable)
+              batchVideoService
+                .incrementWatchTime(video.videoMetadata.id, watchDuration)
+                .productR {
+                  videoWatchHistoryService
+                    .addWatchHistory(
+                      videoWatchMetric.userId,
+                      video.videoMetadata.id,
+                      videoWatchMetric.timestamp,
+                      watchDuration
+                    )
                 }
             }
       }
       .groupWithin(20, 5 seconds)
       .evalMap { chunk =>
-        httpMetricSubscriber
+        videoWatchMetricsSubscriber
           .commit(chunk)
           .productR {
             logger.trace[F] {
-              s"HttpMetricSubscriber(groupId=batch-scheduler) committed ${chunk.size} messages"
+              s"VideoWatchMetricSubscriber(groupId=batch-scheduler) committed ${chunk.size} messages"
             }
           }
       }
