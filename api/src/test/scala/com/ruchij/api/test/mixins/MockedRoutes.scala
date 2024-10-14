@@ -12,7 +12,7 @@ import com.ruchij.api.web.Routes
 import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.messaging.models.HttpMetric
 import com.ruchij.core.services.scheduling.models.DownloadProgress
-import com.ruchij.core.services.video.VideoAnalysisService
+import com.ruchij.core.services.video.{VideoAnalysisService, VideoWatchHistoryService}
 import com.ruchij.core.types.JodaClock
 import fs2.Stream
 import fs2.compression.Compression
@@ -28,6 +28,7 @@ trait MockedRoutes[F[_]] extends MockFactory with OneInstancePerTest { self: Tes
   val videoAnalysisService: VideoAnalysisService[F] = mock[VideoAnalysisService[F]]
   val apiSchedulingService: ApiSchedulingService[F] = mock[ApiSchedulingService[F]]
   val assetService: AssetService[F] = mock[AssetService[F]]
+  val videoWatchHistoryService: VideoWatchHistoryService[F] = mock[VideoWatchHistoryService[F]]
   val healthService: HealthService[F] = mock[HealthService[F]]
   val authenticationService: AuthenticationService[F] = mock[AuthenticationService[F]]
   val downloadProgressStream: Stream[F, DownloadProgress] = Stream.empty
@@ -45,6 +46,7 @@ trait MockedRoutes[F[_]] extends MockFactory with OneInstancePerTest { self: Tes
       apiSchedulingService,
       playlistService,
       assetService,
+      videoWatchHistoryService,
       healthService,
       authenticationService,
       downloadProgressStream,
