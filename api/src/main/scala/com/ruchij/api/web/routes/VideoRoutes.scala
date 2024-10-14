@@ -7,12 +7,12 @@ import com.ruchij.api.services.models.Context.AuthenticatedRequestContext
 import com.ruchij.api.services.video.ApiVideoService
 import com.ruchij.api.services.video.models.VideoScanProgress
 import com.ruchij.api.web.requests.{VideoMetadataRequest, VideoMetadataUpdateRequest}
-import com.ruchij.api.web.requests.queryparams.SearchQuery
+import com.ruchij.api.web.requests.queryparams.{PagingQuery, SearchQuery}
 import com.ruchij.api.web.requests.RequestOps.ContextRequestOpsSyntax
 import com.ruchij.api.web.requests.queryparams.SingleValueQueryParameter.DeleteVideoFileQueryParameter
-import com.ruchij.core.services.video.VideoAnalysisService
+import com.ruchij.core.services.video.{VideoAnalysisService, VideoWatchHistoryService}
 import com.ruchij.core.circe.Encoders._
-import com.ruchij.api.web.responses.{IterableResponse, SearchResult, VideoScanProgressResponse}
+import com.ruchij.api.web.responses.{IterableResponse, ResultResponse, SearchResult, VideoScanProgressResponse}
 import com.ruchij.core.services.models.SortBy
 import com.ruchij.core.services.video.VideoAnalysisService.{Existing, NewlyCreated}
 import io.circe.generic.auto._
@@ -22,9 +22,11 @@ import org.http4s.circe._
 import org.http4s.dsl.Http4sDsl
 
 object VideoRoutes {
-  def apply[F[_]: Async](apiVideoService: ApiVideoService[F], videoAnalysisService: VideoAnalysisService[F])(
-    implicit dsl: Http4sDsl[F]
-  ): ContextRoutes[AuthenticatedRequestContext, F] = {
+  def apply[F[_]: Async](
+    apiVideoService: ApiVideoService[F],
+    videoAnalysisService: VideoAnalysisService[F],
+    videoWatchHistoryService: VideoWatchHistoryService[F]
+  )(implicit dsl: Http4sDsl[F]): ContextRoutes[AuthenticatedRequestContext, F] = {
     import dsl._
 
     ContextRoutes.of[AuthenticatedRequestContext, F] {
@@ -66,6 +68,17 @@ object VideoRoutes {
       case GET -> Root / "summary" as AuthenticatedRequestContext(user, _) if user.role == Admin =>
         apiVideoService.summary.flatMap(videoServiceSummary => Ok(videoServiceSummary))
 
+      case GET -> Root / "history" :? queryParameters as AuthenticatedRequestContext(user, _) =>
+        for {
+          pagingQuery <- PagingQuery.from[F].run(queryParameters)
+          videoWatchHistory <- videoWatchHistoryService.getWatchHistoryByUser(
+            user.id,
+            pagingQuery.pageSize,
+            pagingQuery.pageNumber
+          )
+          response <- Ok(ResultResponse(videoWatchHistory))
+        } yield response
+
       case POST -> Root / "scan" as AuthenticatedRequestContext(user, _) if user.role == Admin =>
         apiVideoService.scanForVideos
           .flatMap {
@@ -89,7 +102,10 @@ object VideoRoutes {
       case GET -> Root / "id" / videoId as AuthenticatedRequestContext(user, _) =>
         Ok(apiVideoService.fetchById(videoId, user.nonAdminUserId))
 
-      case DELETE -> Root / "id" / videoId :? DeleteVideoFileQueryParameter(deleteVideoFile) as AuthenticatedRequestContext(user, _) =>
+      case DELETE -> Root / "id" / videoId :? DeleteVideoFileQueryParameter(deleteVideoFile) as AuthenticatedRequestContext(
+            user,
+            _
+          ) =>
         Ok(apiVideoService.deleteById(videoId, user.nonAdminUserId, deleteVideoFile))
 
       case contextRequest @ PATCH -> Root / "id" / videoId / "metadata" as AuthenticatedRequestContext(user, _) =>

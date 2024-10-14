@@ -8,7 +8,7 @@ import com.ruchij.api.services.models.Context.AuthenticatedRequestContext
 import com.ruchij.api.services.playlist.PlaylistService
 import com.ruchij.api.web.requests.{CreatePlaylistRequest, FileAsset, UpdatePlaylistRequest}
 import com.ruchij.api.web.requests.RequestOps.ContextRequestOpsSyntax
-import com.ruchij.api.web.requests.queryparams.PagingQuery
+import com.ruchij.api.web.requests.queryparams.PagingAndSortingQuery
 import com.ruchij.api.web.requests.queryparams.QueryParameter.enumQueryParamDecoder
 import com.ruchij.api.web.requests.queryparams.SingleValueQueryParameter.SearchTermQueryParameter
 import com.ruchij.api.web.responses.PagingResponse
@@ -34,7 +34,7 @@ object PlaylistRoutes {
 
       case GET -> Root :? queryParameters as AuthenticatedRequestContext(user, _) =>
         for {
-          pageQuery <- PagingQuery.from[F, PlaylistSortBy].run(queryParameters)
+          pageQuery <- PagingAndSortingQuery.from[F, PlaylistSortBy].run(queryParameters)
           maybeSearchTerm <- SearchTermQueryParameter.parse[F].run(queryParameters)
 
           playlists <-

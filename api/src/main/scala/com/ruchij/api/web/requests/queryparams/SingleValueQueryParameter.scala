@@ -18,7 +18,7 @@ abstract class SingleValueQueryParameter[A: QueryParamDecoder](key: String, defa
 object SingleValueQueryParameter {
   case object PageNumberQueryParameter extends SingleValueQueryParameter(key = "page-number", defaultValue = 0)
 
-  case object PageSizeQueryParameter extends SingleValueQueryParameter(key = "page-size", defaultValue = 10)
+  case object PageSizeQueryParameter extends SingleValueQueryParameter(key = "page-size", defaultValue = 25)
 
   case object DurationRangeQueryParameter extends SingleValueQueryParameter[RangeValue[FiniteDuration]](key = "duration", defaultValue = RangeValue.all[FiniteDuration])
 

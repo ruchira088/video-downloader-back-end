@@ -40,6 +40,7 @@ import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.daos.snapshot.DoobieSnapshotDao
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
+import com.ruchij.core.daos.videowatchhistory.DoobieVideoWatchHistoryDao
 import com.ruchij.core.kv.keys.KeySpacedKeyEncoder.keySpacedKeyEncoder
 import com.ruchij.core.kv.{KeySpacedKeyValueStore, KeyValueStore, RedisKeyValueStore}
 import com.ruchij.core.logging.Logger
@@ -52,7 +53,7 @@ import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.renderer.SpaSiteRendererImpl
 import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
-import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, YouTubeVideoDownloaderImpl}
+import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, VideoWatchHistoryServiceImpl, YouTubeVideoDownloaderImpl}
 import com.ruchij.core.types.{JodaClock, RandomGenerator}
 import doobie.free.connection.ConnectionIO
 import doobie.hikari.HikariTransactor
@@ -248,6 +249,8 @@ object ApiApp extends IOApp {
 
     val fallbackApiService = new FallbackApiServiceImpl[F](client, apiServiceConfiguration.fallbackApiConfiguration)
 
+    val videoWatchHistoryService = new VideoWatchHistoryServiceImpl[F, ConnectionIO](DoobieVideoWatchHistoryDao)
+
     for {
       instanceId <- RandomGenerator[F, UUID].generate.map(_.toString)
 
@@ -281,6 +284,7 @@ object ApiApp extends IOApp {
         schedulingService,
         playlistService,
         assetService,
+        videoWatchHistoryService,
         healthService,
         authenticationService,
         backgroundService.downloadProgress,

@@ -2,7 +2,11 @@ package com.ruchij.api.web.requests.queryparams
 
 import cats.MonadThrow
 import cats.data.{Kleisli, NonEmptyList}
-import com.ruchij.api.web.requests.queryparams.MultiValueQueryParameter.{SchedulingStatusesQueryParameter, VideoSiteQueryParameter, VideoUrlsQueryParameter}
+import com.ruchij.api.web.requests.queryparams.MultiValueQueryParameter.{
+  SchedulingStatusesQueryParameter,
+  VideoSiteQueryParameter,
+  VideoUrlsQueryParameter
+}
 import com.ruchij.api.web.requests.queryparams.QueryParameter.{QueryParameters, enumQueryParamDecoder}
 import com.ruchij.api.web.requests.queryparams.SingleValueQueryParameter._
 import com.ruchij.core.daos.scheduling.models.{RangeValue, SchedulingStatus}
@@ -19,7 +23,7 @@ final case class SearchQuery(
   sizeRange: RangeValue[Long],
   urls: Option[NonEmptyList[Uri]],
   videoSites: Option[NonEmptyList[VideoSite]],
-  pagingQuery: PagingQuery[SortBy]
+  pagingAndSortingQuery: PagingAndSortingQuery[SortBy]
 )
 
 object SearchQuery {
@@ -31,7 +35,6 @@ object SearchQuery {
       schedulingStatuses <- SchedulingStatusesQueryParameter.parse[F]
       urls <- VideoUrlsQueryParameter.parse[F]
       videoSites <- VideoSiteQueryParameter.parse[F]
-      pageQuery <- PagingQuery.from[F, SortBy]
-    } yield
-      SearchQuery(searchTerm, schedulingStatuses, durationRange, sizeRange, urls, videoSites, pageQuery)
+      pageQuery <- PagingAndSortingQuery.from[F, SortBy]
+    } yield SearchQuery(searchTerm, schedulingStatuses, durationRange, sizeRange, urls, videoSites, pageQuery)
 }

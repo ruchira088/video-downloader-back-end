@@ -16,7 +16,7 @@ import com.ruchij.api.web.routes._
 import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.messaging.models.HttpMetric
 import com.ruchij.core.services.scheduling.models.DownloadProgress
-import com.ruchij.core.services.video.VideoAnalysisService
+import com.ruchij.core.services.video.{VideoAnalysisService, VideoWatchHistoryService}
 import com.ruchij.core.types.JodaClock
 import fs2.Stream
 import fs2.compression.Compression
@@ -34,6 +34,7 @@ object Routes {
     apiSchedulingService: ApiSchedulingService[F],
     playlistService: PlaylistService[F],
     assetService: AssetService[F],
+    videoWatchHistoryService: VideoWatchHistoryService[F],
     healthService: HealthService[F],
     authenticationService: AuthenticationService[F],
     downloadProgressStream: Stream[F, DownloadProgress],
@@ -50,7 +51,7 @@ object Routes {
           "/users" -> UserRoutes(userService, authenticationService),
           "/authentication" -> AuthenticationRoutes(authenticationService),
           "/schedule" -> authMiddleware(SchedulingRoutes(apiSchedulingService, downloadProgressStream)),
-          "/videos" -> authMiddleware(VideoRoutes(apiVideoService, videoAnalysisService)),
+          "/videos" -> authMiddleware(VideoRoutes(apiVideoService, videoAnalysisService, videoWatchHistoryService)),
           "/playlists" -> authMiddleware(PlaylistRoutes(playlistService)),
           "/assets" -> authMiddleware(AssetRoutes(assetService)),
           "/service" -> ServiceRoutes(healthService),
