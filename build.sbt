@@ -181,6 +181,8 @@ val mergeReleaseToMaster = { state: State =>
   updatedState
 }
 
+releaseIgnoreUntrackedFiles := true
+
 releaseProcess := Seq(
   ReleaseStep(verifyReleaseBranch),
   checkSnapshotDependencies,
