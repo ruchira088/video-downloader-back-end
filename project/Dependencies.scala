@@ -6,7 +6,7 @@ object Dependencies
   val Http4sVersion = "0.23.28"
   val CirceVersion = "0.14.10"
   val TestContainersVersion = "1.20.2"
-  val FlywayVersion = "10.19.0"
+  val FlywayVersion = "10.20.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -26,7 +26,7 @@ object Dependencies
 
   lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.7.1"
 
-  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.11.0"
+  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.11.1"
 
   lazy val circeGeneric = "io.circe" %% "circe-generic" % CirceVersion
 
@@ -56,7 +56,7 @@ object Dependencies
 
   lazy val h2 = "com.h2database" % "h2" % "2.3.232"
 
-  lazy val apacheTika = "org.apache.tika" % "tika-core" % "2.9.2"
+  lazy val apacheTika = "org.apache.tika" % "tika-core" % "3.0.0"
 
   lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.7.1"
 
@@ -72,7 +72,7 @@ object Dependencies
 
   lazy val postgresqlTestContainer = "org.testcontainers" % "postgresql" % TestContainersVersion
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.10"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.11"
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
 
