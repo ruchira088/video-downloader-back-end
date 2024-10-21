@@ -59,5 +59,5 @@ class VideoWatchHistoryServiceImpl[F[_]: Sync: RandomGenerator[*[_], UUID], G[_]
 }
 
 object VideoWatchHistoryServiceImpl {
-  private val SameVideoSessionDuration: FiniteDuration = FiniteDuration(30, TimeUnit.SECONDS)
+  private val SameVideoSessionDuration: FiniteDuration = FiniteDuration(5, TimeUnit.MINUTES)
 }
