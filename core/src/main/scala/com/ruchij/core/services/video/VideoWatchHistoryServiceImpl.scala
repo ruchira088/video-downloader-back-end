@@ -2,8 +2,7 @@ package com.ruchij.core.services.video
 
 import cats.data.OptionT
 import cats.effect.Concurrent
-import cats.effect.std.Semaphore
-import cats.implicits._
+import cats.implicits.{toFlatMapOps, toFunctorOps}
 import cats.{Monad, ~>}
 import com.ruchij.core.daos.video.VideoDao
 import com.ruchij.core.daos.videowatchhistory.VideoWatchHistoryDao
@@ -27,35 +26,27 @@ class VideoWatchHistoryServiceImpl[F[_]: Concurrent: RandomGenerator[*[_], UUID]
     transaction {
       videoWatchHistoryDao.findBy(userId, pageSize, pageNumber)
     }.flatMap { videoWatchHistoryItems =>
-        Semaphore[F](20).flatMap { semaphore =>
-          videoWatchHistoryItems
-            .traverse { videoWatchHistoryItem =>
-              Concurrent[F].start {
-                semaphore.permit
-                  .use { _ =>
-                    transaction {
-                      videoDao.findById(videoWatchHistoryItem.videoId, None)
-                    }
-                  }
-                  .map(maybeVideo => (videoWatchHistoryItem, maybeVideo))
-              }
-            }
-            .flatMap { fibers => fibers.traverse(fiber => fiber.join.flatMap(outcome => outcome.embedNever)) }
-            .map { watchedVideos =>
-              watchedVideos.flatMap {
-                case (videoWatchHistory, Some(video)) =>
-                  List {
-                    WatchedVideo(
-                      videoWatchHistory.userId,
-                      video,
-                      videoWatchHistory.createdAt,
-                      videoWatchHistory.lastUpdatedAt,
-                      videoWatchHistory.duration
-                    )
-                  }
+      Concurrent[F].parTraverseN(30)(videoWatchHistoryItems) {
+        videoWatchHistoryItem =>
+          transaction {
+            videoDao.findById(videoWatchHistoryItem.videoId, None)
+          }.map(maybeVideo => (videoWatchHistoryItem, maybeVideo))
+      }
+        .map {
+          watchedVideos =>
+            watchedVideos.flatMap {
+              case (videoWatchHistory, Some(video)) =>
+                List {
+                  WatchedVideo(
+                    videoWatchHistory.userId,
+                    video,
+                    videoWatchHistory.createdAt,
+                    videoWatchHistory.lastUpdatedAt,
+                    videoWatchHistory.duration
+                  )
+                }
 
-                case _ => List.empty
-              }
+              case _ => List.empty
             }
         }
       }
