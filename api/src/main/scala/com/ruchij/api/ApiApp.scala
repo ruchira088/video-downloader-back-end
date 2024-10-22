@@ -53,7 +53,12 @@ import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.renderer.SpaSiteRendererImpl
 import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
-import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, VideoWatchHistoryServiceImpl, YouTubeVideoDownloaderImpl}
+import com.ruchij.core.services.video.{
+  VideoAnalysisServiceImpl,
+  VideoServiceImpl,
+  VideoWatchHistoryServiceImpl,
+  YouTubeVideoDownloaderImpl
+}
 import com.ruchij.core.types.{JodaClock, RandomGenerator}
 import doobie.free.connection.ConnectionIO
 import doobie.hikari.HikariTransactor
@@ -82,21 +87,21 @@ object ApiApp extends IOApp {
       configObjectSource <- IO.delay(ConfigSource.defaultApplication)
       apiServiceConfiguration <- ApiServiceConfiguration.parse[IO](configObjectSource)
 
-      _ <-
-        create[IO](apiServiceConfiguration)
-          .flatMap { httpApp =>
-            EmberServerBuilder
-              .default[IO]
-              .withHttpApp(httpApp)
-              .withHost(apiServiceConfiguration.httpConfiguration.host)
-              .withPort(apiServiceConfiguration.httpConfiguration.port)
-              .build
-          }
-          .use(_ => IO.never)
-    }
-    yield ExitCode.Success
+      _ <- create[IO](apiServiceConfiguration)
+        .flatMap { httpApp =>
+          EmberServerBuilder
+            .default[IO]
+            .withHttpApp(httpApp)
+            .withHost(apiServiceConfiguration.httpConfiguration.host)
+            .withPort(apiServiceConfiguration.httpConfiguration.port)
+            .build
+        }
+        .use(_ => IO.never)
+    } yield ExitCode.Success
 
-  def create[F[_]: Async: JodaClock: Files: Compression](apiServiceConfiguration: ApiServiceConfiguration): Resource[F, HttpApp[F]] =
+  def create[F[_]: Async: JodaClock: Files: Compression](
+    apiServiceConfiguration: ApiServiceConfiguration
+  ): Resource[F, HttpApp[F]] =
     for {
       hikariTransactor <- DoobieTransactor.create[F](apiServiceConfiguration.databaseConfiguration)
 
@@ -249,7 +254,8 @@ object ApiApp extends IOApp {
 
     val fallbackApiService = new FallbackApiServiceImpl[F](client, apiServiceConfiguration.fallbackApiConfiguration)
 
-    val videoWatchHistoryService = new VideoWatchHistoryServiceImpl[F, ConnectionIO](DoobieVideoWatchHistoryDao)
+    val videoWatchHistoryService =
+      new VideoWatchHistoryServiceImpl[F, ConnectionIO](DoobieVideoWatchHistoryDao, DoobieVideoDao)
 
     for {
       instanceId <- RandomGenerator[F, UUID].generate.map(_.toString)
