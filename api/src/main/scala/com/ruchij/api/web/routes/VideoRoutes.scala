@@ -76,7 +76,7 @@ object VideoRoutes {
             pagingQuery.pageSize,
             pagingQuery.pageNumber
           )
-          response <- Ok(ResultResponse(videoWatchHistory))
+          response <- Ok(IterableResponse(videoWatchHistory))
         } yield response
 
       case POST -> Root / "scan" as AuthenticatedRequestContext(user, _) if user.role == Admin =>
