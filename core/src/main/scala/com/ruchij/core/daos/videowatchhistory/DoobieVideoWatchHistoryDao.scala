@@ -1,13 +1,43 @@
 package com.ruchij.core.daos.videowatchhistory
 
+import cats.data.NonEmptySeq
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
-import com.ruchij.core.daos.videowatchhistory.models.VideoWatchHistory
+import com.ruchij.core.daos.videowatchhistory.models.{DetailedVideoWatchHistory, VideoWatchHistory}
 import doobie.ConnectionIO
 import doobie.implicits._
+import doobie.util.fragment.Fragment
+import doobie.util.fragments.whereAnd
 import org.joda.time.DateTime
 
 object DoobieVideoWatchHistoryDao extends VideoWatchHistoryDao[ConnectionIO] {
+  private val SelectQuery =
+    fr"""
+       SELECT
+        video_watch_history.id,
+        video_watch_history.user_id,
+        video_metadata.url,
+        video_metadata.id,
+        video_metadata.video_site,
+        video_metadata.title,
+        video_metadata.duration,
+        video_metadata.size,
+        thumbnail.id, thumbnail.created_at, thumbnail.path, thumbnail.media_type, thumbnail.size,
+        video_file.id,
+        video_file.created_at,
+        video_file.path,
+        video_file.media_type,
+        video_file.size,
+        video.watch_time,
+        video_watch_history.created_at,
+        video_watch_history.last_updated_at,
+        video_watch_history.duration_in_ms
+      FROM video_watch_history
+        INNER JOIN video ON video_watch_history.video_id = video.video_metadata_id
+        INNER JOIN video_metadata ON video.video_metadata_id = video_metadata.id
+        INNER JOIN file_resource AS thumbnail ON video_metadata.thumbnail_id = thumbnail.id
+        INNER JOIN file_resource AS video_file ON video.file_resource_id = video_file.id
+    """
 
   override def insert(videoWatchHistory: VideoWatchHistory): ConnectionIO[Unit] =
     sql"""
@@ -22,23 +52,40 @@ object DoobieVideoWatchHistoryDao extends VideoWatchHistoryDao[ConnectionIO] {
           )
        """.update.run.one
 
-  override def findBy(userId: String, pageSize: Int, pageNumber: Int): ConnectionIO[List[VideoWatchHistory]] =
-    sql"""
-      SELECT id, user_id, video_id, created_at, last_updated_at, duration_in_ms
-        FROM video_watch_history WHERE user_id = $userId LIMIT $pageSize OFFSET ${pageNumber * pageSize}
-    """
-      .query[VideoWatchHistory]
+  private def find(
+    pageSize: Int,
+    pageNumber: Int,
+    whereFragments: NonEmptySeq[Fragment]
+  ): ConnectionIO[List[DetailedVideoWatchHistory]] =
+    (SelectQuery ++
+      whereAnd(whereFragments.head, whereFragments.tail: _*) ++
+      fr"""
+          ORDER BY video_watch_history.last_updated_at DESC
+            LIMIT $pageSize OFFSET ${pageNumber * pageSize}
+      """)
+      .query[DetailedVideoWatchHistory]
       .to[List]
 
-  override def findBy(userId: String, videoId: String): ConnectionIO[List[VideoWatchHistory]] =
-    sql"""
-      SELECT id, user_id, video_id, created_at, last_updated_at, duration_in_ms
-        FROM video_watch_history WHERE user_id = $userId AND video_id = $videoId
-    """
-      .query[VideoWatchHistory]
-      .to[List]
+  override def findBy(userId: String, pageSize: Int, pageNumber: Int): ConnectionIO[List[DetailedVideoWatchHistory]] =
+    find(pageSize, pageNumber, NonEmptySeq.one(fr"video_watch_history.user_id = $userId"))
 
-  override def findLastUpdatedAfter(userId: String, videoId: String, timestamp: DateTime): ConnectionIO[Option[VideoWatchHistory]] =
+  override def findBy(
+    userId: String,
+    videoId: String,
+    pageSize: Int,
+    pageNumber: Int
+  ): ConnectionIO[List[DetailedVideoWatchHistory]] =
+    find(
+      pageSize,
+      pageNumber,
+      NonEmptySeq(fr"video_watch_history.user_id = $userId", List(fr"video_watch_history.video_id = $videoId"))
+    )
+
+  override def findLastUpdatedAfter(
+    userId: String,
+    videoId: String,
+    timestamp: DateTime
+  ): ConnectionIO[Option[VideoWatchHistory]] =
     sql"""
       SELECT id, user_id, video_id, created_at, last_updated_at, duration_in_ms
         FROM video_watch_history WHERE user_id = $userId AND video_id = $videoId AND last_updated_at > $timestamp
@@ -57,8 +104,5 @@ object DoobieVideoWatchHistoryDao extends VideoWatchHistoryDao[ConnectionIO] {
           video_id = ${updatedVideoWatchHistory.videoId},
           duration_in_ms = ${updatedVideoWatchHistory.duration}
         WHERE id = ${updatedVideoWatchHistory.id}
-    """
-      .update
-      .run
-      .one
+    """.update.run.one
 }

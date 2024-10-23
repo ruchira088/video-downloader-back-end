@@ -1,14 +1,12 @@
 package com.ruchij.core.services.video
 
 import cats.data.OptionT
-import cats.effect.Concurrent
-import cats.implicits.{toFlatMapOps, toFunctorOps}
+import cats.effect.Sync
+import cats.implicits.toFlatMapOps
 import cats.{Monad, ~>}
-import com.ruchij.core.daos.video.VideoDao
 import com.ruchij.core.daos.videowatchhistory.VideoWatchHistoryDao
-import com.ruchij.core.daos.videowatchhistory.models.VideoWatchHistory
+import com.ruchij.core.daos.videowatchhistory.models.{DetailedVideoWatchHistory, VideoWatchHistory}
 import com.ruchij.core.services.video.VideoWatchHistoryServiceImpl.SameVideoSessionDuration
-import com.ruchij.core.services.video.models.WatchedVideo
 import com.ruchij.core.types.RandomGenerator
 import org.joda.time.DateTime
 
@@ -16,40 +14,19 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
-class VideoWatchHistoryServiceImpl[F[_]: Concurrent: RandomGenerator[*[_], UUID], G[_]: Monad](
-  videoWatchHistoryDao: VideoWatchHistoryDao[G],
-  videoDao: VideoDao[G]
+class VideoWatchHistoryServiceImpl[F[_]: Sync: RandomGenerator[*[_], UUID], G[_]: Monad](
+  videoWatchHistoryDao: VideoWatchHistoryDao[G]
 )(implicit transaction: G ~> F)
     extends VideoWatchHistoryService[F] {
 
-  override def getWatchHistoryByUser(userId: String, pageSize: Int, pageNumber: Int): F[List[WatchedVideo]] =
+  override def getWatchHistoryByUser(
+    userId: String,
+    pageSize: Int,
+    pageNumber: Int
+  ): F[List[DetailedVideoWatchHistory]] =
     transaction {
       videoWatchHistoryDao.findBy(userId, pageSize, pageNumber)
-    }.flatMap { videoWatchHistoryItems =>
-      Concurrent[F].parTraverseN(30)(videoWatchHistoryItems) {
-        videoWatchHistoryItem =>
-          transaction {
-            videoDao.findById(videoWatchHistoryItem.videoId, None)
-          }.map(maybeVideo => (videoWatchHistoryItem, maybeVideo))
-      }
-        .map {
-          watchedVideos =>
-            watchedVideos.flatMap {
-              case (videoWatchHistory, Some(video)) =>
-                List {
-                  WatchedVideo(
-                    videoWatchHistory.userId,
-                    video,
-                    videoWatchHistory.createdAt,
-                    videoWatchHistory.lastUpdatedAt,
-                    videoWatchHistory.duration
-                  )
-                }
-
-              case _ => List.empty
-            }
-        }
-      }
+    }
 
   override def addWatchHistory(
     userId: String,

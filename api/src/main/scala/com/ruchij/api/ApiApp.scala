@@ -255,7 +255,7 @@ object ApiApp extends IOApp {
     val fallbackApiService = new FallbackApiServiceImpl[F](client, apiServiceConfiguration.fallbackApiConfiguration)
 
     val videoWatchHistoryService =
-      new VideoWatchHistoryServiceImpl[F, ConnectionIO](DoobieVideoWatchHistoryDao, DoobieVideoDao)
+      new VideoWatchHistoryServiceImpl[F, ConnectionIO](DoobieVideoWatchHistoryDao)
 
     for {
       instanceId <- RandomGenerator[F, UUID].generate.map(_.toString)
