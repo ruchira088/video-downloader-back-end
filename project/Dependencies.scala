@@ -3,10 +3,10 @@ import sbt._
 object Dependencies
 {
   val ScalaVersion = "2.13.15"
-  val Http4sVersion = "0.23.28"
+  val Http4sVersion = "0.23.29"
   val CirceVersion = "0.14.10"
   val TestContainersVersion = "1.20.3"
-  val FlywayVersion = "10.20.0"
+  val FlywayVersion = "10.20.1"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -72,7 +72,7 @@ object Dependencies
 
   lazy val postgresqlTestContainer = "org.testcontainers" % "postgresql" % TestContainersVersion
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.11"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.12"
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
 
