@@ -8,7 +8,7 @@ from src.services.user.user_service import UserService, CognitoUserService, User
 
 user_blueprint = Blueprint('user', __name__, url_prefix='/user')
 
-user_service: UserService = CognitoUserService()
+user_service: UserService = None
 
 
 class UserSignupRequestSchema(Schema):

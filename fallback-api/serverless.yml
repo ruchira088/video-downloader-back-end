@@ -1,0 +1,56 @@
+# "org" ensures this Service is used with the correct Serverless Framework Access Key.
+org: marqo
+# "app" enables Serverless Framework Dashboard features and sharing them with other Services.
+app: fallback-api
+service: fallback-api
+
+package:
+  exclude:
+    - .venv/**
+    - node_modules/**
+    - .idea/**
+    - .git/**
+
+provider:
+  name: aws
+  region: ap-southeast-2
+  runtime: python3.12
+
+plugins:
+  - serverless-python-requirements
+  - serverless-wsgi
+
+custom:
+  wsgi:
+    app:  src/main.app
+
+stages:
+  default:
+    params:
+      prefix: ${sls:stage}
+
+functions:
+  api:
+    handler: wsgi_handler.handler
+    events:
+      - http:
+          path: /
+          method: ANY
+      - http:
+          path: /{proxy+}
+          method: ANY
+
+resources:
+  Resources:
+    UserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: ${param:prefix}-fallback-api
+
+    UserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        UserPoolId: !Ref UserPool
+        ClientName: ${param:prefix}-fallback-api-client
+        GenerateSecret: false
+

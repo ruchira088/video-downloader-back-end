@@ -3,7 +3,7 @@ from werkzeug.exceptions import Unauthorized
 
 from src.services.authentication_service import AuthenticationService
 
-authentication_service = AuthenticationService()
+authentication_service: AuthenticationService = None
 
 def authenticated(func):
     def inner(*args, **kwargs):

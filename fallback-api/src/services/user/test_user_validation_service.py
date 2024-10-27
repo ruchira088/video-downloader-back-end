@@ -1,7 +1,7 @@
 import unittest
 
 from src.config.VideoDownloaderConfiguration import VideoDownloaderConfiguration
-from src.services.user.user_service import VideoDownloaderUserValidationService
+from src.services.user.user_validation_service import VideoDownloaderUserValidationService
 
 
 class TestVideoDownloaderUserValidationService(unittest.TestCase):
