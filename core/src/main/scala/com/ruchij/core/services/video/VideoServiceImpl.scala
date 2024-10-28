@@ -8,12 +8,14 @@ import com.ruchij.core.daos.snapshot.SnapshotDao
 import com.ruchij.core.daos.snapshot.models.Snapshot
 import com.ruchij.core.daos.video.VideoDao
 import com.ruchij.core.daos.video.models.Video
+import com.ruchij.core.daos.videowatchhistory.VideoWatchHistoryDao
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.services.repository.RepositoryService
 
 class VideoServiceImpl[F[_]: Monad, G[_]: MonadThrow](
   repositoryService: RepositoryService[F],
   videoDao: VideoDao[G],
+  videoWatchHistoryDao: VideoWatchHistoryDao[G],
   snapshotDao: SnapshotDao[G],
   fileResourceDao: FileResourceDao[G]
 )(implicit transaction: G ~> F)
@@ -39,6 +41,7 @@ class VideoServiceImpl[F[_]: Monad, G[_]: MonadThrow](
                 .productR { snapshots.traverse(snapshot => fileResourceDao.deleteById(snapshot.fileResource.id)) }
             }
             .productL(videoDao.deleteById(videoId))
+            .productL(videoWatchHistoryDao.deleteBy(videoId))
             .productL(fileResourceDao.deleteById(video.fileResource.id))
             .map(snapshots => video -> snapshots)
         }

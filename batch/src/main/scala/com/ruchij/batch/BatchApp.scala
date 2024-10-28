@@ -142,6 +142,7 @@ object BatchApp extends IOApp {
           videoService = new VideoServiceImpl[F, ConnectionIO](
             repositoryService,
             DoobieVideoDao,
+            DoobieVideoWatchHistoryDao,
             DoobieSnapshotDao,
             DoobieFileResourceDao
           )

@@ -13,4 +13,6 @@ trait VideoWatchHistoryDao[F[_]] {
   def findLastUpdatedAfter(userId: String, videoId: String, timestamp: DateTime): F[Option[VideoWatchHistory]]
 
   def update(updatedVideoWatchHistory: VideoWatchHistory): F[Unit]
+
+  def deleteBy(videoId: String): F[Int]
 }

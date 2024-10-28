@@ -22,6 +22,7 @@ import com.ruchij.core.daos.snapshot.DoobieSnapshotDao
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata}
+import com.ruchij.core.daos.videowatchhistory.DoobieVideoWatchHistoryDao
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
 import com.ruchij.core.kv.{InMemoryKeyValueStore, KeySpacedKeyValueStore}
 import com.ruchij.core.messaging.inmemory.Fs2PubSub
@@ -132,8 +133,13 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFa
             )
           }
 
-          videoService =
-            new VideoServiceImpl[IO, ConnectionIO](repositoryService, DoobieVideoDao, DoobieSnapshotDao, DoobieFileResourceDao)
+          videoService = new VideoServiceImpl[IO, ConnectionIO](
+            repositoryService,
+            DoobieVideoDao,
+            DoobieVideoWatchHistoryDao,
+            DoobieSnapshotDao,
+            DoobieFileResourceDao
+          )
 
           videoId = "pornone-8685422022d86a13"
 

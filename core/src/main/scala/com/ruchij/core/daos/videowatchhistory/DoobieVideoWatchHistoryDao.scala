@@ -105,4 +105,7 @@ object DoobieVideoWatchHistoryDao extends VideoWatchHistoryDao[ConnectionIO] {
           duration_in_ms = ${updatedVideoWatchHistory.duration}
         WHERE id = ${updatedVideoWatchHistory.id}
     """.update.run.one
+
+  override def deleteBy(videoId: String): ConnectionIO[Int] =
+    sql"DELETE FROM video_watch_history WHERE video_id = $videoId".update.run
 }
