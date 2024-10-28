@@ -40,8 +40,8 @@ class VideoServiceImpl[F[_]: Monad, G[_]: MonadThrow](
                 .deleteByVideo(videoId)
                 .productR { snapshots.traverse(snapshot => fileResourceDao.deleteById(snapshot.fileResource.id)) }
             }
-            .productL(videoDao.deleteById(videoId))
             .productL(videoWatchHistoryDao.deleteBy(videoId))
+            .productL(videoDao.deleteById(videoId))
             .productL(fileResourceDao.deleteById(video.fileResource.id))
             .map(snapshots => video -> snapshots)
         }
