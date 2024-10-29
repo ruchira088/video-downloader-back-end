@@ -40,6 +40,7 @@
     docker buildx build \
       --push \
       --platform linux/arm64,linux/amd64 \
+      --no-cache \
       -t ghcr.io/ruchira088/video-downloader-{{ app_name }}:{{ git_branch }} \
       -t ghcr.io/ruchira088/video-downloader-{{ app_name }}:{{ git_branch }}-{{ git_commit }} \
       -f docker-output/Dockerfile-{{ app_name }} \

@@ -1,4 +1,4 @@
-FROM postgres:15.1
+FROM postgres:15.8
 
 LABEL org.opencontainers.image.source https://github.com/ruchira088/video-downloader-back-end
 
@@ -6,4 +6,4 @@ RUN apt update && \
     apt install python3-pip zip -y && \
     rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install --upgrade awscli
+RUN pip3 install --upgrade awscli --break-system-packages
