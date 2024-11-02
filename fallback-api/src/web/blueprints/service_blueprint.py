@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from flask import Blueprint, Response, jsonify
+from flask import Blueprint, jsonify
 
 service_blueprint = Blueprint('service', __name__, url_prefix='/service')
 
@@ -8,6 +8,5 @@ service_blueprint = Blueprint('service', __name__, url_prefix='/service')
 def info():
     return jsonify({
         'service_name': 'video-downloader-fallback-api',
-        'timestamp': datetime.now().isoformat(),
-        'status': 'ok',
+        'timestamp': datetime.now().isoformat()
     })

@@ -5,10 +5,12 @@ from flask import Blueprint, request, Response
 from marshmallow import Schema, fields, EXCLUDE
 
 from src.services.user.user_service import UserService, CognitoUserService, User
+from src.services.user.user_validation_service import UserValidationService
 
 user_blueprint = Blueprint('user', __name__, url_prefix='/user')
 
-user_service: UserService = None
+user_validation_service: UserValidationService = VideoDownloaderUserValidationService()
+user_service: UserService = CognitoUserService(user_validation_service)
 
 
 class UserSignupRequestSchema(Schema):

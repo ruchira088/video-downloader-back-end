@@ -97,7 +97,7 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
       """
         .update
         .run
-        .singleUpdate
+        .one
         .productR {
           sql"""
             UPDATE worker
@@ -114,7 +114,7 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
           """
             .update
             .run
-            .singleUpdate
+            .one
         }
         .productR {
           sql"""
@@ -123,10 +123,9 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
           """
             .update
             .run
-            .singleUpdate
+            .one
         }
-        .productR(OptionT(getById(workerId)))
-        .value
+        .productR(getById(workerId))
   }
 
   override def completeTask(
