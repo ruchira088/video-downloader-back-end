@@ -23,6 +23,8 @@ inThisBuild {
   )
 }
 
+Global / excludeLintKeys ++= Set(maintainer)
+
 lazy val migrationApplication =
   (project in file("./migration-application"))
     .enablePlugins(BuildInfoPlugin, JavaAppPackaging)
