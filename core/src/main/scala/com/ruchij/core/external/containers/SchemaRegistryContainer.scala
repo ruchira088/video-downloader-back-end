@@ -13,7 +13,7 @@ class SchemaRegistryContainer
 object SchemaRegistryContainer {
   private val Port = 8081
 
-  def create[F[_]: Sync](kafkaBootstrapHost: String, network: Network): Resource[F, Uri] =
+  def create[F[_]: Sync](kafkaBootstrapServers: String, network: Network): Resource[F, Uri] =
     Resource
       .eval {
         Sync[F].delay {
@@ -21,7 +21,7 @@ object SchemaRegistryContainer {
             .withNetwork(network)
             .withExposedPorts(Port)
             .withEnv("SCHEMA_REGISTRY_HOST_NAME", "localhost")
-            .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", s"$kafkaBootstrapHost:9092")
+            .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", kafkaBootstrapServers)
         }
       }
       .flatMap(schemaRegistryContainer => ContainerCoreResourcesProvider.start(schemaRegistryContainer))

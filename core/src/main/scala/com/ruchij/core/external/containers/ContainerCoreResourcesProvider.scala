@@ -5,7 +5,8 @@ import cats.implicits._
 import com.ruchij.core.config.{KafkaConfiguration, SpaSiteRendererConfiguration}
 import com.ruchij.core.external.CoreResourcesProvider
 import com.ruchij.migration.config.DatabaseConfiguration
-import org.testcontainers.containers.{GenericContainer, KafkaContainer, Network}
+import org.testcontainers.containers.{GenericContainer, Network}
+import org.testcontainers.kafka.ConfluentKafkaContainer
 import org.testcontainers.utility.DockerImageName
 
 class ContainerCoreResourcesProvider[F[_]: Sync]
@@ -13,16 +14,18 @@ class ContainerCoreResourcesProvider[F[_]: Sync]
   override val kafkaConfiguration: Resource[F, KafkaConfiguration] =
     for {
       network <- Resource.eval(Sync[F].delay(Network.newNetwork()))
+      kafkaNetworkAlias = "kafka"
 
-      kafkaContainer <- ContainerCoreResourcesProvider.start[F, KafkaContainer] {
-        new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.7.1"))
+      kafkaContainer <- ContainerCoreResourcesProvider.start[F, ConfluentKafkaContainer] {
+        new ConfluentKafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.7.1"))
           .withNetwork(network)
-          .withNetworkAliases("kafka")
+          .withNetworkAliases(kafkaNetworkAlias)
       }
+
+      schemaRegistryUrl <- SchemaRegistryContainer.create(s"$kafkaNetworkAlias:9093", network)
 
       kafkaBootstrapServers <- Resource.eval(Sync[F].delay(kafkaContainer.getBootstrapServers))
 
-      schemaRegistryUrl <- SchemaRegistryContainer.create("kafka", network)
     } yield KafkaConfiguration("local-dev", kafkaBootstrapServers, schemaRegistryUrl)
 
   override val databaseConfiguration: Resource[F, DatabaseConfiguration] =
