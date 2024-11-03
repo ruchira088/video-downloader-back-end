@@ -25,8 +25,7 @@ object ApiTestData {
       insertVideo(CoreTestData.YouTubeVideo),
       insertVideo(CoreTestData.LocalVideo),
       insertVideo(CoreTestData.SpankBangVideo)
-    )
-      .sequence
+    ).sequence
       .map(_.sum)
 
   private def insertVideo(video: Video): ConnectionIO[Int] =
@@ -35,7 +34,6 @@ object ApiTestData {
       DoobieVideoMetadataDao.insert(video.videoMetadata),
       DoobieFileResourceDao.insert(video.fileResource),
       DoobieVideoDao.insert(video.videoMetadata.id, video.fileResource.id, video.watchTime)
-    )
-      .sequence
+    ).sequence
       .map(_.sum)
 }

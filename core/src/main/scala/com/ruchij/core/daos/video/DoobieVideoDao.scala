@@ -34,25 +34,38 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
         video_file.path,
         video_file.media_type,
         video_file.size,
-        video.watch_time
+        video_watch_time.watch_time_in_ms
       FROM video
       INNER JOIN video_metadata ON video.video_metadata_id = video_metadata.id
       INNER JOIN file_resource AS thumbnail ON video_metadata.thumbnail_id = thumbnail.id
       INNER JOIN file_resource AS video_file ON video.file_resource_id = video_file.id
+      INNER JOIN video_watch_time ON video.video_metadata_id = video_watch_time.video_id
     """ ++ (
       if (hasUserId)
         fr"""
           INNER JOIN permission ON permission.video_id = video.video_metadata_id
           LEFT JOIN video_title ON video_title.video_id = video.video_metadata_id
-        """ else Fragment.empty
-      )
+        """
+      else Fragment.empty
+    )
 
-  override def insert(videoMetadataId: String, videoFileResourceId: String, finiteDuration: FiniteDuration): ConnectionIO[Int] =
+  override def insert(
+    videoMetadataId: String,
+    videoFileResourceId: String,
+    finiteDuration: FiniteDuration
+  ): ConnectionIO[Int] =
     sql"""
-        INSERT INTO video (video_metadata_id, file_resource_id, watch_time)
-            VALUES ($videoMetadataId, $videoFileResourceId, ${finiteDuration.toMillis})
-    """
-      .update.run
+        INSERT INTO video (video_metadata_id, file_resource_id)
+            VALUES ($videoMetadataId, $videoFileResourceId)
+    """.update.run.flatMap {
+      result =>
+        sql"""
+         INSERT INTO video_watch_time (video_id, watch_time_in_ms)
+            VALUES ($videoMetadataId, $finiteDuration)
+           """
+          .update
+          .run.map(_ + result)
+    }
 
   override def search(
     term: Option[String],
@@ -99,7 +112,7 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
   private val videoSortByFieldName: SortBy => Fragment =
     sortByFieldName.orElse {
       case SortBy.Date => fr"video.created_at"
-      case SortBy.WatchTime => fr"video.watch_time"
+      case SortBy.WatchTime => fr"video_watch_time.watch_time_in_ms"
       case _ => fr"RANDOM()"
     }
 
@@ -109,20 +122,17 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
   override def findByVideoPath(videoPath: String): ConnectionIO[Option[Video]] =
     (selectQuery(false) ++ fr"WHERE video_file.path = $videoPath").query[Video].option
 
-  override def incrementWatchTime(videoId: String, finiteDuration: FiniteDuration): ConnectionIO[Option[FiniteDuration]] =
-    sql"UPDATE video SET watch_time = watch_time + $finiteDuration WHERE video_metadata_id = $videoId"
-      .update
-      .run
-      .singleUpdate
-      .semiflatMap {
-        _ => sql"SELECT watch_time FROM video WHERE video_metadata_id = $videoId".query[FiniteDuration].unique
-      }
-      .value
+  override def incrementWatchTime(
+    videoId: String,
+    finiteDuration: FiniteDuration
+  ): ConnectionIO[Option[FiniteDuration]] =
+    sql"UPDATE video_watch_time SET watch_time_in_ms = watch_time_in_ms + $finiteDuration WHERE video_id = $videoId".update.run.singleUpdate.semiflatMap {
+      _ =>
+        sql"SELECT watch_time_in_ms FROM video_watch_time WHERE video_id = $videoId".query[FiniteDuration].unique
+    }.value
 
   override def deleteById(videoId: String): ConnectionIO[Int] =
-    sql"DELETE FROM video WHERE video_metadata_id = $videoId"
-      .update
-      .run
+    sql"DELETE FROM video WHERE video_metadata_id = $videoId".update.run
 
   override def hasVideoFilePermission(videoFileResourceId: String, userId: String): ConnectionIO[Boolean] =
     sql"""

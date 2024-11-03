@@ -28,7 +28,7 @@ object DoobieVideoWatchHistoryDao extends VideoWatchHistoryDao[ConnectionIO] {
         video_file.path,
         video_file.media_type,
         video_file.size,
-        video.watch_time,
+        video_watch_time.watch_time_in_ms,
         video_watch_history.created_at,
         video_watch_history.last_updated_at,
         video_watch_history.duration_in_ms
@@ -37,6 +37,7 @@ object DoobieVideoWatchHistoryDao extends VideoWatchHistoryDao[ConnectionIO] {
         INNER JOIN video_metadata ON video.video_metadata_id = video_metadata.id
         INNER JOIN file_resource AS thumbnail ON video_metadata.thumbnail_id = thumbnail.id
         INNER JOIN file_resource AS video_file ON video.file_resource_id = video_file.id
+        INNER JOIN video_watch_time ON video_watch_history.video_id = video_watch_time.video_id
     """
 
   override def insert(videoWatchHistory: VideoWatchHistory): ConnectionIO[Unit] =
