@@ -134,7 +134,7 @@ services:
       HASHED_ADMIN_PASSWORD: "$$2a$$10$$m5CQAirrrJKRqG3oalNSU.TUOn56v88isxMbNPi8cXXI35gY20hO."
 
   postgres-main:
-    image: postgres:16
+    image: postgres:15.2
 #    command: ["postgres", "-c", "log_statement=all"]
     healthcheck:
       test: "pg_isready -U admin -d video-downloader"
@@ -214,6 +214,8 @@ services:
     depends_on:
       schema-registry:
         condition: service_healthy
+    env_file:
+      - .kpow.env
     environment:
       BOOTSTRAP: kafka-broker:29092
       SCHEMA_REGISTRY_URL: http://schema-registry:8081

@@ -18,3 +18,5 @@ video-downloader.mv.db
 video-downloader.trace.db
 
 *.log
+
+.kpow.env
