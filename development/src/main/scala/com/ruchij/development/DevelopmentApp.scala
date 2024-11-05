@@ -50,7 +50,6 @@ object DevelopmentApp extends IOApp {
     redisConfiguration: RedisConfiguration,
     kafkaConfiguration: KafkaConfiguration,
     spaSiteRendererConfiguration: SpaSiteRendererConfiguration,
-    fallbackApiConfiguration: FallbackApiConfiguration
   ): ApiServiceConfiguration =
     ApiServiceConfiguration(
       HttpConfig,
@@ -59,8 +58,7 @@ object DevelopmentApp extends IOApp {
       redisConfiguration,
       AuthenticationConfig,
       kafkaConfiguration,
-      spaSiteRendererConfiguration,
-      fallbackApiConfiguration
+      spaSiteRendererConfiguration
     )
 
   private def batchConfig(
@@ -112,7 +110,6 @@ object DevelopmentApp extends IOApp {
       kafkaConfig <- externalApiServiceProvider.kafkaConfiguration
       databaseConfig <- externalApiServiceProvider.databaseConfiguration
       spaSiteRendererConfig <- externalApiServiceProvider.spaSiteRendererConfiguration
-      fallbackApiConfig <- externalApiServiceProvider.fallbackApiConfiguration
 
       _ <- Resource.eval {
         MigrationApp.migration[F](
@@ -120,7 +117,7 @@ object DevelopmentApp extends IOApp {
         )
       }
 
-      api <- ApiApp.create[F](apiConfig(databaseConfig, redisConfig, kafkaConfig, spaSiteRendererConfig, fallbackApiConfig))
+      api <- ApiApp.create[F](apiConfig(databaseConfig, redisConfig, kafkaConfig, spaSiteRendererConfig))
       batch <- BatchApp.program[F](batchConfig(databaseConfig, kafkaConfig, spaSiteRendererConfig))
     } yield (api, batch)
 

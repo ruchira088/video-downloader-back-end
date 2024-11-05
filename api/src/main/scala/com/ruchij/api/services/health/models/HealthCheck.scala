@@ -8,7 +8,6 @@ final case class HealthCheck(
   keyValueStore: HealthStatus,
   pubSub: HealthStatus,
   spaRenderer: HealthStatus,
-  fallbackApi: HealthStatus,
   internetConnectivity: HealthStatus
 ) { self =>
   val isHealthy: Boolean =

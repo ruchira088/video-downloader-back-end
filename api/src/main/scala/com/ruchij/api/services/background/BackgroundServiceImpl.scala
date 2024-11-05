@@ -3,11 +3,8 @@ package com.ruchij.api.services.background
 import cats.effect.kernel.Async
 import cats.effect.{Concurrent, Fiber, Sync}
 import cats.implicits._
-import com.ruchij.api.services.fallback.FallbackApiService
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.api.services.scheduling.ApiSchedulingService
-import com.ruchij.api.services.scheduling.models.ScheduledVideoResult
-import com.ruchij.api.services.user.UserService
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Subscriber
@@ -22,8 +19,6 @@ import scala.reflect.{ClassTag, classTag}
 
 class BackgroundServiceImpl[F[_]: Async, M[_]](
   apiSchedulingService: ApiSchedulingService[F],
-  fallbackApiService: FallbackApiService[F],
-  userService: UserService[F],
   downloadProgressSubscriber: Subscriber[F, CommittableRecord[M, *], DownloadProgress],
   downloadProgressTopic: Topic[F, DownloadProgress],
   healthCheckSubscriber: Subscriber[F, CommittableRecord[M, *], HealthCheckMessage],
@@ -46,20 +41,6 @@ class BackgroundServiceImpl[F[_]: Async, M[_]](
 
   private val publishToDownloadProgressTopic: Stream[F, Unit] =
     publishToTopic(downloadProgressSubscriber, downloadProgressTopic)
-
-  private val persistFallbackApiScheduledUrls: Stream[F, ScheduledVideoResult] =
-    fallbackApiService.scheduledUrls.evalMap { scheduledUrl =>
-      fallbackApiService.userInformation(scheduledUrl.userId)
-        .flatMap { userInformation => userService.getByEmail(userInformation.email) }
-        .flatMap { user => apiSchedulingService.schedule(scheduledUrl.url, user.id) }
-        .productL(fallbackApiService.commit(scheduledUrl.id))
-    }
-      .handleErrorWith { throwable =>
-        Stream.eval {
-          logger.error[F]("Error occurred when fetching scheduled video URLs from Fallback API", throwable)
-        }
-          .productR(Stream.empty)
-      }
 
   private def publishToTopic[A: ClassTag](subscriber: Subscriber[F, CommittableRecord[M, *], A], topic: Topic[F, A]): Stream[F, Unit] =
     subscriber
@@ -106,7 +87,6 @@ class BackgroundServiceImpl[F[_]: Async, M[_]](
       publishToDownloadProgressTopic
         .concurrently(updateScheduledVideoDownloads)
         .concurrently(publishToHealthCheckTopic)
-        .concurrently(persistFallbackApiScheduledUrls)
         .compile
         .drain
     }
@@ -115,8 +95,6 @@ class BackgroundServiceImpl[F[_]: Async, M[_]](
 object BackgroundServiceImpl {
   def create[F[_]: Async, M[_]](
     apiSchedulingService: ApiSchedulingService[F],
-    fallbackApiService: FallbackApiService[F],
-    userService: UserService[F],
     downloadProgressSubscriber: Subscriber[F, CommittableRecord[M, *], DownloadProgress],
     healthCheckSubscriber: Subscriber[F, CommittableRecord[M, *], HealthCheckMessage],
     subscriberGroupId: String
@@ -127,8 +105,6 @@ object BackgroundServiceImpl {
         case (downloadProgressTopic, healthCheckTopic) =>
           new BackgroundServiceImpl[F, M](
             apiSchedulingService,
-            fallbackApiService,
-            userService,
             downloadProgressSubscriber,
             downloadProgressTopic,
             healthCheckSubscriber,

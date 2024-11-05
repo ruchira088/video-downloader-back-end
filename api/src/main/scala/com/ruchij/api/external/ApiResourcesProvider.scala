@@ -1,7 +1,6 @@
 package com.ruchij.api.external
 
 import cats.effect.Resource
-import com.ruchij.api.config.FallbackApiConfiguration
 import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration}
 import com.ruchij.core.external.CoreResourcesProvider
 import com.ruchij.migration.config.DatabaseConfiguration
@@ -19,6 +18,4 @@ trait ApiResourcesProvider[F[_]] extends CoreResourcesProvider[F] {
     externalCoreServiceProvider.spaSiteRendererConfiguration
 
   val redisConfiguration: Resource[F, RedisConfiguration]
-
-  val fallbackApiConfiguration: Resource[F, FallbackApiConfiguration]
 }

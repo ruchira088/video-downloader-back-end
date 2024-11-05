@@ -6,7 +6,6 @@ import cats.effect.{Clock, Concurrent}
 import cats.implicits._
 import cats.~>
 import com.eed3si9n.ruchij.api.BuildInfo
-import com.ruchij.api.config.FallbackApiConfiguration
 import com.ruchij.api.services.health.models.kv.HealthCheckKey
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.api.services.health.models.{HealthCheck, HealthStatus, ServiceInformation}
@@ -37,8 +36,7 @@ class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
   healthCheckPublisher: Publisher[F, HealthCheckMessage],
   client: Client[F],
   storageConfiguration: StorageConfiguration,
-  spaSiteRendererConfiguration: SpaSiteRendererConfiguration,
-  fallbackApiConfiguration: FallbackApiConfiguration
+  spaSiteRendererConfiguration: SpaSiteRendererConfiguration
 )(implicit transaction: ConnectionIO ~> F)
     extends HealthService[F] {
 
@@ -115,11 +113,6 @@ class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
       .status(GET(spaSiteRendererConfiguration.uri.withPath(Path.Root / "service" / "health-check")))
       .map(httpStatusHealthCheck)
 
-  private val fallbackApiCheck: F[HealthStatus] =
-    client
-      .status(GET(fallbackApiConfiguration.uri.withPath(Path.Root / "service" / "health")))
-      .map(httpStatusHealthCheck)
-
   private val internetConnectivityCheck: F[HealthStatus] =
     client
       .status(GET(HealthService.ConnectivityUrl))
@@ -164,7 +157,6 @@ class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
       pubSubStatusFiber <- Concurrent[F].start(check(pubSubCheck))
       internetConnectivityStatusFiber <- Concurrent[F].start(check(internetConnectivityCheck))
       spaRendererStatusFiber <- Concurrent[F].start(check(spaRendererCheck))
-      fallbackApiStatusFiber <- Concurrent[F].start(check(fallbackApiCheck))
 
       databaseStatus <- databaseStatusFiber.joinWithNever
       fileRepositoryStatus <- fileRepositoryStatusFiber.joinWithNever
@@ -172,7 +164,6 @@ class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
       pubSubStatus <- pubSubStatusFiber.joinWithNever
       internetConnectivityStatus <- internetConnectivityStatusFiber.joinWithNever
       spaRendererStatus <- spaRendererStatusFiber.joinWithNever
-      fallbackApiStatus <- fallbackApiStatusFiber.joinWithNever
     } yield
       HealthCheck(
         databaseStatus,
@@ -180,7 +171,6 @@ class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
         keyValueStoreStatus,
         pubSubStatus,
         spaRendererStatus,
-        fallbackApiStatus,
         internetConnectivityStatus
       )
 }

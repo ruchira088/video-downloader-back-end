@@ -3,7 +3,6 @@ package com.ruchij.api.external.embedded
 import cats.effect.Resource
 import cats.effect.kernel.Sync
 import cats.implicits._
-import com.ruchij.api.config.FallbackApiConfiguration
 import com.ruchij.api.external.ApiResourcesProvider
 import com.ruchij.api.external.containers.ContainerApiResourcesProvider
 import com.ruchij.core.config.{RedisConfiguration, SpaSiteRendererConfiguration}
@@ -33,7 +32,4 @@ class EmbeddedApiResourcesProvider[F[_]: Sync] extends ApiResourcesProvider[F] {
           }
           .as(RedisConfiguration("localhost", port, None))
       }
-
-  override val fallbackApiConfiguration: Resource[F, FallbackApiConfiguration] =
-    containerExternalApiServiceProvider.fallbackApiConfiguration
 }

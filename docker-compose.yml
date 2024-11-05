@@ -21,8 +21,6 @@ services:
         condition: service_healthy
       front-end-3:
         condition: service_healthy
-      fallback-api:
-        condition: service_healthy
     ports:
       - 443:443
       - 80:80
@@ -65,11 +63,8 @@ services:
       KAFKA_BROKERS: "kafka-broker:29092"
       SCHEMA_REGISTRY: "http://schema-registry:8081"
       SPA_SITE_RENDERER: "http://spa-renderer:8000"
-      FALLBACK_API_URL: "http://fallback-api:8080"
-      FALLBACK_API_BEARER_TOKEN: "my-secret-token"
       VIDEO_FOLDER: "/opt/videos"
       IMAGE_FOLDER: "/opt/images"
-      FALLBACK_API_POLL_INTERVAL: "30 seconds"
 
   api-2:
     *api-app
@@ -126,26 +121,6 @@ services:
     volumes:
       - "./docker-compose/scripts:/opt/scripts"
 
-  fallback-api:
-    image: ghcr.io/ruchira088/video-downloader-fallback-api:main
-    healthcheck:
-      test: "/opt/scripts/wait-for-it.sh localhost:8080"
-      start_period: 10s
-      interval: 10s
-      timeout: 5s
-    depends_on:
-      postgres-secondary:
-        condition: service_healthy
-    volumes:
-      - "./docker-compose/scripts:/opt/scripts"
-    environment:
-      ADMIN_BEARER_TOKEN: "my-secret-token"
-      # The password is "top-secret"
-      HASHED_ADMIN_PASSWORD: "$$2a$$10$$m5CQAirrrJKRqG3oalNSU.TUOn56v88isxMbNPi8cXXI35gY20hO."
-      DATABASE_URL: "jdbc:postgresql://postgres-secondary:5432/fallback-api"
-      DATABASE_USER: "admin"
-      DATABASE_PASSWORD: "password"
-
   migration-application:
     image: ghcr.io/ruchira088/video-downloader-migration-application:dev
     depends_on:
@@ -170,21 +145,6 @@ services:
       - 5432:5432
     environment:
       POSTGRES_DB: "video-downloader"
-      POSTGRES_USER: "admin"
-      POSTGRES_PASSWORD: "password"
-
-  postgres-secondary:
-    image: postgres:16
-    command: ["postgres", "-c", "log_statement=all"]
-    healthcheck:
-      test: "pg_isready -U admin -d fallback-api"
-      start_period: 10s
-      interval: 10s
-      timeout: 5s
-    ports:
-      - 5431:5432
-    environment:
-      POSTGRES_DB: "fallback-api"
       POSTGRES_USER: "admin"
       POSTGRES_PASSWORD: "password"
 
