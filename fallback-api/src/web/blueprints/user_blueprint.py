@@ -2,20 +2,19 @@ import json
 from dataclasses import dataclass
 
 from flask import Blueprint, request, Response
-from marshmallow import Schema, fields, EXCLUDE
+from pydantic import BaseModel, EmailStr
 
 from src.services.user.user_service import UserService, CognitoUserService, User
-from src.services.user.user_validation_service import UserValidationService
+from src.services.user.user_validation_service import UserValidationService, get_user_validation_service
 
 user_blueprint = Blueprint('user', __name__, url_prefix='/user')
 
-user_validation_service: UserValidationService = VideoDownloaderUserValidationService()
+user_validation_service: UserValidationService = get_user_validation_service()
 user_service: UserService = CognitoUserService(user_validation_service)
 
-
-class UserSignupRequestSchema(Schema):
-    email = fields.Email(required=True)
-    password = fields.Str(required=True)
+class UserSignupRequest(BaseModel):
+    email: EmailStr
+    password: str
 
 
 @dataclass
@@ -28,7 +27,7 @@ class UserResponse:
 
 @user_blueprint.post('/')
 def sign_up():
-    user_signup_request = UserSignupRequestSchema().load(request.json, unknown=EXCLUDE)
+    user_signup_request = UserSignupRequest.model_validate_json(request.json)
     user: User = user_service.create_user(user_signup_request['email'], user_signup_request['password'])
 
     return Response(

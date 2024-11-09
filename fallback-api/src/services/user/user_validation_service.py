@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 
 import requests
+from pyparsing import ParseResults
 
 from src.config.VideoDownloaderConfiguration import VideoDownloaderConfiguration
 from src.services.user.user_service import User
@@ -60,3 +61,6 @@ class VideoDownloaderUserValidationService(UserValidationService):
             first_name=first_name,
             last_name=last_name,
         )
+
+def get_user_validation_service(parse_results: ParseResults) -> UserValidationService:
+    pass

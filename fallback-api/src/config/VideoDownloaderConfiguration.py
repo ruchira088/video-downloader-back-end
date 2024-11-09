@@ -1,6 +1,16 @@
 from dataclasses import dataclass
 
+from pyparsing import ParseResults
+
 
 @dataclass
 class VideoDownloaderConfiguration:
     url: str
+
+    @classmethod
+    def parse(cls, parse_results: ParseResults) -> 'VideoDownloaderConfiguration':
+        config = parse_results.get_config['video-downloader']
+        url = config['url']
+
+        video_downloader_configuration = VideoDownloaderConfiguration(url)
+        return video_downloader_configuration
