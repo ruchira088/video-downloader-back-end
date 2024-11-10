@@ -15,8 +15,8 @@ class UserValidationService(ABC):
 
 
 class VideoDownloaderUserValidationService(UserValidationService):
-    def __init__(self, video_downloader_configuration: VideoDownloaderConfiguration):
-        self._video_downloader_configuration = video_downloader_configuration
+    def __init__(self, video_downloader_api_url: str):
+        self._video_downloader_api_url = video_downloader_api_url
 
     def get_user(self, email: str, password: str) -> User:
         auth_token = self._authenticate(email, password)
@@ -26,7 +26,7 @@ class VideoDownloaderUserValidationService(UserValidationService):
 
     def _authenticate(self, email: str, password: str) -> str:
         response = requests.post(
-            f'{self._video_downloader_configuration.url}/authentication/login',
+            f'{self._video_downloader_api_url}/authentication/login',
             json={
                 'email': email,
                 'password': password
@@ -39,7 +39,7 @@ class VideoDownloaderUserValidationService(UserValidationService):
 
     def _logout(self, auth_token: str) -> User:
         response = requests.delete(
-            f'{self._video_downloader_configuration.url}/authentication/logout',
+            f'{self._video_downloader_api_url}/authentication/logout',
             headers={
                 'Authorization': f'Bearer {auth_token}'
             }
@@ -63,4 +63,7 @@ class VideoDownloaderUserValidationService(UserValidationService):
         )
 
 def get_user_validation_service(parse_results: ParseResults) -> UserValidationService:
-    pass
+    video_downloader_configuration = VideoDownloaderConfiguration.parse(parse_results)
+    user_validation_service = VideoDownloaderUserValidationService(video_downloader_configuration.url)
+
+    return user_validation_service

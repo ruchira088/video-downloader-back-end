@@ -4,7 +4,7 @@ from flask import Blueprint, jsonify
 
 service_blueprint = Blueprint('service', __name__, url_prefix='/service')
 
-@service_blueprint.route('/info')
+@service_blueprint.get('/info')
 def info():
     return jsonify({
         'service_name': 'video-downloader-fallback-api',
