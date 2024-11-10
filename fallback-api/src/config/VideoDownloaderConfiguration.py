@@ -9,8 +9,8 @@ class VideoDownloaderConfiguration:
 
     @classmethod
     def parse(cls, parse_results: ParseResults) -> 'VideoDownloaderConfiguration':
-        config = parse_results.get_config['video-downloader']
-        url = config['url']
+        config = parse_results['video-downloader']
+        url: str = config['url']
 
         video_downloader_configuration = VideoDownloaderConfiguration(url)
         return video_downloader_configuration
