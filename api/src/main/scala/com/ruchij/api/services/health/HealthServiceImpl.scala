@@ -84,8 +84,9 @@ class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
               }
             }
             .filter {
-              case HealthCheckMessage(instanceId, messageDateTime) =>
-                instanceId == instanceId && dateTime.isEqual(messageDateTime)
+              healthCheckMessage =>
+                healthCheckMessage.instanceId == instanceId &&
+                  dateTime.isEqual(healthCheckMessage.dateTime)
             }
             .take(10)
             .compile
