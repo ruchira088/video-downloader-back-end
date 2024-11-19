@@ -132,7 +132,9 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
     }.value
 
   override def deleteById(videoId: String): ConnectionIO[Int] =
-    sql"DELETE FROM video WHERE video_metadata_id = $videoId".update.run
+    sql"DELETE FROM video_watch_time WHERE video_id = $videoId".update.run.flatMap {
+      count => sql"DELETE FROM video WHERE video_metadata_id = $videoId".update.run.map(_ + count)
+    }
 
   override def hasVideoFilePermission(videoFileResourceId: String, userId: String): ConnectionIO[Boolean] =
     sql"""
