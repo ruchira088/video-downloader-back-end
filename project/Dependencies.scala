@@ -16,7 +16,7 @@ object Dependencies
 
   lazy val http4sJdkHttpClient = "org.http4s" %% "http4s-jdk-http-client" % "0.9.2"
 
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.5"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.6"
 
   lazy val kafka = "org.apache.kafka" %% "kafka" % "7.7.1-ccs"
 
