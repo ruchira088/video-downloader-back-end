@@ -5,8 +5,8 @@ object Dependencies
   val ScalaVersion = "2.13.15"
   val Http4sVersion = "0.23.29"
   val CirceVersion = "0.14.10"
-  val TestContainersVersion = "1.20.3"
-  val FlywayVersion = "10.21.0"
+  val TestContainersVersion = "1.20.4"
+  val FlywayVersion = "11.0.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -46,7 +46,7 @@ object Dependencies
 
   lazy val jodaTime = "joda-time" % "joda-time" % "2.13.0"
 
-  lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.7"
+  lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.8"
 
   lazy val flywayCore = "org.flywaydb" % "flyway-core" % FlywayVersion
 
