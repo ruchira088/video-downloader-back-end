@@ -23,7 +23,7 @@ class CognitoContainer(DockerContainer):
 
         return self
 
-    def created_cognito_client(self) -> str:
+    def create_cognito_client(self) -> str:
         cognito_client = boto3.client('cognito-idp', endpoint_url=self.url)
 
         user_pool_creation_response = cognito_client.create_user_pool(PoolName='fallback-api-user-pool')
