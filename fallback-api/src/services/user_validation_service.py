@@ -2,10 +2,11 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 
 import requests
+from pydantic import HttpUrl
 from pyparsing import ParseResults
 
 from src.config.VideoDownloaderConfiguration import VideoDownloaderConfiguration
-from src.services.user.user_service import User
+from src.services.models.user import User
 
 
 class UserValidationService(ABC):
@@ -15,7 +16,7 @@ class UserValidationService(ABC):
 
 
 class VideoDownloaderUserValidationService(UserValidationService):
-    def __init__(self, video_downloader_api_url: str):
+    def __init__(self, video_downloader_api_url: HttpUrl):
         self._video_downloader_api_url = video_downloader_api_url
 
     def get_user(self, email: str, password: str) -> User:

@@ -1,11 +1,11 @@
-from dataclasses import dataclass
 from datetime import datetime
 
+from pydantic import EmailStr, BaseModel
 
-@dataclass
-class User:
+
+class User(BaseModel):
     id: str
     created_at: datetime
-    email: str
+    email: EmailStr
     first_name: str
     last_name: str

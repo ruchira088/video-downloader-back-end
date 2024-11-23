@@ -4,8 +4,8 @@ import boto3
 from pyparsing import ParseResults
 
 from src.config.AwsCognitoConfiguration import AwsCognitoConfiguration
-from src.services.user.models.user import User
-from src.services.user.user_validation_service import UserValidationService, get_user_validation_service
+from src.services.models.user import User
+from src.services.user_validation_service import UserValidationService, get_user_validation_service
 
 
 class UserService(ABC):

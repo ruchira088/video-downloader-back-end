@@ -1,16 +1,14 @@
-from dataclasses import dataclass
-
+from pydantic import BaseModel, HttpUrl
 from pyparsing import ParseResults
 
 
-@dataclass
-class VideoDownloaderConfiguration:
-    url: str
+class VideoDownloaderConfiguration(BaseModel):
+    url: HttpUrl
 
     @classmethod
     def parse(cls, parse_results: ParseResults) -> 'VideoDownloaderConfiguration':
         config = parse_results['video-downloader']
-        url: str = config['url']
+        url: HttpUrl = config['url']
 
-        video_downloader_configuration = VideoDownloaderConfiguration(url)
+        video_downloader_configuration = VideoDownloaderConfiguration(url=url)
         return video_downloader_configuration

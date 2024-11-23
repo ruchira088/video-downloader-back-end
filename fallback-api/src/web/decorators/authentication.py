@@ -1,9 +1,9 @@
 from flask import request
 from werkzeug.exceptions import Unauthorized
 
-from src.services.authentication_service import AuthenticationService
+from src.services.authentication_service import AuthenticationService, get_authentication_service
 
-authentication_service: AuthenticationService = None
+authentication_service: AuthenticationService = get_authentication_service()
 
 def authenticated(func):
     def inner(*args, **kwargs):

@@ -13,3 +13,6 @@ class AuthenticationService(ABC):
     @abstractmethod
     def logout(self, token: str):
         pass
+
+def get_authentication_service() -> AuthenticationService:
+    pass
