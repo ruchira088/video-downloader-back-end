@@ -1,17 +1,15 @@
-import json
-
 from flask import Blueprint, request, Response
 from pydantic import BaseModel, EmailStr
 from pyparsing import ParseResults
 
 from src.config.Configuration import get_config
 from src.services.user_service import UserService, User, get_user_service
-from src.web.json.encoders import composite_json_encoder
 
 user_blueprint = Blueprint('user', __name__, url_prefix='/user')
 
 config: ParseResults = get_config()
 user_service: UserService = get_user_service(config)
+
 
 class UserSignupRequest(BaseModel):
     email: EmailStr
@@ -24,6 +22,15 @@ class UserResponse(BaseModel):
     firstName: str
     lastName: str
 
+    @classmethod
+    def from_user(cls, user: User) -> 'UserResponse':
+        return cls(
+            id=user.id,
+            email=user.email,
+            firstName=user.firstName,
+            lastName=user.lastName
+        )
+
 
 @user_blueprint.post('')
 def sign_up():
@@ -32,6 +39,6 @@ def sign_up():
 
     return Response(
         status=201,
-        response=json.dumps(user, cls=composite_json_encoder),
+        response=UserResponse.from_user(user).model_dump_json(),
         headers={'Content-Type': 'application/json'}
     )

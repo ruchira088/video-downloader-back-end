@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 
 import boto3
+from pydantic import EmailStr
 from pyparsing import ParseResults
 
 from src.config.AwsCognitoConfiguration import AwsCognitoConfiguration
@@ -10,7 +11,7 @@ from src.services.user_validation_service import UserValidationService, get_user
 
 class UserService(ABC):
     @abstractmethod
-    def create_user(self, email: str, password: str) -> User:
+    def create_user(self, email: EmailStr, password: str) -> User:
         pass
 
 
@@ -25,7 +26,7 @@ class CognitoUserService(UserService):
         self._cognito_idp_client = cognito_idp_client
         self._cognito_client_id = cognito_client_id
 
-    def create_user(self, email: str, password: str) -> User:
+    def create_user(self, email: EmailStr, password: str) -> User:
         user = self._user_validation_service.get_user(email, password)
 
         response = self._cognito_idp_client.sign_up(

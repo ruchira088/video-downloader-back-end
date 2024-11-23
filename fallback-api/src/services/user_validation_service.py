@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 
 import requests
-from pydantic import HttpUrl
+from pydantic import HttpUrl, EmailStr
 from pyparsing import ParseResults
 
 from src.config.VideoDownloaderConfiguration import VideoDownloaderConfiguration
@@ -11,7 +11,7 @@ from src.services.models.user import User
 
 class UserValidationService(ABC):
     @abstractmethod
-    def get_user(self, email: str, password: str) -> User:
+    def get_user(self, email: EmailStr, password: str) -> User:
         pass
 
 
@@ -19,13 +19,13 @@ class VideoDownloaderUserValidationService(UserValidationService):
     def __init__(self, video_downloader_api_url: HttpUrl):
         self._video_downloader_api_url = video_downloader_api_url
 
-    def get_user(self, email: str, password: str) -> User:
+    def get_user(self, email: EmailStr, password: str) -> User:
         auth_token = self._authenticate(email, password)
         user = self._logout(auth_token)
 
         return user
 
-    def _authenticate(self, email: str, password: str) -> str:
+    def _authenticate(self, email: EmailStr, password: str) -> str:
         response = requests.post(
             f'{self._video_downloader_api_url}/authentication/login',
             json={
