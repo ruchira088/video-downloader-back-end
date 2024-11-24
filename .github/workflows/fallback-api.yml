@@ -9,10 +9,6 @@ concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: true
 
-defaults:
-  run:
-    working-directory: ./fallback-api
-
 jobs:
   build-fallback-api:
     uses: ./fallback-api/.github/workflows/build-pipeline.yml
