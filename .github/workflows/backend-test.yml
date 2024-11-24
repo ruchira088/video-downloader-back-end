@@ -1,7 +1,7 @@
 name: Backend Tests
 
 on:
-  workflow_call:
+  workflow_dispatch:
   schedule:
     - "0 0 * * *"
 
