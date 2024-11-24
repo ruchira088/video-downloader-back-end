@@ -6,7 +6,7 @@ on:
       - "**"
 
 concurrency:
-  group: ${{ github.ref }}
+  group: backend-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

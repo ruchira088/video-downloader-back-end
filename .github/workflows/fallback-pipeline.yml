@@ -7,7 +7,7 @@ on:
       - "**"
 
 concurrency:
-  group: ${{ github.ref }}
+  group: fallback-api-${{ github.ref }}
   cancel-in-progress: true
 
 defaults:
