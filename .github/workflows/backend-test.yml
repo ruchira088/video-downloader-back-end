@@ -1,9 +1,6 @@
 name: Backend Tests
 
-on:
-  workflow_dispatch:
-  schedule:
-    - "0 0 * * *"
+on: workflow_call
 
 concurrency:
   group: backend-tests-${{ github.ref }}
