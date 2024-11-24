@@ -1,0 +1,73 @@
+name: Backend Tests
+
+on:
+  workflow_call:
+  schedule:
+    - "0 0 * * *"
+
+concurrency:
+  group: backend-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: temurin
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          key: ${{ runner.os }}-${{ hashFiles('**/build.properties') }}-${{ hashFiles('**/plugins.sbt') }}-${{ hashFiles('**/Dependencies.scala') }}
+          path: |
+            ~/.sbt
+            ~/.cache/coursier
+          restore-keys: |
+            ${{ runner.os }}-${{ hashFiles('**/build.properties') }}-${{ hashFiles('**/plugins.sbt') }}
+            ${{ runner.os }}-${{ hashFiles('**/build.properties') }}
+            ${{ runner.os }}
+
+      - name: Fetch compile dependencies
+        run: sbt update
+
+      - name: Compile
+        run: sbt compile
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install ffmpeg -y
+
+      - name: Install yt-dlp
+        run: pip install yt-dlp
+
+      - name: Fetch test dependencies
+        run: sbt "Test / update"
+
+      - name: Login to GitHub Container Registry
+        run: docker login ghcr.io -u USERNAME -p ${{ secrets.GHCR_ACCESS_TOKEN }}
+
+      - name: Execute test suite
+        run: sbt test
+
+      - name: Send failure Slack message
+        if: failure()
+        uses: slackapi/slack-github-action@v1.27.0
+        with:
+          channel-id: C02HYP398KS
+          slack-message: |
+            :x: *FAILURE*
+            *Job:* compile-and-test
+            *${{ github.repository }}*
+            *Branch:* ${{ github.ref }}
+            *Commit:* `${{ github.sha }}`
+            *Last Commit Message:* ${{ github.event.head_commit.message }}
+            *URL:* ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
