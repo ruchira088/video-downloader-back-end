@@ -10,9 +10,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  compile-and-test:
-    name: Compile & Test
+  backend-compile-and-test:
+    name: Backend Tests
     uses: ./.github/workflows/backend-test.yml
+    secrets: inherit
+
+  fallback-api-test:
+    name: Fallback API tests
+    uses: ./.github/workflows/fallback-api.yml
     secrets: inherit
 
   publish-docker-images:
@@ -25,7 +30,7 @@ jobs:
           - batch
           - db-backup
     needs:
-      - compile-and-test
+      - backend-compile-and-test
 
     steps:
       - name: Checkout code
