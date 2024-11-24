@@ -25,7 +25,7 @@ sample_password: str = 'cam2QGH8eht!vbz1nrh'
 @mock_aws
 class TestCognitoUserService(unittest.TestCase):
     def setUp(self):
-        cognito_client = boto3.client('cognito-idp')
+        cognito_client = boto3.client('cognito-idp', region_name='ap-northeast-2')
         user_pool_creation_response = cognito_client.create_user_pool(PoolName=f'{__name__}-user-pool')
         user_pool_id = user_pool_creation_response['UserPool']['Id']
 
