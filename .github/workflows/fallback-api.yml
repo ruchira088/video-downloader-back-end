@@ -15,5 +15,5 @@ defaults:
 
 jobs:
   build-fallback-api:
-    uses: ./.github/workflows/build-pipeline.yml
+    uses: ./fallback-api/.github/workflows/build-pipeline.yml
     secrets: inherit
