@@ -1,0 +1,55 @@
+name: Backend Pipeline
+
+on:
+  push:
+    branches:
+      - "**"
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile-and-test:
+    name: Run test suite
+    uses: ./.github/workflows/backend-test.yml
+    secrets: inherit
+
+  publish-docker-images:
+    name: Publish Docker images
+    uses: ./.github/workflows/backend-publish.yml
+    secrets: inherit
+    needs:
+      - compile-and-test
+
+  deploy-to-k8s:
+    name: Backend deploy to K8s
+    uses: ./.github/workflows/backend-deploy.yml
+    secrets: inherit
+    needs:
+      - publish-docker-images
+
+  send-failure-slack-notification:
+    name: Send Failure Slack notification
+    if: ${{ always() && contains(needs.*.result, 'failure') }}
+    uses: ./.github/workflows/slack-notification.yml
+    secrets: inherit
+    with:
+      message: |
+        :x: *Backend Pipeline* *FAILURE*
+    needs:
+      - compile-and-test
+      - publish-docker-images
+      - deploy-to-k8s
+
+  send-success-slack-notification:
+    name: Send success Slack notification
+    uses: ./.github/workflows/slack-notification.yml
+    secrets: inherit
+    with:
+      message: |
+        :white_check_mark: *Backend Pipeline* *SUCCESS*
+    needs:
+      - compile-and-test
+      - publish-docker-images
+      - deploy-to-k8s

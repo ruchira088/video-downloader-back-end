@@ -1,15 +1,29 @@
-name: Backend - Compile & Test
+name: Backend - Publish Docker Images
 
 on: workflow_call
 
 jobs:
-  compile-and-test:
-    name: Compile & Test
+  publish-docker-images:
+    name: Publish Docker Images
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        app:
+          - migration
+          - api
+          - batch
+          - db-backup
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -29,23 +43,8 @@ jobs:
             ${{ runner.os }}-${{ hashFiles('**/build.properties') }}
             ${{ runner.os }}
 
-      - name: Fetch compile dependencies
-        run: sbt update
-
-      - name: Compile
-        run: sbt compile
-
-      - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install ffmpeg -y
-
-      - name: Install yt-dlp
-        run: pip install yt-dlp
-
-      - name: Fetch test dependencies
-        run: sbt "Test / update"
-
-      - name: Login to GitHub Container Registry
-        run: docker login ghcr.io -u USERNAME -p ${{ secrets.GHCR_ACCESS_TOKEN }}
-
-      - name: Execute test suite
-        run: sbt test
+      - name: Build and publish Docker image - ${{ matrix.app }}
+        run: ansible-playbook playbooks/build-and-publish-docker-image.yml -vvv -e app=${{ matrix.app }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}

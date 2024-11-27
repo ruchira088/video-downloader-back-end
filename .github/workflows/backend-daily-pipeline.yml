@@ -1,0 +1,32 @@
+name: Backend Daily Pipeline
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  compile-and-test:
+    name: Run test suite
+    uses: ./.github/workflows/backend-test.yml
+    secrets: inherit
+
+  send-failure-slack-notification:
+    name: Send Failure Slack notification
+    if: ${{ always() && contains(needs.*.result, 'failure') }}
+    uses: ./.github/workflows/slack-notification.yml
+    secrets: inherit
+    with:
+      message: |
+        :x: *Backend Daily Pipeline* *FAILURE*
+    needs:
+      - compile-and-test
+
+  send-success-slack-notification:
+    name: Send success Slack notification
+    uses: ./.github/workflows/slack-notification.yml
+    secrets: inherit
+    with:
+      message: |
+        :white_check_mark: *Daily Job* - *SUCCESS*
+    needs:
+      - compile-and-test

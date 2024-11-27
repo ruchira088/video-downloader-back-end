@@ -1,0 +1,37 @@
+name: Fallback API Pipeline
+
+on:
+  push:
+    branches:
+      - "**"
+
+concurrency:
+  group: fallback-api-job-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run-tests:
+    name: Run Fallback API tests
+    uses: ./.github/workflows/fallback-api-test.yml
+    secrets: inherit
+
+  send-failure-slack-notification:
+    name: Send Failure Slack notification
+    if: ${{ always() && contains(needs.*.result, 'failure') }}
+    uses: ./.github/workflows/slack-notification.yml
+    secrets: inherit
+    with:
+      message: |
+        :x: *Fallback API Pipeline* *FAILURE*
+    needs:
+      - run-tests
+
+  send-success-slack-notification:
+    name: Send success Slack notification
+    uses: ./.github/workflows/slack-notification.yml
+    secrets: inherit
+    with:
+      message: |
+        :white_check_mark: *Fallback API Pipeline* - *SUCCESS*
+    needs:
+      - run-tests

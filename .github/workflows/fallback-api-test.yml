@@ -1,14 +1,6 @@
-name: Fallback API
+name: Fallback API Tests
 
-on:
-  workflow_call:
-  push:
-    branches:
-      - "**"
-
-concurrency:
-  group: fallback-api-${{ github.ref }}
-  cancel-in-progress: true
+on: workflow_call
 
 defaults:
   run:
@@ -34,3 +26,5 @@ jobs:
 
       - name: Execute test suite
         run: python -m unittest
+
+
