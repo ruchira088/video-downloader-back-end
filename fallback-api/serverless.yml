@@ -20,7 +20,7 @@ plugins:
 
 custom:
   wsgi:
-    app:  src/main.app
+    app:  src/main.http_app
 
 stages:
   default:
