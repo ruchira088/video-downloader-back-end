@@ -1,16 +1,16 @@
 from abc import ABC, abstractmethod
 
 import boto3
-from boto3.exceptions import ResourceNotExistsError
-from botocore.exceptions import ClientError
-from moto.cognitoidp.exceptions import UsernameExistsException
 from pydantic import EmailStr
 from pyparsing import ParseResults
 
 from src.config.AwsCognitoConfiguration import AwsCognitoConfiguration
 from src.services.exceptions import ResourceConflictException
 from src.services.models.user import User
-from src.services.user_validation_service import UserValidationService, get_user_validation_service
+from src.services.user_validation_service import (
+    UserValidationService,
+    get_user_validation_service,
+)
 
 
 class UserService(ABC):
@@ -21,10 +21,10 @@ class UserService(ABC):
 
 class CognitoUserService(UserService):
     def __init__(
-            self,
-            user_validation_service: UserValidationService,
-            cognito_idp_client,
-            cognito_user_pool_client_id: str
+        self,
+        user_validation_service: UserValidationService,
+        cognito_idp_client,
+        cognito_user_pool_client_id: str,
     ):
         self._user_validation_service = user_validation_service
         self._cognito_idp_client = cognito_idp_client
@@ -39,35 +39,34 @@ class CognitoUserService(UserService):
                 Username=email,
                 Password=password,
                 UserAttributes=[
+                    {"Name": "sub", "Value": user.id},
                     {
-                        'Name': 'sub',
-                        'Value': user.id
+                        "Name": "email",
+                        "Value": email,
                     },
                     {
-                        'Name': 'email',
-                        'Value': email,
+                        "Name": "given_name",
+                        "Value": user.first_name,
                     },
-                    {
-                        'Name': 'given_name',
-                        'Value': user.first_name,
-                    },
-                    {
-                        'Name': 'family_name',
-                        'Value': user.last_name
-                    }
-                ]
+                    {"Name": "family_name", "Value": user.last_name},
+                ],
             )
-        except self._cognito_idp_client.exceptions.UsernameExistsException as username_exists_exception:
+        except self._cognito_idp_client.exceptions.UsernameExistsException:
             raise ResourceConflictException(f'User with email "{email}" already exists')
 
         return user
+
 
 def get_user_service(parse_results: ParseResults) -> UserService:
     user_validation_service = get_user_validation_service(parse_results)
 
     aws_cognito_configuration = AwsCognitoConfiguration.parse(parse_results)
-    cognito_client = boto3.client('cognito-idp', endpoint_url=aws_cognito_configuration.endpoint_url)
+    cognito_client = boto3.client(
+        "cognito-idp", endpoint_url=aws_cognito_configuration.endpoint_url
+    )
 
-    user_service = CognitoUserService(user_validation_service, cognito_client, aws_cognito_configuration.client_id)
+    user_service = CognitoUserService(
+        user_validation_service, cognito_client, aws_cognito_configuration.client_id
+    )
 
     return user_service

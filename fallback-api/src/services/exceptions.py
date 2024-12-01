@@ -1,3 +1,2 @@
-
 class ResourceConflictException(Exception):
     pass

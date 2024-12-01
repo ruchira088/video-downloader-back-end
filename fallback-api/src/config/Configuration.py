@@ -7,7 +7,7 @@ from pyparsing import ParseResults
 
 
 def get_config() -> ParseResults:
-    config_file_path_str: Optional[str] = os.environ.get('CONFIG_FILE_PATH')
+    config_file_path_str: Optional[str] = os.environ.get("CONFIG_FILE_PATH")
 
     if config_file_path_str is None:
         config_file_path = _default_config_file_path()
@@ -22,4 +22,4 @@ def get_config() -> ParseResults:
 
 
 def _default_config_file_path() -> Path:
-    return Path(__file__).parent.parent.parent.joinpath('application.conf')
+    return Path(__file__).parent.parent.parent.joinpath("application.conf")

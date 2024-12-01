@@ -1,3 +1,6 @@
 from flask import Blueprint
 
-video_blueprint = Blueprint('video', __name__, url_prefix='/video')
+
+def video_blueprint() -> Blueprint:
+    blueprint = Blueprint("video", __name__, url_prefix="/video")
+    return blueprint

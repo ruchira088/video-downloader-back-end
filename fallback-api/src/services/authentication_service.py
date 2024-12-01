@@ -14,5 +14,6 @@ class AuthenticationService(ABC):
     def logout(self, token: str):
         pass
 
+
 def get_authentication_service() -> AuthenticationService:
     pass

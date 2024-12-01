@@ -9,6 +9,7 @@ class DateTimeJsonEncoder(JSONEncoder):
 
         return super().default(obj)
 
+
 class CompositeJsonEncoder(JSONEncoder):
     def __init__(self, *json_encoders: JSONEncoder):
         super().__init__()
@@ -22,5 +23,6 @@ class CompositeJsonEncoder(JSONEncoder):
                 pass
 
             return super().default(obj)
+
 
 composite_json_encoder = CompositeJsonEncoder(DateTimeJsonEncoder())
