@@ -33,50 +33,47 @@ import scala.language.postfixOps
 class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   "analyze(uri: Uri) in VideoAnalysisService" should "analyse a PornOne video URL" in runIO {
-    analyze[IO](uri"https://pornone.com/bbc/sk-rl-tte-nik-l-onlyfans/277968339/")
-      .semiflatMap { videoAnalysisResult =>
-        IO.delay {
-          videoAnalysisResult.title mustBe "Skàrlétte Nik0lé Onlyfans #1"
-          videoAnalysisResult.duration mustBe ((34 minutes) + (19 seconds))
-          videoAnalysisResult.size mustBe 1056449934
-          videoAnalysisResult.thumbnail mustBe uri"https://th-eu4.pornone.com/t/39/277968339/b11.jpg"
-          videoAnalysisResult.videoSite mustBe CustomVideoSite.PornOne
-        }
+    analyze[IO](uri"https://pornone.com/bbc/sk-rl-tte-nik-l-onlyfans/277968339/").semiflatMap { videoAnalysisResult =>
+      IO.delay {
+        videoAnalysisResult.title mustBe "Skàrlétte Nik0lé Onlyfans #1"
+        videoAnalysisResult.duration mustBe ((34 minutes) + (19 seconds))
+        videoAnalysisResult.size mustBe 1056449934
+        videoAnalysisResult.thumbnail mustBe uri"https://th-eu4.pornone.com/t/39/277968339/b11.jpg"
+        videoAnalysisResult.videoSite mustBe CustomVideoSite.PornOne
       }
-      .value
+    }.value
   }
 
   it should "analyse a SxyPrn video URL" in runIO {
-    analyze[IO](uri"https://sxyprn.com/post/6432736917c9d.html")
-      .semiflatMap { videoAnalysisResult =>
-        IO.delay {
-          videoAnalysisResult.title must include("Jaidah")
-          videoAnalysisResult.duration mustBe (20 minutes)
-          videoAnalysisResult.size mustBe 467664779
-          videoAnalysisResult.thumbnail mustBe uri"https://b1.trafficdeposit.com/blog/1/4/img/63933c0ddaf6c/6432736917c9d/poster.jpg"
-          videoAnalysisResult.videoSite mustBe CustomVideoSite.SxyPrn
-        }
+    analyze[IO](uri"https://sxyprn.com/post/6432736917c9d.html").semiflatMap { videoAnalysisResult =>
+      IO.delay {
+        videoAnalysisResult.title must include("Jaidah")
+        videoAnalysisResult.duration mustBe (20 minutes)
+        videoAnalysisResult.size mustBe 467664779
+        Set(
+          uri"https://b1.trafficdeposit.com/blog/1/4/img/63933c0ddaf6c/6432736917c9d/poster.jpg",
+          uri"https://b1.trafficdeposit.com/blog/1/4/img/63933c0ddaf6c/6432736917c9d/poster.webp"
+        ) must contain(videoAnalysisResult.thumbnail)
+        videoAnalysisResult.videoSite mustBe CustomVideoSite.SxyPrn
       }
-      .value
+    }.value
   }
 
   it should "analyse a SpankBang video URL" ignore runIO {
-    analyze[IO](uri"https://spankbang.com/52kje/video/the+crooked+cops")
-      .semiflatMap { videoAnalysisResult =>
-        IO.delay {
-          videoAnalysisResult.title mustBe "The Crooked Cops"
-          videoAnalysisResult.duration mustBe ((38 minutes) + (44 seconds))
-          videoAnalysisResult.size mustBe 676023587
-          videoAnalysisResult.thumbnail mustBe uri"https://tbi.sb-cd.com/t/8518010/8/5/w:300/t6-enh/the-crooked-cops.jpg"
-          videoAnalysisResult.videoSite mustBe CustomVideoSite.SpankBang
-        }
+    analyze[IO](uri"https://spankbang.com/52kje/video/the+crooked+cops").semiflatMap { videoAnalysisResult =>
+      IO.delay {
+        videoAnalysisResult.title mustBe "The Crooked Cops"
+        videoAnalysisResult.duration mustBe ((38 minutes) + (44 seconds))
+        videoAnalysisResult.size mustBe 676023587
+        videoAnalysisResult.thumbnail mustBe uri"https://tbi.sb-cd.com/t/8518010/8/5/w:300/t6-enh/the-crooked-cops.jpg"
+        videoAnalysisResult.videoSite mustBe CustomVideoSite.SpankBang
       }
-      .value
+    }.value
   }
 
   it should "analyse a XFreeHD video URL" in runIO {
-    analyze[IO](uri"https://www.xfreehd.com/video/343591/breaking-white-blonde-booty-giselle-palmer")
-      .semiflatMap { videoAnalysisResult =>
+    analyze[IO](uri"https://www.xfreehd.com/video/343591/breaking-white-blonde-booty-giselle-palmer").semiflatMap {
+      videoAnalysisResult =>
         IO.delay {
           videoAnalysisResult.title mustBe "BREAKING WHITE BLONDE BOOTY - GISELLE PALMER"
           videoAnalysisResult.duration mustBe ((37 minutes) + (1 seconds))
@@ -84,13 +81,12 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
           videoAnalysisResult.thumbnail mustBe uri"https://image.xfreehd.com/media/videos/tmb10/343591/1b.jpg"
           videoAnalysisResult.videoSite mustBe CustomVideoSite.XFreeHD
         }
-      }
-      .value
+    }.value
   }
 
   it should "analyse a TXXX video URL" in runIO {
-    analyze[IO](uri"https://txxx.com/videos/17258955/first-time-bbc-with-balls-deep-anal/?fr=18404847&rp=1")
-      .semiflatMap { videoAnalysisResult =>
+    analyze[IO](uri"https://txxx.com/videos/17258955/first-time-bbc-with-balls-deep-anal/?fr=18404847&rp=1").semiflatMap {
+      videoAnalysisResult =>
         IO.delay {
           videoAnalysisResult.title mustBe "First Time Bbc With Balls Deep Anal"
           videoAnalysisResult.duration mustBe ((52 minutes) + (5 seconds))
@@ -98,13 +94,12 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
           videoAnalysisResult.thumbnail mustBe uri"https://tn.txxx.tube/contents/videos_screenshots/17258000/17258955/preview.jpg"
           videoAnalysisResult.videoSite mustBe CustomVideoSite.TXXX
         }
-      }
-      .value
+    }.value
   }
 
   it should "analyse a UPornia video URL" in runIO {
-    analyze[IO](uri"https://upornia.com/videos/4810631/gets-two-black-cocks-in-every-hole-with-bailey-nicole/")
-      .semiflatMap { videoAnalysisResult =>
+    analyze[IO](uri"https://upornia.com/videos/4810631/gets-two-black-cocks-in-every-hole-with-bailey-nicole/").semiflatMap {
+      videoAnalysisResult =>
         IO.delay {
           videoAnalysisResult.title mustBe "Gets Two Black Cocks In Every Hole With Bailey Nicole"
           videoAnalysisResult.duration mustBe ((16 minutes) + (15 seconds))
@@ -112,26 +107,24 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
           videoAnalysisResult.thumbnail mustBe uri"https://tn.upornia.com/contents/videos_screenshots/4810000/4810631/preview.jpg"
           videoAnalysisResult.videoSite mustBe CustomVideoSite.UPornia
         }
-      }
-      .value
+    }.value
   }
 
   it should "analyse a EPorner video URL" in runIO {
-    analyze[IO](uri"https://www.eporner.com/video-vQrAInk40ei/mc-kenzie-lee-in-an-all-black-guy-gangbang/")
-      .semiflatMap { videoAnalysisResult =>
+    analyze[IO](uri"https://www.eporner.com/video-vQrAInk40ei/mc-kenzie-lee-in-an-all-black-guy-gangbang/").semiflatMap {
+      videoAnalysisResult =>
         IO.delay {
           videoAnalysisResult.title mustBe "Mc Kenzie Lee In An All Black Guy Gangbang"
           videoAnalysisResult.duration mustBe ((38 minutes) + (47 seconds))
           videoAnalysisResult.thumbnail.path mustBe uri"https://static-au-cdn.eporner.com/thumbs/static4/6/63/639/6390316/11_360.jpg".path
           videoAnalysisResult.videoSite mustBe YTDownloaderSite("eporner")
         }
-      }
-      .value
+    }.value
   }
 
   it should "analyse a YouTube video URL" in runIO {
-    analyze[IO](uri"https://www.youtube.com/watch?v=2Vv-BfVoq4g&list=RDMM-fR-duU1Qjk&start_radio=1")
-      .semiflatMap { videoAnalysisResult =>
+    analyze[IO](uri"https://www.youtube.com/watch?v=2Vv-BfVoq4g&list=RDMM-fR-duU1Qjk&start_radio=1").semiflatMap {
+      videoAnalysisResult =>
         IO.delay {
           videoAnalysisResult.title mustBe "Ed Sheeran - Perfect (Official Music Video)"
           videoAnalysisResult.duration mustBe ((4 minutes) + (40 seconds))
@@ -142,8 +135,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
           ) must contain(videoAnalysisResult.thumbnail.copy(query = Query.empty))
           videoAnalysisResult.videoSite mustBe YTDownloaderSite("youtube")
         }
-      }
-      .value
+    }.value
   }
 
   private def analyze[F[_]: Async: JodaClock](videoUri: Uri): OptionT[F, VideoAnalysisResult] =
