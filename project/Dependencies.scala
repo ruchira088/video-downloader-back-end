@@ -18,13 +18,13 @@ object Dependencies
 
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.7"
 
-  lazy val kafka = "org.apache.kafka" %% "kafka" % "7.7.2-ccs"
+  lazy val kafka = "org.apache.kafka" %% "kafka" % "7.8.0-ccs"
 
   lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "3.6.0"
 
   lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "3.6.0"
 
-  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.7.2"
+  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.8.0"
 
   lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.11.1"
 
