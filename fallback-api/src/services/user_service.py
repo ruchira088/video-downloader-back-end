@@ -21,13 +21,15 @@ class UserService(ABC):
 
 class CognitoUserService(UserService):
     def __init__(
-        self,
-        user_validation_service: UserValidationService,
-        cognito_idp_client,
-        cognito_user_pool_client_id: str,
+            self,
+            user_validation_service: UserValidationService,
+            cognito_idp_client,
+            cognito_user_pool_id: str,
+            cognito_user_pool_client_id: str,
     ):
         self._user_validation_service = user_validation_service
         self._cognito_idp_client = cognito_idp_client
+        self._cognito_user_pool_id = cognito_user_pool_id
         self._cognito_user_pool_client_id = cognito_user_pool_client_id
 
     def create_user(self, email: EmailStr, password: str) -> User:
@@ -49,10 +51,16 @@ class CognitoUserService(UserService):
                         "Value": user.first_name,
                     },
                     {"Name": "family_name", "Value": user.last_name},
+                    {"Name": "email_verified", "Value": "true"},
                 ],
             )
         except self._cognito_idp_client.exceptions.UsernameExistsException:
             raise ResourceConflictException(f'User with email "{email}" already exists')
+
+        self._cognito_idp_client.admin_confirm_sign_up(
+            UserPoolId=self._cognito_user_pool_id,
+            Username=email
+        )
 
         return user
 
