@@ -8,6 +8,7 @@ from src.services.authentication_service import (
     CognitoAuthenticationService,
     AuthenticationToken,
 )
+from src.services.exceptions import IncorrectCredentialsException
 from src.services.user_service import UserService, CognitoUserService
 from src.services.user_validation_service import UserValidationService
 from tests.services.test_data_helpers import sample_user, sample_password
@@ -38,7 +39,7 @@ class TestCognitoAuthenticationService(unittest.TestCase):
             )
         )
 
-    def test_authenticate_user(self):
+    def test_authenticate_user_correct_credentials(self):
         auth_token: AuthenticationToken = self.cognito_authentication_service.login(
             sample_user.email, sample_password
         )
@@ -48,3 +49,9 @@ class TestCognitoAuthenticationService(unittest.TestCase):
         assert auth_token.token_type == "Bearer"
         assert auth_token.id_token is not None
         assert auth_token.refresh_token is not None
+
+    def test_authenticate_user_incorrect_credentials(self):
+        with self.assertRaises(IncorrectCredentialsException):
+            self.cognito_authentication_service.login(
+                sample_user.email, "invalid-password"
+            )
