@@ -19,6 +19,13 @@ def setup_cognito(prefix: str) -> CognitoDetails:
     user_pool_name = f"{prefix}-user-pool"
     user_pool_creation_response = cognito_client.create_user_pool(
         PoolName=user_pool_name,
+        Schema=[
+            {
+                "Name": "custom:user_id",
+                "AttributeDataType": "String",
+                "Mutable": False,
+            }
+        ],
     )
     user_pool_id = user_pool_creation_response["UserPool"]["Id"]
 

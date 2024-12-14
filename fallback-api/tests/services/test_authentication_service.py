@@ -9,6 +9,7 @@ from src.services.authentication_service import (
     AuthenticationToken,
 )
 from src.services.exceptions import IncorrectCredentialsException
+from src.services.models.user import User
 from src.services.user_service import UserService, CognitoUserService
 from src.services.user_validation_service import UserValidationService
 from tests.services.test_data_helpers import sample_user, sample_password
@@ -39,7 +40,7 @@ class TestCognitoAuthenticationService(unittest.TestCase):
             )
         )
 
-    def test_authenticate_user_correct_credentials(self):
+    def test_login_user_correct_credentials(self):
         auth_token: AuthenticationToken = self.cognito_authentication_service.login(
             sample_user.email, sample_password
         )
@@ -50,8 +51,22 @@ class TestCognitoAuthenticationService(unittest.TestCase):
         assert auth_token.id_token is not None
         assert auth_token.refresh_token is not None
 
-    def test_authenticate_user_incorrect_credentials(self):
+    def test_login_user_incorrect_credentials(self):
         with self.assertRaises(IncorrectCredentialsException):
             self.cognito_authentication_service.login(
                 sample_user.email, "invalid-password"
             )
+
+    def test_authenticate_user_with_valid_access_token(self):
+        auth_token: AuthenticationToken = self.cognito_authentication_service.login(
+            sample_user.email, sample_password
+        )
+
+        user: User = self.cognito_authentication_service.authenticate(
+            auth_token.access_token
+        )
+
+        assert user.id == sample_user.id
+        assert user.email == sample_user.email
+        assert user.first_name == sample_user.first_name
+        assert user.last_name == sample_user.last_name

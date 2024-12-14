@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from datetime import datetime
 
 import requests
 from pydantic import HttpUrl, EmailStr
@@ -45,14 +44,12 @@ class VideoDownloaderUserValidationService(UserValidationService):
 
         response_body = response.json()
         user_id = response_body["id"]
-        created_at = response_body["createdAt"]
         email = response_body["email"]
         first_name = response_body["firstName"]
         last_name = response_body["lastName"]
 
         return User(
             id=user_id,
-            created_at=datetime.fromisoformat(created_at),
             email=email,
             first_name=first_name,
             last_name=last_name,

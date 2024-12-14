@@ -41,7 +41,6 @@ class CognitoUserService(UserService):
                 Username=email,
                 Password=password,
                 UserAttributes=[
-                    {"Name": "sub", "Value": user.id},
                     {
                         "Name": "email",
                         "Value": email,
@@ -52,6 +51,7 @@ class CognitoUserService(UserService):
                     },
                     {"Name": "family_name", "Value": user.last_name},
                     {"Name": "email_verified", "Value": "true"},
+                    {"Name": "custom:user_id", "Value": user.id},
                 ],
             )
         except self._cognito_idp_client.exceptions.UsernameExistsException:
