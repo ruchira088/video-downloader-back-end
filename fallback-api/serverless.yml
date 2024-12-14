@@ -44,11 +44,15 @@ resources:
       Type: AWS::Cognito::UserPool
       Properties:
         UserPoolName: ${param:prefix}-fallback-api
+        Schema:
+          - AttributeDataType: String
+            Mutable: false
+            Name: user_id
 
     UserPoolClient:
       Type: AWS::Cognito::UserPoolClient
       Properties:
         UserPoolId: !Ref UserPool
         ClientName: ${param:prefix}-fallback-api-client
-        GenerateSecret: false
+        GenerateSecret: true
 

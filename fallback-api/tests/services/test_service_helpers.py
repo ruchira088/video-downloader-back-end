@@ -21,7 +21,7 @@ def setup_cognito(prefix: str) -> CognitoDetails:
         PoolName=user_pool_name,
         Schema=[
             {
-                "Name": "custom:user_id",
+                "Name": "user_id",
                 "AttributeDataType": "String",
                 "Mutable": False,
             }
