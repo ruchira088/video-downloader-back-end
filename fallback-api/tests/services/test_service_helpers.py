@@ -31,7 +31,9 @@ def setup_cognito(prefix: str) -> CognitoDetails:
         "ClientId"
     ]
 
-    user_pool_client_secret = user_pool_client_creation_response["UserPoolClient"]["ClientSecret"]
+    user_pool_client_secret = user_pool_client_creation_response["UserPoolClient"][
+        "ClientSecret"
+    ]
 
     cognito_details = CognitoDetails(
         cognito_client=cognito_client,

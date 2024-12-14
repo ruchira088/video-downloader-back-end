@@ -4,7 +4,10 @@ from unittest.mock import MagicMock
 
 from moto import mock_aws
 
-from src.services.authentication_service import CognitoAuthenticationService
+from src.services.authentication_service import (
+    CognitoAuthenticationService,
+    AuthenticationToken,
+)
 from src.services.user_service import UserService, CognitoUserService
 from src.services.user_validation_service import UserValidationService
 from tests.services.test_data_helpers import sample_user, sample_password
@@ -15,9 +18,7 @@ from tests.services.test_service_helpers import setup_cognito
 class TestCognitoAuthenticationService(unittest.TestCase):
     def setUp(self):
         cognito_details = setup_cognito(__name__)
-        user_validation_service: Union[UserValidationService, MagicMock] = (
-            MagicMock()
-        )
+        user_validation_service: Union[UserValidationService, MagicMock] = MagicMock()
         user_validation_service.get_user.return_value = sample_user
 
         user_service: UserService = CognitoUserService(
@@ -27,15 +28,23 @@ class TestCognitoAuthenticationService(unittest.TestCase):
             cognito_user_pool_client_id=cognito_details.user_pool_client_id,
         )
 
-        user_service.create_user(
-            email=sample_user.email, password=sample_password
-        )
+        user_service.create_user(email=sample_user.email, password=sample_password)
 
-        self.cognito_authentication_service: CognitoAuthenticationService = CognitoAuthenticationService(
-            cognito_idp_client=cognito_details.cognito_client,
-            cognito_user_pool_client_id=cognito_details.user_pool_client_id,
-            client_secret_key=cognito_details.user_pool_client_secret
+        self.cognito_authentication_service: CognitoAuthenticationService = (
+            CognitoAuthenticationService(
+                cognito_idp_client=cognito_details.cognito_client,
+                cognito_user_pool_client_id=cognito_details.user_pool_client_id,
+                client_secret_key=cognito_details.user_pool_client_secret,
+            )
         )
 
     def test_authenticate_user(self):
-        response = self.cognito_authentication_service.login(sample_user.email, sample_password)
+        auth_token: AuthenticationToken = self.cognito_authentication_service.login(
+            sample_user.email, sample_password
+        )
+
+        assert auth_token.access_token is not None
+        assert auth_token.expires_in == 3600
+        assert auth_token.token_type == "Bearer"
+        assert auth_token.id_token is not None
+        assert auth_token.refresh_token is not None
