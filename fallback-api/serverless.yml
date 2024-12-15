@@ -8,6 +8,7 @@ package:
     - node_modules/**
     - .idea/**
     - .git/**
+    - .serverless/**
 
 provider:
   name: aws
