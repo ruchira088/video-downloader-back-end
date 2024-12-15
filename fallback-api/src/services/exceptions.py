@@ -4,3 +4,7 @@ class ResourceConflictException(Exception):
 
 class IncorrectCredentialsException(Exception):
     pass
+
+
+class InvalidAuthenticationTokenException(Exception):
+    pass

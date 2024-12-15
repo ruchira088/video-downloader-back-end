@@ -5,7 +5,10 @@ from abc import ABC, abstractmethod
 
 from pydantic import EmailStr, BaseModel
 
-from src.services.exceptions import IncorrectCredentialsException
+from src.services.exceptions import (
+    IncorrectCredentialsException,
+    InvalidAuthenticationTokenException,
+)
 from src.services.models.user import User
 
 
@@ -27,7 +30,7 @@ class AuthenticationService(ABC):
         pass
 
     @abstractmethod
-    def logout(self, token: str):
+    def logout(self, token: str) -> User:
         pass
 
 
@@ -85,32 +88,42 @@ class CognitoAuthenticationService(AuthenticationService):
         return secret_hash
 
     def authenticate(self, token: str) -> User:
-        response = self._cognito_idp_client.get_user(AccessToken=token)
-        user_attributes = response["UserAttributes"]
+        try:
+            response = self._cognito_idp_client.get_user(AccessToken=token)
+            user_attributes = response["UserAttributes"]
 
-        def _get_attribute(name: str) -> str:
-            for attribute in user_attributes:
-                if attribute["Name"] == name:
-                    return attribute["Value"]
+            def _get_attribute(name: str) -> str:
+                for attribute in user_attributes:
+                    if attribute["Name"] == name:
+                        return attribute["Value"]
 
-            raise ValueError(f'Attribute "{name}" not found')
+                raise ValueError(f'Attribute "{name}" not found')
 
-        user_id: str = _get_attribute("custom:user_id")
-        email: EmailStr = _get_attribute("email")
-        first_name: str = _get_attribute("given_name")
-        last_name: str = _get_attribute("family_name")
+            user_id: str = _get_attribute("custom:user_id")
+            email: EmailStr = _get_attribute("email")
+            first_name: str = _get_attribute("given_name")
+            last_name: str = _get_attribute("family_name")
 
-        user = User(
-            id=user_id,
-            email=email,
-            first_name=first_name,
-            last_name=last_name,
-        )
+            user = User(
+                id=user_id,
+                email=email,
+                first_name=first_name,
+                last_name=last_name,
+            )
+
+            return user
+        except self._cognito_idp_client.exceptions.NotAuthorizedException:
+            raise InvalidAuthenticationTokenException()
+
+    def logout(self, token: str) -> User:
+        user = self.authenticate(token)
+
+        try:
+            self._cognito_idp_client.global_sign_out(AccessToken=token)
+        except self._cognito_idp_client.exceptions.NotAuthorizedException:
+            raise InvalidAuthenticationTokenException()
 
         return user
-
-    def logout(self, token: str):
-        pass
 
 
 def get_authentication_service() -> AuthenticationService:

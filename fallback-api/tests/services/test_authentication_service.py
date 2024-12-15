@@ -8,7 +8,10 @@ from src.services.authentication_service import (
     CognitoAuthenticationService,
     AuthenticationToken,
 )
-from src.services.exceptions import IncorrectCredentialsException
+from src.services.exceptions import (
+    IncorrectCredentialsException,
+    InvalidAuthenticationTokenException,
+)
 from src.services.models.user import User
 from src.services.user_service import UserService, CognitoUserService
 from src.services.user_validation_service import UserValidationService
@@ -70,3 +73,26 @@ class TestCognitoAuthenticationService(unittest.TestCase):
         assert user.email == sample_user.email
         assert user.first_name == sample_user.first_name
         assert user.last_name == sample_user.last_name
+
+    def test_authenticate_user_with_invalid_access_token(self):
+        with self.assertRaises(InvalidAuthenticationTokenException):
+            self.cognito_authentication_service.authenticate("invalid-token")
+
+    def test_logout_user_with_valid_access_token(self):
+        auth_token: AuthenticationToken = self.cognito_authentication_service.login(
+            sample_user.email, sample_password
+        )
+
+        user: User = self.cognito_authentication_service.logout(auth_token.access_token)
+
+        assert user.id == sample_user.id
+        assert user.email == sample_user.email
+        assert user.first_name == sample_user.first_name
+        assert user.last_name == sample_user.last_name
+
+        with self.assertRaises(InvalidAuthenticationTokenException):
+            self.cognito_authentication_service.logout(auth_token.access_token)
+
+    def test_logout_user_with_invalid_access_token(self):
+        with self.assertRaises(InvalidAuthenticationTokenException):
+            self.cognito_authentication_service.logout("invalid-token")
