@@ -58,7 +58,7 @@ object Dependencies
 
   lazy val apacheTika = "org.apache.tika" % "tika-core" % "3.0.0"
 
-  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.7.1"
+  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.7.2"
 
   lazy val jbcrypt = "org.mindrot" % "jbcrypt" % "0.4"
 
@@ -72,7 +72,7 @@ object Dependencies
 
   lazy val postgresqlTestContainer = "org.testcontainers" % "postgresql" % TestContainersVersion
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.12"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.14"
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
 
