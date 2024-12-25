@@ -19,6 +19,8 @@
             hostname: api.video.home.ruchij.com
             api_replicas: 2
             host_path_mappings:
+              - host_path: /media/disk/video-downloader/production/videos
+                pod_mount_path: /home/disk/videos
               - host_path: /media/storage/video-downloader/production/videos
                 pod_mount_path: /home/storage/videos
               - host_path: /media/data/video-downloader/production/videos
@@ -30,6 +32,8 @@
             hostname: api.{{ git_branch }}.video.dev.ruchij.com
             api_replicas: 1
             host_path_mappings:
+              - host_path: /media/disk/video-downloader/development/videos
+                pod_mount_path: /home/disk/videos
               - host_path: /media/storage/video-downloader/development/videos
                 pod_mount_path: /home/storage/videos
               - host_path: /media/data/video-downloader/development/videos
