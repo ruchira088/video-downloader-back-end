@@ -15,23 +15,16 @@ jobs:
     uses: ./.github/workflows/fallback-api-test.yml
     secrets: inherit
 
-  send-failure-slack-notification:
-    name: Send Failure Slack notification
-    if: ${{ always() && contains(needs.*.result, 'failure') }}
-    uses: ./.github/workflows/slack-notification.yml
-    secrets: inherit
-    with:
-      message: |
-        :x: *Fallback API Pipeline* *FAILURE*
+  send-notification:
+    runs-on: ubuntu-latest
+    if: always()
+
+    permissions:
+      id-token: write
+
     needs:
       - run-tests
 
-  send-success-slack-notification:
-    name: Send success Slack notification
-    uses: ./.github/workflows/slack-notification.yml
-    secrets: inherit
-    with:
-      message: |
-        :white_check_mark: *Fallback API Pipeline* - *SUCCESS*
-    needs:
-      - run-tests
+    steps:
+      - name: Send Slack notification
+        uses: ruchira088/slack-github-action@v1
