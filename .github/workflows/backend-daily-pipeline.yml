@@ -7,10 +7,11 @@ on:
 jobs:
   compile-and-test:
     name: Run test suite
-    uses: ./.github/workflows/backend-test.yml
+    uses: ./.github/workflows/jobs/backend-test.yml
     secrets: inherit
 
   send-notification:
+    name: Send Slack notification
     runs-on: ubuntu-latest
     if: always()
 

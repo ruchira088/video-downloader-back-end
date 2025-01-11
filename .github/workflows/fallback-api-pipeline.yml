@@ -9,13 +9,39 @@ concurrency:
   group: fallback-api-job-${{ github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    working-directory: ./fallback-api
+
 jobs:
-  run-tests:
-    name: Run Fallback API tests
-    uses: ./.github/workflows/fallback-api-test.yml
-    secrets: inherit
+  execute-test-suite:
+    name: Execute test suite
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Check formatting
+        run: ruff format --check
+
+      - name: Check linting
+        run: ruff check
+
+      - name: Execute test suite
+        run: python -m unittest
 
   send-notification:
+    name: Send Slack notification
     runs-on: ubuntu-latest
     if: always()
 
@@ -23,8 +49,10 @@ jobs:
       id-token: write
 
     needs:
-      - run-tests
+      - execute-test-suite
 
     steps:
       - name: Send Slack notification
         uses: ruchira088/slack-github-action@v1
+
+
