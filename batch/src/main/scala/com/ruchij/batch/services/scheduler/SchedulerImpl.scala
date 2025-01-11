@@ -270,6 +270,10 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
                     )
                 }
             }
+            .recoverWith {
+              case exception =>
+                logger.error("Error occurred updating video watch times", exception)
+            }
       }
       .groupWithin(20, 5 seconds)
       .evalMap { chunk =>
