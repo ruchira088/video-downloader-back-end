@@ -23,6 +23,9 @@ jobs:
       contents: read
       id-token: write
 
+    needs:
+      - compile-and-test
+
     strategy:
       matrix:
         app:
@@ -79,6 +82,9 @@ jobs:
     permissions:
       contents: read
       id-token: write
+
+    needs:
+      - publish-docker-images
 
     steps:
       - name: Checkout code
