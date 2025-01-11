@@ -71,7 +71,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
         }
       }
       .collect { case Some(worker) => worker }
-      .evalTap { worker => logger.info(s"Found ideal worker workerId=${worker.id}") }
+      .evalTap { worker => logger.info(s"Found idle worker workerId=${worker.id}") }
 
   private def performWork(
     worker: Worker,

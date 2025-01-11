@@ -1,7 +1,10 @@
 package com.ruchij.core.services.renderer
 
+import cats.ApplicativeError
 import cats.effect.Async
+import cats.implicits.{catsSyntaxApplicativeError, catsSyntaxApplyOps}
 import com.ruchij.core.config.SpaSiteRendererConfiguration
+import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.renderer.models.{JavaScriptExecutionRequest, SpaRendererRequest}
 import io.circe.generic.auto.exportEncoder
 import org.http4s.Method.POST
@@ -14,6 +17,8 @@ import org.http4s.client.dsl.Http4sClientDsl
 
 class SpaSiteRendererImpl[F[_]: Async](client: Client[F], spaSiteRendererConfiguration: SpaSiteRendererConfiguration)
     extends SpaSiteRenderer[F] {
+  private val logger = Logger[SpaSiteRenderer[F]]
+
   private val clientDsl = Http4sClientDsl[F]
 
   import clientDsl._
@@ -25,6 +30,11 @@ class SpaSiteRendererImpl[F[_]: Async](client: Client[F], spaSiteRendererConfigu
         spaSiteRendererConfiguration.uri.withPath(Path.Root / "render")
       )
     )
+      .recoverWith {
+        case exception =>
+          logger.warn(s"Unable to render uri=$uri")
+            .productR { ApplicativeError[F, Throwable].raiseError(exception) }
+      }
 
   override def executeJavaScript(uri: Uri, readyCssSelectors: Seq[String], script: String): F[String] =
     client.expect[String](
@@ -33,4 +43,9 @@ class SpaSiteRendererImpl[F[_]: Async](client: Client[F], spaSiteRendererConfigu
         spaSiteRendererConfiguration.uri.withPath(Path.Root / "render" / "execute")
       )
     )
+      .recoverWith {
+        case exception =>
+          logger.warn(s"Unable to execute JS for uri=$uri script=$script")
+            .productR { ApplicativeError[F, Throwable].raiseError(exception) }
+      }
 }
