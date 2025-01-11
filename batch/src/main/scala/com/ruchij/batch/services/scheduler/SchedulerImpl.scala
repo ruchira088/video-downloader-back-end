@@ -82,6 +82,12 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
     } { taskOpt =>
       OptionT
         .fromOption[F](taskOpt)
+        .flatTapNone {
+          logger.info[F](s"Worker id=${worker.id} failed to find a task")
+        }
+        .semiflatTap { scheduledVideoDownload =>
+          logger.info[F](s"WorkerId=${worker.id} found task ScheduledVideoDownloadId=${scheduledVideoDownload.videoMetadata.id}")
+        }
         .product(OptionT.liftF(JodaClock[F].timestamp))
         .flatMap {
           case (task, timestamp) =>
