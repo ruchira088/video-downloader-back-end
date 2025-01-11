@@ -2,7 +2,7 @@ package com.ruchij.batch.services.scheduler
 
 import cats.data.OptionT
 import cats.effect.kernel.Outcome.{Canceled, Errored}
-import cats.effect.{Async, MonadCancelThrow}
+import cats.effect.{Async, Sync}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Monad, MonadThrow, ~>}
 import com.ruchij.batch.config.WorkerConfiguration
@@ -78,7 +78,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
     scheduledVideoDownloadUpdates: Stream[F, ScheduledVideoDownload],
     workerStatusUpdates: Stream[F, WorkerStatusUpdate]
   ): F[Option[Video]] =
-    MonadCancelThrow[F].bracketCase {
+    Sync[F].bracketCase {
       batchSchedulingService.staleTask.orElse(batchSchedulingService.acquireTask).value
     } { taskOpt =>
       OptionT
@@ -228,7 +228,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
     scheduledVideoDownloadUpdates: Stream[F, ScheduledVideoDownload],
     workerStatusUpdates: Stream[F, WorkerStatusUpdate]
   ): F[Option[Video]] =
-    MonadCancelThrow[F].guarantee(
+    Sync[F].guarantee(
       SchedulerImpl
         .isWorkPeriod[F](workerConfiguration.startTime, workerConfiguration.endTime)
         .flatMap { isWorkPeriod =>
