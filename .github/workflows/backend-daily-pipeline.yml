@@ -7,7 +7,7 @@ on:
 jobs:
   compile-and-test:
     name: Run test suite
-    uses: ./.github/workflows/jobs/backend-test.yml
+    uses: ./.github/workflows/backend-test.yml
     secrets: inherit
 
   send-notification:
