@@ -71,6 +71,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
         }
       }
       .collect { case Some(worker) => worker }
+      .evalTap { worker => logger.info(s"Found ideal worker workerId=${worker.id}") }
 
   private def performWork(
     worker: Worker,
@@ -83,10 +84,10 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
       OptionT
         .fromOption[F](taskOpt)
         .flatTapNone {
-          logger.info[F](s"Worker id=${worker.id} failed to find a task")
+          logger.info[F](s"workerId=${worker.id} failed to find a task")
         }
         .semiflatTap { scheduledVideoDownload =>
-          logger.info[F](s"WorkerId=${worker.id} found task ScheduledVideoDownloadId=${scheduledVideoDownload.videoMetadata.id}")
+          logger.info[F](s"workerId=${worker.id} found task scheduledVideoDownloadId=${scheduledVideoDownload.videoMetadata.id}")
         }
         .product(OptionT.liftF(JodaClock[F].timestamp))
         .flatMap {
