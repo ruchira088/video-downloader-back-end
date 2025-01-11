@@ -139,12 +139,15 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
         }
         .value
     } {
-      case (Some(scheduledVideoDownload), Errored(_)) =>
+      case (Some(scheduledVideoDownload), Errored(exception)) =>
         batchVideoService
           .deleteById(scheduledVideoDownload.videoMetadata.id, deleteVideoFile = false)
           .productR {
             batchSchedulingService
               .updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Error)
+          }
+          .productR {
+            logger.error("Error occurred in worker executor", exception)
           }
           .productR(Applicative[F].unit)
 
@@ -152,6 +155,9 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
         batchSchedulingService
           .updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Queued)
           .productR(Applicative[F].unit)
+
+      case (_, Errored(exception)) =>
+        logger.error("Error occurred without scheduledVideoDownload", exception)
 
       case (_, _) => Applicative[F].unit
     }
