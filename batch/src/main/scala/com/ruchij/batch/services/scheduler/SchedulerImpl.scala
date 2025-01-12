@@ -84,7 +84,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
       OptionT
         .fromOption[F](taskOpt)
         .flatTapNone {
-          logger.info[F](s"workerId=${worker.id} failed to find a task")
+          logger.info[F](s"workerId=${worker.id} did NOT find a task")
         }
         .semiflatTap { scheduledVideoDownload =>
           logger.info[F](s"workerId=${worker.id} found task scheduledVideoDownloadId=${scheduledVideoDownload.videoMetadata.id}")
