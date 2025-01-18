@@ -1,7 +1,7 @@
 package com.ruchij.batch.services.sync
 
 import cats.data.OptionT
-import cats.effect.{Async, MonadCancelThrow}
+import cats.effect.{Async, MonadCancelThrow, Sync}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Functor, MonadThrow, ~>}
 import com.ruchij.batch.config.BatchStorageConfiguration
@@ -53,6 +53,9 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
 
   private val logger = Logger[SynchronizationServiceImpl[F, A, T]]
 
+  private lazy val videoFileExtensions: Seq[String] =
+    MediaType.video.all.flatMap(_.fileExtensions).concat(CustomVideoFileExtensions)
+
   override val sync: F[SynchronizationResult] =
     logger.info[F]("Synchronization started")
       .productR {
@@ -83,9 +86,9 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
         logger.info[F](result.prettyPrint)
       }
 
-  private def isFileSupported(filePath: String): F[Boolean] =
-    if (MediaType.video.all.exists(_.fileExtensions.exists(extension => filePath.endsWith("." + extension)))) {
-      MonadCancelThrow[F]
+  private def isFileSupported(filePath: String): F[Boolean] = {
+    if (videoFileExtensions.exists(extension => filePath.endsWith("." + extension))) {
+      Sync[F]
         .handleError {
           for {
             path <- fileRepositoryService.backedType(filePath)
@@ -97,6 +100,7 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
         }
     } else
       Applicative[F].pure(false)
+  }
 
   private def syncVideo(videoPath: String): F[FileSyncResult] =
     JodaClock[F].timestamp.flatMap { startTimestamp =>
@@ -227,6 +231,7 @@ object SynchronizationServiceImpl {
   private val PathDelimiter = "[/\\\\]"
   private val MaxConcurrentSyncCount = 8
   private val VideoFileVideoIdPattern: Regex = "^([^-]+)-([^-\\.]+).*".r
+  private val CustomVideoFileExtensions = Set("vid")
 
   private def errorHandler[F[_]: Functor](
     videoPath: String
