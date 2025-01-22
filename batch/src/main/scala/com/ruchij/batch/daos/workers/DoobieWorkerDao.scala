@@ -70,7 +70,7 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
       }
 
   override val idleWorker: ConnectionIO[Option[Worker]] =
-    OptionT { sql"SELECT id FROM worker WHERE status = ${WorkerStatus.Available} LIMIT 1 ORDER BY id".query[String].option }
+    OptionT { sql"SELECT id FROM worker WHERE status = ${WorkerStatus.Available} ORDER BY id LIMIT 1".query[String].option }
       .flatMapF(getById)
       .value
 
