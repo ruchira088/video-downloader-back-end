@@ -38,7 +38,7 @@ jobs:
         run: ruff check
 
       - name: Execute test suite
-        run: python -m unittest
+        run: python -m unittest -v
 
   send-notification:
     name: Send Slack notification
