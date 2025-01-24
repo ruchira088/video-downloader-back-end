@@ -1,8 +1,9 @@
 package com.ruchij.core.services.cli
 
 import cats.effect.std.{Dispatcher, Queue}
-import cats.effect.{Async, Sync}
+import cats.effect.{Async, Deferred, Sync}
 import cats.implicits._
+import cats.{Applicative, ApplicativeError}
 import com.ruchij.core.exceptions.CliCommandException
 import com.ruchij.core.logging.Logger
 import fs2.Stream
@@ -19,17 +20,20 @@ class CliCommandRunnerImpl[F[_]: Async](dispatcher: Dispatcher[F]) extends CliCo
     for {
       _ <- Stream.eval(logger.info(s"Executing CLI command: $command"))
       queue <- Stream.eval(Queue.unbounded[F, String])
+      deferred <- Stream.eval(Deferred[F, Throwable])
 
       process <- Stream.eval {
         Sync[F].blocking {
-          command.run {
+          Process(List("bash", "-c", command)).run {
             new ProcessLogger {
               override def out(output: => String): Unit =
                 dispatcher.unsafeRunAndForget(queue.offer(output))
 
               override def err(error: => String): Unit =
                 dispatcher.unsafeRunAndForget {
-                  logger.error[F](s"Exception thrown by CLI command: $command", CliCommandException(error))
+                  logger
+                    .error[F](s"Exception thrown by CLI command: $command", CliCommandException(error))
+                    .productR(deferred.complete(CliCommandException(error)))
                 }
 
               override def buffer[T](f: => T): T = f
@@ -38,8 +42,9 @@ class CliCommandRunnerImpl[F[_]: Async](dispatcher: Dispatcher[F]) extends CliCo
         }
       }
 
-      line <-
-        Stream.eval(queue.take).repeat
+      line <- Stream
+        .eval(queue.take)
+        .repeat
         .evalTap(logger.debug[F])
         .interruptWhen {
           Stream
@@ -48,7 +53,22 @@ class CliCommandRunnerImpl[F[_]: Async](dispatcher: Dispatcher[F]) extends CliCo
             .metered(100 milliseconds)
             .filter(isAlive => !isAlive)
             .productR {
-              Stream.eval(queue.size).map(_ == 0).repeat
+              Stream
+                .eval(queue.size)
+                .flatMap(size => if (size == 0) Stream.emit[F, Boolean](true) else Stream.empty)
+                .repeat
+                .evalMap(_ => deferred.tryGet)
+                .evalMap {
+                  case Some(throwable) => ApplicativeError[F, Throwable].raiseError[Int](throwable)
+                  case _ => Sync[F].delay(process.exitValue())
+                }
+                .evalMap {
+                  case 0 => Applicative[F].pure[Boolean](true)
+                  case exitCode =>
+                    ApplicativeError[F, Throwable].raiseError[Boolean] {
+                      CliCommandException(s"CLI command exited with $exitCode code")
+                    }
+                }
             }
         }
         .onFinalize {

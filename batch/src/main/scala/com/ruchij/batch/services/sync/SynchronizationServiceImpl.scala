@@ -1,7 +1,7 @@
 package com.ruchij.batch.services.sync
 
 import cats.data.OptionT
-import cats.effect.{Async, MonadCancelThrow, Sync}
+import cats.effect.{Async, Sync}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Functor, MonadThrow, ~>}
 import com.ruchij.batch.config.BatchStorageConfiguration
