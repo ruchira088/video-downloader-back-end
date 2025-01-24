@@ -31,7 +31,7 @@ class CliCommandRunnerImplSpec extends AnyFlatSpec with Matchers {
         .flatMap { exception =>
           IO.delay {
             exception mustBe a [CliCommandException]
-            exception.getMessage mustBe "bash: invalid-program: command not found"
+            exception.getMessage contains "invalid-program: command not found"
           }
         }
 

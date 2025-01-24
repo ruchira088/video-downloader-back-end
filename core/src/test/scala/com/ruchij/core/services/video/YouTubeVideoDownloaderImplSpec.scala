@@ -1,10 +1,12 @@
 package com.ruchij.core.services.video
 
 import cats.effect.IO
-import com.ruchij.core.services.cli.CliCommandRunner
+import cats.effect.std.Dispatcher
+import com.ruchij.core.exceptions.CliCommandException
+import com.ruchij.core.services.cli.{CliCommandRunner, CliCommandRunnerImpl}
 import com.ruchij.core.services.video.models.YTDataUnit.MiB
 import com.ruchij.core.services.video.models.{YTDataSize, YTDownloaderProgress}
-import com.ruchij.core.test.IOSupport.runIO
+import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import fs2.Stream
 import org.http4s.client.Client
 import org.http4s.implicits.http4sLiteralsSyntax
@@ -160,6 +162,29 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
             )
         }
       }
+  }
+
+  it should "throw an error attempting to download a non-existing video" in runIO {
+    Dispatcher.parallel[IO].use { dispatcher =>
+      val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
+      val client = mock[Client[IO]]
+
+      val youTubeVideoDownloaderImpl = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client)
+
+      youTubeVideoDownloaderImpl.downloadVideo(
+        uri"https://www.eporner.com/video-kb38QBpRQaY/small-town-girl-cheerleader-kait-gets-double-dick/",
+        "$PWD/video-file"
+      )
+        .compile
+        .drain
+        .error
+        .flatMap { exception =>
+          IO.delay {
+            exception mustBe a [CliCommandException]
+            exception.getMessage contains "ERROR: [Eporner] kb38QBpRQaY: Unable to extract hash; please report this issue on  https://github.com/yt-dlp/yt-dlp/issues?q= , filling out the appropriate issue template. Confirm you are on the latest version using  yt-dlp -U"
+          }
+        }
+    }
   }
 
 }
