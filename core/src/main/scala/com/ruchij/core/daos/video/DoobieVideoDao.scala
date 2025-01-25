@@ -95,6 +95,8 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
       ++ fr"ORDER BY"
       ++ videoSortByFieldName(sortBy)
       ++ ordering(order)
+      ++ fr", video.video_metadata_id"
+      ++ ordering(order)
       ++ fr"LIMIT $pageSize OFFSET ${pageSize * pageNumber}")
       .query[Video]
       .to[Seq]
@@ -111,8 +113,8 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
 
   private val videoSortByFieldName: SortBy => Fragment =
     sortByFieldName.orElse {
-      case SortBy.Date => fr"video.created_at, video.video_metadata_id"
-      case SortBy.WatchTime => fr"video_watch_time.watch_time_in_ms, video.video_metadata_id"
+      case SortBy.Date => fr"video.created_at"
+      case SortBy.WatchTime => fr"video_watch_time.watch_time_in_ms"
       case _ => fr"RANDOM()"
     }
 
