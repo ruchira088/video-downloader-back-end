@@ -16,7 +16,6 @@ import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SpaSiteRe
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.external.CoreResourcesProvider.HashedAdminPassword
 import com.ruchij.core.logging.Logger
-import com.ruchij.core.services.cli.CliCommandRunnerImpl
 import com.ruchij.core.types.JodaClock
 import com.ruchij.development.frontend.FrontEndContainer
 import com.ruchij.migration.MigrationApp

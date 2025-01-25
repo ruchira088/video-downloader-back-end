@@ -84,19 +84,28 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
             Stream
               .eval(Topic[F, YTDownloaderProgress])
               .flatMap { topic =>
-                val progressStream: Stream[F, YTDownloaderProgress] = topic.subscribe(Int.MaxValue)
-
                 Stream
                   .eval(Deferred[F, Either[Throwable, Unit]])
                   .flatMap { deferred =>
+                    val progressStream: Stream[F, YTDownloaderProgress] =
+                      topic.subscribe(Int.MaxValue).interruptWhen(deferred)
+
                     progressStream
                       .concurrently {
                         topic.publish {
                           youTubeVideoDownloader
                             .downloadVideo(scheduledVideoDownload.videoMetadata.url, videoFilePath)
-                            .onFinalizeCase {
-                              case ExitCase.Errored(throwable) => deferred.complete(Left(throwable)).as((): Unit)
-                              case _ => deferred.complete(Right((): Unit)).as((): Unit)
+                            .onFinalizeCase { exitCase =>
+                              logger
+                                .info(
+                                  s"ExitCase = $exitCase for YouTubeDownloader uri=${scheduledVideoDownload.videoMetadata.url}"
+                                )
+                                .productR {
+                                  exitCase match {
+                                    case ExitCase.Errored(throwable) => deferred.complete(Left(throwable)).as((): Unit)
+                                    case _ => deferred.complete(Right((): Unit)).as((): Unit)
+                                  }
+                                }
                             }
                         }
                       }
@@ -104,20 +113,21 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
                         progressStream
                           .debounce(10 seconds)
                           .evalMap { progress =>
-                            if (scheduledVideoDownload.videoMetadata.size < math.round(progress.totalSize.bytes)) {
-                              transaction {
-                                videoMetadataDao.update(
-                                  scheduledVideoDownload.videoMetadata.id,
-                                  None,
-                                  Some(math.round(progress.totalSize.bytes)),
-                                  None
-                                )
-                              }.as((): Unit)
-                            } else Applicative[F].unit
+                            transaction {
+                              videoMetadataDao.update(
+                                scheduledVideoDownload.videoMetadata.id,
+                                None,
+                                Some(
+                                  math.min(
+                                    math.round(progress.totalSize.bytes),
+                                    scheduledVideoDownload.videoMetadata.size
+                                  )
+                                ),
+                                None
+                              )
+                            }.as((): Unit)
                           }
-                          .interruptWhen(deferred)
                       }
-                      .interruptWhen(deferred)
                       .map(progress => math.round((progress.completed / 100) * progress.totalSize.bytes))
                   }
               },
@@ -182,6 +192,12 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
       .info[F](s"Worker ${worker.id} started download for ${scheduledVideoDownload.videoMetadata.url}")
       .productR {
         downloadVideo(worker.id, scheduledVideoDownload, interrupt)
+          .flatTap { fileResource =>
+            logger.info[F] {
+              s"Worker ${worker.id} completed download for url=${scheduledVideoDownload.videoMetadata.url} " +
+                s"path=${fileResource.path} size=${fileResource.size}"
+            }
+          }
           .flatMap { fileResource =>
             if (fileResource.size < scheduledVideoDownload.videoMetadata.size && CustomVideoSite.values
                 .contains(scheduledVideoDownload.videoMetadata.videoSite) && retries > 0)
@@ -195,8 +211,19 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
                 .updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Downloaded)
                 .productL {
                   if (scheduledVideoDownload.videoMetadata.duration.toMillis == 0)
-                    videoAnalysisService.videoDurationFromPath(fileResource.path)
-                      .flatMap(duration => transaction(videoMetadataDao.update(scheduledVideoDownload.videoMetadata.id, None, None, Some(duration))))
+                    videoAnalysisService
+                      .videoDurationFromPath(fileResource.path)
+                      .handleErrorWith { throwable =>
+                        logger
+                          .error[F](s"Failed infer video duration for path=${fileResource.path} error", throwable)
+                          .productR(ApplicativeError[F, Throwable].raiseError(throwable))
+                      }
+                      .flatMap(
+                        duration =>
+                          transaction(
+                            videoMetadataDao.update(scheduledVideoDownload.videoMetadata.id, None, None, Some(duration))
+                        )
+                      )
                       .as((): Unit)
                   else Applicative[F].unit
                 }
@@ -211,7 +238,13 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
                     batchVideoService.update(scheduledVideoDownload.videoMetadata.id, fileResource.size)
                   } else Applicative[F].unit
                 }
-                .flatTap(video => videoEnrichmentService.videoSnapshots(video).attempt)
+                .flatTap {
+                  video => videoEnrichmentService.videoSnapshots(video).attempt
+                    .flatMap {
+                      case Left(throwable) => logger.error(s"Failed to take video snapshots for video=$video", throwable)
+                      case _ => Applicative[F].pure((): Unit)
+                    }
+                }
                 .productL {
                   batchSchedulingService.completeScheduledVideoDownload(scheduledVideoDownload.videoMetadata.id)
                 }

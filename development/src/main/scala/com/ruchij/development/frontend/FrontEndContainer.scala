@@ -2,7 +2,6 @@ package com.ruchij.development.frontend
 
 import cats.effect.kernel.{Resource, Sync}
 import cats.implicits._
-import com.ruchij.api.config.HttpConfiguration
 import com.ruchij.core.external.containers.ContainerCoreResourcesProvider
 import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, _}
 import com.ruchij.development.frontend.FrontEndContainer.ApiUrlEnvVar
