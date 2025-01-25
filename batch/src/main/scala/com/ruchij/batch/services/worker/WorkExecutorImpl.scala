@@ -87,8 +87,7 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
                 Stream
                   .eval(Deferred[F, Either[Throwable, Unit]])
                   .flatMap { deferred =>
-                    val progressStream: Stream[F, YTDownloaderProgress] =
-                      topic.subscribe(Int.MaxValue).interruptWhen(deferred)
+                    val progressStream: Stream[F, YTDownloaderProgress] = topic.subscribe(Int.MaxValue)
 
                     progressStream
                       .concurrently {
@@ -128,6 +127,7 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
                             }.as((): Unit)
                           }
                       }
+                      .interruptWhen(deferred)
                       .map(progress => math.round((progress.completed / 100) * progress.totalSize.bytes))
                   }
               },
@@ -143,7 +143,7 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
                     .last
                 }
             }
-              .flatTap(file => logger.info(s"Found file=$file for ${scheduledVideoDownload.videoMetadata.id}"))
+              .semiflatTap(file => logger.info(s"Found file=$file for ${scheduledVideoDownload.videoMetadata.id}"))
               .flatMap { file =>
                 for {
                   fileSize <- OptionT(repositoryService.size(file))
@@ -184,7 +184,7 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
             .interruptWhen(interrupt)
             .compile
             .last
-            .productR {
+            .flatMap {
               case Some(byteCount) =>
                 logger.info(s"Worker $workerId reached byteCount=$byteCount for videoId=${scheduledVideoDownload.videoMetadata.id}")
 
