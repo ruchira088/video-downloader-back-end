@@ -207,7 +207,7 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
                 .productL(transaction(fileResourceDao.insert(fileResource)))
                 .productR(batchVideoService.insert(scheduledVideoDownload.videoMetadata.id, fileResource.id))
                 .productL {
-                  if (fileResource.size > scheduledVideoDownload.videoMetadata.size) {
+                  if (fileResource.size != scheduledVideoDownload.videoMetadata.size) {
                     batchVideoService.update(scheduledVideoDownload.videoMetadata.id, fileResource.size)
                   } else Applicative[F].unit
                 }

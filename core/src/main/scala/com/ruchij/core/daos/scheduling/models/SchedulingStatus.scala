@@ -26,7 +26,7 @@ object SchedulingStatus extends Enum[SchedulingStatus] {
   }
 
   case object Acquired extends SchedulingStatus {
-    override val validTransitionStatuses: Set[SchedulingStatus] = Set(Active, Error)
+    override val validTransitionStatuses: Set[SchedulingStatus] = Set(Active, Downloaded, Error)
   }
 
   case object Stale extends SchedulingStatus {
