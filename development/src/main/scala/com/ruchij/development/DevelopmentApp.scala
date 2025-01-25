@@ -15,7 +15,10 @@ import com.ruchij.batch.services.scheduler.Scheduler
 import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration}
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.external.CoreResourcesProvider.HashedAdminPassword
+import com.ruchij.core.logging.Logger
+import com.ruchij.core.services.cli.CliCommandRunnerImpl
 import com.ruchij.core.types.JodaClock
+import com.ruchij.development.frontend.FrontEndContainer
 import com.ruchij.migration.MigrationApp
 import com.ruchij.migration.config.{AdminConfiguration, DatabaseConfiguration, MigrationServiceConfiguration}
 import fs2.compression.Compression
@@ -23,6 +26,7 @@ import fs2.io.file.Files
 import fs2.io.net.tls.TLSContext
 import org.http4s.HttpApp
 import org.http4s.ember.server.EmberServerBuilder
+import org.http4s.implicits.http4sLiteralsSyntax
 import org.joda.time.LocalTime
 
 import java.security.KeyStore
@@ -78,6 +82,8 @@ object DevelopmentApp extends IOApp {
 
   private val KeyStorePassword = "changeit"
 
+  private val logger = Logger[DevelopmentApp.type]
+
   override def run(args: List[String]): IO[ExitCode] =
     program[IO](new ContainerApiResourcesProvider[IO])
       .flatMap {
@@ -93,6 +99,8 @@ object DevelopmentApp extends IOApp {
                 .withTLS(tlsContext)
                 .build
             }
+            .productR(FrontEndContainer.create[IO](uri"https://api.localhost"))
+            .evalMap(frontEndUri => logger.info[IO](s"***** FrontEnd URL: ${frontEndUri.renderString} *****"))
             .as(batch)
       }
       .use { batch =>
