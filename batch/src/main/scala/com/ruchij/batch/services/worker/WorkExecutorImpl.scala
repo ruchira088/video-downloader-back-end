@@ -132,14 +132,19 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
                   }
               },
             OptionT {
-              repositoryService
-                .list(storageConfiguration.videoFolder)
-                .find(
-                  fileKey => fileKey.split('/').lastOption.exists(_.startsWith(scheduledVideoDownload.videoMetadata.id))
-                )
-                .compile
-                .last
-            }.flatMap { file =>
+              logger.info(s"Searching for the file key for ${scheduledVideoDownload.videoMetadata.id}")
+                .productR {
+                  repositoryService
+                    .list(storageConfiguration.videoFolder)
+                    .find(
+                      fileKey => fileKey.split('/').lastOption.exists(_.startsWith(scheduledVideoDownload.videoMetadata.id))
+                    )
+                    .compile
+                    .last
+                }
+            }
+              .flatTap(file => logger.info(s"Found file=$file for ${scheduledVideoDownload.videoMetadata.id}"))
+              .flatMap { file =>
                 for {
                   fileSize <- OptionT(repositoryService.size(file))
                   fileType <- OptionT(repositoryService.fileType(file))
@@ -173,12 +178,19 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
               }
             }
             .debounce(250 milliseconds)
-            .evalMap { byteCount =>
+            .evalTap { byteCount =>
               batchSchedulingService.publishDownloadProgress(scheduledVideoDownload.videoMetadata.id, byteCount)
             }
             .interruptWhen(interrupt)
             .compile
-            .drain
+            .last
+            .productR {
+              case Some(byteCount) =>
+                logger.info(s"Worker $workerId reached byteCount=$byteCount for videoId=${scheduledVideoDownload.videoMetadata.id}")
+
+              case _ =>
+                logger.info(s"Worker $workerId didn't download any bytes for videoId=${scheduledVideoDownload.videoMetadata.id}")
+            }
             .productR(fileResourceF)
       }
 
