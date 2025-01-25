@@ -175,7 +175,8 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
   override def execute(
     scheduledVideoDownload: ScheduledVideoDownload,
     worker: Worker,
-    interrupt: Stream[F, Boolean]
+    interrupt: Stream[F, Boolean],
+    retries: Int
   ): F[Video] =
     logger
       .info[F](s"Worker ${worker.id} started download for ${scheduledVideoDownload.videoMetadata.url}")
@@ -183,12 +184,12 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
         downloadVideo(worker.id, scheduledVideoDownload, interrupt)
           .flatMap { fileResource =>
             if (fileResource.size < scheduledVideoDownload.videoMetadata.size && CustomVideoSite.values
-                .contains(scheduledVideoDownload.videoMetadata.videoSite))
+                .contains(scheduledVideoDownload.videoMetadata.videoSite) && retries > 0)
               logger
                 .warn[F](
                   s"Worker ${worker.id} invalidly deemed as complete: ${scheduledVideoDownload.videoMetadata.url}"
                 )
-                .productR(execute(scheduledVideoDownload, worker, interrupt))
+                .productR(execute(scheduledVideoDownload, worker, interrupt, retries - 1))
             else
               batchSchedulingService
                 .updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Downloaded)

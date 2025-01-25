@@ -6,5 +6,10 @@ import com.ruchij.core.daos.video.models.Video
 import fs2.Stream
 
 trait WorkExecutor[F[_]] {
-  def execute(scheduledVideoDownload: ScheduledVideoDownload, worker: Worker, interrupt: Stream[F, Boolean]): F[Video]
+  def execute(
+    scheduledVideoDownload: ScheduledVideoDownload,
+    worker: Worker,
+    interrupt: Stream[F, Boolean],
+    retries: Int
+  ): F[Video]
 }

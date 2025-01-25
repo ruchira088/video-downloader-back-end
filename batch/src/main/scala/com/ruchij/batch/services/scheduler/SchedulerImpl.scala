@@ -70,8 +70,10 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
           }
         }
       }
-      .collect { case Some(worker) => worker }
-      .evalTap { worker => logger.info(s"Found idle worker workerId=${worker.id}") }
+      .flatMap {
+        case Some(worker) => Stream.eval(logger.info(s"Found idle worker workerId=${worker.id}")).as(worker)
+        case _ => Stream.eval(logger.info("Idle workers not found")).productR(Stream.empty)
+      }
 
   private def performWork(
     worker: Worker,
@@ -115,7 +117,8 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
                       }
                     }
                     .filter(identity)
-                    .productR[Boolean](Stream.raiseError[F](PausedVideoDownload))
+                    .productR[Boolean](Stream.raiseError[F](PausedVideoDownload)),
+                  5
                 )
                 .map[Option[Video]](Some.apply)
             } {
