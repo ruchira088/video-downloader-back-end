@@ -1,6 +1,6 @@
 package com.ruchij.core.services.repository
 
-import cats.effect.Sync
+import cats.effect.{Async, Sync, Temporal}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError}
 import com.ruchij.core.logging.Logger
@@ -9,8 +9,11 @@ import fs2.io.file.{Files, Flags, Path, WalkOptions}
 import org.http4s.MediaType
 
 import java.nio.file.Paths
+import java.util.concurrent.TimeoutException
+import scala.concurrent.duration.DurationInt
+import scala.language.postfixOps
 
-class FileRepositoryService[F[_]: Sync: Files](fileTypeDetector: FileTypeDetector[F, Path])
+class FileRepositoryService[F[_]: Async: Files](fileTypeDetector: FileTypeDetector[F, Path])
     extends RepositoryService[F] {
 
   override type BackedType = Path
@@ -62,6 +65,15 @@ class FileRepositoryService[F[_]: Sync: Files](fileTypeDetector: FileTypeDetecto
           .eval(backedType(key))
           .flatMap(path => Files[F].walk(path, WalkOptions.Default.withMaxDepth(Int.MaxValue).withFollowLinks(true)))
           .map(_.toString)
+          .interruptWhen {
+            Temporal[F]
+              .sleep(100 seconds)
+              .productR {
+                Applicative[F].pure[Either[Throwable, Unit]] {
+                  Left(new TimeoutException(s"Unable to list files for $key in 100 seconds"))
+                }
+              }
+          }
           .evalTap(path => logger.info(s"Found file: $path"))
       }
 
