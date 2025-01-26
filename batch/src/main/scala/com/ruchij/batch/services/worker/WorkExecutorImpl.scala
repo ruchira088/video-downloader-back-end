@@ -26,7 +26,7 @@ import com.ruchij.core.services.video.models.YTDownloaderProgress
 import com.ruchij.core.services.video.{VideoAnalysisService, YouTubeVideoDownloader}
 import com.ruchij.core.types.JodaClock
 import fs2.Stream
-import fs2.concurrent.Topic
+import fs2.concurrent.{SignallingRef, Topic}
 
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
@@ -131,18 +131,54 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
                       .map(progress => math.round((progress.completed / 100) * progress.totalSize.bytes))
                   }
               },
-            OptionT {
-              logger.info(s"Searching for the file key for ${scheduledVideoDownload.videoMetadata.id}")
-                .productR {
-                  repositoryService
-                    .list(storageConfiguration.videoFolder)
-                    .find(
-                      fileKey => fileKey.split('/').lastOption.exists(_.startsWith(scheduledVideoDownload.videoMetadata.id))
-                    )
-                    .compile
-                    .last
-                }
-            }
+            OptionT
+              .liftF {
+                logger
+                  .info(s"Searching for the file key for ${scheduledVideoDownload.videoMetadata.id}")
+                  .productR {
+                    SignallingRef[F]
+                      .of(0)
+                      .flatMap { signallingRef =>
+                        repositoryService
+                          .list(storageConfiguration.videoFolder)
+                          .evalFilter { fileKey =>
+                            signallingRef
+                              .updateAndGet(_ + 1)
+                              .flatMap { fileCount =>
+                                if (fileCount % 100 == 0)
+                                  logger.info(
+                                    s"Searched $fileCount files for the file key for ${scheduledVideoDownload.videoMetadata.id}"
+                                  )
+                                else Applicative[F].pure((): Unit)
+                              }
+                              .as {
+                                fileKey
+                                  .split('/')
+                                  .lastOption
+                                  .exists(_.startsWith(scheduledVideoDownload.videoMetadata.id))
+                              }
+                          }
+                          .compile
+                          .toList
+                          .flatMap[String] {
+                            case Nil =>
+                              val resourceNotFoundException = ResourceNotFoundException(
+                                s"Unable to find file key for ${scheduledVideoDownload.videoMetadata.id}"
+                              )
+                              ApplicativeError[F, Throwable].raiseError(resourceNotFoundException)
+
+                            case fileKey :: Nil => Applicative[F].pure(fileKey)
+
+                            case fileKeys =>
+                              val illegalStateException = new IllegalStateException(
+                                s"Multiple file keys found for ${scheduledVideoDownload.videoMetadata.id}. Keys=${fileKeys
+                                  .mkString("[", ", ", "]")}"
+                              )
+                              ApplicativeError[F, Throwable].raiseError(illegalStateException)
+                          }
+                      }
+                  }
+              }
               .semiflatTap(file => logger.info(s"Found file=$file for ${scheduledVideoDownload.videoMetadata.id}"))
               .flatMap { file =>
                 for {
@@ -186,10 +222,14 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
             .last
             .flatMap {
               case Some(byteCount) =>
-                logger.info(s"Worker $workerId reached byteCount=$byteCount for videoId=${scheduledVideoDownload.videoMetadata.id}")
+                logger.info(
+                  s"Worker $workerId reached byteCount=$byteCount for videoId=${scheduledVideoDownload.videoMetadata.id}"
+                )
 
               case _ =>
-                logger.info(s"Worker $workerId didn't download any bytes for videoId=${scheduledVideoDownload.videoMetadata.id}")
+                logger.info(
+                  s"Worker $workerId didn't download any bytes for videoId=${scheduledVideoDownload.videoMetadata.id}"
+                )
             }
             .productR(fileResourceF)
       }
@@ -250,10 +290,13 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
                     batchVideoService.update(scheduledVideoDownload.videoMetadata.id, fileResource.size)
                   } else Applicative[F].unit
                 }
-                .flatTap {
-                  video => videoEnrichmentService.videoSnapshots(video).attempt
+                .flatTap { video =>
+                  videoEnrichmentService
+                    .videoSnapshots(video)
+                    .attempt
                     .flatMap {
-                      case Left(throwable) => logger.error(s"Failed to take video snapshots for video=$video", throwable)
+                      case Left(throwable) =>
+                        logger.error(s"Failed to take video snapshots for video=$video", throwable)
                       case _ => Applicative[F].pure((): Unit)
                     }
                 }
