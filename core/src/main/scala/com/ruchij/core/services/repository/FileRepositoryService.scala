@@ -63,8 +63,6 @@ class FileRepositoryService[F[_]: Async: Files](fileTypeDetector: FileTypeDetect
       .productR {
         Stream
           .eval(backedType(key))
-          .flatMap(path => Files[F].walk(path, WalkOptions.Default.withMaxDepth(Int.MaxValue).withFollowLinks(true)))
-          .map(_.toString)
           .interruptWhen {
             Temporal[F]
               .sleep(100 seconds)
@@ -74,6 +72,8 @@ class FileRepositoryService[F[_]: Async: Files](fileTypeDetector: FileTypeDetect
                 }
               }
           }
+          .flatMap(path => Files[F].walk(path, WalkOptions.Default.withMaxDepth(Int.MaxValue).withFollowLinks(true)))
+          .map(_.toString)
           .evalTap(path => logger.info(s"Found file: $path"))
       }
 
