@@ -169,13 +169,10 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
       case fileExtension :: otherFileExtensions =>
         val filePath = fileKey + "." + fileExtension
 
-        logger.info(s"Searching for $filePath")
-          .productR {
-            repositoryService.size(fileKey).flatMap {
-              case None => findVideoFileWithExtensions(fileKey, otherFileExtensions)
-              case _ => Applicative[F].pure(Some(filePath))
-            }
-          }
+        repositoryService.size(filePath).flatMap {
+          case None => findVideoFileWithExtensions(fileKey, otherFileExtensions)
+          case _ => Applicative[F].pure(Some(filePath))
+        }
     }
 
   private def findVideoFileByCrawling(videoMetadataId: String): F[String] =
