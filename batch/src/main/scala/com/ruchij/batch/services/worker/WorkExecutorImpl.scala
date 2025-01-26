@@ -12,6 +12,7 @@ import com.ruchij.batch.daos.workers.models.Worker
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService
 import com.ruchij.batch.services.scheduling.BatchSchedulingService
 import com.ruchij.batch.services.video.BatchVideoService
+import com.ruchij.batch.utils.Constants
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
@@ -132,63 +133,7 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
                   }
               },
             OptionT
-              .liftF {
-                logger
-                  .info(s"Searching for the file key for ${scheduledVideoDownload.videoMetadata.id}")
-                  .productR {
-                    SignallingRef[F]
-                      .of(0)
-                      .flatMap { signallingRef =>
-                        repositoryService
-                          .list(storageConfiguration.videoFolder)
-                          .evalFilter { fileKey =>
-                            signallingRef
-                              .updateAndGet(_ + 1)
-                              .flatMap { fileCount =>
-                                if (fileCount % 10 == 0)
-                                  logger.info(
-                                    s"Searched $fileCount files for the file key for ${scheduledVideoDownload.videoMetadata.id}"
-                                  )
-                                else Applicative[F].pure((): Unit)
-                              }
-                              .as {
-                                fileKey
-                                  .split('/')
-                                  .lastOption
-                                  .exists(_.startsWith(scheduledVideoDownload.videoMetadata.id))
-                              }
-                          }
-                          .compile
-                          .toList
-                          .flatMap[String] {
-                            case Nil =>
-                              val resourceNotFoundException = ResourceNotFoundException(
-                                s"Unable to find file key for ${scheduledVideoDownload.videoMetadata.id}"
-                              )
-
-                              logger
-                                .error("File key not found", resourceNotFoundException)
-                                .productR {
-                                  ApplicativeError[F, Throwable].raiseError(resourceNotFoundException)
-                                }
-
-                            case fileKey :: Nil => Applicative[F].pure(fileKey)
-
-                            case fileKeys =>
-                              val illegalStateException = new IllegalStateException(
-                                s"Multiple file keys found for ${scheduledVideoDownload.videoMetadata.id}. Keys=${fileKeys
-                                  .mkString("[", ", ", "]")}"
-                              )
-                              logger
-                                .error("Multiple file keys found", illegalStateException)
-                                .productR {
-                                  ApplicativeError[F, Throwable].raiseError(illegalStateException)
-                                }
-                          }
-                      }
-                  }
-              }
-              .semiflatTap(file => logger.info(s"Found file=$file for ${scheduledVideoDownload.videoMetadata.id}"))
+              .liftF(findVideoFile(videoFilePath, scheduledVideoDownload.videoMetadata.id))
               .flatMap { file =>
                 for {
                   fileSize <- OptionT(repositoryService.size(file))
@@ -204,6 +149,82 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
           )
         }
     }
+
+  private def findVideoFile(fileKey: String, videoMetadataId: String): F[String] =
+    logger
+      .info(s"Searching for the fileKey=$fileKey for videoMetadataId=$videoMetadataId")
+      .productR {
+        OptionT(findVideoFileWithExtensions(fileKey, Constants.VideoFileExtensions))
+          .getOrElseF {
+            findVideoFileByCrawling(videoMetadataId)
+          }
+          .flatTap { file =>
+            logger.info(s"Found file=$file for $videoMetadataId")
+          }
+      }
+
+  private def findVideoFileWithExtensions(fileKey: String, fileExtensions: List[String]): F[Option[String]] =
+    fileExtensions match {
+      case Nil => Applicative[F].pure(None)
+      case fileExtension :: otherFileExtensions =>
+        val filePath = fileKey + "." + fileExtension
+
+        logger.info(s"Searching for $filePath")
+          .productR {
+            repositoryService.size(fileKey).flatMap {
+              case None => findVideoFileWithExtensions(fileKey, otherFileExtensions)
+              case _ => Applicative[F].pure(Some(filePath))
+            }
+          }
+    }
+
+  private def findVideoFileByCrawling(videoMetadataId: String): F[String] =
+    SignallingRef[F]
+      .of(0)
+      .flatMap { signallingRef =>
+        repositoryService
+          .list(storageConfiguration.videoFolder)
+          .evalFilter { fileKey =>
+            signallingRef
+              .updateAndGet(_ + 1)
+              .flatMap { fileCount =>
+                if (fileCount % 10 == 0)
+                  logger.info(s"Searched $fileCount files for the file key for $videoMetadataId")
+                else Applicative[F].pure((): Unit)
+              }
+              .as {
+                fileKey
+                  .split('/')
+                  .lastOption
+                  .exists(_.startsWith(videoMetadataId))
+              }
+          }
+          .compile
+          .toList
+          .flatMap[String] {
+            case Nil =>
+              val resourceNotFoundException = ResourceNotFoundException(s"Unable to find file key for $videoMetadataId")
+
+              logger
+                .error("File key not found", resourceNotFoundException)
+                .productR {
+                  ApplicativeError[F, Throwable].raiseError(resourceNotFoundException)
+                }
+
+            case fileKey :: Nil => Applicative[F].pure(fileKey)
+
+            case fileKeys =>
+              val illegalStateException =
+                new IllegalStateException(s"Multiple file keys found for $videoMetadataId. Keys=${fileKeys
+                  .mkString("[", ", ", "]")}")
+
+              logger
+                .error("Multiple file keys found", illegalStateException)
+                .productR {
+                  ApplicativeError[F, Throwable].raiseError(illegalStateException)
+                }
+          }
+      }
 
   private def downloadVideo(
     workerId: String,

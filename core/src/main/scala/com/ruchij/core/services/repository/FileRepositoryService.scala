@@ -60,21 +60,22 @@ class FileRepositoryService[F[_]: Async: Files](fileTypeDetector: FileTypeDetect
   override def list(key: Key): Stream[F, Key] =
     Stream
       .eval(logger.info(s"Listing files for $key"))
+      .interruptWhen {
+        Temporal[F]
+          .sleep(100 seconds)
+          .productR {
+            val timeoutException = new TimeoutException(s"Unable to list files for $key in 100 seconds")
+
+            logger
+              .error("Timeout error", timeoutException)
+              .as[Either[Throwable, Unit]](Left(timeoutException))
+          }
+      }
       .productR {
         Stream
           .eval(backedType(key))
-          .interruptWhen {
-            Temporal[F]
-              .sleep(100 seconds)
-              .productR {
-                Applicative[F].pure[Either[Throwable, Unit]] {
-                  Left(new TimeoutException(s"Unable to list files for $key in 100 seconds"))
-                }
-              }
-          }
           .flatMap(path => Files[F].walk(path, WalkOptions.Default.withMaxDepth(Int.MaxValue).withFollowLinks(true)))
           .map(_.toString)
-          .evalTap(path => logger.info(s"Found file: $path"))
       }
 
   override def backedType(key: Key): F[Path] = FileRepositoryService.parsePath[F](key)

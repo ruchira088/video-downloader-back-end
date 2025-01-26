@@ -35,10 +35,15 @@ import scala.language.postfixOps
 
 object DevelopmentApp extends IOApp {
 
-  private val ApiStorageConfig: ApiStorageConfiguration = ApiStorageConfiguration("./images")
+  private val ApiStorageConfig: ApiStorageConfiguration =
+    ApiStorageConfiguration("/Users/ruchira/Development/video-downloader-back-end/images")
 
   private val BatchStorageConfig: BatchStorageConfiguration =
-    BatchStorageConfiguration("./videos", "./images", List.empty)
+    BatchStorageConfiguration(
+      "/Users/ruchira/Development/video-downloader-back-end/videos",
+      "/Users/ruchira/Development/video-downloader-back-end/images",
+      List.empty
+    )
 
   private val WorkerConfig: WorkerConfiguration =
     WorkerConfiguration(2, LocalTime.MIDNIGHT, LocalTime.MIDNIGHT)

@@ -12,6 +12,7 @@ import com.ruchij.batch.services.sync.SynchronizationServiceImpl._
 import com.ruchij.batch.services.sync.models.FileSyncResult.{ExistingVideo, IgnoredFile, SyncError, VideoSynced}
 import com.ruchij.batch.services.sync.models.{FileSyncResult, SynchronizationResult}
 import com.ruchij.batch.services.video.BatchVideoService
+import com.ruchij.batch.utils.Constants
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.SchedulingDao
@@ -53,9 +54,6 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
 
   private val logger = Logger[SynchronizationServiceImpl[F, A, T]]
 
-  private lazy val videoFileExtensions: Seq[String] =
-    MediaType.video.all.flatMap(_.fileExtensions).concat(CustomVideoFileExtensions)
-
   override val sync: F[SynchronizationResult] =
     logger.info[F]("Synchronization started")
       .productR {
@@ -87,7 +85,7 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
       }
 
   private def isFileSupported(filePath: String): F[Boolean] = {
-    if (videoFileExtensions.exists(extension => filePath.endsWith("." + extension))) {
+    if (Constants.VideoFileExtensions.exists(extension => filePath.endsWith("." + extension))) {
       Sync[F]
         .handleError {
           for {
@@ -231,7 +229,6 @@ object SynchronizationServiceImpl {
   private val PathDelimiter = "[/\\\\]"
   private val MaxConcurrentSyncCount = 8
   private val VideoFileVideoIdPattern: Regex = "^([^-]+)-([^-\\.]+).*".r
-  private val CustomVideoFileExtensions = Set("vid")
 
   private def errorHandler[F[_]: Functor](
     videoPath: String
