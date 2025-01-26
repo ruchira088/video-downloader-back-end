@@ -3,15 +3,19 @@ package com.ruchij.core.services.repository
 import cats.effect.Sync
 import cats.implicits._
 import cats.{Applicative, ApplicativeError}
+import com.ruchij.core.logging.Logger
 import fs2.Stream
 import fs2.io.file.{Files, Flags, Path, WalkOptions}
 import org.http4s.MediaType
 
 import java.nio.file.Paths
 
-class FileRepositoryService[F[_]: Sync: Files](fileTypeDetector: FileTypeDetector[F, Path]) extends RepositoryService[F] {
+class FileRepositoryService[F[_]: Sync: Files](fileTypeDetector: FileTypeDetector[F, Path])
+    extends RepositoryService[F] {
 
   override type BackedType = Path
+
+  private val logger = Logger[FileRepositoryService[F]]
 
   override def write(key: String, data: Stream[F, Byte]): Stream[F, Nothing] =
     for {
@@ -26,17 +30,14 @@ class FileRepositoryService[F[_]: Sync: Files](fileTypeDetector: FileTypeDetecto
   override def read(key: String, start: Option[Long], end: Option[Long]): F[Option[Stream[F, Byte]]] =
     backedType(key)
       .flatMap { path =>
-        Files[F].exists(path)
+        Files[F]
+          .exists(path)
           .flatMap { exists =>
             if (exists)
               Sync[F].delay(
                 Some(
-                  Files[F].readRange(
-                    path,
-                    FileRepositoryService.CHUNK_SIZE,
-                    start.getOrElse(0),
-                    end.getOrElse(Long.MaxValue)
-                  )
+                  Files[F]
+                    .readRange(path, FileRepositoryService.CHUNK_SIZE, start.getOrElse(0), end.getOrElse(Long.MaxValue))
                 )
               )
             else
@@ -55,9 +56,14 @@ class FileRepositoryService[F[_]: Sync: Files](fileTypeDetector: FileTypeDetecto
 
   override def list(key: Key): Stream[F, Key] =
     Stream
-      .eval(backedType(key))
-      .flatMap(path => Files[F].walk(path, WalkOptions.Default.withMaxDepth(Int.MaxValue).withFollowLinks(true)))
-      .map(_.toString)
+      .eval(logger.info(s"Listing files for $key"))
+      .productR {
+        Stream
+          .eval(backedType(key))
+          .flatMap(path => Files[F].walk(path, WalkOptions.Default.withMaxDepth(Int.MaxValue).withFollowLinks(true)))
+          .map(_.toString)
+          .evalTap(path => logger.info(s"Found file: $path"))
+      }
 
   override def backedType(key: Key): F[Path] = FileRepositoryService.parsePath[F](key)
 
@@ -73,8 +79,7 @@ class FileRepositoryService[F[_]: Sync: Files](fileTypeDetector: FileTypeDetecto
       fileExists <- Files[F].exists(path)
 
       result <- if (fileExists) fileTypeDetector.detect(path).map(Some.apply) else Applicative[F].pure(None)
-    }
-    yield result
+    } yield result
 }
 
 object FileRepositoryService {

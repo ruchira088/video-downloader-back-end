@@ -145,7 +145,7 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
                             signallingRef
                               .updateAndGet(_ + 1)
                               .flatMap { fileCount =>
-                                if (fileCount % 100 == 0)
+                                if (fileCount % 10 == 0)
                                   logger.info(
                                     s"Searched $fileCount files for the file key for ${scheduledVideoDownload.videoMetadata.id}"
                                   )
@@ -165,7 +165,12 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
                               val resourceNotFoundException = ResourceNotFoundException(
                                 s"Unable to find file key for ${scheduledVideoDownload.videoMetadata.id}"
                               )
-                              ApplicativeError[F, Throwable].raiseError(resourceNotFoundException)
+
+                              logger
+                                .error("File key not found", resourceNotFoundException)
+                                .productR {
+                                  ApplicativeError[F, Throwable].raiseError(resourceNotFoundException)
+                                }
 
                             case fileKey :: Nil => Applicative[F].pure(fileKey)
 
@@ -174,7 +179,11 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
                                 s"Multiple file keys found for ${scheduledVideoDownload.videoMetadata.id}. Keys=${fileKeys
                                   .mkString("[", ", ", "]")}"
                               )
-                              ApplicativeError[F, Throwable].raiseError(illegalStateException)
+                              logger
+                                .error("Multiple file keys found", illegalStateException)
+                                .productR {
+                                  ApplicativeError[F, Throwable].raiseError(illegalStateException)
+                                }
                           }
                       }
                   }
