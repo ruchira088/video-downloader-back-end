@@ -89,7 +89,9 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
           logger.info[F](s"Task not found by workerId=${worker.id}")
         }
         .semiflatTap { scheduledVideoDownload =>
-          logger.info[F](s"workerId=${worker.id} found task scheduledVideoDownloadId=${scheduledVideoDownload.videoMetadata.id}")
+          logger.info[F](
+            s"workerId=${worker.id} found task scheduledVideoDownloadId=${scheduledVideoDownload.videoMetadata.id}"
+          )
         }
         .product(OptionT.liftF(JodaClock[F].timestamp))
         .flatMap {
@@ -143,16 +145,22 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
         .value
     } {
       case (Some(scheduledVideoDownload), Errored(exception)) =>
-        batchVideoService
-          .deleteById(scheduledVideoDownload.videoMetadata.id, deleteVideoFile = false)
+        batchSchedulingService
+          .updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Error)
           .productR {
-            batchSchedulingService
-              .updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Error)
+            batchVideoService
+              .deleteById(scheduledVideoDownload.videoMetadata.id, deleteVideoFile = false)
+              .as((): Unit)
+              .recoverWith {
+                case deletionException =>
+                  logger.warn[F] {
+                    s"Exception occurred deleting videoId=${scheduledVideoDownload.videoMetadata.id}, exception=$deletionException"
+                  }
+              }
           }
           .productR {
             logger.error("Error occurred in worker executor", exception)
           }
-          .productR(Applicative[F].unit)
 
       case (Some(scheduledVideoDownload), Canceled()) =>
         batchSchedulingService
