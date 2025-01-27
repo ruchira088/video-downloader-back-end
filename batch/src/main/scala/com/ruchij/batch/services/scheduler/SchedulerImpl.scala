@@ -245,19 +245,21 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
     scheduledVideoDownloadUpdates: Stream[F, ScheduledVideoDownload],
     workerStatusUpdates: Stream[F, WorkerStatusUpdate]
   ): F[Option[Video]] =
-    Sync[F].guarantee(
-      SchedulerImpl
-        .isWorkPeriod[F](workerConfiguration.startTime, workerConfiguration.endTime)
-        .flatMap { isWorkPeriod =>
-          if (isWorkPeriod)
-            performWork(worker, scheduledVideoDownloadUpdates, workerStatusUpdates)
-              .recoverWith {
-                case throwable =>
-                  logger.error[F]("Error occurred in work scheduler", throwable).as(None)
-              } else OptionT.none[F, Video].value
-        },
-      releaseWorker(worker)
-    )
+    Sync[F]
+      .guarantee(
+        SchedulerImpl
+          .isWorkPeriod[F](workerConfiguration.startTime, workerConfiguration.endTime)
+          .flatMap { isWorkPeriod =>
+            if (isWorkPeriod)
+              performWork(worker, scheduledVideoDownloadUpdates, workerStatusUpdates)
+            else OptionT.none[F, Video].value
+          },
+        releaseWorker(worker)
+      )
+      .recoverWith {
+        case throwable =>
+          logger.error[F]("Error occurred in work scheduler", throwable).as(None)
+      }
 
   private val updateVideoWatchTimes: Stream[F, Unit] =
     videoWatchMetricsSubscriber
