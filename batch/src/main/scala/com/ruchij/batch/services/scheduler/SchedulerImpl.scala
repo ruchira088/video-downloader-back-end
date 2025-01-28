@@ -4,7 +4,7 @@ import cats.data.OptionT
 import cats.effect.kernel.Outcome.{Canceled, Errored}
 import cats.effect.{Async, Sync}
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, Monad, MonadThrow, ~>}
+import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
 import com.ruchij.batch.config.WorkerConfiguration
 import com.ruchij.batch.daos.workers.WorkerDao
 import com.ruchij.batch.daos.workers.models.Worker
@@ -387,7 +387,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
 object SchedulerImpl {
   val WorkerPollPeriod: FiniteDuration = 1 second
 
-  private def isWorkPeriod[F[_]: JodaClock: Monad](start: LocalTime, end: LocalTime): F[Boolean] =
+  private def isWorkPeriod[F[_]: JodaClock: Applicative](start: LocalTime, end: LocalTime): F[Boolean] =
     if (start == end)
       Applicative[F].pure(true)
     else
