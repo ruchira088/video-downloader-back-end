@@ -5,5 +5,6 @@ import org.joda.time.LocalTime
 final case class WorkerConfiguration(
   maxConcurrentDownloads: Int,
   startTime: LocalTime,
-  endTime: LocalTime
+  endTime: LocalTime,
+  owner: String
 )

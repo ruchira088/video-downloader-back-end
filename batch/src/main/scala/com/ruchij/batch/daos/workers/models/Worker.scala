@@ -9,7 +9,8 @@ final case class Worker(
   status: WorkerStatus,
   heartBeatAt: Option[DateTime],
   taskAssignedAt: Option[DateTime],
-  scheduledVideoDownload: Option[ScheduledVideoDownload]
+  scheduledVideoDownload: Option[ScheduledVideoDownload],
+  owner: Option[String]
 )
 
 object Worker {

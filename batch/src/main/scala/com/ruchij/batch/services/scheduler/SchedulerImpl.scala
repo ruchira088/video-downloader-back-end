@@ -59,7 +59,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
           JodaClock[F].timestamp.flatMap { timestamp =>
             transaction {
               OptionT(workerDao.idleWorker).flatMap { worker =>
-                OptionT(workerDao.reserveWorker(worker.id, timestamp))
+                OptionT(workerDao.reserveWorker(worker.id, workerConfiguration.owner, timestamp))
               }.value
             }.recoverWith {
               case throwable =>
@@ -96,7 +96,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
         .product(OptionT.liftF(JodaClock[F].timestamp))
         .flatMap {
           case (task, timestamp) =>
-            OptionT(transaction(workerDao.assignTask(worker.id, task.videoMetadata.id, timestamp)))
+            OptionT(transaction(workerDao.assignTask(worker.id, task.videoMetadata.id, workerConfiguration.owner, timestamp)))
               .product { OptionT.liftF { batchSchedulingService.publishScheduledVideoDownload(task.videoMetadata.id) } }
               .as(timestamp -> task)
         }
@@ -350,7 +350,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
           .product {
             workersToCreate.traverse { workerId =>
               workerDao
-                .insert(Worker(workerId, WorkerStatus.Available, None, None, None))
+                .insert(Worker(workerId, WorkerStatus.Available, None, None, None, None))
                 .handleError(_ => 0)
             }
           }

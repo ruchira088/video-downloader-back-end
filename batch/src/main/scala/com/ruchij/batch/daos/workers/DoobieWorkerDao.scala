@@ -28,31 +28,32 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
 
   override def insert(worker: Worker): ConnectionIO[Int] =
     sql"""
-      INSERT INTO worker(id, status, heart_beat_at, task_assigned_at, scheduled_video_id)
+      INSERT INTO worker(id, status, heart_beat_at, task_assigned_at, scheduled_video_id, owner)
         VALUES (
           ${worker.id},
           ${worker.status},
           ${worker.heartBeatAt},
           ${worker.taskAssignedAt},
-          ${worker.scheduledVideoDownload.map(_.videoMetadata.id)}
+          ${worker.scheduledVideoDownload.map(_.videoMetadata.id)},
+          ${worker.owner}
         )
     """
       .update.run
       .flatMap { result =>
         worker.scheduledVideoDownload.fold(Applicative[ConnectionIO].pure(result)) { scheduledVideoDownload =>
           sql"""
-            INSERT INTO worker_task(worker_id, created_at, scheduled_video_id)
-            VALUES(${worker.id}, ${worker.taskAssignedAt}, ${scheduledVideoDownload.videoMetadata.id})
+            INSERT INTO worker_task(worker_id, created_at, scheduled_video_id, owner)
+            VALUES(${worker.id}, ${worker.taskAssignedAt}, ${scheduledVideoDownload.videoMetadata.id}, ${worker.owner})
           """.update.run.map(_ + result)
         }
       }
 
   override def getById(workerId: String): ConnectionIO[Option[Worker]] =
-    sql"SELECT status, task_assigned_at, heart_beat_at, scheduled_video_id FROM worker WHERE id = $workerId"
-      .query[(WorkerStatus, Option[DateTime], Option[DateTime], Option[String])]
+    sql"SELECT status, task_assigned_at, heart_beat_at, scheduled_video_id, owner FROM worker WHERE id = $workerId"
+      .query[(WorkerStatus, Option[DateTime], Option[DateTime], Option[String], Option[String])]
       .option
       .flatMap {
-        case Some((WorkerStatus.Active, Some(taskAssignedAt), heartBeatAt, Some(scheduledVideoId))) =>
+        case Some((status, taskAssignedAt, heartBeatAt, Some(scheduledVideoId), owner)) =>
           OptionT(schedulingDao.getById(scheduledVideoId, None)).getOrElseF {
               ApplicativeError[ConnectionIO, Throwable].raiseError {
                 ResourceNotFoundException(s"ScheduleVideoDownload not found. ID = $scheduledVideoId")
@@ -60,13 +61,13 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
             }
             .map {
               scheduledVideoDownload =>
-                Some(models.Worker(workerId, WorkerStatus.Active, Some(taskAssignedAt), heartBeatAt, Some(scheduledVideoDownload)))
+                Some(models.Worker(workerId, status, taskAssignedAt, heartBeatAt, Some(scheduledVideoDownload), owner))
             }
 
-        case Some((status, reservedAt, heartBeat, None)) =>
-          Applicative[ConnectionIO].pure(Some(models.Worker(workerId, status, reservedAt, heartBeat, None)))
+        case Some((status, reservedAt, heartBeat, None, owner)) =>
+          Applicative[ConnectionIO].pure(Some(models.Worker(workerId, status, reservedAt, heartBeat, None, owner)))
 
-        case _ => Applicative[ConnectionIO].pure(None)
+        case None => Applicative[ConnectionIO].pure(None)
       }
 
   override val idleWorker: ConnectionIO[Option[Worker]] =
@@ -74,10 +75,13 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
       .flatMapF(getById)
       .value
 
-  def reserveWorker(workerId: String, timestamp: DateTime): ConnectionIO[Option[Worker]] =
+  def reserveWorker(workerId: String, owner: String, timestamp: DateTime): ConnectionIO[Option[Worker]] =
       sql"""
         UPDATE worker
-          SET status = ${WorkerStatus.Reserved}
+          SET
+            status = ${WorkerStatus.Reserved},
+            heart_beat_at = $timestamp,
+            owner = $owner
           WHERE id = $workerId AND status = ${WorkerStatus.Available}
       """
       .update.run
@@ -88,6 +92,7 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
   override def assignTask(
     workerId: String,
     scheduledVideoId: String,
+    owner: String,
     timestamp: DateTime
   ): ConnectionIO[Option[Worker]] = {
       sql"""
@@ -110,7 +115,7 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
                 id = $workerId AND
                 task_assigned_at IS NULL AND
                 status = ${WorkerStatus.Reserved} AND
-                heart_beat_at IS NULL
+                owner = $owner
           """
             .update
             .run
@@ -118,8 +123,8 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
         }
         .productR {
           sql"""
-            INSERT INTO worker_task(worker_id, scheduled_video_id, created_at)
-            VALUES ($workerId, $scheduledVideoId, $timestamp)
+            INSERT INTO worker_task(worker_id, scheduled_video_id, created_at, owner)
+            VALUES ($workerId, $scheduledVideoId, $timestamp, $owner)
           """
             .update
             .run
@@ -134,7 +139,7 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
     timestamp: DateTime
   ): ConnectionIO[Option[Worker]] =
     OptionT {
-      sql"SELECT task_assigned_at FROM worker WHERE id = $workerId"
+      sql"SELECT task_assigned_at FROM worker WHERE id = $workerId AND scheduled_video_id = $scheduledVideoId"
         .query[DateTime]
         .option
     }
@@ -157,7 +162,8 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
           task_assigned_at = NULL,
           heart_beat_at = NULL,
           scheduled_video_id = NULL,
-          status = ${WorkerStatus.Available}
+          status = ${WorkerStatus.Available},
+          owner = NULL
         WHERE id = $workerId
      """
       .update
@@ -181,8 +187,10 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
           task_assigned_at = NULL,
           heart_beat_at = NULL,
           status = ${WorkerStatus.Available},
-          scheduled_video_id = NULL
-        WHERE heart_beat_at < $heartBeatBefore OR (task_assigned_at IS NULL AND status = ${WorkerStatus.Active})
+          scheduled_video_id = NULL,
+          owner = NULL
+        WHERE
+          heart_beat_at < $heartBeatBefore OR (task_assigned_at IS NULL AND status = ${WorkerStatus.Active})
     """
       .update
       .run
@@ -194,6 +202,7 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
               task_assigned_at = NULL,
               heart_beat_at = NULL,
               scheduled_video_id = NULL,
+              owner = NULL,
               status = $workerStatus
     """
       .update

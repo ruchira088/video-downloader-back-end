@@ -15,9 +15,9 @@ trait WorkerDao[F[_]] {
 
   def setStatus(workerId: String, workerStatus: WorkerStatus): F[Int]
 
-  def reserveWorker(workerId: String, timestamp: DateTime): F[Option[Worker]]
+  def reserveWorker(workerId: String, owner: String, timestamp: DateTime): F[Option[Worker]]
 
-  def assignTask(workerId: String, scheduledVideoId: String, timestamp: DateTime): F[Option[Worker]]
+  def assignTask(workerId: String, scheduledVideoId: String, owner: String, timestamp: DateTime): F[Option[Worker]]
 
   def completeTask(workerId: String, scheduledVideoId: String, timestamp: DateTime): F[Option[Worker]]
 

@@ -46,7 +46,7 @@ object DevelopmentApp extends IOApp {
     )
 
   private val WorkerConfig: WorkerConfiguration =
-    WorkerConfiguration(2, LocalTime.MIDNIGHT, LocalTime.MIDNIGHT)
+    WorkerConfiguration(2, LocalTime.MIDNIGHT, LocalTime.MIDNIGHT, "development-app")
 
   private val HttpConfig: HttpConfiguration = HttpConfiguration(ipv4"0.0.0.0", port"443")
 

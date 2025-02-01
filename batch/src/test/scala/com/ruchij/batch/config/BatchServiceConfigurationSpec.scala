@@ -16,6 +16,9 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
     val configSource =
       s"""
         worker-configuration {
+          owner = "test-suite"
+          owner = $${?HOSTNAME}
+
           max-concurrent-downloads = 10
           max-concurrent-downloads = $${?MAX_CONCURRENT_DOWNLOADS}
 
@@ -66,7 +69,7 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
     val expectedBatchServiceConfiguration =
       BatchServiceConfiguration(
         BatchStorageConfiguration("./videos", "./images", List("./video-folder-1", "./video-folder-2")),
-        WorkerConfiguration(10, LocalTime.MIDNIGHT, LocalTime.MIDNIGHT),
+        WorkerConfiguration(10, LocalTime.MIDNIGHT, LocalTime.MIDNIGHT, "test-suite"),
         DatabaseConfiguration("jdbc:h2:mem:video-downloader;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false", "my-user", "my-password"),
         KafkaConfiguration("local", "kafka-cluster:9092", uri"http://kafka-cluster:8081"),
         SpaSiteRendererConfiguration(uri"http://spa-renderer-service:8000"),

@@ -1,0 +1,5 @@
+ALTER TABLE worker
+    ADD COLUMN owner VARCHAR(127);
+
+ALTER TABLE worker_task
+    ADD COLUMN owner VARCHAR(127);
