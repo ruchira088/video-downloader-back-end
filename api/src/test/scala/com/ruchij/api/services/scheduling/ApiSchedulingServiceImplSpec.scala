@@ -163,6 +163,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFa
                 100
               )
             ),
+            None,
             None
           )
 

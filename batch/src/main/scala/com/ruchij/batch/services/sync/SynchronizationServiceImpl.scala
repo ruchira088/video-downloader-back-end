@@ -213,7 +213,8 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
                   SchedulingStatus.Completed,
                   video.videoMetadata.size,
                   video.videoMetadata,
-                  Some(timestamp)
+                  Some(timestamp),
+                  None
                 )
               }
             }

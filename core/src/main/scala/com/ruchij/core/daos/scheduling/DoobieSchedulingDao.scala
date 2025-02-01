@@ -1,6 +1,6 @@
 package com.ruchij.core.daos.scheduling
 
-import cats.Applicative
+import cats.{Applicative, ApplicativeError}
 import cats.data.{NonEmptyList, OptionT}
 import cats.implicits._
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
@@ -20,7 +20,9 @@ import scala.concurrent.duration.FiniteDuration
 object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
 
   override def insert(scheduledVideoDownload: ScheduledVideoDownload): ConnectionIO[Int] =
-    sql"""
+    scheduledVideoDownload.errorInfo match {
+      case None =>
+        sql"""
       INSERT INTO scheduled_video (scheduled_at, last_updated_at, status, downloaded_bytes, video_metadata_id, completed_at)
         VALUES (
           ${scheduledVideoDownload.scheduledAt},
@@ -29,8 +31,14 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
           ${scheduledVideoDownload.downloadedBytes},
           ${scheduledVideoDownload.videoMetadata.id},
           ${scheduledVideoDownload.completedAt}
-          )
+        )
      """.update.run
+
+      case _ =>
+        ApplicativeError[ConnectionIO, Throwable].raiseError {
+          new IllegalArgumentException("It is not valid to insert a ScheduledVideoDownload with an error")
+        }
+    }
 
   val SelectQuery: Fragment =
     fr"""
@@ -39,64 +47,75 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
         scheduled_video.downloaded_bytes, video_metadata.url, video_metadata.id, video_metadata.video_site,
         video_metadata.title, video_metadata.duration, video_metadata.size, file_resource.id,
         file_resource.created_at, file_resource.path, file_resource.media_type, file_resource.size,
-        scheduled_video.completed_at
+        scheduled_video.completed_at, scheduled_video_error.error_message, scheduled_video_error.error_details
       FROM scheduled_video
       INNER JOIN video_metadata ON scheduled_video.video_metadata_id = video_metadata.id
       INNER JOIN file_resource ON video_metadata.thumbnail_id = file_resource.id
+      LEFT JOIN scheduled_video_error ON scheduled_video.error_id = scheduled_video_error.id
     """
 
   override def getById(id: String, maybeUserId: Option[String]): ConnectionIO[Option[ScheduledVideoDownload]] =
-    (SelectQuery ++ (if (maybeUserId.isEmpty) Fragment.empty else fr"INNER JOIN permission ON video_metadata.id = permission.video_id") ++
-      whereAndOpt(Some(fr"scheduled_video.video_metadata_id = $id"), maybeUserId.map(userId => fr"permission.user_id = $userId")))
+    (SelectQuery ++ (if (maybeUserId.isEmpty) Fragment.empty
+                     else fr"INNER JOIN permission ON video_metadata.id = permission.video_id") ++
+      whereAndOpt(
+        Some(fr"scheduled_video.video_metadata_id = $id"),
+        maybeUserId.map(userId => fr"permission.user_id = $userId")
+      ))
       .query[ScheduledVideoDownload]
       .option
 
-  override def markScheduledVideoDownloadAsComplete(id: String, timestamp: DateTime): ConnectionIO[Option[ScheduledVideoDownload]] =
-      sql"""
+  override def markScheduledVideoDownloadAsComplete(
+    id: String,
+    timestamp: DateTime
+  ): ConnectionIO[Option[ScheduledVideoDownload]] =
+    sql"""
         UPDATE scheduled_video
-          SET completed_at = $timestamp, status = ${SchedulingStatus.Completed}, last_updated_at = $timestamp
+          SET
+            completed_at = $timestamp,
+            status = ${SchedulingStatus.Completed},
+            last_updated_at = $timestamp,
+            error_id = NULL
           WHERE
             completed_at IS NULL AND
             video_metadata_id = $id
-      """
-        .update
-        .run
-        .singleUpdate
-        .productR(OptionT(getById(id, None)))
-        .value
+      """.update.run.singleUpdate
+      .productR(OptionT(getById(id, None)))
+      .value
 
   override def updateSchedulingStatusById(
     id: String,
     status: SchedulingStatus,
     timestamp: DateTime
   ): ConnectionIO[Option[ScheduledVideoDownload]] =
-      sql"""
+    sql"""
         UPDATE scheduled_video
-          SET status = $status, last_updated_at = $timestamp
+          SET
+            status = $status,
+            last_updated_at = $timestamp,
+            error_id = NULL
           WHERE video_metadata_id = $id
-       """
-        .update
-        .run
-        .singleUpdate
-        .productR(OptionT(getById(id, None)))
-        .value
+       """.update.run.singleUpdate
+      .productR(OptionT(getById(id, None)))
+      .value
 
-  override def updateSchedulingStatus(from: SchedulingStatus, to: SchedulingStatus): ConnectionIO[Seq[ScheduledVideoDownload]] =
+  override def updateSchedulingStatus(
+    from: SchedulingStatus,
+    to: SchedulingStatus
+  ): ConnectionIO[Seq[ScheduledVideoDownload]] =
     sql"SELECT video_metadata_id FROM scheduled_video WHERE status = $from"
       .query[String]
       .to[Seq]
-      .flatMap {
-        ids => ids.headOption.fold[ConnectionIO[Seq[ScheduledVideoDownload]]](Applicative[ConnectionIO].pure(Seq.empty)) { head =>
-          val nonEmptyListIds = NonEmptyList(head, ids.tail.toList)
+      .flatMap { ids =>
+        ids.headOption.fold[ConnectionIO[Seq[ScheduledVideoDownload]]](Applicative[ConnectionIO].pure(Seq.empty)) {
+          head =>
+            val nonEmptyListIds = NonEmptyList(head, ids.tail.toList)
 
-          (fr"UPDATE scheduled_video SET status = $to" ++  fr"WHERE" ++ in(fr"video_metadata_id", nonEmptyListIds))
-            .update
-            .run
-            .productR {
-              (SelectQuery ++ fr"WHERE" ++ in(fr"scheduled_video.video_metadata_id", nonEmptyListIds))
-                .query[ScheduledVideoDownload]
-                .to[Seq]
-            }
+            (fr"UPDATE scheduled_video SET status = $to" ++ fr"WHERE" ++ in(fr"video_metadata_id", nonEmptyListIds)).update.run
+              .productR {
+                (SelectQuery ++ fr"WHERE" ++ in(fr"scheduled_video.video_metadata_id", nonEmptyListIds))
+                  .query[ScheduledVideoDownload]
+                  .to[Seq]
+              }
         }
       }
 
@@ -105,16 +124,12 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
     downloadedBytes: Long,
     timestamp: DateTime
   ): ConnectionIO[Option[ScheduledVideoDownload]] =
-      sql"""
+    sql"""
         UPDATE scheduled_video
           SET downloaded_bytes = $downloadedBytes, last_updated_at = $timestamp
           WHERE video_metadata_id = $id AND downloaded_bytes < $downloadedBytes
-      """
-        .update
-        .run
-        .singleUpdate
-        .value
-        .productR(getById(id, None))
+      """.update.run.singleUpdate.value
+      .productR(getById(id, None))
 
   override def deleteById(id: String): ConnectionIO[Int] =
     sql"DELETE FROM scheduled_video WHERE video_metadata_id = $id".update.run
@@ -132,7 +147,8 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
     videoSites: Option[NonEmptyList[VideoSite]],
     maybeUserId: Option[String]
   ): ConnectionIO[Seq[ScheduledVideoDownload]] =
-    (SelectQuery ++ (if (maybeUserId.isEmpty) Fragment.empty else fr"JOIN permission ON scheduled_video.video_metadata_id = permission.video_id")
+    (SelectQuery ++ (if (maybeUserId.isEmpty) Fragment.empty
+                     else fr"JOIN permission ON scheduled_video.video_metadata_id = permission.video_id")
       ++
         whereAndOpt(
           term.map(searchTerm => fr"video_metadata.title ILIKE ${"%" + searchTerm + "%"}"),
@@ -162,21 +178,24 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       .option
       .flatMap {
         case Some(videoMetadataId) =>
-            sql"""
+          sql"""
               UPDATE scheduled_video
-                  SET status = ${SchedulingStatus.Acquired}, last_updated_at = $timestamp
+                  SET
+                    status = ${SchedulingStatus.Acquired},
+                    last_updated_at = $timestamp,
+                    error_id = NULL
                   WHERE video_metadata_id = $videoMetadataId AND status = ${SchedulingStatus.Stale}
-            """
-              .update
-              .run
-              .singleUpdate
-              .productR(OptionT(getById(videoMetadataId, None)))
-              .value
+            """.update.run.singleUpdate
+            .productR(OptionT(getById(videoMetadataId, None)))
+            .value
 
         case None => Applicative[ConnectionIO].pure(None)
       }
 
-  override def updateTimedOutTasks(timeout: FiniteDuration, timestamp: DateTime): ConnectionIO[Seq[ScheduledVideoDownload]] =
+  override def updateTimedOutTasks(
+    timeout: FiniteDuration,
+    timestamp: DateTime
+  ): ConnectionIO[Seq[ScheduledVideoDownload]] =
     sql"""
         SELECT video_metadata_id FROM scheduled_video
           WHERE completed_at IS NULL
@@ -187,17 +206,17 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       .query[String]
       .to[Seq]
       .flatMap {
-        _.traverse {
-          videoMetadataId =>
-            sql"""
+        _.traverse { videoMetadataId =>
+          sql"""
               UPDATE scheduled_video
-                SET status = ${SchedulingStatus.Stale}, last_updated_at = $timestamp
+                SET
+                  status = ${SchedulingStatus.Stale},
+                  last_updated_at = $timestamp,
+                  error_id = NULL
                 WHERE
                   video_metadata_id = $videoMetadataId
-            """
-              .update
-              .run
-              .map(videoMetadataId -> _)
+            """.update.run
+            .map(videoMetadataId -> _)
         }
       }
       .flatMap {
@@ -212,28 +231,55 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
         WHERE status = ${SchedulingStatus.Queued}
         ORDER BY scheduled_at ASC
         LIMIT 1
-   """
-      .query[String]
+   """.query[String]
       .option
       .flatMap {
-        _.fold[ConnectionIO[Option[ScheduledVideoDownload]]](Applicative[ConnectionIO].pure[Option[ScheduledVideoDownload]](None)) { videoMetadataId =>
-            sql"""
+        _.fold[ConnectionIO[Option[ScheduledVideoDownload]]](
+          Applicative[ConnectionIO].pure[Option[ScheduledVideoDownload]](None)
+        ) { videoMetadataId =>
+          sql"""
               UPDATE scheduled_video
-                SET status = ${SchedulingStatus.Acquired}, last_updated_at = $timestamp
+                SET
+                  status = ${SchedulingStatus.Acquired},
+                  last_updated_at = $timestamp,
+                  error_id = NULL
                 WHERE video_metadata_id = $videoMetadataId AND status = ${SchedulingStatus.Queued}
-            """
-              .update
-              .run
-              .singleUpdate
-              .productR(OptionT(getById(videoMetadataId, None)))
-              .value
+            """.update.run.singleUpdate
+            .productR(OptionT(getById(videoMetadataId, None)))
+            .value
         }
       }
+
+  override def setErrorById(
+    id: String,
+    throwable: Throwable,
+    timestamp: DateTime
+  ): ConnectionIO[Option[ScheduledVideoDownload]] = {
+    val errorId = s"$id-${timestamp.getMillis}"
+
+    sql"""
+         INSERT INTO scheduled_video_error (id, created_at, video_id, error_message, error_details)
+            VALUES (
+              $errorId,
+              $timestamp,
+              $id,
+              ${throwable.getMessage},
+              ${throwable.getStackTrace.map(_.toString).mkString("\n")}
+            )
+     """.update.run.one
+      .productR {
+        sql"""
+        UPDATE scheduled_video
+          SET status = ${SchedulingStatus.Error}, last_updated_at = $timestamp, error_id = $errorId
+          WHERE video_metadata_id = $id
+       """.update.run.one
+      }
+      .productR(getById(id, None))
+  }
 
   private val schedulingSortByFiledName: SortBy => Fragment =
     sortByFieldName.orElse {
       case SortBy.Date => fr"scheduled_video.scheduled_at"
       case _ => fr"RANDOM()"
     }
-
 }

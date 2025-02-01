@@ -11,7 +11,6 @@ import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.models.CommittableRecord
 import com.ruchij.core.messaging.{PubSub, Publisher, Subscriber}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
-import com.ruchij.core.types.FunctionKTypes._
 import com.ruchij.core.types.JodaClock
 import fs2.Stream
 
@@ -39,23 +38,22 @@ class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]]
 
   override def updateSchedulingStatusById(id: String, status: SchedulingStatus): F[ScheduledVideoDownload] =
     JodaClock[F].timestamp
-      .map { timestamp =>
-        for {
-          scheduledVideoDownload <- OptionT(schedulingDao.getById(id, None))
-          _ <- OptionT.liftF(scheduledVideoDownload.status.validateTransition(status).toType[T, Throwable])
-          updated <- OptionT(schedulingDao.updateSchedulingStatusById(id, status, timestamp))
-        }
-        yield updated
+      .flatMap { timestamp =>
+        OptionT(transaction(schedulingDao.updateSchedulingStatusById(id, status, timestamp)))
+          .getOrElseF { ApplicativeError[F, Throwable].raiseError(notFound(id)) }
       }
-      .flatMap { maybeUpdatedT =>
-          OptionT(transaction(maybeUpdatedT.value))
-            .getOrElseF { ApplicativeError[F, Throwable].raiseError(notFound(id)) }
+      .flatTap(scheduledVideoDownloadPubSub.publishOne)
+
+  override def setErrorById(id: String, throwable: Throwable): F[ScheduledVideoDownload] =
+    JodaClock[F].timestamp
+      .flatMap { timestamp =>
+        OptionT(transaction(schedulingDao.setErrorById(id, throwable, timestamp)))
+          .getOrElseF { ApplicativeError[F, Throwable].raiseError(notFound(id)) }
       }
       .flatTap(scheduledVideoDownloadPubSub.publishOne)
 
   override def updateSchedulingStatus(from: SchedulingStatus, to: SchedulingStatus): F[Seq[ScheduledVideoDownload]] =
     for {
-      _ <- from.validateTransition(to).toType[F, Throwable]
       updated <- transaction(schedulingDao.updateSchedulingStatus(from, to))
       _ <- scheduledVideoDownloadPubSub.publish(Stream.emits(updated)).compile.drain
     }

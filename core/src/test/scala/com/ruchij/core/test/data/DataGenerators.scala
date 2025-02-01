@@ -22,7 +22,7 @@ object DataGenerators {
       videoMetadata <- videoMetadata[F]
       timestamp <- RandomGenerator[F, DateTime]
     }
-    yield ScheduledVideoDownload(timestamp, timestamp, SchedulingStatus.Queued, 0, videoMetadata, None)
+    yield ScheduledVideoDownload(timestamp, timestamp, SchedulingStatus.Queued, 0, videoMetadata, None, None)
 
   def videoMetadata[F[_]: Sync: JodaClock]: RandomGenerator[F, VideoMetadata] =
     for {

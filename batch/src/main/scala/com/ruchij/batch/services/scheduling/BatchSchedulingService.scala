@@ -15,6 +15,8 @@ trait BatchSchedulingService[F[_]] {
 
   def updateSchedulingStatusById(id: String, status: SchedulingStatus): F[ScheduledVideoDownload]
 
+  def setErrorById(id: String, throwable: Throwable): F[ScheduledVideoDownload]
+
   def updateSchedulingStatus(from: SchedulingStatus, to: SchedulingStatus): F[Seq[ScheduledVideoDownload]]
 
   def completeScheduledVideoDownload(id: String): F[ScheduledVideoDownload]

@@ -23,7 +23,6 @@ import com.ruchij.core.services.config.ConfigurationService
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
 import com.ruchij.core.services.video.{VideoAnalysisService, VideoService}
-import com.ruchij.core.types.FunctionKTypes._
 import com.ruchij.core.types.JodaClock
 import org.http4s.Uri
 
@@ -115,6 +114,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
         SchedulingStatus.Queued,
         0,
         videoMetadataResult.value,
+        None,
         None
       )
 
@@ -177,7 +177,6 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
       .map { timestamp =>
         for {
           scheduledVideoDownload <- OptionT(schedulingDao.getById(id, None))
-          _ <- OptionT.liftF(scheduledVideoDownload.status.validateTransition(status).toType[T, Throwable])
           updated <- OptionT(schedulingDao.updateSchedulingStatusById(id, status, timestamp))
         } yield updated
       }

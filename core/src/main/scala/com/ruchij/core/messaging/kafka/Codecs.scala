@@ -4,6 +4,7 @@ import java.time.Instant
 import java.util.concurrent.TimeUnit
 import cats.Show
 import com.ruchij.core.daos.resource.models.FileResource
+import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload.ErrorInfo
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
 import enumeratum.{Enum, EnumEntry}
 import org.http4s.{MediaType, Method, Status, Uri}
@@ -46,4 +47,6 @@ object Codecs {
   implicit val fileResourceCodec: Codec[FileResource] = Codec.derive[FileResource]
 
   implicit val videoMetadataCodec: Codec[VideoMetadata] = Codec.derive[VideoMetadata]
+
+  implicit val errorInfoCodec: Codec[ErrorInfo] = Codec.derive[ErrorInfo]
 }

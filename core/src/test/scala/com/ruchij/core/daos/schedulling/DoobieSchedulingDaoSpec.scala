@@ -59,6 +59,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
                 SchedulingStatus.Queued,
                 0,
                 videoMetadata,
+                None,
                 None
               )
             _ <- transaction {
@@ -84,6 +85,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
               maybeScheduledVideoDownload.value.downloadedBytes mustBe scheduledVideoDownload.downloadedBytes
               maybeScheduledVideoDownload.value.lastUpdatedAt.getMillis mustBe scheduledVideoDownload.lastUpdatedAt.getMillis
               maybeScheduledVideoDownload.value.completedAt.map(_.getMillis) mustBe scheduledVideoDownload.completedAt.map(_.getMillis)
+              maybeScheduledVideoDownload.value.errorInfo mustBe None
             }
 
             result <- testFn(maybeScheduledVideoDownload.value, transaction)
@@ -92,7 +94,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
       }
     }
 
-  "DoobieSchedulingDao" should "perform correctly perform search queries" in runTest {  (scheduledVideoDownload, transaction) =>
+  "DoobieSchedulingDao" should "correctly perform search queries" in runTest {  (scheduledVideoDownload, transaction) =>
     for {
       searchResultOne <-
         transaction {
@@ -305,6 +307,28 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
         repeatDeletionResult <- transaction(DoobieSchedulingDao.deleteById(scheduledVideoDownload.videoMetadata.id))
 
         _ <- IO.delay {  repeatDeletionResult mustBe 0 }
+      }
+      yield (): Unit
+  }
+
+  it should "set error information" in runTest {
+    (scheduledVideoDownload, transaction) =>
+      for {
+        timestamp <- JodaClock[IO].timestamp
+        exception = new Exception("This is a test error")
+        _ <- transaction {
+          DoobieSchedulingDao.setErrorById(scheduledVideoDownload.videoMetadata.id, exception, timestamp)
+        }
+
+        maybeUpdated <- transaction(DoobieSchedulingDao.getById(scheduledVideoDownload.videoMetadata.id, None))
+
+        updated <- IO.delay(maybeUpdated.value)
+
+        _ <- IO.delay {
+          updated.errorInfo must not be empty
+          updated.errorInfo.value.message mustBe exception.getMessage
+          updated.errorInfo.value.details mustBe exception.getStackTrace.map(_.toString).mkString("\n")
+        }
       }
       yield (): Unit
   }
