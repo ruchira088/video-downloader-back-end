@@ -96,8 +96,9 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
         .product(OptionT.liftF(JodaClock[F].timestamp))
         .flatMap {
           case (task, timestamp) =>
-            OptionT(transaction(workerDao.assignTask(worker.id, task.videoMetadata.id, workerConfiguration.owner, timestamp)))
-              .product { OptionT.liftF { batchSchedulingService.publishScheduledVideoDownload(task.videoMetadata.id) } }
+            OptionT(
+              transaction(workerDao.assignTask(worker.id, task.videoMetadata.id, workerConfiguration.owner, timestamp))
+            ).product { OptionT.liftF { batchSchedulingService.publishScheduledVideoDownload(task.videoMetadata.id) } }
               .as(timestamp -> task)
         }
         .flatMapF {
@@ -110,8 +111,13 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
                   scheduledVideoDownloadUpdates
                     .map { value: ScheduledVideoDownload =>
                       value.videoMetadata.id == scheduledVideoDownload.videoMetadata.id &&
-                      List(SchedulingStatus.Paused, SchedulingStatus.Deleted).contains(value.status) &&
-                      value.lastUpdatedAt.isAfter(timestamp)
+                      Set[SchedulingStatus](
+                        SchedulingStatus.Error,
+                        SchedulingStatus.WorkersPaused,
+                        SchedulingStatus.Stale,
+                        SchedulingStatus.Paused,
+                        SchedulingStatus.Deleted
+                      ).contains(value.status) && value.lastUpdatedAt.isAfter(timestamp)
                     }
                     .merge {
                       workerStatusUpdates.map { workerStatusUpdate: WorkerStatusUpdate =>
@@ -125,7 +131,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
                 .map[Option[Video]](Some.apply)
             } {
               case PausedVideoDownload =>
-                logger.info[F](s"${scheduledVideoDownload.videoMetadata.url} has been paused").as(None)
+                logger.info[F](s"${scheduledVideoDownload.videoMetadata.url} has been paused/cancelled").as(None)
             }
         }
         .semiflatMap { video =>
@@ -148,7 +154,10 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
         batchSchedulingService
           .setErrorById(scheduledVideoDownload.videoMetadata.id, exception)
           .productR {
-            logger.error(s"Error occurred in worker executor for scheduledVideoDownload ID=${scheduledVideoDownload.videoMetadata.id}", exception)
+            logger.error(
+              s"Error occurred in worker executor for scheduledVideoDownload ID=${scheduledVideoDownload.videoMetadata.id}",
+              exception
+            )
           }
 
       case (Some(scheduledVideoDownload), Canceled()) =>
@@ -349,7 +358,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
       }
     }
 
-  private val cleanUpStaleWorkers: Stream[F, Int] =
+  private val cleanUpStaleWorkers: Stream[F, Worker] =
     Stream
       .eval(logger.info[F]("cleanUpStaleWorkersTask started"))
       .productR {
@@ -359,9 +368,10 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
           .metered(30 seconds)
           .evalMap { timestamp =>
             transaction {
-              workerDao.cleanUpStaleWorkers(timestamp.minusMinutes(2))
+              workerDao.cleanUpStaleWorkers(timestamp.minusMinutes(5))
             }
           }
+          .flatMap(Stream.emits)
       }
 
   override val init: F[Unit] =

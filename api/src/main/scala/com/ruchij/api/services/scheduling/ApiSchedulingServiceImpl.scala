@@ -153,7 +153,8 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
       ApplicativeError[F, Throwable].raiseError {
         new IllegalArgumentException("Searching for scheduled videos by watch_time is not valid")
       } else
-      maybeVideoUrls.traverse(_.traverse(videoUrl => VideoSite.processUri[F](videoUrl)))
+      maybeVideoUrls
+        .traverse(_.traverse(videoUrl => VideoSite.processUri[F](videoUrl)))
         .flatMap { maybeProcessedUrls =>
           transaction(
             schedulingDao.search(
@@ -174,15 +175,10 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
 
   override def updateSchedulingStatus(id: String, status: SchedulingStatus): F[ScheduledVideoDownload] =
     JodaClock[F].timestamp
-      .map { timestamp =>
-        for {
-          scheduledVideoDownload <- OptionT(schedulingDao.getById(id, None))
-          updated <- OptionT(schedulingDao.updateSchedulingStatusById(id, status, timestamp))
-        } yield updated
-      }
-      .flatMap { maybeUpdatedT =>
-        OptionT(transaction(maybeUpdatedT.value))
-          .getOrElseF { ApplicativeError[F, Throwable].raiseError(notFound(id)) }
+      .flatMap { timestamp =>
+        OptionT(transaction(schedulingDao.updateSchedulingStatusById(id, status, timestamp))).getOrElseF {
+          ApplicativeError[F, Throwable].raiseError(notFound(id))
+        }
       }
       .flatTap(scheduledVideoDownloadPublisher.publishOne)
 

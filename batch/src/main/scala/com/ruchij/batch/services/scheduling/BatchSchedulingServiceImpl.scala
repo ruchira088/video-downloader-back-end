@@ -56,8 +56,7 @@ class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]]
     for {
       updated <- transaction(schedulingDao.updateSchedulingStatus(from, to))
       _ <- scheduledVideoDownloadPubSub.publish(Stream.emits(updated)).compile.drain
-    }
-    yield updated
+    } yield updated
 
   override def completeScheduledVideoDownload(id: String): F[ScheduledVideoDownload] =
     JodaClock[F].timestamp
@@ -68,9 +67,13 @@ class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]]
       .flatTap(scheduledVideoDownloadPubSub.publishOne)
 
   override def updateTimedOutTasks(timeout: FiniteDuration): F[Seq[ScheduledVideoDownload]] =
-    JodaClock[F].timestamp.flatMap { timestamp =>
-      transaction(schedulingDao.updateTimedOutTasks(timeout, timestamp))
-    }
+    JodaClock[F].timestamp
+      .flatMap { timestamp =>
+        transaction(schedulingDao.updateTimedOutTasks(timeout, timestamp))
+      }
+      .flatTap { staleScheduledVideoDownloads =>
+        scheduledVideoDownloadPubSub.publish(Stream.emits(staleScheduledVideoDownloads)).compile.drain
+      }
 
   override def publishDownloadProgress(id: String, downloadedBytes: Long): F[Unit] = {
     for {
@@ -80,25 +83,27 @@ class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]]
   }
 
   override def subscribeToWorkerStatusUpdates(groupId: String): Stream[F, WorkerStatusUpdate] =
-    workerStatusSubscriber.subscribe(groupId)
-      .evalMap {
-        committableRecord =>
-          workerStatusSubscriber.commit(List(committableRecord))
-            .product {
-              logger.debug(s"DownloadProgressSubscriber(groupId=$groupId) committed 1 message")
-            }
-            .as(committableRecord.value)
+    workerStatusSubscriber
+      .subscribe(groupId)
+      .evalMap { committableRecord =>
+        workerStatusSubscriber
+          .commit(List(committableRecord))
+          .product {
+            logger.debug(s"DownloadProgressSubscriber(groupId=$groupId) committed 1 message")
+          }
+          .as(committableRecord.value)
       }
 
   override def subscribeToScheduledVideoDownloadUpdates(groupId: String): Stream[F, ScheduledVideoDownload] =
-    scheduledVideoDownloadPubSub.subscribe(groupId)
-      .evalMap {
-        committableRecord =>
-          scheduledVideoDownloadPubSub.commit(List(committableRecord))
-            .product {
-              logger.debug(s"ScheduledVideoDownloadPubSub(groupId=$groupId) committed 1 message")
-            }
-            .as(committableRecord.value)
+    scheduledVideoDownloadPubSub
+      .subscribe(groupId)
+      .evalMap { committableRecord =>
+        scheduledVideoDownloadPubSub
+          .commit(List(committableRecord))
+          .product {
+            logger.debug(s"ScheduledVideoDownloadPubSub(groupId=$groupId) committed 1 message")
+          }
+          .as(committableRecord.value)
       }
 
   override def publishScheduledVideoDownload(id: String): F[ScheduledVideoDownload] =

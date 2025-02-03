@@ -1,6 +1,6 @@
 package com.ruchij.batch.daos.workers
 
-import cats.data.OptionT
+import cats.data.{NonEmptyList, OptionT}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError}
 import com.ruchij.batch.daos.workers.models.Worker
@@ -17,9 +17,13 @@ import org.joda.time.DateTime
 class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends WorkerDao[ConnectionIO] {
 
   override val all: ConnectionIO[Seq[Worker]] =
-    sql"SELECT id FROM worker".query[String].to[Seq]
+    sql"SELECT id FROM worker"
+      .query[String]
+      .to[Seq]
       .flatMap { ids =>
-        ids.toList.traverse { id => getById(id).map(_.toList) }
+        ids.toList.traverse { id =>
+          getById(id).map(_.toList)
+        }
       }
       .map(_.flatten)
 
@@ -37,8 +41,7 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
           ${worker.scheduledVideoDownload.map(_.videoMetadata.id)},
           ${worker.owner}
         )
-    """
-      .update.run
+    """.update.run
       .flatMap { result =>
         worker.scheduledVideoDownload.fold(Applicative[ConnectionIO].pure(result)) { scheduledVideoDownload =>
           sql"""
@@ -54,14 +57,14 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
       .option
       .flatMap {
         case Some((status, taskAssignedAt, heartBeatAt, Some(scheduledVideoId), owner)) =>
-          OptionT(schedulingDao.getById(scheduledVideoId, None)).getOrElseF {
+          OptionT(schedulingDao.getById(scheduledVideoId, None))
+            .getOrElseF {
               ApplicativeError[ConnectionIO, Throwable].raiseError {
                 ResourceNotFoundException(s"ScheduleVideoDownload not found. ID = $scheduledVideoId")
               }
             }
-            .map {
-              scheduledVideoDownload =>
-                Some(models.Worker(workerId, status, taskAssignedAt, heartBeatAt, Some(scheduledVideoDownload), owner))
+            .map { scheduledVideoDownload =>
+              Some(models.Worker(workerId, status, taskAssignedAt, heartBeatAt, Some(scheduledVideoDownload), owner))
             }
 
         case Some((status, reservedAt, heartBeat, None, owner)) =>
@@ -71,21 +74,19 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
       }
 
   override val idleWorker: ConnectionIO[Option[Worker]] =
-    OptionT { sql"SELECT id FROM worker WHERE status = ${WorkerStatus.Available} ORDER BY id LIMIT 1".query[String].option }
-      .flatMapF(getById)
-      .value
+    OptionT {
+      sql"SELECT id FROM worker WHERE status = ${WorkerStatus.Available} ORDER BY id LIMIT 1".query[String].option
+    }.flatMapF(getById).value
 
   def reserveWorker(workerId: String, owner: String, timestamp: DateTime): ConnectionIO[Option[Worker]] =
-      sql"""
+    sql"""
         UPDATE worker
           SET
             status = ${WorkerStatus.Reserved},
             heart_beat_at = $timestamp,
             owner = $owner
           WHERE id = $workerId AND status = ${WorkerStatus.Available}
-      """
-      .update.run
-      .singleUpdate
+      """.update.run.singleUpdate
       .productR(OptionT(getById(workerId)))
       .value
 
@@ -95,16 +96,13 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
     owner: String,
     timestamp: DateTime
   ): ConnectionIO[Option[Worker]] = {
-      sql"""
+    sql"""
         UPDATE scheduled_video
             SET status = ${SchedulingStatus.Active}, last_updated_at = $timestamp
             WHERE video_metadata_id = $scheduledVideoId AND status != ${SchedulingStatus.Active}
-      """
-        .update
-        .run
-        .one
-        .productR {
-          sql"""
+      """.update.run.one
+      .productR {
+        sql"""
             UPDATE worker
               SET
                 task_assigned_at = $timestamp,
@@ -116,21 +114,15 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
                 task_assigned_at IS NULL AND
                 status = ${WorkerStatus.Reserved} AND
                 owner = $owner
-          """
-            .update
-            .run
-            .one
-        }
-        .productR {
-          sql"""
+          """.update.run.one
+      }
+      .productR {
+        sql"""
             INSERT INTO worker_task(worker_id, scheduled_video_id, created_at, owner)
             VALUES ($workerId, $scheduledVideoId, $timestamp, $owner)
-          """
-            .update
-            .run
-            .one
-        }
-        .productR(getById(workerId))
+          """.update.run.one
+      }
+      .productR(getById(workerId))
   }
 
   override def completeTask(
@@ -142,15 +134,11 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
       sql"SELECT task_assigned_at FROM worker WHERE id = $workerId AND scheduled_video_id = $scheduledVideoId"
         .query[DateTime]
         .option
-    }
-      .flatMap { taskCreatedAt =>
+    }.flatMap { taskCreatedAt =>
         sql"""
           UPDATE worker_task SET completed_at = $timestamp
             WHERE worker_id = $workerId AND scheduled_video_id = $scheduledVideoId AND created_at = $taskCreatedAt
-        """
-          .update
-          .run
-          .singleUpdate
+        """.update.run.singleUpdate
       }
       .productR(OptionT(getById(workerId)))
       .value
@@ -165,35 +153,43 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
           status = ${WorkerStatus.Available},
           owner = NULL
         WHERE id = $workerId
-     """
-      .update
-      .run
-      .singleUpdate
+     """.update.run.singleUpdate
       .productR(OptionT(getById(workerId)))
       .value
 
   override def updateHeartBeat(workerId: String, timestamp: DateTime): ConnectionIO[Option[Worker]] =
-      sql"UPDATE worker SET heart_beat_at = $timestamp WHERE id = $workerId"
-        .update
-        .run
-        .singleUpdate
-        .productR(OptionT(getById(workerId)))
-        .value
+    sql"UPDATE worker SET heart_beat_at = $timestamp WHERE id = $workerId".update.run.singleUpdate
+      .productR(OptionT(getById(workerId)))
+      .value
 
-  override def cleanUpStaleWorkers(heartBeatBefore: DateTime): ConnectionIO[Int] =
+  override def cleanUpStaleWorkers(heartBeatBefore: DateTime): ConnectionIO[Seq[Worker]] =
     sql"""
-      UPDATE worker
-        SET
-          task_assigned_at = NULL,
-          heart_beat_at = NULL,
-          status = ${WorkerStatus.Available},
-          scheduled_video_id = NULL,
-          owner = NULL
+      SELECT id FROM worker
         WHERE
           heart_beat_at < $heartBeatBefore OR (task_assigned_at IS NULL AND status = ${WorkerStatus.Active})
-    """
-      .update
-      .run
+   """.query[String]
+      .to[Seq]
+      .flatMap { staleWorkerIds =>
+        staleWorkerIds
+          .traverse(getById)
+          .map(_.flatten)
+          .productL {
+            NonEmptyList
+              .fromFoldable(staleWorkerIds)
+              .fold(Applicative[ConnectionIO].pure(0)) { nonEmptyStaleWorkerIds =>
+                (fr"""
+            UPDATE worker
+              SET
+                task_assigned_at = NULL,
+                heart_beat_at = NULL,
+                status = ${WorkerStatus.Available},
+                scheduled_video_id = NULL,
+                owner = NULL
+              WHERE""" ++
+                  doobie.Fragments.in(fr"id", nonEmptyStaleWorkerIds)).update.run
+              }
+          }
+      }
 
   override def updateWorkerStatuses(workerStatus: WorkerStatus): ConnectionIO[Seq[Worker]] =
     sql"""
@@ -204,11 +200,9 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
               scheduled_video_id = NULL,
               owner = NULL,
               status = $workerStatus
-    """
-      .update
-      .run
+    """.update.run
       .productR { sql"SELECT id FROM worker".query[String].to[Seq] }
-      .flatMap {
-        workerIds => workerIds.traverse(getById).map(_.flatten)
+      .flatMap { workerIds =>
+        workerIds.traverse(getById).map(_.flatten)
       }
 }
