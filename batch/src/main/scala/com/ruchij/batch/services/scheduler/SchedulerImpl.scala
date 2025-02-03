@@ -81,7 +81,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
     workerStatusUpdates: Stream[F, WorkerStatusUpdate]
   ): F[Option[Video]] =
     Sync[F].bracketCase {
-      batchSchedulingService.staleTask.orElse(batchSchedulingService.acquireTask).value
+      batchSchedulingService.acquireTask.orElse(batchSchedulingService.staleTask).value
     } { taskOpt =>
       OptionT
         .fromOption[F](taskOpt)
