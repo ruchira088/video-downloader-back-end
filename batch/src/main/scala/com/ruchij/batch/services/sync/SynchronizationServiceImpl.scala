@@ -92,11 +92,16 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
         fileRepositoryService.exists(video.fileResource.path)
       }
       .evalTap { video =>
-        logger.warn(f"Deleting video id=${video.videoMetadata.id}, url=${video.videoMetadata.url}")
+        logger.warn(
+          f"Deleting video id=${video.videoMetadata.id}, size=${video.fileResource.size} url=${video.videoMetadata.url}, path=${video.fileResource.path}"
+        )
       }
       .evalMap { video =>
         batchVideoService
           .deleteById(video.videoMetadata.id, deleteVideoFile = false)
+          .productR {
+            logger.warn(f"Deleted video id=${video.videoMetadata.id}")
+          }
           .as(MissingVideoFile(video))
       }
       .fold(SynchronizationResult.Zero)(_ + _)

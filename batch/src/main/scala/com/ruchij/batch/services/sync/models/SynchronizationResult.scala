@@ -29,7 +29,7 @@ final case class SynchronizationResult(
     )
 
   def prettyPrint: String =
-    s"Synchronization Result = Existing: $existingVideoFiles, Synced: $syncedVideos, Errors: $syncErrors, Ignored: $ignoredFiles"
+    s"Synchronization Result = Existing: $existingVideoFiles, Synced: $syncedVideos, Errors: $syncErrors, Ignored: $ignoredFiles, Deleted: $missingVideoFiles"
 
 }
 
