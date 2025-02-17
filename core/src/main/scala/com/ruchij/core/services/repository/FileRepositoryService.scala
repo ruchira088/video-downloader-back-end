@@ -1,6 +1,6 @@
 package com.ruchij.core.services.repository
 
-import cats.effect.{Async, Sync, Temporal}
+import cats.effect._
 import cats.implicits._
 import cats.{Applicative, ApplicativeError}
 import com.ruchij.core.logging.Logger
@@ -10,7 +10,7 @@ import org.http4s.MediaType
 
 import java.nio.file.Paths
 import java.util.concurrent.TimeoutException
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.language.postfixOps
 
 class FileRepositoryService[F[_]: Async: Files](fileTypeDetector: FileTypeDetector[F, Path])
@@ -63,26 +63,50 @@ class FileRepositoryService[F[_]: Async: Files](fileTypeDetector: FileTypeDetect
       fileExists <- Files[F].exists(path)
     } yield fileExists
 
-  override def list(key: Key): Stream[F, Key] =
-    Stream
-      .eval(logger.info(s"Listing files for $key"))
-      .interruptWhen {
-        Temporal[F]
-          .sleep(100 seconds)
-          .productR {
-            val timeoutException = new TimeoutException(s"Unable to list files for $key in 100 seconds")
-
-            logger
-              .error("Timeout error", timeoutException)
-              .as[Either[Throwable, Unit]](Left(timeoutException))
-          }
-      }
-      .productR {
+  private def createResettableTimer(duration: FiniteDuration, resetSignal: Ref[F, Boolean]): F[Unit] =
+    Concurrent[F]
+      .race(
         Stream
-          .eval(backedType(key))
-          .flatMap(path => Files[F].walk(path, WalkOptions.Default.withMaxDepth(Int.MaxValue).withFollowLinks(true)))
-          .map(_.toString)
+          .fixedRate(5 seconds)
+          .productR(Stream.eval(resetSignal.get))
+          .filter(active => active)
+          .take(1)
+          .compile
+          .lastOrError,
+        Temporal[F].sleep(100 seconds).as(false)
+      )
+      .map(_.fold[Boolean](identity[Boolean], identity[Boolean]))
+      .flatMap { result =>
+        if (result)
+          resetSignal.set(false).productR(createResettableTimer(duration, resetSignal))
+        else
+          Applicative[F].pure((): Unit)
       }
+
+  override def list(key: Key): Stream[F, Key] =
+    Stream.eval(Ref.of[F, Boolean](false)).flatMap { ref =>
+      Stream
+        .eval(logger.info(s"Listing files for $key"))
+        .interruptWhen {
+          createResettableTimer(100 seconds, ref)
+            .productR {
+              val timeoutException = new TimeoutException(s"Unable to list files for $key in 100 seconds")
+
+              logger
+                .error("Timeout error", timeoutException)
+                .as[Either[Throwable, Unit]](Left(timeoutException))
+            }
+        }
+        .productR {
+          Stream
+            .eval(backedType(key))
+            .flatMap(path => Files[F].walk(path, WalkOptions.Default.withMaxDepth(Int.MaxValue).withFollowLinks(true)))
+            .evalTap { _ =>
+              ref.set(true)
+            }
+            .map(_.toString)
+        }
+    }
 
   override def backedType(key: Key): F[Path] = FileRepositoryService.parsePath[F](key)
 
