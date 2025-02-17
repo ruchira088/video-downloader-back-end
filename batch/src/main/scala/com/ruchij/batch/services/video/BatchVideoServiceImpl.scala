@@ -3,7 +3,7 @@ package com.ruchij.batch.services.video
 import cats.data.OptionT
 import cats.effect.Sync
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
+import cats.{ApplicativeError, MonadThrow, ~>}
 import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.video.VideoDao
@@ -85,5 +85,5 @@ class BatchVideoServiceImpl[F[_]: Sync, G[_]: MonadThrow](
     }
 
   override def deleteById(videoId: String, deleteVideoFile: Boolean): F[Video] =
-    videoService.deleteById(videoId, deleteVideoFile)(_ => Applicative[G].unit)
+    videoService.deleteById(videoId, deleteVideoFile)
 }

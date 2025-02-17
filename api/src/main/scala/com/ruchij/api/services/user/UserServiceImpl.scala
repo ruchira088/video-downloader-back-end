@@ -5,16 +5,16 @@ import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
 import com.ruchij.api.daos.credentials.CredentialsDao
 import com.ruchij.api.daos.credentials.models.Credentials
-import com.ruchij.api.daos.permission.VideoPermissionDao
 import com.ruchij.api.daos.resettoken.CredentialsResetTokenDao
 import com.ruchij.api.daos.resettoken.models.CredentialsResetToken
-import com.ruchij.api.daos.title.VideoTitleDao
 import com.ruchij.api.daos.user.UserDao
 import com.ruchij.api.daos.user.models.{Email, Role, User}
 import com.ruchij.api.exceptions.{AuthorizationException, ResourceConflictException}
 import com.ruchij.api.services.authentication.AuthenticationService.Password
 import com.ruchij.api.services.hashing.PasswordHashingService
 import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
+import com.ruchij.core.daos.permission.VideoPermissionDao
+import com.ruchij.core.daos.title.VideoTitleDao
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.types.{JodaClock, RandomGenerator}
 

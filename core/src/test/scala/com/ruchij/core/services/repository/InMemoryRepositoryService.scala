@@ -41,6 +41,9 @@ class InMemoryRepositoryService[F[_]: Sync](concurrentHashMap: ConcurrentHashMap
     Sync[F].delay { Option(concurrentHashMap.get(key)) }
       .map(_.map(_.size))
 
+  override def exists(key: Key): F[Boolean] =
+    Sync[F].delay(concurrentHashMap.contains(key))
+
   override def list(key: Key): Stream[F, Key] =
     Stream.eval { Sync[F].delay(concurrentHashMap.keys().asScala.toSeq) }
       .flatMap(Stream.emits)

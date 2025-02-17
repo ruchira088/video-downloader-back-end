@@ -8,10 +8,8 @@ import cats.~>
 import com.eed3si9n.ruchij.api.BuildInfo
 import com.ruchij.api.config.ApiServiceConfiguration
 import com.ruchij.api.daos.credentials.DoobieCredentialsDao
-import com.ruchij.api.daos.permission.DoobieVideoPermissionDao
 import com.ruchij.api.daos.playlist.DoobiePlaylistDao
 import com.ruchij.api.daos.resettoken.DoobieCredentialsResetTokenDao
-import com.ruchij.api.daos.title.DoobieVideoTitleDao
 import com.ruchij.api.daos.user.DoobieUserDao
 import com.ruchij.api.models.ApiMessageBrokers
 import com.ruchij.api.services.asset.AssetServiceImpl
@@ -33,10 +31,12 @@ import com.ruchij.api.services.video.ApiVideoServiceImpl
 import com.ruchij.api.web.Routes
 import com.ruchij.core.commands.ScanVideosCommand
 import com.ruchij.core.daos.doobie.DoobieTransactor
+import com.ruchij.core.daos.permission.DoobieVideoPermissionDao
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.daos.snapshot.DoobieSnapshotDao
+import com.ruchij.core.daos.title.DoobieVideoTitleDao
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videowatchhistory.DoobieVideoWatchHistoryDao
@@ -205,7 +205,10 @@ object ApiApp extends IOApp {
         DoobieVideoDao,
         DoobieVideoWatchHistoryDao,
         DoobieSnapshotDao,
-        DoobieFileResourceDao
+        DoobieFileResourceDao,
+        DoobieVideoTitleDao,
+        DoobieVideoPermissionDao,
+        DoobieSchedulingDao
       )
 
     val apiVideoService = new ApiVideoServiceImpl[F, ConnectionIO](

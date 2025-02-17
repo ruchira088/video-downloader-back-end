@@ -1,8 +1,8 @@
-package com.ruchij.api.daos.permission
+package com.ruchij.core.daos.permission
 
 import cats.ApplicativeError
 import com.ruchij.core.daos.doobie.DoobieCustomMappings.{dateTimeGet, dateTimePut}
-import com.ruchij.api.daos.permission.models.VideoPermission
+import com.ruchij.core.daos.permission.models.VideoPermission
 import doobie.free.connection.ConnectionIO
 import doobie.generic.auto._
 import doobie.implicits.toSqlInterpolator

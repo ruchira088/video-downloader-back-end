@@ -1,6 +1,6 @@
-package com.ruchij.api.daos.title
+package com.ruchij.core.daos.title
 
-import com.ruchij.api.daos.title.models.VideoTitle
+import com.ruchij.core.daos.title.models.VideoTitle
 
 trait VideoTitleDao[F[_]] {
   def insert(videoTitle: VideoTitle): F[Int]

@@ -2,9 +2,7 @@ package com.ruchij.api.services.authentication
 
 import cats.effect.IO
 import com.ruchij.api.daos.credentials.DoobieCredentialsDao
-import com.ruchij.api.daos.permission.DoobieVideoPermissionDao
 import com.ruchij.api.daos.resettoken.DoobieCredentialsResetTokenDao
-import com.ruchij.api.daos.title.DoobieVideoTitleDao
 import com.ruchij.api.daos.user.DoobieUserDao
 import com.ruchij.api.daos.user.models.Email
 import com.ruchij.api.external.ApiResourcesProvider
@@ -15,6 +13,8 @@ import com.ruchij.api.services.authentication.models.AuthenticationToken.{Authen
 import com.ruchij.api.services.hashing.BCryptPasswordHashingService
 import com.ruchij.api.services.user.{UserService, UserServiceImpl}
 import com.ruchij.api.test.matchers.haveDateTime
+import com.ruchij.core.daos.permission.DoobieVideoPermissionDao
+import com.ruchij.core.daos.title.DoobieVideoTitleDao
 import com.ruchij.core.kv.{KeySpacedKeyValueStore, RedisKeyValueStore}
 import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import com.ruchij.core.types.{JodaClock, RandomGenerator}

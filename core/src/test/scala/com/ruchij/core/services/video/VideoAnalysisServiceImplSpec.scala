@@ -111,12 +111,12 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
   }
 
   it should "analyse a EPorner video URL" in runIO {
-    analyze[IO](uri"https://www.eporner.com/video-vQrAInk40ei/mc-kenzie-lee-in-an-all-black-guy-gangbang/").semiflatMap {
+    analyze[IO](uri"https://www.eporner.com/video-wxed3sMHlEC/bbc-breeds-wife/").semiflatMap {
       videoAnalysisResult =>
         IO.delay {
-          videoAnalysisResult.title mustBe "Mc Kenzie Lee In An All Black Guy Gangbang"
-          videoAnalysisResult.duration mustBe ((38 minutes) + (47 seconds))
-          videoAnalysisResult.thumbnail.path mustBe uri"https://static-au-cdn.eporner.com/thumbs/static4/6/63/639/6390316/11_360.jpg".path
+          videoAnalysisResult.title mustBe "BBC Breeds Wife"
+          videoAnalysisResult.duration mustBe ((29 minutes) + (12 seconds))
+          videoAnalysisResult.thumbnail.path mustBe uri"https://static-au-cdn.eporner.com/thumbs/static4/1/12/120/12018340/5_360.jpg".path
           videoAnalysisResult.videoSite mustBe YTDownloaderSite("eporner")
         }
     }.value

@@ -9,14 +9,20 @@ import com.ruchij.batch.daos.filesync.FileSyncDao
 import com.ruchij.batch.daos.filesync.models.FileSync
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService
 import com.ruchij.batch.services.sync.SynchronizationServiceImpl._
-import com.ruchij.batch.services.sync.models.FileSyncResult.{ExistingVideo, IgnoredFile, SyncError, VideoSynced}
+import com.ruchij.batch.services.sync.models.FileSyncResult.{
+  ExistingVideo,
+  IgnoredFile,
+  MissingVideoFile,
+  SyncError,
+  VideoSynced
+}
 import com.ruchij.batch.services.sync.models.{FileSyncResult, SynchronizationResult}
 import com.ruchij.batch.services.video.BatchVideoService
 import com.ruchij.batch.utils.Constants
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.SchedulingDao
-import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
+import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.video.VideoDao
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
@@ -24,6 +30,8 @@ import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.hashing.HashingService
+import com.ruchij.core.services.models.Order.Descending
+import com.ruchij.core.services.models.SortBy.Date
 import com.ruchij.core.services.repository.FileRepositoryService.FileRepository
 import com.ruchij.core.services.repository.FileTypeDetector
 import com.ruchij.core.services.video.VideoAnalysisService
@@ -54,34 +62,81 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
 
   private val logger = Logger[SynchronizationServiceImpl[F, A, T]]
 
-  override val sync: F[SynchronizationResult] =
-    logger.info[F]("Synchronization started")
-      .productR {
-        Stream
-          .emits[F, String](storageConfiguration.videoFolder :: storageConfiguration.otherVideoFolders)
-          .flatMap(fileRepositoryService.list)
-          .mapAsyncUnordered(MaxConcurrentSyncCount) { filePath =>
-            isFileSupported(filePath)
-              .flatMap { isVideoFilePath =>
-                if (isVideoFilePath) syncVideo(filePath)
-                else
-                  logger
-                    .trace(s"Ignoring $filePath")
-                    .productR(Applicative[F].pure[FileSyncResult](IgnoredFile(filePath)))
-              }
+  private val scanFileRepositoryForUnaccountedVideo: F[SynchronizationResult] =
+    Stream
+      .emits[F, String](storageConfiguration.videoFolder :: storageConfiguration.otherVideoFolders)
+      .flatMap(fileRepositoryService.list)
+      .mapAsyncUnordered(MaxConcurrentSyncCount) { filePath =>
+        isFileSupported(filePath)
+          .flatMap { isVideoFilePath =>
+            if (isVideoFilePath) syncVideo(filePath)
+            else
+              logger
+                .trace(s"Ignoring $filePath")
+                .productR(Applicative[F].pure[FileSyncResult](IgnoredFile(filePath)))
           }
-          .evalTap {
-            case VideoSynced(video) =>
-              logger.info[F](s"Sync completed for ${video.fileResource.path}")
-
-            case _ => Applicative[F].unit
-          }
-          .fold(SynchronizationResult.Zero)(_ + _)
-          .compile
-          .lastOrError
       }
+      .evalTap {
+        case VideoSynced(video) =>
+          logger.info[F](s"Sync completed for ${video.fileResource.path}")
+
+        case _ => Applicative[F].unit
+      }
+      .fold(SynchronizationResult.Zero)(_ + _)
+      .compile
+      .lastOrError
+
+  private val scanForMissingVideoFiles: F[SynchronizationResult] =
+    getAllVideos(0, 50)
+      .evalFilterNot { video =>
+        fileRepositoryService.exists(video.fileResource.path)
+      }
+      .evalTap { video =>
+        logger.warn(f"Deleting video id=${video.videoMetadata.id}, url=${video.videoMetadata.url}")
+      }
+      .evalMap { video =>
+        batchVideoService
+          .deleteById(video.videoMetadata.id, deleteVideoFile = false)
+          .as(MissingVideoFile(video))
+      }
+      .fold(SynchronizationResult.Zero)(_ + _)
+      .compile
+      .lastOrError
+
+  override val sync: F[SynchronizationResult] =
+    logger
+      .info[F]("Synchronization started")
+      .productL(logger.info("Scanning file system for unaccounted videos"))
+      .productR(scanFileRepositoryForUnaccountedVideo)
+      .productL(logger.info("Scanning for missing video files"))
+      .product(scanForMissingVideoFiles)
+      .productL(logger.info("Synchronization completed"))
+      .map { case (resultOne, resultTwo) => resultOne + resultTwo }
       .flatTap { result =>
         logger.info[F](result.prettyPrint)
+      }
+
+  private def getAllVideos(pageNumber: Int, pageSize: Int): Stream[F, Video] =
+    Stream
+      .eval {
+        transaction {
+          videoDao.search(
+            term = None,
+            videoUrls = None,
+            durationRange = RangeValue.all,
+            sizeRange = RangeValue.all,
+            pageNumber = pageNumber,
+            pageSize = pageSize,
+            sortBy = Date,
+            order = Descending,
+            videoSites = None,
+            maybeUserId = None
+          )
+        }
+      }
+      .flatMap { videos =>
+        Stream.emits(videos) ++
+          (if (videos.size < pageSize) Stream.empty else getAllVideos(pageNumber + 1, pageSize))
       }
 
   private def isFileSupported(filePath: String): F[Boolean] = {
@@ -121,15 +176,15 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
       }.flatMap {
         case None =>
           transaction {
-            fileSyncDao.insert(FileSync(startTimestamp, videoPath, None))
+            fileSyncDao
+              .insert(FileSync(startTimestamp, videoPath, None))
               .product {
                 OptionT(fileResourceDao.findByPath(videoPath))
                   .semiflatMap(fileResource => fileResourceDao.deleteById(fileResource.id))
                   .getOrElse(0)
               }
               .map { case (insertion, deletion) => insertion + deletion }
-          }
-            .flatMap { count =>
+          }.flatMap { count =>
               if (count > 0)
                 addVideo(videoPath)
                   .productL {
@@ -158,9 +213,8 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
       }
       .map[FileSyncResult](VideoSynced)
       .recoverWith {
-        errorHandler[F](videoPath) {
-          throwable =>
-            logger.error[F](s"Unable to add video file at: $videoPath", throwable)
+        errorHandler[F](videoPath) { throwable =>
+          logger.error[F](s"Unable to add video file at: $videoPath", throwable)
         }.andThen(_.map(identity[FileSyncResult]))
       }
 

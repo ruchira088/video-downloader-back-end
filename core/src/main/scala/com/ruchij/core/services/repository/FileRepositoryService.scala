@@ -57,6 +57,12 @@ class FileRepositoryService[F[_]: Async: Files](fileTypeDetector: FileTypeDetect
       else Applicative[F].pure[Option[Long]](None)
     } yield bytes
 
+  override def exists(key: Key): F[Boolean] =
+    for {
+      path <- backedType(key)
+      fileExists <- Files[F].exists(path)
+    } yield fileExists
+
   override def list(key: Key): Stream[F, Key] =
     Stream
       .eval(logger.info(s"Listing files for $key"))

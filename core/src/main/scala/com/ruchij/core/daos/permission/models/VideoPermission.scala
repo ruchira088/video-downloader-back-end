@@ -1,4 +1,4 @@
-package com.ruchij.api.daos.permission.models
+package com.ruchij.core.daos.permission.models
 
 import org.joda.time.DateTime
 

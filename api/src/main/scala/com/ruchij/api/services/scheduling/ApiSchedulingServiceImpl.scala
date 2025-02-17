@@ -4,16 +4,16 @@ import cats.data.{NonEmptyList, OptionT}
 import cats.effect.Async
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
-import com.ruchij.api.daos.permission.VideoPermissionDao
-import com.ruchij.api.daos.permission.models.VideoPermission
-import com.ruchij.api.daos.title.VideoTitleDao
-import com.ruchij.api.daos.title.models.VideoTitle
 import com.ruchij.api.services.config.models.ApiConfigKey
 import com.ruchij.api.services.scheduling.models.ScheduledVideoResult
 import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
+import com.ruchij.core.daos.permission.VideoPermissionDao
+import com.ruchij.core.daos.permission.models.VideoPermission
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.SchedulingDao.notFound
 import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownload, SchedulingStatus}
+import com.ruchij.core.daos.title.VideoTitleDao
+import com.ruchij.core.daos.title.models.VideoTitle
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
 import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.exceptions.{InvalidConditionException, ValidationException}
@@ -215,13 +215,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
           if (List(SchedulingStatus.Completed, SchedulingStatus.Downloaded).contains(scheduledVideoDownload.status))
             ApplicativeError[T, Throwable].raiseError[Int] {
               ValidationException("Unable to delete scheduled video downloads that are completed or downloaded")
-            } else
-            videoPermissionDao
-              .delete(maybeUserId, Some(id))
-              .productR(videoTitleDao.delete(Some(id), maybeUserId))
-              .productR {
-                if (maybeUserId.isEmpty) schedulingDao.deleteById(id) else Applicative[T].pure(0)
-              }
+            } else Applicative[T].pure(0)
         }
         .getOrElseF(ApplicativeError[T, Throwable].raiseError(notFound(id)))
     }.flatMap { scheduledVideoDownload =>
@@ -232,7 +226,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
           ApplicativeError[F, Throwable]
             .handleError {
               videoService
-                .deleteById(scheduledVideoDownload.videoMetadata.id, deleteVideoFile = false)(_ => Applicative[T].unit)
+                .deleteById(scheduledVideoDownload.videoMetadata.id, deleteVideoFile = false)
                 .as(1)
             }(_ => 0)
             .productR {

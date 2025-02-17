@@ -2,9 +2,7 @@ package com.ruchij.api.services.scheduling
 
 import cats.effect.{IO, Resource}
 import com.ruchij.api.daos.credentials.DoobieCredentialsDao
-import com.ruchij.api.daos.permission.DoobieVideoPermissionDao
 import com.ruchij.api.daos.resettoken.DoobieCredentialsResetTokenDao
-import com.ruchij.api.daos.title.DoobieVideoTitleDao
 import com.ruchij.api.daos.user.DoobieUserDao
 import com.ruchij.api.daos.user.models.Email
 import com.ruchij.api.services.authentication.AuthenticationService.Password
@@ -14,11 +12,13 @@ import com.ruchij.api.services.hashing.BCryptPasswordHashingService
 import com.ruchij.api.services.scheduling.models.ScheduledVideoResult.NewlyScheduled
 import com.ruchij.api.services.user.UserServiceImpl
 import com.ruchij.core.config.StorageConfiguration
+import com.ruchij.core.daos.permission.DoobieVideoPermissionDao
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.snapshot.DoobieSnapshotDao
+import com.ruchij.core.daos.title.DoobieVideoTitleDao
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata}
@@ -138,7 +138,10 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFa
             DoobieVideoDao,
             DoobieVideoWatchHistoryDao,
             DoobieSnapshotDao,
-            DoobieFileResourceDao
+            DoobieFileResourceDao,
+            DoobieVideoTitleDao,
+            DoobieVideoPermissionDao,
+            DoobieSchedulingDao
           )
 
           videoId = "pornone-8685422022d86a13"

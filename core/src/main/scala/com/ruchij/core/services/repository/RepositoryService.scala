@@ -16,6 +16,8 @@ trait RepositoryService[F[_]] {
 
   def list(key: Key): Stream[F, Key]
 
+  def exists(key: Key): F[Boolean]
+
   def backedType(key: Key): F[BackedType]
 
   def delete(key: Key): F[Boolean]

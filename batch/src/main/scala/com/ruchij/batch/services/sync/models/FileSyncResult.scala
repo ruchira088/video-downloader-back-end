@@ -13,6 +13,10 @@ object FileSyncResult {
     override val filePath: String = video.fileResource.path
   }
 
+  final case class MissingVideoFile(video: Video) extends FileSyncResult {
+    override val filePath: String = video.fileResource.path
+  }
+
   final case class SyncError(throwable: Throwable, filePath: String) extends FileSyncResult
 
   final case class IgnoredFile(filePath: String) extends FileSyncResult

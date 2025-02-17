@@ -1,7 +1,7 @@
-package com.ruchij.api.daos.title
+package com.ruchij.core.daos.title
 
 import cats.ApplicativeError
-import com.ruchij.api.daos.title.models.VideoTitle
+import com.ruchij.core.daos.title.models.VideoTitle
 import doobie.free.connection.ConnectionIO
 import doobie.generic.auto._
 import doobie.implicits.toSqlInterpolator

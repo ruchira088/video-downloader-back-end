@@ -3,15 +3,15 @@ package com.ruchij.api.services.video
 import cats.data.NonEmptyList
 import cats.implicits._
 import cats.{MonadThrow, ~>}
-import com.ruchij.api.daos.permission.VideoPermissionDao
-import com.ruchij.api.daos.title.VideoTitleDao
 import com.ruchij.api.services.video.models.VideoScanProgress
 import com.ruchij.core.commands.ScanVideosCommand
 import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
+import com.ruchij.core.daos.permission.VideoPermissionDao
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.models.RangeValue
 import com.ruchij.core.daos.snapshot.SnapshotDao
 import com.ruchij.core.daos.snapshot.models.Snapshot
+import com.ruchij.core.daos.title.VideoTitleDao
 import com.ruchij.core.daos.video.VideoDao
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
@@ -67,14 +67,7 @@ class ApiVideoServiceImpl[F[_]: MonadThrow: JodaClock, G[_]: MonadThrow](
             .productL(videoPermissionDao.delete(Some(userId), Some(videoId)))
         }
 
-      case None =>
-        videoService.deleteById(videoId, deleteVideoFile) { _ =>
-          videoTitleDao
-            .delete(Some(videoId), None)
-            .productR(videoPermissionDao.delete(None, Some(videoId)))
-            .productR(schedulingDao.deleteById(videoId))
-            .as((): Unit)
-        }
+      case None => videoService.deleteById(videoId, deleteVideoFile)
     }
 
   override def search(
