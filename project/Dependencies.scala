@@ -6,7 +6,7 @@ object Dependencies
   val Http4sVersion = "0.23.30"
   val CirceVersion = "0.14.10"
   val TestContainersVersion = "1.20.4"
-  val FlywayVersion = "11.3.0"
+  val FlywayVersion = "11.3.2"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -18,13 +18,13 @@ object Dependencies
 
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.7"
 
-  lazy val kafka = "org.apache.kafka" %% "kafka" % "7.8.0-ccs"
+  lazy val kafka = "org.apache.kafka" %% "kafka" % "7.8.1-ccs"
 
   lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "3.6.0"
 
   lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "3.6.0"
 
-  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.8.0"
+  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.8.1"
 
   lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.11.1"
 
@@ -38,13 +38,13 @@ object Dependencies
 
   lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.12"
 
-  lazy val doobie = "org.tpolecat" %% "doobie-core" % "1.0.0-RC6"
+  lazy val doobie = "org.tpolecat" %% "doobie-core" % "1.0.0-RC7"
 
-  lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "1.0.0-RC6"
+  lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "1.0.0-RC7"
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.18.3"
 
-  lazy val jodaTime = "joda-time" % "joda-time" % "2.13.0"
+  lazy val jodaTime = "joda-time" % "joda-time" % "2.13.1"
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.8"
 
@@ -64,7 +64,7 @@ object Dependencies
 
   lazy val embeddedRedis = "com.github.kstyrc" % "embedded-redis" % "0.6"
 
-  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "7.8.0"
+  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "7.8.1"
 
   lazy val testContainers = "org.testcontainers" % "testcontainers" % TestContainersVersion
 
@@ -82,7 +82,7 @@ object Dependencies
 
   lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.19"
 
-  lazy val scalaMock = "org.scalamock" %% "scalamock" % "6.1.1"
+  lazy val scalaMock = "org.scalamock" %% "scalamock" % "6.2.0"
 
   lazy val pegdown = "org.pegdown" % "pegdown" % "1.6.0"
 }
