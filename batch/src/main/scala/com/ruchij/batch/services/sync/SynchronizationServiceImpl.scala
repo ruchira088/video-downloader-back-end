@@ -62,9 +62,12 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
 
   private val logger = Logger[SynchronizationServiceImpl[F, A, T]]
 
-  private val scanFileRepositoryForUnaccountedVideo: F[SynchronizationResult] =
+  private val scanFileRepositoryForUnaccountedVideos: F[SynchronizationResult] =
     Stream
       .emits[F, String](storageConfiguration.videoFolder :: storageConfiguration.otherVideoFolders)
+      .evalTap { path =>
+        logger.info[F](s"Scanning $path...")
+      }
       .flatMap(fileRepositoryService.list)
       .mapAsyncUnordered(MaxConcurrentSyncCount) { filePath =>
         isFileSupported(filePath)
@@ -86,35 +89,44 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
       .compile
       .lastOrError
 
-  private val scanForMissingVideoFiles: F[SynchronizationResult] =
-    getAllVideos(0, 50)
-      .evalFilterNot { video =>
-        fileRepositoryService.exists(video.fileResource.path)
-      }
-      .evalTap { video =>
-        logger.warn(
-          f"Deleting video id=${video.videoMetadata.id}, size=${video.fileResource.size} url=${video.videoMetadata.url}, path=${video.fileResource.path}"
-        )
-      }
-      .evalMap { video =>
-        batchVideoService
-          .deleteById(video.videoMetadata.id, deleteVideoFile = false)
-          .productR {
-            logger.warn(f"Deleted video id=${video.videoMetadata.id}")
+  private def scanForMissingVideoFiles(scanCount: Int = 0): F[SynchronizationResult] =
+    logger
+      .info(s"Searching for videos with missing video files. scanCount=$scanCount")
+      .productR {
+        getAllVideos(0, 50)
+          .evalFilterNot { video =>
+            fileRepositoryService.exists(video.fileResource.path)
           }
-          .as(MissingVideoFile(video))
+          .evalTap { video =>
+            logger.warn(
+              f"Deleting video id=${video.videoMetadata.id}, size=${video.fileResource.size} url=${video.videoMetadata.url}, path=${video.fileResource.path}"
+            )
+          }
+          .evalMap { video =>
+            batchVideoService
+              .deleteById(video.videoMetadata.id, deleteVideoFile = false)
+              .productR {
+                logger.warn(f"Deleted video id=${video.videoMetadata.id}")
+              }
+              .as(MissingVideoFile(video))
+          }
+          .fold(SynchronizationResult.Zero)(_ + _)
+          .compile
+          .lastOrError
+          .flatMap { result =>
+            if (result == SynchronizationResult.Zero) Applicative[F].pure(SynchronizationResult.Zero)
+            else
+              scanForMissingVideoFiles(scanCount + 1).map(_ + result)
+          }
       }
-      .fold(SynchronizationResult.Zero)(_ + _)
-      .compile
-      .lastOrError
 
   override val sync: F[SynchronizationResult] =
     logger
       .info[F]("Synchronization started")
       .productL(logger.info("Scanning file system for unaccounted videos"))
-      .productR(scanFileRepositoryForUnaccountedVideo)
+      .productR(scanFileRepositoryForUnaccountedVideos)
       .productL(logger.info("Scanning for missing video files"))
-      .product(scanForMissingVideoFiles)
+      .product(scanForMissingVideoFiles())
       .productL(logger.info("Synchronization completed"))
       .map { case (resultOne, resultTwo) => resultOne + resultTwo }
       .flatTap { result =>
