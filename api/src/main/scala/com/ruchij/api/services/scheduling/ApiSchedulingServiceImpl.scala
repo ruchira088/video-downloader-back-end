@@ -212,7 +212,6 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
           .productR(getById(id, None))
       }
 
-
   override def deleteById(id: String, maybeUserId: Option[String]): F[ScheduledVideoDownload] =
     transaction {
       OptionT(schedulingDao.getById(id, maybeUserId))
