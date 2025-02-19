@@ -45,7 +45,7 @@ trait SchedulingDao[F[_]] {
     maybeUserId: Option[String]
   ): F[Seq[ScheduledVideoDownload]]
 
-  def staleTask(timestamp: DateTime): F[Option[ScheduledVideoDownload]]
+  def staleTask(delay: FiniteDuration, timestamp: DateTime): F[Option[ScheduledVideoDownload]]
 
   def updateTimedOutTasks(timeout: FiniteDuration, timestamp: DateTime): F[Seq[ScheduledVideoDownload]]
 

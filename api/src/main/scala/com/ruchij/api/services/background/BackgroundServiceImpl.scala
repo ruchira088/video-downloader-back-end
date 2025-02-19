@@ -74,8 +74,8 @@ class BackgroundServiceImpl[F[_]: Async, M[_]](
           .collect { case (_, Some(progress)) => progress }
           .toList
           .traverse {
-            case DownloadProgress(videoId, _, bytes) =>
-              apiSchedulingService.updateDownloadProgress(videoId, bytes)
+            case DownloadProgress(videoId, timestamp, bytes) =>
+              apiSchedulingService.updateDownloadProgress(videoId, timestamp, bytes)
           }
       }
       .flatMap { scheduledVideoDownloads =>

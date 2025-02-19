@@ -25,6 +25,7 @@ import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
 import com.ruchij.core.services.video.{VideoAnalysisService, VideoService}
 import com.ruchij.core.types.JodaClock
 import org.http4s.Uri
+import org.joda.time.DateTime
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -200,13 +201,13 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
       .get[WorkerStatus, ApiConfigKey](ApiConfigKey.WorkerStatus)
       .map(_.getOrElse(WorkerStatus.Available))
 
-  override def updateDownloadProgress(id: String, downloadedBytes: Long): F[ScheduledVideoDownload] =
-    for {
-      timestamp <- JodaClock[F].timestamp
-      result <- OptionT {
-        transaction { schedulingDao.updateDownloadProgress(id, downloadedBytes, timestamp) }
-      }.getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
-    } yield result
+  override def updateDownloadProgress(
+    id: String,
+    timestamp: DateTime,
+    downloadedBytes: Long
+  ): F[ScheduledVideoDownload] =
+    OptionT { transaction { schedulingDao.updateDownloadProgress(id, downloadedBytes, timestamp) }}
+      .getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
 
   override def deleteById(id: String, maybeUserId: Option[String]): F[ScheduledVideoDownload] =
     transaction {

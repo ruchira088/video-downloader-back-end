@@ -85,8 +85,13 @@ class PlaylistServiceImpl[F[_]: Sync: JodaClock: RandomGenerator[*[_], UUID], G[
       maybePlaylist <- transaction {
         fileResourceDao
           .insert(fileResource)
-          .productR { playlistDao.update(playlistId, None, None, None, Some(Right(fileResource.id)), maybeUserId).singleUpdate.value }
-          .productR { playlistDao.findById(playlistId, maybeUserId) }
+          .productR {
+            playlistDao
+              .update(playlistId, None, None, None, Some(Right(fileResource.id)), maybeUserId)
+              .singleUpdate
+              .productR(OptionT(playlistDao.findById(playlistId, maybeUserId)))
+              .value
+          }
       }
 
       playlist <- OptionT.fromOption[F](maybePlaylist).getOrElseF(playlistNotFound(playlistId))
@@ -100,8 +105,8 @@ class PlaylistServiceImpl[F[_]: Sync: JodaClock: RandomGenerator[*[_], UUID], G[
         .value
         .productR(playlistDao.findById(playlistId, maybeUserId))
     }.flatMap { maybePlaylist =>
-        OptionT.fromOption[F](maybePlaylist).getOrElseF(playlistNotFound(playlistId))
-      }
+      OptionT.fromOption[F](maybePlaylist).getOrElseF(playlistNotFound(playlistId))
+    }
 
   override def deletePlaylist(playlistId: String, maybeUserId: Option[String]): F[Playlist] =
     transaction {
@@ -109,8 +114,8 @@ class PlaylistServiceImpl[F[_]: Sync: JodaClock: RandomGenerator[*[_], UUID], G[
         .findById(playlistId, maybeUserId)
         .productL(playlistDao.deleteById(playlistId, maybeUserId))
     }.flatMap { maybePlaylist =>
-        OptionT.fromOption[F](maybePlaylist).getOrElseF(playlistNotFound(playlistId))
-      }
+      OptionT.fromOption[F](maybePlaylist).getOrElseF(playlistNotFound(playlistId))
+    }
 
   private def playlistNotFound(playlistId: String): F[Playlist] =
     ApplicativeError[F, Throwable].raiseError {

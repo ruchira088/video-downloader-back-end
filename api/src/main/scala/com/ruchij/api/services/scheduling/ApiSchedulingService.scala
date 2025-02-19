@@ -7,6 +7,7 @@ import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.services.models.{Order, SortBy}
 import org.http4s.Uri
+import org.joda.time.DateTime
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -35,7 +36,7 @@ trait ApiSchedulingService[F[_]] {
 
   val getWorkerStatus: F[WorkerStatus]
 
-  def updateDownloadProgress(id: String, downloadedBytes: Long): F[ScheduledVideoDownload]
+  def updateDownloadProgress(id: String, timestamp: DateTime, downloadedBytes: Long): F[ScheduledVideoDownload]
 
   def deleteById(id: String, maybeUserId: Option[String]): F[ScheduledVideoDownload]
 }

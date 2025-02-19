@@ -127,9 +127,10 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
     sql"""
         UPDATE scheduled_video
           SET downloaded_bytes = $downloadedBytes, last_updated_at = $timestamp
-          WHERE video_metadata_id = $id AND downloaded_bytes < $downloadedBytes
-      """.update.run.singleUpdate.value
-      .productR(getById(id, None))
+          WHERE video_metadata_id = $id AND last_updated_at < $timestamp
+      """.update.run.singleUpdate
+      .productR(OptionT(getById(id, None)))
+      .value
 
   override def deleteById(id: String): ConnectionIO[Int] =
     sql"DELETE FROM scheduled_video WHERE video_metadata_id = $id".update.run
@@ -168,10 +169,12 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       .query[ScheduledVideoDownload]
       .to[Seq]
 
-  override def staleTask(timestamp: DateTime): ConnectionIO[Option[ScheduledVideoDownload]] =
+  override def staleTask(delay: FiniteDuration, timestamp: DateTime): ConnectionIO[Option[ScheduledVideoDownload]] =
     sql"""
         SELECT video_metadata_id FROM scheduled_video
-            WHERE status = ${SchedulingStatus.Stale}
+            WHERE
+              status = ${SchedulingStatus.Stale}
+              AND last_updated_at < ${timestamp.minus(delay.toMillis)}
             LIMIT 1
     """
       .query[String]

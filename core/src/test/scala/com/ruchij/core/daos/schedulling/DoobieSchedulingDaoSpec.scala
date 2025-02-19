@@ -232,40 +232,45 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
   it should "update timed-out tasks and return a stale task" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestampOne <- JodaClock[IO].timestamp
-        timestampTwo = timestampOne.plusSeconds(20)
+        timestampZero <- JodaClock[IO].timestamp
+        timestampTwenty = timestampZero.plusSeconds(20)
+        timestampForty = timestampTwenty.plusSeconds(20)
 
         timedOutTasks <-
           transaction {
-            DoobieSchedulingDao.updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Active, timestampOne)
+            DoobieSchedulingDao.updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Active, timestampZero)
               .productR {
-                DoobieSchedulingDao.updateTimedOutTasks(10 seconds, timestampTwo)
+                DoobieSchedulingDao.updateTimedOutTasks(10 seconds, timestampTwenty)
               }
           }
 
         _ <- IO.delay {
           timedOutTasks.size mustBe 1
           timedOutTasks.headOption.value.status mustBe SchedulingStatus.Stale
-          timedOutTasks.headOption.value.lastUpdatedAt.getMillis mustBe timestampTwo.getMillis
+          timedOutTasks.headOption.value.lastUpdatedAt.getMillis mustBe timestampTwenty.getMillis
 
           timedOutTasks.map(_.copy(lastUpdatedAt = scheduledVideoDownload.lastUpdatedAt, status = scheduledVideoDownload.status)) mustBe Seq(scheduledVideoDownload)
         }
 
-        maybeStaleTask <- transaction { DoobieSchedulingDao.staleTask(timestampTwo) }
+        maybeStaleTask <- transaction {
+          DoobieSchedulingDao.staleTask(10 seconds, timestampForty)
+        }
 
         _ <- IO.delay {
           maybeStaleTask.value.status mustBe SchedulingStatus.Acquired
-          maybeStaleTask.value.lastUpdatedAt.getMillis mustBe timestampTwo.getMillis
+          maybeStaleTask.value.lastUpdatedAt.getMillis mustBe timestampForty.getMillis
 
           maybeStaleTask.value.copy(lastUpdatedAt = scheduledVideoDownload.lastUpdatedAt, status = scheduledVideoDownload.status) mustBe scheduledVideoDownload
         }
 
         moreTimedOutTasks <-
-          transaction(DoobieSchedulingDao.updateTimedOutTasks(10 seconds, timestampTwo))
+          transaction(DoobieSchedulingDao.updateTimedOutTasks(10 seconds, timestampForty))
 
         _ <- IO.delay {  moreTimedOutTasks mustBe Seq.empty }
 
-        maybeMoreStaledTasks <- transaction { DoobieSchedulingDao.staleTask(timestampTwo) }
+        maybeMoreStaledTasks <- transaction {
+          DoobieSchedulingDao.staleTask(10 seconds, timestampForty)
+        }
 
         _ <- IO.delay { maybeMoreStaledTasks mustBe None }
       }

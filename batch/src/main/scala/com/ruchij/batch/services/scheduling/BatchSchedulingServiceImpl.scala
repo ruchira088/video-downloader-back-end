@@ -14,7 +14,8 @@ import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatu
 import com.ruchij.core.types.JodaClock
 import fs2.Stream
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.language.postfixOps
 
 class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
   downloadProgressPublisher: Publisher[F, DownloadProgress],
@@ -33,7 +34,9 @@ class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]]
 
   override val staleTask: OptionT[F, ScheduledVideoDownload] =
     OptionT {
-      JodaClock[F].timestamp.flatMap(timestamp => transaction(schedulingDao.staleTask(timestamp)))
+      JodaClock[F].timestamp.flatMap(timestamp =>
+        transaction(schedulingDao.staleTask(20 seconds, timestamp))
+      )
     }
 
   override def updateSchedulingStatusById(id: String, status: SchedulingStatus): F[ScheduledVideoDownload] =
