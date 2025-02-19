@@ -240,7 +240,7 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
                 }
               }
             }
-            .debounce(250 milliseconds)
+            .debounce(3 seconds)
             .evalTap { byteCount =>
               batchSchedulingService.publishDownloadProgress(scheduledVideoDownload.videoMetadata.id, byteCount)
             }

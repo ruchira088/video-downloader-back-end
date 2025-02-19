@@ -117,7 +117,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
     val cliOutput =
       """[youtube] F1Zl1TRDJs0: Downloading webpage
         |[download] Destination: /home/ruchira/Videos/youtube-video-url-hash.mp4.f248
-        |[download]   0.3% of   180.0MiB at     6.1MiB/s ETA 00:32
+        |[download]   0.3% of   180.0MiB at     6.1MiB/s ETA 08:32
         |[download]  33.1% of 180.0MiB at  6.0MiB/s ETA 00:21
         |[download]  71.1% of 180.0MiB at  6.5MiB/s ETA 00:06
         |[download]  80.3% of 180.0MiB at  6.1MiB/s ETA 00:04
@@ -150,7 +150,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
           bytes mustBe
             List(
               YTDownloaderProgress(0.0, YTDataSize(0.0, MiB), YTDataSize(0.0, MiB), 0 seconds),
-              YTDownloaderProgress(0.3, YTDataSize(180.0, MiB), YTDataSize(6.1, MiB), 32 seconds),
+              YTDownloaderProgress(0.3, YTDataSize(180.0, MiB), YTDataSize(6.1, MiB), 512 seconds),
               YTDownloaderProgress(33.1, YTDataSize(180.0, MiB), YTDataSize(6.0, MiB), 21 seconds),
               YTDownloaderProgress(71.1, YTDataSize(180.0, MiB), YTDataSize(6.5, MiB), 6 seconds),
               YTDownloaderProgress(80.3, YTDataSize(180.0, MiB), YTDataSize(6.1, MiB), 4 seconds),

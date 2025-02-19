@@ -78,12 +78,11 @@ class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]]
         scheduledVideoDownloadPubSub.publish(Stream.emits(staleScheduledVideoDownloads)).compile.drain
       }
 
-  override def publishDownloadProgress(id: String, downloadedBytes: Long): F[Unit] = {
+  override def publishDownloadProgress(id: String, downloadedBytes: Long): F[Unit] =
     for {
       timestamp <- JodaClock[F].timestamp
       result <- downloadProgressPublisher.publishOne(DownloadProgress(id, timestamp, downloadedBytes))
     } yield result
-  }
 
   override def subscribeToWorkerStatusUpdates(groupId: String): Stream[F, WorkerStatusUpdate] =
     workerStatusSubscriber

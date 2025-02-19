@@ -71,7 +71,7 @@ class BackgroundServiceImpl[F[_]: Async, M[_]](
           .groupBy(_.videoId)
           .view
           .mapValues(_.maxByOption(_.bytes))
-          .collect { case (_, Some(progress)) => progress }
+          .collect { case (_, Some(downloadProgress)) => downloadProgress }
           .toList
           .traverse {
             case DownloadProgress(videoId, timestamp, bytes) =>

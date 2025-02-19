@@ -207,7 +207,11 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
     downloadedBytes: Long
   ): F[ScheduledVideoDownload] =
     OptionT { transaction { schedulingDao.updateDownloadProgress(id, downloadedBytes, timestamp) }}
-      .getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
+      .getOrElseF {
+        logger.warn(s"Ignored download progress update for id=$id, timestamp=$timestamp, downloadedBytes=$downloadedBytes")
+          .productR(getById(id, None))
+      }
+
 
   override def deleteById(id: String, maybeUserId: Option[String]): F[ScheduledVideoDownload] =
     transaction {
