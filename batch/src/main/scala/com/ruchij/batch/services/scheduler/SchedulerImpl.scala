@@ -201,6 +201,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
       .concurrently(cleanUpStaleScheduledVideoDownloads)
       .concurrently(updateVideoWatchTimes)
       .concurrently(cleanUpStaleWorkers)
+      .concurrently(performScheduledVideoDeletions(scheduledVideoDownloadsTopic.subscribe(Int.MaxValue)))
       .concurrently(updateWorkersAndScheduledVideoDownloads(workerStatusUpdatesTopic.subscribe(Int.MaxValue)))
       .concurrently {
         scanVideosCommandTopic.subscribe(Int.MaxValue).evalMap { _ =>
@@ -216,6 +217,17 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
       }
       .collect {
         case Some(video) => video
+      }
+
+  private def performScheduledVideoDeletions(
+    scheduledVideoDownloadUpdates: Stream[F, ScheduledVideoDownload]
+  ): Stream[F, ScheduledVideoDownload] =
+    scheduledVideoDownloadUpdates
+      .filter { scheduledVideoDownload =>
+        scheduledVideoDownload.status == SchedulingStatus.Deleted
+      }
+      .evalMap { scheduledVideoDownload =>
+        batchSchedulingService.deleteById(scheduledVideoDownload.videoMetadata.id)
       }
 
   private def updateWorkersAndScheduledVideoDownloads(
@@ -379,7 +391,6 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
       .info[F]("Batch initialization started")
       .productR(initWorkers)
       .flatMap(count => logger.info[F](s"New workers created: $count"))
-//      .productR(synchronizationService.sync)
       .productL(logger.info[F]("Batch initialization completed"))
 }
 

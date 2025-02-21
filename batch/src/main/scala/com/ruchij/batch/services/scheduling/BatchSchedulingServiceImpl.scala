@@ -4,6 +4,7 @@ import cats.data.OptionT
 import cats.effect.Async
 import cats.implicits._
 import cats.{ApplicativeError, MonadThrow, ~>}
+import com.ruchij.batch.daos.workers.WorkerDao
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.SchedulingDao.notFound
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
@@ -21,7 +22,8 @@ class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]]
   downloadProgressPublisher: Publisher[F, DownloadProgress],
   workerStatusSubscriber: Subscriber[F, CommittableRecord[M, *], WorkerStatusUpdate],
   scheduledVideoDownloadPubSub: PubSub[F, CommittableRecord[M, *], ScheduledVideoDownload],
-  schedulingDao: SchedulingDao[T]
+  schedulingDao: SchedulingDao[T],
+  workerDao: WorkerDao[T]
 )(implicit transaction: T ~> F)
     extends BatchSchedulingService[F] {
 
@@ -34,9 +36,7 @@ class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]]
 
   override val staleTask: OptionT[F, ScheduledVideoDownload] =
     OptionT {
-      JodaClock[F].timestamp.flatMap(timestamp =>
-        transaction(schedulingDao.staleTask(20 seconds, timestamp))
-      )
+      JodaClock[F].timestamp.flatMap(timestamp => transaction(schedulingDao.staleTask(20 seconds, timestamp)))
     }
 
   override def updateSchedulingStatusById(id: String, status: SchedulingStatus): F[ScheduledVideoDownload] =
@@ -112,5 +112,17 @@ class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]]
     OptionT(transaction(schedulingDao.getById(id, None)))
       .getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
       .flatTap(scheduledVideoDownloadPubSub.publishOne)
+
+  override def deleteById(id: String): F[ScheduledVideoDownload] =
+    OptionT {
+      transaction {
+        OptionT(schedulingDao.getById(id, None)).productL {
+          OptionT.liftF {
+            workerDao.clearScheduledVideoDownload(id)
+              .product(schedulingDao.deleteById(id))
+          }
+        }.value
+      }
+    }.getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
 
 }

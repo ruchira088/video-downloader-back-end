@@ -241,7 +241,6 @@ object ApiApp extends IOApp {
       )
 
     val schedulingService = new ApiSchedulingServiceImpl[F, ConnectionIO](
-      videoService,
       videoAnalysisService,
       messageBrokers.scheduledVideoDownloadPublisher,
       messageBrokers.workerStatusUpdatesPublisher,

@@ -3,6 +3,7 @@ package com.ruchij.batch.services.scheduling
 import cats.Id
 import cats.effect.IO
 import cats.implicits._
+import com.ruchij.batch.daos.workers.DoobieWorkerDao
 import com.ruchij.batch.external.BatchResourcesProvider
 import com.ruchij.batch.external.containers.ContainerBatchResourcesProvider
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
@@ -41,7 +42,8 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
           downloadProgressPublisher,
           workerStatusSubscriber,
           scheduledVideoDownloadPubSub,
-          DoobieSchedulingDao
+          DoobieSchedulingDao,
+          new DoobieWorkerDao(DoobieSchedulingDao)
         )
 
       Stream

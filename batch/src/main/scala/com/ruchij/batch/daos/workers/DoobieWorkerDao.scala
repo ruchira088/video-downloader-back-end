@@ -42,14 +42,6 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
           ${worker.owner}
         )
     """.update.run
-      .flatMap { result =>
-        worker.scheduledVideoDownload.fold(Applicative[ConnectionIO].pure(result)) { scheduledVideoDownload =>
-          sql"""
-            INSERT INTO worker_task(worker_id, created_at, scheduled_video_id, owner)
-            VALUES(${worker.id}, ${worker.taskAssignedAt}, ${scheduledVideoDownload.videoMetadata.id}, ${worker.owner})
-          """.update.run.map(_ + result)
-        }
-      }
 
   override def getById(workerId: String): ConnectionIO[Option[Worker]] =
     sql"SELECT status, task_assigned_at, heart_beat_at, scheduled_video_id, owner FROM worker WHERE id = $workerId"
@@ -116,12 +108,6 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
                 owner = $owner
           """.update.run.one
       }
-      .productR {
-        sql"""
-            INSERT INTO worker_task(worker_id, scheduled_video_id, created_at, owner)
-            VALUES ($workerId, $scheduledVideoId, $timestamp, $owner)
-          """.update.run.one
-      }
       .productR(getById(workerId))
   }
 
@@ -134,12 +120,7 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
       sql"SELECT task_assigned_at FROM worker WHERE id = $workerId AND scheduled_video_id = $scheduledVideoId"
         .query[DateTime]
         .option
-    }.flatMap { taskCreatedAt =>
-        sql"""
-          UPDATE worker_task SET completed_at = $timestamp
-            WHERE worker_id = $workerId AND scheduled_video_id = $scheduledVideoId AND created_at = $taskCreatedAt
-        """.update.run.singleUpdate
-      }
+    }
       .productR(OptionT(getById(workerId)))
       .value
 
@@ -205,4 +186,7 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
       .flatMap { workerIds =>
         workerIds.traverse(getById).map(_.flatten)
       }
+
+  override def clearScheduledVideoDownload(scheduledVideoDownloadId: String): ConnectionIO[Int] =
+    sql"UPDATE worker SET scheduled_video_id = null WHERE scheduled_video_id = $scheduledVideoDownloadId".update.run
 }

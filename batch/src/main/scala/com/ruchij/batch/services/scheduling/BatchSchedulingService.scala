@@ -31,4 +31,5 @@ trait BatchSchedulingService[F[_]] {
 
   def publishScheduledVideoDownload(id: String): F[ScheduledVideoDownload]
 
+  def deleteById(id: String): F[ScheduledVideoDownload]
 }

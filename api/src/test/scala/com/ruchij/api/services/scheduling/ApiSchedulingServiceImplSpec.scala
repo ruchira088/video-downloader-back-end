@@ -17,12 +17,9 @@ import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
-import com.ruchij.core.daos.snapshot.DoobieSnapshotDao
 import com.ruchij.core.daos.title.DoobieVideoTitleDao
-import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata}
-import com.ruchij.core.daos.videowatchhistory.DoobieVideoWatchHistoryDao
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
 import com.ruchij.core.kv.{InMemoryKeyValueStore, KeySpacedKeyValueStore}
 import com.ruchij.core.messaging.inmemory.Fs2PubSub
@@ -34,7 +31,7 @@ import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.renderer.SpaSiteRenderer
 import com.ruchij.core.services.repository.InMemoryRepositoryService
 import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
-import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, YouTubeVideoDownloader}
+import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, YouTubeVideoDownloader}
 import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import com.ruchij.core.test.Providers
 import com.ruchij.core.types.JodaClock
@@ -133,16 +130,6 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFa
             )
           }
 
-          videoService = new VideoServiceImpl[IO, ConnectionIO](
-            repositoryService,
-            DoobieVideoDao,
-            DoobieVideoWatchHistoryDao,
-            DoobieSnapshotDao,
-            DoobieFileResourceDao,
-            DoobieVideoTitleDao,
-            DoobieVideoPermissionDao,
-            DoobieSchedulingDao
-          )
 
           videoId = "pornone-8685422022d86a13"
 
@@ -196,7 +183,6 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFa
             .start
 
           apiSchedulingService = new ApiSchedulingServiceImpl[IO, ConnectionIO](
-            videoService,
             videoAnalysisService,
             scheduledVideoDownloadUpdatesPubSub,
             workerStatusUpdatesPubSub,

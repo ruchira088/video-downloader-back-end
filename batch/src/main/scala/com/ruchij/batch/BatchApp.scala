@@ -34,7 +34,12 @@ import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.renderer.SpaSiteRendererImpl
 import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
-import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, VideoWatchHistoryServiceImpl, YouTubeVideoDownloaderImpl}
+import com.ruchij.core.services.video.{
+  VideoAnalysisServiceImpl,
+  VideoServiceImpl,
+  VideoWatchHistoryServiceImpl,
+  YouTubeVideoDownloaderImpl
+}
 import com.ruchij.core.types.{JodaClock, RandomGenerator}
 import doobie.free.connection.ConnectionIO
 import fs2.io.file.Files
@@ -100,7 +105,10 @@ object BatchApp extends IOApp {
           cliCommandRunner = new CliCommandRunnerImpl[F](dispatcher)
 
           youtubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](cliCommandRunner, httpClient)
-          spaSiteRenderer = new SpaSiteRendererImpl[F](httpClient, batchServiceConfiguration.spaSiteRendererConfiguration)
+          spaSiteRenderer = new SpaSiteRendererImpl[F](
+            httpClient,
+            batchServiceConfiguration.spaSiteRendererConfiguration
+          )
 
           fileTypeDetector = new PathFileTypeDetector[F](new Tika())
 
@@ -127,8 +135,12 @@ object BatchApp extends IOApp {
             batchServiceConfiguration.kafkaConfiguration
           )
 
-          videoWatchMetricsSubscriber = new KafkaSubscriber[F, VideoWatchMetric](batchServiceConfiguration.kafkaConfiguration)
-          scanForVideosCommandSubscriber = new KafkaSubscriber[F, ScanVideosCommand](batchServiceConfiguration.kafkaConfiguration)
+          videoWatchMetricsSubscriber = new KafkaSubscriber[F, VideoWatchMetric](
+            batchServiceConfiguration.kafkaConfiguration
+          )
+          scanForVideosCommandSubscriber = new KafkaSubscriber[F, ScanVideosCommand](
+            batchServiceConfiguration.kafkaConfiguration
+          )
 
           batchSchedulingService = new BatchSchedulingServiceImpl[F, ConnectionIO, CommittableConsumerRecord[
             F,
@@ -138,7 +150,8 @@ object BatchApp extends IOApp {
             downloadProgressPublisher,
             workerStatusUpdatesSubscriber,
             scheduledVideoDownloadPubSub,
-            DoobieSchedulingDao
+            DoobieSchedulingDao,
+            workerDao
           )
 
           videoService = new VideoServiceImpl[F, ConnectionIO](

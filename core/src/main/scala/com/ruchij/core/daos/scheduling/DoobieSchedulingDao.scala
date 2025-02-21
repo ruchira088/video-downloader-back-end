@@ -133,7 +133,12 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       .value
 
   override def deleteById(id: String): ConnectionIO[Int] =
-    sql"DELETE FROM scheduled_video WHERE video_metadata_id = $id".update.run
+    for {
+      _ <- sql"UPDATE scheduled_video SET error_id = NULL".update.run
+      errorDeleteCount <-sql"DELETE FROM scheduled_video_error WHERE video_id = $id".update.run
+      deleteCount <- sql"DELETE FROM scheduled_video WHERE video_metadata_id = $id".update.run
+    }
+    yield errorDeleteCount + deleteCount
 
   override def search(
     term: Option[String],

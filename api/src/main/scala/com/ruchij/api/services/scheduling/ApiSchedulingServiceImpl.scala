@@ -22,7 +22,7 @@ import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.services.config.ConfigurationService
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
-import com.ruchij.core.services.video.{VideoAnalysisService, VideoService}
+import com.ruchij.core.services.video.VideoAnalysisService
 import com.ruchij.core.types.JodaClock
 import org.http4s.Uri
 import org.joda.time.DateTime
@@ -30,7 +30,6 @@ import org.joda.time.DateTime
 import scala.concurrent.duration.FiniteDuration
 
 class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
-  videoService: VideoService[F, T],
   videoAnalysisService: VideoAnalysisService[F],
   scheduledVideoDownloadPublisher: Publisher[F, ScheduledVideoDownload],
   workerStatusPublisher: Publisher[F, WorkerStatusUpdate],
@@ -215,6 +214,8 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
   override def deleteById(id: String, maybeUserId: Option[String]): F[ScheduledVideoDownload] =
     transaction {
       OptionT(schedulingDao.getById(id, maybeUserId))
+        .productL(OptionT.liftF(videoPermissionDao.delete(maybeUserId, Some(id))))
+        .productL(OptionT.liftF(videoTitleDao.delete(Some(id), maybeUserId)))
         .semiflatTap { scheduledVideoDownload =>
           if (List(SchedulingStatus.Completed, SchedulingStatus.Downloaded).contains(scheduledVideoDownload.status))
             ApplicativeError[T, Throwable].raiseError[Int] {
@@ -222,20 +223,12 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
             } else Applicative[T].pure(0)
         }
         .getOrElseF(ApplicativeError[T, Throwable].raiseError(notFound(id)))
-    }.flatMap { scheduledVideoDownload =>
+    }
+      .flatMap { scheduledVideoDownload =>
       if (maybeUserId.isEmpty) {
         JodaClock[F].timestamp.flatMap { timestamp =>
           val deleted = scheduledVideoDownload.copy(lastUpdatedAt = timestamp, status = SchedulingStatus.Deleted)
-
-          ApplicativeError[F, Throwable]
-            .handleError {
-              videoService
-                .deleteById(scheduledVideoDownload.videoMetadata.id, deleteVideoFile = false)
-                .as(1)
-            }(_ => 0)
-            .productR {
-              scheduledVideoDownloadPublisher.publishOne(deleted).as(deleted)
-            }
+          scheduledVideoDownloadPublisher.publishOne(deleted).as(deleted)
         }
       } else Applicative[F].pure(scheduledVideoDownload)
     }
