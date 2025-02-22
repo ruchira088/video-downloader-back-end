@@ -5,8 +5,8 @@ object Dependencies
   val ScalaVersion = "2.13.16"
   val Http4sVersion = "0.23.30"
   val CirceVersion = "0.14.10"
-  val TestContainersVersion = "1.20.4"
-  val FlywayVersion = "11.3.2"
+  val TestContainersVersion = "1.20.5"
+  val FlywayVersion = "11.3.3"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -18,13 +18,13 @@ object Dependencies
 
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.7"
 
-  lazy val kafka = "org.apache.kafka" %% "kafka" % "7.8.1-ccs"
+  lazy val kafka = "org.apache.kafka" %% "kafka" % "7.9.0-ccs"
 
   lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "3.6.0"
 
   lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "3.6.0"
 
-  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.8.1"
+  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.9.0"
 
   lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.11.1"
 
@@ -64,7 +64,7 @@ object Dependencies
 
   lazy val embeddedRedis = "com.github.kstyrc" % "embedded-redis" % "0.6"
 
-  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "7.8.1"
+  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "7.9.0"
 
   lazy val testContainers = "org.testcontainers" % "testcontainers" % TestContainersVersion
 
