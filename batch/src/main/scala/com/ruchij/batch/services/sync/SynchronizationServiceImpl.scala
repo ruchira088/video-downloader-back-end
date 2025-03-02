@@ -9,13 +9,7 @@ import com.ruchij.batch.daos.filesync.FileSyncDao
 import com.ruchij.batch.daos.filesync.models.FileSync
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService
 import com.ruchij.batch.services.sync.SynchronizationServiceImpl._
-import com.ruchij.batch.services.sync.models.FileSyncResult.{
-  ExistingVideo,
-  IgnoredFile,
-  MissingVideoFile,
-  SyncError,
-  VideoSynced
-}
+import com.ruchij.batch.services.sync.models.FileSyncResult._
 import com.ruchij.batch.services.sync.models.{FileSyncResult, SynchronizationResult}
 import com.ruchij.batch.services.video.BatchVideoService
 import com.ruchij.batch.utils.Constants
@@ -23,6 +17,7 @@ import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownload, SchedulingStatus}
+import com.ruchij.core.daos.snapshot.SnapshotDao
 import com.ruchij.core.daos.video.VideoDao
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
@@ -51,6 +46,7 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
   schedulingDao: SchedulingDao[T],
   fileSyncDao: FileSyncDao[T],
   videoDao: VideoDao[T],
+  snapshotDao: SnapshotDao[T],
   batchVideoService: BatchVideoService[F],
   videoEnrichmentService: VideoEnrichmentService[F],
   hashingService: HashingService[F],
@@ -120,6 +116,25 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
           }
       }
 
+  private val scanForVideoWithoutSnapshots: F[SynchronizationResult] = {
+    logger.info(s"Scanning for videos without ${VideoEnrichmentService.SnapshotCount} snapshots")
+    getAllVideos(0, 50)
+      .evalFilter { video =>
+        transaction { snapshotDao.findByVideo(video.videoMetadata.id, None) }
+          .map(_.size != VideoEnrichmentService.SnapshotCount)
+      }
+      .evalMap { video =>
+        transaction { snapshotDao.deleteByVideo(video.videoMetadata.id) }
+          .product {
+            videoEnrichmentService.videoSnapshots(video)
+          }
+          .as(VideoSnapshotsCreated(video))
+      }
+      .fold(SynchronizationResult.Zero)(_ + _)
+      .compile
+      .lastOrError
+  }
+
   override val sync: F[SynchronizationResult] =
     logger
       .info[F]("Synchronization started")
@@ -127,8 +142,9 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
       .productR(scanFileRepositoryForUnaccountedVideos)
       .productL(logger.info("Scanning for missing video files"))
       .product(scanForMissingVideoFiles())
+      .productL(logger.info("Scanning for missing video snapshots"))
+      .flatMap { case (resultOne, resultTwo) => scanForVideoWithoutSnapshots.map(_ + resultOne + resultTwo) }
       .productL(logger.info("Synchronization completed"))
-      .map { case (resultOne, resultTwo) => resultOne + resultTwo }
       .flatTap { result =>
         logger.info[F](result.prettyPrint)
       }

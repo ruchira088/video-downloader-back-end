@@ -7,7 +7,6 @@ import com.ruchij.api.services.video.models.VideoScanProgress
 import com.ruchij.core.commands.ScanVideosCommand
 import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
 import com.ruchij.core.daos.permission.VideoPermissionDao
-import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.models.RangeValue
 import com.ruchij.core.daos.snapshot.SnapshotDao
 import com.ruchij.core.daos.snapshot.models.Snapshot
@@ -29,7 +28,6 @@ class ApiVideoServiceImpl[F[_]: MonadThrow: JodaClock, G[_]: MonadThrow](
   videoService: VideoService[F, G],
   videoScanPublisher: Publisher[F, ScanVideosCommand],
   videoDao: VideoDao[G],
-  schedulingDao: SchedulingDao[G],
   videoMetadataDao: VideoMetadataDao[G],
   snapshotDao: SnapshotDao[G],
   videoTitleDao: VideoTitleDao[G],

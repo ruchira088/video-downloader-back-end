@@ -9,11 +9,12 @@ import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.services.cli.CliCommandRunner
 import com.ruchij.core.services.hashing.HashingService
 import com.ruchij.core.services.repository.RepositoryService
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.{JodaClock, RandomGenerator}
 
+import java.util.UUID
 import scala.concurrent.duration.FiniteDuration
 
-class VideoSnapshotServiceImpl[F[_]: Async: JodaClock](
+class VideoSnapshotServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
   cliCommandRunner: CliCommandRunner[F],
   repositoryService: RepositoryService[F],
   hashingService: HashingService[F]
@@ -44,7 +45,8 @@ class VideoSnapshotServiceImpl[F[_]: Async: JodaClock](
               for {
                 timestamp <- JodaClock[F].timestamp
                 videoFileKeyHash <- hashingService.hash(videoFileKey)
-                id = s"$videoFileKeyHash-snapshot-${videoTimestamp.toMillis}"
+                suffix <- RandomGenerator[F, UUID].generate.map(_.toString.take(5))
+                id = s"$videoFileKeyHash-snapshot-${videoTimestamp.toMillis}-$suffix"
               } yield FileResource(id, timestamp, snapshotDestination, fileType, fileSize)
           }
       }

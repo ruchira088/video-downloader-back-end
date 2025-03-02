@@ -190,6 +190,7 @@ object BatchApp extends IOApp {
             DoobieSchedulingDao,
             DoobieFileSyncDao,
             DoobieVideoDao,
+            DoobieSnapshotDao,
             batchVideoService,
             videoEnrichmentService,
             hashingService,

@@ -9,6 +9,10 @@ sealed trait FileSyncResult {
 object FileSyncResult {
   final case class ExistingVideo(filePath: String) extends FileSyncResult
 
+  final case class VideoSnapshotsCreated(video: Video) extends FileSyncResult {
+    override val filePath: String = video.fileResource.path
+  }
+
   final case class VideoSynced(video: Video) extends FileSyncResult {
     override val filePath: String = video.fileResource.path
   }

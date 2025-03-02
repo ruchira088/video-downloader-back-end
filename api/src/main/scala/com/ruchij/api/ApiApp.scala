@@ -215,7 +215,6 @@ object ApiApp extends IOApp {
       videoService,
       messageBrokers.scanVideosCommandPublisher,
       DoobieVideoDao,
-      DoobieSchedulingDao,
       DoobieVideoMetadataDao,
       DoobieSnapshotDao,
       DoobieVideoTitleDao,
