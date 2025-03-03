@@ -111,19 +111,6 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
       .productR(getById(workerId))
   }
 
-  override def completeTask(
-    workerId: String,
-    scheduledVideoId: String,
-    timestamp: DateTime
-  ): ConnectionIO[Option[Worker]] =
-    OptionT {
-      sql"SELECT task_assigned_at FROM worker WHERE id = $workerId AND scheduled_video_id = $scheduledVideoId"
-        .query[DateTime]
-        .option
-    }
-      .productR(OptionT(getById(workerId)))
-      .value
-
   override def releaseWorker(workerId: String): ConnectionIO[Option[Worker]] =
     sql"""
        UPDATE worker

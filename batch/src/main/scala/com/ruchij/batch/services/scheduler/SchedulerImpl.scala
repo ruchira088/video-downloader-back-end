@@ -96,10 +96,19 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
         .product(OptionT.liftF(JodaClock[F].timestamp))
         .flatMap {
           case (task, timestamp) =>
-            OptionT(
-              transaction(workerDao.assignTask(worker.id, task.videoMetadata.id, workerConfiguration.owner, timestamp))
-            ).product { OptionT.liftF { batchSchedulingService.publishScheduledVideoDownload(task.videoMetadata.id) } }
+            ApplicativeError[OptionT[F, *], Throwable].recoverWith {
+            OptionT(transaction(workerDao.assignTask(worker.id, task.videoMetadata.id, workerConfiguration.owner, timestamp)))
+              .product {
+                OptionT.liftF {
+                  batchSchedulingService.publishScheduledVideoDownload(task.videoMetadata.id)
+                }
+              }
               .as(timestamp -> task)
+          } {
+              case throwable: Throwable =>
+                OptionT.liftF(logger.warn(s"Error assigning task to worker. workerId=${worker.id}, scheduledVideoId=${task.videoMetadata.id} error=$throwable"))
+                  .productR(OptionT.none)
+            }
         }
         .flatMapF {
           case (timestamp, scheduledVideoDownload) =>
@@ -133,20 +142,6 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
               case PausedVideoDownload =>
                 logger.info[F](s"${scheduledVideoDownload.videoMetadata.url} has been paused/cancelled").as(None)
             }
-        }
-        .semiflatMap { video =>
-          JodaClock[F].timestamp
-            .flatMap { timestamp =>
-              OptionT(transaction(workerDao.completeTask(worker.id, video.videoMetadata.id, timestamp)))
-                .getOrElseF {
-                  ApplicativeError[F, Throwable].raiseError {
-                    ResourceNotFoundException(
-                      s"Unable to complete worker task workerId = ${worker.id}, taskId = ${video.videoMetadata.id}"
-                    )
-                  }
-                }
-            }
-            .as(video)
         }
         .value
     } {
@@ -208,9 +203,9 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
           synchronizationService.sync
         }
       }
-      .parEvalMapUnordered(workerConfiguration.maxConcurrentDownloads) { worker =>
+      .parEvalMapUnordered(workerConfiguration.maxConcurrentDownloads) { idleWorker =>
         performWorkDuringWorkPeriod(
-          worker,
+          idleWorker,
           scheduledVideoDownloadsTopic.subscribe(Int.MaxValue),
           workerStatusUpdatesTopic.subscribe(Int.MaxValue)
         )
