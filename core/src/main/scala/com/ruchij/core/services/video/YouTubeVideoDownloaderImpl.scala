@@ -2,16 +2,23 @@ package com.ruchij.core.services.video
 
 import cats.ApplicativeError
 import cats.data.{Kleisli, OptionT}
-import cats.effect.{Async, Sync}
+import cats.effect.{Async, Ref, Sync}
 import cats.MonadThrow
 import cats.implicits._
 import com.ruchij.core.daos.videometadata.models.{VideoSite, WebPage}
 import com.ruchij.core.exceptions.UnsupportedVideoUrlException
+import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.cli.CliCommandRunner
-import com.ruchij.core.services.video.models.{VideoAnalysisResult, YTDataSize, YTDataUnit, YTDownloaderMetadata, YTDownloaderProgress}
+import com.ruchij.core.services.video.models.{
+  VideoAnalysisResult,
+  YTDataSize,
+  YTDataUnit,
+  YTDownloaderMetadata,
+  YTDownloaderProgress
+}
 import com.ruchij.core.types.FunctionKTypes._
 import com.ruchij.core.services.video.models.YTDataSize.ytDataSizeOrdering
-import com.ruchij.core.utils.JsoupSelector
+import com.ruchij.core.utils.{JsoupSelector, Timers}
 import fs2.Stream
 import io.circe.{Error, parser => JsonParser}
 import io.circe.generic.auto._
@@ -22,35 +29,43 @@ import org.http4s.implicits.http4sLiteralsSyntax
 import org.jsoup.Jsoup
 
 import java.util.concurrent.TimeUnit
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.TimeoutException
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.language.postfixOps
 import scala.math.Ordered.orderingToOrdered
 
-class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner[F], client: Client[F]) extends YouTubeVideoDownloader[F] {
+class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner[F], client: Client[F])
+    extends YouTubeVideoDownloader[F] {
+
+  private val logger = Logger[YouTubeVideoDownloaderImpl[F]]
 
   override def videoInformation(uri: Uri): F[VideoAnalysisResult] =
     cliCommandRunner
       .run(s"""yt-dlp "${uri.renderString}" -j""")
       .compile
       .string
-      .flatMap {
-        output =>
-          MonadThrow[F].recoverWith(JsonParser.decode[YTDownloaderMetadata](output).toType[F, Throwable]) {
-            case _: Error => ApplicativeError[F, Throwable].raiseError(UnsupportedVideoUrlException(uri))
-          }
+      .flatMap { output =>
+        MonadThrow[F].recoverWith(JsonParser.decode[YTDownloaderMetadata](output).toType[F, Throwable]) {
+          case _: Error => ApplicativeError[F, Throwable].raiseError(UnsupportedVideoUrlException(uri))
+        }
       }
       .flatMap { metadata =>
-        VideoSite.fromUri(uri).toType[F, Throwable]
+        VideoSite
+          .fromUri(uri)
+          .toType[F, Throwable]
           .product {
-            OptionT.fromOption[F](metadata.thumbnail)
+            OptionT
+              .fromOption[F](metadata.thumbnail)
               .getOrElseF {
-                MonadThrow[F].handleError(retrieveThumbnailFromUri.run(uri)) {_ =>
+                MonadThrow[F].handleError(retrieveThumbnailFromUri.run(uri)) { _ =>
                   uri"https://s3.ap-southeast-2.amazonaws.com/assets.video-downloader.ruchij.com/video-placeholder.png"
                 }
               }
           }
           .flatMap {
             case (videoSite, thumbnail) =>
-              MonadThrow[F].catchNonFatal(Math.floor(metadata.duration).toInt)
+              MonadThrow[F]
+                .catchNonFatal(Math.floor(metadata.duration).toInt)
                 .map { seconds =>
                   VideoAnalysisResult(
                     uri,
@@ -65,32 +80,56 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
       }
 
   private val retrieveThumbnailFromUri: Kleisli[F, Uri, Uri] =
-    JsoupSelector.singleElement[F]("video")
+    JsoupSelector
+      .singleElement[F]("video")
       .flatMapF(videoElement => JsoupSelector.attribute[F](videoElement, "poster"))
       .flatMapF(property => Uri.fromString(property).toType[F, Throwable])
-      .compose[Uri, WebPage] {
-        uri: Uri =>
-          client.expect[String](uri)
-            .flatMap(html => Sync[F].catchNonFatal(Jsoup.parse(html)))
-            .map(document => WebPage(uri, document))
+      .compose[Uri, WebPage] { uri: Uri =>
+        client
+          .expect[String](uri)
+          .flatMap(html => Sync[F].catchNonFatal(Jsoup.parse(html)))
+          .map(document => WebPage(uri, document))
       }
 
   override val supportedSites: F[Seq[String]] =
     Sync[F].defer {
-      cliCommandRunner.run("yt-dlp --list-extractors")
+      cliCommandRunner
+        .run("yt-dlp --list-extractors")
         .compile
         .toVector
         .map(identity[Seq[String]])
     }
 
   override def downloadVideo(uri: Uri, pathWithoutExtension: String): Stream[F, YTDownloaderProgress] =
-    cliCommandRunner
-      .run(s"""yt-dlp -o "$pathWithoutExtension.%(ext)s" "${uri.renderString}"""")
-      .collect {
-        case YTDownloaderProgress(progress) => progress
-      }
-      .scan(YTDownloaderProgress(0, YTDataSize(0, YTDataUnit.MiB), YTDataSize(0, YTDataUnit.MiB), FiniteDuration(0, TimeUnit.SECONDS))) {
-        (result, current) => if (current.totalSize >= result.totalSize) current else result
-      }
+    Stream.eval(Ref.of[F, Boolean](false)).flatMap { ref =>
+      cliCommandRunner
+        .run(s"""yt-dlp -o "$pathWithoutExtension.%(ext)s" "${uri.renderString}"""")
+        .interruptWhen {
+          Timers
+            .createResettableTimer(30 seconds, ref)
+            .recoverWith {
+              case timeoutException: TimeoutException =>
+                logger
+                  .error(s"YoutubeDownloader failed download any data for url=${uri.renderString}", timeoutException)
+                  .as(Left(timeoutException))
+            }
+        }
+        .collect {
+          case YTDownloaderProgress(progress) => progress
+        }
+        .evalTap { _ =>
+          ref.set(true)
+        }
+        .scan(
+          YTDownloaderProgress(
+            0,
+            YTDataSize(0, YTDataUnit.MiB),
+            YTDataSize(0, YTDataUnit.MiB),
+            FiniteDuration(0, TimeUnit.SECONDS)
+          )
+        ) { (result, current) =>
+          if (current.totalSize >= result.totalSize) current else result
+        }
+    }
 
 }
