@@ -6,7 +6,7 @@ object Dependencies
   val Http4sVersion = "0.23.30"
   val CirceVersion = "0.14.12"
   val TestContainersVersion = "1.20.6"
-  val FlywayVersion = "11.4.1"
+  val FlywayVersion = "11.5.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -16,7 +16,7 @@ object Dependencies
 
   lazy val http4sJdkHttpClient = "org.http4s" %% "http4s-jdk-http-client" % "0.10.0"
 
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.5.7"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.6.0"
 
   lazy val kafka = "org.apache.kafka" %% "kafka" % "7.9.0-ccs"
 
@@ -34,7 +34,7 @@ object Dependencies
 
   lazy val circeLiteral = "io.circe" %% "circe-literal" % CirceVersion
 
-  lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.7.5"
+  lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.7.6"
 
   lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.13"
 
@@ -44,7 +44,7 @@ object Dependencies
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.19.1"
 
-  lazy val jodaTime = "joda-time" % "joda-time" % "2.13.1"
+  lazy val jodaTime = "joda-time" % "joda-time" % "2.14.0"
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.8"
 
@@ -82,7 +82,7 @@ object Dependencies
 
   lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.19"
 
-  lazy val scalaMock = "org.scalamock" %% "scalamock" % "6.2.0"
+  lazy val scalaMock = "org.scalamock" %% "scalamock" % "7.3.0"
 
   lazy val pegdown = "org.pegdown" % "pegdown" % "1.6.0"
 }
