@@ -6,4 +6,6 @@ trait VideoService[F[_], G[_]] {
   def findVideoById(videoId: String, maybeUserId: Option[String]): G[Video]
 
   def deleteById(videoId: String, deleteVideoFile: Boolean): F[Video]
+
+  val queueIncorrectlyCompletedVideos: F[Seq[Video]]
 }

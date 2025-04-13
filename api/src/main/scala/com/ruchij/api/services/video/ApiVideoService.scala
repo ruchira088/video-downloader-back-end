@@ -37,4 +37,6 @@ trait ApiVideoService[F[_]] {
   val summary: F[VideoServiceSummary]
 
   val scanForVideos: F[VideoScanProgress]
+
+  val queueIncorrectlyCompletedVideos: F[Seq[Video]]
 }

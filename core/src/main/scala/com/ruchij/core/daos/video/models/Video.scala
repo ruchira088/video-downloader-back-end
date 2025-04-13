@@ -5,4 +5,6 @@ import com.ruchij.core.daos.videometadata.models.VideoMetadata
 
 import scala.concurrent.duration.FiniteDuration
 
-final case class Video(videoMetadata: VideoMetadata, fileResource: FileResource, watchTime: FiniteDuration)
+final case class Video(videoMetadata: VideoMetadata, fileResource: FileResource, watchTime: FiniteDuration) {
+  val id: String = videoMetadata.id
+}

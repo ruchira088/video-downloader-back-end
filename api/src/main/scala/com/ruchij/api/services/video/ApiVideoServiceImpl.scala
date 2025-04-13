@@ -116,4 +116,6 @@ class ApiVideoServiceImpl[F[_]: MonadThrow: JodaClock, G[_]: MonadThrow](
           .publishOne(ScanVideosCommand(timestamp))
           .as(VideoScanProgress.ScanStarted(timestamp))
       }
+
+  override val queueIncorrectlyCompletedVideos: F[Seq[Video]] = videoService.queueIncorrectlyCompletedVideos
 }

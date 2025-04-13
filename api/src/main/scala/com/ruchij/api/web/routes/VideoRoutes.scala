@@ -2,6 +2,7 @@ package com.ruchij.api.web.routes
 
 import cats.effect.Async
 import cats.implicits._
+import com.ruchij.api.daos.user.models.Role
 import com.ruchij.api.daos.user.models.Role.Admin
 import com.ruchij.api.services.models.Context.AuthenticatedRequestContext
 import com.ruchij.api.services.video.ApiVideoService
@@ -122,6 +123,10 @@ object VideoRoutes {
           .fetchById(videoId, user.nonAdminUserId)
           .productR(apiVideoService.fetchVideoSnapshots(videoId, user.nonAdminUserId))
           .flatMap(snapshots => Ok(IterableResponse(snapshots)))
+
+      case POST -> Root / "queue-incomplete-downloads" as AuthenticatedRequestContext(user, _)
+          if user.role == Role.Admin =>
+        apiVideoService.queueIncorrectlyCompletedVideos.flatMap(videos => Ok(IterableResponse(videos)))
     }
   }
 }
