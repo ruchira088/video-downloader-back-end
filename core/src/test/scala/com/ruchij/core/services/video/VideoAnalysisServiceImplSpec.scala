@@ -51,9 +51,8 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
         videoAnalysisResult.duration mustBe (20 minutes)
         videoAnalysisResult.size mustBe 467664779
         Set(
-          uri"https://b1.trafficdeposit.com/blog/1/4/img/63933c0ddaf6c/6432736917c9d/poster.jpg",
-          uri"https://b1.trafficdeposit.com/blog/1/4/img/63933c0ddaf6c/6432736917c9d/poster.webp",
-          uri"https://s4.trafficdeposit.com/blog/img/63933c0ddaf6c/6432736917c9d/0.jpg"
+          uri"https://s4.trafficdeposit.com/blog/img/63933c0ddaf6c/6432736917c9d/0.jpg",
+          uri"https://b1.trafficdeposit.com/pivi/1/4/img/C6eHQfuMzSPDBn1pNMwKAg/1747483200/63933c0ddaf6c/6432736917c9d/0.webp"
         ) must contain(videoAnalysisResult.thumbnail)
         videoAnalysisResult.videoSite mustBe CustomVideoSite.SxyPrn
       }

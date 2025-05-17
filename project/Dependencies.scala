@@ -4,9 +4,9 @@ object Dependencies
 {
   val ScalaVersion = "2.13.16"
   val Http4sVersion = "0.23.30"
-  val CirceVersion = "0.14.12"
-  val TestContainersVersion = "1.20.6"
-  val FlywayVersion = "11.7.0"
+  val CirceVersion = "0.14.13"
+  val TestContainersVersion = "1.21.0"
+  val FlywayVersion = "11.8.2"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -18,13 +18,13 @@ object Dependencies
 
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.6.1"
 
-  lazy val kafka = "org.apache.kafka" %% "kafka" % "7.9.0-ccs"
+  lazy val kafka = "org.apache.kafka" %% "kafka" % "7.9.1-ccs"
 
   lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "3.7.0"
 
   lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "3.7.0"
 
-  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.9.0"
+  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.9.1"
 
   lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.12.0"
 
@@ -38,15 +38,15 @@ object Dependencies
 
   lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.13"
 
-  lazy val doobie = "org.tpolecat" %% "doobie-core" % "1.0.0-RC8"
+  lazy val doobie = "org.tpolecat" %% "doobie-core" % "1.0.0-RC9"
 
-  lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "1.0.0-RC8"
+  lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "1.0.0-RC9"
 
-  lazy val jsoup = "org.jsoup" % "jsoup" % "1.19.1"
+  lazy val jsoup = "org.jsoup" % "jsoup" % "1.20.1"
 
   lazy val jodaTime = "joda-time" % "joda-time" % "2.14.0"
 
-  lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.8"
+  lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.9"
 
   lazy val flywayCore = "org.flywaydb" % "flyway-core" % FlywayVersion
 
@@ -82,7 +82,7 @@ object Dependencies
 
   lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.19"
 
-  lazy val scalaMock = "org.scalamock" %% "scalamock" % "7.3.0"
+  lazy val scalaMock = "org.scalamock" %% "scalamock" % "7.3.2"
 
   lazy val pegdown = "org.pegdown" % "pegdown" % "1.6.0"
 }
