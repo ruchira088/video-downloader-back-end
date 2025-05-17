@@ -208,12 +208,12 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
                     status = ${SchedulingStatus.Queued},
                     error_id = NULL,
                     completed_at = NULL,
-                    last_updated_at = $timestamp,
+                    last_updated_at = $timestamp
                   WHERE
               """ ++ in(fr"video_metadata_id", videoMetadataIds)
               ).update.run
               .productR {
-                (fr"DELETE FROM scheduled_video_error WHERE video_id IN" ++ in(fr"video_id", videoMetadataIds))
+                (fr"DELETE FROM scheduled_video_error WHERE" ++ in(fr"video_id", videoMetadataIds))
                   .update.run
               }
           .productR {
