@@ -207,7 +207,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
                   SET
                     status = ${SchedulingStatus.Queued},
                     error_id = NULL,
-                    completed_at = NULL
+                    completed_at = NULL,
                     last_updated_at = $timestamp,
                   WHERE
               """ ++ in(fr"video_metadata_id", videoMetadataIds)
