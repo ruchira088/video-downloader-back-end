@@ -9,7 +9,7 @@ import com.ruchij.api.web.requests.UpdateScheduledVideoRequest.updateScheduledVi
 import com.ruchij.api.web.requests.queryparams.SearchQuery
 import com.ruchij.api.web.requests.{SchedulingRequest, UpdateScheduledVideoRequest, WorkerStatusUpdateRequest}
 import com.ruchij.api.web.responses.EventStreamEventType.{ActiveDownload, HeartBeat}
-import com.ruchij.api.web.responses.{EventStreamHeartBeat, SearchResult, WorkerStatusResponse}
+import com.ruchij.api.web.responses.{EventStreamHeartBeat, IterableResponse, SearchResult, WorkerStatusResponse}
 import com.ruchij.core.circe.Decoders._
 import com.ruchij.core.circe.Encoders._
 import com.ruchij.core.services.models.SortBy
@@ -43,6 +43,12 @@ object SchedulingRoutes {
           response <-
             if (scheduledVideoResult.isNew) Created(scheduledVideoResult.scheduledVideoDownload)
             else Ok(scheduledVideoResult.scheduledVideoDownload)
+        } yield response
+
+      case POST -> Root / "retry-failed" as AuthenticatedRequestContext(user, _) =>
+        for {
+          scheduledVideoDownloads <- apiSchedulingService.retryFailed(user.nonAdminUserId)
+          response <- Ok { IterableResponse(scheduledVideoDownloads) }
         } yield response
 
       case GET -> Root / "search" :? queryParameters as AuthenticatedRequestContext(user, _) =>

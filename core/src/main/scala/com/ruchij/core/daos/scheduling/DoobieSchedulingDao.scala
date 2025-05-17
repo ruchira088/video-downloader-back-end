@@ -1,8 +1,8 @@
 package com.ruchij.core.daos.scheduling
 
-import cats.{Applicative, ApplicativeError}
 import cats.data.{NonEmptyList, OptionT}
 import cats.implicits._
+import cats.{Applicative, ApplicativeError}
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 import com.ruchij.core.daos.doobie.DoobieUtils.{SingleUpdateOps, ordering, sortByFieldName}
 import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownload, SchedulingStatus}
@@ -135,10 +135,9 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
   override def deleteById(id: String): ConnectionIO[Int] =
     for {
       _ <- sql"UPDATE scheduled_video SET error_id = NULL".update.run
-      errorDeleteCount <-sql"DELETE FROM scheduled_video_error WHERE video_id = $id".update.run
+      errorDeleteCount <- sql"DELETE FROM scheduled_video_error WHERE video_id = $id".update.run
       deleteCount <- sql"DELETE FROM scheduled_video WHERE video_metadata_id = $id".update.run
-    }
-    yield errorDeleteCount + deleteCount
+    } yield errorDeleteCount + deleteCount
 
   override def search(
     term: Option[String],
@@ -173,6 +172,59 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       ++ fr"LIMIT $pageSize OFFSET ${pageNumber * pageSize}")
       .query[ScheduledVideoDownload]
       .to[Seq]
+
+  override def retryErroredScheduledDownloads(maybeUserId: Option[String], timestamp: DateTime): ConnectionIO[Seq[ScheduledVideoDownload]] =
+    retryErroredScheduledDownloads(maybeUserId, timestamp, 50, 0)
+
+  private def retryErroredScheduledDownloads(
+    maybeUserId: Option[String],
+    timestamp: DateTime,
+    pageSize: Int,
+    pageNumber: Int
+  ): ConnectionIO[Seq[ScheduledVideoDownload]] =
+    search(
+      term = None,
+      videoUrls = None,
+      durationRange = RangeValue.all,
+      sizeRange = RangeValue.all,
+      pageNumber = pageNumber,
+      pageSize = pageSize,
+      sortBy = SortBy.Date,
+      order = Order.Descending,
+      schedulingStatuses = Some(NonEmptyList.of(SchedulingStatus.Error)),
+      videoSites = None,
+      maybeUserId
+    )
+      .map(failed => NonEmptyList.fromList(failed.toList))
+      .flatMap {
+        case None => Applicative[ConnectionIO].pure(Seq.empty)
+
+        case Some(failedScheduledVideos) =>
+            val videoMetadataIds = failedScheduledVideos.map(_.videoMetadata.id)
+
+            (fr"""
+                  UPDATE scheduled_video
+                  SET
+                    status = ${SchedulingStatus.Queued},
+                    error_id = NULL,
+                    completed_at = NULL
+                    last_updated_at = $timestamp,
+                  WHERE
+              """ ++ in(fr"video_metadata_id", videoMetadataIds)
+              ).update.run
+              .productR {
+                (fr"DELETE FROM scheduled_video_error WHERE video_id IN" ++ in(fr"video_id", videoMetadataIds))
+                  .update.run
+              }
+          .productR {
+            if (failedScheduledVideos.size < pageSize) {
+              Applicative[ConnectionIO].pure(failedScheduledVideos.toList)
+            } else {
+                retryErroredScheduledDownloads(maybeUserId, timestamp, pageSize, pageNumber + 1)
+                    .map(failedScheduledVideos.toList ++ _)
+            }
+          }
+      }
 
   override def staleTask(delay: FiniteDuration, timestamp: DateTime): ConnectionIO[Option[ScheduledVideoDownload]] =
     sql"""

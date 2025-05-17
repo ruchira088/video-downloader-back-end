@@ -73,6 +73,11 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
           }
       }
 
+  override def retryFailed(maybeUserId: Option[String]): F[Seq[ScheduledVideoDownload]] =
+    transaction {
+      schedulingDao.retryErroredScheduledDownloads(maybeUserId, DateTime.now)
+    }
+
   private def existingScheduledVideoDownload(videoMetadata: VideoMetadata, userId: String): F[Boolean] =
     for {
       timestamp <- JodaClock[F].timestamp

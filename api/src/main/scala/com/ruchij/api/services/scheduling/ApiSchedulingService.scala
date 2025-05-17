@@ -28,6 +28,8 @@ trait ApiSchedulingService[F[_]] {
     maybeUserId: Option[String]
   ): F[Seq[ScheduledVideoDownload]]
 
+  def retryFailed(maybeUserId: Option[String]): F[Seq[ScheduledVideoDownload]]
+
   def updateSchedulingStatus(id: String, status: SchedulingStatus): F[ScheduledVideoDownload]
 
   def getById(id: String, maybeUserId: Option[String]): F[ScheduledVideoDownload]
