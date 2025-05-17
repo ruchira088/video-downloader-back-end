@@ -22,9 +22,9 @@ object FrontEndContainer {
   private val Port = 3000
   private val ApiUrlEnvVar = "REACT_APP_API_URL"
 
-  def create[F[_]: Sync](uri: Uri): Resource[F, Uri] =
+  def create[F[_]: Sync](apiUrl: Uri): Resource[F, Uri] =
     Resource
-      .eval(Sync[F].delay(new FrontEndContainer(uri)))
+      .eval(Sync[F].delay(new FrontEndContainer(apiUrl)))
       .flatMap(frontEndContainer => ContainerCoreResourcesProvider.start(frontEndContainer))
       .evalMap { frontEndContainer =>
         for {
