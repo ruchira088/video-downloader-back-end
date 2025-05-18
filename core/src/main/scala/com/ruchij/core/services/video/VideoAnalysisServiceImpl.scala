@@ -10,7 +10,7 @@ import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.CustomVideoSite.{HtmlCustomVideoSite, Selector, SpaCustomVideoSite}
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata, VideoSite, WebPage}
-import com.ruchij.core.exceptions.{ExternalServiceException, ValidationException}
+import com.ruchij.core.exceptions.{ExternalServiceException, ResourceNotFoundException, ValidationException}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.cli.CliCommandRunner
 import com.ruchij.core.services.download.DownloadService
@@ -114,7 +114,10 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
     } yield videoAnalysisResult
 
   private def analyze(processedUri: Uri, videoSite: VideoSite): F[VideoAnalysisResult] =
-    runWithRetry(3, errorMessage => s"Error occurred when analyzing uri=$processedUri. ${errorMessage.getMessage}. Retrying...") {
+    runWithRetry(
+      3,
+      List(classOf[ResourceNotFoundException]),
+      errorMessage => s"Error occurred when analyzing uri=$processedUri. ${errorMessage.getMessage}. Retrying...") {
       videoSite match {
         case customVideoSite: CustomVideoSite =>
           for {
@@ -210,13 +213,13 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
         }
       }
 
-  private def runWithRetry[A](retryCount: Int, failureMessage: Throwable => String)(run: F[A]): F[A] =
+  private def runWithRetry[A](retryCount: Int, throwables: Seq[Class[_ <: Exception]], failureMessage: Throwable => String)(run: F[A]): F[A] =
     run.handleErrorWith {
       throwable =>
-        if (retryCount < 1) MonadError[F, Throwable].raiseError(throwable)
+        if (retryCount < 1 || throwables.exists(_.isInstance(throwable))) MonadError[F, Throwable].raiseError(throwable)
         else logger.warn[F](failureMessage(throwable))
           .productR(Sync[F].sleep(FiniteDuration(1, TimeUnit.SECONDS)))
-          .productR(runWithRetry(retryCount - 1, failureMessage)(run))
+          .productR(runWithRetry(retryCount - 1, throwables, failureMessage)(run))
     }
 
 }

@@ -6,16 +6,10 @@ import cats.effect.{Async, Ref, Sync}
 import cats.MonadThrow
 import cats.implicits._
 import com.ruchij.core.daos.videometadata.models.{VideoSite, WebPage}
-import com.ruchij.core.exceptions.UnsupportedVideoUrlException
+import com.ruchij.core.exceptions.{CliCommandException, ResourceNotFoundException, UnsupportedVideoUrlException}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.cli.CliCommandRunner
-import com.ruchij.core.services.video.models.{
-  VideoAnalysisResult,
-  YTDataSize,
-  YTDataUnit,
-  YTDownloaderMetadata,
-  YTDownloaderProgress
-}
+import com.ruchij.core.services.video.models.{VideoAnalysisResult, YTDataSize, YTDataUnit, YTDownloaderMetadata, YTDownloaderProgress}
 import com.ruchij.core.types.FunctionKTypes._
 import com.ruchij.core.services.video.models.YTDataSize.ytDataSizeOrdering
 import com.ruchij.core.utils.{JsoupSelector, Timers}
@@ -44,6 +38,22 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
       .run(s"""yt-dlp "${uri.renderString}" -j""")
       .compile
       .string
+      .recoverWith {
+        case cliCommandException: CliCommandException =>
+          val errorMessage = cliCommandException.error
+
+          if (errorMessage.contains("HTTP Error 404: Not Found")) {
+            ApplicativeError[F, Throwable].raiseError {
+              ResourceNotFoundException(s"Unable to find the video resource at ${uri.renderString}")
+            }
+          } else if (errorMessage.contains("Unable to extract hash;")) {
+            ApplicativeError[F, Throwable].raiseError {
+              ResourceNotFoundException(s"Video seems to have been deleted at ${uri.renderString}")
+            }
+        }else {
+            ApplicativeError[F, Throwable].raiseError(cliCommandException)
+          }
+      }
       .flatMap { output =>
         MonadThrow[F].recoverWith(JsonParser.decode[YTDownloaderMetadata](output).toType[F, Throwable]) {
           case _: Error => ApplicativeError[F, Throwable].raiseError(UnsupportedVideoUrlException(uri))
@@ -131,5 +141,4 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
           if (current.totalSize >= result.totalSize) current else result
         }
     }
-
 }
