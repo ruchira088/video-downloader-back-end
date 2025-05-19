@@ -323,7 +323,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
               $errorId,
               $timestamp,
               $id,
-              ${allExceptionMessages(throwable).mkString("\n")},
+              ${rootException(throwable)},
               ${throwable.getStackTrace.map(_.toString).mkString("\n")}
             )
      """.update.run.one
@@ -337,8 +337,10 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       .productR(getById(id, None))
   }
 
-  private def allExceptionMessages(throwable: Throwable): List[String] =
-    if (throwable == null) List.empty else throwable.getMessage :: allExceptionMessages(throwable.getCause)
+  private def rootException(throwable: Throwable): String =
+    Option(throwable.getCause).fold(throwable.getMessage) { cause =>
+      rootException(cause)
+    }
 
   private val schedulingSortByFiledName: SortBy => Fragment =
     sortByFieldName.orElse {
