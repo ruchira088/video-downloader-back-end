@@ -295,7 +295,8 @@ object ApiApp extends IOApp {
         healthService,
         authenticationService,
         backgroundService.downloadProgress,
-        messageBrokers.httpMetricsPublisher
+        messageBrokers.httpMetricsPublisher,
+        apiServiceConfiguration.httpConfiguration.allowedOriginHosts
       )
   }
 

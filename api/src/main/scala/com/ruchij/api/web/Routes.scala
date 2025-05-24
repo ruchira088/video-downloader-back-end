@@ -22,7 +22,7 @@ import fs2.Stream
 import fs2.compression.Compression
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.ContextRouter
-import org.http4s.server.middleware.{CORS, GZip}
+import org.http4s.server.middleware.GZip
 import org.http4s.{ContextRoutes, HttpApp}
 
 object Routes {
@@ -39,6 +39,7 @@ object Routes {
     authenticationService: AuthenticationService[F],
     downloadProgressStream: Stream[F, DownloadProgress],
     metricPublisher: Publisher[F, HttpMetric],
+    allowedOrigins: Set[String]
   ): HttpApp[F] = {
     implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
 
@@ -57,16 +58,9 @@ object Routes {
           "/service" -> ServiceRoutes(healthService),
         )
 
-    val cors =
-      CORS.policy
-        .withAllowCredentials(true)
-        .withAllowOriginHost { _ =>
-          true
-        }
-
     MetricsMiddleware(metricPublisher) {
       GZip {
-        cors {
+        Cors(allowedOrigins) {
           RequestContextMiddleware {
             ExceptionHandler {
               NotFoundHandler { contextRoutes }

@@ -51,6 +51,7 @@ trait MockedRoutes[F[_]] extends MockFactory with OneInstancePerTest { self: Tes
       authenticationService,
       downloadProgressStream,
       metricPublisher,
+      Set.empty
     )(async, jodaClock, compression)
 
   def ignoreHttpMetrics(): F[Unit] =

@@ -22,6 +22,9 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
           host = "127.0.0.1"
 
           port = 80
+
+          allowed-origins = "*.localhost;*.ruchij.com"
+          allowed-origins = $${?HTTP_ALLOWED_ORIGINS}
         }
 
         storage-configuration {
@@ -71,7 +74,7 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
 
     val expectedApiServiceConfiguration =
       ApiServiceConfiguration(
-        HttpConfiguration(ipv4"127.0.0.1", port"80"),
+        HttpConfiguration(ipv4"127.0.0.1", port"80", Some(Set("*.localhost", "*.ruchij.com"))),
         ApiStorageConfiguration("./images"),
         DatabaseConfiguration("jdbc:h2:mem:video-downloader;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false", "", ""),
         RedisConfiguration("localhost", 6379, Some("redis-password")),
