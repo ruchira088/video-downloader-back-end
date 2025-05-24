@@ -10,7 +10,12 @@ import org.http4s.{HttpApp, Method, Request, Response}
 
 object Cors {
   private val OpenCorsPolicyRequests: Set[(Method, Path)] =
-    Set(GET -> Root / "schedule" / "search", POST -> Root / "schedule", POST -> Root / "videos" / "metadata")
+    Set(
+      GET -> Root / "schedule" / "search",
+      POST -> Root / "schedule",
+      POST -> Root / "videos" / "metadata",
+      GET -> Root / "service" / "info"
+    )
 
   private def hostRegex(host: String): Set[String] =
     Set(host)
