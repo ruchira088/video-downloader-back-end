@@ -20,9 +20,9 @@ object Dependencies
 
   lazy val kafka = "org.apache.kafka" %% "kafka" % "7.9.1-ccs"
 
-  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "3.7.0"
+  lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "3.8.0"
 
-  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "3.7.0"
+  lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "3.8.0"
 
   lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.9.1"
 
@@ -52,11 +52,11 @@ object Dependencies
 
   lazy val flywayPostgresql = "org.flywaydb" % "flyway-database-postgresql"  % FlywayVersion
 
-  lazy val postgresql = "org.postgresql" % "postgresql" % "42.7.5"
+  lazy val postgresql = "org.postgresql" % "postgresql" % "42.7.6"
 
   lazy val h2 = "com.h2database" % "h2" % "2.3.232"
 
-  lazy val apacheTika = "org.apache.tika" % "tika-core" % "3.1.0"
+  lazy val apacheTika = "org.apache.tika" % "tika-core" % "3.2.0"
 
   lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "1.7.2"
 
