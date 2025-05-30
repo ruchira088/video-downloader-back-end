@@ -33,7 +33,7 @@ object ApiTestData {
       DoobieFileResourceDao.insert(video.videoMetadata.thumbnail),
       DoobieVideoMetadataDao.insert(video.videoMetadata),
       DoobieFileResourceDao.insert(video.fileResource),
-      DoobieVideoDao.insert(video.videoMetadata.id, video.fileResource.id, video.watchTime)
+      DoobieVideoDao.insert(video.videoMetadata.id, video.fileResource.id, video.createdAt, video.watchTime)
     ).sequence
       .map(_.sum)
 }

@@ -6,11 +6,17 @@ import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.services.models.{Order, SortBy}
 import org.http4s.Uri
+import org.joda.time.DateTime
 
 import scala.concurrent.duration.FiniteDuration
 
 trait VideoDao[F[_]] {
-  def insert(videoMetadataId: String, videoFileResourceId: String, watchTime: FiniteDuration): F[Int]
+  def insert(
+    videoMetadataId: String,
+    videoFileResourceId: String,
+    timestamp: DateTime,
+    watchTime: FiniteDuration
+  ): F[Int]
 
   def search(
     term: Option[String],

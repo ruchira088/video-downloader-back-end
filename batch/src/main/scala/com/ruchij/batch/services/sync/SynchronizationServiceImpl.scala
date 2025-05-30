@@ -283,7 +283,7 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
       videoMetadata = VideoMetadata(uri, videoId, VideoSite.Local, videoTitle, duration, size, snapshot)
       videoFileResource = FileResource(videoId, timestamp, videoPath, mediaType, size)
 
-    } yield Video(videoMetadata, videoFileResource, FiniteDuration(0, TimeUnit.MILLISECONDS))
+    } yield Video(videoMetadata, videoFileResource, timestamp, FiniteDuration(0, TimeUnit.MILLISECONDS))
 
   private def saveVideo(video: Video): F[Video] =
     JodaClock[F].timestamp

@@ -12,6 +12,7 @@ import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import doobie.util.fragment.Fragment
 import org.http4s.Uri
+import org.joda.time.DateTime
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
@@ -34,6 +35,7 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
         video_file.path,
         video_file.media_type,
         video_file.size,
+        video.created_at,
         video_watch_time.watch_time_in_ms
       FROM video
       INNER JOIN video_metadata ON video.video_metadata_id = video_metadata.id
@@ -52,11 +54,12 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
   override def insert(
     videoMetadataId: String,
     videoFileResourceId: String,
+    timestamp: DateTime,
     finiteDuration: FiniteDuration
   ): ConnectionIO[Int] =
     sql"""
-        INSERT INTO video (video_metadata_id, file_resource_id)
-            VALUES ($videoMetadataId, $videoFileResourceId)
+        INSERT INTO video (video_metadata_id, file_resource_id, created_at)
+            VALUES ($videoMetadataId, $videoFileResourceId, $timestamp)
     """.update.run.flatMap {
       result =>
         sql"""

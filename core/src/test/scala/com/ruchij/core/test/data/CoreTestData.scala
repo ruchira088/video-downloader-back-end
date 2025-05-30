@@ -39,6 +39,7 @@ object CoreTestData {
         MediaType.video.mp4,
         758219888
       ),
+      Timestamp,
       10 minutes
     )
 
@@ -60,6 +61,7 @@ object CoreTestData {
         )
       ),
       FileResource("youtube-7488acd8", Timestamp, "/home/videos-1/youtube-7488acd8.mp4", MediaType.video.mp4, 56702481),
+      Timestamp,
       13 minutes
     )
 
@@ -87,6 +89,7 @@ object CoreTestData {
         MediaType.video.mp4,
         387388087
       ),
+      Timestamp,
       340165 milliseconds
     )
 
