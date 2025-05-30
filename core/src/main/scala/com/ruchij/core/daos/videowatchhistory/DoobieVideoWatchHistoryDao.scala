@@ -28,6 +28,7 @@ object DoobieVideoWatchHistoryDao extends VideoWatchHistoryDao[ConnectionIO] {
         video_file.path,
         video_file.media_type,
         video_file.size,
+        video.created_at,
         video_watch_time.watch_time_in_ms,
         video_watch_history.created_at,
         video_watch_history.last_updated_at,
