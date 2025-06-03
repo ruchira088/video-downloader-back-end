@@ -1,7 +1,7 @@
 package com.ruchij.api.web.routes
 
 import cats.effect.IO
-import com.ruchij.api.services.health.models.HealthCheck.{FilePathCheck, FileRepositoryCheck}
+import com.ruchij.api.services.health.models.HealthCheck.{FilePathCheck, FileRepositoryCheck, HealthStatusDetails}
 import com.ruchij.api.services.health.models.HealthStatus.{Healthy, Unhealthy}
 import com.ruchij.api.services.health.models.{HealthCheck, ServiceInformation}
 import com.ruchij.api.test.matchers._
@@ -67,27 +67,51 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   "GET /service/health" should "return a 200 status health check response when all health checks are healthy" in runIO {
     val expectedJsonResponse =
       json"""{
-        "database" : "Healthy",
+        "database" : {
+          "durationInMs": 10,
+          "healthStatus": "Healthy"
+        },
         "fileRepository" : {
           "imageFolder": {
             "filePath": "image-folder",
-            "healthStatus" : "Healthy"
+            "healthStatusDetails" : {
+              "durationInMs": 11,
+              "healthStatus": "Healthy"
+            }
           },
           "videoFolder": {
             "filePath": "video-folder",
-            "healthStatus" : "Healthy"
+            "healthStatusDetails" : {
+              "durationInMs": 12,
+              "healthStatus": "Healthy"
+            }
           },
           "otherVideoFolders" : [
             {
               "filePath": "other-folder",
-              "healthStatus" : "Healthy"
+              "healthStatusDetails" : {
+                "durationInMs": 13,
+                "healthStatus": "Healthy"
+              }
             }
           ]
         },
-        "keyValueStore" : "Healthy",
-        "pubSub" : "Healthy",
-        "spaRenderer": "Healthy",
-        "internetConnectivity": "Healthy"
+        "keyValueStore" : {
+          "durationInMs": 14,
+          "healthStatus": "Healthy"
+        },
+        "pubSub" : {
+          "durationInMs": 15,
+          "healthStatus": "Healthy"
+        },
+        "spaRenderer": {
+          "durationInMs": 16,
+          "healthStatus": "Healthy"
+        },
+        "internetConnectivity": {
+          "durationInMs": 17,
+          "healthStatus": "Healthy"
+        }
       }"""
 
     (() => healthService.healthCheck)
@@ -95,16 +119,16 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
       .returns {
         IO.pure {
           HealthCheck(
-            Healthy,
+            HealthStatusDetails(10, Healthy),
             FileRepositoryCheck(
-              FilePathCheck("image-folder", Healthy),
-              FilePathCheck("video-folder", Healthy),
-              List(FilePathCheck("other-folder", Healthy))
+              FilePathCheck("image-folder", HealthStatusDetails(11, Healthy)),
+              FilePathCheck("video-folder", HealthStatusDetails(12, Healthy)),
+              List(FilePathCheck("other-folder", HealthStatusDetails(13, Healthy)))
             ),
-            Healthy,
-            Healthy,
-            Healthy,
-            Healthy
+            HealthStatusDetails(14, Healthy),
+            HealthStatusDetails(15, Healthy),
+            HealthStatusDetails(16, Healthy),
+            HealthStatusDetails(17, Healthy)
           )
         }
       }
@@ -124,27 +148,51 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   it should "return a 503 status health check response when at least one of the health checks are unhealthy" in runIO {
     val expectedJsonResponse =
       json"""{
-        "database" : "Healthy",
+        "database" : {
+          "durationInMs": 10,
+          "healthStatus": "Healthy"
+        },
         "fileRepository" : {
           "imageFolder": {
             "filePath": "image-folder",
-            "healthStatus" : "Healthy"
+            "healthStatusDetails" : {
+              "durationInMs": 11,
+              "healthStatus": "Healthy"
+            }
           },
           "videoFolder": {
             "filePath": "video-folder",
-            "healthStatus" : "Healthy"
+            "healthStatusDetails" : {
+              "durationInMs": 12,
+              "healthStatus": "Healthy"
+            }
           },
           "otherVideoFolders" : [
             {
               "filePath": "other-folder",
-              "healthStatus" : "Unhealthy"
+              "healthStatusDetails" : {
+                "durationInMs": 13,
+                "healthStatus": "Unhealthy"
+              }
             }
           ]
         },
-        "keyValueStore" : "Healthy",
-        "pubSub" : "Healthy",
-        "spaRenderer": "Healthy",
-        "internetConnectivity": "Unhealthy"
+        "keyValueStore" : {
+          "durationInMs": 14,
+          "healthStatus": "Healthy"
+        },
+        "pubSub" : {
+          "durationInMs": 15,
+          "healthStatus": "Healthy"
+        },
+        "spaRenderer": {
+          "durationInMs": 16,
+          "healthStatus": "Healthy"
+        },
+        "internetConnectivity": {
+          "durationInMs": 17,
+          "healthStatus": "Unhealthy"
+        }
       }"""
 
     (() => healthService.healthCheck)
@@ -152,16 +200,16 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
       .returns {
         IO.pure {
           HealthCheck(
-            Healthy,
+            HealthStatusDetails(10, Healthy),
             FileRepositoryCheck(
-              FilePathCheck("image-folder", Healthy),
-              FilePathCheck("video-folder", Healthy),
-              List(FilePathCheck("other-folder", Unhealthy))
+              FilePathCheck("image-folder", HealthStatusDetails(11, Healthy)),
+              FilePathCheck("video-folder", HealthStatusDetails(12, Healthy)),
+              List(FilePathCheck("other-folder", HealthStatusDetails(13, Unhealthy)))
             ),
-            Healthy,
-            Healthy,
-            Healthy,
-            Unhealthy
+            HealthStatusDetails(14, Healthy),
+            HealthStatusDetails(15, Healthy),
+            HealthStatusDetails(16, Healthy),
+            HealthStatusDetails(17, Unhealthy)
           )
         }
       }

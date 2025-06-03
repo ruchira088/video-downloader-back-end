@@ -6,7 +6,7 @@ import cats.effect.{Clock, Concurrent}
 import cats.implicits._
 import cats.~>
 import com.eed3si9n.ruchij.api.BuildInfo
-import com.ruchij.api.services.health.models.HealthCheck.{FilePathCheck, FileRepositoryCheck}
+import com.ruchij.api.services.health.models.HealthCheck.{FilePathCheck, FileRepositoryCheck, HealthStatusDetails}
 import com.ruchij.api.services.health.models.kv.HealthCheckKey
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.api.services.health.models.{HealthCheck, HealthStatus, ServiceInformation}
@@ -46,6 +46,13 @@ class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
   private val clientDsl = new Http4sClientDsl[F] {}
 
   import clientDsl._
+
+  private def healthStatusDetails(healthStatusF: F[HealthStatus]): F[HealthStatusDetails] =
+    for {
+      startTime <- JodaClock[F].timestamp
+      healthStatus <- healthStatusF
+      endTime <- JodaClock[F].timestamp
+    } yield HealthStatusDetails(endTime.getMillis - startTime.getMillis, healthStatus)
 
   private val keyValueStoreCheck: F[HealthStatus] =
     JodaClock[F].timestamp
@@ -99,7 +106,7 @@ class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
     for {
       timestamp <- JodaClock[F].timestamp.map(_.toString("HH-mm-ss-SSS"))
       fileKey = s"$basePath/image-health-check-$timestamp.txt"
-      fileResult <- check(fileHealthCheck(fileKey))
+      fileResult <- runHealthCheck(fileHealthCheck(fileKey))
     } yield FilePathCheck(basePath, fileResult)
 
   private val fileRepositoryCheck: F[FileRepositoryCheck] =
@@ -157,6 +164,9 @@ class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
           logger.error[F]("Health check error", throwable).as(HealthStatus.Unhealthy)
       }
 
+  private def runHealthCheck(serviceHealthCheck: F[HealthStatus]): F[HealthStatusDetails] =
+    healthStatusDetails(check(serviceHealthCheck))
+
   private val timeout: F[HealthStatus.Unhealthy.type] =
     Clock[F].sleep(30 seconds).as(HealthStatus.Unhealthy)
 
@@ -164,12 +174,12 @@ class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
 
   override val healthCheck: F[HealthCheck] =
     for {
-      databaseStatusFiber <- Concurrent[F].start(check(databaseCheck))
+      databaseStatusFiber <- Concurrent[F].start(runHealthCheck(databaseCheck))
       fileRepositoryCheckFiber <- Concurrent[F].start(fileRepositoryCheck)
-      keyValueStoreStatusFiber <- Concurrent[F].start(check(keyValueStoreCheck))
-      pubSubStatusFiber <- Concurrent[F].start(check(pubSubCheck))
-      internetConnectivityStatusFiber <- Concurrent[F].start(check(internetConnectivityCheck))
-      spaRendererStatusFiber <- Concurrent[F].start(check(spaRendererCheck))
+      keyValueStoreStatusFiber <- Concurrent[F].start(runHealthCheck(keyValueStoreCheck))
+      pubSubStatusFiber <- Concurrent[F].start(runHealthCheck(pubSubCheck))
+      internetConnectivityStatusFiber <- Concurrent[F].start(runHealthCheck(internetConnectivityCheck))
+      spaRendererStatusFiber <- Concurrent[F].start(runHealthCheck(spaRendererCheck))
 
       databaseStatus <- databaseStatusFiber.joinWithNever
       fileRepositoryStatus <- fileRepositoryCheckFiber.joinWithNever
