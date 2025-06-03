@@ -104,7 +104,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers with MockFa
         }
       }
 
-    val storageConfiguration = new StorageConfiguration { override val imageFolder: String = "/images" }
+    val storageConfiguration = StorageConfiguration("video-folder", "image-folder", List.empty)
     val hashingService = new MurmurHash3Service[IO]
     val repositoryService = new InMemoryRepositoryService[IO](new ConcurrentHashMap())
     val downloadService = new Http4sDownloadService[IO](client, repositoryService)

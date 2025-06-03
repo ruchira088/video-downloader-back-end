@@ -1,7 +1,9 @@
 package com.ruchij.api.web.routes
 
 import cats.effect.IO
-import com.ruchij.api.services.health.models.{HealthCheck, HealthStatus, ServiceInformation}
+import com.ruchij.api.services.health.models.HealthCheck.{FilePathCheck, FileRepositoryCheck}
+import com.ruchij.api.services.health.models.HealthStatus.{Healthy, Unhealthy}
+import com.ruchij.api.services.health.models.{HealthCheck, ServiceInformation}
 import com.ruchij.api.test.matchers._
 import com.ruchij.api.test.mixins.io.MockedRoutesIO
 import com.ruchij.core.test.IOSupport.runIO
@@ -66,7 +68,22 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
     val expectedJsonResponse =
       json"""{
         "database" : "Healthy",
-        "fileRepository" : "Healthy",
+        "fileRepository" : {
+          "imageFolder": {
+            "filePath": "image-folder",
+            "healthStatus" : "Healthy"
+          },
+          "videoFolder": {
+            "filePath": "video-folder",
+            "healthStatus" : "Healthy"
+          },
+          "otherVideoFolders" : [
+            {
+              "filePath": "other-folder",
+              "healthStatus" : "Healthy"
+            }
+          ]
+        },
         "keyValueStore" : "Healthy",
         "pubSub" : "Healthy",
         "spaRenderer": "Healthy",
@@ -78,12 +95,16 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
       .returns {
         IO.pure {
           HealthCheck(
-            HealthStatus.Healthy,
-            HealthStatus.Healthy,
-            HealthStatus.Healthy,
-            HealthStatus.Healthy,
-            HealthStatus.Healthy,
-            HealthStatus.Healthy
+            Healthy,
+            FileRepositoryCheck(
+              FilePathCheck("image-folder", Healthy),
+              FilePathCheck("video-folder", Healthy),
+              List(FilePathCheck("other-folder", Healthy))
+            ),
+            Healthy,
+            Healthy,
+            Healthy,
+            Healthy
           )
         }
       }
@@ -104,7 +125,22 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
     val expectedJsonResponse =
       json"""{
         "database" : "Healthy",
-        "fileRepository" : "Unhealthy",
+        "fileRepository" : {
+          "imageFolder": {
+            "filePath": "image-folder",
+            "healthStatus" : "Healthy"
+          },
+          "videoFolder": {
+            "filePath": "video-folder",
+            "healthStatus" : "Healthy"
+          },
+          "otherVideoFolders" : [
+            {
+              "filePath": "other-folder",
+              "healthStatus" : "Unhealthy"
+            }
+          ]
+        },
         "keyValueStore" : "Healthy",
         "pubSub" : "Healthy",
         "spaRenderer": "Healthy",
@@ -116,12 +152,16 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
       .returns {
         IO.pure {
           HealthCheck(
-            HealthStatus.Healthy,
-            HealthStatus.Unhealthy,
-            HealthStatus.Healthy,
-            HealthStatus.Healthy,
-            HealthStatus.Healthy,
-            HealthStatus.Unhealthy
+            Healthy,
+            FileRepositoryCheck(
+              FilePathCheck("image-folder", Healthy),
+              FilePathCheck("video-folder", Healthy),
+              List(FilePathCheck("other-folder", Unhealthy))
+            ),
+            Healthy,
+            Healthy,
+            Healthy,
+            Unhealthy
           )
         }
       }

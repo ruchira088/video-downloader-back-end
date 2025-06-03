@@ -1,5 +1,3 @@
 package com.ruchij.core.config
 
-trait StorageConfiguration {
-  val imageFolder: String
-}
+final case class StorageConfiguration(videoFolder: String, imageFolder: String, otherVideoFolders: List[String])

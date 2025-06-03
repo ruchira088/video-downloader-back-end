@@ -10,9 +10,9 @@ import com.ruchij.api.config._
 import com.ruchij.api.external.ApiResourcesProvider
 import com.ruchij.api.external.containers.ContainerApiResourcesProvider
 import com.ruchij.batch.BatchApp
-import com.ruchij.batch.config.{BatchServiceConfiguration, BatchStorageConfiguration, WorkerConfiguration}
+import com.ruchij.batch.config.{BatchServiceConfiguration, WorkerConfiguration}
 import com.ruchij.batch.services.scheduler.Scheduler
-import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration}
+import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.external.CoreResourcesProvider.HashedAdminPassword
 import com.ruchij.core.logging.Logger
@@ -34,12 +34,8 @@ import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
 
 object DevelopmentApp extends IOApp {
-
-  private val ApiStorageConfig: ApiStorageConfiguration =
-    ApiStorageConfiguration("/Users/ruchira/Development/video-downloader-back-end/images")
-
-  private val BatchStorageConfig: BatchStorageConfiguration =
-    BatchStorageConfiguration(
+  private val StorageConfig: StorageConfiguration =
+    StorageConfiguration(
       "/Users/ruchira/Development/video-downloader-back-end/videos",
       "/Users/ruchira/Development/video-downloader-back-end/images",
       List.empty
@@ -62,7 +58,7 @@ object DevelopmentApp extends IOApp {
   ): ApiServiceConfiguration =
     ApiServiceConfiguration(
       HttpConfig,
-      ApiStorageConfig,
+      StorageConfig,
       databaseConfiguration,
       redisConfiguration,
       AuthenticationConfig,
@@ -76,7 +72,7 @@ object DevelopmentApp extends IOApp {
     spaSiteRendererConfiguration: SpaSiteRendererConfiguration
   ): BatchServiceConfiguration =
     BatchServiceConfiguration(
-      BatchStorageConfig,
+      StorageConfig,
       WorkerConfig,
       databaseConfiguration,
       kafkaConfiguration,

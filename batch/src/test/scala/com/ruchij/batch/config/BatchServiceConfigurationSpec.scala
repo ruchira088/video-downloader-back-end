@@ -1,7 +1,7 @@
 package com.ruchij.batch.config
 
 import cats.effect.IO
-import com.ruchij.core.config.{KafkaConfiguration, SpaSiteRendererConfiguration}
+import com.ruchij.core.config.{KafkaConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.migration.config.DatabaseConfiguration
 import org.http4s.implicits.http4sLiteralsSyntax
@@ -68,7 +68,7 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
 
     val expectedBatchServiceConfiguration =
       BatchServiceConfiguration(
-        BatchStorageConfiguration("./videos", "./images", List("./video-folder-1", "./video-folder-2")),
+        StorageConfiguration("./videos", "./images", List("./video-folder-1", "./video-folder-2")),
         WorkerConfiguration(10, LocalTime.MIDNIGHT, LocalTime.MIDNIGHT, "test-suite"),
         DatabaseConfiguration("jdbc:h2:mem:video-downloader;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false", "my-user", "my-password"),
         KafkaConfiguration("local", "kafka-cluster:9092", uri"http://kafka-cluster:8081"),

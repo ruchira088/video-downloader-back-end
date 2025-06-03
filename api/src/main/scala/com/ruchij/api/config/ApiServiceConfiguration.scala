@@ -1,7 +1,12 @@
 package com.ruchij.api.config
 
 import cats.ApplicativeError
-import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration}
+import com.ruchij.core.config.{
+  KafkaConfiguration,
+  RedisConfiguration,
+  SpaSiteRendererConfiguration,
+  StorageConfiguration
+}
 import com.ruchij.core.config.PureConfigReaders._
 import com.ruchij.core.types.FunctionKTypes._
 import com.ruchij.migration.config.DatabaseConfiguration
@@ -11,7 +16,7 @@ import pureconfig.generic.auto._
 
 final case class ApiServiceConfiguration(
   httpConfiguration: HttpConfiguration,
-  storageConfiguration: ApiStorageConfiguration,
+  storageConfiguration: StorageConfiguration,
   databaseConfiguration: DatabaseConfiguration,
   redisConfiguration: RedisConfiguration,
   authenticationConfiguration: AuthenticationConfiguration,

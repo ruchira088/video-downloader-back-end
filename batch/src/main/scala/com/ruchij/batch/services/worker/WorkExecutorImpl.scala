@@ -6,13 +6,13 @@ import cats.effect.kernel.Resource.ExitCase
 import cats.effect.{Async, Resource}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, ~>}
-import com.ruchij.batch.config.BatchStorageConfiguration
 import com.ruchij.batch.daos.workers.WorkerDao
 import com.ruchij.batch.daos.workers.models.Worker
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService
 import com.ruchij.batch.services.scheduling.BatchSchedulingService
 import com.ruchij.batch.services.video.BatchVideoService
 import com.ruchij.batch.utils.Constants
+import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
@@ -43,7 +43,7 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
   downloadService: DownloadService[F],
   youTubeVideoDownloader: YouTubeVideoDownloader[F],
   videoEnrichmentService: VideoEnrichmentService[F],
-  storageConfiguration: BatchStorageConfiguration
+  storageConfiguration: StorageConfiguration
 )(implicit transaction: T ~> F)
     extends WorkExecutor[F] {
 

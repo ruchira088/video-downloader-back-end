@@ -157,7 +157,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
                     val downloadService = mock[DownloadService[F]]
                     val videoMetadataDao = mock[VideoMetadataDao[F]]
                     val fileResourceDao = mock[FileResourceDao[F]]
-                    val storageConfiguration = mock[StorageConfiguration]
+                    val storageConfiguration = StorageConfiguration("video-folder", "image-folder", List.empty)
                     val cliCommandRunner: CliCommandRunner[F] = new CliCommandRunnerImpl[F](dispatcher)
                     val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](cliCommandRunner, httpClient)
                     val spaSiteRenderer =

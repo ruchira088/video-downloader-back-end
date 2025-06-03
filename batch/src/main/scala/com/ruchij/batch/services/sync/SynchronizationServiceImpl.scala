@@ -4,7 +4,6 @@ import cats.data.OptionT
 import cats.effect.{Async, Sync}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Functor, MonadThrow, ~>}
-import com.ruchij.batch.config.BatchStorageConfiguration
 import com.ruchij.batch.daos.filesync.FileSyncDao
 import com.ruchij.batch.daos.filesync.models.FileSync
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService
@@ -13,6 +12,7 @@ import com.ruchij.batch.services.sync.models.FileSyncResult._
 import com.ruchij.batch.services.sync.models.{FileSyncResult, SynchronizationResult}
 import com.ruchij.batch.services.video.BatchVideoService
 import com.ruchij.batch.utils.Constants
+import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.SchedulingDao
@@ -52,7 +52,7 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
   hashingService: HashingService[F],
   videoAnalysisService: VideoAnalysisService[F],
   fileTypeDetector: FileTypeDetector[F, A],
-  storageConfiguration: BatchStorageConfiguration
+  storageConfiguration: StorageConfiguration
 )(implicit transaction: T ~> F)
     extends SynchronizationService[F] {
 

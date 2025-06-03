@@ -6,6 +6,7 @@ import cats.effect.{Clock, Concurrent}
 import cats.implicits._
 import cats.~>
 import com.eed3si9n.ruchij.api.BuildInfo
+import com.ruchij.api.services.health.models.HealthCheck.{FilePathCheck, FileRepositoryCheck}
 import com.ruchij.api.services.health.models.kv.HealthCheckKey
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.api.services.health.models.{HealthCheck, HealthStatus, ServiceInformation}
@@ -83,10 +84,9 @@ class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
                   .take(10)
               }
             }
-            .filter {
-              healthCheckMessage =>
-                healthCheckMessage.instanceId == instanceId &&
-                  dateTime.isEqual(healthCheckMessage.dateTime)
+            .filter { healthCheckMessage =>
+              healthCheckMessage.instanceId == instanceId &&
+              dateTime.isEqual(healthCheckMessage.dateTime)
             }
             .take(10)
             .compile
@@ -95,14 +95,26 @@ class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
         }
       }
 
-  private val fileRepositoryCheck: F[HealthStatus] =
+  private def fileRepositoryPathCheck(basePath: String): F[FilePathCheck] =
     for {
       timestamp <- JodaClock[F].timestamp.map(_.toString("HH-mm-ss-SSS"))
+      fileKey = s"$basePath/image-health-check-$timestamp.txt"
+      fileResult <- check(fileHealthCheck(fileKey))
+    } yield FilePathCheck(basePath, fileResult)
 
-      fileKey = s"${storageConfiguration.imageFolder}/image-health-check-$timestamp.txt"
+  private val fileRepositoryCheck: F[FileRepositoryCheck] =
+    for {
+      imageFolderFiber <- Concurrent[F].start(fileRepositoryPathCheck(storageConfiguration.imageFolder))
+      videoFolderFiber <- Concurrent[F].start(fileRepositoryPathCheck(storageConfiguration.videoFolder))
+      otherFoldersFiber <- storageConfiguration.otherVideoFolders.traverse(path => Concurrent[F].start(fileRepositoryPathCheck(path)))
 
-      fileResult <- fileHealthCheck(fileKey)
-    } yield fileResult
+      imageFolderCheck <- imageFolderFiber.joinWithNever
+      videoFolderCheck <- videoFolderFiber.joinWithNever
+      otherFoldersCheck <- otherFoldersFiber.traverse(_.joinWithNever)
+
+    } yield FileRepositoryCheck(
+      imageFolderCheck, videoFolderCheck, otherFoldersCheck
+    )
 
   private val httpStatusHealthCheck: Status => HealthStatus = {
     case Status.Ok => HealthStatus.Healthy
@@ -146,21 +158,21 @@ class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
       }
 
   private val timeout: F[HealthStatus.Unhealthy.type] =
-    Clock[F].sleep(10 seconds).as(HealthStatus.Unhealthy)
+    Clock[F].sleep(30 seconds).as(HealthStatus.Unhealthy)
 
   override val serviceInformation: F[ServiceInformation] = ServiceInformation.create[F]
 
   override val healthCheck: F[HealthCheck] =
     for {
       databaseStatusFiber <- Concurrent[F].start(check(databaseCheck))
-      fileRepositoryStatusFiber <- Concurrent[F].start(check(fileRepositoryCheck))
+      fileRepositoryCheckFiber <- Concurrent[F].start(fileRepositoryCheck)
       keyValueStoreStatusFiber <- Concurrent[F].start(check(keyValueStoreCheck))
       pubSubStatusFiber <- Concurrent[F].start(check(pubSubCheck))
       internetConnectivityStatusFiber <- Concurrent[F].start(check(internetConnectivityCheck))
       spaRendererStatusFiber <- Concurrent[F].start(check(spaRendererCheck))
 
       databaseStatus <- databaseStatusFiber.joinWithNever
-      fileRepositoryStatus <- fileRepositoryStatusFiber.joinWithNever
+      fileRepositoryStatus <- fileRepositoryCheckFiber.joinWithNever
       keyValueStoreStatus <- keyValueStoreStatusFiber.joinWithNever
       pubSubStatus <- pubSubStatusFiber.joinWithNever
       internetConnectivityStatus <- internetConnectivityStatusFiber.joinWithNever

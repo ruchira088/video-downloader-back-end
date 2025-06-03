@@ -2,7 +2,7 @@ package com.ruchij.api.config
 
 import cats.effect.IO
 import com.comcast.ip4s.IpLiteralSyntax
-import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration}
+import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.migration.config.DatabaseConfiguration
 import org.http4s.implicits.http4sLiteralsSyntax
@@ -28,7 +28,14 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         }
 
         storage-configuration {
+          video-folder = "./videos"
+          video-folder = $${?VIDEO_FOLDER}
+
           image-folder = "./images"
+          image-folder = $${?IMAGE_FOLDER}
+
+          other-video-folders = "./video-folder-1;./video-folder-2"
+          other-video-folders = $${?OTHER_VIDEO_FOLDERS}
         }
 
         database-configuration {
@@ -75,7 +82,7 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
     val expectedApiServiceConfiguration =
       ApiServiceConfiguration(
         HttpConfiguration(ipv4"127.0.0.1", port"80", Some(Set("*.localhost", "*.ruchij.com"))),
-        ApiStorageConfiguration("./images"),
+        StorageConfiguration("./videos", "./images", List("./video-folder-1", "./video-folder-2")),
         DatabaseConfiguration("jdbc:h2:mem:video-downloader;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false", "", ""),
         RedisConfiguration("localhost", 6379, Some("redis-password")),
         AuthenticationConfiguration(30 days),
