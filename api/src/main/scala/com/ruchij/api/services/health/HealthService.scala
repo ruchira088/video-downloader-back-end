@@ -10,5 +10,5 @@ trait HealthService[F[_]] {
 }
 
 object HealthService {
-  val ConnectivityUrl = uri"https://ip.ruchij.com"
+  val ConnectivityUrl = uri"https://ip.ruchij.workers.dev"
 }
