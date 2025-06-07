@@ -13,6 +13,7 @@ import com.ruchij.api.services.video.ApiVideoService
 import com.ruchij.api.web.middleware.Authenticator.AuthenticatedRequestContextMiddleware
 import com.ruchij.api.web.middleware._
 import com.ruchij.api.web.routes._
+import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.messaging.models.HttpMetric
 import com.ruchij.core.services.scheduling.models.DownloadProgress
@@ -38,6 +39,7 @@ object Routes {
     healthService: HealthService[F],
     authenticationService: AuthenticationService[F],
     downloadProgressStream: Stream[F, DownloadProgress],
+    scheduledVideoDownloadUpdatesStream: Stream[F, ScheduledVideoDownload],
     metricPublisher: Publisher[F, HttpMetric],
     allowedOrigins: Set[String]
   ): HttpApp[F] = {
@@ -51,7 +53,7 @@ object Routes {
         ContextRouter[F, RequestContext](
           "/users" -> UserRoutes(userService, authenticationService),
           "/authentication" -> AuthenticationRoutes(authenticationService),
-          "/schedule" -> authMiddleware(SchedulingRoutes(apiSchedulingService, downloadProgressStream)),
+          "/schedule" -> authMiddleware(SchedulingRoutes(apiSchedulingService, downloadProgressStream, scheduledVideoDownloadUpdatesStream)),
           "/videos" -> authMiddleware(VideoRoutes(apiVideoService, videoAnalysisService, videoWatchHistoryService)),
           "/playlists" -> authMiddleware(PlaylistRoutes(playlistService)),
           "/assets" -> authMiddleware(AssetRoutes(assetService)),

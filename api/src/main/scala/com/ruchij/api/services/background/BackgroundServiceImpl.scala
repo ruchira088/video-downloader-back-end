@@ -23,6 +23,8 @@ class BackgroundServiceImpl[F[_]: Async, M[_]](
   downloadProgressTopic: Topic[F, DownloadProgress],
   healthCheckSubscriber: Subscriber[F, CommittableRecord[M, *], HealthCheckMessage],
   healthCheckTopic: Topic[F, HealthCheckMessage],
+  scheduleVideoDownloadsSubscriber: Subscriber[F, CommittableRecord[M, *], ScheduledVideoDownload],
+  scheduleVideoDownloadsTopic: Topic[F, ScheduledVideoDownload],
   subscriberGroupId: String
 ) extends BackgroundService[F] {
 
@@ -36,11 +38,17 @@ class BackgroundServiceImpl[F[_]: Async, M[_]](
   override val healthChecks: Stream[F, HealthCheckMessage] =
     healthCheckTopic.subscribe(Int.MaxValue)
 
+  override val updates: Stream[F, ScheduledVideoDownload] =
+    scheduleVideoDownloadsTopic.subscribe(Int.MaxValue)
+
   private val publishToHealthCheckTopic: Stream[F, Unit] =
     publishToTopic(healthCheckSubscriber, healthCheckTopic)
 
   private val publishToDownloadProgressTopic: Stream[F, Unit] =
     publishToTopic(downloadProgressSubscriber, downloadProgressTopic)
+
+  private val publishToScheduleVideoDownloadTopic: Stream[F, Unit] =
+    publishToTopic(scheduleVideoDownloadsSubscriber, scheduleVideoDownloadsTopic)
 
   private def publishToTopic[A: ClassTag](subscriber: Subscriber[F, CommittableRecord[M, *], A], topic: Topic[F, A]): Stream[F, Unit] =
     subscriber
@@ -84,8 +92,9 @@ class BackgroundServiceImpl[F[_]: Async, M[_]](
 
   override val run: F[Fiber[F, Throwable, Unit]] =
     Concurrent[F].start {
-      publishToDownloadProgressTopic
-        .concurrently(updateScheduledVideoDownloads)
+      updateScheduledVideoDownloads
+        .concurrently(publishToDownloadProgressTopic)
+        .concurrently(publishToScheduleVideoDownloadTopic)
         .concurrently(publishToHealthCheckTopic)
         .compile
         .drain
@@ -97,19 +106,22 @@ object BackgroundServiceImpl {
     apiSchedulingService: ApiSchedulingService[F],
     downloadProgressSubscriber: Subscriber[F, CommittableRecord[M, *], DownloadProgress],
     healthCheckSubscriber: Subscriber[F, CommittableRecord[M, *], HealthCheckMessage],
+    scheduledVideoDownloadsSubscriber: Subscriber[F, CommittableRecord[M, *], ScheduledVideoDownload],
     subscriberGroupId: String
-  ): F[BackgroundServiceImpl[F, M]] =
-    Topic[F, DownloadProgress]
-      .product(Topic[F, HealthCheckMessage])
-      .map {
-        case (downloadProgressTopic, healthCheckTopic) =>
-          new BackgroundServiceImpl[F, M](
-            apiSchedulingService,
-            downloadProgressSubscriber,
-            downloadProgressTopic,
-            healthCheckSubscriber,
-            healthCheckTopic,
-            subscriberGroupId
-          )
-    }
+  ): F[BackgroundServiceImpl[F, M]] = {
+    for {
+      downloadProgressTopic <- Topic[F, DownloadProgress]
+      healthCheckTopic <- Topic[F, HealthCheckMessage]
+      scheduleVideoDownloadsTopic <- Topic[F, ScheduledVideoDownload]
+    } yield new BackgroundServiceImpl[F, M](
+      apiSchedulingService,
+      downloadProgressSubscriber,
+      downloadProgressTopic,
+      healthCheckSubscriber,
+      healthCheckTopic,
+      scheduledVideoDownloadsSubscriber,
+      scheduleVideoDownloadsTopic,
+      subscriberGroupId
+    )
+  }
 }

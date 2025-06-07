@@ -9,6 +9,7 @@ import com.ruchij.api.services.scheduling.ApiSchedulingService
 import com.ruchij.api.services.user.UserService
 import com.ruchij.api.services.video.ApiVideoService
 import com.ruchij.api.web.Routes
+import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.messaging.models.HttpMetric
 import com.ruchij.core.services.scheduling.models.DownloadProgress
@@ -32,6 +33,7 @@ trait MockedRoutes[F[_]] extends MockFactory with OneInstancePerTest { self: Tes
   val healthService: HealthService[F] = mock[HealthService[F]]
   val authenticationService: AuthenticationService[F] = mock[AuthenticationService[F]]
   val downloadProgressStream: Stream[F, DownloadProgress] = Stream.empty
+  val scheduledVideoDownloadUpdatesStream: Stream[F, ScheduledVideoDownload] = Stream.empty
   val metricPublisher: Publisher[F, HttpMetric] = mock[Publisher[F, HttpMetric]]
 
   val async: Async[F]
@@ -50,6 +52,7 @@ trait MockedRoutes[F[_]] extends MockFactory with OneInstancePerTest { self: Tes
       healthService,
       authenticationService,
       downloadProgressStream,
+      scheduledVideoDownloadUpdatesStream,
       metricPublisher,
       Set.empty
     )(async, jodaClock, compression)

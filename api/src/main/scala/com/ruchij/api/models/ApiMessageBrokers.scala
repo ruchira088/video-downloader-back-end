@@ -9,7 +9,7 @@ import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatu
 
 final case class ApiMessageBrokers[F[_], M[_]](
   downloadProgressSubscriber: Subscriber[F, CommittableRecord[M, *], DownloadProgress],
-  scheduledVideoDownloadPublisher: Publisher[F, ScheduledVideoDownload],
+  scheduledVideoDownloadPubSub: PubSub[F, CommittableRecord[M, *], ScheduledVideoDownload],
   healthCheckPubSub: PubSub[F, CommittableRecord[M, *], HealthCheckMessage],
   workerStatusUpdatesPublisher: Publisher[F, WorkerStatusUpdate],
   scanVideosCommandPublisher: Publisher[F, ScanVideosCommand],

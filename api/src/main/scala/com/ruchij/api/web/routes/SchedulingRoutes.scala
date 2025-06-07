@@ -8,10 +8,11 @@ import com.ruchij.api.web.requests.RequestOps.ContextRequestOpsSyntax
 import com.ruchij.api.web.requests.UpdateScheduledVideoRequest.updateScheduledVideoRequestValidator
 import com.ruchij.api.web.requests.queryparams.SearchQuery
 import com.ruchij.api.web.requests.{SchedulingRequest, UpdateScheduledVideoRequest, WorkerStatusUpdateRequest}
-import com.ruchij.api.web.responses.EventStreamEventType.{ActiveDownload, HeartBeat}
+import com.ruchij.api.web.responses.EventStreamEventType.{ActiveDownload, HeartBeat, ScheduledVideoDownloadUpdate}
 import com.ruchij.api.web.responses.{EventStreamHeartBeat, IterableResponse, SearchResult, WorkerStatusResponse}
 import com.ruchij.core.circe.Decoders._
 import com.ruchij.core.circe.Encoders._
+import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.services.models.SortBy
 import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.types.JodaClock
@@ -30,7 +31,8 @@ import scala.language.postfixOps
 object SchedulingRoutes {
   def apply[F[_]: Async: JodaClock](
     apiSchedulingService: ApiSchedulingService[F],
-    downloadProgressStream: Stream[F, DownloadProgress]
+    downloadProgressStream: Stream[F, DownloadProgress],
+    scheduledVideoDownloadUpdatesStream: Stream[F, ScheduledVideoDownload]
   )(implicit dsl: Http4sDsl[F]): ContextRoutes[AuthenticatedRequestContext, F] = {
     import dsl._
 
@@ -40,9 +42,8 @@ object SchedulingRoutes {
           scheduleRequest <- contextRequest.to[SchedulingRequest]
           scheduledVideoResult <- apiSchedulingService.schedule(scheduleRequest.url.withoutFragment, user.id)
 
-          response <-
-            if (scheduledVideoResult.isNew) Created(scheduledVideoResult.scheduledVideoDownload)
-            else Ok(scheduledVideoResult.scheduledVideoDownload)
+          response <- if (scheduledVideoResult.isNew) Created(scheduledVideoResult.scheduledVideoDownload)
+          else Ok(scheduledVideoResult.scheduledVideoDownload)
         } yield response
 
       case POST -> Root / "retry-failed" as AuthenticatedRequestContext(user, _) =>
@@ -95,8 +96,11 @@ object SchedulingRoutes {
           }
 
       case DELETE -> Root / "id" / videoId as AuthenticatedRequestContext(user, _) =>
-        apiSchedulingService.deleteById(videoId, user.nonAdminUserId)
-          .flatMap { scheduledVideoDownload => Ok(scheduledVideoDownload) }
+        apiSchedulingService
+          .deleteById(videoId, user.nonAdminUserId)
+          .flatMap { scheduledVideoDownload =>
+            Ok(scheduledVideoDownload)
+          }
 
       case authRequest @ PUT -> Root / "id" / videoId as _ =>
         for {
@@ -107,11 +111,19 @@ object SchedulingRoutes {
           response <- Ok(updatedScheduledVideoDownload)
         } yield response
 
-      case GET -> Root / "active" as _ =>
+      case GET -> Root / "updates" as _ =>
         Ok {
           downloadProgressStream
             .map { downloadProgress =>
               ServerSentEvent(Some(Encoder[DownloadProgress].apply(downloadProgress).noSpaces), ActiveDownload)
+            }
+            .merge {
+              scheduledVideoDownloadUpdatesStream.map { scheduledVideoDownload =>
+                ServerSentEvent(
+                  Some(Encoder[ScheduledVideoDownload].apply(scheduledVideoDownload).noSpaces),
+                  ScheduledVideoDownloadUpdate
+                )
+              }
             }
             .merge {
               Stream
@@ -124,10 +136,9 @@ object SchedulingRoutes {
         }
 
       case GET -> Root / "worker-status" as _ =>
-        apiSchedulingService.getWorkerStatus.flatMap {
-          workerStatus => Ok(WorkerStatusResponse(workerStatus))
+        apiSchedulingService.getWorkerStatus.flatMap { workerStatus =>
+          Ok(WorkerStatusResponse(workerStatus))
         }
-
 
       case authRequest @ PUT -> Root / "worker-status" as _ =>
         for {

@@ -16,6 +16,10 @@ object EventStreamEventType extends Enum[EventStreamEventType] {
     override def entryName: String = "active-download"
   }
 
+  case object ScheduledVideoDownloadUpdate extends EventStreamEventType {
+    override def entryName: String = "scheduled-video-download-update"
+  }
+
   override def values: IndexedSeq[EventStreamEventType] = findValues
 
   implicit def eventType(eventStreamEventType: EventStreamEventType): Some[String] =

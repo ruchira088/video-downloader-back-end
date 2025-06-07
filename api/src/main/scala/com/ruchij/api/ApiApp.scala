@@ -241,7 +241,7 @@ object ApiApp extends IOApp {
 
     val schedulingService = new ApiSchedulingServiceImpl[F, ConnectionIO](
       videoAnalysisService,
-      messageBrokers.scheduledVideoDownloadPublisher,
+      messageBrokers.scheduledVideoDownloadPubSub,
       messageBrokers.workerStatusUpdatesPublisher,
       configurationService,
       DoobieSchedulingDao,
@@ -268,6 +268,7 @@ object ApiApp extends IOApp {
         schedulingService,
         messageBrokers.downloadProgressSubscriber,
         messageBrokers.healthCheckPubSub,
+        messageBrokers.scheduledVideoDownloadPubSub,
         s"background-$instanceId"
       )
 
@@ -295,6 +296,7 @@ object ApiApp extends IOApp {
         healthService,
         authenticationService,
         backgroundService.downloadProgress,
+        backgroundService.updates,
         messageBrokers.httpMetricsPublisher,
         apiServiceConfiguration.httpConfiguration.allowedOriginHosts
       )
