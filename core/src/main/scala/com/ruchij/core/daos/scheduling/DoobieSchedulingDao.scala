@@ -218,7 +218,11 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
               }
           .productR {
             if (failedScheduledVideos.size < pageSize) {
-              Applicative[ConnectionIO].pure(failedScheduledVideos.toList)
+              Applicative[ConnectionIO].pure {
+                failedScheduledVideos.toList.map {
+                  _.copy(status = SchedulingStatus.Queued, lastUpdatedAt = timestamp)
+                }
+              }
             } else {
                 retryErroredScheduledDownloads(maybeUserId, timestamp, pageSize, pageNumber + 1)
                     .map(failedScheduledVideos.toList ++ _)

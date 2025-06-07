@@ -24,6 +24,7 @@ import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
 import com.ruchij.core.services.video.VideoAnalysisService
 import com.ruchij.core.types.JodaClock
+import fs2.Stream
 import org.http4s.Uri
 import org.joda.time.DateTime
 
@@ -77,6 +78,10 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
     transaction {
       schedulingDao.retryErroredScheduledDownloads(maybeUserId, DateTime.now)
     }
+      .flatTap {
+        scheduledVideoDownloads =>
+          scheduledVideoDownloadPublisher.publish(Stream.emits(scheduledVideoDownloads)).compile.drain
+      }
 
   private def existingScheduledVideoDownload(videoMetadata: VideoMetadata, userId: String): F[Boolean] =
     for {
