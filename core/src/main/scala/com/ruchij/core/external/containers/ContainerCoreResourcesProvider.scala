@@ -17,7 +17,7 @@ class ContainerCoreResourcesProvider[F[_]: Sync]
       kafkaNetworkAlias = "kafka"
 
       kafkaContainer <- ContainerCoreResourcesProvider.start[F, ConfluentKafkaContainer] {
-        new ConfluentKafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.8.1"))
+        new ConfluentKafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:8.0.0"))
           .withNetwork(network)
           .withNetworkAliases(kafkaNetworkAlias)
       }

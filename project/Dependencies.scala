@@ -18,13 +18,13 @@ object Dependencies
 
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.6.1"
 
-  lazy val kafka = "org.apache.kafka" %% "kafka" % "7.9.1-ccs"
+  lazy val kafka = "org.apache.kafka" %% "kafka" % "8.0.0-ccs"
 
   lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "3.8.0"
 
   lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "3.8.0"
 
-  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "7.9.1"
+  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "8.0.0"
 
   lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.12.0"
 
@@ -52,7 +52,7 @@ object Dependencies
 
   lazy val flywayPostgresql = "org.flywaydb" % "flyway-database-postgresql"  % FlywayVersion
 
-  lazy val postgresql = "org.postgresql" % "postgresql" % "42.7.6"
+  lazy val postgresql = "org.postgresql" % "postgresql" % "42.7.7"
 
   lazy val h2 = "com.h2database" % "h2" % "2.3.232"
 
