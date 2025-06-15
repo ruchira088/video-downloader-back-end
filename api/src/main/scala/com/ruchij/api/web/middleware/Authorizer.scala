@@ -9,5 +9,5 @@ object Authorizer {
     hasPermission: Boolean,
     errorMessage: String = "User is not authorized perform this action"
   )(block: => F[Response[F]]): F[Response[F]] =
-    if (hasPermission) ApplicativeError[F, Throwable].raiseError(AuthorizationException(errorMessage)) else block
+    if (hasPermission) block else ApplicativeError[F, Throwable].raiseError(AuthorizationException(errorMessage))
 }
