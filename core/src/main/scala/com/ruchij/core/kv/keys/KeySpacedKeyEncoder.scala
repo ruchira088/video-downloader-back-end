@@ -9,6 +9,9 @@ import shapeless.{Generic, HList}
 trait KeySpacedKeyEncoder[F[_], K <: KVStoreKey] extends KVEncoder[F, K]
 
 object KeySpacedKeyEncoder {
+  def apply[F[_], K <: KVStoreKey](implicit encoder: KeySpacedKeyEncoder[F, K]): KeySpacedKeyEncoder[F, K] =
+    encoder
+
   implicit def keySpacedKeyEncoder[F[_]: Monad, K <: KVStoreKey, Repr <: HList, V](
     implicit generic: Generic.Aux[K, Repr],
     encoder: KVEncoder[F, Repr],

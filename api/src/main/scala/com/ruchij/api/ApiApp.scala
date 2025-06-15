@@ -18,7 +18,7 @@ import com.ruchij.api.services.authentication.models.AuthenticationToken
 import com.ruchij.api.services.authentication.models.AuthenticationToken.AuthenticationKeySpace
 import com.ruchij.api.services.background.BackgroundServiceImpl
 import com.ruchij.api.services.config.models.ApiConfigKey
-import com.ruchij.api.services.config.models.ApiConfigKey.{ApiConfigKeySpace, apiConfigKeySpacedKVEncoder}
+import com.ruchij.api.services.config.models.ApiConfigKey.ApiConfigKeySpace
 import com.ruchij.api.services.hashing.BCryptPasswordHashingService
 import com.ruchij.api.services.health.HealthServiceImpl
 import com.ruchij.api.services.health.models.kv.HealthCheckKey
@@ -40,24 +40,22 @@ import com.ruchij.core.daos.title.DoobieVideoTitleDao
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videowatchhistory.DoobieVideoWatchHistoryDao
-import com.ruchij.core.kv.keys.KeySpacedKeyEncoder.keySpacedKeyEncoder
 import com.ruchij.core.kv.{KeySpacedKeyValueStore, KeyValueStore, RedisKeyValueStore}
+import com.ruchij.core.kv.codecs.KVDecoder._
+import com.ruchij.core.kv.codecs.KVEncoder._
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.kafka.{KafkaPubSub, KafkaPublisher}
 import com.ruchij.core.messaging.models.{HttpMetric, VideoWatchMetric}
 import com.ruchij.core.services.cli.CliCommandRunnerImpl
+import com.ruchij.core.services.config.models.SharedConfigKey
+import com.ruchij.core.services.config.models.SharedConfigKey.SharedConfigKeySpace
 import com.ruchij.core.services.config.{ConfigurationService, ConfigurationServiceImpl}
 import com.ruchij.core.services.download.Http4sDownloadService
 import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.renderer.SpaSiteRendererImpl
 import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
-import com.ruchij.core.services.video.{
-  VideoAnalysisServiceImpl,
-  VideoServiceImpl,
-  VideoWatchHistoryServiceImpl,
-  YouTubeVideoDownloaderImpl
-}
+import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, VideoWatchHistoryServiceImpl, YouTubeVideoDownloaderImpl}
 import com.ruchij.core.types.{JodaClock, RandomGenerator}
 import doobie.free.connection.ConnectionIO
 import doobie.hikari.HikariTransactor
@@ -160,9 +158,14 @@ object ApiApp extends IOApp {
       : KeySpacedKeyValueStore[F, AuthenticationToken.AuthenticationTokenKey, AuthenticationToken] =
       new KeySpacedKeyValueStore(AuthenticationKeySpace, keyValueStore)
 
-    val configurationService: ConfigurationService[F, ApiConfigKey] =
+    val apiConfigurationService: ConfigurationService[F, ApiConfigKey] =
       new ConfigurationServiceImpl[F, ApiConfigKey](
         new KeySpacedKeyValueStore[F, ApiConfigKey[_], String](ApiConfigKeySpace, keyValueStore)
+      )
+
+    val sharedConfigurationService: ConfigurationService[F, SharedConfigKey] =
+      new ConfigurationServiceImpl[F, SharedConfigKey](
+        new KeySpacedKeyValueStore[F, SharedConfigKey[_], String](SharedConfigKeySpace, keyValueStore)
       )
 
     val fileTypeDetector = new PathFileTypeDetector[F](new Tika())
@@ -214,6 +217,7 @@ object ApiApp extends IOApp {
     val apiVideoService = new ApiVideoServiceImpl[F, ConnectionIO](
       videoService,
       messageBrokers.scanVideosCommandPublisher,
+      sharedConfigurationService,
       DoobieVideoDao,
       DoobieVideoMetadataDao,
       DoobieSnapshotDao,
@@ -243,7 +247,7 @@ object ApiApp extends IOApp {
       videoAnalysisService,
       messageBrokers.scheduledVideoDownloadPubSub,
       messageBrokers.workerStatusUpdatesPublisher,
-      configurationService,
+      apiConfigurationService,
       DoobieSchedulingDao,
       DoobieVideoTitleDao,
       DoobieVideoPermissionDao

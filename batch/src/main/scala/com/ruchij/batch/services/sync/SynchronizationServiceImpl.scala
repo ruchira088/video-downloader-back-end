@@ -22,8 +22,16 @@ import com.ruchij.core.daos.video.VideoDao
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
+import com.ruchij.core.daos.workers.models.VideoScan
+import com.ruchij.core.daos.workers.models.VideoScan.ScanStatus
+import com.ruchij.core.daos.workers.models.VideoScan.ScanStatus.{Idle, InProgress}
 import com.ruchij.core.exceptions.ResourceNotFoundException
+import com.ruchij.core.kv.codecs.KVDecoder._
+import com.ruchij.core.kv.codecs.KVEncoder._
 import com.ruchij.core.logging.Logger
+import com.ruchij.core.services.config.ConfigurationService
+import com.ruchij.core.services.config.models.SharedConfigKey
+import com.ruchij.core.services.config.models.SharedConfigKey.VideoScanningStatus
 import com.ruchij.core.services.hashing.HashingService
 import com.ruchij.core.services.models.Order.Descending
 import com.ruchij.core.services.models.SortBy.Date
@@ -51,6 +59,7 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
   videoEnrichmentService: VideoEnrichmentService[F],
   hashingService: HashingService[F],
   videoAnalysisService: VideoAnalysisService[F],
+  sharedConfigurationService: ConfigurationService[F, SharedConfigKey],
   fileTypeDetector: FileTypeDetector[F, A],
   storageConfiguration: StorageConfiguration
 )(implicit transaction: T ~> F)
@@ -135,9 +144,15 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
       .lastOrError
   }
 
+  private def setVideoScanningStatus(scanStatus: ScanStatus): F[Option[VideoScan]] =
+    JodaClock[F].timestamp.flatMap { timestamp =>
+      sharedConfigurationService.put(VideoScanningStatus, VideoScan(timestamp, scanStatus))
+    }
+
   override val sync: F[SynchronizationResult] =
     logger
       .info[F]("Synchronization started")
+      .productL(setVideoScanningStatus(InProgress))
       .productL(logger.info("Scanning file system for unaccounted videos"))
       .productR(scanFileRepositoryForUnaccountedVideos)
       .productL(logger.info("Scanning for missing video files"))
@@ -145,8 +160,14 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
       .productL(logger.info("Scanning for missing video snapshots"))
       .flatMap { case (resultOne, resultTwo) => scanForVideoWithoutSnapshots.map(_ + resultOne + resultTwo) }
       .productL(logger.info("Synchronization completed"))
+      .productL(setVideoScanningStatus(Idle))
       .flatTap { result =>
         logger.info[F](result.prettyPrint)
+      }
+      .recoverWith {
+        case throwable =>
+          setVideoScanningStatus(ScanStatus.Error)
+            .productR(ApplicativeError[F, Throwable].raiseError(throwable))
       }
 
   private def getAllVideos(pageNumber: Int, pageSize: Int): Stream[F, Video] =

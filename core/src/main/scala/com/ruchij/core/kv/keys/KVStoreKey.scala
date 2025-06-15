@@ -1,6 +1,10 @@
 package com.ruchij.core.kv.keys
 
-trait KVStoreKey
+import scala.concurrent.duration.FiniteDuration
+
+trait KVStoreKey {
+  val maybeTtl: Option[FiniteDuration] = None
+}
 
 object KVStoreKey {
   val KeySeparator: String = "::"

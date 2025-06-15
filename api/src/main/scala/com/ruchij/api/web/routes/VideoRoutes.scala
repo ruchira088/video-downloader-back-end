@@ -6,7 +6,7 @@ import com.ruchij.api.daos.user.models.Role
 import com.ruchij.api.daos.user.models.Role.Admin
 import com.ruchij.api.services.models.Context.AuthenticatedRequestContext
 import com.ruchij.api.services.video.ApiVideoService
-import com.ruchij.api.services.video.models.VideoScanProgress
+import com.ruchij.api.web.middleware.Authorizer
 import com.ruchij.api.web.requests.{VideoMetadataRequest, VideoMetadataUpdateRequest}
 import com.ruchij.api.web.requests.queryparams.{PagingQuery, SearchQuery}
 import com.ruchij.api.web.requests.RequestOps.ContextRequestOpsSyntax
@@ -14,6 +14,9 @@ import com.ruchij.api.web.requests.queryparams.SingleValueQueryParameter.DeleteV
 import com.ruchij.core.services.video.{VideoAnalysisService, VideoWatchHistoryService}
 import com.ruchij.core.circe.Encoders._
 import com.ruchij.api.web.responses.{IterableResponse, SearchResult, VideoScanProgressResponse}
+import com.ruchij.core.daos.workers.models.VideoScan
+import com.ruchij.core.daos.workers.models.VideoScan.ScanStatus
+import com.ruchij.core.daos.workers.models.VideoScan.ScanStatus.{Idle, InProgress}
 import com.ruchij.core.services.models.SortBy
 import com.ruchij.core.services.video.VideoAnalysisService.{Existing, NewlyCreated}
 import io.circe.generic.auto._
@@ -80,13 +83,27 @@ object VideoRoutes {
           response <- Ok(IterableResponse(videoWatchHistory))
         } yield response
 
-      case POST -> Root / "scan" as AuthenticatedRequestContext(user, _) if user.role == Admin =>
-        apiVideoService.scanForVideos
-          .flatMap {
-            case VideoScanProgress.ScanInProgress(startedAt) => Ok(VideoScanProgressResponse(startedAt))
+      case GET -> Root / "scan" as AuthenticatedRequestContext(user, _) =>
+        Authorizer(user.role == Admin) {
+          apiVideoService.scanStatus
+            .map {
+              _.fold(VideoScanProgressResponse(None, Idle)) { videoScan =>
+                VideoScanProgressResponse(Some(videoScan.updatedAt), videoScan.status)
+              }
+            }
+            .flatMap(response => Ok(response))
+        }
 
-            case VideoScanProgress.ScanStarted(startedAt) => Created(VideoScanProgressResponse(startedAt))
-          }
+      case POST -> Root / "scan" as AuthenticatedRequestContext(user, _) =>
+        Authorizer(user.role == Admin) {
+          apiVideoService.scanForVideos
+            .flatMap {
+              case VideoScan(updatedAt, ScanStatus.InProgress) =>
+                Ok(VideoScanProgressResponse(Some(updatedAt), InProgress))
+
+              case videoScan => Created(VideoScanProgressResponse(Some(videoScan.updatedAt), videoScan.status))
+            }
+        }
 
       case contextRequest @ POST -> Root / "metadata" as _ =>
         for {

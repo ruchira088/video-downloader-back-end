@@ -1,11 +1,11 @@
 package com.ruchij.api.services.video
 
 import cats.data.NonEmptyList
-import com.ruchij.api.services.video.models.VideoScanProgress
 import com.ruchij.core.daos.scheduling.models.RangeValue
 import com.ruchij.core.daos.snapshot.models.Snapshot
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.models.VideoSite
+import com.ruchij.core.daos.workers.models.VideoScan
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.video.models.VideoServiceSummary
 import org.http4s.Uri
@@ -36,7 +36,9 @@ trait ApiVideoService[F[_]] {
 
   val summary: F[VideoServiceSummary]
 
-  val scanForVideos: F[VideoScanProgress]
+  val scanForVideos: F[VideoScan]
+
+  val scanStatus: F[Option[VideoScan]]
 
   val queueIncorrectlyCompletedVideos: F[Seq[Video]]
 }

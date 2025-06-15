@@ -1,7 +1,7 @@
 package com.ruchij.batch.config
 
 import cats.effect.IO
-import com.ruchij.core.config.{KafkaConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
+import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.migration.config.DatabaseConfiguration
 import org.http4s.implicits.http4sLiteralsSyntax
@@ -51,6 +51,17 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
           password = $${?DATABASE_PASSWORD}
         }
 
+        redis-configuration {
+          hostname = "localhost"
+          hostname = $${?REDIS_HOSTNAME}
+
+          port = 6379
+          port = $${?REDIS_PORT}
+
+          password = "redis-password"
+          password = $${?REDIS_PASSWORD}
+        }
+
         kafka-configuration {
           prefix = "local"
           prefix = $${?KAFKA_PREFIX}
@@ -72,6 +83,7 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         WorkerConfiguration(10, LocalTime.MIDNIGHT, LocalTime.MIDNIGHT, "test-suite"),
         DatabaseConfiguration("jdbc:h2:mem:video-downloader;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false", "my-user", "my-password"),
         KafkaConfiguration("local", "kafka-cluster:9092", uri"http://kafka-cluster:8081"),
+        RedisConfiguration("localhost", 6379, Some("redis-password")),
         SpaSiteRendererConfiguration(uri"http://spa-renderer-service:8000"),
       )
 

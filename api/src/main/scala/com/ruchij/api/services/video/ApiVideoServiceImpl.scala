@@ -2,8 +2,7 @@ package com.ruchij.api.services.video
 
 import cats.data.NonEmptyList
 import cats.implicits._
-import cats.{MonadThrow, ~>}
-import com.ruchij.api.services.video.models.VideoScanProgress
+import cats.{Applicative, MonadThrow, ~>}
 import com.ruchij.core.commands.ScanVideosCommand
 import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
 import com.ruchij.core.daos.permission.VideoPermissionDao
@@ -15,7 +14,12 @@ import com.ruchij.core.daos.video.VideoDao
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.VideoSite
+import com.ruchij.core.daos.workers.models.VideoScan
+import com.ruchij.core.daos.workers.models.VideoScan.ScanStatus
 import com.ruchij.core.messaging.Publisher
+import com.ruchij.core.services.config.ConfigurationService
+import com.ruchij.core.services.config.models.SharedConfigKey
+import com.ruchij.core.services.config.models.SharedConfigKey.VideoScanningStatus
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.video.VideoService
 import com.ruchij.core.services.video.models.VideoServiceSummary
@@ -27,6 +31,7 @@ import scala.concurrent.duration.FiniteDuration
 class ApiVideoServiceImpl[F[_]: MonadThrow: JodaClock, G[_]: MonadThrow](
   videoService: VideoService[F, G],
   videoScanPublisher: Publisher[F, ScanVideosCommand],
+  sharedConfigurationService: ConfigurationService[F, SharedConfigKey],
   videoDao: VideoDao[G],
   videoMetadataDao: VideoMetadataDao[G],
   snapshotDao: SnapshotDao[G],
@@ -109,13 +114,29 @@ class ApiVideoServiceImpl[F[_]: MonadThrow: JodaClock, G[_]: MonadThrow](
       } yield VideoServiceSummary(count, size, duration, sites)
     }
 
-  override val scanForVideos: F[VideoScanProgress] =
-    JodaClock[F].timestamp
-      .flatMap { timestamp =>
-        videoScanPublisher
-          .publishOne(ScanVideosCommand(timestamp))
-          .as(VideoScanProgress.ScanStarted(timestamp))
+  override val scanForVideos: F[VideoScan] =
+    sharedConfigurationService
+      .get(VideoScanningStatus)
+      .flatMap { maybeVideoScan =>
+        maybeVideoScan
+          .filter(videoScan => videoScan.status == ScanStatus.InProgress) match {
+          case Some(videoScan) => Applicative[F].pure(videoScan)
+          case None =>
+            JodaClock[F].timestamp
+              .flatMap { timestamp =>
+                videoScanPublisher
+                  .publishOne(ScanVideosCommand(timestamp))
+                  .productR {
+                    Applicative[F]
+                      .pure(VideoScan(timestamp, ScanStatus.Scheduled))
+                      .flatTap { videoScan =>
+                        sharedConfigurationService.put(VideoScanningStatus, videoScan)
+                      }
+                  }
+              }
+        }
       }
+  override val scanStatus: F[Option[VideoScan]] = sharedConfigurationService.get(VideoScanningStatus)
 
   override val queueIncorrectlyCompletedVideos: F[Seq[Video]] = videoService.queueIncorrectlyCompletedVideos
 }

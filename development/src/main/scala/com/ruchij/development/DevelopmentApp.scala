@@ -68,6 +68,7 @@ object DevelopmentApp extends IOApp {
 
   private def batchConfig(
     databaseConfiguration: DatabaseConfiguration,
+    redisConfiguration: RedisConfiguration,
     kafkaConfiguration: KafkaConfiguration,
     spaSiteRendererConfiguration: SpaSiteRendererConfiguration
   ): BatchServiceConfiguration =
@@ -76,6 +77,7 @@ object DevelopmentApp extends IOApp {
       WorkerConfig,
       databaseConfiguration,
       kafkaConfiguration,
+      redisConfiguration,
       spaSiteRendererConfiguration
     )
 
@@ -127,7 +129,7 @@ object DevelopmentApp extends IOApp {
       }
 
       api <- ApiApp.create[F](apiConfig(databaseConfig, redisConfig, kafkaConfig, spaSiteRendererConfig))
-      batch <- BatchApp.program[F](batchConfig(databaseConfig, kafkaConfig, spaSiteRendererConfig))
+      batch <- BatchApp.program[F](batchConfig(databaseConfig, redisConfig, kafkaConfig, spaSiteRendererConfig))
     } yield (api, batch)
 
   private def createSslContext[F[_]: Sync]: F[SSLContext] =

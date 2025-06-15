@@ -4,7 +4,7 @@ object Dependencies
 {
   val ScalaVersion = "2.13.16"
   val Http4sVersion = "0.23.30"
-  val CirceVersion = "0.14.13"
+  val CirceVersion = "0.14.14"
   val TestContainersVersion = "1.21.1"
   val FlywayVersion = "11.9.1"
 
