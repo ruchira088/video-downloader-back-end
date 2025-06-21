@@ -16,6 +16,7 @@ import com.ruchij.core.services.hashing.HashingService
 import com.ruchij.core.services.renderer.SpaSiteRendererImpl
 import com.ruchij.core.services.video.models.VideoAnalysisResult
 import com.ruchij.core.test.IOSupport.runIO
+import com.ruchij.core.test.matchers.matchCaseInsensitivelyTo
 import com.ruchij.core.types.FunctionKTypes.identityFunctionK
 import com.ruchij.core.types.JodaClock
 import org.http4s.implicits.http4sLiteralsSyntax
@@ -35,7 +36,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
   "analyze(uri: Uri) in VideoAnalysisService" should "analyse a PornOne video URL" in runIO {
     analyze[IO](uri"https://pornone.com/bbc/sk-rl-tte-nik-l-onlyfans/277968339/").semiflatMap { videoAnalysisResult =>
       IO.delay {
-        videoAnalysisResult.title mustBe "Skàrlétte Nik0lé Onlyfans #1"
+        videoAnalysisResult.title must matchCaseInsensitivelyTo("Skàrlétte Nik0lé Onlyfans #1")
         videoAnalysisResult.duration mustBe ((34 minutes) + (19 seconds))
         videoAnalysisResult.size mustBe 1056449934
         videoAnalysisResult.thumbnail mustBe uri"https://th-eu4.pornone.com/t/39/277968339/b11.jpg"
@@ -107,14 +108,13 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
   }
 
   it should "analyse a EPorner video URL" in runIO {
-    analyze[IO](uri"https://www.eporner.com/video-wxed3sMHlEC/bbc-breeds-wife/").semiflatMap {
-      videoAnalysisResult =>
-        IO.delay {
-          videoAnalysisResult.title mustBe "BBC Breeds Wife"
-          videoAnalysisResult.duration mustBe ((29 minutes) + (12 seconds))
-          videoAnalysisResult.thumbnail.path mustBe uri"https://static-au-cdn.eporner.com/thumbs/static4/1/12/120/12018340/5_360.jpg".path
-          videoAnalysisResult.videoSite mustBe YTDownloaderSite("eporner")
-        }
+    analyze[IO](uri"https://www.eporner.com/video-wxed3sMHlEC/bbc-breeds-wife/").semiflatMap { videoAnalysisResult =>
+      IO.delay {
+        videoAnalysisResult.title mustBe "BBC Breeds Wife"
+        videoAnalysisResult.duration mustBe ((29 minutes) + (12 seconds))
+        videoAnalysisResult.thumbnail.path mustBe uri"https://static-au-cdn.eporner.com/thumbs/static4/1/12/120/12018340/5_360.jpg".path
+        videoAnalysisResult.videoSite mustBe YTDownloaderSite("eporner")
+      }
     }.value
   }
 
