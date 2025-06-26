@@ -76,6 +76,30 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
     def downloadUri[F[_]: MonadThrow](uri: Uri, spaSiteRenderer: SpaSiteRenderer[F]): F[Uri]
   }
 
+  case object FreshPorno extends HtmlCustomVideoSite {
+    override val hostname: String = "freshporno.net"
+
+    override def downloadUri[F[_] : MonadThrow]: Selector[F, Uri] =
+      JsoupSelector.nonEmptyElementList[F]("ul.download-list a")
+        .map(_.head)
+        .flatMapF(JsoupSelector.attribute[F](_, "href"))
+        .flatMapF(urlString => Uri.fromString(urlString).toType[F, Throwable])
+
+    override def title[F[_] : MonadThrow]: Selector[F, String] =
+      JsoupSelector.singleElement[F](".video-info .title-holder h1")
+        .flatMapF(JsoupSelector.text[F])
+
+    override def thumbnailUri[F[_] : MonadThrow]: Selector[F, Uri] =
+      JsoupSelector.singleElement[F](".player-wrap")
+        .flatMapF(element => JsoupSelector.attribute[F](element, "data-test"))
+        .flatMapF(urlString => Uri.fromString(urlString).toType[F, Throwable])
+
+    override def duration[F[_] : MonadThrow]: Selector[F, FiniteDuration] =
+      JsoupSelector.singleElement[F]("time")
+        .flatMapF(JsoupSelector.text[F])
+        .flatMapF(parseDuration[F])
+  }
+
   case object PornOne extends HtmlCustomVideoSite {
     override val hostname: String = "pornone.com"
 
