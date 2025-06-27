@@ -79,23 +79,30 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
   case object FreshPorno extends HtmlCustomVideoSite {
     override val hostname: String = "freshporno.net"
 
-    override def downloadUri[F[_] : MonadThrow]: Selector[F, Uri] =
-      JsoupSelector.nonEmptyElementList[F]("ul.download-list a")
+    override def downloadUri[F[_]: MonadThrow]: Selector[F, Uri] =
+      JsoupSelector
+        .nonEmptyElementList[F]("ul.download-list a")
         .map(_.head)
+        .recoverWith {
+          case _ => JsoupSelector.singleElement[F](".btn-download")
+        }
         .flatMapF(JsoupSelector.attribute[F](_, "href"))
         .flatMapF(urlString => Uri.fromString(urlString).toType[F, Throwable])
 
-    override def title[F[_] : MonadThrow]: Selector[F, String] =
-      JsoupSelector.singleElement[F](".video-info .title-holder h1")
+    override def title[F[_]: MonadThrow]: Selector[F, String] =
+      JsoupSelector
+        .singleElement[F](".video-info .title-holder h1")
         .flatMapF(JsoupSelector.text[F])
 
-    override def thumbnailUri[F[_] : MonadThrow]: Selector[F, Uri] =
-      JsoupSelector.singleElement[F](".player-wrap")
+    override def thumbnailUri[F[_]: MonadThrow]: Selector[F, Uri] =
+      JsoupSelector
+        .singleElement[F](".player-wrap")
         .flatMapF(element => JsoupSelector.attribute[F](element, "data-test"))
         .flatMapF(urlString => Uri.fromString(urlString).toType[F, Throwable])
 
-    override def duration[F[_] : MonadThrow]: Selector[F, FiniteDuration] =
-      JsoupSelector.singleElement[F]("time")
+    override def duration[F[_]: MonadThrow]: Selector[F, FiniteDuration] =
+      JsoupSelector
+        .singleElement[F]("time")
         .flatMapF(JsoupSelector.text[F])
         .flatMapF(parseDuration[F])
   }
@@ -116,11 +123,10 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
       metadata[F].map(_.name)
 
     override def thumbnailUri[F[_]: MonadThrow]: Selector[F, Uri] =
-      metadata[F].flatMapF {
-        pornOneMetadata =>
-          pornOneMetadata.thumbnailUrl.headOption.toType[F, Throwable] {
-            ValidationException("PornOne metadata .thumbnailUrl was empty")
-          }
+      metadata[F].flatMapF { pornOneMetadata =>
+        pornOneMetadata.thumbnailUrl.headOption.toType[F, Throwable] {
+          ValidationException("PornOne metadata .thumbnailUrl was empty")
+        }
       }
 
     override def duration[F[_]: MonadThrow]: Selector[F, FiniteDuration] =
@@ -238,7 +244,8 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
         }
 
     override def downloadUri[F[_]: MonadThrow](uri: Uri, spaSiteRenderer: SpaSiteRenderer[F]): F[Uri] =
-      spaSiteRenderer.executeJavaScript(uri, readyCssSelectors, JavascriptCode)
+      spaSiteRenderer
+        .executeJavaScript(uri, readyCssSelectors, JavascriptCode)
         .flatMap(output => parseJsOutput[F](output).run(uri))
   }
 
