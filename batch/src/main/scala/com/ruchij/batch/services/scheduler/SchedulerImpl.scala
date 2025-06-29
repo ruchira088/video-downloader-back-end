@@ -221,8 +221,13 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
       .filter { scheduledVideoDownload =>
         scheduledVideoDownload.status == SchedulingStatus.Deleted
       }
-      .evalMap { scheduledVideoDownload =>
-        batchSchedulingService.deleteById(scheduledVideoDownload.videoMetadata.id)
+      .flatMap { scheduledVideoDownload =>
+        Stream.eval(batchSchedulingService.deleteById(scheduledVideoDownload.videoMetadata.id))
+          .recoverWith {
+            case throwable =>
+              Stream.eval(logger.error[F](s"Unable to perform deletion for ${scheduledVideoDownload}", throwable))
+              .productR(Stream.empty)
+          }
       }
 
   private def updateWorkersAndScheduledVideoDownloads(

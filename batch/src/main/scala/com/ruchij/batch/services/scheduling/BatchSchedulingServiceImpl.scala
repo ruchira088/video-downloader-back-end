@@ -5,12 +5,14 @@ import cats.effect.Async
 import cats.implicits._
 import cats.{ApplicativeError, MonadThrow, ~>}
 import com.ruchij.batch.daos.workers.WorkerDao
+import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.SchedulingDao.notFound
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.models.CommittableRecord
 import com.ruchij.core.messaging.{PubSub, Publisher, Subscriber}
+import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.types.JodaClock
 import fs2.Stream
@@ -22,8 +24,10 @@ class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]]
   downloadProgressPublisher: Publisher[F, DownloadProgress],
   workerStatusSubscriber: Subscriber[F, CommittableRecord[M, *], WorkerStatusUpdate],
   scheduledVideoDownloadPubSub: PubSub[F, CommittableRecord[M, *], ScheduledVideoDownload],
+  repositoryService: RepositoryService[F],
   schedulingDao: SchedulingDao[T],
-  workerDao: WorkerDao[T]
+  workerDao: WorkerDao[T],
+  storageConfiguration: StorageConfiguration
 )(implicit transaction: T ~> F)
     extends BatchSchedulingService[F] {
 
@@ -118,11 +122,21 @@ class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]]
       transaction {
         OptionT(schedulingDao.getById(id, None)).productL {
           OptionT.liftF {
-            workerDao.clearScheduledVideoDownload(id)
+            workerDao
+              .clearScheduledVideoDownload(id)
               .product(schedulingDao.deleteById(id))
           }
         }.value
       }
     }.getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
-
+      .productL {
+        repositoryService
+          .list(storageConfiguration.videoFolder)
+          .filter { path =>
+            path.split("/").toList.lastOption.exists(_.startsWith(id))
+          }
+          .evalMap(repositoryService.delete)
+          .compile
+          .drain
+      }
 }

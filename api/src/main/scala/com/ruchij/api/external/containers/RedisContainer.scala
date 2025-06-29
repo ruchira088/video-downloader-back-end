@@ -2,21 +2,13 @@ package com.ruchij.api.external.containers
 
 import cats.effect.{Resource, Sync}
 import cats.implicits._
-import com.ruchij.api.external.containers.RedisContainer.Port
+import com.redis.testcontainers.{RedisContainer => RedisTestContainer}
 import com.ruchij.core.config.RedisConfiguration
 import com.ruchij.core.external.containers.ContainerCoreResourcesProvider
-import org.testcontainers.containers.GenericContainer
-import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy
 
-import scala.jdk.CollectionConverters.SeqHasAsJava
-
-class RedisContainer extends GenericContainer[RedisContainer]("bitnami/redis:7.0") {
-  setExposedPorts(List[Integer](Port).asJava)
-  setWaitStrategy(new LogMessageWaitStrategy().withRegEx(".*Ready to accept connections.*\\n"))
-}
+class RedisContainer extends RedisTestContainer("bitnami/redis:7.0")
 
 object RedisContainer {
-  private val Port = 6379
   private val Password = "my-password"
 
   def create[F[_]: Sync]: Resource[F, RedisConfiguration] =
@@ -25,7 +17,7 @@ object RedisContainer {
       .evalMap { redisContainer =>
         for {
           host <- Sync[F].blocking(redisContainer.getHost)
-          port <- Sync[F].blocking(redisContainer.getMappedPort(Port))
+          port <- Sync[F].blocking(redisContainer.getRedisPort)
         }
         yield RedisConfiguration(host, port, Some(Password))
       }

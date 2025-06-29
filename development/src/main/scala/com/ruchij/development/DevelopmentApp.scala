@@ -121,6 +121,11 @@ object DevelopmentApp extends IOApp {
       kafkaConfig <- externalApiServiceProvider.kafkaConfiguration
       databaseConfig <- externalApiServiceProvider.databaseConfiguration
       spaSiteRendererConfig <- externalApiServiceProvider.spaSiteRendererConfiguration
+      _ <- Resource.eval {
+        logger.info[F] {
+          s"""JDBC_URL=${databaseConfig.url}, USERNAME="${databaseConfig.user}", PASSWORD="${databaseConfig.password}""""
+        }
+      }
 
       _ <- Resource.eval {
         MigrationApp.migration[F](

@@ -5,7 +5,7 @@ object Dependencies
   val ScalaVersion = "2.13.16"
   val Http4sVersion = "0.23.30"
   val CirceVersion = "0.14.14"
-  val TestContainersVersion = "1.21.2"
+  val TestContainersVersion = "1.21.3"
   val FlywayVersion = "11.10.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
@@ -71,6 +71,8 @@ object Dependencies
   lazy val kafkaTestContainer = "org.testcontainers" % "kafka" % TestContainersVersion
 
   lazy val postgresqlTestContainer = "org.testcontainers" % "postgresql" % TestContainersVersion
+
+  lazy val redisTestContainer = "com.redis" % "testcontainers-redis" % "2.2.4"
 
   lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.18"
 

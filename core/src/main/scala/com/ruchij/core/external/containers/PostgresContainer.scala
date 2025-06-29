@@ -21,9 +21,9 @@ object PostgresContainer {
       .flatMap(postgresContainer => ContainerCoreResourcesProvider.start(postgresContainer))
       .evalMap { postgresContainer =>
         Sync[F]
-          .blocking(postgresContainer.getJdbcUrl())
+          .blocking(postgresContainer.getJdbcUrl)
           .map { jdbcUrl =>
-            DatabaseConfiguration(jdbcUrl, postgresContainer.getUsername(), postgresContainer.getPassword())
+            DatabaseConfiguration(jdbcUrl, postgresContainer.getUsername, postgresContainer.getPassword)
           }
       }
 }

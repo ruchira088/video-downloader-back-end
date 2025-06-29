@@ -152,8 +152,10 @@ object BatchApp extends IOApp {
             downloadProgressPublisher,
             workerStatusUpdatesSubscriber,
             scheduledVideoDownloadPubSub,
+            repositoryService,
             DoobieSchedulingDao,
-            workerDao
+            workerDao,
+            batchServiceConfiguration.storageConfiguration
           )
 
           videoService = new VideoServiceImpl[F, ConnectionIO](

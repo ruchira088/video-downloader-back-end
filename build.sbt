@@ -87,7 +87,8 @@ lazy val core =
           embeddedKafkaSchemaRegistry,
           testContainers,
           kafkaTestContainer,
-          postgresqlTestContainer
+          postgresqlTestContainer,
+          redisTestContainer
         ) ++
           Seq(scalaTest, scalaMock).map(_ % Test)
     )
