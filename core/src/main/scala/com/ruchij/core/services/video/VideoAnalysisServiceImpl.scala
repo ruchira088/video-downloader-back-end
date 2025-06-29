@@ -1,7 +1,7 @@
 package com.ruchij.core.services.video
 
 import cats.data.Kleisli
-import cats.effect.{Async, Sync}
+import cats.effect.{Async, Concurrent, Sync}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Monad, MonadError, ~>}
 import com.ruchij.core.config.StorageConfiguration
@@ -66,8 +66,10 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
 
   private def createMetadata(uri: Uri, videoSite: VideoSite): F[VideoMetadata] =
     for {
-      videoAnalysisResult @ VideoAnalysisResult(processedUri, videoSite, title, duration, size, thumbnailUri) <-
-        analyze(uri, videoSite)
+      videoAnalysisResult @ VideoAnalysisResult(processedUri, videoSite, title, duration, size, thumbnailUri) <- analyze(
+        uri,
+        videoSite
+      )
 
       _ <- logger.info[F](s"Uri=${processedUri.renderString} Result=$videoAnalysisResult")
 
@@ -116,13 +118,17 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
   private def analyze(processedUri: Uri, videoSite: VideoSite): F[VideoAnalysisResult] =
     runWithRetry(
       3,
+      FiniteDuration(30, TimeUnit.SECONDS),
       List(classOf[ResourceNotFoundException]),
-      errorMessage => s"Error occurred when analyzing uri=$processedUri. ${errorMessage.getMessage}. Retrying...") {
+      errorMessage => s"Error occurred when analyzing uri=$processedUri. ${errorMessage.getMessage}. Retrying..."
+    ) {
       videoSite match {
         case customVideoSite: CustomVideoSite =>
           for {
             document <- customVideoSiteHtmlDocument(processedUri, customVideoSite)
-            videoAnalysisResult <- analyzeCustomVideoSite(processedUri, customVideoSite).run(WebPage(processedUri, document))
+            videoAnalysisResult <- analyzeCustomVideoSite(processedUri, customVideoSite).run(
+              WebPage(processedUri, document)
+            )
           } yield videoAnalysisResult
 
         case VideoSite.Local =>
@@ -156,13 +162,12 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
 
   private def customVideoSiteHtmlDocument(uri: Uri, customVideoSite: CustomVideoSite): F[Document] =
     for {
-      html <-
-        customVideoSite match {
-          case spaCustomVideoSite: CustomVideoSite.SpaCustomVideoSite =>
-            spaSiteRenderer.render(uri, spaCustomVideoSite.readyCssSelectors)
+      html <- customVideoSite match {
+        case spaCustomVideoSite: CustomVideoSite.SpaCustomVideoSite =>
+          spaSiteRenderer.render(uri, spaCustomVideoSite.readyCssSelectors)
 
-          case _ => client.run(GET(uri)).use(_.as[String])
-        }
+        case _ => client.run(GET(uri)).use(_.as[String])
+      }
 
       document <- Sync[F].catchNonFatal(Jsoup.parse(html))
     } yield document
@@ -213,13 +218,29 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
         }
       }
 
-  private def runWithRetry[A](retryCount: Int, throwables: Seq[Class[_ <: Exception]], failureMessage: Throwable => String)(run: F[A]): F[A] =
-    run.handleErrorWith {
-      throwable =>
-        if (retryCount < 1 || throwables.exists(_.isInstance(throwable))) MonadError[F, Throwable].raiseError(throwable)
-        else logger.warn[F](failureMessage(throwable))
-          .productR(Sync[F].sleep(FiniteDuration(1, TimeUnit.SECONDS)))
-          .productR(runWithRetry(retryCount - 1, throwables, failureMessage)(run))
-    }
+  private def runWithRetry[A](
+    retryCount: Int,
+    timeout: FiniteDuration,
+    throwables: Seq[Class[_ <: Exception]],
+    failureMessage: Throwable => String
+  )(run: F[A]): F[A] = {
+    Concurrent[F]
+      .race[Unit, A](Sync[F].sleep(timeout), run)
+      .flatMap {
+        case Left(_) =>
+          ApplicativeError[F, Throwable].raiseError[A] {
+            ExternalServiceException(s"Timeout occurred after ${timeout.length} ${timeout.unit.toString.toLowerCase}")
+          }
 
+        case Right(value) => Applicative[F].pure(value)
+      }
+      .handleErrorWith { throwable =>
+        if (retryCount < 1 || throwables.exists(_.isInstance(throwable))) MonadError[F, Throwable].raiseError(throwable)
+        else
+          logger
+            .warn[F](failureMessage(throwable))
+            .productR(Sync[F].sleep(FiniteDuration(1, TimeUnit.SECONDS)))
+            .productR(runWithRetry(retryCount - 1, timeout, throwables, failureMessage)(run))
+      }
+  }
 }

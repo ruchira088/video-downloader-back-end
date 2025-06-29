@@ -6,12 +6,14 @@ import cats.implicits._
 import com.ruchij.batch.daos.workers.DoobieWorkerDao
 import com.ruchij.batch.external.BatchResourcesProvider
 import com.ruchij.batch.external.containers.ContainerBatchResourcesProvider
+import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.messaging.models.CommittableRecord
 import com.ruchij.core.messaging.{PubSub, Publisher, Subscriber}
+import com.ruchij.core.services.repository.FileRepositoryService
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.data.DataGenerators
@@ -30,8 +32,10 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
       new ContainerBatchResourcesProvider[IO]
 
     val downloadProgressPublisher = mock[Publisher[IO, DownloadProgress]]
+    val repositoryService = mock[FileRepositoryService[IO]]
     val workerStatusSubscriber = mock[Subscriber[IO, CommittableRecord[Id, *], WorkerStatusUpdate]]
     val scheduledVideoDownloadPubSub = mock[PubSub[IO, CommittableRecord[Id, *], ScheduledVideoDownload]]
+    val storageConfiguration = StorageConfiguration("video-folder", "image-folder", List.empty)
 
     val concurrency = 500
     val size = 1_000
@@ -42,8 +46,10 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
           downloadProgressPublisher,
           workerStatusSubscriber,
           scheduledVideoDownloadPubSub,
+          repositoryService,
           DoobieSchedulingDao,
-          new DoobieWorkerDao(DoobieSchedulingDao)
+          new DoobieWorkerDao(DoobieSchedulingDao),
+          storageConfiguration
         )
 
       Stream
