@@ -3,31 +3,32 @@ package com.ruchij.development.frontend
 import cats.effect.kernel.{Resource, Sync}
 import cats.implicits._
 import com.ruchij.core.external.containers.ContainerCoreResourcesProvider
-import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, _}
+import com.ruchij.core.types.FunctionKTypes._
 import org.http4s.Uri
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.wait.strategy.Wait
 
 import scala.jdk.CollectionConverters.SeqHasAsJava
 
-class FrontEndContainer
-    extends GenericContainer[FrontEndContainer]("ghcr.io/ruchira088/video-downloader-front-end:dev") {
-  setWaitStrategy(Wait.forHttp("/"))
+class FrontEndContainer(apiUrl: Uri)
+    extends GenericContainer[FrontEndContainer]("ghcr.io/ruchira088/video-downloader-front-end-dev:dev") {
   setExposedPorts(List(FrontEndContainer.Port: Integer).asJava)
+  setWaitStrategy(Wait.forHttp("/").forPort(FrontEndContainer.Port))
+  addEnv("VITE_API_URL", apiUrl.renderString)
 }
 
 object FrontEndContainer {
-  private val Port = 80
+  private val Port = 5173
 
   def create[F[_]: Sync](apiUrl: Uri): Resource[F, Uri] =
     Resource
-      .eval(Sync[F].delay(new FrontEndContainer()))
+      .eval(Sync[F].delay(new FrontEndContainer(apiUrl)))
       .flatMap(frontEndContainer => ContainerCoreResourcesProvider.start(frontEndContainer))
       .evalMap { frontEndContainer =>
         for {
           host <- Sync[F].delay(frontEndContainer.getHost)
           port <- Sync[F].delay(frontEndContainer.getMappedPort(Port))
-          uri <- Uri.fromString(s"http://$host:$port?API_URL=${apiUrl.renderString}").toType[F, Throwable]
+          uri <- Uri.fromString(s"http://$host:$port").toType[F, Throwable]
         } yield uri
       }
 }
