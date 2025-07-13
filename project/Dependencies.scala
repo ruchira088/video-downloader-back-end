@@ -6,7 +6,7 @@ object Dependencies
   val Http4sVersion = "0.23.30"
   val CirceVersion = "0.14.14"
   val TestContainersVersion = "1.21.3"
-  val FlywayVersion = "11.10.1"
+  val FlywayVersion = "11.10.2"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -16,7 +16,7 @@ object Dependencies
 
   lazy val http4sJdkHttpClient = "org.http4s" %% "http4s-jdk-http-client" % "0.10.0"
 
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.6.1"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.6.2"
 
   lazy val kafka = "org.apache.kafka" %% "kafka" % "8.0.0-ccs"
 
@@ -56,7 +56,7 @@ object Dependencies
 
   lazy val h2 = "com.h2database" % "h2" % "2.3.232"
 
-  lazy val apacheTika = "org.apache.tika" % "tika-core" % "3.2.0"
+  lazy val apacheTika = "org.apache.tika" % "tika-core" % "3.2.1"
 
   lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "2.0.1"
 
