@@ -17,13 +17,11 @@ import java.net.ServerSocket
 import java.util.UUID
 import scala.util.Random
 
-class EmbeddedCoreResourcesProvider[F[_]: Sync]
-    extends CoreResourcesProvider[F] {
+class EmbeddedCoreResourcesProvider[F[_]: Sync] extends CoreResourcesProvider[F] {
 
   override val kafkaConfiguration: Resource[F, KafkaConfiguration] =
     for {
       kafkaPort <- Resource.eval(availablePort(EmbeddedKafkaConfig.defaultKafkaPort))
-      zookeeperPort <- Resource.eval(availablePort(EmbeddedKafkaConfig.defaultZookeeperPort))
       schemaRegistryPort <- Resource.eval(availablePort(EmbeddedKafkaSchemaRegistryConfig.defaultSchemaRegistryPort))
 
       kafkaConfiguration = KafkaConfiguration(
@@ -34,7 +32,11 @@ class EmbeddedCoreResourcesProvider[F[_]: Sync]
 
       embeddedKafkaWithSR <- Resource.make(
         Sync[F]
-          .blocking(EmbeddedKafka.start()(EmbeddedKafkaSchemaRegistryConfig(kafkaPort, zookeeperPort, schemaRegistryPort)))
+          .blocking(
+            EmbeddedKafka.start()(
+              EmbeddedKafkaSchemaRegistryConfig(kafkaPort = kafkaPort, schemaRegistryPort = schemaRegistryPort)
+            )
+          )
       ) { kafka =>
         Sync[F].blocking(kafka.stop(false))
       }
