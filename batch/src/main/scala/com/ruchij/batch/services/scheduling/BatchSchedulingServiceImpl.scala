@@ -133,16 +133,20 @@ class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]]
           }
         }.getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
           .flatTap { scheduledVideoDownload =>
-            if (scheduledVideoDownload.downloadedBytes > 0)
-              repositoryService
-                .list(storageConfiguration.videoFolder)
-                .find { path =>
-                  path.split("/").toList.lastOption.exists(_.startsWith(id))
+            if (scheduledVideoDownload.downloadedBytes > 0) {
+              logger.info(s"Deleting video file for ScheduledVideoDownload with id=$id")
+                .productR {
+                  repositoryService
+                    .list(storageConfiguration.videoFolder)
+                    .find { path =>
+                      path.split("/").toList.lastOption.exists(_.startsWith(id))
+                    }
+                    .evalMap(repositoryService.delete)
+                    .compile
+                    .drain
                 }
-                .evalMap(repositoryService.delete)
-                .compile
-                .drain
-            else Applicative[F].unit
+              
+            } else Applicative[F].unit
           }
       }
 
