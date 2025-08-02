@@ -3,7 +3,7 @@ package com.ruchij.batch.services.scheduling
 import cats.data.OptionT
 import cats.effect.Async
 import cats.implicits._
-import cats.{ApplicativeError, MonadThrow, ~>}
+import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
 import com.ruchij.batch.daos.workers.WorkerDao
 import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.scheduling.SchedulingDao
@@ -118,7 +118,8 @@ class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]]
       .flatTap(scheduledVideoDownloadPubSub.publishOne)
 
   override def deleteById(id: String): F[ScheduledVideoDownload] =
-    logger.info(s"Deleting ScheduledVideoDownload with id=$id")
+    logger
+      .info(s"Deleting ScheduledVideoDownload with id=$id")
       .productR {
         OptionT {
           transaction {
@@ -131,15 +132,17 @@ class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]]
             }.value
           }
         }.getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
-          .productL {
-            repositoryService
-              .list(storageConfiguration.videoFolder)
-              .filter { path =>
-                path.split("/").toList.lastOption.exists(_.startsWith(id))
-              }
-              .evalMap(repositoryService.delete)
-              .compile
-              .drain
+          .flatTap { scheduledVideoDownload =>
+            if (scheduledVideoDownload.downloadedBytes > 0)
+              repositoryService
+                .list(storageConfiguration.videoFolder)
+                .find { path =>
+                  path.split("/").toList.lastOption.exists(_.startsWith(id))
+                }
+                .evalMap(repositoryService.delete)
+                .compile
+                .drain
+            else Applicative[F].unit
           }
       }
 
