@@ -225,7 +225,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
         Stream.eval(batchSchedulingService.deleteById(scheduledVideoDownload.videoMetadata.id))
           .recoverWith {
             case throwable =>
-              Stream.eval(logger.error[F](s"Unable to perform deletion for ${scheduledVideoDownload}", throwable))
+              Stream.eval(logger.error[F](s"Unable to perform deletion for $scheduledVideoDownload", throwable))
               .productR(Stream.empty)
           }
       }

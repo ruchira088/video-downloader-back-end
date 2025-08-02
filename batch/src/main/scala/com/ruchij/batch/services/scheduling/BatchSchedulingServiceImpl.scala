@@ -118,25 +118,29 @@ class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]]
       .flatTap(scheduledVideoDownloadPubSub.publishOne)
 
   override def deleteById(id: String): F[ScheduledVideoDownload] =
-    OptionT {
-      transaction {
-        OptionT(schedulingDao.getById(id, None)).productL {
-          OptionT.liftF {
-            workerDao
-              .clearScheduledVideoDownload(id)
-              .product(schedulingDao.deleteById(id))
+    logger.info(s"Deleting ScheduledVideoDownload with id=$id")
+      .productR {
+        OptionT {
+          transaction {
+            OptionT(schedulingDao.getById(id, None)).productL {
+              OptionT.liftF {
+                workerDao
+                  .clearScheduledVideoDownload(id)
+                  .product(schedulingDao.deleteById(id))
+              }
+            }.value
           }
-        }.value
-      }
-    }.getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
-      .productL {
-        repositoryService
-          .list(storageConfiguration.videoFolder)
-          .filter { path =>
-            path.split("/").toList.lastOption.exists(_.startsWith(id))
+        }.getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
+          .productL {
+            repositoryService
+              .list(storageConfiguration.videoFolder)
+              .filter { path =>
+                path.split("/").toList.lastOption.exists(_.startsWith(id))
+              }
+              .evalMap(repositoryService.delete)
+              .compile
+              .drain
           }
-          .evalMap(repositoryService.delete)
-          .compile
-          .drain
       }
+
 }
