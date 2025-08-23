@@ -7,7 +7,9 @@ import org.http4s.Uri
 trait YouTubeVideoDownloader[F[_]] {
   def videoInformation(uri: Uri): F[VideoAnalysisResult]
 
-  def supportedSites: F[Seq[String]]
-
   def downloadVideo(uri: Uri, pathWithoutExtension: String): Stream[F, YTDownloaderProgress]
+
+  val supportedSites: F[Seq[String]]
+
+  val version: F[String]
 }

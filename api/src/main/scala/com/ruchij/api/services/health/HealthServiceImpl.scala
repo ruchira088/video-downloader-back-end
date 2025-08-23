@@ -15,6 +15,7 @@ import com.ruchij.core.kv.KeySpacedKeyValueStore
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.services.repository.FileRepositoryService
+import com.ruchij.core.services.video.YouTubeVideoDownloader
 import com.ruchij.core.types.{JodaClock, RandomGenerator}
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
@@ -35,6 +36,7 @@ class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
   keySpacedKeyValueStore: KeySpacedKeyValueStore[F, HealthCheckKey, DateTime],
   healthCheckStream: Stream[F, HealthCheckMessage],
   healthCheckPublisher: Publisher[F, HealthCheckMessage],
+  youTubeVideoDownloader: YouTubeVideoDownloader[F],
   client: Client[F],
   storageConfiguration: StorageConfiguration,
   spaSiteRendererConfiguration: SpaSiteRendererConfiguration
@@ -170,7 +172,8 @@ class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
   private val timeout: F[HealthStatus.Unhealthy.type] =
     Clock[F].sleep(30 seconds).as(HealthStatus.Unhealthy)
 
-  override val serviceInformation: F[ServiceInformation] = ServiceInformation.create[F]
+  override val serviceInformation: F[ServiceInformation] =
+    youTubeVideoDownloader.version.flatMap(ServiceInformation.create[F])
 
   override val healthCheck: F[HealthCheck] =
     for {

@@ -187,4 +187,25 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
     }
   }
 
+  it should "return the yt-dlp version" in runIO {
+    val cliCommandRunner = mock[CliCommandRunner[IO]]
+    val client = mock[Client[IO]]
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client)
+
+    (cliCommandRunner.run _)
+      .expects(
+        """yt-dlp --version"""
+      )
+      .returns {
+        Stream.emit[IO, String] {  "2025.08.22" }
+      }
+
+    youTubeVideoDownloader.version.flatMap { version =>
+      IO.delay {
+        version mustBe "2025.08.22"
+      }
+    }
+  }
+
+
 }

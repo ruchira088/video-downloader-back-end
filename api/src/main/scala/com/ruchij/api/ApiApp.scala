@@ -281,6 +281,7 @@ object ApiApp extends IOApp {
         healthCheckKeyStore,
         backgroundService.healthChecks,
         messageBrokers.healthCheckPubSub,
+        youTubeVideoDownloader,
         client,
         apiServiceConfiguration.storageConfiguration,
         apiServiceConfiguration.spaSiteRendererConfiguration

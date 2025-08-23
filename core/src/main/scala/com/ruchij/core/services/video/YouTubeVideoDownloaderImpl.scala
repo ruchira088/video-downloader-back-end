@@ -110,6 +110,9 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
         .map(identity[Seq[String]])
     }
 
+  override val version: F[String] =
+    Sync[F].defer { cliCommandRunner.run("yt-dlp --version").compile.string }
+
   override def downloadVideo(uri: Uri, pathWithoutExtension: String): Stream[F, YTDownloaderProgress] =
     Stream.eval(Ref.of[F, Boolean](false)).flatMap { ref =>
       cliCommandRunner

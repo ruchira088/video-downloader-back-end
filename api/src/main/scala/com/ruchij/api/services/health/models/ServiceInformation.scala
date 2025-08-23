@@ -15,6 +15,7 @@ final case class ServiceInformation(
   scalaVersion: String,
   sbtVersion: String,
   javaVersion: String,
+  `yt-dlpVersion`: String,
   currentTimestamp: DateTime,
   gitBranch: Option[String],
   gitCommit: Option[String],
@@ -22,7 +23,7 @@ final case class ServiceInformation(
 )
 
 object ServiceInformation {
-  def create[F[_]: Sync: JodaClock]: F[ServiceInformation] =
+  def create[F[_]: Sync: JodaClock](ytDlpVersion: String): F[ServiceInformation] =
     for {
       timestamp <- JodaClock[F].timestamp
       javaVersion <- Sync[F].delay(Properties.javaVersion)
@@ -34,6 +35,7 @@ object ServiceInformation {
         BuildInfo.scalaVersion,
         BuildInfo.sbtVersion,
         javaVersion,
+        ytDlpVersion,
         timestamp,
         BuildInfo.gitBranch,
         BuildInfo.gitCommit,
