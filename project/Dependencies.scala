@@ -6,7 +6,7 @@ object Dependencies
   val Http4sVersion = "0.23.30"
   val CirceVersion = "0.14.14"
   val TestContainersVersion = "1.21.3"
-  val FlywayVersion = "11.11.2"
+  val FlywayVersion = "11.12.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -84,7 +84,7 @@ object Dependencies
 
   lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.19"
 
-  lazy val scalaMock = "org.scalamock" %% "scalamock" % "7.4.1"
+  lazy val scalaMock = "org.scalamock" %% "scalamock" % "7.4.2"
 
   lazy val pegdown = "org.pegdown" % "pegdown" % "1.6.0"
 }
