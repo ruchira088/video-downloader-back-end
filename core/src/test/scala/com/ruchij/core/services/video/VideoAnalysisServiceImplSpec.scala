@@ -86,7 +86,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
           videoAnalysisResult.title mustBe "BREAKING WHITE BLONDE BOOTY - GISELLE PALMER"
           videoAnalysisResult.duration mustBe ((37 minutes) + (1 seconds))
           videoAnalysisResult.size mustBe 584122827
-          videoAnalysisResult.thumbnail mustBe uri"https://image.xfreehd.com/media/videos/tmb10/343591/1b.jpg"
+          videoAnalysisResult.thumbnail mustBe uri"https://xfreehd.com/media/videos/tmb10/343591/1b.jpg"
           videoAnalysisResult.videoSite mustBe CustomVideoSite.XFreeHD
         }
     }.value
