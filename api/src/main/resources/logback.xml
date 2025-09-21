@@ -5,14 +5,10 @@
         </encoder>
     </appender>
 
-    <appender name="ASYNC" class="ch.qos.logback.classic.AsyncAppender">
-        <appender-ref ref="STD_OUT"/>
-    </appender>
-
     <logger name="com.ruchij" level="TRACE" additivity="false">
-        <appender-ref ref="ASYNC"/>
+        <appender-ref ref="STD_OUT"/>
     </logger>
     <root level="WARN">
-        <appender-ref ref="ASYNC"/>
+        <appender-ref ref="STD_OUT"/>
     </root>
 </configuration>

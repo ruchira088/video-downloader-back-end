@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: db-migration-config-map
+  name: db-migration-data-config-map
   namespace: {{ namespace }}
 data:
 {% for key, value in db_migration.config_values.items() %}

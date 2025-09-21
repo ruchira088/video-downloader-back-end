@@ -98,8 +98,11 @@
 
         - name: Deploy DB migration
           block:
-            - name: Create ConfigMap
-              command: kubectl apply -f k8s-output/db-migration/ConfigMap.yaml --kubeconfig {{ kubeconfig }}
+            - name: Create data ConfigMap
+              command: kubectl apply -f k8s-output/db-migration/DataConfigMap.yaml --kubeconfig {{ kubeconfig }}
+
+            - name: Create file ConfigMap
+              command: kubectl apply -f k8s-output/db-migration/FileConfigMap.yaml --kubeconfig {{ kubeconfig }}
 
             - name: Create Secrets
               command: kubectl apply -f k8s-output/db-migration/Secrets.yaml --kubeconfig {{ kubeconfig }}

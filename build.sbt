@@ -38,19 +38,21 @@ lazy val migrationApplication =
     .settings(
       name := "video-downloader-migration-application",
       buildInfoKeys :=
-        Seq[BuildInfoKey](
-          name,
-          organization,
-          version,
-          scalaVersion,
-          sbtVersion,
-          buildTimestamp,
-          gitBranch,
-          gitCommit
-        ),
+        Seq[BuildInfoKey](name, organization, version, scalaVersion, sbtVersion, buildTimestamp, gitBranch, gitCommit),
       buildInfoPackage := "com.eed3si9n.ruchij.migration",
       topLevelDirectory := None,
-      libraryDependencies ++= Seq(catsEffect, flywayCore, flywayPostgresql, h2, postgresql, pureconfig, scalaLogging, logbackClassic),
+      Universal / javaOptions ++= Seq("-Dlogback.configurationFile=/opt/data/logback.xml"),
+      libraryDependencies ++= Seq(
+        catsEffect,
+        flywayCore,
+        flywayPostgresql,
+        h2,
+        postgresql,
+        pureconfig,
+        scalaLogging,
+        logbackClassic,
+        logstashLogbackEncoder
+      ),
       libraryDependencies ++= Seq(scalaTest).map(_ % Test)
     )
 
@@ -83,6 +85,7 @@ lazy val core =
           jsoup,
           scalaLogging,
           logbackClassic,
+          logstashLogbackEncoder,
           embeddedRedis,
           embeddedKafkaSchemaRegistry,
           testContainers,
@@ -101,21 +104,14 @@ lazy val api =
       Test / fork := true,
       name := "video-downloader-api",
       buildInfoKeys :=
-        Seq[BuildInfoKey](
-          name,
-          organization,
-          version,
-          scalaVersion,
-          sbtVersion,
-          buildTimestamp,
-          gitBranch,
-          gitCommit
-        ),
+        Seq[BuildInfoKey](name, organization, version, scalaVersion, sbtVersion, buildTimestamp, gitBranch, gitCommit),
       buildInfoPackage := "com.eed3si9n.ruchij.api",
       topLevelDirectory := None,
       Universal / javaOptions ++= Seq("-Dlogback.configurationFile=/opt/data/logback.xml"),
       libraryDependencies ++=
-        Seq(http4sEmberServer, circeGeneric, circeParser, circeLiteral, postgresql, pureconfig, jbcrypt, logbackClassic) ++ Seq(pegdown).map(_ % Test)
+        Seq(http4sEmberServer, circeGeneric, circeParser, circeLiteral, postgresql, pureconfig, jbcrypt, logbackClassic) ++ Seq(
+          pegdown
+        ).map(_ % Test)
     )
     .dependsOn(core % "compile->compile;test->test")
 
@@ -125,16 +121,7 @@ lazy val batch =
     .settings(
       name := "video-downloader-batch",
       buildInfoKeys :=
-        Seq[BuildInfoKey](
-          name,
-          organization,
-          version,
-          scalaVersion,
-          sbtVersion,
-          buildTimestamp,
-          gitBranch,
-          gitCommit
-        ),
+        Seq[BuildInfoKey](name, organization, version, scalaVersion, sbtVersion, buildTimestamp, gitBranch, gitCommit),
       buildInfoPackage := "com.eed3si9n.ruchij.batch",
       topLevelDirectory := None,
       Universal / javaOptions ++= Seq("-Dlogback.configurationFile=/opt/data/logback.xml"),
@@ -218,7 +205,7 @@ viewCoverageResults := {
 
 lazy val buildTimestamp = BuildInfoKey.action("buildTimestamp") { Instant.now() }
 lazy val gitBranch = BuildInfoKey.action("gitBranch") { runGitCommand("git rev-parse --abbrev-ref HEAD") }
-lazy val gitCommit =  BuildInfoKey.action("gitCommit") { runGitCommand("git rev-parse --short HEAD") }
+lazy val gitCommit = BuildInfoKey.action("gitCommit") { runGitCommand("git rev-parse --short HEAD") }
 
 def runGitCommand(command: String): Option[String] = {
   val gitFolder = new File(".git")

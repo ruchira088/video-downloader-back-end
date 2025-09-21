@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: api-file-config-map
+  name: db-migration-file-config-map
   namespace: {{ namespace }}
 data:
   logback.xml: |
     <configuration scan="true" scanPeriod="10 seconds">
-        <contextListener class="com.ruchij.api.logging.ApiLoggerContextListener"/>
+        <contextListener class="com.ruchij.migration.logging.MigrationLoggerContextListener"/>
         
         <appender name="STD_OUT" class="ch.qos.logback.core.ConsoleAppender">
             <encoder>
