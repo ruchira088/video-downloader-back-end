@@ -6,7 +6,7 @@ object Dependencies
   val Http4sVersion = "0.23.30"
   val CirceVersion = "0.14.14"
   val TestContainersVersion = "1.21.3"
-  val FlywayVersion = "11.12.0"
+  val FlywayVersion = "11.13.1"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -52,11 +52,11 @@ object Dependencies
 
   lazy val flywayPostgresql = "org.flywaydb" % "flyway-database-postgresql"  % FlywayVersion
 
-  lazy val postgresql = "org.postgresql" % "postgresql" % "42.7.7"
+  lazy val postgresql = "org.postgresql" % "postgresql" % "42.7.8"
 
   lazy val h2 = "com.h2database" % "h2" % "2.3.232"
 
-  lazy val apacheTika = "org.apache.tika" % "tika-core" % "3.2.2"
+  lazy val apacheTika = "org.apache.tika" % "tika-core" % "3.2.3"
 
   lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "2.0.1"
 
@@ -78,7 +78,7 @@ object Dependencies
 
   lazy val logstashLogbackEncoder = "net.logstash.logback" % "logstash-logback-encoder" % "8.1"
 
-  lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
+  lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.6"
 
   lazy val kindProjector = "org.typelevel" %% "kind-projector" % "0.13.3" cross CrossVersion.full
 
@@ -86,7 +86,7 @@ object Dependencies
 
   lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.19"
 
-  lazy val scalaMock = "org.scalamock" %% "scalamock" % "7.4.2"
+  lazy val scalaMock = "org.scalamock" %% "scalamock" % "7.5.0"
 
   lazy val pegdown = "org.pegdown" % "pegdown" % "1.6.0"
 }
