@@ -6,13 +6,15 @@ import com.redis.testcontainers.{RedisContainer => RedisTestContainer}
 import com.ruchij.core.config.RedisConfiguration
 import com.ruchij.core.external.containers.ContainerCoreResourcesProvider
 
-class RedisContainer extends RedisTestContainer("bitnami/redis:7.0")
+class RedisContainer extends RedisTestContainer("redis:8")
 
 object RedisContainer {
   private val Password = "my-password"
 
   def create[F[_]: Sync]: Resource[F, RedisConfiguration] =
-    Resource.eval(Sync[F].delay(new RedisContainer().withEnv("REDIS_PASSWORD", Password)))
+    Resource.eval {
+      Sync[F].delay { new RedisContainer().withCommand(s"redis-server --requirepass $Password") }
+    }
       .flatMap(redisContainer => ContainerCoreResourcesProvider.start(redisContainer))
       .evalMap { redisContainer =>
         for {
