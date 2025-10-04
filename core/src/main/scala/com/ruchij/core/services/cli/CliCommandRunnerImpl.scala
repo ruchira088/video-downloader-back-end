@@ -18,7 +18,7 @@ class CliCommandRunnerImpl[F[_]: Async](dispatcher: Dispatcher[F]) extends CliCo
 
   override def run(command: String): Stream[F, String] =
     for {
-      _ <- Stream.eval(logger.info(s"Executing CLI command: $command"))
+      _ <- Stream.eval(logger.info[F](s"Executing CLI command: $command"))
       queue <- Stream.eval(Queue.unbounded[F, String])
       deferred <- Stream.eval(Deferred[F, Throwable])
 
@@ -78,8 +78,8 @@ class CliCommandRunnerImpl[F[_]: Async](dispatcher: Dispatcher[F]) extends CliCo
               if (isAlive)
                 Sync[F]
                   .delay(process.destroy())
-                  .productR(logger.info(s"Process was killed: $command"))
-              else logger.debug(s"Completed command: $command")
+                  .productR(logger.info[F](s"Process was killed: $command"))
+              else logger.debug[F](s"Completed command: $command")
             }
         }
     } yield line

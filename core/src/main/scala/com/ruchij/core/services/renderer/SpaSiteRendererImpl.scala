@@ -32,7 +32,7 @@ class SpaSiteRendererImpl[F[_]: Async](client: Client[F], spaSiteRendererConfigu
     )
       .recoverWith {
         case exception =>
-          logger.warn(s"Unable to render uri=$uri")
+          logger.warn[F](s"Unable to render uri=$uri")
             .productR { ApplicativeError[F, Throwable].raiseError(exception) }
       }
 
@@ -45,7 +45,7 @@ class SpaSiteRendererImpl[F[_]: Async](client: Client[F], spaSiteRendererConfigu
     )
       .recoverWith {
         case exception =>
-          logger.warn(s"Unable to execute JS for uri=$uri script=$script")
+          logger.warn[F](s"Unable to execute JS for uri=$uri script=$script")
             .productR { ApplicativeError[F, Throwable].raiseError(exception) }
       }
 }

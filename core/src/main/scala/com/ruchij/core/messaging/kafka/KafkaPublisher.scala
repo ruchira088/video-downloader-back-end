@@ -23,7 +23,7 @@ class KafkaPublisher[F[_]: Sync, A](topicName: String, kafkaProducer: KafkaProdu
           .productR {
             producerRecords.traverse {
               producerRecord =>
-                logger.trace(s"Published: topic=${producerRecord.topic}, value=${producerRecord.value}")
+                logger.trace[F](s"Published: topic=${producerRecord.topic}, value=${producerRecord.value}")
             }
           }
 

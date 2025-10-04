@@ -80,7 +80,7 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
             if (isVideoFilePath) syncVideo(filePath)
             else
               logger
-                .trace(s"Ignoring $filePath")
+                .trace[F](s"Ignoring $filePath")
                 .productR(Applicative[F].pure[FileSyncResult](IgnoredFile(filePath)))
           }
       }
@@ -96,14 +96,14 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
 
   private def scanForMissingVideoFiles(scanCount: Int = 0): F[SynchronizationResult] =
     logger
-      .info(s"Searching for videos with missing video files. scanCount=$scanCount")
+      .info[F](s"Searching for videos with missing video files. scanCount=$scanCount")
       .productR {
         getAllVideos(0, 50)
           .evalFilterNot { video =>
             fileRepositoryService.exists(video.fileResource.path)
           }
           .evalTap { video =>
-            logger.warn(
+            logger.warn[F](
               f"Deleting video id=${video.videoMetadata.id}, size=${video.fileResource.size} url=${video.videoMetadata.url}, path=${video.fileResource.path}"
             )
           }
@@ -111,7 +111,7 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
             batchVideoService
               .deleteById(video.videoMetadata.id, deleteVideoFile = false)
               .productR {
-                logger.warn(f"Deleted video id=${video.videoMetadata.id}")
+                logger.warn[F](f"Deleted video id=${video.videoMetadata.id}")
               }
               .as(MissingVideoFile(video))
           }
@@ -126,7 +126,7 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
       }
 
   private val scanForVideoWithoutSnapshots: F[SynchronizationResult] = {
-    logger.info(s"Scanning for videos without ${VideoEnrichmentService.SnapshotCount} snapshots")
+    logger.info[F](s"Scanning for videos without ${VideoEnrichmentService.SnapshotCount} snapshots")
     getAllVideos(0, 50)
       .evalFilter { video =>
         transaction { snapshotDao.findByVideo(video.videoMetadata.id, None) }
@@ -153,13 +153,13 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
     logger
       .info[F]("Synchronization started")
       .productL(setVideoScanningStatus(InProgress))
-      .productL(logger.info("Scanning file system for unaccounted videos"))
+      .productL(logger.info[F]("Scanning file system for unaccounted videos"))
       .productR(scanFileRepositoryForUnaccountedVideos)
-      .productL(logger.info("Scanning for missing video files"))
+      .productL(logger.info[F]("Scanning for missing video files"))
       .product(scanForMissingVideoFiles())
-      .productL(logger.info("Scanning for missing video snapshots"))
+      .productL(logger.info[F]("Scanning for missing video snapshots"))
       .flatMap { case (resultOne, resultTwo) => scanForVideoWithoutSnapshots.map(_ + resultOne + resultTwo) }
-      .productL(logger.info("Synchronization completed"))
+      .productL(logger.info[F]("Synchronization completed"))
       .productL(setVideoScanningStatus(Idle))
       .flatTap { result =>
         logger.info[F](result.prettyPrint)
@@ -248,7 +248,7 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
                   } else Applicative[F].pure[FileSyncResult](IgnoredFile(videoPath))
             }
             .handleErrorWith { throwable =>
-              logger.warn(throwable.getMessage).as[FileSyncResult](IgnoredFile(videoPath))
+              logger.warn[F](throwable.getMessage).as[FileSyncResult](IgnoredFile(videoPath))
             }
 
         case _ => Applicative[F].pure[FileSyncResult](ExistingVideo(videoPath))

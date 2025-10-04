@@ -17,7 +17,7 @@ class KafkaSubscriber[F[_]: Async, A](kafkaConfiguration: KafkaConfiguration)(
   private val logger = Logger[KafkaSubscriber[F, A]]
 
   override def subscribe(groupId: String): Stream[F, CommittableRecord[CommittableConsumerRecord[F, Unit, *], A]] =
-    Stream.eval(logger.info(s"$groupId subscribed to topic=${kafkaConfiguration.label(topic.name)}"))
+    Stream.eval(logger.info[F](s"$groupId subscribed to topic=${kafkaConfiguration.label(topic.name)}"))
       .productR {
         Stream
           .resource {

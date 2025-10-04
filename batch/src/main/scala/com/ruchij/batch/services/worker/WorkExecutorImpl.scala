@@ -97,7 +97,7 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
                             .downloadVideo(scheduledVideoDownload.videoMetadata.url, videoFilePath)
                             .onFinalizeCase { exitCase =>
                               logger
-                                .info(
+                                .info[F](
                                   s"ExitCase = $exitCase for YouTubeDownloader uri=${scheduledVideoDownload.videoMetadata.url}"
                                 )
                                 .productR {
@@ -152,14 +152,14 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
 
   private def findVideoFile(fileKey: String, videoMetadataId: String): F[String] =
     logger
-      .info(s"Searching for the fileKey=$fileKey for videoMetadataId=$videoMetadataId")
+      .info[F](s"Searching for the fileKey=$fileKey for videoMetadataId=$videoMetadataId")
       .productR {
         OptionT(findVideoFileWithExtensions(fileKey, Constants.VideoFileExtensions))
           .getOrElseF {
             findVideoFileByCrawling(videoMetadataId)
           }
           .flatTap { file =>
-            logger.info(s"Found file=$file for $videoMetadataId")
+            logger.info[F](s"Found file=$file for $videoMetadataId")
           }
       }
 
@@ -186,7 +186,7 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
               .updateAndGet(_ + 1)
               .flatMap { fileCount =>
                 if (fileCount % 10 == 0)
-                  logger.info(s"Searched $fileCount files for the file key for $videoMetadataId")
+                  logger.info[F](s"Searched $fileCount files for the file key for $videoMetadataId")
                 else Applicative[F].pure((): Unit)
               }
               .as {
@@ -203,7 +203,7 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
               val resourceNotFoundException = ResourceNotFoundException(s"Unable to find file key for $videoMetadataId")
 
               logger
-                .error("File key not found", resourceNotFoundException)
+                .error[F]("File key not found", resourceNotFoundException)
                 .productR {
                   ApplicativeError[F, Throwable].raiseError(resourceNotFoundException)
                 }
@@ -216,7 +216,7 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
                   .mkString("[", ", ", "]")}")
 
               logger
-                .error("Multiple file keys found", illegalStateException)
+                .error[F]("Multiple file keys found", illegalStateException)
                 .productR {
                   ApplicativeError[F, Throwable].raiseError(illegalStateException)
                 }
@@ -233,7 +233,7 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
         case (data, fileResourceF) =>
           data
             .concurrently {
-              Stream.fixedRate(30 seconds).evalMap { _ =>
+              Stream.fixedRate[F](30 seconds).evalMap { _ =>
                 JodaClock[F].timestamp.flatMap { timestamp =>
                   transaction(workerDao.updateHeartBeat(workerId, timestamp))
                     .productR(Applicative[F].unit)
@@ -249,12 +249,12 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
             .last
             .flatMap {
               case Some(byteCount) =>
-                logger.info(
+                logger.info[F](
                   s"Worker $workerId reached byteCount=$byteCount for videoId=${scheduledVideoDownload.videoMetadata.id}"
                 )
 
               case _ =>
-                logger.info(
+                logger.info[F](
                   s"Worker $workerId didn't download any bytes for videoId=${scheduledVideoDownload.videoMetadata.id}"
                 )
             }
@@ -323,7 +323,7 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
                     .attempt
                     .flatMap {
                       case Left(throwable) =>
-                        logger.error(s"Failed to take video snapshots for video=$video", throwable)
+                        logger.error[F](s"Failed to take video snapshots for video=$video", throwable)
                       case _ => Applicative[F].pure((): Unit)
                     }
                 }

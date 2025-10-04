@@ -30,7 +30,7 @@ object RandomGenerator {
     }
 
   def from[F[_]: Sync, A](values: NonEmptyList[A]): RandomGenerator[F, A] =
-    range(0, values.length).map(index => values.toList(index))
+    range[F](0, values.length).map(index => values.toList(index))
 
   def eval[F[_], A](value: F[A]): RandomGenerator[F, A] =
     new RandomGenerator[F, A] {
@@ -45,7 +45,7 @@ object RandomGenerator {
     }
 
   implicit def dateTimeRandomGenerator[F[_]: JodaClock: Sync]: RandomGenerator[F, DateTime] =
-    range(-10_000, 0).evalMap(offset => JodaClock[F].timestamp.map(_.minusMinutes(offset)))
+    range[F](-10_000, 0).evalMap(offset => JodaClock[F].timestamp.map(_.minusMinutes(offset)))
 
   implicit def randomGeneratorMonad[F[_]: Monad]: Monad[RandomGenerator[F, *]] =
     new Monad[RandomGenerator[F, *]] {

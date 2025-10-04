@@ -1,21 +1,25 @@
 package com.ruchij.core.daos.doobie
 
-import cats.effect.{Async, Resource}
+import cats.effect.{Async, Resource, Sync}
 import com.ruchij.core.daos.doobie.DatabaseDriver.parseFromConnectionUrl
 import com.ruchij.migration.config.DatabaseConfiguration
 import com.ruchij.core.types.FunctionKTypes._
 import doobie.hikari.HikariTransactor
-import doobie.util.ExecutionContexts
 
+import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
 
 object DoobieTransactor {
 
   def create[F[_]: Async](databaseConfiguration: DatabaseConfiguration): Resource[F, HikariTransactor[F]] =
     for {
-      connectEC <- ExecutionContexts.fixedThreadPool(8)
+      executorService <- Resource.make(Sync[F].delay(Executors.newVirtualThreadPerTaskExecutor())) {
+        executorService => Sync[F].delay(executorService.shutdown())
+      }
 
-      transactor <- create[F](databaseConfiguration, connectEC)
+      executionContext = ExecutionContext.fromExecutorService(executorService)
+
+      transactor <- create[F](databaseConfiguration, executionContext)
     }
     yield transactor
 

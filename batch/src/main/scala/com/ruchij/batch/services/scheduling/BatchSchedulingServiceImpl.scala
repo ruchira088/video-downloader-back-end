@@ -95,7 +95,7 @@ class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]]
         workerStatusSubscriber
           .commit(List(committableRecord))
           .product {
-            logger.debug(s"DownloadProgressSubscriber(groupId=$groupId) committed 1 message")
+            logger.debug[F](s"DownloadProgressSubscriber(groupId=$groupId) committed 1 message")
           }
           .as(committableRecord.value)
       }
@@ -107,7 +107,7 @@ class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]]
         scheduledVideoDownloadPubSub
           .commit(List(committableRecord))
           .product {
-            logger.debug(s"ScheduledVideoDownloadPubSub(groupId=$groupId) committed 1 message")
+            logger.debug[F](s"ScheduledVideoDownloadPubSub(groupId=$groupId) committed 1 message")
           }
           .as(committableRecord.value)
       }
@@ -119,7 +119,7 @@ class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]]
 
   override def deleteById(id: String): F[ScheduledVideoDownload] =
     logger
-      .info(s"Deleting ScheduledVideoDownload with id=$id")
+      .info[F](s"Deleting ScheduledVideoDownload with id=$id")
       .productR {
         OptionT {
           transaction {
@@ -134,7 +134,7 @@ class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]]
         }.getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
           .flatTap { scheduledVideoDownload =>
             if (scheduledVideoDownload.downloadedBytes > 0) {
-              logger.info(s"Deleting video file for ScheduledVideoDownload with id=$id")
+              logger.info[F](s"Deleting video file for ScheduledVideoDownload with id=$id")
                 .productR {
                   repositoryService
                     .list(storageConfiguration.videoFolder)

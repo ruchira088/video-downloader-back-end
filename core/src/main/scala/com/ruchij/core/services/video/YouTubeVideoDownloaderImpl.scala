@@ -123,7 +123,7 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
             .recoverWith {
               case timeoutException: TimeoutException =>
                 logger
-                  .error(s"YoutubeDownloader failed download any data for url=${uri.renderString}", timeoutException)
+                  .error[F](s"YoutubeDownloader failed download any data for url=${uri.renderString}", timeoutException)
                   .as(Left(timeoutException))
             }
         }

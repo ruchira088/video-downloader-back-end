@@ -141,7 +141,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
             videoPermissionDao.insert(VideoPermission(timestamp, scheduledVideoDownload.videoMetadata.id, userId))
           }
       }
-      _ <- logger.info(s"Scheduled to download video at $uri")
+      _ <- logger.info[F](s"Scheduled to download video at $uri")
 
       _ <- scheduledVideoDownloadPublisher.publishOne(scheduledVideoDownload)
     } yield ScheduledVideoResult.NewlyScheduled(scheduledVideoDownload)
@@ -217,7 +217,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
   ): F[ScheduledVideoDownload] =
     OptionT { transaction { schedulingDao.updateDownloadProgress(id, downloadedBytes, timestamp) }}
       .getOrElseF {
-        logger.warn(s"Ignored download progress update for id=$id, timestamp=$timestamp, downloadedBytes=$downloadedBytes")
+        logger.warn[F](s"Ignored download progress update for id=$id, timestamp=$timestamp, downloadedBytes=$downloadedBytes")
           .productR(getById(id, None))
       }
 

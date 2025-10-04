@@ -62,7 +62,7 @@ object Routes {
 
     MetricsMiddleware(metricPublisher) {
       GZip {
-        Cors(allowedOrigins) {
+        Cors[F](allowedOrigins) {
           RequestContextMiddleware {
             ExceptionHandler {
               NotFoundHandler { contextRoutes }

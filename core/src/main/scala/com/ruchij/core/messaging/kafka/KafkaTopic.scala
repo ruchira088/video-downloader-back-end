@@ -20,12 +20,12 @@ trait KafkaTopic[A] {
 
   def serializer[F[_]: Sync](kafkaConfiguration: KafkaConfiguration): Resource[F, ValueSerializer[F, A]] =
     avroSerializer[A](codec).forValue {
-      AvroSettings { SchemaRegistryClientSettings(kafkaConfiguration.schemaRegistry.renderString) }
+      AvroSettings[F] { SchemaRegistryClientSettings[F](kafkaConfiguration.schemaRegistry.renderString) }
     }
 
   def deserializer[F[_]: Sync](kafkaConfiguration: KafkaConfiguration): Resource[F, ValueDeserializer[F, A]] =
     avroDeserializer[A](codec).forValue {
-      AvroSettings { SchemaRegistryClientSettings(kafkaConfiguration.schemaRegistry.renderString) }
+      AvroSettings[F] { SchemaRegistryClientSettings[F](kafkaConfiguration.schemaRegistry.renderString) }
     }
 }
 

@@ -71,8 +71,8 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
         }
       }
       .flatMap {
-        case Some(worker) => Stream.eval(logger.info(s"Found idle worker workerId=${worker.id}")).as(worker)
-        case _ => Stream.eval(logger.info("Idle workers not found")).productR(Stream.empty)
+        case Some(worker) => Stream.eval(logger.info[F](s"Found idle worker workerId=${worker.id}")).as(worker)
+        case _ => Stream.eval(logger.info[F]("Idle workers not found")).productR(Stream.empty)
       }
 
   private def performWork(
@@ -106,7 +106,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
               .as(timestamp -> task)
           } {
               case throwable: Throwable =>
-                OptionT.liftF(logger.warn(s"Error assigning task to worker. workerId=${worker.id}, scheduledVideoId=${task.videoMetadata.id} error=$throwable"))
+                OptionT.liftF(logger.warn[F](s"Error assigning task to worker. workerId=${worker.id}, scheduledVideoId=${task.videoMetadata.id} error=$throwable"))
                   .productR(OptionT.none)
             }
         }
@@ -149,7 +149,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
         batchSchedulingService
           .setErrorById(scheduledVideoDownload.videoMetadata.id, exception)
           .productR {
-            logger.error(
+            logger.error[F](
               s"Error occurred in worker executor for scheduledVideoDownload ID=${scheduledVideoDownload.videoMetadata.id}",
               exception
             )
@@ -161,7 +161,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
           .productR(Applicative[F].unit)
 
       case (_, Errored(exception)) =>
-        logger.error("Error occurred without scheduledVideoDownload", exception)
+        logger.error[F]("Error occurred without scheduledVideoDownload", exception)
 
       case (_, _) => Applicative[F].unit
     }
@@ -301,7 +301,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
             }
             .recoverWith {
               case exception =>
-                logger.error("Error occurred updating video watch times", exception)
+                logger.error[F]("Error occurred updating video watch times", exception)
             }
       }
       .groupWithin(20, 5 seconds)

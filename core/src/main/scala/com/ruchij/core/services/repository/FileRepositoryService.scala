@@ -67,14 +67,14 @@ class FileRepositoryService[F[_]: Async: Files](fileTypeDetector: FileTypeDetect
   override def list(key: Key): Stream[F, Key] =
     Stream.eval(Ref.of[F, Boolean](false)).flatMap { ref =>
       Stream
-        .eval(logger.info(s"Listing files for $key"))
+        .eval(logger.info[F](s"Listing files for $key"))
         .interruptWhen {
           Timers
             .createResettableTimer(100 seconds, ref)
             .recoverWith {
               case timeoutException: TimeoutException =>
                 logger
-                  .error(s"Unable to list files for $key", timeoutException)
+                  .error[F](s"Unable to list files for $key", timeoutException)
                   .as(Left(timeoutException))
             }
         }

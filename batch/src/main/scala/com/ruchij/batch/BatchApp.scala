@@ -185,7 +185,7 @@ object BatchApp extends IOApp {
             batchServiceConfiguration.storageConfiguration
           )
 
-          videoWatchHistoryService = new VideoWatchHistoryServiceImpl(DoobieVideoWatchHistoryDao)
+          videoWatchHistoryService = new VideoWatchHistoryServiceImpl[F, ConnectionIO](DoobieVideoWatchHistoryDao)
 
           sharedConfigurationService =
             new ConfigurationServiceImpl[F, SharedConfigKey](

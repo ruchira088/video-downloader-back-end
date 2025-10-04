@@ -107,7 +107,7 @@ object ApiApp extends IOApp {
           HttpClient.newBuilder().followRedirects(Redirect.NORMAL).build()
         }
       }
-      httpClient = JdkHttpClient(javaHttpClient)
+      httpClient = JdkHttpClient[F](javaHttpClient)
 
       redisKeyValueStore <- RedisKeyValueStore.create[F](apiServiceConfiguration.redisConfiguration)
       downloadProgressPubSub <- KafkaPubSub[F, DownloadProgress](apiServiceConfiguration.kafkaConfiguration)

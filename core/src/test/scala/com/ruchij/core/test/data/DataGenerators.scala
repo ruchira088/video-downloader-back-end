@@ -30,9 +30,9 @@ object DataGenerators {
       id <- RandomGenerator[F, UUID].map(uuid => s"${videoSite.name}-${uuid.toString.take(8)}")
       uri <- RandomGenerator.eval(Uri.fromString(s"https://${videoSite.hostname}/video/$id").toType[F, Throwable])
       title = s"video-tile-$id"
-      duration <- RandomGenerator.range(0, 3600).map(seconds => FiniteDuration(seconds, TimeUnit.SECONDS))
-      size <- RandomGenerator.range(10_000, 1_000_000).map(_.toLong)
-      thumbnail <- fileResource(NonEmptyList.of(MediaType.image.png, MediaType.image.jpeg, MediaType.image.gif))
+      duration <- RandomGenerator.range[F](0, 3600).map(seconds => FiniteDuration(seconds, TimeUnit.SECONDS))
+      size <- RandomGenerator.range[F](10_000, 1_000_000).map(_.toLong)
+      thumbnail <- fileResource[F](NonEmptyList.of(MediaType.image.png, MediaType.image.jpeg, MediaType.image.gif))
     }
     yield VideoMetadata(uri, id, videoSite, title, duration, size, thumbnail)
 
@@ -40,8 +40,8 @@ object DataGenerators {
     for {
       id <- RandomGenerator[F, UUID].map(uuid => s"file-${uuid.toString.take(8)}")
       timestamp <- RandomGenerator[F, DateTime]
-      mediaType <- RandomGenerator.from(fileTypes)
-      size <- RandomGenerator.range(1_000, 40_000)
+      mediaType <- RandomGenerator.from[F, MediaType](fileTypes)
+      size <- RandomGenerator.range[F](1_000, 40_000)
       path = s"/data/files/$id.${mediaType.subType}"
     }
     yield FileResource(id, timestamp, path, mediaType, size)

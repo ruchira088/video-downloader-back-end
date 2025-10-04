@@ -2,11 +2,11 @@ import sbt._
 
 object Dependencies
 {
-  val ScalaVersion = "2.13.16"
-  val Http4sVersion = "0.23.30"
-  val CirceVersion = "0.14.14"
+  val ScalaVersion = "2.13.17"
+  val Http4sVersion = "0.23.32"
+  val CirceVersion = "0.14.15"
   val TestContainersVersion = "1.21.3"
-  val FlywayVersion = "11.13.1"
+  val FlywayVersion = "11.13.2"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -18,13 +18,13 @@ object Dependencies
 
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.6.3"
 
-  lazy val kafka = "org.apache.kafka" %% "kafka" % "8.0.0-ccs"
+  lazy val kafka = "org.apache.kafka" %% "kafka" % "8.0.1-ccs"
 
   lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "3.9.0"
 
   lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "3.9.0"
 
-  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "8.0.0"
+  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "8.0.1"
 
   lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.12.0"
 
@@ -54,7 +54,7 @@ object Dependencies
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.7.8"
 
-  lazy val h2 = "com.h2database" % "h2" % "2.3.232"
+  lazy val h2 = "com.h2database" % "h2" % "2.4.240"
 
   lazy val apacheTika = "org.apache.tika" % "tika-core" % "3.2.3"
 
@@ -74,13 +74,13 @@ object Dependencies
 
   lazy val redisTestContainer = "com.redis" % "testcontainers-redis" % "2.2.4"
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.18"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.19"
 
   lazy val logstashLogbackEncoder = "net.logstash.logback" % "logstash-logback-encoder" % "8.1"
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.6"
 
-  lazy val kindProjector = "org.typelevel" %% "kind-projector" % "0.13.3" cross CrossVersion.full
+  lazy val kindProjector = "org.typelevel" %% "kind-projector" % "0.13.4" cross CrossVersion.full
 
   lazy val betterMonadicFor = "com.olegpy" %% "better-monadic-for" % "0.3.1"
 

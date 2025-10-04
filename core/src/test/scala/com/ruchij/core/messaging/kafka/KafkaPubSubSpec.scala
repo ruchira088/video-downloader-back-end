@@ -18,7 +18,7 @@ class KafkaPubSubSpec extends AnyFlatSpec with Matchers {
   "Kafka publisher and subscriber" should "be able to publish and subscribe to Kafka topic" in runIO {
     new ContainerCoreResourcesProvider[IO].kafkaConfiguration
       .flatMap {
-        kafkaConfiguration => KafkaPubSub(kafkaConfiguration)(IO.asyncForIO, KafkaPubSubSpec.TestMessageTopic)
+        kafkaConfiguration => KafkaPubSub[IO, TestMessage](kafkaConfiguration)(IO.asyncForIO, KafkaPubSubSpec.TestMessageTopic)
       }
       .use { pubSub =>
         pubSub.subscribe("test-subscriber").take(10).compile.toList.start

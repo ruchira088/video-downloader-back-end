@@ -29,7 +29,7 @@ class VideoEnrichmentServiceImpl[F[_]: Sync: RandomGenerator[*[_], UUID],T[_]: M
   override val snapshotMediaType: MediaType = MediaType.image.jpeg
 
   override def videoSnapshots(video: Video): F[List[Snapshot]] =
-    logger.info(s"Taking video snapshots for id=${video.videoMetadata.id}")
+    logger.info[F](s"Taking video snapshots for id=${video.videoMetadata.id}")
       .productR {
         VideoEnrichmentService
           .snapshotTimestamps(video, VideoEnrichmentService.SnapshotCount)
@@ -37,7 +37,7 @@ class VideoEnrichmentServiceImpl[F[_]: Sync: RandomGenerator[*[_], UUID],T[_]: M
           .traverse(createSnapshot(video, _))
       }
       .productL {
-        logger.info(s"Completed video snapshots for id=${video.videoMetadata.id}")
+        logger.info[F](s"Completed video snapshots for id=${video.videoMetadata.id}")
       }
 
 

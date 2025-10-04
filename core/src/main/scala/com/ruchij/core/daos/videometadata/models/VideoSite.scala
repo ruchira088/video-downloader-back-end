@@ -33,7 +33,7 @@ object VideoSite {
       }
       .toRight { ValidationException(s"Unable infer video site from ${uri.renderString}") }
 
-  def processUri[F[_]: MonadThrow](uri: Uri): F[Uri] = fromUri(uri).toType[F, Throwable].flatMap(_.processUri(uri))
+  def processUri[F[_]: MonadThrow](uri: Uri): F[Uri] = fromUri(uri).toType[F, Throwable].flatMap(_.processUri[F](uri))
 
   case object Local extends VideoSite {
     override val name: String = "Local"

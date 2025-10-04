@@ -31,7 +31,7 @@ object CoreResourcesProvider {
       hikariTransactor <- DoobieTransactor
         .create[F](databaseConfig, executionContext)
 
-      migrationResult <- Resource.eval(MigrationApp.migration(migrationServiceConfiguration(databaseConfig)))
+      migrationResult <- Resource.eval(MigrationApp.migration[F](migrationServiceConfiguration(databaseConfig)))
     } yield hikariTransactor.trans
 
   implicit class ExternalServiceProviderOps[F[_]](externalServiceProvider: CoreResourcesProvider[F]) {

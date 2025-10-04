@@ -22,7 +22,7 @@ class ContainerCoreResourcesProvider[F[_]: Sync]
           .withNetworkAliases(kafkaNetworkAlias)
       }
 
-      schemaRegistryUrl <- SchemaRegistryContainer.create(s"$kafkaNetworkAlias:9093", network)
+      schemaRegistryUrl <- SchemaRegistryContainer.create[F](s"$kafkaNetworkAlias:9093", network)
 
       kafkaBootstrapServers <- Resource.eval(Sync[F].delay(kafkaContainer.getBootstrapServers))
 

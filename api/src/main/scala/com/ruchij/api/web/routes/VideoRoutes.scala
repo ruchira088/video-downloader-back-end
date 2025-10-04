@@ -84,7 +84,7 @@ object VideoRoutes {
         } yield response
 
       case GET -> Root / "scan" as AuthenticatedRequestContext(user, _) =>
-        Authorizer(user.role == Admin) {
+        Authorizer[F](user.role == Admin) {
           apiVideoService.scanStatus
             .map {
               _.fold(VideoScanProgressResponse(None, Idle)) { videoScan =>
@@ -95,7 +95,7 @@ object VideoRoutes {
         }
 
       case POST -> Root / "scan" as AuthenticatedRequestContext(user, _) =>
-        Authorizer(user.role == Admin) {
+        Authorizer[F](user.role == Admin) {
           apiVideoService.scanForVideos
             .flatMap {
               case VideoScan(updatedAt, ScanStatus.InProgress) =>

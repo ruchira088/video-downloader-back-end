@@ -21,8 +21,8 @@ class EmbeddedCoreResourcesProvider[F[_]: Sync] extends CoreResourcesProvider[F]
 
   override val kafkaConfiguration: Resource[F, KafkaConfiguration] =
     for {
-      kafkaPort <- Resource.eval(availablePort(EmbeddedKafkaConfig.defaultKafkaPort))
-      schemaRegistryPort <- Resource.eval(availablePort(EmbeddedKafkaSchemaRegistryConfig.defaultSchemaRegistryPort))
+      kafkaPort <- Resource.eval(availablePort[F](EmbeddedKafkaConfig.defaultKafkaPort))
+      schemaRegistryPort <- Resource.eval(availablePort[F](EmbeddedKafkaSchemaRegistryConfig.defaultSchemaRegistryPort))
 
       kafkaConfiguration = KafkaConfiguration(
         "local-dev",

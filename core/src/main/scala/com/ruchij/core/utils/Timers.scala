@@ -18,7 +18,7 @@ object Timers {
     Concurrent[F]
       .race(
         Stream
-          .fixedRate(5 seconds)
+          .fixedRate[F](5 seconds)
           .productR(Stream.eval(resetSignal.get))
           .filter(active => active)
           .take(1)
