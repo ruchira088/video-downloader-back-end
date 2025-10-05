@@ -73,6 +73,8 @@ import pureconfig.ConfigSource
 import java.net.http.HttpClient
 import java.net.http.HttpClient.Redirect
 import java.util.UUID
+import scala.concurrent.duration.DurationInt
+import scala.language.postfixOps
 
 object ApiApp extends IOApp {
   private val logger = Logger[ApiApp.type]
@@ -91,6 +93,7 @@ object ApiApp extends IOApp {
             .withHttpApp(httpApp)
             .withHost(apiServiceConfiguration.httpConfiguration.host)
             .withPort(apiServiceConfiguration.httpConfiguration.port)
+            .withShutdownTimeout(10 seconds)
             .build
         }
         .use(_ => IO.never)
