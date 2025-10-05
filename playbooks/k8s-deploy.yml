@@ -9,9 +9,6 @@
     - name: Install dependencies
       import_tasks: tasks/install-dependencies.yml
 
-    - name: Set config values and secrets
-      import_tasks: tasks/configs-and-secrets.yml
-
     - set_fact:
         k8s_vars:
           production:
@@ -47,6 +44,9 @@
         api_replicas: "{{ k8s_vars[env].api_replicas }}"
         host_path_mappings: "{{ k8s_vars[env].host_path_mappings }}"
         ghcr_credentials: "{{ lookup('aws_ssm', '/github/ghcr/docker-config', region='ap-southeast-2') }}"
+
+    - name: Set config values and secrets
+      import_tasks: tasks/configs-and-secrets.yml
 
     - name: Render K8s resource files
       import_tasks: tasks/k8s-resource-files.yml
