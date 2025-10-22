@@ -64,7 +64,7 @@ object Dependencies
 
   lazy val embeddedRedis = "com.github.kstyrc" % "embedded-redis" % "0.6"
 
-  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "8.0.0"
+  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "8.1.0"
 
   lazy val testContainers = "org.testcontainers" % "testcontainers" % TestContainersVersion
 
@@ -74,7 +74,7 @@ object Dependencies
 
   lazy val redisTestContainer = "com.redis" % "testcontainers-redis" % "2.2.4"
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.19"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.20"
 
   lazy val logstashLogbackEncoder = "net.logstash.logback" % "logstash-logback-encoder" % "8.1"
 
