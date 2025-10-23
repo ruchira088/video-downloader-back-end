@@ -35,7 +35,7 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
 
   override def videoInformation(uri: Uri): F[VideoAnalysisResult] =
     cliCommandRunner
-      .run(s"""yt-dlp "${uri.renderString}" -j""")
+      .run(s"""yt-dlp --no-warnings "${uri.renderString}" -j""")
       .compile
       .string
       .recoverWith {
@@ -104,7 +104,7 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
   override val supportedSites: F[Seq[String]] =
     Sync[F].defer {
       cliCommandRunner
-        .run("yt-dlp --list-extractors")
+        .run("yt-dlp --no-warnings --list-extractors")
         .compile
         .toVector
         .map(identity[Seq[String]])
@@ -116,7 +116,7 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
   override def downloadVideo(uri: Uri, pathWithoutExtension: String): Stream[F, YTDownloaderProgress] =
     Stream.eval(Ref.of[F, Boolean](false)).flatMap { ref =>
       cliCommandRunner
-        .run(s"""yt-dlp -o "$pathWithoutExtension.%(ext)s" "${uri.renderString}"""")
+        .run(s"""yt-dlp --no-warnings -o "$pathWithoutExtension.%(ext)s" "${uri.renderString}"""")
         .interruptWhen {
           Timers
             .createResettableTimer(30 seconds, ref)

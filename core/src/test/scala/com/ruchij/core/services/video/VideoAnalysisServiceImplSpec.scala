@@ -46,11 +46,11 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
   }
 
   it should "analyse a SxyPrn video URL" in runIO {
-    analyze[IO](uri"https://sxyprn.com/post/6432736917c9d.html").semiflatMap { videoAnalysisResult =>
+    analyze[IO](uri"https://sxyprn.com/post/661d0cec4b19c.html").semiflatMap { videoAnalysisResult =>
       IO.delay {
-        videoAnalysisResult.title must include("Jaidah")
-        videoAnalysisResult.duration mustBe (20 minutes)
-        videoAnalysisResult.size mustBe 467664779
+        videoAnalysisResult.title must include("Spencer Scott")
+        videoAnalysisResult.duration mustBe ((31 minutes) + (26 seconds))
+        videoAnalysisResult.size mustBe 494961055
         videoAnalysisResult.videoSite mustBe CustomVideoSite.SxyPrn
       }
     }.value
@@ -85,7 +85,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
         IO.delay {
           videoAnalysisResult.title mustBe "BREAKING WHITE BLONDE BOOTY - GISELLE PALMER"
           videoAnalysisResult.duration mustBe ((37 minutes) + (1 seconds))
-          videoAnalysisResult.size mustBe 231839548
+          videoAnalysisResult.size mustBe 584122827
           Set(
             uri"https://xfreehd.com/media/videos/tmb10/343591/1b.jpg",
             uri"https://image.xfreehd.com/media/videos/tmb10/343591/1b.jpg"

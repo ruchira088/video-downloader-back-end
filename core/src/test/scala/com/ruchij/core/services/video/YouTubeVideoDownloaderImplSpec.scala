@@ -67,7 +67,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
         |}""".stripMargin
 
     (cliCommandRunner.run _)
-      .expects("""yt-dlp "https://www.youtube.com/watch?v=4PrO20ALoCA" -j""")
+      .expects("""yt-dlp --no-warnings "https://www.youtube.com/watch?v=4PrO20ALoCA" -j""")
       .returns(Stream.emits[IO, String](cliOutput.split("\n")))
 
     youTubeVideoDownloader
@@ -96,7 +96,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
         |""".stripMargin
 
     (cliCommandRunner.run _)
-      .expects("yt-dlp --list-extractors")
+      .expects("yt-dlp --no-warnings --list-extractors")
       .returns {
         Stream.emits[IO, String] { cliOutput.split("\n").filter(_.nonEmpty) }
       }
@@ -135,7 +135,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
 
     (cliCommandRunner.run _)
       .expects(
-        """yt-dlp -o "~/Videos/youtube-video-url-hash.%(ext)s" "https://www.youtube.com/watch?v=F1Zl1TRDJs0""""
+        """yt-dlp --no-warnings -o "~/Videos/youtube-video-url-hash.%(ext)s" "https://www.youtube.com/watch?v=F1Zl1TRDJs0""""
       )
       .returns {
         Stream.emits[IO, String] { cliOutput.split("\n") }
