@@ -6,7 +6,7 @@ object Dependencies
   val Http4sVersion = "0.23.33"
   val CirceVersion = "0.14.15"
   val TestContainersVersion = "1.21.3"
-  val FlywayVersion = "11.15.0"
+  val FlywayVersion = "11.16.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -38,9 +38,9 @@ object Dependencies
 
   lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.13"
 
-  lazy val doobie = "org.tpolecat" %% "doobie-core" % "1.0.0-RC10"
+  lazy val doobie = "org.tpolecat" %% "doobie-core" % "1.0.0-RC11"
 
-  lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "1.0.0-RC10"
+  lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "1.0.0-RC11"
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.21.2"
 
@@ -86,7 +86,7 @@ object Dependencies
 
   lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.19"
 
-  lazy val scalaMock = "org.scalamock" %% "scalamock" % "7.5.0"
+  lazy val scalaMock = "org.scalamock" %% "scalamock" % "7.5.2"
 
   lazy val pegdown = "org.pegdown" % "pegdown" % "1.6.0"
 }
