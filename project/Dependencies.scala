@@ -2,11 +2,11 @@ import sbt._
 
 object Dependencies
 {
-  val ScalaVersion = "2.13.17"
+  val ScalaVersion = "2.13.18"
   val Http4sVersion = "0.23.33"
   val CirceVersion = "0.14.15"
   val TestContainersVersion = "1.21.3"
-  val FlywayVersion = "11.16.0"
+  val FlywayVersion = "11.18.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -34,7 +34,7 @@ object Dependencies
 
   lazy val circeLiteral = "io.circe" %% "circe-literal" % CirceVersion
 
-  lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.9.0"
+  lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.9.1"
 
   lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.13"
 
@@ -74,7 +74,7 @@ object Dependencies
 
   lazy val redisTestContainer = "com.redis" % "testcontainers-redis" % "2.2.4"
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.20"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.21"
 
   lazy val logstashLogbackEncoder = "net.logstash.logback" % "logstash-logback-encoder" % "9.0"
 
