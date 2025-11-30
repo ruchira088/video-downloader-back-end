@@ -1,11 +1,12 @@
-import Dependencies._
+import Dependencies.*
 import sbtrelease.Git
-import sbtrelease.ReleaseStateTransformations._
+import sbtrelease.ReleaseStateTransformations.*
 import sbtrelease.Utilities.stateW
 
 import java.awt.Desktop
 import java.time.Instant
-import scala.sys.process._
+import scala.language.postfixOps
+import scala.sys.process.*
 import scala.util.Try
 
 val ReleaseBranch = "dev"
