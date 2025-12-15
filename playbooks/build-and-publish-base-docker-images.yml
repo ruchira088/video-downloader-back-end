@@ -15,7 +15,7 @@
           --platform linux/arm64,linux/amd64 \
           --no-cache \
           -t ghcr.io/ruchira088/video-downloader-scala-base:latest \
-          -t ghcr.io/ruchira088/video-downloader-scala-base:version-{{ ansible_date_time.date }} \
+          -t ghcr.io/ruchira088/video-downloader-scala-base:version-{{ ansible_facts['date_time']['date'] }} \
           -f docker/base/Dockerfile .
 
     - name: Build base DB operations image
@@ -25,5 +25,5 @@
           --platform linux/arm64,linux/amd64 \
           --no-cache \
           -t ghcr.io/ruchira088/video-downloader-db-operations-base:latest \
-          -t ghcr.io/ruchira088/video-downloader-db-operations-base:version-{{ ansible_date_time.date }} \
+          -t ghcr.io/ruchira088/video-downloader-db-operations-base:version-{{ ansible_facts['date_time']['date'] }} \
           -f docker/base/Dockerfile-db-operations .

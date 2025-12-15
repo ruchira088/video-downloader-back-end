@@ -5,7 +5,7 @@ object Dependencies
   val ScalaVersion = "2.13.18"
   val Http4sVersion = "0.23.33"
   val CirceVersion = "0.14.15"
-  val FlywayVersion = "11.18.0"
+  val FlywayVersion = "11.19.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -17,13 +17,13 @@ object Dependencies
 
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.6.3"
 
-  lazy val kafka = "org.apache.kafka" %% "kafka" % "8.1.0-ccs"
+  lazy val kafka = "org.apache.kafka" %% "kafka" % "8.1.1-ccs"
 
   lazy val fs2Kafka = "com.github.fd4s" %% "fs2-kafka" % "3.9.1"
 
   lazy val fs2KafkaVulkan = "com.github.fd4s" %% "fs2-kafka-vulcan" % "3.9.1"
 
-  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "8.1.0"
+  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "8.1.1"
 
   lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.12.0"
 
@@ -73,7 +73,7 @@ object Dependencies
 
   lazy val redisTestContainer = "com.redis" % "testcontainers-redis" % "2.2.4"
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.21"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.22"
 
   lazy val logstashLogbackEncoder = "net.logstash.logback" % "logstash-logback-encoder" % "9.0"
 
