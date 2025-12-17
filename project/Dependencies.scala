@@ -65,11 +65,11 @@ object Dependencies
 
   lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "8.1.0"
 
-  lazy val testContainers = "org.testcontainers" % "testcontainers" % "2.0.2"
+  lazy val testContainers = "org.testcontainers" % "testcontainers" % "2.0.3"
 
-  lazy val kafkaTestContainer = "org.testcontainers" % "kafka" % "1.21.3"
+  lazy val kafkaTestContainer = "org.testcontainers" % "kafka" % "1.21.4"
 
-  lazy val postgresqlTestContainer = "org.testcontainers" % "postgresql" % "1.21.3"
+  lazy val postgresqlTestContainer = "org.testcontainers" % "postgresql" % "1.21.4"
 
   lazy val redisTestContainer = "com.redis" % "testcontainers-redis" % "2.2.4"
 
