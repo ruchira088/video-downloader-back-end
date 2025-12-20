@@ -13,7 +13,6 @@ class ApiLoggerContextListener extends ContextAwareBase with LoggerContextListen
     val hostname = sys.env.getOrElse("APP_HOSTNAME", "unknown")
 
     context.putProperty("app.name", BuildInfo.name)
-    context.putProperty("app.version", BuildInfo.version)
     context.putProperty("git.commit", BuildInfo.gitCommit.getOrElse("unknown"))
     context.putProperty("git.branch", BuildInfo.gitBranch.getOrElse("unknown"))
     context.putProperty("app.hostname", hostname)

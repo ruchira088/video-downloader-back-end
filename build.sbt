@@ -1,16 +1,10 @@
 import Dependencies.*
-import sbtrelease.Git
-import sbtrelease.ReleaseStateTransformations.*
-import sbtrelease.Utilities.stateW
 
 import java.awt.Desktop
 import java.time.Instant
 import scala.language.postfixOps
 import scala.sys.process.*
 import scala.util.Try
-
-val ReleaseBranch = "dev"
-val ProductionBranch = "master"
 
 inThisBuild {
   Seq(
@@ -39,7 +33,7 @@ lazy val migrationApplication =
     .settings(
       name := "video-downloader-migration-application",
       buildInfoKeys :=
-        Seq[BuildInfoKey](name, organization, version, scalaVersion, sbtVersion, buildTimestamp, gitBranch, gitCommit),
+        Seq[BuildInfoKey](name, organization, scalaVersion, sbtVersion, buildTimestamp, gitBranch, gitCommit),
       buildInfoPackage := "com.eed3si9n.ruchij.migration",
       topLevelDirectory := None,
       Universal / javaOptions ++= Seq("-Dlogback.configurationFile=/opt/data/logback.xml"),
@@ -105,7 +99,7 @@ lazy val api =
       Test / fork := true,
       name := "video-downloader-api",
       buildInfoKeys :=
-        Seq[BuildInfoKey](name, organization, version, scalaVersion, sbtVersion, buildTimestamp, gitBranch, gitCommit),
+        Seq[BuildInfoKey](name, organization, scalaVersion, sbtVersion, buildTimestamp, gitBranch, gitCommit),
       buildInfoPackage := "com.eed3si9n.ruchij.api",
       topLevelDirectory := None,
       Universal / javaOptions ++= Seq("-Dlogback.configurationFile=/opt/data/logback.xml"),
@@ -122,7 +116,7 @@ lazy val batch =
     .settings(
       name := "video-downloader-batch",
       buildInfoKeys :=
-        Seq[BuildInfoKey](name, organization, version, scalaVersion, sbtVersion, buildTimestamp, gitBranch, gitCommit),
+        Seq[BuildInfoKey](name, organization, scalaVersion, sbtVersion, buildTimestamp, gitBranch, gitCommit),
       buildInfoPackage := "com.eed3si9n.ruchij.batch",
       topLevelDirectory := None,
       Universal / javaOptions ++= Seq("-Dlogback.configurationFile=/opt/data/logback.xml"),
@@ -136,64 +130,6 @@ lazy val development =
     .settings(name := "video-downloader-development")
     .dependsOn(migrationApplication, core, api, batch)
 
-val verifyReleaseBranch = { state: State =>
-  val git = Git.mkVcs(state.extract.get(baseDirectory))
-  val branch = git.currentBranch
-
-  if (branch != ReleaseBranch) {
-    sys.error {
-      s"The release branch is $ReleaseBranch, but the current branch is set to $branch"
-    }
-  } else state
-}
-
-val mergeReleaseToMaster = { state: State =>
-  val git = Git.mkVcs(state.extract.get(baseDirectory))
-
-  val (updatedState, releaseTag) = state.extract.runTask(releaseTagName, state)
-
-  updatedState.log.info(s"Merging $releaseTag to $ProductionBranch...")
-
-  val userInput: Option[ProcessBuilder] =
-    SimpleReader
-      .readLine("Push changes to the remote master branch (y/n)? [y]")
-      .map(_.toUpperCase) match {
-      case Some("Y") | Some("") =>
-        updatedState.log.info(s"Pushing changes to remote master ($releaseTag)...")
-        Some(git.cmd("push"))
-
-      case _ =>
-        updatedState.log.warn("Remember to push changes to remote master")
-        None
-    }
-
-  val actions: List[ProcessBuilder] =
-    List(git.cmd("checkout", ProductionBranch), git.cmd("pull", "--rebase"), git.cmd("merge", releaseTag)) ++
-      userInput ++
-      List(git.cmd("checkout", ReleaseBranch))
-
-  actions.reduce(_ #&& _) !!
-
-  updatedState.log.info(s"Successfully merged $releaseTag to $ProductionBranch")
-
-  updatedState
-}
-
-releaseIgnoreUntrackedFiles := true
-
-releaseProcess := Seq(
-  ReleaseStep(verifyReleaseBranch),
-  checkSnapshotDependencies,
-  inquireVersions,
-  runClean,
-  setReleaseVersion,
-  commitReleaseVersion,
-  tagRelease,
-  ReleaseStep(mergeReleaseToMaster),
-  setNextVersion,
-  commitNextVersion,
-  pushChanges
-)
 
 val viewCoverageResults = taskKey[Unit]("Opens the coverage result in the default browser")
 

@@ -22,7 +22,6 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
     val expectedJsonResponse =
       json"""{
         "serviceName": "video-downloader-api",
-        "serviceVersion": "1.0.0",
         "organization": "com.ruchij",
         "scalaVersion": "2.13.8",
         "sbtVersion": "1.6.2",
@@ -40,7 +39,6 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
         IO.pure {
           ServiceInformation(
             "video-downloader-api",
-            "1.0.0",
             "com.ruchij",
             "2.13.8",
             "1.6.2",

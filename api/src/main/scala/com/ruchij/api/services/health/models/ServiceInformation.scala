@@ -10,7 +10,6 @@ import scala.util.Properties
 
 final case class ServiceInformation(
   serviceName: String,
-  serviceVersion: String,
   organization: String,
   scalaVersion: String,
   sbtVersion: String,
@@ -30,7 +29,6 @@ object ServiceInformation {
     } yield
       ServiceInformation(
         BuildInfo.name,
-        BuildInfo.version,
         BuildInfo.organization,
         BuildInfo.scalaVersion,
         BuildInfo.sbtVersion,

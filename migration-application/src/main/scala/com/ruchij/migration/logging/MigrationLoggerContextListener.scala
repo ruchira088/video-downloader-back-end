@@ -11,7 +11,6 @@ class MigrationLoggerContextListener extends ContextAwareBase with LoggerContext
 
   override def onStart(context: LoggerContext): Unit = {
     context.putProperty("app.name", BuildInfo.name)
-    context.putProperty("app.version", BuildInfo.version)
     context.putProperty("git.commit", BuildInfo.gitCommit.getOrElse("unknown"))
     context.putProperty("git.branch", BuildInfo.gitBranch.getOrElse("unknown"))
   }
