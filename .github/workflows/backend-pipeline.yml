@@ -75,9 +75,11 @@ jobs:
       - name: Build and publish Docker image - ${{ matrix.app }}
         run: ansible-playbook playbooks/build-and-publish-docker-image.yml -vvv -e app=${{ matrix.app }}
 
-  deploy-to-k8s:
-    name: Deploy to K8s
+  deploy-to-dev:
+    name: Deploy to dev
     runs-on: ubuntu-latest
+
+    if: github.ref != 'refs/heads/main'
 
     permissions:
       contents: read
@@ -97,8 +99,62 @@ jobs:
           role-session-name: backend-deploy
           role-to-assume: "arn:aws:iam::365562660444:role/github_iam_role"
 
-      - name: Deploy to K8s server
-        run: ansible-playbook -vvv playbooks/k8s-deploy.yml
+      - name: Deploy to dev
+        run: ansible-playbook -vvv playbooks/dev-deploy.yml
+
+  deploy-to-staging:
+    name: Deploy to staging
+    runs-on: ubuntu-latest
+
+    if: github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: read
+      id-token: write
+
+    needs:
+      - publish-docker-images
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          aws-region: ap-southeast-2
+          role-session-name: backend-deploy
+          role-to-assume: "arn:aws:iam::365562660444:role/github_iam_role"
+
+      - name: Deploy to staging
+        run: ansible-playbook -vvv playbooks/staging-deploy.yml
+
+  deploy-to-production:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+
+    if: github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: read
+      id-token: write
+
+    needs:
+      - deploy-to-staging
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          aws-region: ap-southeast-2
+          role-session-name: backend-deploy
+          role-to-assume: "arn:aws:iam::365562660444:role/github_iam_role"
+
+      - name: Deploy to production
+        run: ansible-playbook -vvv playbooks/production-deploy.yml
 
   send-notification:
     runs-on: ubuntu-latest
@@ -110,7 +166,9 @@ jobs:
     needs:
       - compile-and-test
       - publish-docker-images
-      - deploy-to-k8s
+      - deploy-to-dev
+      - deploy-to-staging
+      - deploy-to-production
 
     steps:
       - name: Send Slack notification

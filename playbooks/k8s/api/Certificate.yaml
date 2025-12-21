@@ -2,11 +2,11 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: api-certificate
-  namespace: {{ namespace }}
+  namespace: "{{ k8s_namespace }}"
 spec:
   secretName: api-tls-secret
   issuerRef:
     kind: ClusterIssuer
     name: lets-encrypt
   dnsNames:
-    - {{ hostname }}
+    - "{{ hostname }}"

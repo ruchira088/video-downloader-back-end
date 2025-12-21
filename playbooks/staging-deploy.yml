@@ -1,0 +1,11 @@
+---
+- hosts: localhost
+  connection: local
+
+  tasks:
+    - set_fact:
+        k8s_namespace: video-downloader-back-end-staging
+        hostname: api.staging.video.dev.ruchij.com
+
+    - name: Deploy to staging
+      import_tasks: tasks/k8s-deploy.yml

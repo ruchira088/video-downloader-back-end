@@ -1,6 +1,21 @@
 - name: Install pip dependencies
-  pip:
-    name:
-      - boto3
-      - botocore
-      - kubernetes
+  block:
+    - set_fact:
+        pip_dependencies:
+          - boto3
+          - botocore
+          - kubernetes
+
+    - name: Install pip dependencies locally
+      when: lookup('env', 'CI') | lower != 'true'
+      pip:
+        virtualenv: "{{ playbook_dir }}/.venv"
+        virtualenv_command: python3 -m venv
+        virtualenv_site_packages: false
+        name: "{{ pip_dependencies }}"
+
+    - name: Install pip dependencies in CI
+      when: lookup('env', 'CI') | lower == 'true'
+      pip:
+        name: "{{ pip_dependencies }}"
+

@@ -1,8 +1,8 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: db-restore-job-{{ job_id }}
-  namespace: {{ namespace }}
+  name: "db-restore-job-{{ job_id }}"
+  namespace: "{{ k8s_namespace }}"
 spec:
   ttlSecondsAfterFinished: 3600
   template:
@@ -12,7 +12,7 @@ spec:
         - name: docker-registry-credentials
       containers:
         - name: database-restore-container
-          image: ghcr.io/ruchira088/video-downloader-db-restore:{{ git_branch }}-{{ git_commit }}
+          image: "ghcr.io/ruchira088/video-downloader-db-restore:{{ git_branch }}-{{ git_commit }}"
           imagePullPolicy: Always
           envFrom:
             - configMapRef:

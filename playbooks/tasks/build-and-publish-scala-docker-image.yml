@@ -2,21 +2,34 @@
   debug:
     msg: Started building {{ app_name }}
 
+- name: Gather git information
+  import_tasks: git-info.yml
+
+- name: Install dependencies
+  import_tasks: tasks/install-dependencies.yml
+
 - name: Create output directory
-  file:
-    path: docker-output
-    state: directory
+  block:
+    - set_fact:
+        docker_output_dir: .docker-output
+
+    - name: Delete existing output directory
+      file:
+        path: "{{ docker_output_dir }}"
+        state: absent
+
+    - name: Create directory
+      file:
+        path: "{{ docker_output_dir }}"
+        state: directory
 
 - name: Clean and build sbt project
   shell: cd ../ && sbt clean {{ sbt_project }}/Universal/packageZipTarball
 
-- name: Gather git information
-  import_tasks: git-info.yml
-
 - name: Generate the Dockerfile
   template:
     src: docker/apps/{{ docker_file }}
-    dest: docker-output/Dockerfile-{{ app_name }}
+    dest: "{{ docker_output_dir }}/Dockerfile-{{ app_name }}"
   vars:
     build_timestamp: "{{ ansible_date_time.iso8601 }}"
 
@@ -29,7 +42,7 @@
   when: not publish
   shell: |
     docker build \
-      -f docker-output/Dockerfile-{{ app_name }} \
+      -f {{ docker_output_dir }}/Dockerfile-{{ app_name }} \
       -t ghcr.io/ruchira088/video-downloader-{{ app_name }}:{{ git_branch }} \
       -t ghcr.io/ruchira088/video-downloader-{{ app_name }}:{{ git_branch }}-{{ git_commit }} \
       ../{{ app_name }}/target/universal/
@@ -43,12 +56,12 @@
       --no-cache \
       -t ghcr.io/ruchira088/video-downloader-{{ app_name }}:{{ git_branch }} \
       -t ghcr.io/ruchira088/video-downloader-{{ app_name }}:{{ git_branch }}-{{ git_commit }} \
-      -f docker-output/Dockerfile-{{ app_name }} \
+      -f {{ docker_output_dir }}/Dockerfile-{{ app_name }} \
       ../{{ app_name }}/target/universal/
 
 - name: Clean up output directory
   file:
-    path: docker-output
+    path: "{{ docker_output_dir }}"
     state: absent
 
 - name: Print finish message

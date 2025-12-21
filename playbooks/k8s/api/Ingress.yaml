@@ -2,14 +2,14 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: api-ingress
-  namespace: {{ namespace }}
+  namespace: "{{ k8s_namespace }}"
 spec:
   tls:
     - secretName: api-tls-secret
       hosts:
-        - {{ hostname }}
+        - "{{ hostname }}"
   rules:
-    - host: {{ hostname }}
+    - host: "{{ hostname }}"
       http:
         paths:
           - pathType: ImplementationSpecific

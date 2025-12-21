@@ -1,0 +1,14 @@
+---
+- hosts: localhost
+  connection: local
+
+  tasks:
+    - set_fact:
+        k8s_namespace: video-downloader-back-end
+        hostname: api.video.home.ruchij.com
+
+    - name: Create GitHub release
+      import_tasks: tasks/github-release.yml
+
+    - name: Deploy to production
+      import_tasks: tasks/k8s-deploy.yml

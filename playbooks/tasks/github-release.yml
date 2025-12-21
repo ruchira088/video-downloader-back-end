@@ -1,0 +1,44 @@
+- name: Gather git information
+  import_tasks: tasks/git-info.yml
+
+- name: Install dependencies
+  import_tasks: tasks/install-dependencies.yml
+
+- name: Set GitHub repo
+  block:
+    - name: Set GitHub repo in CI
+      when: lookup('env', 'CI') | lower == 'true'
+      set_fact:
+        github_repo: "{{ lookup('env', 'GITHUB_REPOSITORY') }}"
+
+    - name: Set GitHub repo locally
+      when: lookup('env', 'CI') | lower != 'true'
+      block:
+        - name: Get GitHub repo
+          shell: git remote get-url origin | sed 's/.*:\(.*\)\.git/\1/'
+          register: github_repo_output
+
+        - set_fact:
+            github_repo: "{{ github_repo_output.stdout }}"
+
+- set_fact:
+    tag_name: "{{ ansible_facts['date_time']['date'] }}.{{ git_commit }}"
+
+- name: Generate release notes
+  uri:
+    url: https://api.github.com/repos/{{ github_repo }}/releases
+    method: POST
+    body_format: json
+    status_code: 201
+    headers:
+      Authorization: Bearer {{ lookup('aws_ssm', '/github/token', region='ap-southeast-2') }}
+      Accept: application/vnd.github+json
+      X-GitHub-Api-Version: 2022-11-28
+    body:
+      tag_name: "{{ tag_name }}"
+      target_commitish: "{{ git_branch }}"
+      name: "{{ tag_name }}"
+      draft: false
+      generate_release_notes: true
+      make_latest: "true"
+

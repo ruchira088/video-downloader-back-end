@@ -4,7 +4,7 @@
 
   vars:
     s3_db_backup_file: s3://backups.video-downloader.ruchij.com/master/2025-12-20-21-00-01-d662be2-backup.zip
-    database_url: server.internal.ruchij.com:5431
+    database_url: server.internal.ruchij.com:5431/video-downloader
     k8s_namespace: video-downloader-back-end
     aws_ssm_k8s_config: /infrastructure/prod/k8s/config
 

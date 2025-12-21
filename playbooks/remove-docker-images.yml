@@ -1,0 +1,7 @@
+---
+- hosts: localhost
+  connection: local
+
+  tasks:
+    - name: Remove created Docker images
+      shell: docker images | grep "video-downloader-" | awk '{print $3}' | xargs docker rmi -f

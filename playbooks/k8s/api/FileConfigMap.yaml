@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: api-file-config-map
-  namespace: {{ namespace }}
+  namespace: "{{ k8s_namespace }}"
 data:
   logback.xml: |
     <configuration scan="true" scanPeriod="10 seconds">

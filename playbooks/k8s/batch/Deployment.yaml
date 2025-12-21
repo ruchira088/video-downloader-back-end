@@ -2,24 +2,24 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: batch-deployment
-  namespace: {{ namespace }}
+  namespace: "{{ k8s_namespace }}"
 spec:
   selector:
     matchLabels:
       app: batch
-      branch: {{ git_branch }}
+      branch: "{{ git_branch }}"
   replicas: 1
   template:
     metadata:
       labels:
         app: batch
-        branch: {{ git_branch }}
+        branch: "{{ git_branch }}"
     spec:
       imagePullSecrets:
         - name: docker-registry-credentials
       containers:
         - name: batch-container
-          image: ghcr.io/ruchira088/video-downloader-batch:{{ git_branch }}-{{ git_commit }}
+          image: "ghcr.io/ruchira088/video-downloader-batch:{{ git_branch }}-{{ git_commit }}"
           envFrom:
             - configMapRef:
                 name: batch-data-config-map
@@ -29,16 +29,16 @@ spec:
             - mountPath: /opt/data
               name: file-config-map
 {% for path_mapping in host_path_mappings %}
-            - mountPath: {{ path_mapping.pod_mount_path }}
-              name: path-mapping-{{ loop.index }}
+            - mountPath: "{{ path_mapping.pod_mount_path }}"
+              name: "path-mapping-{{ loop.index }}"
 {% endfor %}
       volumes:
         - name: file-config-map
           configMap:
             name: batch-file-config-map
 {% for path_mapping in host_path_mappings %}
-        - name: path-mapping-{{ loop.index }}
+        - name: "path-mapping-{{ loop.index }}"
           hostPath:
-            path: {{ path_mapping.host_path }}
+            path: "{{ path_mapping.host_path }}"
             type: Directory
 {% endfor %}

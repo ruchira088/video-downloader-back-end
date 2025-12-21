@@ -2,11 +2,11 @@ apiVersion: v1
 kind: Service
 metadata:
   name: api-service
-  namespace: {{ namespace }}
+  namespace: "{{ k8s_namespace }}"
 spec:
   selector:
     app: api
-    branch: {{ git_branch }}
+    branch: "{{ git_branch }}"
   ports:
     - name: http4s-port
       port: 8000

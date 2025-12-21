@@ -1,74 +1,58 @@
 - name: Create output directories
   block:
-    - name: Delete existing output directory
-      file:
-        path: k8s-output
-        state: absent
-
-    - name: Create main output directory
-      file:
-        path: k8s-output
-        state: directory
-
     - name: Create output directory - DB migration
       file:
-        path: k8s-output/db-migration
+        path: "{{ k8s_output_dir }}/db-migration"
         state: directory
 
     - name: Create output directory - DB backup
       file:
-        path: k8s-output/db-backup
+        path: "{{ k8s_output_dir }}/db-backup"
         state: directory
 
     - name: Create output directory - API
       file:
-        path: k8s-output/api
+        path: "{{ k8s_output_dir }}/api"
         state: directory
 
     - name: Create output directory - Batch
       file:
-        path: k8s-output/batch
+        path: "{{ k8s_output_dir }}/batch"
         state: directory
-
-- name: Gather git information
-  import_tasks: tasks/git-info.yml
-
-- name: Set config values and secrets
-  import_tasks: tasks/configs-and-secrets.yml
 
 - name: Render K8s resource files
   block:
     - name: Render K8s common resource files
       template:
         src: "{{ item }}"
-        dest: k8s-output/{{ item | basename }}
+        dest: "{{ k8s_output_dir }}/{{ item | basename }}"
       with_fileglob:
         - k8s/*.yaml
 
     - name: Render K8s resource files - DB migration
       template:
         src: "{{ item }}"
-        dest: k8s-output/db-migration/{{ item | basename }}
+        dest: "{{ k8s_output_dir }}/db-migration/{{ item | basename }}"
       with_fileglob:
         - k8s/db-migration/*.yaml
 
     - name: Render K8s resource files - DB backup
       template:
         src: "{{ item }}"
-        dest: k8s-output/db-backup/{{ item | basename }}
+        dest: "{{ k8s_output_dir }}/db-backup/{{ item | basename }}"
       with_fileglob:
         - k8s/db-backup/*.yaml
 
     - name: Render K8s resource files - API
       template:
         src: "{{ item }}"
-        dest: k8s-output/api/{{ item | basename }}
+        dest: "{{ k8s_output_dir }}/api/{{ item | basename }}"
       with_fileglob:
         - k8s/api/*.yaml
 
     - name: Render K8s resource files - Batch
       template:
         src: "{{ item }}"
-        dest: k8s-output/batch/{{ item | basename }}
+        dest: "{{ k8s_output_dir }}/batch/{{ item | basename }}"
       with_fileglob:
         - k8s/batch/*.yaml

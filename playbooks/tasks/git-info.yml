@@ -11,4 +11,4 @@
     git_branch: "{{ git_branch_output.stdout }}"
 
 - set_fact:
-    env: "{{ 'production' if git_branch == 'master' else 'development' }}"
+    env: "{{ 'production' if git_branch == 'master' or git_branch == 'main' else 'development' }}"

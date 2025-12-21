@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: {{ namespace }}
+  name: "{{ k8s_namespace }}"
   labels:
     project: video-downloader-back-end
-    branch: {{ git_branch }}
+    branch: "{{ git_branch }}"

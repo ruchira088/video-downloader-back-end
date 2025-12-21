@@ -1,0 +1,14 @@
+---
+- hosts: localhost
+  connection: local
+
+  tasks:
+    - name: Gather git information
+      import_tasks: tasks/git-info.yml
+
+    - set_fact:
+        k8s_namespace: "video-downloader-back-end-{{ git_branch }}"
+        hostname: "api.{{ git_branch }}.video.dev.ruchij.com"
+
+    - name: Deploy to dev branch
+      import_tasks: tasks/k8s-deploy.yml
