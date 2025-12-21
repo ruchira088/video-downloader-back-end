@@ -9,6 +9,3 @@
 - set_fact:
     git_commit: "{{ git_commit_output.stdout }}"
     git_branch: "{{ git_branch_output.stdout }}"
-
-- set_fact:
-    env: "{{ 'production' if git_branch == 'master' or git_branch == 'main' else 'development' }}"

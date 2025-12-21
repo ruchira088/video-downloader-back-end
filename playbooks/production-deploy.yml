@@ -6,6 +6,7 @@
     - set_fact:
         k8s_namespace: video-downloader-back-end
         hostname: api.video.home.ruchij.com
+        env: production
 
     - name: Create GitHub release
       import_tasks: tasks/github-release.yml
