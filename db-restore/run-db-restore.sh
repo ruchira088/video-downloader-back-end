@@ -2,16 +2,14 @@
 
 set -e
 
-: "${BACKUP_FILE:? Variable NOT defined}"
+: "${S3_DB_BACKUP_FILE:? Variable NOT defined}"
 : "${DATABASE_URL:? Variable NOT defined}"
 : "${DATABASE_USER:? Variable NOT defined}"
 : "${DATABASE_PASSWORD:? Variable NOT defined}"
 
-s3_url="s3://backups.video-downloader.ruchij.com/$BACKUP_FILE"
+echo "Downloading backup data from AWS S3 file: $S3_DB_BACKUP_FILE"
 
-echo "Downloading backup data from AWS S3 $s3_url"
-
-aws s3 cp "$s3_url" backup.zip
+aws s3 cp "$S3_DB_BACKUP_FILE" backup.zip
 
 echo "Download completed from S3"
 

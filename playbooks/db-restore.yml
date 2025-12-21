@@ -3,7 +3,10 @@
   connection: local
 
   vars:
-    s3_backup_file: "{{ backup_file }}"
+    s3_db_backup_file: s3://backups.video-downloader.ruchij.com/master/2025-12-20-21-00-01-d662be2-backup.zip
+    database_url: server.internal.ruchij.com:5431
+    k8s_namespace: video-downloader-back-end
+    aws_ssm_k8s_config: /infrastructure/prod/k8s/config
 
   tasks:
     - name: Gather git information
@@ -19,40 +22,58 @@
         publish: true
 
     - set_fact:
-        k8s_vars:
-          production:
-            namespace: video-downloader-back-end
-          development:
-            namespace: video-downloader-back-end-{{ git_branch }}
-
-    - set_fact:
-        namespace: "{{ k8s_vars[env].namespace }}"
         job_id: "{{ git_branch }}-{{ ansible_date_time.iso8601_basic_short | lower }}"
         config_values:
-          DATABASE_URL: postgresql:5432/video-downloader
-          BACKUP_FILE: "{{ git_branch }}/{{ s3_backup_file }}"
+          DATABASE_URL: "{{ database_url }}"
+          S3_DB_BACKUP_FILE: "{{ s3_db_backup_file }}"
         secrets:
           DATABASE_USER: "{{ lookup('aws_ssm', '/video-downloader/' + env + '/database/user', region='ap-southeast-2') }}"
           DATABASE_PASSWORD: "{{ lookup('aws_ssm', '/video-downloader/' + env + '/database/password', region='ap-southeast-2') }}"
           AWS_ACCESS_KEY_ID: "{{ lookup('aws_ssm', '/video-downloader/shared/db-restorer/access-key-id', region='ap-southeast-2') }}"
           AWS_SECRET_ACCESS_KEY: "{{ lookup('aws_ssm', '/video-downloader/shared/db-restorer/secret-access-key', region='ap-southeast-2') }}"
 
+    - name: Create output directory
+      block:
+        - set_fact:
+            k8s_db_restore_output_dir: .k8s-db-restore-output
+
+        - name: Delete existing output directory
+          file:
+            path: "{{ k8s_db_restore_output_dir }}"
+            state: absent
+
+        - name: Create main output directory
+          file:
+            path: "{{ k8s_db_restore_output_dir }}"
+            state: directory
+
     - name: Render DB restore K8s resource files
-      import_tasks: tasks/k8s-db-restore-files.yml
+      template:
+        src: "{{ item }}"
+        dest: "{{ k8s_db_restore_output_dir }}/{{ item | basename }}"
+      with_fileglob:
+        - k8s/db-restore/*.yaml
 
     - name: Set kube_config
-      import_tasks: tasks/k8s-config.yml
+      block:
+        - set_fact:
+            kubeconfig: "{{ k8s_db_restore_output_dir }}/kubeconfig"
+
+        - name: Copy kubeconfig from SSM parameter store
+          copy:
+            dest: "{{ kubeconfig }}"
+            content: "{{ lookup('aws_ssm', aws_ssm_k8s_config, region='ap-southeast-2') }}"
 
     - name: Deploy DB restore
       block:
         - name: Create ConfigMap
-          command: kubectl apply -f k8s-output/db-restore/ConfigMap.yaml --kubeconfig {{ kubeconfig }}
+          command: "kubectl apply -f {{ k8s_db_restore_output_dir }}/ConfigMap.yaml --kubeconfig {{ kubeconfig }}"
 
         - name: Create Secrets
-          command: kubectl apply -f k8s-output/db-restore/Secrets.yaml --kubeconfig {{ kubeconfig }}
+          command: "kubectl apply -f {{ k8s_db_restore_output_dir }}/Secrets.yaml --kubeconfig {{ kubeconfig }}"
 
         - name: Deploy Job
-          command: kubectl apply -f k8s-output/db-restore --kubeconfig {{ kubeconfig }}
+          command: "kubectl apply -f {{ k8s_db_restore_output_dir }} --kubeconfig {{ kubeconfig }}"
 
         - name: Wait Job to complete
           command: |
@@ -60,10 +81,10 @@
               --for=condition=complete \
               job/db-restore-job-{{ job_id }} \
               --kubeconfig {{ kubeconfig }} \
-              -n {{ namespace }} \
+              -n {{ k8s_namespace }} \
               --timeout=120s
 
     - name: Clean up output directory
       file:
-        path: k8s-output
+        path: "{{ k8s_db_restore_output_dir }}"
         state: absent
