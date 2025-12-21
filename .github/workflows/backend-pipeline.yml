@@ -106,6 +106,8 @@ jobs:
     name: Deploy to staging
     runs-on: ubuntu-latest
 
+    environment: Staging
+
     if: github.ref == 'refs/heads/main'
 
     permissions:
@@ -132,6 +134,8 @@ jobs:
   deploy-to-production:
     name: Deploy to production
     runs-on: ubuntu-latest
+
+    environment: Production
 
     if: github.ref == 'refs/heads/main'
 
