@@ -8,8 +8,8 @@
         hostname: api.video.home.ruchij.com
         env: production
 
-    - name: Create GitHub release
-      import_tasks: tasks/github-release.yml
-
     - name: Deploy to production
       import_tasks: tasks/k8s-deploy.yml
+
+    - name: Create GitHub release
+      import_tasks: tasks/github-release.yml
