@@ -11,7 +11,7 @@ import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy
 import scala.jdk.CollectionConverters.SeqHasAsJava
 
 class SpaRendererContainer
-    extends GenericContainer[SpaRendererContainer]("ghcr.io/ruchira088/video-downloader-spa-renderer:dev") {
+    extends GenericContainer[SpaRendererContainer]("ghcr.io/ruchira088/video-downloader-spa-renderer:main") {
   setWaitStrategy(new LogMessageWaitStrategy().withRegEx(".*Server started at http://0.0.0.0:8000.*\\n"))
   setExposedPorts(List(SpaRendererContainer.Port: Integer).asJava)
 }

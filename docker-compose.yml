@@ -30,12 +30,13 @@ services:
       - "./docker-compose/scripts:/opt/scripts"
 
   api-1: &api-app
-    image: ghcr.io/ruchira088/video-downloader-api:dev
+    image: ghcr.io/ruchira088/video-downloader-api:main
     healthcheck:
-      test: "curl -f http://localhost:8000/service/info"
+      test: "/opt/scripts/wait-for-it.sh -t 3 localhost:8000"
       start_period: 10s
       interval: 10s
       timeout: 5s
+      retries: 5
     depends_on:
       postgres:
         condition: service_healthy
@@ -53,6 +54,7 @@ services:
       - "./videos:/opt/videos"
       - "./images:/opt/images"
       - "./api/src/main/resources/logback.xml:/opt/data/logback.xml"
+      - "./docker-compose/scripts:/opt/scripts"
     environment:
       DATABASE_URL: "jdbc:postgresql://postgres:5432/video-downloader"
       DATABASE_USER: "admin"
@@ -73,7 +75,7 @@ services:
     *api-app
 
   batch-1: &batch-app
-    image: ghcr.io/ruchira088/video-downloader-batch:dev
+    image: ghcr.io/ruchira088/video-downloader-batch:main
     depends_on:
       postgres:
         condition: service_healthy
@@ -111,7 +113,7 @@ services:
     *batch-app
 
   spa-renderer:
-    image: ghcr.io/ruchira088/video-downloader-spa-renderer:dev
+    image: ghcr.io/ruchira088/video-downloader-spa-renderer:main
     healthcheck:
       test: "/opt/scripts/wait-for.sh -t 3 127.0.0.1:8000"
       start_period: 10s
@@ -122,7 +124,7 @@ services:
       - "./docker-compose/scripts:/opt/scripts"
 
   migration-application:
-    image: ghcr.io/ruchira088/video-downloader-migration-application:dev
+    image: ghcr.io/ruchira088/video-downloader-migration-application:main
     depends_on:
       postgres:
         condition: service_healthy
@@ -206,21 +208,21 @@ services:
     volumes:
       - "./docker-compose/scripts:/opt/scripts"
 
-  kpow:
-    image: factorhouse/kpow-ce:94.5
-    ports:
-      - "3000:3000"
-    depends_on:
-      schema-registry:
-        condition: service_healthy
-    env_file:
-      - .kpow.env
-    environment:
-      BOOTSTRAP: kafka-broker:29092
-      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+#  kpow:
+#    image: factorhouse/kpow-ce:94.5
+#    ports:
+#      - "3000:3000"
+#    depends_on:
+#      schema-registry:
+#        condition: service_healthy
+#    env_file:
+#      - .kpow.env
+#    environment:
+#      BOOTSTRAP: kafka-broker:29092
+#      SCHEMA_REGISTRY_URL: http://schema-registry:8081
 
   front-end-1: &front-end
-    image: ghcr.io/ruchira088/video-downloader-front-end:dev
+    image: ghcr.io/ruchira088/video-downloader-front-end:main
     healthcheck:
       test: "curl -f http://localhost"
       start_period: 5s

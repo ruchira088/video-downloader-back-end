@@ -11,7 +11,7 @@ import org.testcontainers.containers.wait.strategy.Wait
 import scala.jdk.CollectionConverters.SeqHasAsJava
 
 class FrontEndContainer(apiUrl: Uri)
-    extends GenericContainer[FrontEndContainer]("ghcr.io/ruchira088/video-downloader-front-end-dev:dev") {
+    extends GenericContainer[FrontEndContainer]("ghcr.io/ruchira088/video-downloader-front-end-dev:main") {
   setExposedPorts(List(FrontEndContainer.Port: Integer).asJava)
   setWaitStrategy(Wait.forHttp("/").forPort(FrontEndContainer.Port))
   addEnv("VITE_API_URL", apiUrl.renderString)
