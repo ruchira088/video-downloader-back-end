@@ -14,7 +14,7 @@ final case class YTDownloaderProgress(
 
 object YTDownloaderProgress {
   private val YTDownloaderProgressPattern: Regex =
-    "\\[download\\]\\s* (\\S+)% of\\s* ~?(\\S+) at\\s* (\\S+)/s ETA (\\S+)".r
+    ".*\\[download\\]\\s* (\\S+)% of\\s* ~?\\s*(\\S+) at\\s* (\\S+)/s ETA (\\S+).*".r
 
   def unapply(input: String): Option[YTDownloaderProgress] =
     input match {
