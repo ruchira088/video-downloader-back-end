@@ -34,7 +34,7 @@ object DoobieVideoMetadataDao extends VideoMetadataDao[ConnectionIO] {
           ${videoMetadata.url},
           ${videoMetadata.id},
           ${videoMetadata.videoSite},
-          ${videoMetadata.title.take(232)},
+          ${videoMetadata.title},
           ${videoMetadata.duration},
           ${videoMetadata.size},
           ${videoMetadata.thumbnail.id}
