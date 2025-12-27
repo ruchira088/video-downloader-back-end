@@ -1,0 +1,1 @@
+ALTER TABLE video_title ALTER COLUMN title TYPE text;
