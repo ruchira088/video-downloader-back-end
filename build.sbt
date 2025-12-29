@@ -77,7 +77,6 @@ lazy val core =
           enumeratum,
           apacheTika,
           redis4CatsEffects,
-          netty,
           jsoup,
           scalaLogging,
           logbackClassic,
