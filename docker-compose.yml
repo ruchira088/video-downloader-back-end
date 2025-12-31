@@ -208,18 +208,18 @@ services:
     volumes:
       - "./docker-compose/scripts:/opt/scripts"
 
-#  kpow:
-#    image: factorhouse/kpow-ce:94.5
-#    ports:
-#      - "3000:3000"
-#    depends_on:
-#      schema-registry:
-#        condition: service_healthy
-#    env_file:
-#      - .kpow.env
-#    environment:
-#      BOOTSTRAP: kafka-broker:29092
-#      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+  kpow:
+    image: factorhouse/kpow-ce:95.1
+    ports:
+      - "3000:3000"
+    depends_on:
+      schema-registry:
+        condition: service_healthy
+    env_file:
+      - .kpow.env
+    environment:
+      BOOTSTRAP: kafka-broker:29092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
 
   front-end-1: &front-end
     image: ghcr.io/ruchira088/video-downloader-front-end:main
