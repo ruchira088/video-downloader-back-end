@@ -7,6 +7,7 @@ import com.ruchij.core.types.FunctionKTypes._
 import org.http4s.Uri
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.wait.strategy.Wait
+import org.testcontainers.images.PullPolicy
 
 import scala.jdk.CollectionConverters.SeqHasAsJava
 
@@ -22,7 +23,7 @@ object FrontEndContainer {
 
   def create[F[_]: Sync](apiUrl: Uri): Resource[F, Uri] =
     Resource
-      .eval(Sync[F].delay(new FrontEndContainer(apiUrl)))
+      .eval(Sync[F].delay(new FrontEndContainer(apiUrl).withImagePullPolicy(PullPolicy.alwaysPull())))
       .flatMap(frontEndContainer => ContainerCoreResourcesProvider.start(frontEndContainer))
       .evalMap { frontEndContainer =>
         for {

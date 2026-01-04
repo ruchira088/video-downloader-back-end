@@ -7,6 +7,7 @@ import com.ruchij.core.types.FunctionKTypes._
 import org.http4s.Uri
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy
+import org.testcontainers.images.PullPolicy
 
 import scala.jdk.CollectionConverters.SeqHasAsJava
 
@@ -21,7 +22,7 @@ object SpaRendererContainer {
 
   def create[F[_]: Sync]: Resource[F, SpaSiteRendererConfiguration] =
     Resource
-      .eval(Sync[F].delay(new SpaRendererContainer()))
+      .eval(Sync[F].delay(new SpaRendererContainer().withImagePullPolicy(PullPolicy.alwaysPull())))
       .flatMap(spaRendererContainer => ContainerCoreResourcesProvider.start(spaRendererContainer))
       .evalMap { spaRendererContainer =>
         for {
