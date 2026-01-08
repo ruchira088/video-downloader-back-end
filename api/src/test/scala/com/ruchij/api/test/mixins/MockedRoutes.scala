@@ -59,6 +59,6 @@ trait MockedRoutes[F[_]] extends MockFactory with OneInstancePerTest { self: Tes
 
   def ignoreHttpMetrics(): F[Unit] =
     async.delay {
-      (metricPublisher.publishOne _).expects(*).returns(async.unit)
+      (metricPublisher.publishOne _).expects(*).anyNumberOfTimes().returns(async.unit)
     }
 }
