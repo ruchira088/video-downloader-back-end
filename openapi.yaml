@@ -1,0 +1,1429 @@
+openapi: 3.0.3
+info:
+  title: Video Downloader API
+  description: API for managing video downloads, scheduling, playlists, and user authentication
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+tags:
+  - name: Service
+    description: Service health and information endpoints
+  - name: Authentication
+    description: User authentication and session management
+  - name: Users
+    description: User management endpoints
+  - name: Videos
+    description: Video management and metadata endpoints
+  - name: Scheduling
+    description: Video download scheduling and worker management
+  - name: Playlists
+    description: Playlist management endpoints
+  - name: Assets
+    description: Media asset serving endpoints (thumbnails, videos, snapshots)
+
+paths:
+  # Service Routes
+  /service/info:
+    get:
+      tags:
+        - Service
+      summary: Get service information
+      description: Returns service metadata including version, build info, and environment details
+      responses:
+        '200':
+          description: Service information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceInformation'
+
+  /service/health:
+    get:
+      tags:
+        - Service
+      summary: Health check endpoint
+      description: Returns the health status of the service
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+
+  # Authentication Routes
+  /authentication/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate a user with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '201':
+          description: Login successful, authentication token created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationToken'
+          headers:
+            Set-Cookie:
+              description: Authentication cookie
+              schema:
+                type: string
+
+  /authentication/logout:
+    delete:
+      tags:
+        - Authentication
+      summary: User logout
+      description: Logout the current user and invalidate the authentication token
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '204':
+          description: No content (no active session)
+
+  /authentication/user:
+    get:
+      tags:
+        - Authentication
+      summary: Get current user
+      description: Returns the currently authenticated user
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Current user retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  # User Routes
+  /users:
+    post:
+      tags:
+        - Users
+      summary: Create a new user
+      description: Register a new user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /users/forgot-password:
+    put:
+      tags:
+        - Users
+      summary: Request password reset
+      description: Send a password reset token to the user's email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+      responses:
+        '200':
+          description: Password reset token sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultResponse'
+
+  /users/id/{userId}/reset-password:
+    put:
+      tags:
+        - Users
+      summary: Reset user password
+      description: Reset a user's password using a reset token
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /users/id/{userId}:
+    delete:
+      tags:
+        - Users
+      summary: Delete a user
+      description: Delete a user account (admin only)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID
+      responses:
+        '200':
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  # Video Routes
+  /videos/search:
+    get:
+      tags:
+        - Videos
+      summary: Search videos
+      description: Search for videos with various filters
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: term
+          in: query
+          schema:
+            type: string
+          description: Search term
+        - name: pageNumber
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [date, duration, size, title]
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [ascending, descending]
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoSearchResult'
+
+  /videos/summary:
+    get:
+      tags:
+        - Videos
+      summary: Get video summary
+      description: Get summary statistics for all videos (admin only)
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Video summary retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoServiceSummary'
+
+  /videos/history:
+    get:
+      tags:
+        - Videos
+      summary: Get watch history
+      description: Get the current user's video watch history
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: pageNumber
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Watch history retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoWatchHistoryResponse'
+
+  /videos/scan:
+    get:
+      tags:
+        - Videos
+      summary: Get video scan status
+      description: Get the status of the video scanning process (admin only)
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Scan status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoScanProgressResponse'
+    post:
+      tags:
+        - Videos
+      summary: Start video scan
+      description: Initiate a video scanning process (admin only)
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Scan already in progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoScanProgressResponse'
+        '201':
+          description: Scan started successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoScanProgressResponse'
+
+  /videos/metadata:
+    post:
+      tags:
+        - Videos
+      summary: Get or create video metadata
+      description: Retrieve or analyze video metadata from a URL
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VideoMetadataRequest'
+      responses:
+        '200':
+          description: Existing metadata retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoMetadata'
+        '201':
+          description: New metadata created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoMetadata'
+
+  /videos/id/{videoId}:
+    get:
+      tags:
+        - Videos
+      summary: Get video by ID
+      description: Retrieve a specific video by its ID
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: videoId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Video retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Video'
+    delete:
+      tags:
+        - Videos
+      summary: Delete video
+      description: Delete a video by ID
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: videoId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: deleteVideoFile
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Whether to also delete the video file
+      responses:
+        '200':
+          description: Video deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Video'
+
+  /videos/id/{videoId}/metadata:
+    patch:
+      tags:
+        - Videos
+      summary: Update video metadata
+      description: Update the metadata of a video
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: videoId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VideoMetadataUpdateRequest'
+      responses:
+        '200':
+          description: Video metadata updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Video'
+
+  /videos/id/{videoId}/snapshots:
+    get:
+      tags:
+        - Videos
+      summary: Get video snapshots
+      description: Retrieve all snapshots for a video
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: videoId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Snapshots retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapshotsResponse'
+
+  /videos/queue-incomplete-downloads:
+    post:
+      tags:
+        - Videos
+      summary: Queue incomplete downloads
+      description: Re-queue videos that were incorrectly marked as completed (admin only)
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Videos queued successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideosResponse'
+
+  # Scheduling Routes
+  /schedule:
+    post:
+      tags:
+        - Scheduling
+      summary: Schedule a video download
+      description: Schedule a new video for download
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SchedulingRequest'
+      responses:
+        '200':
+          description: Video already scheduled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledVideoDownload'
+        '201':
+          description: Video scheduled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledVideoDownload'
+
+  /schedule/retry-failed:
+    post:
+      tags:
+        - Scheduling
+      summary: Retry failed downloads
+      description: Re-schedule all failed video downloads
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Failed downloads re-scheduled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledVideosResponse'
+
+  /schedule/search:
+    get:
+      tags:
+        - Scheduling
+      summary: Search scheduled videos
+      description: Search for scheduled video downloads with filters
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: term
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [Queued, Active, Downloaded, Completed, Stale, Failed, Paused]
+        - name: pageNumber
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledVideoSearchResult'
+
+  /schedule/id/{videoId}:
+    get:
+      tags:
+        - Scheduling
+      summary: Get scheduled video by ID
+      description: Retrieve a scheduled video download by ID
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: videoId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Scheduled video retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledVideoDownload'
+    delete:
+      tags:
+        - Scheduling
+      summary: Delete scheduled video
+      description: Cancel and delete a scheduled video download
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: videoId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Scheduled video deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledVideoDownload'
+    put:
+      tags:
+        - Scheduling
+      summary: Update scheduled video status
+      description: Update the scheduling status of a video
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: videoId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateScheduledVideoRequest'
+      responses:
+        '200':
+          description: Scheduled video updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledVideoDownload'
+
+  /schedule/updates:
+    get:
+      tags:
+        - Scheduling
+      summary: Stream download updates
+      description: Server-Sent Events stream for real-time download progress and status updates
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: SSE stream of download updates
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /schedule/worker-status:
+    get:
+      tags:
+        - Scheduling
+      summary: Get worker status
+      description: Get the current status of the download worker
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Worker status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkerStatusResponse'
+    put:
+      tags:
+        - Scheduling
+      summary: Update worker status
+      description: Update the status of the download worker
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkerStatusUpdateRequest'
+      responses:
+        '200':
+          description: Worker status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkerStatusResponse'
+
+  # Playlist Routes
+  /playlists:
+    post:
+      tags:
+        - Playlists
+      summary: Create a playlist
+      description: Create a new playlist
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlaylistRequest'
+      responses:
+        '201':
+          description: Playlist created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Playlist'
+    get:
+      tags:
+        - Playlists
+      summary: Search playlists
+      description: Search and list playlists
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: searchTerm
+          in: query
+          schema:
+            type: string
+        - name: pageNumber
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [createdAt, updatedAt]
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [ascending, descending]
+      responses:
+        '200':
+          description: Playlists retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaylistPagingResponse'
+
+  /playlists/id/{playlistId}:
+    get:
+      tags:
+        - Playlists
+      summary: Get playlist by ID
+      description: Retrieve a specific playlist by ID
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: playlistId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Playlist retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Playlist'
+    put:
+      tags:
+        - Playlists
+      summary: Update playlist
+      description: Update playlist details and video list
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: playlistId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePlaylistRequest'
+      responses:
+        '200':
+          description: Playlist updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Playlist'
+    delete:
+      tags:
+        - Playlists
+      summary: Delete playlist
+      description: Delete a playlist
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: playlistId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Playlist deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Playlist'
+
+  /playlists/id/{playlistId}/album-art:
+    put:
+      tags:
+        - Playlists
+      summary: Add playlist album art
+      description: Upload album art for a playlist
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: playlistId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Album art added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Playlist'
+    delete:
+      tags:
+        - Playlists
+      summary: Remove playlist album art
+      description: Remove the album art from a playlist
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: playlistId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Album art removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Playlist'
+
+  # Asset Routes
+  /assets/thumbnail/id/{id}:
+    get:
+      tags:
+        - Assets
+      summary: Get video thumbnail
+      description: Retrieve a video thumbnail image
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Thumbnail retrieved successfully
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+
+  /assets/snapshot/id/{id}:
+    get:
+      tags:
+        - Assets
+      summary: Get video snapshot
+      description: Retrieve a video snapshot image
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Snapshot retrieved successfully
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+
+  /assets/video/id/{id}:
+    get:
+      tags:
+        - Assets
+      summary: Stream video file
+      description: Stream a video file with support for range requests
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Video file stream
+          content:
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+        '206':
+          description: Partial content (range request)
+          content:
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: authentication
+
+  schemas:
+    ServiceInformation:
+      type: object
+      properties:
+        serviceName:
+          type: string
+        organization:
+          type: string
+        scalaVersion:
+          type: string
+        sbtVersion:
+          type: string
+        javaVersion:
+          type: string
+        yt-dlpVersion:
+          type: string
+        currentTimestamp:
+          type: string
+          format: date-time
+        gitBranch:
+          type: string
+          nullable: true
+        gitCommit:
+          type: string
+          nullable: true
+        buildTimestamp:
+          type: string
+          format: date-time
+
+    HealthCheck:
+      type: object
+      properties:
+        isHealthy:
+          type: boolean
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+
+    AuthenticationToken:
+      type: object
+      properties:
+        token:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        user:
+          $ref: '#/components/schemas/User'
+
+    CreateUserRequest:
+      type: object
+      required:
+        - firstName
+        - lastName
+        - email
+        - password
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+
+    ForgotPasswordRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+
+    ResetPasswordRequest:
+      type: object
+      required:
+        - token
+        - password
+      properties:
+        token:
+          type: string
+        password:
+          type: string
+          format: password
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [Admin, User]
+
+    VideoMetadataRequest:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          format: uri
+
+    VideoMetadataUpdateRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+
+    VideoMetadata:
+      type: object
+      properties:
+        id:
+          type: string
+        url:
+          type: string
+          format: uri
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        duration:
+          type: integer
+          description: Duration in seconds
+        size:
+          type: integer
+          format: int64
+          description: Size in bytes
+        thumbnail:
+          type: string
+          format: uri
+        site:
+          type: string
+
+    FileResource:
+      type: object
+      properties:
+        id:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        path:
+          type: string
+        size:
+          type: integer
+          format: int64
+
+    Video:
+      type: object
+      properties:
+        videoMetadata:
+          $ref: '#/components/schemas/VideoMetadata'
+        fileResource:
+          $ref: '#/components/schemas/FileResource'
+        createdAt:
+          type: string
+          format: date-time
+        watchTime:
+          type: integer
+          description: Watch time in seconds
+        id:
+          type: string
+
+    VideoServiceSummary:
+      type: object
+      properties:
+        videoCount:
+          type: integer
+        totalSize:
+          type: integer
+          format: int64
+        totalDuration:
+          type: integer
+          description: Total duration in seconds
+        sites:
+          type: array
+          items:
+            type: string
+
+    VideoScanProgressResponse:
+      type: object
+      properties:
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        scanStatus:
+          type: string
+          enum: [Idle, InProgress]
+
+    VideoSearchResult:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Video'
+        pageNumber:
+          type: integer
+        pageSize:
+          type: integer
+        term:
+          type: string
+          nullable: true
+        urls:
+          type: array
+          items:
+            type: string
+          nullable: true
+        statuses:
+          type: array
+          items:
+            type: string
+          nullable: true
+        durationRange:
+          type: object
+          nullable: true
+        sizeRange:
+          type: object
+          nullable: true
+        sortBy:
+          type: string
+          nullable: true
+        order:
+          type: string
+          enum: [ascending, descending]
+
+    SchedulingRequest:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          format: uri
+
+    UpdateScheduledVideoRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [Queued, Active, Downloaded, Completed, Stale, Failed, Paused]
+
+    ScheduledVideoDownload:
+      type: object
+      properties:
+        scheduledAt:
+          type: string
+          format: date-time
+        lastUpdatedAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [Queued, Active, Downloaded, Completed, Stale, Failed, Paused]
+        downloadedBytes:
+          type: integer
+          format: int64
+        videoMetadata:
+          $ref: '#/components/schemas/VideoMetadata'
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        errorInfo:
+          type: object
+          nullable: true
+          properties:
+            message:
+              type: string
+            details:
+              type: string
+
+    ScheduledVideoSearchResult:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduledVideoDownload'
+        pageNumber:
+          type: integer
+        pageSize:
+          type: integer
+        term:
+          type: string
+          nullable: true
+        urls:
+          type: array
+          items:
+            type: string
+          nullable: true
+        statuses:
+          type: array
+          items:
+            type: string
+          nullable: true
+        durationRange:
+          type: object
+          nullable: true
+        sizeRange:
+          type: object
+          nullable: true
+        sortBy:
+          type: string
+          nullable: true
+        order:
+          type: string
+          enum: [ascending, descending]
+
+    WorkerStatusResponse:
+      type: object
+      properties:
+        workerStatus:
+          type: string
+          enum: [Active, Paused]
+
+    WorkerStatusUpdateRequest:
+      type: object
+      required:
+        - workerStatus
+      properties:
+        workerStatus:
+          type: string
+          enum: [Active, Paused]
+
+    CreatePlaylistRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+
+    UpdatePlaylistRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        videoIds:
+          type: array
+          items:
+            type: string
+          nullable: true
+
+    Playlist:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        videos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Video'
+        albumArt:
+          $ref: '#/components/schemas/FileResource'
+          nullable: true
+
+    PlaylistPagingResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Playlist'
+        pageSize:
+          type: integer
+        pageNumber:
+          type: integer
+        order:
+          type: string
+          enum: [ascending, descending]
+        sortBy:
+          type: string
+          nullable: true
+
+    ResultResponse:
+      type: object
+      properties:
+        result:
+          type: string
+
+    VideoWatchHistoryResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              videoId:
+                type: string
+              userId:
+                type: string
+              watchedAt:
+                type: string
+                format: date-time
+              watchDuration:
+                type: integer
+
+    VideosResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Video'
+
+    ScheduledVideosResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduledVideoDownload'
+
+    SnapshotsResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              timestamp:
+                type: integer
+                description: Timestamp in the video (seconds)
+
+    ErrorResponse:
+      type: object
+      properties:
+        errorMessages:
+          type: array
+          items:
+            type: string
