@@ -349,4 +349,4 @@ This project is proprietary software.
 2. Create a feature branch
 3. Make your changes
 4. Run tests: `sbt test`
-5. Submit a pull request to the `dev` branch
+5. Submit a pull request to the `main` branch
