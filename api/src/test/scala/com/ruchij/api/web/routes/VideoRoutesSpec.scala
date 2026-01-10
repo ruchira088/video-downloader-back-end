@@ -8,21 +8,17 @@ import com.ruchij.api.test.matchers._
 import com.ruchij.api.test.mixins.io.MockedRoutesIO
 import com.ruchij.core.daos.scheduling.models.RangeValue
 import com.ruchij.core.daos.snapshot.models.Snapshot
-import com.ruchij.core.daos.videometadata.models.VideoSite
-import com.ruchij.core.daos.workers.models.VideoScan
-import com.ruchij.core.daos.workers.models.VideoScan.ScanStatus
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.video.VideoAnalysisService.{Existing, NewlyCreated}
-import com.ruchij.core.services.video.models.VideoServiceSummary
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.data.CoreTestData
 import io.circe.literal._
-import org.http4s.{AuthScheme, Credentials, Request, Status}
 import org.http4s.circe.CirceEntityEncoder._
 import org.http4s.dsl.io._
 import org.http4s.headers.Authorization
 import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.{AuthScheme, Credentials, Request, Status}
 import org.joda.time.{DateTime, DateTimeZone}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -34,13 +30,6 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   private val testTimestamp = new DateTime(2022, 8, 1, 10, 10, 0, 0, DateTimeZone.UTC)
   private val expiresAt = testTimestamp.plusDays(45)
   private val testSecret = Secret("test-secret-uuid")
-  private val adminToken = AuthenticationToken(
-    ApiTestData.AdminUser.id,
-    testSecret,
-    expiresAt,
-    testTimestamp,
-    0
-  )
   private val normalUserToken = AuthenticationToken(
     ApiTestData.NormalUser.id,
     testSecret,
