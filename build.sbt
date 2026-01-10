@@ -150,4 +150,4 @@ def runGitCommand(command: String): Option[String] = {
 
 addCommandAlias("cleanCompile", "clean; compile;")
 addCommandAlias("cleanTest", "clean; test;")
-addCommandAlias("testWithCoverage", "clean; coverageOn; test; coverageAggregate; coverageOff; viewCoverageResults;")
+addCommandAlias("testWithCoverage", "clean; coverageOn; test; coverageAggregate; coverageOff; coverageReport; viewCoverageResults;")
