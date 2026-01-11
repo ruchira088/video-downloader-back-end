@@ -13,7 +13,7 @@ final case class SynchronizationResult(
   self =>
 
   val + : FileSyncResult => SynchronizationResult = {
-    case _: VideoSnapshotsCreated => self.copy(videoCountOfSnapshotsUpdated + 1)
+    case _: VideoSnapshotsCreated => self.copy(videoCountOfSnapshotsUpdated = videoCountOfSnapshotsUpdated + 1)
     case _: VideoSynced => self.copy(syncedVideos = syncedVideos + 1)
     case _: IgnoredFile => self.copy(ignoredFiles = ignoredFiles + 1)
     case _: ExistingVideo => self.copy(existingVideoFiles = existingVideoFiles + 1)
