@@ -2,7 +2,6 @@ package com.ruchij.core.daos.title
 
 import cats.effect.IO
 import cats.~>
-import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao

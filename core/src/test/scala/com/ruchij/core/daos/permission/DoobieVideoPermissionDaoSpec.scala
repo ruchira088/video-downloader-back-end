@@ -1,7 +1,6 @@
 package com.ruchij.core.daos.permission
 
 import cats.effect.IO
-import cats.implicits._
 import cats.~>
 import com.ruchij.core.daos.permission.models.VideoPermission
 import com.ruchij.core.daos.resource.DoobieFileResourceDao

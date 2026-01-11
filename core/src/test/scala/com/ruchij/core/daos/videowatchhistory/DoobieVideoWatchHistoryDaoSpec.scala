@@ -26,7 +26,7 @@ import scala.language.postfixOps
 
 class DoobieVideoWatchHistoryDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
 
-  import com.ruchij.core.daos.doobie.DoobieCustomMappings.{dateTimeGet, dateTimePut}
+  import com.ruchij.core.daos.doobie.DoobieCustomMappings.dateTimePut
 
   case class TestFixture(
     videoWatchHistory: VideoWatchHistory,
