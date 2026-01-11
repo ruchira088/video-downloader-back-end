@@ -338,4 +338,241 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
       yield (): Unit
   }
 
+  it should "reject insert with error info" in runTest {
+    (scheduledVideoDownload, transaction) =>
+      val errorInfo = ScheduledVideoDownload.ErrorInfo(
+        "error-message",
+        "error-details"
+      )
+      val downloadWithError = scheduledVideoDownload.copy(errorInfo = Some(errorInfo))
+
+      for {
+        result <- transaction(DoobieSchedulingDao.insert(downloadWithError)).attempt
+
+        _ <- IO.delay {
+          result.isLeft mustBe true
+          result.left.exists(_.isInstanceOf[IllegalArgumentException]) mustBe true
+        }
+      }
+      yield (): Unit
+  }
+
+  it should "update scheduling status in batch" in runTest {
+    (scheduledVideoDownload, transaction) =>
+      for {
+        timestamp <- JodaClock[IO].timestamp
+
+        // Update status to Error first
+        _ <- transaction {
+          DoobieSchedulingDao.updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Error, timestamp)
+        }
+
+        // Batch update from Error to Queued
+        updated <- transaction {
+          DoobieSchedulingDao.updateSchedulingStatus(SchedulingStatus.Error, SchedulingStatus.Queued)
+        }
+
+        _ <- IO.delay {
+          updated.size mustBe 1
+          updated.head.status mustBe SchedulingStatus.Queued
+        }
+
+        // Batch update with no matching status should return empty
+        emptyResult <- transaction {
+          DoobieSchedulingDao.updateSchedulingStatus(SchedulingStatus.Error, SchedulingStatus.Queued)
+        }
+
+        _ <- IO.delay {
+          emptyResult mustBe empty
+        }
+      }
+      yield (): Unit
+  }
+
+  it should "retry errored scheduled downloads" in runTest {
+    (scheduledVideoDownload, transaction) =>
+      for {
+        timestamp <- JodaClock[IO].timestamp
+
+        // Set error on the scheduled download
+        exception = new Exception("Download failed")
+        _ <- transaction {
+          DoobieSchedulingDao.setErrorById(scheduledVideoDownload.videoMetadata.id, exception, timestamp)
+        }
+
+        // Verify it's in Error state
+        maybeErrored <- transaction(DoobieSchedulingDao.getById(scheduledVideoDownload.videoMetadata.id, None))
+        _ <- IO.delay {
+          maybeErrored.value.status mustBe SchedulingStatus.Error
+        }
+
+        // Retry errored downloads
+        retried <- transaction {
+          DoobieSchedulingDao.retryErroredScheduledDownloads(None, timestamp)
+        }
+
+        _ <- IO.delay {
+          retried.size mustBe 1
+          retried.head.status mustBe SchedulingStatus.Queued
+          // Note: returned copy has old errorInfo, but database record is cleared
+        }
+
+        // Verify database state shows no error
+        maybeRetried <- transaction(DoobieSchedulingDao.getById(scheduledVideoDownload.videoMetadata.id, None))
+        _ <- IO.delay {
+          maybeRetried.value.status mustBe SchedulingStatus.Queued
+          maybeRetried.value.errorInfo mustBe None
+        }
+
+        // Retry again should return empty
+        retriedAgain <- transaction {
+          DoobieSchedulingDao.retryErroredScheduledDownloads(None, timestamp)
+        }
+
+        _ <- IO.delay {
+          retriedAgain mustBe empty
+        }
+      }
+      yield (): Unit
+  }
+
+  it should "search with ascending order" in runTest {
+    (scheduledVideoDownload, transaction) =>
+      for {
+        searchResult <- transaction {
+          DoobieSchedulingDao.search(None, None, RangeValue.all[FiniteDuration], RangeValue.all[Long], 0, 10, SortBy.Date, Order.Ascending, None, None, None)
+        }
+
+        _ <- IO.delay {
+          searchResult mustBe Seq(scheduledVideoDownload)
+        }
+      }
+      yield (): Unit
+  }
+
+  it should "search with video URLs filter" in runTest {
+    (scheduledVideoDownload, transaction) =>
+      for {
+        // Search with matching URL
+        searchResultMatch <- transaction {
+          DoobieSchedulingDao.search(
+            None,
+            Some(NonEmptyList.one(uri"https://spankbang.com")),
+            RangeValue.all[FiniteDuration],
+            RangeValue.all[Long],
+            0, 10,
+            SortBy.Date,
+            Order.Descending,
+            None, None, None
+          )
+        }
+
+        _ <- IO.delay {
+          searchResultMatch mustBe Seq(scheduledVideoDownload)
+        }
+
+        // Search with non-matching URL
+        searchResultNoMatch <- transaction {
+          DoobieSchedulingDao.search(
+            None,
+            Some(NonEmptyList.one(uri"https://pornhub.com")),
+            RangeValue.all[FiniteDuration],
+            RangeValue.all[Long],
+            0, 10,
+            SortBy.Date,
+            Order.Descending,
+            None, None, None
+          )
+        }
+
+        _ <- IO.delay {
+          searchResultNoMatch mustBe empty
+        }
+      }
+      yield (): Unit
+  }
+
+  it should "search with size range max filter" in runTest {
+    (scheduledVideoDownload, transaction) =>
+      for {
+        // Search with max size that includes the video
+        searchResultMatch <- transaction {
+          DoobieSchedulingDao.search(
+            None, None,
+            RangeValue.all[FiniteDuration],
+            RangeValue[Long](None, Some(60_000)),
+            0, 10,
+            SortBy.Date,
+            Order.Descending,
+            None, None, None
+          )
+        }
+
+        _ <- IO.delay {
+          searchResultMatch mustBe Seq(scheduledVideoDownload)
+        }
+
+        // Search with max size that excludes the video
+        searchResultNoMatch <- transaction {
+          DoobieSchedulingDao.search(
+            None, None,
+            RangeValue.all[FiniteDuration],
+            RangeValue[Long](None, Some(40_000)),
+            0, 10,
+            SortBy.Date,
+            Order.Descending,
+            None, None, None
+          )
+        }
+
+        _ <- IO.delay {
+          searchResultNoMatch mustBe empty
+        }
+      }
+      yield (): Unit
+  }
+
+  it should "search with random sort order" in runTest {
+    (scheduledVideoDownload, transaction) =>
+      for {
+        searchResult <- transaction {
+          DoobieSchedulingDao.search(
+            None, None,
+            RangeValue.all[FiniteDuration],
+            RangeValue.all[Long],
+            0, 10,
+            SortBy.Random,
+            Order.Descending,
+            None, None, None
+          )
+        }
+
+        _ <- IO.delay {
+          searchResult mustBe Seq(scheduledVideoDownload)
+        }
+      }
+      yield (): Unit
+  }
+
+  it should "handle nested exception in setErrorById" in runTest {
+    (scheduledVideoDownload, transaction) =>
+      for {
+        timestamp <- JodaClock[IO].timestamp
+        rootCause = new Exception("Root cause")
+        wrappedException = new RuntimeException("Wrapper exception", rootCause)
+
+        _ <- transaction {
+          DoobieSchedulingDao.setErrorById(scheduledVideoDownload.videoMetadata.id, wrappedException, timestamp)
+        }
+
+        maybeUpdated <- transaction(DoobieSchedulingDao.getById(scheduledVideoDownload.videoMetadata.id, None))
+
+        _ <- IO.delay {
+          maybeUpdated.value.errorInfo must not be empty
+          maybeUpdated.value.errorInfo.value.message mustBe "Root cause"
+        }
+      }
+      yield (): Unit
+  }
+
 }

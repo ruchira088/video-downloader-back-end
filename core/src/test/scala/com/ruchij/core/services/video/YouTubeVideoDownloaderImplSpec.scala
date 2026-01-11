@@ -13,6 +13,7 @@ import org.http4s.implicits.http4sLiteralsSyntax
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
+import com.ruchij.core.exceptions.{ResourceNotFoundException, UnsupportedVideoUrlException}
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -207,5 +208,92 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
     }
   }
 
+  it should "throw ResourceNotFoundException for 404 error" in runIO {
+    val cliCommandRunner = mock[CliCommandRunner[IO]]
+    val client = mock[Client[IO]]
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client)
+
+    (cliCommandRunner.run _)
+      .expects("""yt-dlp --no-warnings "https://www.youtube.com/watch?v=notfound" -j""")
+      .returns {
+        Stream.raiseError[IO](CliCommandException("ERROR: HTTP Error 404: Not Found"))
+      }
+
+    youTubeVideoDownloader
+      .videoInformation(uri"https://www.youtube.com/watch?v=notfound")
+      .attempt
+      .flatMap { result =>
+        IO.delay {
+          result.isLeft mustBe true
+          result.left.exists(_.isInstanceOf[ResourceNotFoundException]) mustBe true
+        }
+      }
+  }
+
+  it should "throw ResourceNotFoundException for deleted video" in runIO {
+    val cliCommandRunner = mock[CliCommandRunner[IO]]
+    val client = mock[Client[IO]]
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client)
+
+    (cliCommandRunner.run _)
+      .expects("""yt-dlp --no-warnings "https://www.youtube.com/watch?v=deleted" -j""")
+      .returns {
+        Stream.raiseError[IO](CliCommandException("ERROR: Unable to extract hash; some details"))
+      }
+
+    youTubeVideoDownloader
+      .videoInformation(uri"https://www.youtube.com/watch?v=deleted")
+      .attempt
+      .flatMap { result =>
+        IO.delay {
+          result.isLeft mustBe true
+          result.left.exists(_.isInstanceOf[ResourceNotFoundException]) mustBe true
+        }
+      }
+  }
+
+  it should "throw UnsupportedVideoUrlException for invalid JSON response" in runIO {
+    val cliCommandRunner = mock[CliCommandRunner[IO]]
+    val client = mock[Client[IO]]
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client)
+
+    (cliCommandRunner.run _)
+      .expects("""yt-dlp --no-warnings "https://www.youtube.com/watch?v=invalid" -j""")
+      .returns {
+        Stream.emit[IO, String]("not valid json")
+      }
+
+    youTubeVideoDownloader
+      .videoInformation(uri"https://www.youtube.com/watch?v=invalid")
+      .attempt
+      .flatMap { result =>
+        IO.delay {
+          result.isLeft mustBe true
+          result.left.exists(_.isInstanceOf[UnsupportedVideoUrlException]) mustBe true
+        }
+      }
+  }
+
+  it should "propagate other CLI exceptions" in runIO {
+    val cliCommandRunner = mock[CliCommandRunner[IO]]
+    val client = mock[Client[IO]]
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client)
+
+    (cliCommandRunner.run _)
+      .expects("""yt-dlp --no-warnings "https://www.youtube.com/watch?v=error" -j""")
+      .returns {
+        Stream.raiseError[IO](CliCommandException("ERROR: Some other error"))
+      }
+
+    youTubeVideoDownloader
+      .videoInformation(uri"https://www.youtube.com/watch?v=error")
+      .attempt
+      .flatMap { result =>
+        IO.delay {
+          result.isLeft mustBe true
+          result.left.exists(_.isInstanceOf[CliCommandException]) mustBe true
+        }
+      }
+  }
 
 }
