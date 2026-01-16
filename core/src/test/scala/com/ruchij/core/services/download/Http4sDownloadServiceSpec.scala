@@ -1,6 +1,7 @@
 package com.ruchij.core.services.download
 
 import cats.effect.IO
+import com.ruchij.core.exceptions.ExternalServiceException
 import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.test.IOSupport.runIO
 import fs2.Stream
@@ -148,6 +149,33 @@ class Http4sDownloadServiceSpec extends AnyFlatSpec with Matchers {
           progressValues.head mustBe 0L
           progressValues.last mustBe content.length.toLong
         }
+      }
+  }
+
+  it should "wrap ExternalServiceException with URI context when header is missing" in runIO {
+    val repositoryService = new StubRepositoryService()
+    val fileKey = "error-file"
+
+    // Response missing Content-Length header
+    val response = Response[IO](
+      status = Status.Ok,
+      headers = Headers(
+        `Content-Type`(MediaType.video.mp4)
+      ),
+      body = Stream.emits("content".getBytes)
+    )
+
+    val client = Client.fromHttpApp[IO](HttpApp.liftF(IO.pure(response)))
+    val downloadService = new Http4sDownloadService[IO](client, repositoryService)
+
+    downloadService
+      .download(uri"https://example.com/video.mp4", fileKey)
+      .use(_ => IO.unit)
+      .attempt
+      .map { result =>
+        result.isLeft mustBe true
+        result.left.toOption.get mustBe a[ExternalServiceException]
+        result.left.toOption.get.getMessage must include("Download uri = https://example.com/video.mp4")
       }
   }
 }

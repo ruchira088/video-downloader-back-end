@@ -95,4 +95,34 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
     }
   }
 
+  it should "fail to parse invalid config" in runIO {
+    val invalidConfig = """
+      invalid = "config"
+    """
+
+    BatchServiceConfiguration.parse[IO](ConfigSource.string(invalidConfig))
+      .attempt
+      .flatMap { result =>
+        IO.delay {
+          result.isLeft mustBe true
+        }
+      }
+  }
+
+  it should "handle missing required fields" in runIO {
+    val incompleteConfig = """
+      worker-configuration {
+        max-concurrent-downloads = 10
+      }
+    """
+
+    BatchServiceConfiguration.parse[IO](ConfigSource.string(incompleteConfig))
+      .attempt
+      .flatMap { result =>
+        IO.delay {
+          result.isLeft mustBe true
+        }
+      }
+  }
+
 }

@@ -98,4 +98,30 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
     }
   }
 
+  it should "fail to parse invalid configuration" in runIO {
+    val invalidConfig = """invalid = "config""""
+
+    ApiServiceConfiguration.parse[IO](ConfigSource.string(invalidConfig)).attempt.flatMap { result =>
+      IO.delay {
+        result.isLeft mustBe true
+        result.left.exists(_.getMessage.contains("ApiServiceConfiguration")) mustBe true
+      }
+    }
+  }
+
+  it should "fail when required fields are missing" in runIO {
+    val incompleteConfig = """
+      http-configuration {
+        host = "127.0.0.1"
+        port = 80
+      }
+    """
+
+    ApiServiceConfiguration.parse[IO](ConfigSource.string(incompleteConfig)).attempt.flatMap { result =>
+      IO.delay {
+        result.isLeft mustBe true
+      }
+    }
+  }
+
 }

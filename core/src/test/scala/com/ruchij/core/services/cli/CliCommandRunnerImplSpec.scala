@@ -55,4 +55,34 @@ class CliCommandRunnerImplSpec extends AnyFlatSpec with Matchers {
     }
   }
 
+  it should "handle multiline output" in runIO {
+    Dispatcher.parallel[IO].use { dispatcher =>
+      val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
+
+      cliCommandRunner.run("""echo -e "Line1\nLine2\nLine3"""")
+        .compile
+        .toList
+        .flatMap { lines =>
+          IO.delay {
+            lines.size mustBe 3
+            lines must contain("Line1")
+            lines must contain("Line2")
+            lines must contain("Line3")
+          }
+        }
+    }
+  }
+
+  it should "kill a long-running process when stream is interrupted" in runIO {
+    Dispatcher.parallel[IO].use { dispatcher =>
+      val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
+
+      cliCommandRunner.run("sleep 10")
+        .take(0)  // Take nothing, which should interrupt immediately
+        .compile
+        .drain
+        .map(_ => succeed)
+    }
+  }
+
 }

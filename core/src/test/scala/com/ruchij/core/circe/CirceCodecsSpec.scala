@@ -214,4 +214,35 @@ class CirceCodecsSpec extends AnyFlatSpec with Matchers with OptionValues {
     }
   }
 
+  "stringWrapperDecoder" should "decode valid strings for value classes" in {
+    import Decoders.stringWrapperDecoder
+
+    // TestWrapper is defined in the companion object below
+    val testStr = "\"test-value\""
+    val result = decode[TestWrapper](testStr)
+    result.isRight mustBe true
+    result.toOption.get.value mustBe "test-value"
+  }
+
+  it should "fail to decode empty string for value classes" in {
+    import Decoders.stringWrapperDecoder
+
+    val emptyStr = "\"\""
+    val result = decode[TestWrapper](emptyStr)
+    result.isLeft mustBe true
+    result.left.exists(_.getMessage.contains("Cannot be empty")) mustBe true
+  }
+
+  it should "fail to decode whitespace-only string for value classes" in {
+    import Decoders.stringWrapperDecoder
+
+    val whitespaceStr = "\"   \""
+    val result = decode[TestWrapper](whitespaceStr)
+    result.isLeft mustBe true
+    result.left.exists(_.getMessage.contains("Cannot be empty")) mustBe true
+  }
+
 }
+
+// Test value class for stringWrapperDecoder tests
+final case class TestWrapper(value: String) extends AnyVal

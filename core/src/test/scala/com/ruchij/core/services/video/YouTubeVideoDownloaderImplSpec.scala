@@ -296,4 +296,70 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
       }
   }
 
+  it should "use placeholder thumbnail when metadata has no thumbnail and retrieval fails" in runIO {
+    import cats.effect.Resource
+    import org.http4s.Request
+
+    val cliCommandRunner = mock[CliCommandRunner[IO]]
+
+    // Create a mock client that fails
+    val client: Client[IO] = Client { (_: Request[IO]) =>
+      Resource.eval(IO.raiseError(new RuntimeException("Failed to fetch")))
+    }
+
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client)
+
+    val cliOutput =
+      """{
+        |  "id": "test123",
+        |  "title": "Test Video Without Thumbnail",
+        |  "extractor": "youtube",
+        |  "formats": [{"filesize": 1000}],
+        |  "duration": 120,
+        |  "thumbnail": null
+        |}""".stripMargin
+
+    (cliCommandRunner.run _)
+      .expects("""yt-dlp --no-warnings "https://www.youtube.com/watch?v=test123" -j""")
+      .returns(Stream.emits[IO, String](cliOutput.split("\n")))
+
+    youTubeVideoDownloader
+      .videoInformation(uri"https://www.youtube.com/watch?v=test123")
+      .flatMap { videoAnalysisResult =>
+        IO.delay {
+          videoAnalysisResult.title mustBe "Test Video Without Thumbnail"
+          videoAnalysisResult.thumbnail.toString must include("video-placeholder.png")
+        }
+      }
+  }
+
+  it should "handle video with no filesize in formats" in runIO {
+    val cliCommandRunner = mock[CliCommandRunner[IO]]
+    val client = mock[Client[IO]]
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client)
+
+    val cliOutput =
+      """{
+        |  "id": "nosize",
+        |  "title": "Video Without Size",
+        |  "extractor": "youtube",
+        |  "formats": [{"format_id": "1"}, {"format_id": "2"}],
+        |  "duration": 60,
+        |  "thumbnail": "https://example.com/thumb.jpg"
+        |}""".stripMargin
+
+    (cliCommandRunner.run _)
+      .expects("""yt-dlp --no-warnings "https://www.youtube.com/watch?v=nosize" -j""")
+      .returns(Stream.emits[IO, String](cliOutput.split("\n")))
+
+    youTubeVideoDownloader
+      .videoInformation(uri"https://www.youtube.com/watch?v=nosize")
+      .flatMap { videoAnalysisResult =>
+        IO.delay {
+          videoAnalysisResult.title mustBe "Video Without Size"
+          videoAnalysisResult.size mustBe 0
+        }
+      }
+  }
+
 }

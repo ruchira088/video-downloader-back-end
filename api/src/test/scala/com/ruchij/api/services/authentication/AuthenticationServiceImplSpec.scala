@@ -192,4 +192,64 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
       } yield (): Unit
   }
 
+  it should "return error when logging out with expired token" in runTest {
+    (secretGenerator, jodaClock, userService, authenticationService) =>
+      val timestamp = new DateTime(2022, 10, 10, 10, 0)
+
+      for {
+        _ <- IO.delay { (() => jodaClock.timestamp).expects().returns(IO.pure(timestamp)) }
+
+        email <- RandomGenerator[IO, UUID].generate.map(uuid => Email(s"$uuid@ruchij.com"))
+        password = Password("my-password")
+        _ <- userService.create("Ruchira", "Jayasekara", email, password)
+        secret <- RandomGenerator[IO, UUID].generate.map(uuid => Secret(uuid.toString))
+
+        _ <- IO.delay((() => secretGenerator.generate).expects().returning(IO.pure(secret)))
+        _ <- IO.delay { (() => jodaClock.timestamp).expects().returns(IO.pure(timestamp)) }
+
+        _ <- authenticationService.login(email, password)
+
+        // Logout with expired token - timestamp is way past expiration
+        _ <- IO.delay { (() => jodaClock.timestamp).expects().returns(IO.pure(timestamp.plusMinutes(30))) }
+        logoutException <- authenticationService.logout(secret).error
+
+        _ <- IO.delay {
+          logoutException.getMessage mustBe "Authentication cookie/token not found"
+        }
+      } yield (): Unit
+  }
+
+  it should "successfully logout with valid token" in runTest {
+    (secretGenerator, jodaClock, userService, authenticationService) =>
+      val timestamp = new DateTime(2022, 10, 11, 10, 0)
+
+      for {
+        _ <- IO.delay { (() => jodaClock.timestamp).expects().returns(IO.pure(timestamp)) }
+
+        email <- RandomGenerator[IO, UUID].generate.map(uuid => Email(s"$uuid@ruchij.com"))
+        password = Password("my-password")
+        user <- userService.create("Ruchira", "Jayasekara", email, password)
+        secret <- RandomGenerator[IO, UUID].generate.map(uuid => Secret(uuid.toString))
+
+        _ <- IO.delay((() => secretGenerator.generate).expects().returning(IO.pure(secret)))
+        _ <- IO.delay { (() => jodaClock.timestamp).expects().returns(IO.pure(timestamp)) }
+
+        _ <- authenticationService.login(email, password)
+
+        // Logout with valid (non-expired) token
+        _ <- IO.delay { (() => jodaClock.timestamp).expects().returns(IO.pure(timestamp.plusSeconds(5))) }
+        loggedOutUser <- authenticationService.logout(secret)
+
+        _ <- IO.delay {
+          loggedOutUser mustBe user
+        }
+
+        // Verify the token is no longer valid
+        missingTokenException <- authenticationService.authenticate(secret).error
+        _ <- IO.delay {
+          missingTokenException.getMessage mustBe "Authentication cookie/token not found"
+        }
+      } yield (): Unit
+  }
+
 }

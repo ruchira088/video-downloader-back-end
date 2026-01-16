@@ -51,4 +51,36 @@ class DoobieFileResourceDaoSpec extends AnyFlatSpec with Matchers {
           yield insertResult
       }
   }
+
+  "update" should "update file resource size" in runIO {
+    new EmbeddedCoreResourcesProvider[IO].transactor
+      .use { transaction =>
+        for {
+          timestamp <- JodaClock[IO].timestamp
+          fileResource = FileResource("file-update-test", timestamp, "/video/update-test.mp4", MediaType.video.mp4, 1024)
+
+          _ <- transaction { DoobieFileResourceDao.insert(fileResource) }
+
+          updateResult <- transaction { DoobieFileResourceDao.update(fileResource.id, 2048) }
+          _ <- IO.delay { updateResult mustBe 1 }
+
+          updatedResource <- transaction { DoobieFileResourceDao.getById(fileResource.id) }
+          _ <- IO.delay {
+            updatedResource mustBe defined
+            updatedResource.get.size mustBe 2048
+            updatedResource.get.path mustBe fileResource.path
+          }
+        } yield ()
+      }
+  }
+
+  it should "return 0 when updating non-existent resource" in runIO {
+    new EmbeddedCoreResourcesProvider[IO].transactor
+      .use { transaction =>
+        for {
+          updateResult <- transaction { DoobieFileResourceDao.update("non-existent-id", 9999) }
+          _ <- IO.delay { updateResult mustBe 0 }
+        } yield ()
+      }
+  }
 }

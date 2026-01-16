@@ -175,4 +175,45 @@ class PureConfigReadersSpec extends AnyFlatSpec with Matchers {
     result.isRight mustBe true
     result.toOption.get mustBe Set("one", "two")
   }
+
+  it should "deduplicate entries in Set" in {
+    val config = ConfigFactory.parseString("""value = "alpha;beta;alpha;gamma;beta" """)
+    val result = ConfigSource.fromConfig(config).at("value").load[Set[String]]
+    result.isRight mustBe true
+    result.toOption.get.size mustBe 3
+  }
+
+  "stringIterableConfigReader with Seq" should "parse into Seq" in {
+    val config = ConfigFactory.parseString("""value = "a;b;c" """)
+    val result = ConfigSource.fromConfig(config).at("value").load[Seq[String]]
+    result.isRight mustBe true
+    result.toOption.get mustBe Seq("a", "b", "c")
+  }
+
+  "uriPureConfigReader" should "fail for invalid URI" in {
+    val config = ConfigFactory.parseString("""value = "://invalid" """)
+    val result = ConfigSource.fromConfig(config).at("value").load[Uri]
+    result.isLeft mustBe true
+  }
+
+  "localTimePureConfigReader" should "parse local time with seconds" in {
+    val config = ConfigFactory.parseString("""value = "23:59:59" """)
+    val result = ConfigSource.fromConfig(config).at("value").load[LocalTime]
+    result.isRight mustBe true
+    result.toOption.get.getHourOfDay mustBe 23
+    result.toOption.get.getSecondOfMinute mustBe 59
+  }
+
+  "hostConfigReader" should "parse fully qualified domain name" in {
+    val config = ConfigFactory.parseString("""value = "api.example.com" """)
+    val result = ConfigSource.fromConfig(config).at("value").load[Host]
+    result.isRight mustBe true
+    result.toOption.get.toString mustBe "api.example.com"
+  }
+
+  "portConfigReader" should "fail for port out of range" in {
+    val config = ConfigFactory.parseString("""value = "99999" """)
+    val result = ConfigSource.fromConfig(config).at("value").load[Port]
+    result.isLeft mustBe true
+  }
 }

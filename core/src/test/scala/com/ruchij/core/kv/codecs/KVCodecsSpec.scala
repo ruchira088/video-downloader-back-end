@@ -332,6 +332,41 @@ class KVCodecsSpec extends AnyFlatSpec with Matchers {
     IO.unit
   }
 
+  "KVEncoder.coMapF" should "transform values with effect before encoding" in runIO {
+    val baseEncoder = KVEncoder[IO, String]
+    val lengthEncoder: KVEncoder[IO, String] = baseEncoder.coMapF[String, String](s => IO.pure(s.toUpperCase))
+    for {
+      result <- lengthEncoder.encode("hello")
+    } yield {
+      result mustBe "HELLO"
+    }
+  }
+
+  it should "handle failed effects" in runIO {
+    val baseEncoder = KVEncoder[IO, String]
+    val failingEncoder: KVEncoder[IO, String] = baseEncoder.coMapF[String, String](_ =>
+      IO.raiseError(new RuntimeException("encoding failed"))
+    )
+    for {
+      result <- failingEncoder.encode("test").attempt
+    } yield {
+      result.isLeft mustBe true
+      result.left.exists(_.getMessage == "encoding failed") mustBe true
+    }
+  }
+
+  it should "chain effects correctly" in runIO {
+    val baseEncoder = KVEncoder[IO, Long]
+    val stringToLongEncoder: KVEncoder[IO, String] = baseEncoder.coMapF[String, Long](s =>
+      IO.delay(s.length.toLong)
+    )
+    for {
+      result <- stringToLongEncoder.encode("hello world")
+    } yield {
+      result mustBe "11"
+    }
+  }
+
   "KVDecoder.TermCount" should "count single non-product term as 1" in {
     val stringTermCount = KVDecoder.TermCount[String]
     stringTermCount.size mustBe 1

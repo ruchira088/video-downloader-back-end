@@ -138,4 +138,13 @@ class JsoupSelectorSpec extends AnyFlatSpec with Matchers {
       uri.toString mustBe "https://example.com/images/thumb.jpg"
     }
   }
+
+  "JsoupSelector.stringToUri" should "fail when parsing relative path with hostless URI" in runIO {
+    import org.http4s.Uri
+    val hostlessUri = Uri.unsafeFromString("/just/a/path")
+    JsoupSelector.stringToUri[IO]("/images/photo.jpg").run(hostlessUri).attempt.map { result =>
+      result.isLeft mustBe true
+      result.left.toOption.get.getMessage must include("Unable to determine host")
+    }
+  }
 }

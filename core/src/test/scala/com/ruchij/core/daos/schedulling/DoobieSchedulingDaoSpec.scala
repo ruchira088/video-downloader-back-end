@@ -575,4 +575,35 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
       yield (): Unit
   }
 
+  it should "getById with groupId filter returns None when videoId doesn't match" in runTest {
+    (scheduledVideoDownload, transaction) =>
+      for {
+        result <- transaction(DoobieSchedulingDao.getById("non-existent-video-id", None))
+
+        _ <- IO.delay {
+          result mustBe None
+        }
+      }
+      yield (): Unit
+  }
+
+  it should "getById with groupId filter can filter by groupId" in runTest {
+    (scheduledVideoDownload, transaction) =>
+      for {
+        // Get by ID with a groupId that doesn't match (no group exists)
+        resultWithNonExistentGroup <- transaction(
+          DoobieSchedulingDao.getById(scheduledVideoDownload.videoMetadata.id, Some("non-existent-group"))
+        )
+
+        // Since there's no group assigned, it should still return the video
+        // (the SQL logic checks if groupId is null or matches)
+        _ <- IO.delay {
+          // Based on the DAO implementation, getById with groupId filters by video_permission
+          // If no permission exists, it should return None
+          resultWithNonExistentGroup mustBe None
+        }
+      }
+      yield (): Unit
+  }
+
 }
