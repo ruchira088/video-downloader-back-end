@@ -66,22 +66,32 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ -f target/scala-2.13/scoverage-report/scoverage.xml ]; then
             STATEMENT=$(grep -oP 'statement-count="\K[^"]+' target/scala-2.13/scoverage-report/scoverage.xml | head -1)
-            COVERED=$(grep -oP 'statements-invoked-count="\K[^"]+' target/scala-2.13/scoverage-report/scoverage.xml | head -1)
-            PERCENT=$(grep -oP 'statement-rate="\K[^"]+' target/scala-2.13/scoverage-report/scoverage.xml | head -1)
-            PERCENT_INT=${PERCENT%.*}
+            COVERED=$(grep -oP 'statements-invoked="\K[^"]+' target/scala-2.13/scoverage-report/scoverage.xml | head -1)
+            STMT_PERCENT=$(grep -oP 'statement-rate="\K[^"]+' target/scala-2.13/scoverage-report/scoverage.xml | head -1)
+            BRANCH_PERCENT=$(grep -oP 'branch-rate="\K[^"]+' target/scala-2.13/scoverage-report/scoverage.xml | head -1)
+            PERCENT_INT=${STMT_PERCENT%.*}
             if [ "$PERCENT_INT" -ge 80 ]; then
-              EMOJI="🟢"
+              STMT_EMOJI="🟢"
               MESSAGE="Excellent coverage! 🎉"
             elif [ "$PERCENT_INT" -ge 60 ]; then
-              EMOJI="🟡"
+              STMT_EMOJI="🟡"
               MESSAGE="Good coverage, but room for improvement 💪"
             else
-              EMOJI="🔴"
+              STMT_EMOJI="🔴"
               MESSAGE="Coverage needs attention 🔧"
+            fi
+            BRANCH_INT=${BRANCH_PERCENT%.*}
+            if [ "$BRANCH_INT" -ge 80 ]; then
+              BRANCH_EMOJI="🟢"
+            elif [ "$BRANCH_INT" -ge 60 ]; then
+              BRANCH_EMOJI="🟡"
+            else
+              BRANCH_EMOJI="🔴"
             fi
             echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
             echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-            echo "| ${EMOJI} Statement Coverage | **${PERCENT}%** |" >> $GITHUB_STEP_SUMMARY
+            echo "| ${STMT_EMOJI} Statement Coverage | **${STMT_PERCENT}%** |" >> $GITHUB_STEP_SUMMARY
+            echo "| ${BRANCH_EMOJI} Branch Coverage | **${BRANCH_PERCENT}%** |" >> $GITHUB_STEP_SUMMARY
             echo "| 📝 Statements Covered | ${COVERED} / ${STATEMENT} |" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "${MESSAGE}" >> $GITHUB_STEP_SUMMARY
