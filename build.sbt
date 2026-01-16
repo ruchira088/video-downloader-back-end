@@ -21,7 +21,8 @@ inThisBuild {
     ),
     resolvers ++= Seq("Confluent" at "https://packages.confluent.io/maven/", "jitpack" at "https://jitpack.io"),
     addCompilerPlugin(kindProjector),
-    addCompilerPlugin(betterMonadicFor)
+    addCompilerPlugin(betterMonadicFor),
+    Test / testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-u", "target/test-reports")
   )
 }
 
