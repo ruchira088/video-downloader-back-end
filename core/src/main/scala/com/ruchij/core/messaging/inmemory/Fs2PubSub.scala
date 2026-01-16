@@ -8,7 +8,7 @@ import com.ruchij.core.messaging.models.CommittableRecord
 import fs2.concurrent.Topic
 import fs2.{Pipe, Stream}
 
-class Fs2PubSub[F[_]: Applicative, A] private (topic: Topic[F, A]) extends PubSub[F, CommittableRecord[Id, *], A] {
+class Fs2PubSub[F[_]: Applicative, A](topic: Topic[F, A]) extends PubSub[F, CommittableRecord[Id, *], A] {
 
   override val publish: Pipe[F, A, Unit] = input => topic.publish(input)
 
