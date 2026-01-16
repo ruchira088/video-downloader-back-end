@@ -43,8 +43,10 @@ class HealthServiceImplSpec extends AnyFlatSpec with Matchers {
       cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
 
       javaHttpClient <- Resource.eval {
-        Sync[IO].blocking {
-          HttpClient.newBuilder().followRedirects(Redirect.NORMAL).build()
+        Sync[IO].delay {
+          HttpClient.newBuilder()
+            .followRedirects(Redirect.NORMAL)
+            .build()
         }
       }
       httpClient = JdkHttpClient[IO](javaHttpClient)

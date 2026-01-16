@@ -106,7 +106,7 @@ object ApiApp extends IOApp {
       hikariTransactor <- DoobieTransactor.create[F](apiServiceConfiguration.databaseConfiguration)
 
       javaHttpClient <- Resource.eval {
-        Sync[F].blocking {
+        Sync[F].delay {
           HttpClient.newBuilder().followRedirects(Redirect.NORMAL).build()
         }
       }

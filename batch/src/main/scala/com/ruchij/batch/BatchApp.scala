@@ -87,7 +87,7 @@ object BatchApp extends IOApp {
       .flatMap { implicit transaction =>
         for {
           javaHttpClient <- Resource.eval {
-            Sync[F].blocking {
+            Sync[F].delay {
               HttpClient
                 .newBuilder()
                 .followRedirects(Redirect.NORMAL)
