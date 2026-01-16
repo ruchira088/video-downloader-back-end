@@ -9,6 +9,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import scala.concurrent.duration._
+import scala.language.postfixOps
 
 class Fs2PubSubSpec extends AnyFlatSpec with Matchers {
 
@@ -24,11 +25,11 @@ class Fs2PubSubSpec extends AnyFlatSpec with Matchers {
 
       // Start receiving from topic before publishing
       receivedFiber <- pubSub.subscribe("test-group").take(1).compile.toList
-        .timeout(2.seconds)
+        .timeout(5 seconds)
         .start
 
       // Give subscription time to start
-      _ <- IO.sleep(50.millis)
+      _ <- IO.sleep(100 millis)
 
       // Publish a message
       _ <- pubSub.publishOne("test-message")

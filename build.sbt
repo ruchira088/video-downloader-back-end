@@ -22,9 +22,16 @@ inThisBuild {
     resolvers ++= Seq("Confluent" at "https://packages.confluent.io/maven/", "jitpack" at "https://jitpack.io"),
     addCompilerPlugin(kindProjector),
     addCompilerPlugin(betterMonadicFor),
-    Test / testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-u", "target/test-reports")
+    Test / testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-u", "target/test-reports"),
+    Test / parallelExecution := true,
+    Test / testForkedParallel := true
   )
 }
+
+Global / concurrentRestrictions := Seq(
+  Tags.limit(Tags.Test, 4),
+  Tags.limit(Tags.Compile, 4)
+)
 
 Global / excludeLintKeys ++= Set(maintainer)
 
@@ -56,6 +63,7 @@ lazy val core =
   (project in file("./core"))
     .settings(
       Test / fork := true,
+      Test / parallelExecution := false,
       libraryDependencies ++=
         Seq(
           catsEffect,
