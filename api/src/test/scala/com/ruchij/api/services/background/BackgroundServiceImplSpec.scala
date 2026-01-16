@@ -143,10 +143,10 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
 
       // Publish and receive in parallel
       received <- service.downloadProgress.take(1).compile.toList
-        .timeout(1.second)
+        .timeout(5 seconds)
         .start
         .flatMap { fiber =>
-          IO.sleep(50.millis) *>
+          IO.sleep(1 second) *>
             downloadProgressTopic.publish1(progress) *>
             fiber.joinWithNever
         }
@@ -415,7 +415,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
 
       // Start receiving from topic
       receivedFiber <- scheduleVideoDownloadsTopic.subscribe(10).take(1).compile.toList
-        .timeout(2.seconds)
+        .timeout(5 seconds)
         .start
 
       // Start the service

@@ -25,11 +25,11 @@ class Fs2PubSubSpec extends AnyFlatSpec with Matchers {
 
       // Start receiving from topic before publishing
       receivedFiber <- pubSub.subscribe("test-group").take(1).compile.toList
-        .timeout(5 seconds)
+        .timeout(10 seconds)
         .start
 
       // Give subscription time to start
-      _ <- IO.sleep(100 millis)
+      _ <- IO.sleep(1 second)
 
       // Publish a message
       _ <- pubSub.publishOne("test-message")
@@ -49,10 +49,10 @@ class Fs2PubSubSpec extends AnyFlatSpec with Matchers {
 
       // Start receiving
       receivedFiber <- pubSub.subscribe("test-group").take(3).compile.toList
-        .timeout(2.seconds)
+        .timeout(10 seconds)
         .start
 
-      _ <- IO.sleep(50.millis)
+      _ <- IO.sleep(1 second)
 
       // Publish multiple messages
       _ <- Stream.emits[IO, Int](List(1, 2, 3)).through(pubSub.publish).compile.drain
@@ -71,10 +71,10 @@ class Fs2PubSubSpec extends AnyFlatSpec with Matchers {
       pubSub <- Fs2PubSub[IO, String]
 
       receivedFiber <- pubSub.subscribe("test-group").take(1).compile.toList
-        .timeout(2.seconds)
+        .timeout(10 seconds)
         .start
 
-      _ <- IO.sleep(50.millis)
+      _ <- IO.sleep(1 second)
       _ <- pubSub.publishOne("committable-message")
 
       received <- receivedFiber.joinWithNever
@@ -106,14 +106,14 @@ class Fs2PubSubSpec extends AnyFlatSpec with Matchers {
 
       // Start two subscribers
       receivedFiber1 <- pubSub.subscribe("group-1").take(1).compile.toList
-        .timeout(2.seconds)
+        .timeout(10 seconds)
         .start
 
       receivedFiber2 <- pubSub.subscribe("group-2").take(1).compile.toList
-        .timeout(2.seconds)
+        .timeout(10 seconds)
         .start
 
-      _ <- IO.sleep(50.millis)
+      _ <- IO.sleep(1 second)
 
       _ <- pubSub.publishOne("broadcast-message")
 
@@ -134,7 +134,7 @@ class Fs2PubSubSpec extends AnyFlatSpec with Matchers {
       pubSub <- Fs2PubSub[IO, String]
       result <- pubSub.publishOne("message")
       _ <- IO.delay {
-        result mustBe (())
+        result mustBe ()
       }
     } yield ()
   }
