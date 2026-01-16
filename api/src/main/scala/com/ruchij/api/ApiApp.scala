@@ -53,7 +53,7 @@ import com.ruchij.core.services.config.{ConfigurationService, ConfigurationServi
 import com.ruchij.core.services.download.Http4sDownloadService
 import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.renderer.SpaSiteRendererImpl
-import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector}
+import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector, RepositoryService}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, VideoWatchHistoryServiceImpl, YouTubeVideoDownloaderImpl}
 import com.ruchij.core.types.{JodaClock, RandomGenerator}
@@ -173,7 +173,7 @@ object ApiApp extends IOApp {
 
     val fileTypeDetector = new PathFileTypeDetector[F](new Tika())
 
-    val repositoryService: FileRepositoryService[F] = new FileRepositoryService[F](fileTypeDetector)
+    val repositoryService: RepositoryService[F] = new FileRepositoryService[F](fileTypeDetector)
     val downloadService: Http4sDownloadService[F] = new Http4sDownloadService[F](client, repositoryService)
     val hashingService: MurmurHash3Service[F] = new MurmurHash3Service[F]
     val passwordHashingService = new BCryptPasswordHashingService[F]

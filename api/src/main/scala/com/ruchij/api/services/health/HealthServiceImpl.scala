@@ -14,7 +14,7 @@ import com.ruchij.core.config.{SpaSiteRendererConfiguration, StorageConfiguratio
 import com.ruchij.core.kv.KeySpacedKeyValueStore
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Publisher
-import com.ruchij.core.services.repository.FileRepositoryService
+import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.services.video.YouTubeVideoDownloader
 import com.ruchij.core.types.{JodaClock, RandomGenerator}
 import doobie.free.connection.ConnectionIO
@@ -32,7 +32,7 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 
 class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
-  fileRepositoryService: FileRepositoryService[F],
+  repositoryService: RepositoryService[F],
   keySpacedKeyValueStore: KeySpacedKeyValueStore[F, HealthCheckKey, DateTime],
   healthCheckStream: Stream[F, HealthCheckMessage],
   healthCheckPublisher: Publisher[F, HealthCheckMessage],
@@ -115,15 +115,15 @@ class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
     for {
       imageFolderFiber <- Concurrent[F].start(fileRepositoryPathCheck(storageConfiguration.imageFolder))
       videoFolderFiber <- Concurrent[F].start(fileRepositoryPathCheck(storageConfiguration.videoFolder))
-      otherFoldersFiber <- storageConfiguration.otherVideoFolders.traverse(path => Concurrent[F].start(fileRepositoryPathCheck(path)))
+      otherFoldersFiber <- storageConfiguration.otherVideoFolders.traverse(
+        path => Concurrent[F].start(fileRepositoryPathCheck(path))
+      )
 
       imageFolderCheck <- imageFolderFiber.joinWithNever
       videoFolderCheck <- videoFolderFiber.joinWithNever
       otherFoldersCheck <- otherFoldersFiber.traverse(_.joinWithNever)
 
-    } yield FileRepositoryCheck(
-      imageFolderCheck, videoFolderCheck, otherFoldersCheck
-    )
+    } yield FileRepositoryCheck(imageFolderCheck, videoFolderCheck, otherFoldersCheck)
 
   private val httpStatusHealthCheck: Status => HealthStatus = {
     case Status.Ok => HealthStatus.Healthy
@@ -143,14 +143,14 @@ class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
   private def fileHealthCheck(fileKey: String): F[HealthStatus] =
     OptionT
       .liftF {
-        fileRepositoryService.write(fileKey, Stream.emits[F, Byte](BuildInfo.toString.getBytes)).compile.drain
+        repositoryService.write(fileKey, Stream.emits[F, Byte](BuildInfo.toString.getBytes)).compile.drain
       }
       .productR {
-        OptionT(fileRepositoryService.read(fileKey, None, None))
+        OptionT(repositoryService.read(fileKey, None, None))
           .semiflatMap(_.compile.toList)
       }
       .map(bytes => new String(bytes.toArray))
-      .product(OptionT.liftF(fileRepositoryService.delete(fileKey)))
+      .product(OptionT.liftF(repositoryService.delete(fileKey)))
       .map {
         case (data, deleted) =>
           if (deleted && data.equalsIgnoreCase(BuildInfo.toString)) HealthStatus.Healthy else HealthStatus.Unhealthy
