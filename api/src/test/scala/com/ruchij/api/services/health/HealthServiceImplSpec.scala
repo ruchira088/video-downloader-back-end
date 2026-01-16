@@ -27,7 +27,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 class HealthServiceImplSpec extends AnyFlatSpec with Matchers {
 
-  "HealthServiceImpl" should "return Healthy status when all services are healthy" in runIO {
+  "healthCheck" should "be healthy when all the services are healthy" in runIO {
     val apiResourcesProvider: ApiResourcesProvider[IO] = new ContainerApiResourcesProvider[IO]
 
     val healthServiceResource = for {
@@ -36,6 +36,20 @@ class HealthServiceImplSpec extends AnyFlatSpec with Matchers {
 
       kafkaConfiguration <- apiResourcesProvider.kafkaConfiguration
       healthCheckPubSub <- KafkaPubSub[IO, HealthCheckMessage](kafkaConfiguration)
+      healthCheckTopic <- Resource.eval(Topic[IO, HealthCheckMessage])
+
+      _ <- Resource.eval {
+        Concurrent[IO].start {
+          healthCheckTopic
+            .publish {
+              healthCheckPubSub.subscribe("health").evalMap { committableMessage =>
+                healthCheckPubSub.commit(List(committableMessage)).as(committableMessage.value)
+              }
+            }
+            .compile
+            .drain
+        }
+      }
 
       spaSiteRendererConfiguration <- apiResourcesProvider.spaSiteRendererConfiguration
 
@@ -54,7 +68,7 @@ class HealthServiceImplSpec extends AnyFlatSpec with Matchers {
 
       repositoryService = new InMemoryRepositoryService[IO](new ConcurrentHashMap[String, List[Byte]]())
 
-      healthCheckTopic <- Resource.eval(Topic[IO, HealthCheckMessage])
+
 
       transactor <- apiResourcesProvider.transactor
 
@@ -64,18 +78,7 @@ class HealthServiceImplSpec extends AnyFlatSpec with Matchers {
         otherVideoFolders = List("/a", "/b")
       )
 
-      _ <- Resource.eval {
-        Concurrent[IO].start {
-          healthCheckTopic
-            .publish {
-              healthCheckPubSub.subscribe("health").evalMap { committableMessage =>
-                healthCheckPubSub.commit(List(committableMessage)).as(committableMessage.value)
-              }
-            }
-            .compile
-            .drain
-        }
-      }
+
 
       healthServiceImpl = new HealthServiceImpl[IO](
         repositoryService,
@@ -94,7 +97,9 @@ class HealthServiceImplSpec extends AnyFlatSpec with Matchers {
       healthService =>
         healthService.healthCheck.flatMap {
           healthCheck => IO.delay {
-            healthCheck.isHealthy mustBe true
+            withClue(s"Health check failed: $healthCheck") {
+              healthCheck.isHealthy mustBe true
+            }
           }
         }
     }

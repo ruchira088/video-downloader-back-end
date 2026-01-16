@@ -14,6 +14,17 @@ final case class HealthCheck(
   val isHealthy: Boolean =
     Set(self.database, self.keyValueStore, self.pubSub, self.spaRenderer, self.internetConnectivity)
       .forall(_.healthStatus == Healthy) && fileRepository.isHealthy
+
+  override def toString: String =
+    s"""HealthCheck(
+       |  database=$database,
+       |  fileRepository=$fileRepository,
+       |  keyValueStore=$keyValueStore,
+       |  pubSub=$pubSub,
+       |  spaRenderer=$spaRenderer,
+       |  internetConnectivity=$internetConnectivity
+       |)
+      |""".stripMargin
 }
 
 object HealthCheck {
