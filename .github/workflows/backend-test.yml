@@ -3,9 +3,13 @@ name: Backend - Compile & Test
 on: workflow_call
 
 jobs:
-  compile:
-    name: Compile
+  compile-and-test:
+    name: Compile & Test
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      checks: write
 
     steps:
       - name: Checkout code
@@ -35,53 +39,6 @@ jobs:
       - name: Compile
         run: sbt compile "Test / compile"
 
-  test:
-    name: Test - ${{ matrix.module }}
-    runs-on: ubuntu-latest
-    needs: compile
-
-    permissions:
-      contents: read
-      checks: write
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - module: migration-application
-            sbt-project: migrationApplication
-          - module: core
-            sbt-project: core
-          - module: api
-            sbt-project: api
-          - module: batch
-            sbt-project: batch
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Set up JDK 25
-        uses: actions/setup-java@v5
-        with:
-          java-version: 25
-          distribution: temurin
-
-      - name: Set up sbt
-        uses: sbt/setup-sbt@v1
-
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          key: ${{ runner.os }}-${{ hashFiles('**/build.properties') }}-${{ hashFiles('**/plugins.sbt') }}-${{ hashFiles('**/Dependencies.scala') }}
-          path: |
-            ~/.sbt
-            ~/.cache/coursier
-          restore-keys: |
-            ${{ runner.os }}-${{ hashFiles('**/build.properties') }}-${{ hashFiles('**/plugins.sbt') }}
-            ${{ runner.os }}-${{ hashFiles('**/build.properties') }}
-            ${{ runner.os }}
-
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install ffmpeg -y
 
@@ -91,13 +48,48 @@ jobs:
       - name: Login to GitHub Container Registry
         run: docker login ghcr.io -u USERNAME -p ${{ secrets.GHCR_ACCESS_TOKEN }}
 
-      - name: Run tests - ${{ matrix.module }}
-        run: sbt "${{ matrix.sbt-project }} / test"
+      - name: Run tests with coverage
+        run: sbt coverage test coverageAggregate
 
       - name: Upload test results
         uses: dorny/test-reporter@v2
         if: success() || failure()
         with:
-          name: Test Results - ${{ matrix.module }}
-          path: "${{ matrix.module }}/target/test-reports/*.xml"
+          name: Scala Test Results
+          path: "target/test-reports/*.xml"
           reporter: java-junit
+
+      - name: Print coverage summary
+        if: success() || failure()
+        run: |
+          echo "## 📊 Coverage Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f target/scala-2.13/scoverage-report/scoverage.xml ]; then
+            STATEMENT=$(grep -oP 'statement-count="\K[^"]+' target/scala-2.13/scoverage-report/scoverage.xml | head -1)
+            COVERED=$(grep -oP 'statements-invoked-count="\K[^"]+' target/scala-2.13/scoverage-report/scoverage.xml | head -1)
+            PERCENT=$(grep -oP 'statement-rate="\K[^"]+' target/scala-2.13/scoverage-report/scoverage.xml | head -1)
+            PERCENT_INT=${PERCENT%.*}
+            if [ "$PERCENT_INT" -ge 80 ]; then
+              EMOJI="🟢"
+              MESSAGE="Excellent coverage! 🎉"
+            elif [ "$PERCENT_INT" -ge 60 ]; then
+              EMOJI="🟡"
+              MESSAGE="Good coverage, but room for improvement 💪"
+            else
+              EMOJI="🔴"
+              MESSAGE="Coverage needs attention 🔧"
+            fi
+            echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| ${EMOJI} Statement Coverage | **${PERCENT}%** |" >> $GITHUB_STEP_SUMMARY
+            echo "| 📝 Statements Covered | ${COVERED} / ${STATEMENT} |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "${MESSAGE}" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: success() || failure()
+        with:
+          name: coverage-report
+          path: target/scala-2.13/scoverage-report/

@@ -22,6 +22,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import scala.concurrent.duration._
+import scala.language.postfixOps
 
 class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
 
@@ -319,7 +320,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
       fiber <- service.run
 
       // Give the service time to start
-      _ <- IO.sleep(100.millis)
+      _ <- IO.sleep(1 second)
 
       // Publish progress to the topic
       _ <- downloadProgressTopic.publish1(DownloadProgress("video-1", timestamp, 1024L))
@@ -327,7 +328,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
       _ <- downloadProgressTopic.publish1(DownloadProgress("video-2", timestamp, 512L))
 
       // Wait for batch window (5 seconds is the window, but we'll wait a bit extra)
-      _ <- IO.sleep(6.seconds)
+      _ <- IO.sleep(6 seconds)
 
       _ <- fiber.cancel
 
