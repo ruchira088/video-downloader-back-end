@@ -8,6 +8,8 @@ import org.http4s.Uri.Path.Root
 import org.http4s.server.middleware.{CORS, CORSPolicy}
 import org.http4s.{HttpApp, Method, Request, Response}
 
+import scala.util.matching.Regex
+
 object Cors {
   private val OpenCorsPolicyRequests: Set[(Method, Path)] =
     Set(
@@ -28,7 +30,7 @@ object Cors {
       .contains((request.method, request.pathInfo))
 
   def apply[F[_]: Applicative](allowedHosts: Set[String])(httpApp: HttpApp[F]): HttpApp[F] = {
-    val hostsRegex = allowedHosts.flatMap(hostRegex).mkString("|").r
+    val hostsRegex: Regex = allowedHosts.flatMap(hostRegex).mkString("|").r
 
     val primaryCorsPolicy: CORSPolicy =
       CORS.policy

@@ -139,7 +139,7 @@ services:
     image: postgres:17
 #    command: postgres -c log_statement=all
     healthcheck:
-      test: "pg_isready -U admin -d video-downloader"
+      test: "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"
       start_period: 10s
       interval: 10s
       timeout: 5s

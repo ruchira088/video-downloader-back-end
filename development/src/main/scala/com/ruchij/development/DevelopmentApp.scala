@@ -45,7 +45,13 @@ object DevelopmentApp extends IOApp {
     WorkerConfiguration(2, LocalTime.MIDNIGHT, LocalTime.MIDNIGHT, "development-app")
 
   private val HttpConfig: HttpConfiguration =
-    HttpConfiguration(ipv4"0.0.0.0", port"443", Some(Set("*.localhost", "*.ruchij.com")))
+    HttpConfiguration(
+      ipv4"0.0.0.0",
+      port"443",
+      Some(
+        Set("*.localhost", "*.ruchij.com", "192.168.*.*", "10.*.*.*", "172.*.*.*")
+      )
+    )
 
   private val AuthenticationConfig: AuthenticationConfiguration =
     AuthenticationConfiguration(30 days)
