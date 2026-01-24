@@ -73,7 +73,7 @@ object Dependencies
 
   lazy val redisTestContainer = "com.redis" % "testcontainers-redis" % "2.2.4"
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.24"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.25"
 
   lazy val logstashLogbackEncoder = "net.logstash.logback" % "logstash-logback-encoder" % "9.0"
 
@@ -85,7 +85,7 @@ object Dependencies
 
   lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.19"
 
-  lazy val scalaMock = "org.scalamock" %% "scalamock" % "7.5.3"
+  lazy val scalaMock = "org.scalamock" %% "scalamock" % "7.5.4"
 
   lazy val pegdown = "org.pegdown" % "pegdown" % "1.6.0"
 }
