@@ -31,7 +31,7 @@ spec:
             failureThreshold: 3
             httpGet:
               port: http4s-port
-              path: /service/health
+              path: /service/info
               httpHeaders:
                 - name: X-Request-ID
                   value: k8s-readiness-probe
@@ -50,7 +50,7 @@ spec:
             failureThreshold: 5
             httpGet:
               port: http4s-port
-              path: /service/health
+              path: /service/info
               httpHeaders:
                 - name: X-Request-ID
                   value: k8s-startup-probe
