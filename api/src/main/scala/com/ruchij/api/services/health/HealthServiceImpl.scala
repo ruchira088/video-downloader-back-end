@@ -4,7 +4,7 @@ import cats.data.OptionT
 import cats.effect.kernel.Async
 import cats.effect.{Clock, Concurrent}
 import cats.implicits._
-import cats.~>
+import cats.{Applicative, ~>}
 import com.eed3si9n.ruchij.api.BuildInfo
 import com.ruchij.api.services.health.models.HealthCheck.{FilePathCheck, FileRepositoryCheck, HealthStatusDetails}
 import com.ruchij.api.services.health.models.kv.HealthCheckKey
@@ -190,8 +190,8 @@ class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
       pubSubStatus <- pubSubStatusFiber.joinWithNever
       internetConnectivityStatus <- internetConnectivityStatusFiber.joinWithNever
       spaRendererStatus <- spaRendererStatusFiber.joinWithNever
-    } yield
-      HealthCheck(
+
+      healthCheck = HealthCheck(
         databaseStatus,
         fileRepositoryStatus,
         keyValueStoreStatus,
@@ -199,4 +199,7 @@ class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
         spaRendererStatus,
         internetConnectivityStatus
       )
+
+      _ <- if (healthCheck.isHealthy) Applicative[F].unit else logger.warn[F](s"Health check failed: $healthCheck")
+    } yield healthCheck
 }
