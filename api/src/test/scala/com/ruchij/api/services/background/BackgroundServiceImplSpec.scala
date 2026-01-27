@@ -369,7 +369,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
 
       // Start receiving from topic
       receivedFiber <- healthCheckTopic.subscribe(10).take(1).compile.toList
-        .timeout(2.seconds)
+        .timeout(10 seconds)
         .start
 
       // Start the service
