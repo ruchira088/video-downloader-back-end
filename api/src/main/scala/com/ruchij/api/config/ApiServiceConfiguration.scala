@@ -4,6 +4,7 @@ import cats.ApplicativeError
 import com.ruchij.core.config.{
   KafkaConfiguration,
   RedisConfiguration,
+  SentryConfiguration,
   SpaSiteRendererConfiguration,
   StorageConfiguration
 }
@@ -21,7 +22,8 @@ final case class ApiServiceConfiguration(
   redisConfiguration: RedisConfiguration,
   authenticationConfiguration: AuthenticationConfiguration,
   kafkaConfiguration: KafkaConfiguration,
-  spaSiteRendererConfiguration: SpaSiteRendererConfiguration
+  spaSiteRendererConfiguration: SpaSiteRendererConfiguration,
+  sentryConfiguration: SentryConfiguration
 )
 
 object ApiServiceConfiguration {

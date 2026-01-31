@@ -12,7 +12,7 @@ import com.ruchij.api.external.containers.ContainerApiResourcesProvider
 import com.ruchij.batch.BatchApp
 import com.ruchij.batch.config.{BatchServiceConfiguration, WorkerConfiguration}
 import com.ruchij.batch.services.scheduler.Scheduler
-import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
+import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SentryConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.external.CoreResourcesProvider.HashedAdminPassword
 import com.ruchij.core.logging.Logger
@@ -56,6 +56,9 @@ object DevelopmentApp extends IOApp {
   private val AuthenticationConfig: AuthenticationConfiguration =
     AuthenticationConfiguration(30 days)
 
+  private val SentryConfig: SentryConfiguration =
+    SentryConfiguration(None, Some("development"), None)
+
   private def apiConfig(
     databaseConfiguration: DatabaseConfiguration,
     redisConfiguration: RedisConfiguration,
@@ -69,7 +72,8 @@ object DevelopmentApp extends IOApp {
       redisConfiguration,
       AuthenticationConfig,
       kafkaConfiguration,
-      spaSiteRendererConfiguration
+      spaSiteRendererConfiguration,
+      SentryConfig
     )
 
   private def batchConfig(
@@ -84,7 +88,8 @@ object DevelopmentApp extends IOApp {
       databaseConfiguration,
       kafkaConfiguration,
       redisConfiguration,
-      spaSiteRendererConfiguration
+      spaSiteRendererConfiguration,
+      SentryConfig
     )
 
   private val KeyStoreResource = "/localhost.jks"

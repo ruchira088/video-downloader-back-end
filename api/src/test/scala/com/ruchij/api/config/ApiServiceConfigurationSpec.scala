@@ -2,7 +2,7 @@ package com.ruchij.api.config
 
 import cats.effect.IO
 import com.comcast.ip4s.IpLiteralSyntax
-import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
+import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SentryConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.migration.config.DatabaseConfiguration
 import org.http4s.implicits.http4sLiteralsSyntax
@@ -77,6 +77,12 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
           uri = "http://spa-renderer-service:8000"
           uri = $${?SPA_SITE_RENDERER}
         }
+
+        sentry-configuration {
+          dsn = "https://key@sentry.io/123"
+          environment = "test"
+          traces-sample-rate = 0.5
+        }
       """
 
     val expectedApiServiceConfiguration =
@@ -87,7 +93,8 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         RedisConfiguration("localhost", 6379, Some("redis-password")),
         AuthenticationConfiguration(30 days),
         KafkaConfiguration("local", "kafka-cluster:9092", uri"http://kafka-cluster:8081"),
-        SpaSiteRendererConfiguration(uri"http://spa-renderer-service:8000")
+        SpaSiteRendererConfiguration(uri"http://spa-renderer-service:8000"),
+        SentryConfiguration(Some("https://key@sentry.io/123"), Some("test"), Some(0.5))
       )
 
     ApiServiceConfiguration.parse[IO](ConfigSource.string(configSource)).flatMap {

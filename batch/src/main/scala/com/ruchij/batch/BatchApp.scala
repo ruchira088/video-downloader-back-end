@@ -3,6 +3,7 @@ package com.ruchij.batch
 import cats.effect._
 import cats.effect.kernel.Async
 import cats.effect.std.Dispatcher
+import cats.implicits._
 import com.eed3si9n.ruchij.batch.BuildInfo
 import com.ruchij.batch.config.BatchServiceConfiguration
 import com.ruchij.batch.daos.filesync.DoobieFileSyncDao
@@ -30,6 +31,7 @@ import com.ruchij.core.kv.{KeySpacedKeyValueStore, RedisKeyValueStore}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.kafka.{KafkaPubSub, KafkaPublisher, KafkaSubscriber}
 import com.ruchij.core.messaging.models.VideoWatchMetric
+import com.ruchij.core.monitoring.Sentry
 import com.ruchij.core.services.cli.CliCommandRunnerImpl
 import com.ruchij.core.services.config.ConfigurationServiceImpl
 import com.ruchij.core.services.config.models.SharedConfigKey
@@ -39,7 +41,12 @@ import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.renderer.SpaSiteRendererImpl
 import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
-import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, VideoWatchHistoryServiceImpl, YouTubeVideoDownloaderImpl}
+import com.ruchij.core.services.video.{
+  VideoAnalysisServiceImpl,
+  VideoServiceImpl,
+  VideoWatchHistoryServiceImpl,
+  YouTubeVideoDownloaderImpl
+}
 import com.ruchij.core.types.{JodaClock, RandomGenerator}
 import doobie.free.connection.ConnectionIO
 import fs2.io.file.Files
@@ -63,7 +70,9 @@ object BatchApp extends IOApp {
       configObjectSource <- IO.delay(ConfigSource.defaultApplication)
       batchServiceConfiguration <- BatchServiceConfiguration.parse[IO](configObjectSource)
 
-      _ <- program[IO](batchServiceConfiguration)
+      _ <- Sentry
+        .init[IO](batchServiceConfiguration.sentryConfiguration)
+        .productR { program[IO](batchServiceConfiguration) }
         .use { scheduler =>
           scheduler.init
             .productR(logger.info[IO]("Scheduler has started"))
@@ -187,10 +196,9 @@ object BatchApp extends IOApp {
 
           videoWatchHistoryService = new VideoWatchHistoryServiceImpl[F, ConnectionIO](DoobieVideoWatchHistoryDao)
 
-          sharedConfigurationService =
-            new ConfigurationServiceImpl[F, SharedConfigKey](
-              new KeySpacedKeyValueStore(SharedConfigKeySpace, keyValueStore)
-            )
+          sharedConfigurationService = new ConfigurationServiceImpl[F, SharedConfigKey](
+            new KeySpacedKeyValueStore(SharedConfigKeySpace, keyValueStore)
+          )
 
           synchronizationService = new SynchronizationServiceImpl[F, repositoryService.BackedType, ConnectionIO](
             repositoryService,

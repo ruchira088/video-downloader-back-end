@@ -7,6 +7,7 @@
         k8s_namespace: video-downloader-back-end-staging
         hostname: api.staging.video.dev.ruchij.com
         env: development
+        sentry_env: staging
 
     - name: Deploy to staging
       import_tasks: tasks/k8s-deploy.yml

@@ -88,4 +88,6 @@ object Dependencies
   lazy val scalaMock = "org.scalamock" %% "scalamock" % "7.5.4"
 
   lazy val pegdown = "org.pegdown" % "pegdown" % "1.6.0"
+
+  lazy val sentry = "io.sentry" % "sentry" % "8.31.0"
 }

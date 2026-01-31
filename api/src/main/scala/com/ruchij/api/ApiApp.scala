@@ -45,6 +45,7 @@ import com.ruchij.core.kv.codecs.KVDecoder._
 import com.ruchij.core.kv.codecs.KVEncoder._
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.kafka.{KafkaPubSub, KafkaPublisher}
+import com.ruchij.core.monitoring.Sentry
 import com.ruchij.core.messaging.models.{HttpMetric, VideoWatchMetric}
 import com.ruchij.core.services.cli.CliCommandRunnerImpl
 import com.ruchij.core.services.config.models.SharedConfigKey
@@ -103,6 +104,7 @@ object ApiApp extends IOApp {
     apiServiceConfiguration: ApiServiceConfiguration
   ): Resource[F, HttpApp[F]] =
     for {
+      _ <- Sentry.init[F](apiServiceConfiguration.sentryConfiguration)
       hikariTransactor <- DoobieTransactor.create[F](apiServiceConfiguration.databaseConfiguration)
 
       javaHttpClient <- Resource.eval {

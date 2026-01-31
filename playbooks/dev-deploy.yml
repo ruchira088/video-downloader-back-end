@@ -10,6 +10,7 @@
         k8s_namespace: "video-downloader-back-end-{{ git_branch }}"
         hostname: "api.{{ git_branch }}.video.dev.ruchij.com"
         env: development
+        sentry_env: development
 
     - name: Deploy to dev branch
       import_tasks: tasks/k8s-deploy.yml

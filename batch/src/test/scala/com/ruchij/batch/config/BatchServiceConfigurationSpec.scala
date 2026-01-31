@@ -1,7 +1,7 @@
 package com.ruchij.batch.config
 
 import cats.effect.IO
-import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
+import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SentryConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.migration.config.DatabaseConfiguration
 import org.http4s.implicits.http4sLiteralsSyntax
@@ -75,6 +75,12 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
           uri = "http://spa-renderer-service:8000"
           uri = $${?SPA_SITE_RENDERER}
         }
+
+        sentry-configuration {
+          dsn = "https://key@sentry.io/456"
+          environment = "test"
+          traces-sample-rate = 0.5
+        }
       """
 
     val expectedBatchServiceConfiguration =
@@ -85,6 +91,7 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         KafkaConfiguration("local", "kafka-cluster:9092", uri"http://kafka-cluster:8081"),
         RedisConfiguration("localhost", 6379, Some("redis-password")),
         SpaSiteRendererConfiguration(uri"http://spa-renderer-service:8000"),
+        SentryConfiguration(Some("https://key@sentry.io/456"), Some("test"), Some(0.5))
       )
 
     BatchServiceConfiguration.parse[IO](ConfigSource.string(configSource)).flatMap {

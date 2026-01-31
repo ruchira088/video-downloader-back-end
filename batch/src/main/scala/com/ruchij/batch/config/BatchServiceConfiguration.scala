@@ -1,7 +1,7 @@
 package com.ruchij.batch.config
 
 import cats.ApplicativeError
-import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
+import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SentryConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
 import com.ruchij.core.config.PureConfigReaders._
 import com.ruchij.core.types.FunctionKTypes._
 import com.ruchij.migration.config.DatabaseConfiguration
@@ -15,7 +15,8 @@ final case class BatchServiceConfiguration(
   databaseConfiguration: DatabaseConfiguration,
   kafkaConfiguration: KafkaConfiguration,
   redisConfiguration: RedisConfiguration,
-  spaSiteRendererConfiguration: SpaSiteRendererConfiguration
+  spaSiteRendererConfiguration: SpaSiteRendererConfiguration,
+  sentryConfiguration: SentryConfiguration
 )
 
 object BatchServiceConfiguration {

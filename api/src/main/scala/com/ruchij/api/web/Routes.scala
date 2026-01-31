@@ -53,7 +53,9 @@ object Routes {
         ContextRouter[F, RequestContext](
           "/users" -> UserRoutes(userService, authenticationService),
           "/authentication" -> AuthenticationRoutes(authenticationService),
-          "/schedule" -> authMiddleware(SchedulingRoutes(apiSchedulingService, downloadProgressStream, scheduledVideoDownloadUpdatesStream)),
+          "/schedule" -> authMiddleware(
+            SchedulingRoutes(apiSchedulingService, downloadProgressStream, scheduledVideoDownloadUpdatesStream)
+          ),
           "/videos" -> authMiddleware(VideoRoutes(apiVideoService, videoAnalysisService, videoWatchHistoryService)),
           "/playlists" -> authMiddleware(PlaylistRoutes(playlistService)),
           "/assets" -> authMiddleware(AssetRoutes(assetService)),
@@ -64,8 +66,12 @@ object Routes {
       GZip {
         Cors[F](allowedOrigins) {
           RequestContextMiddleware {
-            ExceptionHandler {
-              NotFoundHandler { contextRoutes }
+            SentryMiddleware.captureResponseErrors {
+              ExceptionHandler {
+                SentryMiddleware {
+                  NotFoundHandler { contextRoutes }
+                }
+              }
             }
           }
         }
