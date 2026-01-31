@@ -94,7 +94,7 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         AuthenticationConfiguration(30 days),
         KafkaConfiguration("local", "kafka-cluster:9092", uri"http://kafka-cluster:8081"),
         SpaSiteRendererConfiguration(uri"http://spa-renderer-service:8000"),
-        SentryConfiguration(Some("https://key@sentry.io/123"), Some("test"), Some(0.5))
+        SentryConfiguration(Some("https://key@sentry.io/123"), "test", 0.5)
       )
 
     ApiServiceConfiguration.parse[IO](ConfigSource.string(configSource)).flatMap {

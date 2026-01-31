@@ -57,7 +57,7 @@ object DevelopmentApp extends IOApp {
     AuthenticationConfiguration(30 days)
 
   private val SentryConfig: SentryConfiguration =
-    SentryConfiguration(None, Some("development"), None)
+    SentryConfiguration(None, "development", 1.0)
 
   private def apiConfig(
     databaseConfiguration: DatabaseConfiguration,

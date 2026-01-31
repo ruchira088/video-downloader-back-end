@@ -91,7 +91,7 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         KafkaConfiguration("local", "kafka-cluster:9092", uri"http://kafka-cluster:8081"),
         RedisConfiguration("localhost", 6379, Some("redis-password")),
         SpaSiteRendererConfiguration(uri"http://spa-renderer-service:8000"),
-        SentryConfiguration(Some("https://key@sentry.io/456"), Some("test"), Some(0.5))
+        SentryConfiguration(Some("https://key@sentry.io/456"), "test", 0.5)
       )
 
     BatchServiceConfiguration.parse[IO](ConfigSource.string(configSource)).flatMap {
