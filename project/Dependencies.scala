@@ -33,7 +33,7 @@ object Dependencies
 
   lazy val circeLiteral = "io.circe" %% "circe-literal" % CirceVersion
 
-  lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.9.3"
+  lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.9.4"
 
   lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.13"
 
@@ -85,7 +85,7 @@ object Dependencies
 
   lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.19"
 
-  lazy val scalaMock = "org.scalamock" %% "scalamock" % "7.5.4"
+  lazy val scalaMock = "org.scalamock" %% "scalamock" % "7.5.5"
 
   lazy val pegdown = "org.pegdown" % "pegdown" % "1.6.0"
 
