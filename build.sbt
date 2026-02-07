@@ -12,13 +12,7 @@ inThisBuild {
     scalaVersion := Dependencies.ScalaVersion,
     maintainer := "me@ruchij.com",
     scalacOptions ++= Seq(
-      "-deprecation",
-      "-feature",
-      "-unchecked",
-      "-Werror",
-      "-Xlint",
-      "-Wconf:cat=lint-byname-implicit:s",
-      "-Xlog-implicits"
+      "-deprecation", "-feature", "-unchecked", "-Xfatal-warnings", "-Xlint"
     ),
     resolvers ++= Seq("Confluent" at "https://packages.confluent.io/maven/", "jitpack" at "https://jitpack.io"),
     addCompilerPlugin(kindProjector),
