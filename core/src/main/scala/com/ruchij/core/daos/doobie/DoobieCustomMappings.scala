@@ -9,6 +9,7 @@ import doobie.util.{Get, Put}
 import enumeratum.{Enum, EnumEntry}
 import org.http4s.{MediaType, Uri}
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 import scala.concurrent.duration.FiniteDuration
 import scala.reflect.runtime.universe.TypeTag
@@ -36,7 +37,7 @@ object DoobieCustomMappings {
     Get[Long].map(number => FiniteDuration(number, TimeUnit.MILLISECONDS))
 
   implicit val instantPut: Put[Instant] =
-    Put[Timestamp].tcontramap[Instant](instant => Timestamp.from(instant))
+    Put[Timestamp].tcontramap[Instant](instant => Timestamp.from(instant.truncatedTo(ChronoUnit.MICROS)))
 
   implicit val instantGet: Get[Instant] = Get[Timestamp].map(timestamp => timestamp.toInstant)
 

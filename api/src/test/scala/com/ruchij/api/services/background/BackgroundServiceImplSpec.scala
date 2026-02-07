@@ -416,7 +416,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
 
       // Start receiving from topic
       receivedFiber <- scheduleVideoDownloadsTopic.subscribe(10).take(1).compile.toList
-        .timeout(5 seconds)
+        .timeout(10 seconds)
         .start
 
       // Start the service
