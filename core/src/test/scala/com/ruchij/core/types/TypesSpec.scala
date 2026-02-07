@@ -6,7 +6,7 @@ import cats.implicits._
 import com.ruchij.core.exceptions.ValidationException
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.types.FunctionKTypes._
-import org.joda.time.DateTime
+import java.time.Instant
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
@@ -14,23 +14,23 @@ import java.util.UUID
 
 class TypesSpec extends AnyFlatSpec with Matchers {
 
-  "JodaClock[IO].timestamp" should "return current datetime" in runIO {
+  "Clock[IO].timestamp" should "return current datetime" in runIO {
     for {
-      before <- IO.delay(new DateTime())
-      timestamp <- JodaClock[IO].timestamp
-      after <- IO.delay(new DateTime())
+      before <- IO.delay(Instant.now())
+      timestamp <- Clock[IO].timestamp
+      after <- IO.delay(Instant.now())
     } yield {
       timestamp.isAfter(before.minusSeconds(1)) mustBe true
       timestamp.isBefore(after.plusSeconds(1)) mustBe true
     }
   }
 
-  "JodaClock.apply" should "return the implicit instance" in runIO {
-    val clock = JodaClock[IO]
+  "Clock.apply" should "return the implicit instance" in runIO {
+    val clock = Clock[IO]
     for {
       timestamp <- clock.timestamp
     } yield {
-      timestamp mustBe a[DateTime]
+      timestamp mustBe a[Instant]
     }
   }
 
@@ -147,16 +147,16 @@ class TypesSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  "dateTimeRandomGenerator" should "produce DateTime values relative to now" in runIO {
+  "dateTimeRandomGenerator" should "produce Instant values relative to now" in runIO {
     for {
-      now <- JodaClock[IO].timestamp
-      randomDateTime <- RandomGenerator[IO, DateTime].generate
+      now <- Clock[IO].timestamp
+      randomDateTime <- RandomGenerator[IO, Instant].generate
     } yield {
       // The dateTimeRandomGenerator uses offset range(-10_000, 0).map(now.minusMinutes(_))
       // minusMinutes(negative) = plusMinutes(positive), so value is in the future
       // The random datetime should be between now and 10,000 minutes in the future
-      randomDateTime.isAfter(now.minusMinutes(1)) mustBe true
-      randomDateTime.isBefore(now.plusMinutes(10001)) mustBe true
+      randomDateTime.isAfter(now.minus(java.time.Duration.ofMinutes(1))) mustBe true
+      randomDateTime.isBefore(now.plus(java.time.Duration.ofMinutes(10001))) mustBe true
     }
   }
 

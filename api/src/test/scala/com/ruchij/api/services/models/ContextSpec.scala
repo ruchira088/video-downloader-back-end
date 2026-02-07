@@ -1,13 +1,13 @@
 package com.ruchij.api.services.models
 
 import com.ruchij.api.daos.user.models.{Email, Role, User}
-import org.joda.time.DateTime
+import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 class ContextSpec extends AnyFlatSpec with Matchers {
 
-  private val timestamp = new DateTime(2024, 5, 15, 10, 30)
+  private val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 30)
   private val testUser = User("user-1", timestamp, "John", "Doe", Email("john@example.com"), Role.User)
 
   "RequestContext" should "store requestId" in {

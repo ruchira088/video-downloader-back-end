@@ -3,16 +3,16 @@ package com.ruchij.core.circe
 import com.ruchij.core.daos.videometadata.models.VideoSite
 import enumeratum.{Enum, EnumEntry}
 import io.circe.Decoder
-import org.joda.time.DateTime
 import shapeless.{::, Generic, HNil}
 
+import java.time.Instant
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
 object Decoders {
-  implicit val dateTimeDecoder: Decoder[DateTime] =
-    Decoder.decodeString.emapTry(dateTimeString => Try(DateTime.parse(dateTimeString)))
+  implicit val instantDecoder: Decoder[Instant] =
+    Decoder.decodeString.emapTry(instantString => Try(Instant.parse(instantString)))
 
   implicit val finiteDurationDecoder: Decoder[FiniteDuration] =
     Decoder.decodeDuration.map { duration => FiniteDuration(duration.toMillis, TimeUnit.MILLISECONDS) }

@@ -13,12 +13,12 @@ import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata}
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
 import com.ruchij.core.test.IOSupport.runIO
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
 import doobie.ConnectionIO
 import doobie.implicits._
 import org.http4s.MediaType
 import org.http4s.implicits.http4sLiteralsSyntax
-import org.joda.time.DateTime
+import java.time.Instant
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -39,13 +39,13 @@ class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
     transaction: ConnectionIO ~> IO
   )
 
-  private def insertTestUser(userId: String, email: String, timestamp: DateTime): ConnectionIO[Int] =
+  private def insertTestUser(userId: String, email: String, timestamp: Instant): ConnectionIO[Int] =
     sql"""
       INSERT INTO api_user (id, created_at, first_name, last_name, email, role)
         VALUES ($userId, $timestamp, 'Test', 'User', $email, 'User')
     """.update.run
 
-  private def insertScheduledVideo(videoId: String, timestamp: DateTime): ConnectionIO[Int] =
+  private def insertScheduledVideo(videoId: String, timestamp: Instant): ConnectionIO[Int] =
     sql"""
       INSERT INTO scheduled_video (scheduled_at, last_updated_at, status, downloaded_bytes, video_metadata_id, completed_at)
         VALUES ($timestamp, $timestamp, ${SchedulingStatus.Completed: SchedulingStatus}, 0, $videoId, $timestamp)
@@ -55,7 +55,7 @@ class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
     runIO {
       new EmbeddedCoreResourcesProvider[IO].transactor.use { transaction =>
         for {
-          timestamp <- JodaClock[IO].timestamp
+          timestamp <- Clock[IO].timestamp
           videoId = "test-video-id"
 
           // Create thumbnail file resource for video metadata
@@ -136,7 +136,7 @@ class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
 
   it should "insert multiple snapshots for the same video" in runTest { fixture =>
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
 
       // Create second snapshot file resource
       snapshotFileResource2 = FileResource(
@@ -204,7 +204,7 @@ class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
 
   it should "delete all snapshots by video ID" in runTest { fixture =>
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
 
       // Create second snapshot file resource
       snapshotFileResource2 = FileResource(
@@ -261,7 +261,7 @@ class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
 
   it should "check hasPermission returns false when no permission exists" in runTest { fixture =>
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
       userId = "test-user-id"
 
       _ <- fixture.transaction(insertTestUser(userId, "test@example.com", timestamp))
@@ -280,7 +280,7 @@ class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
 
   it should "check hasPermission returns true when permission exists" in runTest { fixture =>
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
       userId = "test-user-id"
 
       _ <- fixture.transaction(insertTestUser(userId, "test@example.com", timestamp))
@@ -304,7 +304,7 @@ class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
 
   it should "check hasPermission returns false for different user" in runTest { fixture =>
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
       userId1 = "test-user-id-1"
       userId2 = "test-user-id-2"
 
@@ -335,7 +335,7 @@ class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
 
   it should "check hasPermission returns false for non-existent snapshot" in runTest { fixture =>
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
       userId = "test-user-id"
 
       _ <- fixture.transaction(insertTestUser(userId, "test@example.com", timestamp))
@@ -356,7 +356,7 @@ class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
 
   it should "find snapshots by video with user permission" in runTest { fixture =>
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
       userId = "test-user-id"
 
       _ <- fixture.transaction(insertTestUser(userId, "test@example.com", timestamp))
@@ -389,7 +389,7 @@ class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
 
   it should "find snapshots by video with user permission for different user returns empty" in runTest { fixture =>
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
       userId1 = "test-user-id-1"
       userId2 = "test-user-id-2"
 
@@ -428,7 +428,7 @@ class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
         snapshots.size mustBe 1
         val retrievedSnapshot = snapshots.head
         retrievedSnapshot.fileResource.id mustBe fixture.snapshotFileResource.id
-        retrievedSnapshot.fileResource.createdAt.getMillis mustBe fixture.snapshotFileResource.createdAt.getMillis
+        retrievedSnapshot.fileResource.createdAt.toEpochMilli mustBe fixture.snapshotFileResource.createdAt.toEpochMilli
         retrievedSnapshot.fileResource.path mustBe fixture.snapshotFileResource.path
         retrievedSnapshot.fileResource.mediaType mustBe fixture.snapshotFileResource.mediaType
         retrievedSnapshot.fileResource.size mustBe fixture.snapshotFileResource.size
@@ -471,7 +471,7 @@ class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
 
   it should "correctly isolate snapshots between different videos" in runTest { fixture =>
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
 
       // Create second video with its own metadata and file resources
       thumbnailFileResource2 = FileResource(
@@ -550,7 +550,7 @@ class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
 
   it should "handle hasPermission with multiple snapshots for the same video" in runTest { fixture =>
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
       userId = "test-user-id"
 
       // Create second snapshot file resource
@@ -632,7 +632,7 @@ class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
 
   it should "not find snapshots for video when querying without permission for a user that exists" in runTest { fixture =>
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
       userId = "test-user-id"
 
       _ <- fixture.transaction(insertTestUser(userId, "test@example.com", timestamp))

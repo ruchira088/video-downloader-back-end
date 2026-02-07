@@ -24,16 +24,16 @@ import com.ruchij.core.messaging.Subscriber
 import com.ruchij.core.messaging.models.{CommittableRecord, VideoWatchMetric}
 import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
 import com.ruchij.core.services.video.VideoWatchHistoryService
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
 import fs2.Stream
 import fs2.concurrent.Topic
-import org.joda.time.LocalTime
 
+import java.time.{Duration, LocalTime, ZoneId}
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.language.postfixOps
 
-class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
+class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow, M[_]](
   batchSchedulingService: BatchSchedulingService[F],
   synchronizationService: SynchronizationService[F],
   batchVideoService: BatchVideoService[F],
@@ -56,7 +56,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
       .fixedRate[F](WorkerPollPeriod)
       .zipRight {
         Stream.repeatEval {
-          JodaClock[F].timestamp.flatMap { timestamp =>
+          Clock[F].timestamp.flatMap { timestamp =>
             transaction {
               OptionT(workerDao.idleWorker).flatMap { worker =>
                 OptionT(workerDao.reserveWorker(worker.id, workerConfiguration.owner, timestamp))
@@ -93,7 +93,7 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
             s"workerId=${worker.id} found task scheduledVideoDownloadId=${scheduledVideoDownload.videoMetadata.id}"
           )
         }
-        .product(OptionT.liftF(JodaClock[F].timestamp))
+        .product(OptionT.liftF(Clock[F].timestamp))
         .flatMap {
           case (task, timestamp) =>
             ApplicativeError[OptionT[F, *], Throwable].recoverWith {
@@ -375,12 +375,12 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
       .eval(logger.info[F]("cleanUpStaleWorkersTask started"))
       .productR {
         Stream
-          .eval(JodaClock[F].timestamp)
+          .eval(Clock[F].timestamp)
           .repeat
           .metered(30 seconds)
           .evalMap { timestamp =>
             transaction {
-              workerDao.cleanUpStaleWorkers(timestamp.minusMinutes(5))
+              workerDao.cleanUpStaleWorkers(timestamp.minus(Duration.ofMinutes(5)))
             }
           }
           .flatMap(Stream.emits)
@@ -397,13 +397,13 @@ class SchedulerImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
 object SchedulerImpl {
   val WorkerPollPeriod: FiniteDuration = 1 second
 
-  private def isWorkPeriod[F[_]: JodaClock: Applicative](start: LocalTime, end: LocalTime): F[Boolean] =
+  private def isWorkPeriod[F[_]: Clock: Applicative](start: LocalTime, end: LocalTime): F[Boolean] =
     if (start == end)
       Applicative[F].pure(true)
     else
-      JodaClock[F].timestamp
+      Clock[F].timestamp
         .map { timestamp =>
-          val localTime = timestamp.toLocalTime
+          val localTime = timestamp.atZone(ZoneId.systemDefault()).toLocalTime
 
           if (start.isBefore(end))
             localTime.isAfter(start) && localTime.isBefore(end)

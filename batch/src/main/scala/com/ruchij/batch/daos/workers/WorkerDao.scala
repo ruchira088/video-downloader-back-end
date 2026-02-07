@@ -2,7 +2,7 @@ package com.ruchij.batch.daos.workers
 
 import com.ruchij.batch.daos.workers.models.Worker
 import com.ruchij.core.daos.workers.models.WorkerStatus
-import org.joda.time.DateTime
+import java.time.Instant
 
 trait WorkerDao[F[_]] {
   val idleWorker: F[Option[Worker]]
@@ -15,15 +15,15 @@ trait WorkerDao[F[_]] {
 
   def setStatus(workerId: String, workerStatus: WorkerStatus): F[Int]
 
-  def reserveWorker(workerId: String, owner: String, timestamp: DateTime): F[Option[Worker]]
+  def reserveWorker(workerId: String, owner: String, timestamp: Instant): F[Option[Worker]]
 
-  def assignTask(workerId: String, scheduledVideoId: String, owner: String, timestamp: DateTime): F[Option[Worker]]
+  def assignTask(workerId: String, scheduledVideoId: String, owner: String, timestamp: Instant): F[Option[Worker]]
 
   def releaseWorker(workerId: String): F[Option[Worker]]
 
-  def updateHeartBeat(workerId: String, timestamp: DateTime): F[Option[Worker]]
+  def updateHeartBeat(workerId: String, timestamp: Instant): F[Option[Worker]]
 
-  def cleanUpStaleWorkers(heartBeatBefore: DateTime): F[Seq[Worker]]
+  def cleanUpStaleWorkers(heartBeatBefore: Instant): F[Seq[Worker]]
 
   def updateWorkerStatuses(workerStatus: WorkerStatus): F[Seq[Worker]]
 

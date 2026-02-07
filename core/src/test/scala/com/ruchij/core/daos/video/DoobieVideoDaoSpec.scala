@@ -14,12 +14,12 @@ import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.test.IOSupport.runIO
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
 import doobie.ConnectionIO
 import doobie.implicits._
 import org.http4s.MediaType
 import org.http4s.implicits.http4sLiteralsSyntax
-import org.joda.time.DateTime
+import java.time.Instant
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -32,7 +32,7 @@ class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
 
   import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 
-  private def insertTestUser(userId: String, email: String, timestamp: DateTime): ConnectionIO[Int] =
+  private def insertTestUser(userId: String, email: String, timestamp: Instant): ConnectionIO[Int] =
     sql"""
       INSERT INTO api_user (id, created_at, first_name, last_name, email, role)
         VALUES ($userId, $timestamp, 'Test', 'User', $email, 'User')
@@ -50,7 +50,7 @@ class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
     runIO {
       new EmbeddedCoreResourcesProvider[IO].transactor.use { transaction =>
         for {
-          timestamp <- JodaClock[IO].timestamp
+          timestamp <- Clock[IO].timestamp
           videoId = "test-video-id"
 
           thumbnailFileResource = FileResource(
@@ -471,7 +471,7 @@ class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
     import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
       userId = "test-user-id"
 
       _ <- fixture.transaction(insertTestUser(userId, "test@example.com", timestamp))
@@ -501,7 +501,7 @@ class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
 
   it should "support pagination in search results" in runTest { fixture =>
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
 
       thumbnailFileResource2 = FileResource(
         "thumbnail-id-2",
@@ -589,11 +589,11 @@ class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
 
   it should "sort videos by different criteria" in runTest { fixture =>
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
 
       thumbnailFileResource2 = FileResource(
         "thumbnail-id-2",
-        timestamp.plusHours(1),
+        timestamp.plus(java.time.Duration.ofHours(1)),
         "/opt/image/thumbnail2.jpg",
         MediaType.image.jpeg,
         1000
@@ -613,13 +613,13 @@ class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
 
       videoFileResource2 = FileResource(
         "video-file-id-2",
-        timestamp.plusHours(1),
+        timestamp.plus(java.time.Duration.ofHours(1)),
         "/opt/video/test-video2.mp4",
         MediaType.video.mp4,
         100000
       )
       _ <- fixture.transaction(DoobieFileResourceDao.insert(videoFileResource2))
-      _ <- fixture.transaction(DoobieVideoDao.insert("test-video-id-2", videoFileResource2.id, timestamp.plusHours(1), 0 seconds))
+      _ <- fixture.transaction(DoobieVideoDao.insert("test-video-id-2", videoFileResource2.id, timestamp.plus(java.time.Duration.ofHours(1)), 0 seconds))
 
       resultsByDateDesc <- fixture.transaction(
         DoobieVideoDao.search(
@@ -692,13 +692,13 @@ class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
 
   it should "sort videos by watch time" in runTest { fixture =>
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
 
       _ <- fixture.transaction(DoobieVideoDao.incrementWatchTime(fixture.video.videoMetadata.id, 2 minutes))
 
       thumbnailFileResource2 = FileResource(
         "thumbnail-id-2",
-        timestamp.plusHours(1),
+        timestamp.plus(java.time.Duration.ofHours(1)),
         "/opt/image/thumbnail2.jpg",
         MediaType.image.jpeg,
         1000
@@ -718,13 +718,13 @@ class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
 
       videoFileResource2 = FileResource(
         "video-file-id-2",
-        timestamp.plusHours(1),
+        timestamp.plus(java.time.Duration.ofHours(1)),
         "/opt/video/test-video2.mp4",
         MediaType.video.mp4,
         100000
       )
       _ <- fixture.transaction(DoobieFileResourceDao.insert(videoFileResource2))
-      _ <- fixture.transaction(DoobieVideoDao.insert("test-video-id-2", videoFileResource2.id, timestamp.plusHours(1), 5 minutes))
+      _ <- fixture.transaction(DoobieVideoDao.insert("test-video-id-2", videoFileResource2.id, timestamp.plus(java.time.Duration.ofHours(1)), 5 minutes))
 
       resultsByWatchTimeDesc <- fixture.transaction(
         DoobieVideoDao.search(
@@ -788,7 +788,7 @@ class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
 
   it should "search videos with user ID and permissions" in runTest { fixture =>
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
       userId = "test-user-id-search"
 
       _ <- fixture.transaction(insertTestUser(userId, "search@example.com", timestamp))
@@ -853,7 +853,7 @@ class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
     import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
       userId = "test-user-find"
 
       _ <- fixture.transaction(insertTestUser(userId, "find@example.com", timestamp))

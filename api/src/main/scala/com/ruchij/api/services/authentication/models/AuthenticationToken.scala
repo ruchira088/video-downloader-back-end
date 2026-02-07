@@ -2,12 +2,12 @@ package com.ruchij.api.services.authentication.models
 
 import com.ruchij.api.services.authentication.AuthenticationService.Secret
 import com.ruchij.core.kv.keys.{KVStoreKey, KeySpace}
-import org.joda.time.DateTime
+import java.time.Instant
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-final case class AuthenticationToken(userId: String, secret: Secret, expiresAt: DateTime, issuedAt: DateTime, renewals: Long)
+final case class AuthenticationToken(userId: String, secret: Secret, expiresAt: Instant, issuedAt: Instant, renewals: Long)
 
 object AuthenticationToken {
   final case class AuthenticationTokenKey(secret: Secret) extends KVStoreKey

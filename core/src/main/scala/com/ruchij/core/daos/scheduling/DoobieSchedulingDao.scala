@@ -13,7 +13,7 @@ import doobie.implicits._
 import doobie.util.fragment.Fragment
 import doobie.util.fragments.{in, whereAndOpt}
 import org.http4s.Uri
-import org.joda.time.DateTime
+import java.time.Instant
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -66,7 +66,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
 
   override def markScheduledVideoDownloadAsComplete(
     id: String,
-    timestamp: DateTime
+    timestamp: Instant
   ): ConnectionIO[Option[ScheduledVideoDownload]] =
     sql"""
         UPDATE scheduled_video
@@ -85,7 +85,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
   override def updateSchedulingStatusById(
     id: String,
     status: SchedulingStatus,
-    timestamp: DateTime
+    timestamp: Instant
   ): ConnectionIO[Option[ScheduledVideoDownload]] =
     sql"""
         UPDATE scheduled_video
@@ -122,7 +122,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
   override def updateDownloadProgress(
     id: String,
     downloadedBytes: Long,
-    timestamp: DateTime
+    timestamp: Instant
   ): ConnectionIO[Option[ScheduledVideoDownload]] =
     sql"""
         UPDATE scheduled_video
@@ -173,12 +173,12 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       .query[ScheduledVideoDownload]
       .to[Seq]
 
-  override def retryErroredScheduledDownloads(maybeUserId: Option[String], timestamp: DateTime): ConnectionIO[Seq[ScheduledVideoDownload]] =
+  override def retryErroredScheduledDownloads(maybeUserId: Option[String], timestamp: Instant): ConnectionIO[Seq[ScheduledVideoDownload]] =
     retryErroredScheduledDownloads(maybeUserId, timestamp, 50, 0)
 
   private def retryErroredScheduledDownloads(
     maybeUserId: Option[String],
-    timestamp: DateTime,
+    timestamp: Instant,
     pageSize: Int,
     pageNumber: Int
   ): ConnectionIO[Seq[ScheduledVideoDownload]] =
@@ -230,12 +230,12 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
           }
       }
 
-  override def staleTask(delay: FiniteDuration, timestamp: DateTime): ConnectionIO[Option[ScheduledVideoDownload]] =
+  override def staleTask(delay: FiniteDuration, timestamp: Instant): ConnectionIO[Option[ScheduledVideoDownload]] =
     sql"""
         SELECT video_metadata_id FROM scheduled_video
             WHERE
               status = ${SchedulingStatus.Stale}
-              AND last_updated_at < ${timestamp.minus(delay.toMillis)}
+              AND last_updated_at < ${timestamp.minusMillis(delay.toMillis)}
             LIMIT 1
     """
       .query[String]
@@ -258,13 +258,13 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
 
   override def updateTimedOutTasks(
     timeout: FiniteDuration,
-    timestamp: DateTime
+    timestamp: Instant
   ): ConnectionIO[Seq[ScheduledVideoDownload]] =
     sql"""
         SELECT video_metadata_id FROM scheduled_video
           WHERE completed_at IS NULL
             AND status IN (${SchedulingStatus.Active}, ${SchedulingStatus.Acquired})
-            AND last_updated_at < ${timestamp.minus(timeout.toMillis)}
+            AND last_updated_at < ${timestamp.minusMillis(timeout.toMillis)}
             ORDER BY scheduled_at ASC
       """
       .query[String]
@@ -289,7 +289,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
           .map(_.flatten)
       }
 
-  override def acquireTask(timestamp: DateTime): ConnectionIO[Option[ScheduledVideoDownload]] =
+  override def acquireTask(timestamp: Instant): ConnectionIO[Option[ScheduledVideoDownload]] =
     sql"""
       SELECT video_metadata_id FROM scheduled_video
         WHERE status = ${SchedulingStatus.Queued}
@@ -317,9 +317,9 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
   override def setErrorById(
     id: String,
     throwable: Throwable,
-    timestamp: DateTime
+    timestamp: Instant
   ): ConnectionIO[Option[ScheduledVideoDownload]] = {
-    val errorId = s"$id-${timestamp.getMillis}"
+    val errorId = s"$id-${timestamp.toEpochMilli}"
 
     sql"""
          INSERT INTO scheduled_video_error (id, created_at, video_id, error_message, error_details)

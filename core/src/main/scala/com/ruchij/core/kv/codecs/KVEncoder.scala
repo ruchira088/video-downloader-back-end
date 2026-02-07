@@ -5,8 +5,9 @@ import cats.{Applicative, ApplicativeError, Monad, MonadThrow}
 import com.ruchij.core.exceptions.InvalidConditionException
 import com.ruchij.core.kv.keys.KVStoreKey.KeySeparator
 import enumeratum.EnumEntry
-import org.joda.time.DateTime
 import shapeless.{::, Generic, HList, HNil}
+
+import java.time.Instant
 
 trait KVEncoder[F[_], -A] { self =>
   def encode(value: A): F[String]
@@ -29,8 +30,8 @@ object KVEncoder {
 
   implicit def longKVEncoder[F[_]: Monad]: KVEncoder[F, Long] = stringKVEncoder[F].coMap[Long](_.toString)
 
-  implicit def dateTimeKVEncoder[F[_]: Applicative]: KVEncoder[F, DateTime] =
-    stringKVEncoder[F].coMap[DateTime](_.toString)
+  implicit def instantKVEncoder[F[_]: Applicative]: KVEncoder[F, Instant] =
+    stringKVEncoder[F].coMap[Instant](_.toString)
 
   implicit def genericKVEncoder[F[_]: Applicative, A, Repr <: HList](
     implicit generic: Generic.Aux[A, Repr],

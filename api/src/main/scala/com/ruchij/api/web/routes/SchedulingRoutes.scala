@@ -15,7 +15,7 @@ import com.ruchij.core.circe.Encoders._
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.services.models.SortBy
 import com.ruchij.core.services.scheduling.models.DownloadProgress
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
 import fs2.Stream
 import io.circe.Encoder
 import io.circe.generic.auto._
@@ -29,7 +29,7 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 
 object SchedulingRoutes {
-  def apply[F[_]: Async: JodaClock](
+  def apply[F[_]: Async: Clock](
     apiSchedulingService: ApiSchedulingService[F],
     downloadProgressStream: Stream[F, DownloadProgress],
     scheduledVideoDownloadUpdatesStream: Stream[F, ScheduledVideoDownload]
@@ -128,7 +128,7 @@ object SchedulingRoutes {
             .merge {
               Stream
                 .fixedRate[F](10 seconds)
-                .zipRight(Stream.eval(JodaClock[F].timestamp).repeat)
+                .zipRight(Stream.eval(Clock[F].timestamp).repeat)
                 .map { timestamp =>
                   ServerSentEvent(Some(EventStreamHeartBeat(timestamp).asJson.noSpaces), HeartBeat)
                 }

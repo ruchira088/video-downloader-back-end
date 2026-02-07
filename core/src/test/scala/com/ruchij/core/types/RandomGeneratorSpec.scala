@@ -4,7 +4,7 @@ import cats.data.NonEmptyList
 import cats.effect.IO
 import cats.implicits._
 import com.ruchij.core.test.IOSupport.runIO
-import org.joda.time.DateTime
+import java.time.Instant
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
@@ -23,11 +23,11 @@ class RandomGeneratorSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  "RandomGenerator[F, DateTime]" should "generate random DateTime" in runIO {
+  "RandomGenerator[F, Instant]" should "generate random Instant" in runIO {
     for {
-      dateTime <- RandomGenerator[IO, DateTime].generate
+      dateTime <- RandomGenerator[IO, Instant].generate
     } yield {
-      dateTime mustBe a[DateTime]
+      dateTime mustBe a[Instant]
     }
   }
 

@@ -17,7 +17,8 @@ import fs2.Stream
 import fs2.concurrent.Topic
 import org.http4s.MediaType
 import org.http4s.implicits.http4sLiteralsSyntax
-import org.joda.time.DateTime
+import java.time.Instant
+import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
@@ -26,7 +27,7 @@ import scala.language.postfixOps
 
 class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
 
-  private val timestamp = new DateTime(2024, 5, 15, 10, 30)
+  private val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 30)
 
   private val sampleThumbnail =
     FileResource("thumbnail-1", timestamp, "/thumbnails/thumb1.jpg", MediaType.image.jpeg, 50000L)
@@ -52,9 +53,9 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
   )
 
   class StubApiSchedulingService extends ApiSchedulingService[IO] {
-    var updatedProgress: List[(String, DateTime, Long)] = List.empty
+    var updatedProgress: List[(String, Instant, Long)] = List.empty
 
-    override def updateDownloadProgress(id: String, timestamp: DateTime, downloadedBytes: Long): IO[ScheduledVideoDownload] = {
+    override def updateDownloadProgress(id: String, timestamp: Instant, downloadedBytes: Long): IO[ScheduledVideoDownload] = {
       updatedProgress = updatedProgress :+ (id, timestamp, downloadedBytes)
       IO.pure(sampleScheduledVideoDownload.copy(downloadedBytes = downloadedBytes))
     }
@@ -324,7 +325,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
 
       // Publish progress to the topic
       _ <- downloadProgressTopic.publish1(DownloadProgress("video-1", timestamp, 1024L))
-      _ <- downloadProgressTopic.publish1(DownloadProgress("video-1", timestamp.plusSeconds(1), 2048L))
+      _ <- downloadProgressTopic.publish1(DownloadProgress("video-1", timestamp.plus(java.time.Duration.ofSeconds(1)), 2048L))
       _ <- downloadProgressTopic.publish1(DownloadProgress("video-2", timestamp, 512L))
 
       // Wait for batch window (5 seconds is the window, but we'll wait a bit extra)

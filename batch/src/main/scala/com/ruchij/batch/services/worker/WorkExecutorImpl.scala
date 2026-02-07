@@ -25,14 +25,14 @@ import com.ruchij.core.services.download.DownloadService
 import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.services.video.models.YTDownloaderProgress
 import com.ruchij.core.services.video.{VideoAnalysisService, YouTubeVideoDownloader}
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
 import fs2.Stream
 import fs2.concurrent.{SignallingRef, Topic}
 
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
 
-class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
+class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
   fileResourceDao: FileResourceDao[T],
   workerDao: WorkerDao[T],
   videoMetadataDao: VideoMetadataDao[T],
@@ -63,7 +63,7 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
           }
           .flatMap { downloadResult =>
             Resource
-              .eval(JodaClock[F].timestamp)
+              .eval(Clock[F].timestamp)
               .map { timestamp =>
                 (downloadResult.data, Applicative[F].pure {
                   FileResource(
@@ -138,7 +138,7 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
                 for {
                   fileSize <- OptionT(repositoryService.size(file))
                   fileType <- OptionT(repositoryService.fileType(file))
-                  timestamp <- OptionT.liftF(JodaClock[F].timestamp)
+                  timestamp <- OptionT.liftF(Clock[F].timestamp)
                 } yield FileResource(scheduledVideoDownload.videoMetadata.id, timestamp, file, fileType, fileSize)
               }
               .getOrElseF {
@@ -234,7 +234,7 @@ class WorkExecutorImpl[F[_]: Async: JodaClock, T[_]](
           data
             .concurrently {
               Stream.fixedRate[F](30 seconds).evalMap { _ =>
-                JodaClock[F].timestamp.flatMap { timestamp =>
+                Clock[F].timestamp.flatMap { timestamp =>
                   transaction(workerDao.updateHeartBeat(workerId, timestamp))
                     .productR(Applicative[F].unit)
                 }

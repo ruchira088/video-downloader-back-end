@@ -1,7 +1,7 @@
 package com.ruchij.core.commands
 
-import org.joda.time.DateTime
+import java.time.Instant
 
 trait Command {
-  val issuedAt: DateTime
+  val issuedAt: Instant
 }

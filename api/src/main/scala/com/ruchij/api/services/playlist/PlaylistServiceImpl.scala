@@ -13,13 +13,13 @@ import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.exceptions.{InvalidConditionException, ResourceNotFoundException}
 import com.ruchij.core.services.models.Order
 import com.ruchij.core.services.repository.RepositoryService
-import com.ruchij.core.types.{JodaClock, RandomGenerator}
+import com.ruchij.core.types.{Clock, RandomGenerator}
 import fs2.Stream
 import org.http4s.MediaType
 
 import java.util.UUID
 
-class PlaylistServiceImpl[F[_]: Sync: JodaClock: RandomGenerator[*[_], UUID], G[_]: MonadThrow](
+class PlaylistServiceImpl[F[_]: Sync: Clock: RandomGenerator[*[_], UUID], G[_]: MonadThrow](
   playlistDao: PlaylistDao[G],
   fileResourceDao: FileResourceDao[G],
   repositoryService: RepositoryService[F],
@@ -30,7 +30,7 @@ class PlaylistServiceImpl[F[_]: Sync: JodaClock: RandomGenerator[*[_], UUID], G[
   override def create(title: String, description: Option[String], userId: String): F[Playlist] =
     for {
       id <- RandomGenerator[F, UUID].generate
-      timestamp <- JodaClock[F].timestamp
+      timestamp <- Clock[F].timestamp
       playlist = Playlist(id.toString, userId, timestamp, title, description, Seq.empty, None)
       _ <- transaction(playlistDao.insert(playlist).one)
     } yield playlist
@@ -73,7 +73,7 @@ class PlaylistServiceImpl[F[_]: Sync: JodaClock: RandomGenerator[*[_], UUID], G[
     maybeUserId: Option[String]
   ): F[Playlist] =
     for {
-      timestamp <- JodaClock[F].timestamp
+      timestamp <- Clock[F].timestamp
       id <- RandomGenerator[F, UUID].generate.map(_.toString)
       fileKey = s"${storageConfiguration.imageFolder}/${id.take(8)}-$fileName"
 

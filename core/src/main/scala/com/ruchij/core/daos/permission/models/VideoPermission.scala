@@ -1,5 +1,5 @@
 package com.ruchij.core.daos.permission.models
 
-import org.joda.time.DateTime
+import java.time.Instant
 
-final case class VideoPermission(grantedAt: DateTime, scheduledVideoDownloadId: String, userId: String)
+final case class VideoPermission(grantedAt: Instant, scheduledVideoDownloadId: String, userId: String)

@@ -10,12 +10,12 @@ import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata
 import com.ruchij.core.daos.videowatchhistory.models.VideoWatchHistory
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
 import com.ruchij.core.test.IOSupport.runIO
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
 import doobie.ConnectionIO
 import doobie.implicits._
 import org.http4s.MediaType
 import org.http4s.implicits.http4sLiteralsSyntax
-import org.joda.time.DateTime
+import java.time.Instant
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -26,7 +26,7 @@ import scala.language.postfixOps
 
 class DoobieVideoWatchHistoryDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
 
-  import com.ruchij.core.daos.doobie.DoobieCustomMappings.dateTimePut
+  import com.ruchij.core.daos.doobie.DoobieCustomMappings.instantPut
 
   case class TestFixture(
     videoWatchHistory: VideoWatchHistory,
@@ -35,7 +35,7 @@ class DoobieVideoWatchHistoryDaoSpec extends AnyFlatSpec with Matchers with Opti
     transaction: ConnectionIO ~> IO
   )
 
-  private def insertTestUser(userId: String, timestamp: DateTime): ConnectionIO[Int] =
+  private def insertTestUser(userId: String, timestamp: Instant): ConnectionIO[Int] =
     sql"""
       INSERT INTO api_user (id, created_at, first_name, last_name, email, role)
         VALUES ($userId, $timestamp, 'Test', 'User', 'test@example.com', 'User')
@@ -45,7 +45,7 @@ class DoobieVideoWatchHistoryDaoSpec extends AnyFlatSpec with Matchers with Opti
     runIO {
       new EmbeddedCoreResourcesProvider[IO].transactor.use { transaction =>
         for {
-          timestamp <- JodaClock[IO].timestamp
+          timestamp <- Clock[IO].timestamp
           userId = "test-user-id"
           videoId = "test-video-id"
 
@@ -133,10 +133,10 @@ class DoobieVideoWatchHistoryDaoSpec extends AnyFlatSpec with Matchers with Opti
   it should "find video watch history updated after a timestamp" in runTest { fixture =>
     for {
       _ <- fixture.transaction(DoobieVideoWatchHistoryDao.insert(fixture.videoWatchHistory))
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
 
-      pastTimestamp = timestamp.minusHours(1)
-      futureTimestamp = timestamp.plusHours(1)
+      pastTimestamp = timestamp.minus(java.time.Duration.ofHours(1))
+      futureTimestamp = timestamp.plus(java.time.Duration.ofHours(1))
 
       resultPast <- fixture.transaction(
         DoobieVideoWatchHistoryDao.findLastUpdatedAfter(fixture.userId, fixture.videoId, pastTimestamp)
@@ -160,7 +160,7 @@ class DoobieVideoWatchHistoryDaoSpec extends AnyFlatSpec with Matchers with Opti
     for {
       _ <- fixture.transaction(DoobieVideoWatchHistoryDao.insert(fixture.videoWatchHistory))
 
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
       updatedWatchHistory = fixture.videoWatchHistory.copy(
         lastUpdatedAt = timestamp,
         duration = updatedDuration
@@ -175,7 +175,7 @@ class DoobieVideoWatchHistoryDaoSpec extends AnyFlatSpec with Matchers with Opti
       _ <- IO.delay {
         results.size mustBe 1
         results.head.duration mustBe updatedDuration
-        results.head.lastUpdatedAt.getMillis mustBe timestamp.getMillis
+        results.head.lastUpdatedAt.toEpochMilli mustBe timestamp.toEpochMilli
       }
     } yield ()
   }
@@ -230,7 +230,7 @@ class DoobieVideoWatchHistoryDaoSpec extends AnyFlatSpec with Matchers with Opti
 
   it should "support pagination when retrieving watch history" in runTest { fixture =>
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
 
       _ <- fixture.transaction(DoobieVideoWatchHistoryDao.insert(fixture.videoWatchHistory))
 
@@ -268,8 +268,8 @@ class DoobieVideoWatchHistoryDaoSpec extends AnyFlatSpec with Matchers with Opti
         "watch-history-id-2",
         fixture.userId,
         "test-video-id-2",
-        timestamp.plusMinutes(1),
-        timestamp.plusMinutes(1),
+        timestamp.plus(java.time.Duration.ofMinutes(1)),
+        timestamp.plus(java.time.Duration.ofMinutes(1)),
         45 seconds
       )
       _ <- fixture.transaction(DoobieVideoWatchHistoryDao.insert(watchHistory2))
@@ -295,7 +295,7 @@ class DoobieVideoWatchHistoryDaoSpec extends AnyFlatSpec with Matchers with Opti
 
   it should "return watch history ordered by last updated at descending" in runTest { fixture =>
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
 
       _ <- fixture.transaction(DoobieVideoWatchHistoryDao.insert(fixture.videoWatchHistory))
 
@@ -329,7 +329,7 @@ class DoobieVideoWatchHistoryDaoSpec extends AnyFlatSpec with Matchers with Opti
       _ <- fixture.transaction(DoobieFileResourceDao.insert(videoFileResource2))
       _ <- fixture.transaction(DoobieVideoDao.insert("test-video-id-2", videoFileResource2.id, timestamp, 0 seconds))
 
-      laterTimestamp = timestamp.plusHours(1)
+      laterTimestamp = timestamp.plus(java.time.Duration.ofHours(1))
       watchHistory2 = VideoWatchHistory(
         "watch-history-id-2",
         fixture.userId,
@@ -347,7 +347,7 @@ class DoobieVideoWatchHistoryDaoSpec extends AnyFlatSpec with Matchers with Opti
       _ <- IO.delay {
         results.size mustBe 2
         results.head.id mustBe "watch-history-id-2"
-        results.head.lastUpdatedAt.getMillis mustBe laterTimestamp.getMillis
+        results.head.lastUpdatedAt.toEpochMilli mustBe laterTimestamp.toEpochMilli
       }
     } yield ()
   }

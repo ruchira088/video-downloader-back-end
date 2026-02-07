@@ -12,7 +12,7 @@ import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
-import org.joda.time.DateTime
+import java.time.Instant
 
 class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends WorkerDao[ConnectionIO] {
 
@@ -45,7 +45,7 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
 
   override def getById(workerId: String): ConnectionIO[Option[Worker]] =
     sql"SELECT status, task_assigned_at, heart_beat_at, scheduled_video_id, owner FROM worker WHERE id = $workerId"
-      .query[(WorkerStatus, Option[DateTime], Option[DateTime], Option[String], Option[String])]
+      .query[(WorkerStatus, Option[Instant], Option[Instant], Option[String], Option[String])]
       .option
       .flatMap {
         case Some((status, taskAssignedAt, heartBeatAt, Some(scheduledVideoId), owner)) =>
@@ -70,7 +70,7 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
       sql"SELECT id FROM worker WHERE status = ${WorkerStatus.Available} ORDER BY id LIMIT 1".query[String].option
     }.flatMapF(getById).value
 
-  def reserveWorker(workerId: String, owner: String, timestamp: DateTime): ConnectionIO[Option[Worker]] =
+  def reserveWorker(workerId: String, owner: String, timestamp: Instant): ConnectionIO[Option[Worker]] =
     sql"""
         UPDATE worker
           SET
@@ -86,7 +86,7 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
     workerId: String,
     scheduledVideoId: String,
     owner: String,
-    timestamp: DateTime
+    timestamp: Instant
   ): ConnectionIO[Option[Worker]] = {
     sql"""
         UPDATE scheduled_video
@@ -125,12 +125,12 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
       .productR(OptionT(getById(workerId)))
       .value
 
-  override def updateHeartBeat(workerId: String, timestamp: DateTime): ConnectionIO[Option[Worker]] =
+  override def updateHeartBeat(workerId: String, timestamp: Instant): ConnectionIO[Option[Worker]] =
     sql"UPDATE worker SET heart_beat_at = $timestamp WHERE id = $workerId".update.run.singleUpdate
       .productR(OptionT(getById(workerId)))
       .value
 
-  override def cleanUpStaleWorkers(heartBeatBefore: DateTime): ConnectionIO[Seq[Worker]] =
+  override def cleanUpStaleWorkers(heartBeatBefore: Instant): ConnectionIO[Seq[Worker]] =
     sql"""
       SELECT id FROM worker
         WHERE

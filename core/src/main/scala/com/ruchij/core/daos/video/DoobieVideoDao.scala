@@ -12,7 +12,7 @@ import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import doobie.util.fragment.Fragment
 import org.http4s.Uri
-import org.joda.time.DateTime
+import java.time.Instant
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
@@ -54,7 +54,7 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
   override def insert(
     videoMetadataId: String,
     videoFileResourceId: String,
-    timestamp: DateTime,
+    timestamp: Instant,
     finiteDuration: FiniteDuration
   ): ConnectionIO[Int] =
     sql"""

@@ -5,9 +5,9 @@ import cats.~>
 import com.ruchij.batch.daos.filesync.models.FileSync
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
 import com.ruchij.core.test.IOSupport.runIO
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
 import doobie.ConnectionIO
-import org.joda.time.DateTime
+import java.time.Instant
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -18,14 +18,14 @@ class DoobieFileSyncDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
 
   case class TestFixture(
     transaction: ConnectionIO ~> IO,
-    timestamp: DateTime
+    timestamp: Instant
   )
 
   def runTest(testFn: TestFixture => IO[Unit]): Unit =
     runIO {
       new EmbeddedCoreResourcesProvider[IO].transactor.use { transaction =>
         for {
-          timestamp <- JodaClock[IO].timestamp
+          timestamp <- Clock[IO].timestamp
           result <- testFn(TestFixture(transaction, timestamp))
         } yield result
       }
@@ -85,7 +85,7 @@ class DoobieFileSyncDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
     for {
       _ <- fixture.transaction(DoobieFileSyncDao.insert(fileSync))
 
-      syncedTimestamp = fixture.timestamp.plusMinutes(5)
+      syncedTimestamp = fixture.timestamp.plusMillis(java.time.Duration.ofMinutes(5).toMillis)
       _ <- fixture.transaction(DoobieFileSyncDao.complete(path, syncedTimestamp))
 
       maybeFileSync <- fixture.transaction(DoobieFileSyncDao.findByPath(path))
@@ -103,7 +103,7 @@ class DoobieFileSyncDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
     for {
       _ <- fixture.transaction(DoobieFileSyncDao.insert(fileSync))
 
-      syncedTimestamp = fixture.timestamp.plusMinutes(10)
+      syncedTimestamp = fixture.timestamp.plusMillis(java.time.Duration.ofMinutes(10).toMillis)
       maybeCompletedFileSync <- fixture.transaction(DoobieFileSyncDao.complete(path, syncedTimestamp))
       _ <- IO.delay {
         maybeCompletedFileSync mustBe defined
@@ -130,10 +130,10 @@ class DoobieFileSyncDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
     for {
       _ <- fixture.transaction(DoobieFileSyncDao.insert(fileSync))
 
-      firstSyncTimestamp = fixture.timestamp.plusMinutes(5)
+      firstSyncTimestamp = fixture.timestamp.plusMillis(java.time.Duration.ofMinutes(5).toMillis)
       _ <- fixture.transaction(DoobieFileSyncDao.complete(path, firstSyncTimestamp))
 
-      secondSyncTimestamp = fixture.timestamp.plusMinutes(15)
+      secondSyncTimestamp = fixture.timestamp.plusMillis(java.time.Duration.ofMinutes(15).toMillis)
       maybeUpdatedFileSync <- fixture.transaction(DoobieFileSyncDao.complete(path, secondSyncTimestamp))
       _ <- IO.delay {
         maybeUpdatedFileSync mustBe defined
@@ -173,7 +173,7 @@ class DoobieFileSyncDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
 
     for {
       _ <- fixture.transaction(DoobieFileSyncDao.insert(fileSync))
-      _ <- fixture.transaction(DoobieFileSyncDao.complete(path, fixture.timestamp.plusMinutes(5)))
+      _ <- fixture.transaction(DoobieFileSyncDao.complete(path, fixture.timestamp.plusMillis(java.time.Duration.ofMinutes(5).toMillis)))
 
       maybeDeletedFileSync <- fixture.transaction(DoobieFileSyncDao.deleteByPath(path))
       _ <- IO.delay {
@@ -202,7 +202,7 @@ class DoobieFileSyncDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
         maybeInserted.value.syncedAt mustBe None
       }
 
-      syncedTimestamp = fixture.timestamp.plusMinutes(10)
+      syncedTimestamp = fixture.timestamp.plusMillis(java.time.Duration.ofMinutes(10).toMillis)
       maybeCompleted <- fixture.transaction(DoobieFileSyncDao.complete(path, syncedTimestamp))
       _ <- IO.delay {
         maybeCompleted mustBe defined
@@ -227,7 +227,7 @@ class DoobieFileSyncDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
       _ <- fixture.transaction(DoobieFileSyncDao.insert(FileSync(fixture.timestamp, path2, None)))
       _ <- fixture.transaction(DoobieFileSyncDao.insert(FileSync(fixture.timestamp, path3, None)))
 
-      _ <- fixture.transaction(DoobieFileSyncDao.complete(path1, fixture.timestamp.plusMinutes(5)))
+      _ <- fixture.transaction(DoobieFileSyncDao.complete(path1, fixture.timestamp.plusMillis(java.time.Duration.ofMinutes(5).toMillis)))
       _ <- fixture.transaction(DoobieFileSyncDao.deleteByPath(path2))
 
       maybeFile1 <- fixture.transaction(DoobieFileSyncDao.findByPath(path1))

@@ -39,7 +39,7 @@ import com.ruchij.core.services.repository.FileRepositoryService.FileRepository
 import com.ruchij.core.services.repository.FileTypeDetector
 import com.ruchij.core.services.video.VideoAnalysisService
 import com.ruchij.core.types.FunctionKTypes._
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
 import fs2.Stream
 import org.http4s.{MediaType, Uri}
 
@@ -47,7 +47,7 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 import scala.util.matching.Regex
 
-class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
+class SynchronizationServiceImpl[F[_]: Async: Clock, A, T[_]: MonadThrow](
   fileRepositoryService: FileRepository[F, A],
   fileResourceDao: FileResourceDao[T],
   videoMetadataDao: VideoMetadataDao[T],
@@ -145,7 +145,7 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
   }
 
   private def setVideoScanningStatus(scanStatus: ScanStatus): F[Option[VideoScan]] =
-    JodaClock[F].timestamp.flatMap { timestamp =>
+    Clock[F].timestamp.flatMap { timestamp =>
       sharedConfigurationService.put(VideoScanningStatus, VideoScan(timestamp, scanStatus))
     }
 
@@ -210,7 +210,7 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
   }
 
   private def syncVideo(videoPath: String): F[FileSyncResult] =
-    JodaClock[F].timestamp.flatMap { startTimestamp =>
+    Clock[F].timestamp.flatMap { startTimestamp =>
       transaction {
         OptionT(videoDao.findByVideoPath(videoPath).map(_.as((): Unit)))
           .orElse {
@@ -221,7 +221,7 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
           .orElse {
             OptionT(fileSyncDao.findByPath(videoPath))
               .flatMap { fileSync =>
-                if (fileSync.syncedAt.isEmpty && fileSync.lockedAt.isBefore(startTimestamp.minusMinutes(1)))
+                if (fileSync.syncedAt.isEmpty && fileSync.lockedAt.isBefore(startTimestamp.minus(java.time.Duration.ofMinutes(1))))
                   OptionT(fileSyncDao.deleteByPath(videoPath)).productR(OptionT.none[T, Unit])
                 else OptionT.some[T]((): Unit)
               }
@@ -242,7 +242,7 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
               if (count > 0)
                 addVideo(videoPath)
                   .productL {
-                    JodaClock[F].timestamp.flatMap { finishTimestamp =>
+                    Clock[F].timestamp.flatMap { finishTimestamp =>
                       transaction(fileSyncDao.complete(videoPath, finishTimestamp))
                     }
                   } else Applicative[F].pure[FileSyncResult](IgnoredFile(videoPath))
@@ -298,7 +298,7 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
 
       uri <- Uri.fromString(Uri.encode(videoPath)).toType[F, Throwable]
 
-      timestamp <- JodaClock[F].timestamp
+      timestamp <- Clock[F].timestamp
 
       videoTitle = fileName(videoPath)
       videoMetadata = VideoMetadata(uri, videoId, VideoSite.Local, videoTitle, duration, size, snapshot)
@@ -307,7 +307,7 @@ class SynchronizationServiceImpl[F[_]: Async: JodaClock, A, T[_]: MonadThrow](
     } yield Video(videoMetadata, videoFileResource, timestamp, FiniteDuration(0, TimeUnit.MILLISECONDS))
 
   private def saveVideo(video: Video): F[Video] =
-    JodaClock[F].timestamp
+    Clock[F].timestamp
       .flatMap { timestamp =>
         transaction {
           fileResourceDao

@@ -4,7 +4,7 @@ import cats.effect.IO
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
 import org.http4s.MediaType
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -18,7 +18,7 @@ class DoobieFileResourceDaoSpec extends AnyFlatSpec with Matchers {
       .use {
         transaction =>
           for {
-            timestamp <- JodaClock[IO].timestamp
+            timestamp <- Clock[IO].timestamp
             fileResource = FileResource("file-id", timestamp, "/video/sample-video.mp4", MediaType.video.mp4, 1024)
 
             insertResult <- transaction { DoobieFileResourceDao.insert(fileResource) }
@@ -56,7 +56,7 @@ class DoobieFileResourceDaoSpec extends AnyFlatSpec with Matchers {
     new EmbeddedCoreResourcesProvider[IO].transactor
       .use { transaction =>
         for {
-          timestamp <- JodaClock[IO].timestamp
+          timestamp <- Clock[IO].timestamp
           fileResource = FileResource("file-update-test", timestamp, "/video/update-test.mp4", MediaType.video.mp4, 1024)
 
           _ <- transaction { DoobieFileResourceDao.insert(fileResource) }

@@ -2,7 +2,7 @@ package com.ruchij.api.services.health.models
 
 import com.ruchij.api.services.health.models.kv.HealthCheckKey
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
-import org.joda.time.DateTime
+import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
@@ -10,7 +10,7 @@ import scala.concurrent.duration._
 
 class HealthCheckModelsSpec extends AnyFlatSpec with Matchers {
 
-  private val timestamp = new DateTime(2024, 5, 15, 10, 30)
+  private val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 30)
 
   "HealthCheckMessage" should "store instanceId and dateTime" in {
     val message = HealthCheckMessage("instance-123", timestamp)
@@ -28,7 +28,7 @@ class HealthCheckModelsSpec extends AnyFlatSpec with Matchers {
 
   it should "support copy" in {
     val message = HealthCheckMessage("instance-123", timestamp)
-    val newTimestamp = timestamp.plusHours(1)
+    val newTimestamp = timestamp.plus(java.time.Duration.ofHours(1))
     val copied = message.copy(dateTime = newTimestamp)
 
     copied.instanceId mustBe "instance-123"

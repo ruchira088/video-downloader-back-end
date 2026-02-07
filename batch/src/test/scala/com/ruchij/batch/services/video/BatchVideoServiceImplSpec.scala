@@ -12,10 +12,11 @@ import com.ruchij.core.exceptions.{InvalidConditionException, ResourceNotFoundEx
 import com.ruchij.core.services.video.VideoService
 import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import com.ruchij.core.test.Providers
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
+import com.ruchij.core.types.TimeUtils
 import org.http4s.MediaType
 import org.http4s.implicits.http4sLiteralsSyntax
-import org.joda.time.DateTime
+import java.time.Instant
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
@@ -23,7 +24,7 @@ import scala.concurrent.duration._
 
 class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
 
-  private val timestamp = new DateTime(2024, 5, 15, 10, 30)
+  private val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 30)
 
   implicit val transaction: IO ~> IO = new (IO ~> IO) {
     override def apply[A](fa: IO[A]): IO[A] = fa
@@ -68,7 +69,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     override def insert(
       videoMetadataId: String,
       videoFileResourceId: String,
-      timestamp: DateTime,
+      timestamp: Instant,
       watchTime: FiniteDuration
     ): IO[Int] = IO.pure(insertResult)
 
@@ -137,7 +138,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     videoDao: VideoDao[IO] = new StubVideoDao(),
     videoMetadataDao: VideoMetadataDao[IO] = new StubVideoMetadataDao(),
     fileResourceDao: FileResourceDao[IO] = new StubFileResourceDao()
-  )(implicit jodaClock: JodaClock[IO]): BatchVideoServiceImpl[IO, IO] = {
+  )(implicit clock: Clock[IO]): BatchVideoServiceImpl[IO, IO] = {
     new BatchVideoServiceImpl[IO, IO](
       videoService,
       videoDao,
@@ -147,7 +148,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "insert" should "create a new video entry" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(findByIdResult = Some(sampleVideo))
     val service = createService(videoDao = videoDao)
@@ -159,7 +160,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "throw InvalidConditionException when video cannot be retrieved after insert" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(findByIdResult = None)
     val service = createService(videoDao = videoDao)
@@ -171,7 +172,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "fetchByVideoFileResourceId" should "return video when found" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(findByVideoFileResourceIdResult = Some(sampleVideo))
     val service = createService(videoDao = videoDao)
@@ -182,7 +183,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "throw ResourceNotFoundException when video not found" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(findByVideoFileResourceIdResult = None)
     val service = createService(videoDao = videoDao)
@@ -194,7 +195,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "incrementWatchTime" should "return updated watch time" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(incrementWatchTimeResult = Some(15.minutes))
     val service = createService(videoDao = videoDao)
@@ -205,7 +206,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "throw ResourceNotFoundException when video not found" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(incrementWatchTimeResult = None)
     val service = createService(videoDao = videoDao)
@@ -217,7 +218,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "update" should "update video metadata and file resource size" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val updatedFileResource = sampleFileResource.copy(size = 200 * 1024 * 1024L)
     val updatedVideoMetadata = sampleVideoMetadata.copy(size = 200 * 1024 * 1024L)
@@ -240,7 +241,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "throw ResourceNotFoundException when video not found" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(findByIdResult = None)
     val service = createService(videoDao = videoDao)
@@ -252,7 +253,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "deleteById" should "delegate to videoService.deleteById" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     var deleteByIdCalled = false
     var deleteVideoFileParam = false
@@ -275,7 +276,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "pass deleteVideoFile=false to videoService" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     var deleteVideoFileParam = true
 

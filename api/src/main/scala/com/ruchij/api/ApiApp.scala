@@ -57,7 +57,7 @@ import com.ruchij.core.services.renderer.SpaSiteRendererImpl
 import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector, RepositoryService}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, VideoWatchHistoryServiceImpl, YouTubeVideoDownloaderImpl}
-import com.ruchij.core.types.{JodaClock, RandomGenerator}
+import com.ruchij.core.types.{Clock, RandomGenerator}
 import doobie.free.connection.ConnectionIO
 import doobie.hikari.HikariTransactor
 import fs2.compression.Compression
@@ -68,7 +68,8 @@ import org.http4s.HttpApp
 import org.http4s.client.Client
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.jdkhttpclient.JdkHttpClient
-import org.joda.time.DateTime
+
+import java.time.Instant
 import pureconfig.ConfigSource
 
 import java.net.http.HttpClient
@@ -100,7 +101,7 @@ object ApiApp extends IOApp {
         .use(_ => IO.never)
     } yield ExitCode.Success
 
-  def create[F[_]: Async: JodaClock: Files: Compression](
+  def create[F[_]: Async: Clock: Files: Compression](
     apiServiceConfiguration: ApiServiceConfiguration
   ): Resource[F, HttpApp[F]] =
     for {
@@ -146,7 +147,7 @@ object ApiApp extends IOApp {
       }
     } yield httpApp
 
-  def program[F[_]: Async: JodaClock: Files: Compression, M[_]](
+  def program[F[_]: Async: Clock: Files: Compression, M[_]](
     hikariTransactor: HikariTransactor[F],
     client: Client[F],
     keyValueStore: KeyValueStore[F],
@@ -156,7 +157,7 @@ object ApiApp extends IOApp {
   ): F[HttpApp[F]] = {
     implicit val transactor: ConnectionIO ~> F = hikariTransactor.trans
 
-    val healthCheckKeyStore: KeySpacedKeyValueStore[F, HealthCheckKey, DateTime] =
+    val healthCheckKeyStore: KeySpacedKeyValueStore[F, HealthCheckKey, Instant] =
       new KeySpacedKeyValueStore(HealthCheckKeySpace, keyValueStore)
 
     val authenticationKeyStore

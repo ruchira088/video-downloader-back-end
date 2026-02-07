@@ -1,14 +1,13 @@
 package com.ruchij.batch.config
 
-import org.joda.time.LocalTime
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 class WorkerConfigurationSpec extends AnyFlatSpec with Matchers {
 
   "WorkerConfiguration" should "store all configuration values" in {
-    val startTime = new LocalTime(9, 0)
-    val endTime = new LocalTime(18, 0)
+    val startTime = java.time.LocalTime.of(9, 0)
+    val endTime = java.time.LocalTime.of(18, 0)
 
     val config = WorkerConfiguration(
       maxConcurrentDownloads = 5,
@@ -24,7 +23,7 @@ class WorkerConfigurationSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "support 24/7 operation with same start and end time" in {
-    val sameTime = new LocalTime(0, 0)
+    val sameTime = java.time.LocalTime.of(0, 0)
 
     val config = WorkerConfiguration(
       maxConcurrentDownloads = 10,
@@ -37,8 +36,8 @@ class WorkerConfigurationSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "support overnight work periods" in {
-    val startTime = new LocalTime(22, 0)
-    val endTime = new LocalTime(6, 0)
+    val startTime = java.time.LocalTime.of(22, 0)
+    val endTime = java.time.LocalTime.of(6, 0)
 
     val config = WorkerConfiguration(
       maxConcurrentDownloads = 3,
@@ -51,8 +50,8 @@ class WorkerConfigurationSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "support equality" in {
-    val time1 = new LocalTime(9, 0)
-    val time2 = new LocalTime(17, 0)
+    val time1 = java.time.LocalTime.of(9, 0)
+    val time2 = java.time.LocalTime.of(17, 0)
 
     val config1 = WorkerConfiguration(4, time1, time2, "owner1")
     val config2 = WorkerConfiguration(4, time1, time2, "owner1")
@@ -63,8 +62,8 @@ class WorkerConfigurationSpec extends AnyFlatSpec with Matchers {
   it should "support copy" in {
     val config = WorkerConfiguration(
       maxConcurrentDownloads = 5,
-      startTime = new LocalTime(9, 0),
-      endTime = new LocalTime(17, 0),
+      startTime = java.time.LocalTime.of(9, 0),
+      endTime = java.time.LocalTime.of(17, 0),
       owner = "original"
     )
 
@@ -77,8 +76,8 @@ class WorkerConfigurationSpec extends AnyFlatSpec with Matchers {
   it should "handle single concurrent download" in {
     val config = WorkerConfiguration(
       maxConcurrentDownloads = 1,
-      startTime = new LocalTime(0, 0),
-      endTime = new LocalTime(0, 0),
+      startTime = java.time.LocalTime.of(0, 0),
+      endTime = java.time.LocalTime.of(0, 0),
       owner = "single"
     )
 
@@ -88,8 +87,8 @@ class WorkerConfigurationSpec extends AnyFlatSpec with Matchers {
   it should "handle many concurrent downloads" in {
     val config = WorkerConfiguration(
       maxConcurrentDownloads = 100,
-      startTime = new LocalTime(0, 0),
-      endTime = new LocalTime(0, 0),
+      startTime = java.time.LocalTime.of(0, 0),
+      endTime = java.time.LocalTime.of(0, 0),
       owner = "bulk"
     )
 

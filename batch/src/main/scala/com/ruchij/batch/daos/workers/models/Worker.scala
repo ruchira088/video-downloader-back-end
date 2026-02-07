@@ -2,13 +2,13 @@ package com.ruchij.batch.daos.workers.models
 
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.daos.workers.models.WorkerStatus
-import org.joda.time.DateTime
+import java.time.Instant
 
 final case class Worker(
   id: String,
   status: WorkerStatus,
-  heartBeatAt: Option[DateTime],
-  taskAssignedAt: Option[DateTime],
+  heartBeatAt: Option[Instant],
+  taskAssignedAt: Option[Instant],
   scheduledVideoDownload: Option[ScheduledVideoDownload],
   owner: Option[String]
 )

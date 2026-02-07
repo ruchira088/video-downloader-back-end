@@ -6,7 +6,7 @@ import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.services.models.{Order, SortBy}
 import org.http4s.Uri
-import org.joda.time.DateTime
+import java.time.Instant
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -15,19 +15,19 @@ trait SchedulingDao[F[_]] {
 
   def getById(id: String, maybeUserId: Option[String]): F[Option[ScheduledVideoDownload]]
 
-  def markScheduledVideoDownloadAsComplete(id: String, timestamp: DateTime): F[Option[ScheduledVideoDownload]]
+  def markScheduledVideoDownloadAsComplete(id: String, timestamp: Instant): F[Option[ScheduledVideoDownload]]
 
   def updateSchedulingStatusById(
     id: String,
     status: SchedulingStatus,
-    timestamp: DateTime
+    timestamp: Instant
   ): F[Option[ScheduledVideoDownload]]
 
-  def setErrorById(id: String, throwable: Throwable, timestamp: DateTime): F[Option[ScheduledVideoDownload]]
+  def setErrorById(id: String, throwable: Throwable, timestamp: Instant): F[Option[ScheduledVideoDownload]]
 
   def updateSchedulingStatus(from: SchedulingStatus, to: SchedulingStatus): F[Seq[ScheduledVideoDownload]]
 
-  def updateDownloadProgress(id: String, downloadedBytes: Long, timestamp: DateTime): F[Option[ScheduledVideoDownload]]
+  def updateDownloadProgress(id: String, downloadedBytes: Long, timestamp: Instant): F[Option[ScheduledVideoDownload]]
 
   def deleteById(id: String): F[Int]
 
@@ -45,13 +45,13 @@ trait SchedulingDao[F[_]] {
     maybeUserId: Option[String]
   ): F[Seq[ScheduledVideoDownload]]
 
-  def retryErroredScheduledDownloads(maybeUserId: Option[String], timestamp: DateTime): F[Seq[ScheduledVideoDownload]]
+  def retryErroredScheduledDownloads(maybeUserId: Option[String], timestamp: Instant): F[Seq[ScheduledVideoDownload]]
 
-  def staleTask(delay: FiniteDuration, timestamp: DateTime): F[Option[ScheduledVideoDownload]]
+  def staleTask(delay: FiniteDuration, timestamp: Instant): F[Option[ScheduledVideoDownload]]
 
-  def updateTimedOutTasks(timeout: FiniteDuration, timestamp: DateTime): F[Seq[ScheduledVideoDownload]]
+  def updateTimedOutTasks(timeout: FiniteDuration, timestamp: Instant): F[Seq[ScheduledVideoDownload]]
 
-  def acquireTask(timestamp: DateTime): F[Option[ScheduledVideoDownload]]
+  def acquireTask(timestamp: Instant): F[Option[ScheduledVideoDownload]]
 }
 
 object SchedulingDao {

@@ -8,7 +8,8 @@ import com.ruchij.core.services.models.{Order, SortBy}
 import io.circe.parser._
 import io.circe.syntax._
 import org.http4s.MediaType
-import org.joda.time.DateTime
+import java.time.{Instant, ZoneOffset}
+import com.ruchij.core.types.TimeUtils
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -19,24 +20,25 @@ import scala.concurrent.duration.FiniteDuration
 
 class CirceCodecsSpec extends AnyFlatSpec with Matchers with OptionValues {
 
-  "dateTimeEncoder" should "encode DateTime to ISO string" in {
-    val dateTime = new DateTime(2023, 5, 15, 10, 30, 0)
-    val json = dateTime.asJson
+  "instantEncoder" should "encode Instant to ISO string" in {
+    val instant = TimeUtils.instantOf(2023, 5, 15, 10, 30)
+    val json = instant.asJson
     json.asString.value must include("2023-05-15")
   }
 
-  "dateTimeDecoder" should "decode valid ISO string to DateTime" in {
-    val dateTimeStr = "\"2023-05-15T10:30:00.000Z\""
-    val result = decode[DateTime](dateTimeStr)
+  "instantDecoder" should "decode valid ISO string to Instant" in {
+    val instantStr = "\"2023-05-15T10:30:00Z\""
+    val result = decode[Instant](instantStr)
     result.isRight mustBe true
-    result.toOption.get.getYear mustBe 2023
-    result.toOption.get.getMonthOfYear mustBe 5
-    result.toOption.get.getDayOfMonth mustBe 15
+    val zdt = result.toOption.get.atZone(ZoneOffset.UTC)
+    zdt.getYear mustBe 2023
+    zdt.getMonthValue mustBe 5
+    zdt.getDayOfMonth mustBe 15
   }
 
   it should "fail to decode invalid date string" in {
     val invalidStr = "\"not-a-date\""
-    val result = decode[DateTime](invalidStr)
+    val result = decode[Instant](invalidStr)
     result.isLeft mustBe true
   }
 
@@ -179,12 +181,12 @@ class CirceCodecsSpec extends AnyFlatSpec with Matchers with OptionValues {
     json.asString.value mustBe "application/json"
   }
 
-  "Encoder and Decoder roundtrip" should "preserve DateTime" in {
-    val original = DateTime.now()
+  "Encoder and Decoder roundtrip" should "preserve Instant" in {
+    val original = Instant.now()
     val json = original.asJson
-    val decoded = json.as[DateTime]
+    val decoded = json.as[Instant]
     decoded.isRight mustBe true
-    decoded.toOption.get.getMillis mustBe original.getMillis
+    decoded.toOption.get.toEpochMilli mustBe original.toEpochMilli
   }
 
   it should "preserve SchedulingStatus" in {

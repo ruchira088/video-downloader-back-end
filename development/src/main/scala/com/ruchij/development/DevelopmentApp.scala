@@ -16,7 +16,7 @@ import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SentryCon
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.external.CoreResourcesProvider.HashedAdminPassword
 import com.ruchij.core.logging.Logger
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
 import com.ruchij.development.frontend.FrontEndContainer
 import com.ruchij.migration.MigrationApp
 import com.ruchij.migration.config.{AdminConfiguration, DatabaseConfiguration, MigrationServiceConfiguration}
@@ -26,7 +26,8 @@ import fs2.io.net.tls.TLSContext
 import org.http4s.HttpApp
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.implicits.http4sLiteralsSyntax
-import org.joda.time.LocalTime
+
+import java.time.LocalTime
 
 import java.security.KeyStore
 import javax.net.ssl.{KeyManagerFactory, SSLContext}
@@ -124,7 +125,7 @@ object DevelopmentApp extends IOApp {
         } yield ExitCode.Success
       }
 
-  private def program[F[_]: Async: JodaClock: Files: Compression](
+  private def program[F[_]: Async: Clock: Files: Compression](
     externalApiServiceProvider: ApiResourcesProvider[F]
   ): Resource[F, (HttpApp[F], Scheduler[F])] =
     for {

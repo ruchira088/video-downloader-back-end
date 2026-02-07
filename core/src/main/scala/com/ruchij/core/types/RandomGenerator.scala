@@ -5,8 +5,7 @@ import cats.effect.Sync
 import cats.implicits._
 import cats.{Applicative, Monad, MonadThrow}
 import com.ruchij.core.exceptions.ValidationException
-import org.joda.time.DateTime
-
+import java.time.{Duration, Instant}
 import java.util.UUID
 import scala.util.Random
 
@@ -44,8 +43,8 @@ object RandomGenerator {
         else Sync[F].delay(Random.between(start, end))
     }
 
-  implicit def dateTimeRandomGenerator[F[_]: JodaClock: Sync]: RandomGenerator[F, DateTime] =
-    range[F](-10_000, 0).evalMap(offset => JodaClock[F].timestamp.map(_.minusMinutes(offset)))
+  implicit def instantRandomGenerator[F[_]: Clock: Sync]: RandomGenerator[F, Instant] =
+    range[F](-10_000, 0).evalMap(offset => Clock[F].timestamp.map(_.minus(Duration.ofMinutes(offset))))
 
   implicit def randomGeneratorMonad[F[_]: Monad]: Monad[RandomGenerator[F, *]] =
     new Monad[RandomGenerator[F, *]] {

@@ -12,7 +12,7 @@ import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.data.CoreTestData
 import com.ruchij.core.types.RandomGenerator
 import org.http4s.MediaType
-import org.joda.time.DateTime
+import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
@@ -26,7 +26,7 @@ class VideoEnrichmentServiceImplSpec extends AnyFlatSpec with Matchers {
     override def apply[A](fa: IO[A]): IO[A] = fa
   }
 
-  private val timestamp = new DateTime(2024, 5, 15, 10, 30)
+  private val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 30)
   private val storageConfiguration = StorageConfiguration("videos", "images", List.empty)
 
   private val testUuid = UUID.fromString("12345678-1234-1234-1234-123456789abc")

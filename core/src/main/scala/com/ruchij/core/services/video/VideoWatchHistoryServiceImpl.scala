@@ -8,7 +8,7 @@ import com.ruchij.core.daos.videowatchhistory.VideoWatchHistoryDao
 import com.ruchij.core.daos.videowatchhistory.models.{DetailedVideoWatchHistory, VideoWatchHistory}
 import com.ruchij.core.services.video.VideoWatchHistoryServiceImpl.SameVideoSessionDuration
 import com.ruchij.core.types.RandomGenerator
-import org.joda.time.DateTime
+import java.time.Instant
 
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -31,7 +31,7 @@ class VideoWatchHistoryServiceImpl[F[_]: Sync: RandomGenerator[*[_], UUID], G[_]
   override def addWatchHistory(
     userId: String,
     videoId: String,
-    timestamp: DateTime,
+    timestamp: Instant,
     duration: FiniteDuration
   ): F[Unit] =
     OptionT {

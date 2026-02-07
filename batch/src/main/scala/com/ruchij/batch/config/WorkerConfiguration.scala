@@ -1,6 +1,6 @@
 package com.ruchij.batch.config
 
-import org.joda.time.LocalTime
+import java.time.LocalTime
 
 final case class WorkerConfiguration(
   maxConcurrentDownloads: Int,

@@ -7,7 +7,8 @@ import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.migration.config.DatabaseConfiguration
 import doobie.implicits._
 import org.http4s.{MediaType, Uri}
-import org.joda.time.DateTime
+import java.time.Instant
+import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
@@ -75,15 +76,15 @@ class DoobieCustomMappingsSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  "dateTimePut and dateTimeGet" should "round-trip DateTime values" in runIO {
+  "instantPut and instantGet" should "round-trip Instant values" in runIO {
     DoobieTransactor.create[IO](dbConfig).use { transactor =>
-      val testDateTime = new DateTime(2024, 1, 15, 10, 30, 0, 0)
+      val testInstant = TimeUtils.instantOf(2024, 1, 15, 10, 30)
       for {
         _ <- sql"CREATE TABLE datetime_test (dt TIMESTAMP)".update.run.transact(transactor)
-        _ <- sql"INSERT INTO datetime_test VALUES (${testDateTime: DateTime})".update.run.transact(transactor)
-        result <- sql"SELECT dt FROM datetime_test".query[DateTime].unique.transact(transactor)
+        _ <- sql"INSERT INTO datetime_test VALUES (${testInstant: Instant})".update.run.transact(transactor)
+        result <- sql"SELECT dt FROM datetime_test".query[Instant].unique.transact(transactor)
       } yield {
-        result.getMillis mustBe testDateTime.getMillis
+        result.toEpochMilli mustBe testInstant.toEpochMilli
       }
     }
   }

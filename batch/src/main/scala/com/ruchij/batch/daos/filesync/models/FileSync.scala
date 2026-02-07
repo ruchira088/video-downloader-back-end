@@ -1,5 +1,5 @@
 package com.ruchij.batch.daos.filesync.models
 
-import org.joda.time.DateTime
+import java.time.Instant
 
-final case class FileSync(lockedAt: DateTime, path: String, syncedAt: Option[DateTime])
+final case class FileSync(lockedAt: Instant, path: String, syncedAt: Option[Instant])

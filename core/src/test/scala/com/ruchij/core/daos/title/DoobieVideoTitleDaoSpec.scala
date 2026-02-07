@@ -11,7 +11,7 @@ import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata}
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
 import com.ruchij.core.test.IOSupport.runIO
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
 import doobie.ConnectionIO
 import doobie.implicits._
 import org.http4s.MediaType
@@ -36,7 +36,7 @@ class DoobieVideoTitleDaoSpec extends AnyFlatSpec with Matchers with OptionValue
     runIO {
       new EmbeddedCoreResourcesProvider[IO].transactor.use { transaction =>
         for {
-          timestamp <- JodaClock[IO].timestamp
+          timestamp <- Clock[IO].timestamp
           thumbnailFileResource = FileResource("thumbnail-id", timestamp, "/opt/image/thumbnail.jpg", MediaType.image.jpeg, 100)
           _ <- transaction {
             DoobieFileResourceDao.insert(thumbnailFileResource)

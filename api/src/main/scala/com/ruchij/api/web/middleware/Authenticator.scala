@@ -15,8 +15,6 @@ import org.http4s._
 import org.http4s.headers.Authorization
 import org.http4s.server.Middleware
 
-import java.time.Instant
-
 object Authenticator {
   type AuthenticatedRequestContextMiddleware[F[_]] =
     Middleware[OptionT[F, *], ContextRequest[F, AuthenticatedRequestContext], Response[F], ContextRequest[F, RequestContext], Response[F]]
@@ -85,7 +83,7 @@ object Authenticator {
     response: Response[F]
   ): F[Response[F]] =
     HttpDate
-      .fromInstant(Instant.ofEpochMilli(authenticationToken.expiresAt.getMillis))
+      .fromInstant(authenticationToken.expiresAt)
       .toType[F, Throwable]
       .map { httpDate =>
         response.addCookie {

@@ -14,13 +14,13 @@ import com.ruchij.core.messaging.models.CommittableRecord
 import com.ruchij.core.messaging.{PubSub, Publisher, Subscriber}
 import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
 import fs2.Stream
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.language.postfixOps
 
-class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]](
+class BatchSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow, M[_]](
   downloadProgressPublisher: Publisher[F, DownloadProgress],
   workerStatusSubscriber: Subscriber[F, CommittableRecord[M, *], WorkerStatusUpdate],
   scheduledVideoDownloadPubSub: PubSub[F, CommittableRecord[M, *], ScheduledVideoDownload],
@@ -34,17 +34,17 @@ class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]]
   private val logger = Logger[BatchSchedulingServiceImpl[F, T, M]]
 
   override val acquireTask: OptionT[F, ScheduledVideoDownload] =
-    OptionT.liftF(JodaClock[F].timestamp).flatMapF { timestamp =>
+    OptionT.liftF(Clock[F].timestamp).flatMapF { timestamp =>
       transaction(schedulingDao.acquireTask(timestamp))
     }
 
   override val staleTask: OptionT[F, ScheduledVideoDownload] =
     OptionT {
-      JodaClock[F].timestamp.flatMap(timestamp => transaction(schedulingDao.staleTask(20 seconds, timestamp)))
+      Clock[F].timestamp.flatMap(timestamp => transaction(schedulingDao.staleTask(20 seconds, timestamp)))
     }
 
   override def updateSchedulingStatusById(id: String, status: SchedulingStatus): F[ScheduledVideoDownload] =
-    JodaClock[F].timestamp
+    Clock[F].timestamp
       .flatMap { timestamp =>
         OptionT(transaction(schedulingDao.updateSchedulingStatusById(id, status, timestamp)))
           .getOrElseF { ApplicativeError[F, Throwable].raiseError(notFound(id)) }
@@ -52,7 +52,7 @@ class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]]
       .flatTap(scheduledVideoDownloadPubSub.publishOne)
 
   override def setErrorById(id: String, throwable: Throwable): F[ScheduledVideoDownload] =
-    JodaClock[F].timestamp
+    Clock[F].timestamp
       .flatMap { timestamp =>
         OptionT(transaction(schedulingDao.setErrorById(id, throwable, timestamp)))
           .getOrElseF { ApplicativeError[F, Throwable].raiseError(notFound(id)) }
@@ -66,7 +66,7 @@ class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]]
     } yield updated
 
   override def completeScheduledVideoDownload(id: String): F[ScheduledVideoDownload] =
-    JodaClock[F].timestamp
+    Clock[F].timestamp
       .flatMap { timestamp =>
         OptionT(transaction(schedulingDao.markScheduledVideoDownloadAsComplete(id, timestamp)))
           .getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
@@ -74,7 +74,7 @@ class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]]
       .flatTap(scheduledVideoDownloadPubSub.publishOne)
 
   override def updateTimedOutTasks(timeout: FiniteDuration): F[Seq[ScheduledVideoDownload]] =
-    JodaClock[F].timestamp
+    Clock[F].timestamp
       .flatMap { timestamp =>
         transaction(schedulingDao.updateTimedOutTasks(timeout, timestamp))
       }
@@ -84,7 +84,7 @@ class BatchSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow, M[_]]
 
   override def publishDownloadProgress(id: String, downloadedBytes: Long): F[Unit] =
     for {
-      timestamp <- JodaClock[F].timestamp
+      timestamp <- Clock[F].timestamp
       result <- downloadProgressPublisher.publishOne(DownloadProgress(id, timestamp, downloadedBytes))
     } yield result
 

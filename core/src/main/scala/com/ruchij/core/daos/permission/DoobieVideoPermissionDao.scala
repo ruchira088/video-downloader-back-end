@@ -1,7 +1,7 @@
 package com.ruchij.core.daos.permission
 
 import cats.ApplicativeError
-import com.ruchij.core.daos.doobie.DoobieCustomMappings.{dateTimeGet, dateTimePut}
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.{instantGet, instantPut}
 import com.ruchij.core.daos.permission.models.VideoPermission
 import doobie.free.connection.ConnectionIO
 import doobie.generic.auto._

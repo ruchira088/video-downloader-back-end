@@ -1,5 +1,5 @@
 package com.ruchij.api.daos.resettoken.models
 
-import org.joda.time.DateTime
+import java.time.Instant
 
-final case class CredentialsResetToken(userId: String, createdAt: DateTime, token: String)
+final case class CredentialsResetToken(userId: String, createdAt: Instant, token: String)

@@ -2,9 +2,9 @@ package com.ruchij.core.daos.workers.models
 
 import com.ruchij.core.daos.workers.models.VideoScan.ScanStatus
 import enumeratum.{Enum, EnumEntry}
-import org.joda.time.DateTime
+import java.time.Instant
 
-final case class VideoScan(updatedAt: DateTime, status: ScanStatus)
+final case class VideoScan(updatedAt: Instant, status: ScanStatus)
 
 object VideoScan {
   sealed trait ScanStatus extends EnumEntry

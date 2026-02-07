@@ -1,12 +1,12 @@
 package com.ruchij.core.messaging.models
 
-import org.joda.time.DateTime
+import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 class VideoWatchMetricSpec extends AnyFlatSpec with Matchers {
 
-  private val testTimestamp = new DateTime(2022, 8, 1, 10, 10, 0, 0)
+  private val testTimestamp = TimeUtils.instantOf(2022, 8, 1, 10, 10)
 
   "VideoWatchMetric.size" should "calculate the correct size from byte range" in {
     val metric = VideoWatchMetric(

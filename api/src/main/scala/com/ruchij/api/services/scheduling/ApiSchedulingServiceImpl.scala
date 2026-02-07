@@ -23,14 +23,14 @@ import com.ruchij.core.services.config.ConfigurationService
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
 import com.ruchij.core.services.video.VideoAnalysisService
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
 import fs2.Stream
 import org.http4s.Uri
-import org.joda.time.DateTime
 
+import java.time.Instant
 import scala.concurrent.duration.FiniteDuration
 
-class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
+class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
   videoAnalysisService: VideoAnalysisService[F],
   scheduledVideoDownloadPublisher: Publisher[F, ScheduledVideoDownload],
   workerStatusPublisher: Publisher[F, WorkerStatusUpdate],
@@ -76,7 +76,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
 
   override def retryFailed(maybeUserId: Option[String]): F[Seq[ScheduledVideoDownload]] =
     transaction {
-      schedulingDao.retryErroredScheduledDownloads(maybeUserId, DateTime.now)
+      schedulingDao.retryErroredScheduledDownloads(maybeUserId, Instant.now())
     }
       .flatTap {
         scheduledVideoDownloads =>
@@ -85,7 +85,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
 
   private def existingScheduledVideoDownload(videoMetadata: VideoMetadata, userId: String): F[Boolean] =
     for {
-      timestamp <- JodaClock[F].timestamp
+      timestamp <- Clock[F].timestamp
 
       result <- transaction {
         videoPermissionDao
@@ -116,7 +116,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
   private def newScheduledVideoDownload(uri: Uri, userId: String): F[ScheduledVideoResult.NewlyScheduled] =
     for {
       videoMetadataResult <- videoAnalysisService.metadata(uri)
-      timestamp <- JodaClock[F].timestamp
+      timestamp <- Clock[F].timestamp
 
       scheduledVideoDownload = ScheduledVideoDownload(
         timestamp,
@@ -184,7 +184,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
         }
 
   override def updateSchedulingStatus(id: String, status: SchedulingStatus): F[ScheduledVideoDownload] =
-    JodaClock[F].timestamp
+    Clock[F].timestamp
       .flatMap { timestamp =>
         OptionT(transaction(schedulingDao.updateSchedulingStatusById(id, status, timestamp))).getOrElseF {
           ApplicativeError[F, Throwable].raiseError(notFound(id))
@@ -212,7 +212,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
 
   override def updateDownloadProgress(
     id: String,
-    timestamp: DateTime,
+    timestamp: Instant,
     downloadedBytes: Long
   ): F[ScheduledVideoDownload] =
     OptionT { transaction { schedulingDao.updateDownloadProgress(id, downloadedBytes, timestamp) }}
@@ -236,7 +236,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: JodaClock, T[_]: MonadThrow](
     }
       .flatMap { scheduledVideoDownload =>
       if (maybeUserId.isEmpty) {
-        JodaClock[F].timestamp.flatMap { timestamp =>
+        Clock[F].timestamp.flatMap { timestamp =>
           val deleted = scheduledVideoDownload.copy(lastUpdatedAt = timestamp, status = SchedulingStatus.Deleted)
           scheduledVideoDownloadPublisher.publishOne(deleted).as(deleted)
         }

@@ -5,7 +5,6 @@ import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SentryCon
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.migration.config.DatabaseConfiguration
 import org.http4s.implicits.http4sLiteralsSyntax
-import org.joda.time.LocalTime
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 import pureconfig.ConfigSource
@@ -86,7 +85,7 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
     val expectedBatchServiceConfiguration =
       BatchServiceConfiguration(
         StorageConfiguration("./videos", "./images", List("./video-folder-1", "./video-folder-2")),
-        WorkerConfiguration(10, LocalTime.MIDNIGHT, LocalTime.MIDNIGHT, "test-suite"),
+        WorkerConfiguration(10, java.time.LocalTime.MIDNIGHT, java.time.LocalTime.MIDNIGHT, "test-suite"),
         DatabaseConfiguration("jdbc:h2:mem:video-downloader;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false", "my-user", "my-password"),
         KafkaConfiguration("local", "kafka-cluster:9092", uri"http://kafka-cluster:8081"),
         RedisConfiguration("localhost", 6379, Some("redis-password")),

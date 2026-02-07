@@ -17,8 +17,7 @@ import com.ruchij.core.daos.title.VideoTitleDao
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import com.ruchij.core.test.Providers
-import com.ruchij.core.types.{JodaClock, RandomGenerator}
-import org.joda.time.DateTime
+import com.ruchij.core.types.{Clock, RandomGenerator, TimeUtils}
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -27,7 +26,7 @@ import java.util.UUID
 
 class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
 
-  private val timestamp = new DateTime(2024, 5, 15, 10, 30)
+  private val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 30)
   private val userId = "user-123"
   private val adminId = "admin-456"
   private val testEmail = Email("test@example.com")
@@ -60,7 +59,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     credentialsResetTokenDao: CredentialsResetTokenDao[IO],
     videoTitleDao: VideoTitleDao[IO],
     videoPermissionDao: VideoPermissionDao[IO]
-  )(implicit jodaClock: JodaClock[IO], uuidGenerator: RandomGenerator[IO, UUID]): UserServiceImpl[IO, IO] = {
+  )(implicit clock: Clock[IO], uuidGenerator: RandomGenerator[IO, UUID]): UserServiceImpl[IO, IO] = {
     implicit val transaction: IO ~> IO = new (IO ~> IO) {
       override def apply[A](fa: IO[A]): IO[A] = fa
     }
@@ -76,7 +75,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
   }
 
   "create" should "successfully create a new user" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val uuidGenerator: RandomGenerator[IO, UUID] = mock[RandomGenerator[IO, UUID]]
 
     val passwordHashingService = mock[PasswordHashingService[IO]]
@@ -106,7 +105,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
   }
 
   it should "throw ResourceConflictException when email already exists" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val uuidGenerator: RandomGenerator[IO, UUID] = mock[RandomGenerator[IO, UUID]]
 
     val passwordHashingService = mock[PasswordHashingService[IO]]
@@ -130,7 +129,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
   }
 
   "getById" should "return user when found" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val uuidGenerator: RandomGenerator[IO, UUID] = mock[RandomGenerator[IO, UUID]]
 
     val passwordHashingService = mock[PasswordHashingService[IO]]
@@ -153,7 +152,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
   }
 
   it should "throw ResourceNotFoundException when user not found" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val uuidGenerator: RandomGenerator[IO, UUID] = mock[RandomGenerator[IO, UUID]]
 
     val passwordHashingService = mock[PasswordHashingService[IO]]
@@ -177,7 +176,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
   }
 
   "getByEmail" should "return user when found" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val uuidGenerator: RandomGenerator[IO, UUID] = mock[RandomGenerator[IO, UUID]]
 
     val passwordHashingService = mock[PasswordHashingService[IO]]
@@ -200,7 +199,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
   }
 
   it should "throw ResourceNotFoundException when user not found by email" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val uuidGenerator: RandomGenerator[IO, UUID] = mock[RandomGenerator[IO, UUID]]
 
     val passwordHashingService = mock[PasswordHashingService[IO]]
@@ -225,7 +224,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
   }
 
   "forgotPassword" should "create a password reset token" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val uuidGenerator: RandomGenerator[IO, UUID] = mock[RandomGenerator[IO, UUID]]
 
     val passwordHashingService = mock[PasswordHashingService[IO]]
@@ -251,7 +250,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
   }
 
   it should "throw ResourceNotFoundException when email not found" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val uuidGenerator: RandomGenerator[IO, UUID] = mock[RandomGenerator[IO, UUID]]
 
     val passwordHashingService = mock[PasswordHashingService[IO]]
@@ -277,7 +276,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
   }
 
   "resetPassword" should "successfully reset password with valid token" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val uuidGenerator: RandomGenerator[IO, UUID] = mock[RandomGenerator[IO, UUID]]
 
     val passwordHashingService = mock[PasswordHashingService[IO]]
@@ -289,7 +288,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
 
     val newPassword = Password("new-secure-password")
     val newHashedPassword = HashedPassword("new-hashed-password")
-    val validResetToken = CredentialsResetToken(userId, timestamp.minusHours(1), resetToken)
+    val validResetToken = CredentialsResetToken(userId, timestamp.minus(java.time.Duration.ofHours(1)), resetToken)
 
     (passwordHashingService.hashPassword _).expects(newPassword).returning(IO.pure(newHashedPassword))
     (credentialsResetTokenDao.find _).expects(userId, resetToken).returning(IO.pure(Some(validResetToken)))
@@ -308,7 +307,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
   }
 
   it should "throw ResourceNotFoundException when reset token not found" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val uuidGenerator: RandomGenerator[IO, UUID] = mock[RandomGenerator[IO, UUID]]
 
     val passwordHashingService = mock[PasswordHashingService[IO]]
@@ -338,7 +337,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
   }
 
   it should "throw ResourceNotFoundException when reset token is expired" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val uuidGenerator: RandomGenerator[IO, UUID] = mock[RandomGenerator[IO, UUID]]
 
     val passwordHashingService = mock[PasswordHashingService[IO]]
@@ -350,7 +349,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
 
     val newPassword = Password("new-secure-password")
     val newHashedPassword = HashedPassword("new-hashed-password")
-    val expiredResetToken = CredentialsResetToken(userId, timestamp.minusHours(5), resetToken)
+    val expiredResetToken = CredentialsResetToken(userId, timestamp.minus(java.time.Duration.ofHours(5)), resetToken)
 
     (passwordHashingService.hashPassword _).expects(newPassword).returning(IO.pure(newHashedPassword))
     (credentialsResetTokenDao.find _).expects(userId, resetToken).returning(IO.pure(Some(expiredResetToken)))
@@ -369,7 +368,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
   }
 
   "delete" should "successfully delete user when called by admin" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val uuidGenerator: RandomGenerator[IO, UUID] = mock[RandomGenerator[IO, UUID]]
 
     val passwordHashingService = mock[PasswordHashingService[IO]]
@@ -396,7 +395,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
   }
 
   it should "throw AuthorizationException when called by non-admin user" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val uuidGenerator: RandomGenerator[IO, UUID] = mock[RandomGenerator[IO, UUID]]
 
     val passwordHashingService = mock[PasswordHashingService[IO]]
@@ -420,7 +419,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
   }
 
   it should "throw ResourceNotFoundException when user to delete not found" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val uuidGenerator: RandomGenerator[IO, UUID] = mock[RandomGenerator[IO, UUID]]
 
     val passwordHashingService = mock[PasswordHashingService[IO]]
@@ -449,7 +448,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
   }
 
   "create" should "generate proper credentials with timestamp" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val uuidGenerator: RandomGenerator[IO, UUID] = mock[RandomGenerator[IO, UUID]]
 
     val passwordHashingService = mock[PasswordHashingService[IO]]
@@ -495,7 +494,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
   }
 
   "forgotPassword" should "generate proper reset token with correct timestamp" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val uuidGenerator: RandomGenerator[IO, UUID] = mock[RandomGenerator[IO, UUID]]
 
     val passwordHashingService = mock[PasswordHashingService[IO]]
@@ -528,7 +527,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
   }
 
   "delete" should "clean up all user associations before deletion" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val uuidGenerator: RandomGenerator[IO, UUID] = mock[RandomGenerator[IO, UUID]]
 
     val passwordHashingService = mock[PasswordHashingService[IO]]
@@ -565,8 +564,8 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
   }
 
   "resetPassword" should "update credentials with new password and timestamp" in runIO {
-    val currentTimestamp = new DateTime(2024, 5, 15, 14, 30)
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](currentTimestamp)
+    val currentTimestamp = TimeUtils.instantOf(2024, 5, 15, 14, 30)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](currentTimestamp)
     implicit val uuidGenerator: RandomGenerator[IO, UUID] = mock[RandomGenerator[IO, UUID]]
 
     val passwordHashingService = mock[PasswordHashingService[IO]]
@@ -578,7 +577,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
 
     val newPassword = Password("brand-new-password")
     val newHashedPassword = HashedPassword("new-hashed-value")
-    val validResetToken = CredentialsResetToken(userId, currentTimestamp.minusHours(2), resetToken)
+    val validResetToken = CredentialsResetToken(userId, currentTimestamp.minus(java.time.Duration.ofHours(2)), resetToken)
 
     (passwordHashingService.hashPassword _).expects(newPassword).returning(IO.pure(newHashedPassword))
     (credentialsResetTokenDao.find _).expects(userId, resetToken).returning(IO.pure(Some(validResetToken)))
@@ -601,8 +600,8 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
   }
 
   "resetPassword" should "reject token that is exactly at expiry boundary" in runIO {
-    val currentTimestamp = new DateTime(2024, 5, 15, 14, 30)
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](currentTimestamp)
+    val currentTimestamp = TimeUtils.instantOf(2024, 5, 15, 14, 30)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](currentTimestamp)
     implicit val uuidGenerator: RandomGenerator[IO, UUID] = mock[RandomGenerator[IO, UUID]]
 
     val passwordHashingService = mock[PasswordHashingService[IO]]
@@ -614,7 +613,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
 
     val newPassword = Password("new-password")
     val newHashedPassword = HashedPassword("hashed")
-    val exactlyExpiredToken = CredentialsResetToken(userId, currentTimestamp.minusHours(4), resetToken)
+    val exactlyExpiredToken = CredentialsResetToken(userId, currentTimestamp.minus(java.time.Duration.ofHours(4)), resetToken)
 
     (passwordHashingService.hashPassword _).expects(newPassword).returning(IO.pure(newHashedPassword))
     (credentialsResetTokenDao.find _).expects(userId, resetToken).returning(IO.pure(Some(exactlyExpiredToken)))
@@ -633,8 +632,8 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
   }
 
   "resetPassword" should "accept token that is just before expiry" in runIO {
-    val currentTimestamp = new DateTime(2024, 5, 15, 14, 30)
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](currentTimestamp)
+    val currentTimestamp = TimeUtils.instantOf(2024, 5, 15, 14, 30)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](currentTimestamp)
     implicit val uuidGenerator: RandomGenerator[IO, UUID] = mock[RandomGenerator[IO, UUID]]
 
     val passwordHashingService = mock[PasswordHashingService[IO]]
@@ -646,7 +645,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
 
     val newPassword = Password("new-password")
     val newHashedPassword = HashedPassword("hashed")
-    val almostExpiredToken = CredentialsResetToken(userId, currentTimestamp.minusHours(3).minusMinutes(59), resetToken)
+    val almostExpiredToken = CredentialsResetToken(userId, currentTimestamp.minus(java.time.Duration.ofHours(3)).minus(java.time.Duration.ofMinutes(59)), resetToken)
 
     (passwordHashingService.hashPassword _).expects(newPassword).returning(IO.pure(newHashedPassword))
     (credentialsResetTokenDao.find _).expects(userId, resetToken).returning(IO.pure(Some(almostExpiredToken)))

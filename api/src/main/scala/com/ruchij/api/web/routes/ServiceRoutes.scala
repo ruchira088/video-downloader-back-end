@@ -4,7 +4,7 @@ import cats.effect.Sync
 import cats.implicits._
 import com.ruchij.api.services.health.HealthService
 import com.ruchij.api.services.models.Context.RequestContext
-import com.ruchij.core.circe.Encoders.{dateTimeEncoder, enumEncoder}
+import com.ruchij.core.circe.Encoders.{instantEncoder, enumEncoder}
 import io.circe.generic.auto._
 import org.http4s.circe.CirceEntityEncoder.circeEntityEncoder
 import org.http4s.ContextRoutes

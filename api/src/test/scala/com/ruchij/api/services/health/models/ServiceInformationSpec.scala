@@ -3,17 +3,16 @@ package com.ruchij.api.services.health.models
 import cats.effect.IO
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.Providers
-import com.ruchij.core.types.JodaClock
-import org.joda.time.DateTime
+import com.ruchij.core.types.{Clock, TimeUtils}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 class ServiceInformationSpec extends AnyFlatSpec with Matchers {
 
-  private val timestamp = new DateTime(2024, 5, 15, 10, 30)
+  private val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 30)
 
   "ServiceInformation.create" should "create ServiceInformation with provided yt-dlp version" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     ServiceInformation.create[IO]("2024.05.01").map { info =>
       info.`yt-dlpVersion` mustBe "2024.05.01"
@@ -26,9 +25,9 @@ class ServiceInformationSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  it should "use current timestamp from JodaClock" in runIO {
-    val customTimestamp = new DateTime(2025, 1, 15, 12, 0)
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](customTimestamp)
+  it should "use current timestamp from Clock" in runIO {
+    val customTimestamp = TimeUtils.instantOf(2025, 1, 15, 12, 0)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](customTimestamp)
 
     ServiceInformation.create[IO]("2024.05.01").map { info =>
       info.currentTimestamp mustBe customTimestamp
@@ -36,7 +35,7 @@ class ServiceInformationSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "fetch Java version from system properties" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     ServiceInformation.create[IO]("2024.05.01").map { info =>
       info.javaVersion must not be empty
@@ -44,7 +43,7 @@ class ServiceInformationSpec extends AnyFlatSpec with Matchers {
   }
 
   "ServiceInformation case class" should "store all provided fields" in {
-    val buildTimestamp = new DateTime(2024, 1, 1, 0, 0)
+    val buildTimestamp = TimeUtils.instantOf(2024, 1, 1, 0, 0)
 
     val info = ServiceInformation(
       serviceName = "test-service",
@@ -72,7 +71,7 @@ class ServiceInformationSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "allow empty git branch and commit" in {
-    val buildTimestamp = new DateTime(2024, 1, 1, 0, 0)
+    val buildTimestamp = TimeUtils.instantOf(2024, 1, 1, 0, 0)
 
     val info = ServiceInformation(
       serviceName = "test-service",

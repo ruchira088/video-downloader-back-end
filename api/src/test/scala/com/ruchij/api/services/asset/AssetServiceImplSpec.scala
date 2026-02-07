@@ -17,11 +17,11 @@ import com.ruchij.core.messaging.models.VideoWatchMetric
 import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import com.ruchij.core.test.Providers
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.{Clock, TimeUtils}
 import fs2.Stream
 import org.http4s.MediaType
 import org.http4s.implicits.http4sLiteralsSyntax
-import org.joda.time.DateTime
+import java.time.Instant
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
@@ -29,7 +29,7 @@ import scala.concurrent.duration._
 
 class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
 
-  private val timestamp = new DateTime(2024, 5, 15, 10, 30)
+  private val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 30)
 
   implicit val transaction: IO ~> IO = new (IO ~> IO) {
     override def apply[A](fa: IO[A]): IO[A] = fa
@@ -84,7 +84,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
     override def insert(
       videoMetadataId: String,
       videoFileResourceId: String,
-      timestamp: DateTime,
+      timestamp: Instant,
       watchTime: FiniteDuration
     ): IO[Int] = IO.pure(1)
 
@@ -150,7 +150,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
     videoDao: VideoDao[IO] = new StubVideoDao(),
     repositoryService: RepositoryService[IO] = new StubRepositoryService(),
     publisher: Publisher[IO, VideoWatchMetric] = new StubPublisher()
-  )(implicit jodaClock: JodaClock[IO]): AssetServiceImpl[IO, IO] = {
+  )(implicit clock: Clock[IO]): AssetServiceImpl[IO, IO] = {
     new AssetServiceImpl[IO, IO](
       fileResourceDao,
       snapshotDao,
@@ -161,7 +161,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "thumbnail" should "return asset for a valid thumbnail" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val fileResourceDao = new StubFileResourceDao(getByIdResult = id =>
       if (id == "thumbnail-1") Some(sampleThumbnail) else None
@@ -175,7 +175,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "throw ResourceNotFoundException when thumbnail not found" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val fileResourceDao = new StubFileResourceDao(getByIdResult = _ => None)
     val service = createService(fileResourceDao = fileResourceDao)
@@ -186,7 +186,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "snapshot" should "return asset for admin user" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val fileResourceDao = new StubFileResourceDao(getByIdResult = id =>
       if (id == "snapshot-file-1") Some(snapshotFileResource) else None
@@ -199,7 +199,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "return asset for normal user with permission" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val fileResourceDao = new StubFileResourceDao(getByIdResult = id =>
       if (id == "snapshot-file-1") Some(snapshotFileResource) else None
@@ -213,7 +213,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "throw ResourceNotFoundException for normal user without permission" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val snapshotDao = new StubSnapshotDao(hasPermissionResult = false)
     val service = createService(snapshotDao = snapshotDao)
@@ -225,7 +225,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "videoFile" should "return asset for admin user" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val publisher = new StubPublisher()
     val service = createService(publisher = publisher)
@@ -238,7 +238,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "return asset for normal user with permission" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(hasVideoFilePermissionResult = true)
     val publisher = new StubPublisher()
@@ -251,7 +251,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "throw ResourceNotFoundException for normal user without permission" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(hasVideoFilePermissionResult = false)
     val service = createService(videoDao = videoDao)
@@ -263,7 +263,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "handle byte range requests" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val fileResourceDao = new StubFileResourceDao(getByIdResult = _ =>
       Some(sampleFileResource.copy(size = 10000L))
@@ -279,7 +279,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "handle max stream size" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val fileResourceDao = new StubFileResourceDao(getByIdResult = _ =>
       Some(sampleFileResource.copy(size = 10000L))
@@ -294,7 +294,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "throw ResourceNotFoundException when file resource not found" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val fileResourceDao = new StubFileResourceDao(getByIdResult = _ => None)
     val service = createService(fileResourceDao = fileResourceDao)
@@ -305,7 +305,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "throw ResourceNotFoundException when repository read returns None" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val repositoryService = new StubRepositoryService(readResult = None)
     val service = createService(repositoryService = repositoryService)

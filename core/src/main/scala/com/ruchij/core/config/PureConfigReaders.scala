@@ -3,7 +3,7 @@ package com.ruchij.core.config
 import com.comcast.ip4s.{Host, Port}
 import enumeratum.{Enum, EnumEntry}
 import org.http4s.Uri
-import org.joda.time.LocalTime
+import java.time.LocalTime
 import pureconfig.ConfigReader
 import pureconfig.error.CannotConvert
 

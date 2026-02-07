@@ -1,13 +1,13 @@
 package com.ruchij.batch.daos.filesync.models
 
-import org.joda.time.DateTime
+import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 class FileSyncSpec extends AnyFlatSpec with Matchers {
 
-  private val timestamp = new DateTime(2024, 5, 15, 10, 30)
-  private val syncedTimestamp = new DateTime(2024, 5, 15, 10, 35)
+  private val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 30)
+  private val syncedTimestamp = TimeUtils.instantOf(2024, 5, 15, 10, 35)
 
   "FileSync" should "store lockedAt and path with no syncedAt" in {
     val fileSync = FileSync(timestamp, "/videos/video.mp4", None)

@@ -1,13 +1,13 @@
 package com.ruchij.core.messaging.models
 
-import org.joda.time.DateTime
+import java.time.Instant
 
 final case class VideoWatchMetric(
   userId: String,
   videoFileResourceId: String,
   startByte: Long,
   endByte: Long,
-  timestamp: DateTime
+  timestamp: Instant
 ) {
   val size: Long = endByte - startByte
 }

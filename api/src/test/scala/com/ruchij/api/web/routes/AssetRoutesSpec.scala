@@ -17,14 +17,14 @@ import org.http4s.headers.{Authorization, Range}
 import org.http4s.{AuthScheme, Credentials, MediaType, RangeUnit, Request, Status}
 import org.http4s.dsl.io._
 import org.http4s.implicits.http4sLiteralsSyntax
-import org.joda.time.{DateTime, DateTimeZone}
+import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
-  private val testTimestamp = new DateTime(2022, 8, 1, 10, 10, 0, 0, DateTimeZone.UTC)
-  private val expiresAt = testTimestamp.plusDays(45)
+  private val testTimestamp = TimeUtils.instantOf(2022, 8, 1, 10, 10)
+  private val expiresAt = testTimestamp.plus(java.time.Duration.ofDays(45))
   private val testSecret = Secret("test-secret-uuid")
   private val normalUserToken = AuthenticationToken(
     ApiTestData.NormalUser.id,

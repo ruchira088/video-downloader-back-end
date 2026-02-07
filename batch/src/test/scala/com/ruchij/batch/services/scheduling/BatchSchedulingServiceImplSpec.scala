@@ -19,7 +19,7 @@ import com.ruchij.core.services.repository.FileRepositoryService
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.data.DataGenerators
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
 import doobie.free.connection.ConnectionIO
 import fs2.Stream
 import org.scalamock.scalatest.MockFactory
@@ -380,7 +380,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
         videoWithBytes = scheduledVideo.copy(downloadedBytes = 1024L) // Set downloaded bytes > 0
         _ <- transactor(insertScheduledVideo(videoWithBytes))
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
         _ <- transactor(DoobieSchedulingDao.updateDownloadProgress(videoWithBytes.videoMetadata.id, 1024L, timestamp))
 
         // Mock repository to return the video file and accept delete

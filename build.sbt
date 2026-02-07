@@ -15,6 +15,7 @@ inThisBuild {
       "-deprecation",
       "-feature",
       "-unchecked",
+      "-Werror",
       "-Xlint",
       "-Wconf:cat=lint-byname-implicit:s",
       "-Xlog-implicits"
@@ -82,7 +83,6 @@ lazy val core =
           doobieHikari,
           shapeless,
           pureconfig,
-          jodaTime,
           enumeratum,
           apacheTika,
           redis4CatsEffects,

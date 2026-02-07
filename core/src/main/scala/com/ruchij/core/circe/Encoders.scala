@@ -6,13 +6,13 @@ import com.ruchij.core.daos.videometadata.models.VideoSite
 import enumeratum.EnumEntry
 import io.circe.{Encoder, Json}
 import org.http4s.MediaType
-import org.joda.time.DateTime
 import shapeless.{::, Generic, HNil}
 
+import java.time.Instant
 import scala.concurrent.duration.FiniteDuration
 
 object Encoders {
-  implicit val dateTimeEncoder: Encoder[DateTime] = Encoder.encodeString.contramap[DateTime](_.toString)
+  implicit val instantEncoder: Encoder[Instant] = Encoder.encodeString.contramap[Instant](_.toString)
 
   implicit def throwableEncoder[A <: Throwable]: Encoder[A] =
     Encoder.encodeString.contramap[A](_.getMessage)

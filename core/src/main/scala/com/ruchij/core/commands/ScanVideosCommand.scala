@@ -1,5 +1,5 @@
 package com.ruchij.core.commands
 
-import org.joda.time.DateTime
+import java.time.Instant
 
-final case class ScanVideosCommand(issuedAt: DateTime) extends Command
+final case class ScanVideosCommand(issuedAt: Instant) extends Command

@@ -14,7 +14,7 @@ import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.messaging.models.HttpMetric
 import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.services.video.{VideoAnalysisService, VideoWatchHistoryService}
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
 import fs2.Stream
 import fs2.compression.Compression
 import org.http4s.HttpApp
@@ -37,7 +37,7 @@ trait MockedRoutes[F[_]] extends MockFactory with OneInstancePerTest { self: Tes
   val metricPublisher: Publisher[F, HttpMetric] = mock[Publisher[F, HttpMetric]]
 
   val async: Async[F]
-  val jodaClock: JodaClock[F]
+  val clock: Clock[F]
   val compression: Compression[F]
 
   def createRoutes(): HttpApp[F] =
@@ -55,7 +55,7 @@ trait MockedRoutes[F[_]] extends MockFactory with OneInstancePerTest { self: Tes
       scheduledVideoDownloadUpdatesStream,
       metricPublisher,
       Set.empty
-    )(async, jodaClock, compression)
+    )(async, clock, compression)
 
   def ignoreHttpMetrics(): F[Unit] =
     async.delay {

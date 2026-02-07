@@ -12,14 +12,13 @@ import com.ruchij.api.services.authentication.models.AuthenticationToken
 import com.ruchij.api.services.authentication.models.AuthenticationToken.{AuthenticationKeySpace, AuthenticationTokenKey}
 import com.ruchij.api.services.hashing.BCryptPasswordHashingService
 import com.ruchij.api.services.user.{UserService, UserServiceImpl}
-import com.ruchij.api.test.matchers.haveDateTime
+import com.ruchij.api.test.matchers.haveInstant
 import com.ruchij.core.daos.permission.DoobieVideoPermissionDao
 import com.ruchij.core.daos.title.DoobieVideoTitleDao
 import com.ruchij.core.kv.{KeySpacedKeyValueStore, RedisKeyValueStore}
 import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
-import com.ruchij.core.types.{JodaClock, RandomGenerator}
+import com.ruchij.core.types.{Clock, RandomGenerator, TimeUtils}
 import doobie.free.connection.ConnectionIO
-import org.joda.time.DateTime
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -32,7 +31,7 @@ import scala.language.postfixOps
 class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
 
   def runTest(
-    testCase: (RandomGenerator[IO, Secret], JodaClock[IO], UserService[IO], AuthenticationService[IO]) => IO[Unit]
+    testCase: (RandomGenerator[IO, Secret], Clock[IO], UserService[IO], AuthenticationService[IO]) => IO[Unit]
   ): Unit =
     runIO {
       val apiResourcesProvider: ApiResourcesProvider[IO] = new ContainerApiResourcesProvider[IO]
@@ -47,7 +46,7 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
         }
         .use { keySpacedKeyValueStore =>
           apiResourcesProvider.transactor.use { implicit transactor =>
-            implicit val jodaClock: JodaClock[IO] = mock[JodaClock[IO]]
+            implicit val clock: Clock[IO] = mock[Clock[IO]]
             implicit val randomGenerator: RandomGenerator[IO, Secret] = mock[RandomGenerator[IO, Secret]]
 
             val passwordHashingService = new BCryptPasswordHashingService[IO]
@@ -71,17 +70,17 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
                 DoobieVideoPermissionDao
               )
 
-            testCase(randomGenerator, jodaClock, userService, authenticationService)
+            testCase(randomGenerator, clock, userService, authenticationService)
           }
         }
     }
 
   "Authentication service" should "go through authentication flow" in
-    runTest { (secretGenerator, jodaClock, userService, authenticationService) =>
-      val timestamp = new DateTime(2022, 10, 8, 19, 0)
+    runTest { (secretGenerator, clock, userService, authenticationService) =>
+      val timestamp = TimeUtils.instantOf(2022, 10, 8, 19, 0)
 
       for {
-        _ <- IO.delay { (() => jodaClock.timestamp).expects().returns(IO.pure(timestamp)) }
+        _ <- IO.delay { (() => clock.timestamp).expects().returns(IO.pure(timestamp)) }
 
         email <- RandomGenerator[IO, UUID].generate.map(uuid => Email(s"$uuid@ruchij.com"))
         password = Password("my-password")
@@ -89,19 +88,19 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
         secret <- RandomGenerator[IO, UUID].generate.map(uuid => Secret(uuid.toString))
 
         _ <- IO.delay { (() => secretGenerator.generate).expects().returning(IO.pure(secret)) }
-        _ <- IO.delay { (() => jodaClock.timestamp).expects().returns(IO.pure(timestamp)) }
+        _ <- IO.delay { (() => clock.timestamp).expects().returns(IO.pure(timestamp)) }
 
         authenticationTokenOne <- authenticationService.login(email, password)
 
         _ <- IO.delay {
           authenticationTokenOne.secret mustBe secret
-          authenticationTokenOne.issuedAt must haveDateTime(timestamp)
+          authenticationTokenOne.issuedAt must haveInstant(timestamp)
           authenticationTokenOne.renewals mustBe 0
-          authenticationTokenOne.expiresAt must haveDateTime(timestamp.plusSeconds(20))
+          authenticationTokenOne.expiresAt must haveInstant(timestamp.plus(java.time.Duration.ofSeconds(20)))
         }
 
         _ <- IO.delay {
-          (() => jodaClock.timestamp).expects().returns(IO.pure(timestamp.plusSeconds(10))).anyNumberOfTimes()
+          (() => clock.timestamp).expects().returns(IO.pure(timestamp.plus(java.time.Duration.ofSeconds(10)))).anyNumberOfTimes()
         }
 
         (authenticationTokenTwo, authUser) <- authenticationService.authenticate(secret)
@@ -109,9 +108,9 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
         _ <- IO.delay {
           authUser mustBe user
           authenticationTokenTwo.secret mustBe secret
-          authenticationTokenTwo.issuedAt must haveDateTime(timestamp)
+          authenticationTokenTwo.issuedAt must haveInstant(timestamp)
           authenticationTokenTwo.renewals mustBe 1
-          authenticationTokenTwo.expiresAt must haveDateTime(timestamp.plusSeconds(30))
+          authenticationTokenTwo.expiresAt must haveInstant(timestamp.plus(java.time.Duration.ofSeconds(30)))
         }
 
         _ <- authenticationService.logout(secret)
@@ -160,11 +159,11 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
   }
 
   it should "return an exception if the authentication token is expired" in runTest {
-    (secretGenerator, jodaClock, userService, authenticationService) =>
-      val timestamp = new DateTime(2022, 10, 9, 10, 0)
+    (secretGenerator, clock, userService, authenticationService) =>
+      val timestamp = TimeUtils.instantOf(2022, 10, 9, 10, 0)
 
       for {
-        _ <- IO.delay { (() => jodaClock.timestamp).expects().returns(IO.pure(timestamp)) }
+        _ <- IO.delay { (() => clock.timestamp).expects().returns(IO.pure(timestamp)) }
 
         email <- RandomGenerator[IO, UUID].generate.map(uuid => Email(s"$uuid@ruchij.com"))
         password = Password("my-password")
@@ -172,18 +171,18 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
         secret <- RandomGenerator[IO, UUID].generate.map(uuid => Secret(uuid.toString))
 
         _ <- IO.delay((() => secretGenerator.generate).expects().returning(IO.pure(secret)))
-        _ <- IO.delay { (() => jodaClock.timestamp).expects().returns(IO.pure(timestamp)) }
+        _ <- IO.delay { (() => clock.timestamp).expects().returns(IO.pure(timestamp)) }
 
         _ <- authenticationService.login(email, password)
 
-        _ <- IO.delay { (() => jodaClock.timestamp).expects().returns(IO.pure(timestamp.plusSeconds(15))) }
+        _ <- IO.delay { (() => clock.timestamp).expects().returns(IO.pure(timestamp.plus(java.time.Duration.ofSeconds(15)))) }
         _ <- authenticationService.authenticate(secret)
 
-        _ <- IO.delay { (() => jodaClock.timestamp).expects().returns(IO.pure(timestamp.plusSeconds(60))) }
+        _ <- IO.delay { (() => clock.timestamp).expects().returns(IO.pure(timestamp.plus(java.time.Duration.ofSeconds(60)))) }
         tokenExpiredException <- authenticationService.authenticate(secret).error
 
         _ <- IO.delay {
-          tokenExpiredException.getMessage mustBe s"Authentication token expired at ${timestamp.plusSeconds(35)}"
+          tokenExpiredException.getMessage mustBe s"Authentication token expired at ${timestamp.plus(java.time.Duration.ofSeconds(35))}"
         }
 
         missingTokenException <- authenticationService.authenticate(secret).error
@@ -193,11 +192,11 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
   }
 
   it should "return error when logging out with expired token" in runTest {
-    (secretGenerator, jodaClock, userService, authenticationService) =>
-      val timestamp = new DateTime(2022, 10, 10, 10, 0)
+    (secretGenerator, clock, userService, authenticationService) =>
+      val timestamp = TimeUtils.instantOf(2022, 10, 10, 10, 0)
 
       for {
-        _ <- IO.delay { (() => jodaClock.timestamp).expects().returns(IO.pure(timestamp)) }
+        _ <- IO.delay { (() => clock.timestamp).expects().returns(IO.pure(timestamp)) }
 
         email <- RandomGenerator[IO, UUID].generate.map(uuid => Email(s"$uuid@ruchij.com"))
         password = Password("my-password")
@@ -205,12 +204,12 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
         secret <- RandomGenerator[IO, UUID].generate.map(uuid => Secret(uuid.toString))
 
         _ <- IO.delay((() => secretGenerator.generate).expects().returning(IO.pure(secret)))
-        _ <- IO.delay { (() => jodaClock.timestamp).expects().returns(IO.pure(timestamp)) }
+        _ <- IO.delay { (() => clock.timestamp).expects().returns(IO.pure(timestamp)) }
 
         _ <- authenticationService.login(email, password)
 
         // Logout with expired token - timestamp is way past expiration
-        _ <- IO.delay { (() => jodaClock.timestamp).expects().returns(IO.pure(timestamp.plusMinutes(30))) }
+        _ <- IO.delay { (() => clock.timestamp).expects().returns(IO.pure(timestamp.plus(java.time.Duration.ofMinutes(30)))) }
         logoutException <- authenticationService.logout(secret).error
 
         _ <- IO.delay {
@@ -220,11 +219,11 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
   }
 
   it should "successfully logout with valid token" in runTest {
-    (secretGenerator, jodaClock, userService, authenticationService) =>
-      val timestamp = new DateTime(2022, 10, 11, 10, 0)
+    (secretGenerator, clock, userService, authenticationService) =>
+      val timestamp = TimeUtils.instantOf(2022, 10, 11, 10, 0)
 
       for {
-        _ <- IO.delay { (() => jodaClock.timestamp).expects().returns(IO.pure(timestamp)) }
+        _ <- IO.delay { (() => clock.timestamp).expects().returns(IO.pure(timestamp)) }
 
         email <- RandomGenerator[IO, UUID].generate.map(uuid => Email(s"$uuid@ruchij.com"))
         password = Password("my-password")
@@ -232,12 +231,12 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
         secret <- RandomGenerator[IO, UUID].generate.map(uuid => Secret(uuid.toString))
 
         _ <- IO.delay((() => secretGenerator.generate).expects().returning(IO.pure(secret)))
-        _ <- IO.delay { (() => jodaClock.timestamp).expects().returns(IO.pure(timestamp)) }
+        _ <- IO.delay { (() => clock.timestamp).expects().returns(IO.pure(timestamp)) }
 
         _ <- authenticationService.login(email, password)
 
         // Logout with valid (non-expired) token
-        _ <- IO.delay { (() => jodaClock.timestamp).expects().returns(IO.pure(timestamp.plusSeconds(5))) }
+        _ <- IO.delay { (() => clock.timestamp).expects().returns(IO.pure(timestamp.plus(java.time.Duration.ofSeconds(5)))) }
         loggedOutUser <- authenticationService.logout(secret)
 
         _ <- IO.delay {

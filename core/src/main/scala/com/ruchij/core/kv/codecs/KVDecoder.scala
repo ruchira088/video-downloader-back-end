@@ -4,8 +4,9 @@ import cats.implicits._
 import cats.{Applicative, ApplicativeError, Functor, Monad, MonadError, MonadThrow}
 import com.ruchij.core.kv.keys.KVStoreKey.{KeyList, KeySeparator}
 import enumeratum.{Enum, EnumEntry}
-import org.joda.time.DateTime
 import shapeless.{::, <:!<, Generic, HList, HNil}
+
+import java.time.Instant
 
 import scala.reflect.ClassTag
 import scala.util.Try
@@ -54,9 +55,9 @@ object KVDecoder {
         )
     }
 
-  implicit def dateTimeKVDecoder[F[_]: MonadThrow]: KVDecoder[F, DateTime] =
+  implicit def instantKVDecoder[F[_]: MonadThrow]: KVDecoder[F, Instant] =
     stringKVDecoder[F].mapEither { value =>
-      Try(DateTime.parse(value)).toEither.left.map(_.getMessage)
+      Try(Instant.parse(value)).toEither.left.map(_.getMessage)
     }
 
   implicit def genericKVDecoder[F[_]: MonadThrow, A, Repr <: HList](

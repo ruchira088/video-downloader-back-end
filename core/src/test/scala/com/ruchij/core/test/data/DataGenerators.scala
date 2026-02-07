@@ -8,23 +8,23 @@ import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, Schedulin
 import com.ruchij.core.daos.videometadata.models.CustomVideoSite._
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata}
 import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherLeftFunctor, eitherToF}
-import com.ruchij.core.types.{JodaClock, RandomGenerator}
+import com.ruchij.core.types.{Clock, RandomGenerator}
 import org.http4s.{MediaType, Uri}
-import org.joda.time.DateTime
 
+import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
 object DataGenerators {
-  def scheduledVideoDownload[F[_]: Sync: JodaClock]: RandomGenerator[F, ScheduledVideoDownload] =
+  def scheduledVideoDownload[F[_]: Sync: Clock]: RandomGenerator[F, ScheduledVideoDownload] =
     for {
       videoMetadata <- videoMetadata[F]
-      timestamp <- RandomGenerator[F, DateTime]
+      timestamp <- RandomGenerator[F, Instant]
     }
     yield ScheduledVideoDownload(timestamp, timestamp, SchedulingStatus.Queued, 0, videoMetadata, None, None)
 
-  def videoMetadata[F[_]: Sync: JodaClock]: RandomGenerator[F, VideoMetadata] =
+  def videoMetadata[F[_]: Sync: Clock]: RandomGenerator[F, VideoMetadata] =
     for {
       videoSite <- customVideoSite[F]
       id <- RandomGenerator[F, UUID].map(uuid => s"${videoSite.name}-${uuid.toString.take(8)}")
@@ -36,10 +36,10 @@ object DataGenerators {
     }
     yield VideoMetadata(uri, id, videoSite, title, duration, size, thumbnail)
 
-  def fileResource[F[_]: Sync: JodaClock](fileTypes: NonEmptyList[MediaType]): RandomGenerator[F, FileResource] =
+  def fileResource[F[_]: Sync: Clock](fileTypes: NonEmptyList[MediaType]): RandomGenerator[F, FileResource] =
     for {
       id <- RandomGenerator[F, UUID].map(uuid => s"file-${uuid.toString.take(8)}")
-      timestamp <- RandomGenerator[F, DateTime]
+      timestamp <- RandomGenerator[F, Instant]
       mediaType <- RandomGenerator.from[F, MediaType](fileTypes)
       size <- RandomGenerator.range[F](1_000, 40_000)
       path = s"/data/files/$id.${mediaType.subType}"

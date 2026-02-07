@@ -11,11 +11,11 @@ import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata}
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
 import com.ruchij.core.test.IOSupport.runIO
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
 import doobie.ConnectionIO
 import org.http4s.MediaType
 import org.http4s.implicits.http4sLiteralsSyntax
-import org.joda.time.DateTime
+import java.time.Instant
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -28,7 +28,7 @@ import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 
 class DoobieVideoPermissionDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
 
-  private def insertTestUser(userId: String, email: String, timestamp: DateTime): ConnectionIO[Int] =
+  private def insertTestUser(userId: String, email: String, timestamp: Instant): ConnectionIO[Int] =
     sql"""
       INSERT INTO api_user (id, created_at, first_name, last_name, email, role)
         VALUES ($userId, $timestamp, 'Test', 'User', $email, 'User')
@@ -38,7 +38,7 @@ class DoobieVideoPermissionDaoSpec extends AnyFlatSpec with Matchers with Option
     runIO {
       new EmbeddedCoreResourcesProvider[IO].transactor.use { transaction =>
         for {
-          timestamp <- JodaClock[IO].timestamp
+          timestamp <- Clock[IO].timestamp
           thumbnailFileResource = FileResource("thumbnail-id", timestamp, "/opt/image/thumbnail.jpg", MediaType.image.jpeg, 100)
           _ <- transaction {
             DoobieFileResourceDao.insert(thumbnailFileResource)
@@ -80,7 +80,7 @@ class DoobieVideoPermissionDaoSpec extends AnyFlatSpec with Matchers with Option
   "DoobieVideoPermissionDao" should "insert a video permission" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
         _ <- transaction { insertTestUser("user-123", "user123@test.com", timestamp) }
         videoPermission = VideoPermission(timestamp, scheduledVideoDownload.videoMetadata.id, "user-123")
 
@@ -97,7 +97,7 @@ class DoobieVideoPermissionDaoSpec extends AnyFlatSpec with Matchers with Option
   it should "find permissions by user ID" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
         _ <- transaction { insertTestUser("user-123", "user123@test.com", timestamp) }
         videoPermission = VideoPermission(timestamp, scheduledVideoDownload.videoMetadata.id, "user-123")
 
@@ -113,7 +113,7 @@ class DoobieVideoPermissionDaoSpec extends AnyFlatSpec with Matchers with Option
           foundPermissions.size mustBe 1
           foundPermissions.head.userId mustBe "user-123"
           foundPermissions.head.scheduledVideoDownloadId mustBe scheduledVideoDownload.videoMetadata.id
-          foundPermissions.head.grantedAt.getMillis mustBe timestamp.getMillis
+          foundPermissions.head.grantedAt.toEpochMilli mustBe timestamp.toEpochMilli
         }
       } yield (): Unit
   }
@@ -121,7 +121,7 @@ class DoobieVideoPermissionDaoSpec extends AnyFlatSpec with Matchers with Option
   it should "find permissions by scheduled video ID" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
         _ <- transaction { insertTestUser("user-456", "user456@test.com", timestamp) }
         videoPermission = VideoPermission(timestamp, scheduledVideoDownload.videoMetadata.id, "user-456")
 
@@ -144,7 +144,7 @@ class DoobieVideoPermissionDaoSpec extends AnyFlatSpec with Matchers with Option
   it should "find permissions by both user ID and video ID" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
         _ <- transaction { insertTestUser("user-789", "user789@test.com", timestamp) }
         videoPermission = VideoPermission(timestamp, scheduledVideoDownload.videoMetadata.id, "user-789")
 
@@ -167,7 +167,7 @@ class DoobieVideoPermissionDaoSpec extends AnyFlatSpec with Matchers with Option
   it should "find all permissions when no filters provided" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
         _ <- transaction { insertTestUser("user-1", "user1@test.com", timestamp) }
         _ <- transaction { insertTestUser("user-2", "user2@test.com", timestamp) }
         permission1 = VideoPermission(timestamp, scheduledVideoDownload.videoMetadata.id, "user-1")
@@ -194,7 +194,7 @@ class DoobieVideoPermissionDaoSpec extends AnyFlatSpec with Matchers with Option
   it should "return empty when no permissions match user ID" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
         _ <- transaction { insertTestUser("user-123", "user123@test.com", timestamp) }
         videoPermission = VideoPermission(timestamp, scheduledVideoDownload.videoMetadata.id, "user-123")
 
@@ -215,7 +215,7 @@ class DoobieVideoPermissionDaoSpec extends AnyFlatSpec with Matchers with Option
   it should "return empty when no permissions match video ID" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
         _ <- transaction { insertTestUser("user-123", "user123b@test.com", timestamp) }
         videoPermission = VideoPermission(timestamp, scheduledVideoDownload.videoMetadata.id, "user-123")
 
@@ -236,7 +236,7 @@ class DoobieVideoPermissionDaoSpec extends AnyFlatSpec with Matchers with Option
   it should "delete permissions by user ID" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
         _ <- transaction { insertTestUser("user-to-delete", "usertodelete@test.com", timestamp) }
         videoPermission = VideoPermission(timestamp, scheduledVideoDownload.videoMetadata.id, "user-to-delete")
 
@@ -265,7 +265,7 @@ class DoobieVideoPermissionDaoSpec extends AnyFlatSpec with Matchers with Option
   it should "delete permissions by video ID" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
         _ <- transaction { insertTestUser("user-123", "user123c@test.com", timestamp) }
         videoPermission = VideoPermission(timestamp, scheduledVideoDownload.videoMetadata.id, "user-123")
 
@@ -294,7 +294,7 @@ class DoobieVideoPermissionDaoSpec extends AnyFlatSpec with Matchers with Option
   it should "delete permissions by both user ID and video ID" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
         _ <- transaction { insertTestUser("user-A", "userA@test.com", timestamp) }
         _ <- transaction { insertTestUser("user-B", "userB@test.com", timestamp) }
         permission1 = VideoPermission(timestamp, scheduledVideoDownload.videoMetadata.id, "user-A")
@@ -357,7 +357,7 @@ class DoobieVideoPermissionDaoSpec extends AnyFlatSpec with Matchers with Option
   it should "insert multiple permissions for different users on the same video" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
         _ <- transaction { insertTestUser("user-1", "user1b@test.com", timestamp) }
         _ <- transaction { insertTestUser("user-2", "user2b@test.com", timestamp) }
         _ <- transaction { insertTestUser("user-3", "user3@test.com", timestamp) }
@@ -395,7 +395,7 @@ class DoobieVideoPermissionDaoSpec extends AnyFlatSpec with Matchers with Option
   it should "delete all permissions for a video when only video ID is provided" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
         _ <- transaction { insertTestUser("user-1", "user1c@test.com", timestamp) }
         _ <- transaction { insertTestUser("user-2", "user2c@test.com", timestamp) }
         permission1 = VideoPermission(timestamp, scheduledVideoDownload.videoMetadata.id, "user-1")
@@ -429,7 +429,7 @@ class DoobieVideoPermissionDaoSpec extends AnyFlatSpec with Matchers with Option
   it should "preserve permission data correctly after insert and retrieve" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
         _ <- transaction { insertTestUser("detailed-user", "detailed@test.com", timestamp) }
         videoPermission = VideoPermission(timestamp, scheduledVideoDownload.videoMetadata.id, "detailed-user")
 
@@ -444,7 +444,7 @@ class DoobieVideoPermissionDaoSpec extends AnyFlatSpec with Matchers with Option
         _ <- IO.delay {
           foundPermissions.size mustBe 1
           val found = foundPermissions.head
-          found.grantedAt.getMillis mustBe timestamp.getMillis
+          found.grantedAt.toEpochMilli mustBe timestamp.toEpochMilli
           found.scheduledVideoDownloadId mustBe scheduledVideoDownload.videoMetadata.id
           found.userId mustBe "detailed-user"
         }
@@ -454,7 +454,7 @@ class DoobieVideoPermissionDaoSpec extends AnyFlatSpec with Matchers with Option
   it should "handle special characters in user ID" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
         specialUserId = "user@example.com"
         _ <- transaction { insertTestUser(specialUserId, "special@test.com", timestamp) }
         videoPermission = VideoPermission(timestamp, scheduledVideoDownload.videoMetadata.id, specialUserId)
@@ -481,7 +481,7 @@ class DoobieVideoPermissionDaoSpec extends AnyFlatSpec with Matchers with Option
   it should "find permissions for user across multiple videos" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
         _ <- transaction { insertTestUser("multi-video-user", "multivideo@test.com", timestamp) }
 
         thumbnailFileResource2 = FileResource("thumbnail-id-2", timestamp, "/opt/image/thumbnail2.jpg", MediaType.image.jpeg, 100)
@@ -557,9 +557,9 @@ class DoobieVideoPermissionDaoSpec extends AnyFlatSpec with Matchers with Option
   it should "handle permissions with different timestamps correctly" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestamp <- JodaClock[IO].timestamp
-        olderTimestamp = timestamp.minusDays(1)
-        newerTimestamp = timestamp.plusDays(1)
+        timestamp <- Clock[IO].timestamp
+        olderTimestamp = timestamp.minus(java.time.Duration.ofDays(1))
+        newerTimestamp = timestamp.plus(java.time.Duration.ofDays(1))
         _ <- transaction { insertTestUser("user-old", "userold@test.com", timestamp) }
         _ <- transaction { insertTestUser("user-new", "usernew@test.com", timestamp) }
 
@@ -581,10 +581,10 @@ class DoobieVideoPermissionDaoSpec extends AnyFlatSpec with Matchers with Option
           foundPermissions.size mustBe 2
 
           val oldPermission = foundPermissions.find(_.userId == "user-old").value
-          oldPermission.grantedAt.getMillis mustBe olderTimestamp.getMillis
+          oldPermission.grantedAt.toEpochMilli mustBe olderTimestamp.toEpochMilli
 
           val newPermission = foundPermissions.find(_.userId == "user-new").value
-          newPermission.grantedAt.getMillis mustBe newerTimestamp.getMillis
+          newPermission.grantedAt.toEpochMilli mustBe newerTimestamp.toEpochMilli
         }
       } yield (): Unit
   }

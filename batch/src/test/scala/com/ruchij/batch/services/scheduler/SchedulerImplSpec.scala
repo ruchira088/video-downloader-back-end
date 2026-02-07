@@ -24,10 +24,11 @@ import com.ruchij.core.messaging.models.{CommittableRecord, VideoWatchMetric}
 import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
 import com.ruchij.core.services.video.VideoWatchHistoryService
 import com.ruchij.core.test.IOSupport.runIO
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
+import com.ruchij.core.types.TimeUtils
 import fs2.Stream
 import org.http4s.{MediaType, Uri}
-import org.joda.time.{DateTime, LocalTime}
+import java.time.{Instant, LocalTime}
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -36,7 +37,7 @@ import scala.concurrent.duration._
 
 class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
-  val testTimestamp = new DateTime(2024, 5, 15, 14, 30, 0)
+  val testTimestamp = TimeUtils.instantOf(2024, 5, 15, 14, 30)
 
   // Stub implementations for testing
   class StubBatchSchedulingService extends BatchSchedulingService[IO] {
@@ -121,7 +122,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   class StubVideoWatchHistoryService extends VideoWatchHistoryService[IO] {
-    override def addWatchHistory(userId: String, videoId: String, timestamp: DateTime, watchDuration: FiniteDuration): IO[Unit] =
+    override def addWatchHistory(userId: String, videoId: String, timestamp: Instant, watchDuration: FiniteDuration): IO[Unit] =
       IO.unit
 
     override def getWatchHistoryByUser(userId: String, pageSize: Int, pageNumber: Int): IO[List[DetailedVideoWatchHistory]] =
@@ -160,7 +161,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     var statusUpdates: List[(String, WorkerStatus)] = List.empty
     var allStatusUpdates: List[WorkerStatus] = List.empty
     var cleanedUpWorkers: List[Worker] = List.empty
-    var heartbeatUpdates: List[(String, DateTime)] = List.empty
+    var heartbeatUpdates: List[(String, Instant)] = List.empty
     var clearedDownloads: List[String] = List.empty
 
     override def insert(worker: Worker): IO[Int] = {
@@ -173,7 +174,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     override val idleWorker: IO[Option[Worker]] =
       IO.delay(workers.find(_.status == WorkerStatus.Available))
 
-    override def reserveWorker(workerId: String, owner: String, timestamp: DateTime): IO[Option[Worker]] = {
+    override def reserveWorker(workerId: String, owner: String, timestamp: Instant): IO[Option[Worker]] = {
       reservedWorkers = reservedWorkers :+ workerId
       IO.pure(workers.find(_.id == workerId))
     }
@@ -183,7 +184,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
       IO.pure(workers.find(_.id == workerId))
     }
 
-    override def assignTask(workerId: String, taskId: String, owner: String, timestamp: DateTime): IO[Option[Worker]] = {
+    override def assignTask(workerId: String, taskId: String, owner: String, timestamp: Instant): IO[Option[Worker]] = {
       assignedTasks = assignedTasks :+ (workerId, taskId)
       IO.pure(workers.find(_.id == workerId))
     }
@@ -201,12 +202,12 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
       IO.pure(workers)
     }
 
-    override def cleanUpStaleWorkers(threshold: DateTime): IO[Seq[Worker]] = {
+    override def cleanUpStaleWorkers(threshold: Instant): IO[Seq[Worker]] = {
       cleanedUpWorkers = workers.filter(_.heartBeatAt.exists(_.isBefore(threshold)))
       IO.pure(cleanedUpWorkers)
     }
 
-    override def updateHeartBeat(workerId: String, timestamp: DateTime): IO[Option[Worker]] = {
+    override def updateHeartBeat(workerId: String, timestamp: Instant): IO[Option[Worker]] = {
       heartbeatUpdates = heartbeatUpdates :+ (workerId, timestamp)
       IO.pure(workers.find(_.id == workerId))
     }
@@ -219,8 +220,8 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   def createWorkerConfiguration(
     maxConcurrentDownloads: Int = 2,
-    startTime: LocalTime = new LocalTime(0, 0),
-    endTime: LocalTime = new LocalTime(0, 0),
+    startTime: LocalTime = java.time.LocalTime.of(0, 0),
+    endTime: LocalTime = java.time.LocalTime.of(0, 0),
     owner: String = "test-owner"
   ): WorkerConfiguration = WorkerConfiguration(maxConcurrentDownloads, startTime, endTime, owner)
 
@@ -283,20 +284,20 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   "isWorkPeriod" should "return true when start equals end (24/7 operation)" in runIO {
-    val startTime = new LocalTime(9, 0)
-    val endTime = new LocalTime(9, 0) // Same time means always working
+    val startTime = java.time.LocalTime.of(9, 0)
+    val endTime = java.time.LocalTime.of(9, 0) // Same time means always working
 
-    testIsWorkPeriod(startTime, endTime)(JodaClock[IO]).map { result =>
+    testIsWorkPeriod(startTime, endTime)(Clock[IO]).map { result =>
       result mustBe true
     }
   }
 
   it should "return true when current time is within work period (same day)" in runIO {
     // Create a fixed clock at 14:00
-    implicit val jodaClock: JodaClock[IO] = createFixedClock(14, 0)
+    implicit val clock: Clock[IO] = createFixedClock(14, 0)
 
-    val startTime = new LocalTime(9, 0)
-    val endTime = new LocalTime(18, 0)
+    val startTime = java.time.LocalTime.of(9, 0)
+    val endTime = java.time.LocalTime.of(18, 0)
 
     testIsWorkPeriod(startTime, endTime).map { result =>
       result mustBe true
@@ -305,10 +306,10 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   it should "return false when current time is outside work period (same day)" in runIO {
     // Create a fixed clock at 20:00 (8 PM)
-    implicit val jodaClock: JodaClock[IO] = createFixedClock(20, 0)
+    implicit val clock: Clock[IO] = createFixedClock(20, 0)
 
-    val startTime = new LocalTime(9, 0)
-    val endTime = new LocalTime(18, 0)
+    val startTime = java.time.LocalTime.of(9, 0)
+    val endTime = java.time.LocalTime.of(18, 0)
 
     testIsWorkPeriod(startTime, endTime).map { result =>
       result mustBe false
@@ -317,10 +318,10 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   it should "return true when current time is within overnight work period" in runIO {
     // Create a fixed clock at 23:00 (11 PM) - should be within 22:00 to 6:00
-    implicit val jodaClock: JodaClock[IO] = createFixedClock(23, 0)
+    implicit val clock: Clock[IO] = createFixedClock(23, 0)
 
-    val startTime = new LocalTime(22, 0)
-    val endTime = new LocalTime(6, 0) // Overnight period
+    val startTime = java.time.LocalTime.of(22, 0)
+    val endTime = java.time.LocalTime.of(6, 0) // Overnight period
 
     testIsWorkPeriod(startTime, endTime).map { result =>
       result mustBe true
@@ -329,10 +330,10 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   it should "return true when current time is in early morning of overnight work period" in runIO {
     // Create a fixed clock at 3:00 AM - should be within 22:00 to 6:00
-    implicit val jodaClock: JodaClock[IO] = createFixedClock(3, 0)
+    implicit val clock: Clock[IO] = createFixedClock(3, 0)
 
-    val startTime = new LocalTime(22, 0)
-    val endTime = new LocalTime(6, 0)
+    val startTime = java.time.LocalTime.of(22, 0)
+    val endTime = java.time.LocalTime.of(6, 0)
 
     testIsWorkPeriod(startTime, endTime).map { result =>
       result mustBe true
@@ -341,10 +342,10 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   it should "return false when current time is outside overnight work period" in runIO {
     // Create a fixed clock at 12:00 noon - should be outside 22:00 to 6:00
-    implicit val jodaClock: JodaClock[IO] = createFixedClock(12, 0)
+    implicit val clock: Clock[IO] = createFixedClock(12, 0)
 
-    val startTime = new LocalTime(22, 0)
-    val endTime = new LocalTime(6, 0)
+    val startTime = java.time.LocalTime.of(22, 0)
+    val endTime = java.time.LocalTime.of(6, 0)
 
     testIsWorkPeriod(startTime, endTime).map { result =>
       result mustBe false
@@ -353,10 +354,10 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   it should "handle edge case at exact start time" in runIO {
     // Create a fixed clock at exactly 9:00
-    implicit val jodaClock: JodaClock[IO] = createFixedClock(9, 0)
+    implicit val clock: Clock[IO] = createFixedClock(9, 0)
 
-    val startTime = new LocalTime(9, 0)
-    val endTime = new LocalTime(18, 0)
+    val startTime = java.time.LocalTime.of(9, 0)
+    val endTime = java.time.LocalTime.of(18, 0)
 
     testIsWorkPeriod(startTime, endTime).map { result =>
       // isAfter is exclusive, so exactly at start time should be false
@@ -366,27 +367,27 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   it should "handle edge case just after start time" in runIO {
     // Create a fixed clock at 9:01
-    implicit val jodaClock: JodaClock[IO] = createFixedClock(9, 1)
+    implicit val clock: Clock[IO] = createFixedClock(9, 1)
 
-    val startTime = new LocalTime(9, 0)
-    val endTime = new LocalTime(18, 0)
+    val startTime = java.time.LocalTime.of(9, 0)
+    val endTime = java.time.LocalTime.of(18, 0)
 
     testIsWorkPeriod(startTime, endTime).map { result =>
       result mustBe true
     }
   }
 
-  private def createFixedClock(hour: Int, minute: Int): JodaClock[IO] = new JodaClock[IO] {
-    override val timestamp: IO[DateTime] = IO.pure(new DateTime(2024, 1, 15, hour, minute, 0, 0))
+  private def createFixedClock(hour: Int, minute: Int): Clock[IO] = new Clock[IO] {
+    override val timestamp: IO[Instant] = IO.pure(TimeUtils.instantOf(2024, 1, 15, hour, minute))
   }
 
   // Helper method to test isWorkPeriod using reflection since it's private
-  private def testIsWorkPeriod(start: LocalTime, end: LocalTime)(implicit jodaClock: JodaClock[IO]): IO[Boolean] = {
+  private def testIsWorkPeriod(start: LocalTime, end: LocalTime)(implicit clock: Clock[IO]): IO[Boolean] = {
     if (start == end)
       IO.pure(true)
     else
-      jodaClock.timestamp.map { timestamp =>
-        val localTime = timestamp.toLocalTime
+      clock.timestamp.map { timestamp =>
+        val localTime = timestamp.atZone(java.time.ZoneOffset.UTC).toLocalTime
 
         if (start.isBefore(end))
           localTime.isAfter(start) && localTime.isBefore(end)
@@ -418,14 +419,14 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   "WorkerConfiguration" should "store all configuration values" in {
     val config = createWorkerConfiguration(
       maxConcurrentDownloads = 4,
-      startTime = new LocalTime(8, 0),
-      endTime = new LocalTime(20, 0),
+      startTime = java.time.LocalTime.of(8, 0),
+      endTime = java.time.LocalTime.of(20, 0),
       owner = "my-owner"
     )
 
     config.maxConcurrentDownloads mustBe 4
-    config.startTime mustBe new LocalTime(8, 0)
-    config.endTime mustBe new LocalTime(20, 0)
+    config.startTime mustBe java.time.LocalTime.of(8, 0)
+    config.endTime mustBe java.time.LocalTime.of(20, 0)
     config.owner mustBe "my-owner"
   }
 
@@ -433,8 +434,8 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     val config = createWorkerConfiguration()
 
     config.maxConcurrentDownloads mustBe 2
-    config.startTime mustBe new LocalTime(0, 0)
-    config.endTime mustBe new LocalTime(0, 0)
+    config.startTime mustBe java.time.LocalTime.of(0, 0)
+    config.endTime mustBe java.time.LocalTime.of(0, 0)
     config.owner mustBe "test-owner"
   }
 
@@ -677,10 +678,10 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   // Edge case tests for isWorkPeriod
   "isWorkPeriod" should "handle end of day edge case" in runIO {
-    implicit val jodaClock: JodaClock[IO] = createFixedClock(23, 59)
+    implicit val clock: Clock[IO] = createFixedClock(23, 59)
 
-    val startTime = new LocalTime(9, 0)
-    val endTime = new LocalTime(18, 0)
+    val startTime = java.time.LocalTime.of(9, 0)
+    val endTime = java.time.LocalTime.of(18, 0)
 
     testIsWorkPeriod(startTime, endTime).map { result =>
       result mustBe false
@@ -688,10 +689,10 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "handle midnight edge case" in runIO {
-    implicit val jodaClock: JodaClock[IO] = createFixedClock(0, 0)
+    implicit val clock: Clock[IO] = createFixedClock(0, 0)
 
-    val startTime = new LocalTime(22, 0)
-    val endTime = new LocalTime(6, 0)
+    val startTime = java.time.LocalTime.of(22, 0)
+    val endTime = java.time.LocalTime.of(6, 0)
 
     testIsWorkPeriod(startTime, endTime).map { result =>
       // 00:00 is before 6:00, so it should be within the overnight period
@@ -700,10 +701,10 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "handle exact end time for overnight period" in runIO {
-    implicit val jodaClock: JodaClock[IO] = createFixedClock(6, 0)
+    implicit val clock: Clock[IO] = createFixedClock(6, 0)
 
-    val startTime = new LocalTime(22, 0)
-    val endTime = new LocalTime(6, 0)
+    val startTime = java.time.LocalTime.of(22, 0)
+    val endTime = java.time.LocalTime.of(6, 0)
 
     testIsWorkPeriod(startTime, endTime).map { result =>
       // isBefore is exclusive, so exactly at end time should be false
@@ -712,10 +713,10 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "handle just before end time" in runIO {
-    implicit val jodaClock: JodaClock[IO] = createFixedClock(17, 59)
+    implicit val clock: Clock[IO] = createFixedClock(17, 59)
 
-    val startTime = new LocalTime(9, 0)
-    val endTime = new LocalTime(18, 0)
+    val startTime = java.time.LocalTime.of(9, 0)
+    val endTime = java.time.LocalTime.of(18, 0)
 
     testIsWorkPeriod(startTime, endTime).map { result =>
       result mustBe true
@@ -725,13 +726,13 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   // Identity transaction for testing (IO ~> IO)
   implicit val identityTransaction: IO ~> IO = FunctionK.id[IO]
 
-  // Default JodaClock for tests
-  val defaultJodaClock: JodaClock[IO] = JodaClock[IO]
+  // Default Clock for tests
+  val defaultClock: Clock[IO] = Clock[IO]
 
   def createScheduler(
     workerDao: StubWorkerDao,
     workerConfiguration: WorkerConfiguration = createWorkerConfiguration()
-  )(implicit jodaClock: JodaClock[IO]): SchedulerImpl[IO, IO, Id] = {
+  )(implicit clock: Clock[IO]): SchedulerImpl[IO, IO, Id] = {
     new SchedulerImpl[IO, IO, Id](
       batchSchedulingService = new StubBatchSchedulingService,
       synchronizationService = new StubSynchronizationService,
@@ -748,7 +749,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   // SchedulerImpl.init tests
   "SchedulerImpl.init" should "create workers when none exist" in runIO {
-    implicit val jodaClock: JodaClock[IO] = defaultJodaClock
+    implicit val clock: Clock[IO] = defaultClock
     val workerDao = new StubWorkerDao
     val config = createWorkerConfiguration(maxConcurrentDownloads = 2)
     val scheduler = createScheduler(workerDao, config)
@@ -761,7 +762,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "create correct number of workers based on configuration" in runIO {
-    implicit val jodaClock: JodaClock[IO] = defaultJodaClock
+    implicit val clock: Clock[IO] = defaultClock
     val workerDao = new StubWorkerDao
     val config = createWorkerConfiguration(maxConcurrentDownloads = 5)
     val scheduler = createScheduler(workerDao, config)
@@ -773,7 +774,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "not create duplicate workers if they already exist" in runIO {
-    implicit val jodaClock: JodaClock[IO] = defaultJodaClock
+    implicit val clock: Clock[IO] = defaultClock
     val workerDao = new StubWorkerDao
     // Pre-populate with existing workers
     workerDao.workers = List(
@@ -790,7 +791,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "mark extra workers as Deleted when reducing maxConcurrentDownloads" in runIO {
-    implicit val jodaClock: JodaClock[IO] = defaultJodaClock
+    implicit val clock: Clock[IO] = defaultClock
     val workerDao = new StubWorkerDao
     // Pre-populate with 4 workers
     workerDao.workers = List(
@@ -810,7 +811,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "create new workers when increasing maxConcurrentDownloads" in runIO {
-    implicit val jodaClock: JodaClock[IO] = defaultJodaClock
+    implicit val clock: Clock[IO] = defaultClock
     val workerDao = new StubWorkerDao
     // Pre-populate with 2 workers
     workerDao.workers = List(
@@ -828,7 +829,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "handle zero maxConcurrentDownloads" in runIO {
-    implicit val jodaClock: JodaClock[IO] = defaultJodaClock
+    implicit val clock: Clock[IO] = defaultClock
     val workerDao = new StubWorkerDao
     val config = createWorkerConfiguration(maxConcurrentDownloads = 0)
     val scheduler = createScheduler(workerDao, config)
@@ -839,7 +840,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "not delete workers already marked as Deleted" in runIO {
-    implicit val jodaClock: JodaClock[IO] = defaultJodaClock
+    implicit val clock: Clock[IO] = defaultClock
     val workerDao = new StubWorkerDao
     // Pre-populate with workers, some already deleted
     workerDao.workers = List(
@@ -859,7 +860,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "handle workers with Paused status when reducing count" in runIO {
-    implicit val jodaClock: JodaClock[IO] = defaultJodaClock
+    implicit val clock: Clock[IO] = defaultClock
     val workerDao = new StubWorkerDao
     workerDao.workers = List(
       Worker("worker-00", WorkerStatus.Available, None, None, None, None),
@@ -877,7 +878,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "handle single worker configuration" in runIO {
-    implicit val jodaClock: JodaClock[IO] = defaultJodaClock
+    implicit val clock: Clock[IO] = defaultClock
     val workerDao = new StubWorkerDao
     val config = createWorkerConfiguration(maxConcurrentDownloads = 1)
     val scheduler = createScheduler(workerDao, config)
@@ -889,7 +890,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "handle large maxConcurrentDownloads" in runIO {
-    implicit val jodaClock: JodaClock[IO] = defaultJodaClock
+    implicit val clock: Clock[IO] = defaultClock
     val workerDao = new StubWorkerDao
     val config = createWorkerConfiguration(maxConcurrentDownloads = 10)
     val scheduler = createScheduler(workerDao, config)
@@ -903,8 +904,8 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   // Test StubWorkerDao cleanUpStaleWorkers
   "StubWorkerDao.cleanUpStaleWorkers" should "return workers with heartbeat before threshold" in runIO {
     val workerDao = new StubWorkerDao
-    val staleTime = testTimestamp.minusMinutes(10)
-    val recentTime = testTimestamp.minusMinutes(1)
+    val staleTime = testTimestamp.minus(java.time.Duration.ofMinutes(10))
+    val recentTime = testTimestamp.minus(java.time.Duration.ofMinutes(1))
 
     workerDao.workers = List(
       Worker("worker-00", WorkerStatus.Available, Some(staleTime), None, None, None),
@@ -912,7 +913,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
       Worker("worker-02", WorkerStatus.Available, None, None, None, None)
     )
 
-    workerDao.cleanUpStaleWorkers(testTimestamp.minusMinutes(5)).map { staleWorkers =>
+    workerDao.cleanUpStaleWorkers(testTimestamp.minus(java.time.Duration.ofMinutes(5))).map { staleWorkers =>
       staleWorkers.size mustBe 1
       staleWorkers.head.id mustBe "worker-00"
     }
@@ -920,14 +921,14 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   it should "return empty when no workers are stale" in runIO {
     val workerDao = new StubWorkerDao
-    val recentTime = testTimestamp.minusMinutes(1)
+    val recentTime = testTimestamp.minus(java.time.Duration.ofMinutes(1))
 
     workerDao.workers = List(
       Worker("worker-00", WorkerStatus.Available, Some(recentTime), None, None, None),
       Worker("worker-01", WorkerStatus.Available, Some(recentTime), None, None, None)
     )
 
-    workerDao.cleanUpStaleWorkers(testTimestamp.minusMinutes(5)).map { staleWorkers =>
+    workerDao.cleanUpStaleWorkers(testTimestamp.minus(java.time.Duration.ofMinutes(5))).map { staleWorkers =>
       staleWorkers mustBe empty
     }
   }
@@ -1036,10 +1037,10 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   // More edge cases for work period
   "isWorkPeriod" should "handle work period spanning midnight start" in runIO {
-    implicit val jodaClock: JodaClock[IO] = createFixedClock(22, 30)
+    implicit val clock: Clock[IO] = createFixedClock(22, 30)
 
-    val startTime = new LocalTime(22, 0)
-    val endTime = new LocalTime(6, 0)
+    val startTime = java.time.LocalTime.of(22, 0)
+    val endTime = java.time.LocalTime.of(6, 0)
 
     testIsWorkPeriod(startTime, endTime).map { result =>
       result mustBe true
@@ -1047,10 +1048,10 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "handle just after midnight in overnight period" in runIO {
-    implicit val jodaClock: JodaClock[IO] = createFixedClock(0, 30)
+    implicit val clock: Clock[IO] = createFixedClock(0, 30)
 
-    val startTime = new LocalTime(22, 0)
-    val endTime = new LocalTime(6, 0)
+    val startTime = java.time.LocalTime.of(22, 0)
+    val endTime = java.time.LocalTime.of(6, 0)
 
     testIsWorkPeriod(startTime, endTime).map { result =>
       result mustBe true
@@ -1058,10 +1059,10 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "handle middle of day outside overnight period" in runIO {
-    implicit val jodaClock: JodaClock[IO] = createFixedClock(15, 0)
+    implicit val clock: Clock[IO] = createFixedClock(15, 0)
 
-    val startTime = new LocalTime(22, 0)
-    val endTime = new LocalTime(6, 0)
+    val startTime = java.time.LocalTime.of(22, 0)
+    val endTime = java.time.LocalTime.of(6, 0)
 
     testIsWorkPeriod(startTime, endTime).map { result =>
       result mustBe false

@@ -6,7 +6,7 @@ import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 import com.ruchij.core.services.models.Order
 import com.typesafe.config.ConfigFactory
 import org.http4s.Uri
-import org.joda.time.LocalTime
+import java.time.LocalTime
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 import pureconfig.ConfigSource
@@ -17,15 +17,15 @@ class PureConfigReadersSpec extends AnyFlatSpec with Matchers {
     val config = ConfigFactory.parseString("""value = "10:30:00" """)
     val result = ConfigSource.fromConfig(config).at("value").load[LocalTime]
     result.isRight mustBe true
-    result.toOption.get.getHourOfDay mustBe 10
-    result.toOption.get.getMinuteOfHour mustBe 30
+    result.toOption.get.getHour mustBe 10
+    result.toOption.get.getMinute mustBe 30
   }
 
   it should "parse midnight" in {
     val config = ConfigFactory.parseString("""value = "00:00:00" """)
     val result = ConfigSource.fromConfig(config).at("value").load[LocalTime]
     result.isRight mustBe true
-    result.toOption.get.getHourOfDay mustBe 0
+    result.toOption.get.getHour mustBe 0
   }
 
   it should "fail for invalid time format" in {
@@ -200,8 +200,8 @@ class PureConfigReadersSpec extends AnyFlatSpec with Matchers {
     val config = ConfigFactory.parseString("""value = "23:59:59" """)
     val result = ConfigSource.fromConfig(config).at("value").load[LocalTime]
     result.isRight mustBe true
-    result.toOption.get.getHourOfDay mustBe 23
-    result.toOption.get.getSecondOfMinute mustBe 59
+    result.toOption.get.getHour mustBe 23
+    result.toOption.get.getSecond mustBe 59
   }
 
   "hostConfigReader" should "parse fully qualified domain name" in {

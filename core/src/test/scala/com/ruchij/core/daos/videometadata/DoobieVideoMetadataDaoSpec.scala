@@ -7,7 +7,7 @@ import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata}
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
 import com.ruchij.core.test.IOSupport.runIO
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
 import doobie.ConnectionIO
 import org.http4s.MediaType
 import org.http4s.implicits.http4sLiteralsSyntax
@@ -31,7 +31,7 @@ class DoobieVideoMetadataDaoSpec extends AnyFlatSpec with Matchers with OptionVa
     runIO {
       new EmbeddedCoreResourcesProvider[IO].transactor.use { transaction =>
         for {
-          timestamp <- JodaClock[IO].timestamp
+          timestamp <- Clock[IO].timestamp
 
           thumbnailFileResource = FileResource(
             "thumbnail-id",
@@ -255,7 +255,7 @@ class DoobieVideoMetadataDaoSpec extends AnyFlatSpec with Matchers with OptionVa
 
   it should "insert multiple video metadata records" in runTest { fixture =>
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
 
       thumbnailFileResource2 = FileResource(
         "thumbnail-id-2",
@@ -293,7 +293,7 @@ class DoobieVideoMetadataDaoSpec extends AnyFlatSpec with Matchers with OptionVa
 
   it should "find video metadata by different URLs" in runTest { fixture =>
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
 
       thumbnailFileResource2 = FileResource(
         "thumbnail-id-2",
@@ -328,7 +328,7 @@ class DoobieVideoMetadataDaoSpec extends AnyFlatSpec with Matchers with OptionVa
 
   it should "handle video metadata with different video sites" in runTest { fixture =>
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
 
       // Test PornOne
       thumbnailPornOne = FileResource("thumbnail-pornone", timestamp, "/opt/image/pornone.jpg", MediaType.image.jpeg, 500)
@@ -635,7 +635,7 @@ class DoobieVideoMetadataDaoSpec extends AnyFlatSpec with Matchers with OptionVa
 
   it should "insert video metadata and return correct insert count" in runTest { fixture =>
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
 
       thumbnailNew = FileResource("thumbnail-new", timestamp, "/opt/image/new.jpg", MediaType.image.jpeg, 800)
       _ <- fixture.transaction(DoobieFileResourceDao.insert(thumbnailNew))
@@ -659,7 +659,7 @@ class DoobieVideoMetadataDaoSpec extends AnyFlatSpec with Matchers with OptionVa
 
   it should "handle UPornia video site" in runTest { fixture =>
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
 
       thumbnailUpornia = FileResource("thumbnail-upornia", timestamp, "/opt/image/upornia.jpg", MediaType.image.jpeg, 900)
       _ <- fixture.transaction(DoobieFileResourceDao.insert(thumbnailUpornia))
@@ -685,7 +685,7 @@ class DoobieVideoMetadataDaoSpec extends AnyFlatSpec with Matchers with OptionVa
 
   it should "handle HotMovs video site" in runTest { fixture =>
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
 
       thumbnailHotmovs = FileResource("thumbnail-hotmovs", timestamp, "/opt/image/hotmovs.jpg", MediaType.image.jpeg, 950)
       _ <- fixture.transaction(DoobieFileResourceDao.insert(thumbnailHotmovs))
@@ -711,7 +711,7 @@ class DoobieVideoMetadataDaoSpec extends AnyFlatSpec with Matchers with OptionVa
 
   it should "handle HdZog video site" in runTest { fixture =>
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
 
       thumbnailHdzog = FileResource("thumbnail-hdzog", timestamp, "/opt/image/hdzog.jpg", MediaType.image.jpeg, 980)
       _ <- fixture.transaction(DoobieFileResourceDao.insert(thumbnailHdzog))
@@ -737,7 +737,7 @@ class DoobieVideoMetadataDaoSpec extends AnyFlatSpec with Matchers with OptionVa
 
   it should "handle SxyPrn video site" in runTest { fixture =>
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
 
       thumbnailSxyprn = FileResource("thumbnail-sxyprn", timestamp, "/opt/image/sxyprn.jpg", MediaType.image.jpeg, 1100)
       _ <- fixture.transaction(DoobieFileResourceDao.insert(thumbnailSxyprn))
@@ -766,14 +766,14 @@ class DoobieVideoMetadataDaoSpec extends AnyFlatSpec with Matchers with OptionVa
       maybeVideoMetadata <- fixture.transaction(DoobieVideoMetadataDao.findById(fixture.videoMetadata.id))
 
       _ <- IO.delay {
-        maybeVideoMetadata.value.thumbnail.createdAt.getMillis mustBe fixture.thumbnailFileResource.createdAt.getMillis
+        maybeVideoMetadata.value.thumbnail.createdAt.toEpochMilli mustBe fixture.thumbnailFileResource.createdAt.toEpochMilli
       }
     } yield ()
   }
 
   it should "find video metadata by URL with query parameters" in runTest { fixture =>
     for {
-      timestamp <- JodaClock[IO].timestamp
+      timestamp <- Clock[IO].timestamp
 
       thumbnailWithQuery = FileResource("thumbnail-query", timestamp, "/opt/image/query.jpg", MediaType.image.jpeg, 1200)
       _ <- fixture.transaction(DoobieFileResourceDao.insert(thumbnailWithQuery))

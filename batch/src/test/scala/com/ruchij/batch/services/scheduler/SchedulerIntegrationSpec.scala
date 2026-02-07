@@ -13,9 +13,9 @@ import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.data.DataGenerators
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
 import doobie.free.connection.ConnectionIO
-import org.joda.time.LocalTime
+import java.time.LocalTime
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -39,8 +39,8 @@ class SchedulerIntegrationSpec extends AnyFlatSpec with Matchers with OptionValu
 
   def createWorkerConfiguration(
     maxConcurrentDownloads: Int = 4,
-    startTime: LocalTime = new LocalTime(0, 0),
-    endTime: LocalTime = new LocalTime(0, 0),
+    startTime: LocalTime = java.time.LocalTime.of(0, 0),
+    endTime: LocalTime = java.time.LocalTime.of(0, 0),
     owner: String = "test-owner"
   ): WorkerConfiguration = WorkerConfiguration(maxConcurrentDownloads, startTime, endTime, owner)
 
@@ -110,7 +110,7 @@ class SchedulerIntegrationSpec extends AnyFlatSpec with Matchers with OptionValu
         }
 
         // Reserve the worker
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
         reserved <- transactor(workerDao.reserveWorker(idleWorker.get.id, "test-owner", timestamp))
         _ <- IO.delay {
           reserved mustBe defined
@@ -151,7 +151,7 @@ class SchedulerIntegrationSpec extends AnyFlatSpec with Matchers with OptionValu
 
         // Get and reserve a worker
         idleWorker <- transactor(workerDao.idleWorker)
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
         _ <- transactor(workerDao.reserveWorker(idleWorker.get.id, "test-owner", timestamp))
 
         // Assign task to worker
@@ -188,14 +188,14 @@ class SchedulerIntegrationSpec extends AnyFlatSpec with Matchers with OptionValu
       val workerId = "heartbeat-test-worker"
 
       for {
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
         // Insert with Active status and existing timestamps (matching DoobieWorkerDaoSpec pattern)
         worker = Worker(workerId, WorkerStatus.Active, Some(timestamp), Some(timestamp), None, None)
 
         _ <- transactor(workerDao.insert(worker))
 
         // Update heartbeat
-        newTimestamp = timestamp.plusMinutes(1)
+        newTimestamp = timestamp.plusMillis(java.time.Duration.ofMinutes(1).toMillis)
         heartbeatUpdated <- transactor(workerDao.updateHeartBeat(workerId, newTimestamp))
 
         _ <- IO.delay {
@@ -222,13 +222,13 @@ class SchedulerIntegrationSpec extends AnyFlatSpec with Matchers with OptionValu
 
         // Reserve a worker and set an old heartbeat
         idleWorker <- transactor(workerDao.idleWorker)
-        oldTimestamp <- JodaClock[IO].timestamp.map(_.minusMinutes(10))
+        oldTimestamp <- Clock[IO].timestamp.map(_.minus(java.time.Duration.ofMinutes(10)))
         _ <- transactor(workerDao.reserveWorker(idleWorker.get.id, "test-owner", oldTimestamp))
         _ <- transactor(workerDao.updateHeartBeat(idleWorker.get.id, oldTimestamp))
 
         // Clean up stale workers (those with heartbeat older than 5 minutes)
-        currentTimestamp <- JodaClock[IO].timestamp
-        cleanedUp <- transactor(workerDao.cleanUpStaleWorkers(currentTimestamp.minusMinutes(5)))
+        currentTimestamp <- Clock[IO].timestamp
+        cleanedUp <- transactor(workerDao.cleanUpStaleWorkers(currentTimestamp.minus(java.time.Duration.ofMinutes(5))))
         _ <- IO.delay {
           cleanedUp.size mustBe 1
           cleanedUp.head.id mustBe idleWorker.get.id
@@ -311,14 +311,14 @@ class SchedulerIntegrationSpec extends AnyFlatSpec with Matchers with OptionValu
   "WorkerConfiguration" should "contain correct configuration values" in {
     val config = createWorkerConfiguration(
       maxConcurrentDownloads = 8,
-      startTime = new LocalTime(9, 0),
-      endTime = new LocalTime(17, 0),
+      startTime = java.time.LocalTime.of(9, 0),
+      endTime = java.time.LocalTime.of(17, 0),
       owner = "my-owner"
     )
 
     config.maxConcurrentDownloads mustBe 8
-    config.startTime mustBe new LocalTime(9, 0)
-    config.endTime mustBe new LocalTime(17, 0)
+    config.startTime mustBe java.time.LocalTime.of(9, 0)
+    config.endTime mustBe java.time.LocalTime.of(17, 0)
     config.owner mustBe "my-owner"
   }
 }

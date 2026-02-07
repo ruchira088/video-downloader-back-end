@@ -1,7 +1,7 @@
 package com.ruchij.api.daos.credentials
 
 import com.ruchij.api.daos.credentials.models.Credentials
-import com.ruchij.core.daos.doobie.DoobieCustomMappings.{dateTimeGet, dateTimePut}
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.{instantGet, instantPut}
 import doobie.free.connection.ConnectionIO
 import doobie.generic.auto._
 import doobie.implicits.toSqlInterpolator

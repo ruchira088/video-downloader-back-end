@@ -9,8 +9,7 @@ import com.ruchij.core.kv.{InMemoryKeyValueStore, KeySpacedKeyValueStore, KeyVal
 import com.ruchij.core.services.config.models.SharedConfigKey.{SharedConfigKeySpace, VideoScanningStatus}
 import com.ruchij.core.services.config.models.{ConfigKey, SharedConfigKey}
 import com.ruchij.core.test.IOSupport.runIO
-import com.ruchij.core.types.JodaClock
-import org.joda.time.DateTimeZone
+import com.ruchij.core.types.Clock
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
@@ -18,11 +17,11 @@ class ConfigurationServiceImplSpec extends AnyFlatSpec with Matchers {
   "ConfigurationServiceImpl" should "be able to configure shared config keys" in runIO {
     val configurationService = createConfigurationService[IO, SharedConfigKey](SharedConfigKeySpace)
     for {
-      timestamp <- JodaClock[IO].timestamp.map(_.withZone(DateTimeZone.UTC))
+      timestamp <- Clock[IO].timestamp
       result <- configurationService.put(VideoScanningStatus, VideoScan(timestamp, Scheduled))
       _ <- IO.delay { result mustBe None }
       fetchedResult <- configurationService.get(VideoScanningStatus)
-      _ <- IO.delay { fetchedResult mustBe Some(VideoScan(timestamp.withZone(DateTimeZone.UTC), Scheduled)) }
+      _ <- IO.delay { fetchedResult mustBe Some(VideoScan(timestamp, Scheduled)) }
     } yield (): Unit
   }
 
@@ -36,28 +35,28 @@ class ConfigurationServiceImplSpec extends AnyFlatSpec with Matchers {
   it should "update existing config values" in runIO {
     val configurationService = createConfigurationService[IO, SharedConfigKey](SharedConfigKeySpace)
     for {
-      timestamp1 <- JodaClock[IO].timestamp.map(_.withZone(DateTimeZone.UTC))
-      timestamp2 <- JodaClock[IO].timestamp.map(_.withZone(DateTimeZone.UTC).plusMinutes(1))
+      timestamp1 <- Clock[IO].timestamp
+      timestamp2 <- Clock[IO].timestamp.map(_.plus(java.time.Duration.ofMinutes(1)))
 
       _ <- configurationService.put(VideoScanningStatus, VideoScan(timestamp1, Scheduled))
       previousValue <- configurationService.put(VideoScanningStatus, VideoScan(timestamp2, VideoScan.ScanStatus.InProgress))
 
-      _ <- IO.delay { previousValue mustBe Some(VideoScan(timestamp1.withZone(DateTimeZone.UTC), Scheduled)) }
+      _ <- IO.delay { previousValue mustBe Some(VideoScan(timestamp1, Scheduled)) }
 
       currentValue <- configurationService.get(VideoScanningStatus)
-      _ <- IO.delay { currentValue mustBe Some(VideoScan(timestamp2.withZone(DateTimeZone.UTC), VideoScan.ScanStatus.InProgress)) }
+      _ <- IO.delay { currentValue mustBe Some(VideoScan(timestamp2, VideoScan.ScanStatus.InProgress)) }
     } yield (): Unit
   }
 
   it should "delete config values" in runIO {
     val configurationService = createConfigurationService[IO, SharedConfigKey](SharedConfigKeySpace)
     for {
-      timestamp <- JodaClock[IO].timestamp.map(_.withZone(DateTimeZone.UTC))
+      timestamp <- Clock[IO].timestamp
 
       _ <- configurationService.put(VideoScanningStatus, VideoScan(timestamp, Scheduled))
       deletedValue <- configurationService.delete(VideoScanningStatus)
 
-      _ <- IO.delay { deletedValue mustBe Some(VideoScan(timestamp.withZone(DateTimeZone.UTC), Scheduled)) }
+      _ <- IO.delay { deletedValue mustBe Some(VideoScan(timestamp, Scheduled)) }
 
       afterDelete <- configurationService.get(VideoScanningStatus)
       _ <- IO.delay { afterDelete mustBe None }

@@ -15,6 +15,7 @@ import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
+import java.time.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
@@ -354,7 +355,7 @@ class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
         playlist2 = Playlist(
           "playlist-b",
           ApiTestData.AdminUser.id,
-          CoreTestData.Timestamp.plusHours(1),
+          CoreTestData.Timestamp.plus(Duration.ofHours(1)),
           "Zeta Playlist",
           None,
           List.empty,
@@ -404,8 +405,8 @@ class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
         _ <- transactor(ApiTestData.setUpData)
 
         playlist1 = Playlist("page-1", ApiTestData.AdminUser.id, CoreTestData.Timestamp, "Playlist 1", None, List.empty, None)
-        playlist2 = Playlist("page-2", ApiTestData.AdminUser.id, CoreTestData.Timestamp.plusHours(1), "Playlist 2", None, List.empty, None)
-        playlist3 = Playlist("page-3", ApiTestData.AdminUser.id, CoreTestData.Timestamp.plusHours(2), "Playlist 3", None, List.empty, None)
+        playlist2 = Playlist("page-2", ApiTestData.AdminUser.id, CoreTestData.Timestamp.plus(Duration.ofHours(1)), "Playlist 2", None, List.empty, None)
+        playlist3 = Playlist("page-3", ApiTestData.AdminUser.id, CoreTestData.Timestamp.plus(Duration.ofHours(2)), "Playlist 3", None, List.empty, None)
 
         _ <- transactor(doobiePlaylistDao.insert(playlist1))
         _ <- transactor(doobiePlaylistDao.insert(playlist2))

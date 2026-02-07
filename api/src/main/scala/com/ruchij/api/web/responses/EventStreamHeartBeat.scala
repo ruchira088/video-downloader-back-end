@@ -1,5 +1,5 @@
 package com.ruchij.api.web.responses
 
-import org.joda.time.DateTime
+import java.time.Instant
 
-final case class EventStreamHeartBeat(timestamp: DateTime)
+final case class EventStreamHeartBeat(timestamp: Instant)

@@ -13,7 +13,7 @@ import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
 import doobie.ConnectionIO
 import org.http4s.MediaType
 import org.http4s.implicits.http4sLiteralsSyntax
@@ -32,7 +32,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
       new EmbeddedCoreResourcesProvider[IO].transactor.use {
         transaction =>
           for {
-            timestamp <- JodaClock[IO].timestamp
+            timestamp <- Clock[IO].timestamp
             thumbnailFileResource = FileResource("thumbnail-id", timestamp, "/opt/image/thumbnail.jpg", MediaType.image.jpeg, 100)
             _ <- transaction {
               DoobieFileResourceDao.insert(thumbnailFileResource)
@@ -79,12 +79,12 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
               maybeScheduledVideoDownload.value.videoMetadata.thumbnail.size mustBe thumbnailFileResource.size
               maybeScheduledVideoDownload.value.videoMetadata.thumbnail.path mustBe thumbnailFileResource.path
               maybeScheduledVideoDownload.value.videoMetadata.thumbnail.mediaType mustBe thumbnailFileResource.mediaType
-              maybeScheduledVideoDownload.value.videoMetadata.thumbnail.createdAt.getMillis mustBe thumbnailFileResource.createdAt.getMillis
-              maybeScheduledVideoDownload.value.scheduledAt.getMillis mustBe scheduledVideoDownload.scheduledAt.getMillis
+              maybeScheduledVideoDownload.value.videoMetadata.thumbnail.createdAt.toEpochMilli mustBe thumbnailFileResource.createdAt.toEpochMilli
+              maybeScheduledVideoDownload.value.scheduledAt.toEpochMilli mustBe scheduledVideoDownload.scheduledAt.toEpochMilli
               maybeScheduledVideoDownload.value.status mustBe scheduledVideoDownload.status
               maybeScheduledVideoDownload.value.downloadedBytes mustBe scheduledVideoDownload.downloadedBytes
-              maybeScheduledVideoDownload.value.lastUpdatedAt.getMillis mustBe scheduledVideoDownload.lastUpdatedAt.getMillis
-              maybeScheduledVideoDownload.value.completedAt.map(_.getMillis) mustBe scheduledVideoDownload.completedAt.map(_.getMillis)
+              maybeScheduledVideoDownload.value.lastUpdatedAt.toEpochMilli mustBe scheduledVideoDownload.lastUpdatedAt.toEpochMilli
+              maybeScheduledVideoDownload.value.completedAt.map(_.toEpochMilli) mustBe scheduledVideoDownload.completedAt.map(_.toEpochMilli)
               maybeScheduledVideoDownload.value.errorInfo mustBe None
             }
 
@@ -174,16 +174,16 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
   it should "complete the scheduled download video task" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
         maybeUpdated <-
           transaction {
             DoobieSchedulingDao.markScheduledVideoDownloadAsComplete(scheduledVideoDownload.videoMetadata.id, timestamp)
           }
 
         _ <- IO.delay {
-          maybeUpdated.value.completedAt.map(_.getMillis) mustBe Some(timestamp.getMillis)
+          maybeUpdated.value.completedAt.map(_.toEpochMilli) mustBe Some(timestamp.toEpochMilli)
           maybeUpdated.value.status mustBe SchedulingStatus.Completed
-          maybeUpdated.value.lastUpdatedAt.getMillis mustBe timestamp.getMillis
+          maybeUpdated.value.lastUpdatedAt.toEpochMilli mustBe timestamp.toEpochMilli
 
           maybeUpdated.value.copy(completedAt = scheduledVideoDownload.completedAt, status = scheduledVideoDownload.status, lastUpdatedAt = scheduledVideoDownload.lastUpdatedAt) mustBe scheduledVideoDownload
         }
@@ -194,7 +194,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
   it should "update the status of the scheduled video download" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
         maybeUpdated <-
           transaction {
             DoobieSchedulingDao.updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Active, timestamp)
@@ -202,7 +202,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
 
         _ <- IO.delay {
           maybeUpdated.value.status mustBe SchedulingStatus.Active
-          maybeUpdated.value.lastUpdatedAt.getMillis mustBe timestamp.getMillis
+          maybeUpdated.value.lastUpdatedAt.toEpochMilli mustBe timestamp.toEpochMilli
 
           maybeUpdated.value.copy(status = scheduledVideoDownload.status, lastUpdatedAt = scheduledVideoDownload.lastUpdatedAt) mustBe scheduledVideoDownload
         }
@@ -213,7 +213,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
   it should "update the download progress" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
         maybeUpdated <-
           transaction {
             DoobieSchedulingDao.updateDownloadProgress(scheduledVideoDownload.videoMetadata.id, 2021, timestamp)
@@ -221,7 +221,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
 
         _ <- IO.delay {
           maybeUpdated.value.downloadedBytes mustBe 2021
-          maybeUpdated.value.lastUpdatedAt.getMillis mustBe timestamp.getMillis
+          maybeUpdated.value.lastUpdatedAt.toEpochMilli mustBe timestamp.toEpochMilli
 
           maybeUpdated.value.copy(downloadedBytes = scheduledVideoDownload.downloadedBytes, lastUpdatedAt = scheduledVideoDownload.lastUpdatedAt) mustBe scheduledVideoDownload
         }
@@ -232,7 +232,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
   it should "update timed-out tasks and return a stale task" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestampZero <- JodaClock[IO].timestamp
+        timestampZero <- Clock[IO].timestamp
         timestampTwenty = timestampZero.plusSeconds(20)
         timestampForty = timestampTwenty.plusSeconds(20)
 
@@ -247,7 +247,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
         _ <- IO.delay {
           timedOutTasks.size mustBe 1
           timedOutTasks.headOption.value.status mustBe SchedulingStatus.Stale
-          timedOutTasks.headOption.value.lastUpdatedAt.getMillis mustBe timestampTwenty.getMillis
+          timedOutTasks.headOption.value.lastUpdatedAt.toEpochMilli mustBe timestampTwenty.toEpochMilli
 
           timedOutTasks.map(_.copy(lastUpdatedAt = scheduledVideoDownload.lastUpdatedAt, status = scheduledVideoDownload.status)) mustBe Seq(scheduledVideoDownload)
         }
@@ -258,7 +258,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
 
         _ <- IO.delay {
           maybeStaleTask.value.status mustBe SchedulingStatus.Acquired
-          maybeStaleTask.value.lastUpdatedAt.getMillis mustBe timestampForty.getMillis
+          maybeStaleTask.value.lastUpdatedAt.toEpochMilli mustBe timestampForty.toEpochMilli
 
           maybeStaleTask.value.copy(lastUpdatedAt = scheduledVideoDownload.lastUpdatedAt, status = scheduledVideoDownload.status) mustBe scheduledVideoDownload
         }
@@ -280,7 +280,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
   it should "acquire queued scheduled video downloads" in runTest {
     (scheduledVideDownload, transaction) =>
       for {
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
 
         _ <- transaction {
           DoobieSchedulingDao.updateSchedulingStatusById(scheduledVideDownload.videoMetadata.id, SchedulingStatus.Queued, timestamp)
@@ -290,7 +290,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
 
         _ <- IO.delay {
           maybeAcquiredTask.value.status mustBe SchedulingStatus.Acquired
-          maybeAcquiredTask.value.lastUpdatedAt.getMillis mustBe timestamp.getMillis
+          maybeAcquiredTask.value.lastUpdatedAt.toEpochMilli mustBe timestamp.toEpochMilli
 
           maybeAcquiredTask.value.copy(status = scheduledVideDownload.status, lastUpdatedAt = scheduledVideDownload.lastUpdatedAt) mustBe scheduledVideDownload
         }
@@ -319,7 +319,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
   it should "set error information" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
         exception = new Exception("This is a test error")
         _ <- transaction {
           DoobieSchedulingDao.setErrorById(scheduledVideoDownload.videoMetadata.id, exception, timestamp)
@@ -360,7 +360,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
   it should "update scheduling status in batch" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
 
         // Update status to Error first
         _ <- transaction {
@@ -392,7 +392,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
   it should "retry errored scheduled downloads" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
 
         // Set error on the scheduled download
         exception = new Exception("Download failed")
@@ -557,7 +557,7 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
   it should "handle nested exception in setErrorById" in runTest {
     (scheduledVideoDownload, transaction) =>
       for {
-        timestamp <- JodaClock[IO].timestamp
+        timestamp <- Clock[IO].timestamp
         rootCause = new Exception("Root cause")
         wrappedException = new RuntimeException("Wrapper exception", rootCause)
 

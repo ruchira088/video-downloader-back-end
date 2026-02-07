@@ -1,7 +1,7 @@
 package com.ruchij.api.daos.user
 
 import com.ruchij.api.daos.user.models.{Email, User}
-import com.ruchij.core.daos.doobie.DoobieCustomMappings.{dateTimeGet, dateTimePut, enumGet, enumPut}
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.{instantGet, instantPut, enumGet, enumPut}
 import doobie.free.connection.ConnectionIO
 import doobie.generic.auto._
 import doobie.implicits.toSqlInterpolator

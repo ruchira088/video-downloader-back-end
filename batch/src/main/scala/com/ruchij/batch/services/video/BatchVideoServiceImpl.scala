@@ -12,12 +12,12 @@ import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.exceptions.{InvalidConditionException, ResourceNotFoundException}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.video.VideoService
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
-class BatchVideoServiceImpl[F[_]: Sync: JodaClock, G[_]: MonadThrow](
+class BatchVideoServiceImpl[F[_]: Sync: Clock, G[_]: MonadThrow](
   videoService: VideoService[F, G],
   videoDao: VideoDao[G],
   videoMetadataDao: VideoMetadataDao[G],
@@ -30,7 +30,7 @@ class BatchVideoServiceImpl[F[_]: Sync: JodaClock, G[_]: MonadThrow](
   override def insert(videoMetadataKey: String, fileResourceKey: String): F[Video] =
     logger
       .debug[F](s"Inserting Video videoMetadataKey=$videoMetadataKey fileResourceKey=$fileResourceKey")
-      .productR(JodaClock[F].timestamp)
+      .productR(Clock[F].timestamp)
       .flatMap { timestamp =>
         transaction {
           videoDao

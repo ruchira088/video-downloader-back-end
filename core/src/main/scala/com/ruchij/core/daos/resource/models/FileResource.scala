@@ -1,6 +1,6 @@
 package com.ruchij.core.daos.resource.models
 
 import org.http4s.MediaType
-import org.joda.time.DateTime
+import java.time.Instant
 
-final case class FileResource(id: String, createdAt: DateTime, path: String, mediaType: MediaType, size: Long)
+final case class FileResource(id: String, createdAt: Instant, path: String, mediaType: MediaType, size: Long)

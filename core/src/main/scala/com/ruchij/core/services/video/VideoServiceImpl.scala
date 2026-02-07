@@ -18,9 +18,9 @@ import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.services.models.Order
 import com.ruchij.core.services.models.SortBy
 import com.ruchij.core.services.repository.RepositoryService
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
 
-class VideoServiceImpl[F[_]: Monad: JodaClock, G[_]: MonadThrow](
+class VideoServiceImpl[F[_]: Monad: Clock, G[_]: MonadThrow](
   repositoryService: RepositoryService[F],
   videoDao: VideoDao[G],
   videoWatchHistoryDao: VideoWatchHistoryDao[G],
@@ -86,7 +86,7 @@ class VideoServiceImpl[F[_]: Monad: JodaClock, G[_]: MonadThrow](
       )
     }.flatMap { videos =>
       videos.traverse { video =>
-        JodaClock[F].timestamp
+        Clock[F].timestamp
           .flatMap { timestamp =>
             transaction {
               videoWatchHistoryDao

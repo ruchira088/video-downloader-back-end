@@ -14,11 +14,10 @@ import com.ruchij.core.services.models.Order
 import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import com.ruchij.core.test.Providers
-import com.ruchij.core.types.{JodaClock, RandomGenerator}
+import com.ruchij.core.types.{Clock, RandomGenerator, TimeUtils}
 import fs2.Stream
 import org.http4s.MediaType
 import org.http4s.implicits._
-import org.joda.time.DateTime
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
@@ -28,7 +27,7 @@ import scala.concurrent.duration._
 
 class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
 
-  private val timestamp = new DateTime(2024, 5, 15, 10, 30)
+  private val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 30)
   private val testUuid = UUID.fromString("12345678-1234-1234-1234-123456789abc")
 
   implicit val transaction: IO ~> IO = new (IO ~> IO) {
@@ -166,7 +165,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
     playlistDao: PlaylistDao[IO] = new StubPlaylistDao(),
     fileResourceDao: FileResourceDao[IO] = new StubFileResourceDao(),
     repositoryService: RepositoryService[IO] = new StubRepositoryService()
-  )(implicit jodaClock: JodaClock[IO], randomGenerator: RandomGenerator[IO, UUID]): PlaylistServiceImpl[IO, IO] = {
+  )(implicit clock: Clock[IO], randomGenerator: RandomGenerator[IO, UUID]): PlaylistServiceImpl[IO, IO] = {
     new PlaylistServiceImpl[IO, IO](
       playlistDao,
       fileResourceDao,
@@ -177,7 +176,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
 
   // create tests
   "create" should "create a new playlist" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
     val playlistDao = new StubPlaylistDao()
@@ -195,7 +194,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "create playlist without description" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
     val service = createService()
@@ -208,7 +207,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
 
   // updatePlaylist tests
   "updatePlaylist" should "update playlist title" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
     val updatedPlaylist = samplePlaylist.copy(title = "Updated Title")
@@ -225,7 +224,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "update playlist description" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
     val updatedPlaylist = samplePlaylist.copy(description = Some("New Description"))
@@ -241,7 +240,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "update playlist video IDs" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
     val video2 = sampleVideo.copy(videoMetadata = sampleVideoMetadata.copy(id = "video-2"))
@@ -258,7 +257,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "filter by user ID when provided" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
     val playlistDao = new StubPlaylistDao(
@@ -274,7 +273,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "raise ResourceNotFoundException when playlist not found" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
     val playlistDao = new StubPlaylistDao(findByIdResult = (_, _) => None)
@@ -288,7 +287,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
 
   // fetchById tests
   "fetchById" should "return playlist when found" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
     val playlistDao = new StubPlaylistDao(
@@ -303,7 +302,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "filter by user ID when provided" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
     val playlistDao = new StubPlaylistDao(
@@ -319,7 +318,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "raise ResourceNotFoundException when not found" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
     val playlistDao = new StubPlaylistDao(findByIdResult = (_, _) => None)
@@ -333,7 +332,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
 
   // search tests
   "search" should "return search results" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
     val playlistDao = new StubPlaylistDao(searchResult = Seq(samplePlaylist))
@@ -345,7 +344,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "handle empty search results" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
     val playlistDao = new StubPlaylistDao(searchResult = Seq.empty)
@@ -357,7 +356,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "return multiple playlists" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
     val playlist2 = samplePlaylist.copy(id = "playlist-2", title = "Second Playlist")
@@ -371,7 +370,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
 
   // addAlbumArt tests
   "addAlbumArt" should "add album art to playlist" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
     val playlistWithAlbumArt = samplePlaylist.copy(albumArt = Some(sampleAlbumArt))
@@ -395,7 +394,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "raise error when file size cannot be determined" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
     val playlistDao = new StubPlaylistDao(
@@ -418,7 +417,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "raise ResourceNotFoundException when playlist not found after update" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
     val playlistDao = new StubPlaylistDao(
@@ -441,7 +440,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "filter by user ID when provided" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
     val playlistWithAlbumArt = samplePlaylist.copy(albumArt = Some(sampleAlbumArt))
@@ -467,7 +466,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
 
   // removeAlbumArt tests
   "removeAlbumArt" should "remove album art from playlist" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
     val playlistWithoutAlbumArt = samplePlaylist.copy(albumArt = None)
@@ -484,7 +483,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "filter by user ID when provided" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
     val playlistWithoutAlbumArt = samplePlaylist.copy(albumArt = None)
@@ -502,7 +501,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "raise ResourceNotFoundException when playlist not found" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
     val playlistDao = new StubPlaylistDao(
@@ -519,7 +518,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
 
   // deletePlaylist tests
   "deletePlaylist" should "delete playlist and return it" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
     val playlistDao = new StubPlaylistDao(
@@ -535,7 +534,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "filter by user ID when provided" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
     val playlistDao = new StubPlaylistDao(
@@ -552,7 +551,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "raise ResourceNotFoundException when playlist not found" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
     val playlistDao = new StubPlaylistDao(findByIdResult = (_, _) => None)
@@ -565,7 +564,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "return ResourceNotFoundException when user doesn't have access" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
     val playlistDao = new StubPlaylistDao(

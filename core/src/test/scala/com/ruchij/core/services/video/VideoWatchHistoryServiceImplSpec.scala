@@ -6,7 +6,7 @@ import com.ruchij.core.daos.videowatchhistory.VideoWatchHistoryDao
 import com.ruchij.core.daos.videowatchhistory.models.{DetailedVideoWatchHistory, VideoWatchHistory}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.types.RandomGenerator
-import org.joda.time.DateTime
+import java.time.Instant
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
@@ -32,7 +32,7 @@ class VideoWatchHistoryServiceImplSpec extends AnyFlatSpec with Matchers {
     override def findBy(userId: String, videoId: String, pageSize: Int, pageNumber: Int): IO[List[DetailedVideoWatchHistory]] =
       IO.pure(List.empty)
 
-    override def findLastUpdatedAfter(userId: String, videoId: String, timestamp: DateTime): IO[Option[VideoWatchHistory]] =
+    override def findLastUpdatedAfter(userId: String, videoId: String, timestamp: Instant): IO[Option[VideoWatchHistory]] =
       IO.delay {
         store.values.find { history =>
           history.userId == userId &&
@@ -78,7 +78,7 @@ class VideoWatchHistoryServiceImplSpec extends AnyFlatSpec with Matchers {
   "addWatchHistory" should "insert new watch history when no recent history exists" in runIO {
     val dao = new InMemoryVideoWatchHistoryDao
     val service = new VideoWatchHistoryServiceImpl[IO, IO](dao)
-    val timestamp = DateTime.now()
+    val timestamp = Instant.now()
 
     for {
       _ <- service.addWatchHistory("user-1", "video-1", timestamp, 30 seconds)
@@ -95,13 +95,13 @@ class VideoWatchHistoryServiceImplSpec extends AnyFlatSpec with Matchers {
   it should "update existing watch history when recent history exists" in runIO {
     val dao = new InMemoryVideoWatchHistoryDao
     val service = new VideoWatchHistoryServiceImpl[IO, IO](dao)
-    val timestamp = DateTime.now()
+    val timestamp = Instant.now()
 
     val existingHistory = VideoWatchHistory(
       "existing-id",
       "user-1",
       "video-1",
-      timestamp.minusMinutes(3),
+      timestamp.minus(java.time.Duration.ofMinutes(3)),
       timestamp.minusSeconds(10),
       60 seconds
     )
@@ -121,14 +121,14 @@ class VideoWatchHistoryServiceImplSpec extends AnyFlatSpec with Matchers {
   it should "create new history when existing history is too old" in runIO {
     val dao = new InMemoryVideoWatchHistoryDao
     val service = new VideoWatchHistoryServiceImpl[IO, IO](dao)
-    val timestamp = DateTime.now()
+    val timestamp = Instant.now()
 
     val oldHistory = VideoWatchHistory(
       "old-id",
       "user-1",
       "video-1",
-      timestamp.minusMinutes(10),
-      timestamp.minusMinutes(10),
+      timestamp.minus(java.time.Duration.ofMinutes(10)),
+      timestamp.minus(java.time.Duration.ofMinutes(10)),
       60 seconds
     )
 
@@ -144,7 +144,7 @@ class VideoWatchHistoryServiceImplSpec extends AnyFlatSpec with Matchers {
   it should "handle different users independently" in runIO {
     val dao = new InMemoryVideoWatchHistoryDao
     val service = new VideoWatchHistoryServiceImpl[IO, IO](dao)
-    val timestamp = DateTime.now()
+    val timestamp = Instant.now()
 
     for {
       _ <- service.addWatchHistory("user-1", "video-1", timestamp, 30 seconds)
@@ -160,7 +160,7 @@ class VideoWatchHistoryServiceImplSpec extends AnyFlatSpec with Matchers {
   it should "handle different videos independently" in runIO {
     val dao = new InMemoryVideoWatchHistoryDao
     val service = new VideoWatchHistoryServiceImpl[IO, IO](dao)
-    val timestamp = DateTime.now()
+    val timestamp = Instant.now()
 
     for {
       _ <- service.addWatchHistory("user-1", "video-1", timestamp, 30 seconds)

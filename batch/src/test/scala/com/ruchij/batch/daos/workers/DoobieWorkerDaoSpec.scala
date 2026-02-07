@@ -13,12 +13,12 @@ import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata
 import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
 import com.ruchij.core.test.IOSupport.runIO
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
 import doobie.ConnectionIO
 import doobie.implicits._
 import org.http4s.MediaType
 import org.http4s.implicits.http4sLiteralsSyntax
-import org.joda.time.DateTime
+import java.time.Instant
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -32,12 +32,12 @@ class DoobieWorkerDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
     workerDao: DoobieWorkerDao,
     schedulingDao: DoobieSchedulingDao.type,
     transaction: ConnectionIO ~> IO,
-    timestamp: DateTime
+    timestamp: Instant
   )
 
   private def insertScheduledVideo(
     videoId: String,
-    timestamp: DateTime,
+    timestamp: Instant,
     status: SchedulingStatus = SchedulingStatus.Queued
   ): ConnectionIO[Int] = {
     val thumbnailResource = FileResource(s"thumb-$videoId", timestamp, s"/thumbnails/$videoId.jpg", MediaType.image.jpeg, 1000)
@@ -65,7 +65,7 @@ class DoobieWorkerDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
     runIO {
       new EmbeddedCoreResourcesProvider[IO].transactor.use { transaction =>
         for {
-          timestamp <- JodaClock[IO].timestamp
+          timestamp <- Clock[IO].timestamp
           schedulingDao = DoobieSchedulingDao
           workerDao = new DoobieWorkerDao(schedulingDao)
           result <- testFn(TestFixture(workerDao, schedulingDao, transaction, timestamp))
@@ -204,7 +204,7 @@ class DoobieWorkerDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
       _ <- fixture.transaction(fixture.workerDao.reserveWorker("worker-01", "owner-1", fixture.timestamp))
 
       maybeAssignedWorker <- fixture.transaction(
-        fixture.workerDao.assignTask("worker-01", "video-1", "owner-1", fixture.timestamp.plusSeconds(1))
+        fixture.workerDao.assignTask("worker-01", "video-1", "owner-1", fixture.timestamp.plusMillis(1000))
       )
       _ <- IO.delay {
         maybeAssignedWorker mustBe defined
@@ -240,7 +240,7 @@ class DoobieWorkerDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
     for {
       _ <- fixture.transaction(fixture.workerDao.insert(worker))
 
-      newTimestamp = fixture.timestamp.plusMinutes(1)
+      newTimestamp = fixture.timestamp.plusMillis(java.time.Duration.ofMinutes(1).toMillis)
       maybeUpdatedWorker <- fixture.transaction(fixture.workerDao.updateHeartBeat("worker-01", newTimestamp))
       _ <- IO.delay {
         maybeUpdatedWorker mustBe defined
@@ -259,14 +259,14 @@ class DoobieWorkerDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
   }
 
   "cleanUpStaleWorkers" should "clean up workers with old heartbeats" in runTest { fixture =>
-    val staleWorker = Worker("worker-01", WorkerStatus.Active, Some(fixture.timestamp.minusHours(1)), Some(fixture.timestamp.minusHours(1)), None, None)
+    val staleWorker = Worker("worker-01", WorkerStatus.Active, Some(fixture.timestamp.minus(java.time.Duration.ofHours(1))), Some(fixture.timestamp.minus(java.time.Duration.ofHours(1))), None, None)
     val activeWorker = Worker("worker-02", WorkerStatus.Active, Some(fixture.timestamp), Some(fixture.timestamp), None, None)
 
     for {
       _ <- fixture.transaction(fixture.workerDao.insert(staleWorker))
       _ <- fixture.transaction(fixture.workerDao.insert(activeWorker))
 
-      staleWorkers <- fixture.transaction(fixture.workerDao.cleanUpStaleWorkers(fixture.timestamp.minusMinutes(30)))
+      staleWorkers <- fixture.transaction(fixture.workerDao.cleanUpStaleWorkers(fixture.timestamp.minus(java.time.Duration.ofMinutes(30))))
       _ <- IO.delay {
         staleWorkers.size mustBe 1
         staleWorkers.head.id mustBe "worker-01"
@@ -300,7 +300,7 @@ class DoobieWorkerDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
     for {
       _ <- fixture.transaction(fixture.workerDao.insert(activeWorker))
 
-      staleWorkers <- fixture.transaction(fixture.workerDao.cleanUpStaleWorkers(fixture.timestamp.minusHours(1)))
+      staleWorkers <- fixture.transaction(fixture.workerDao.cleanUpStaleWorkers(fixture.timestamp.minus(java.time.Duration.ofHours(1))))
       _ <- IO.delay { staleWorkers mustBe empty }
     } yield ()
   }

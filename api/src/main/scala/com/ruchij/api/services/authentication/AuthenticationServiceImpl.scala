@@ -3,7 +3,7 @@ package com.ruchij.api.services.authentication
 import cats.data.OptionT
 import cats.effect.kernel.Async
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
+import cats.{Applicative, MonadThrow, ~>}
 import com.ruchij.api.daos.credentials.CredentialsDao
 import com.ruchij.api.daos.user.UserDao
 import com.ruchij.api.daos.user.models.{Email, User}
@@ -14,11 +14,11 @@ import com.ruchij.api.services.authentication.models.AuthenticationToken.Authent
 import com.ruchij.api.services.hashing.PasswordHashingService
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.kv.KeySpacedKeyValueStore
-import com.ruchij.core.types.{JodaClock, RandomGenerator}
+import com.ruchij.core.types.{Clock, RandomGenerator}
 
 import scala.concurrent.duration.FiniteDuration
 
-class AuthenticationServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], Secret], G[_]: MonadThrow](
+class AuthenticationServiceImpl[F[_]: Async: Clock: RandomGenerator[*[_], Secret], G[_]: MonadThrow](
   keySpacedKeyValueStore: KeySpacedKeyValueStore[F, AuthenticationTokenKey, AuthenticationToken],
   passwordHashingService: PasswordHashingService[F],
   userDao: UserDao[G],
@@ -33,21 +33,21 @@ class AuthenticationServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], Se
         OptionT(userDao.findByEmail(email))
           .flatMapF(user => credentialsDao.findCredentialsByUserId(user.id))
           .getOrElseF {
-            ApplicativeError[G, Throwable].raiseError(AuthenticationException("Non-existing user"))
+            MonadThrow[G].raiseError(AuthenticationException("Non-existing user"))
           }
       }
 
       isAuthenticated <- passwordHashingService.checkPassword(password, credentials.hashedPassword)
       _ <- if (isAuthenticated) Applicative[F].unit
-      else ApplicativeError[F, Throwable].raiseError(AuthenticationException("Invalid password"))
+      else MonadThrow[F].raiseError(AuthenticationException("Invalid password"))
 
-      timestamp <- JodaClock[F].timestamp
+      timestamp <- Clock[F].timestamp
       secret <- RandomGenerator[F, Secret].generate
 
       authenticationToken = AuthenticationToken(
         credentials.userId,
         secret,
-        timestamp.plus(authSessionDuration.toMillis),
+        timestamp.plusMillis(authSessionDuration.toMillis),
         timestamp,
         0
       )
@@ -60,13 +60,13 @@ class AuthenticationServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], Se
       .semiflatMap {
         case AuthenticationToken(userId, secret, expiresAt, issuedAt, renewals) =>
           for {
-            timestamp <- JodaClock[F].timestamp
+            timestamp <- Clock[F].timestamp
             _ <- if (timestamp.isBefore(expiresAt)) Applicative[F].unit
             else
               keySpacedKeyValueStore
                 .remove(AuthenticationTokenKey(secret))
                 .productR {
-                  ApplicativeError[F, Throwable].raiseError {
+                  MonadThrow[F].raiseError {
                     AuthenticationException(s"Authentication token expired at $expiresAt")
                   }
                 }
@@ -74,7 +74,7 @@ class AuthenticationServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], Se
             authenticationToken = AuthenticationToken(
               userId,
               secret,
-              timestamp.plus(authSessionDuration.toMillis),
+              timestamp.plusMillis(authSessionDuration.toMillis),
               issuedAt,
               renewals + 1
             )
@@ -84,7 +84,7 @@ class AuthenticationServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], Se
           } yield (authenticationToken, user)
       }
       .getOrElseF[(AuthenticationToken, User)] {
-        ApplicativeError[F, Throwable].raiseError(AuthenticationException.MissingAuthenticationToken)
+        MonadThrow[F].raiseError(AuthenticationException.MissingAuthenticationToken)
       }
 
   override def logout(secret: Secret): F[User] =
@@ -94,13 +94,13 @@ class AuthenticationServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], Se
       }
       .flatMapF { authenticationToken =>
         for {
-          timestamp <- JodaClock[F].timestamp
+          timestamp <- Clock[F].timestamp
           maybeAuthenticationToken =
             if (authenticationToken.expiresAt.isAfter(timestamp)) Some(authenticationToken) else None
         } yield maybeAuthenticationToken
       }
       .getOrElseF[AuthenticationToken] {
-        ApplicativeError[F, Throwable].raiseError(AuthenticationException.MissingAuthenticationToken)
+        MonadThrow[F].raiseError(AuthenticationException.MissingAuthenticationToken)
       }
       .flatMap(authenticationToken => getUserById(authenticationToken.userId))
 

@@ -5,7 +5,8 @@ import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload.ErrorInfo
 import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata, VideoSite}
 import org.http4s.{MediaType, Method, Status, Uri}
-import org.joda.time.DateTime
+import java.time.Instant
+import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 import vulcan.{AvroError, Codec}
@@ -15,20 +16,20 @@ import scala.concurrent.duration._
 class CodecsSpec extends AnyFlatSpec with Matchers {
   import Codecs._
 
-  "dateTimeCodec" should "encode and decode DateTime correctly" in {
-    val dateTime = new DateTime(2024, 5, 15, 10, 30, 45, 123)
+  "instantCodec" should "encode and decode Instant correctly" in {
+    val instant = TimeUtils.instantOf(2024, 5, 15, 10, 30, 45, 123)
 
-    roundTrip(dateTime) mustBe Right(dateTime)
+    roundTrip(instant) mustBe Right(instant)
   }
 
   it should "preserve millisecond precision" in {
-    val now = DateTime.now()
+    val now = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS)
 
     roundTrip(now) mustBe Right(now)
   }
 
   it should "handle epoch time" in {
-    val epoch = new DateTime(0L)
+    val epoch = Instant.ofEpochMilli(0L)
 
     roundTrip(epoch) mustBe Right(epoch)
   }
@@ -214,7 +215,7 @@ class CodecsSpec extends AnyFlatSpec with Matchers {
   "fileResourceCodec" should "encode and decode FileResource" in {
     val fileResource = FileResource(
       "resource-1",
-      new DateTime(2024, 5, 15, 10, 30),
+      TimeUtils.instantOf(2024, 5, 15, 10, 30),
       "/videos/test.mp4",
       MediaType.video.mp4,
       1024 * 1024L
@@ -226,7 +227,7 @@ class CodecsSpec extends AnyFlatSpec with Matchers {
   it should "handle zero-size file resources" in {
     val fileResource = FileResource(
       "empty-resource",
-      new DateTime(2024, 5, 15, 10, 30),
+      TimeUtils.instantOf(2024, 5, 15, 10, 30),
       "/videos/empty.mp4",
       MediaType.video.mp4,
       0L
@@ -238,7 +239,7 @@ class CodecsSpec extends AnyFlatSpec with Matchers {
   "videoMetadataCodec" should "encode and decode VideoMetadata" in {
     val thumbnail = FileResource(
       "thumb-1",
-      new DateTime(2024, 5, 15, 10, 30),
+      TimeUtils.instantOf(2024, 5, 15, 10, 30),
       "/images/thumb.jpg",
       MediaType.image.jpeg,
       5000L

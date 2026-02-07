@@ -14,9 +14,9 @@ import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.messaging.models.VideoWatchMetric
 import com.ruchij.core.services.repository.RepositoryService
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
 
-class AssetServiceImpl[F[_]: MonadThrow: JodaClock, T[_]](
+class AssetServiceImpl[F[_]: MonadThrow: Clock, T[_]](
   fileResourceDao: FileResourceDao[T],
   snapshotDao: SnapshotDao[T],
   videoDao: VideoDao[T],
@@ -40,7 +40,7 @@ class AssetServiceImpl[F[_]: MonadThrow: JodaClock, T[_]](
         }
       }
       .flatTap { asset =>
-        JodaClock[F].timestamp.flatMap { timestamp =>
+        Clock[F].timestamp.flatMap { timestamp =>
           val videoWatchMetric =
             VideoWatchMetric(user.id, asset.fileResource.id, asset.fileRange.start, asset.fileRange.end, timestamp)
 

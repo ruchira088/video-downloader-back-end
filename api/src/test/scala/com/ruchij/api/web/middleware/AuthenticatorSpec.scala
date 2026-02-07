@@ -6,7 +6,7 @@ import com.ruchij.core.test.IOSupport.runIO
 import org.http4s._
 import org.http4s.headers.Authorization
 import org.http4s.implicits._
-import org.joda.time.DateTime
+import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
@@ -94,8 +94,8 @@ class AuthenticatorSpec extends AnyFlatSpec with Matchers {
     val token = AuthenticationToken(
       userId = "user-123",
       secret = Secret("test-token"),
-      expiresAt = new DateTime(2024, 5, 15, 11, 0),
-      issuedAt = new DateTime(2024, 5, 15, 10, 0),
+      expiresAt = TimeUtils.instantOf(2024, 5, 15, 11, 0),
+      issuedAt = TimeUtils.instantOf(2024, 5, 15, 10, 0),
       renewals = 0L
     )
     val response = Response[IO](Status.Ok)
@@ -113,12 +113,12 @@ class AuthenticatorSpec extends AnyFlatSpec with Matchers {
   it should "set expiry date on cookie" in runIO {
     import com.ruchij.api.services.authentication.models.AuthenticationToken
 
-    val expiryTime = new DateTime(2024, 5, 15, 12, 0, 0)
+    val expiryTime = TimeUtils.instantOf(2024, 5, 15, 12, 0)
     val token = AuthenticationToken(
       userId = "user-456",
       secret = Secret("test-token"),
       expiresAt = expiryTime,
-      issuedAt = new DateTime(2024, 5, 15, 10, 0),
+      issuedAt = TimeUtils.instantOf(2024, 5, 15, 10, 0),
       renewals = 1L
     )
     val response = Response[IO](Status.Ok)

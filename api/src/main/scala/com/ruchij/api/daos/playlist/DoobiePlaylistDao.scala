@@ -12,7 +12,7 @@ import com.ruchij.core.services.models.Order
 import doobie.free.connection.ConnectionIO
 import doobie.implicits.toSqlInterpolator
 import doobie.util.fragments.{set, whereAndOpt}
-import org.joda.time.DateTime
+import java.time.Instant
 
 class DoobiePlaylistDao(fileResourceDao: FileResourceDao[ConnectionIO], videoDao: VideoDao[ConnectionIO])
     extends PlaylistDao[ConnectionIO] {
@@ -83,7 +83,7 @@ class DoobiePlaylistDao(fileResourceDao: FileResourceDao[ConnectionIO], videoDao
     OptionT {
       (fr"SELECT id, user_id, created_at, title, description, album_art_id FROM playlist" ++
         whereAndOpt(Some(fr"id = $playlistId"), maybeUserId.map(userId => fr"user_id = $userId")))
-        .query[(String, String, DateTime, String, Option[String], Option[String])]
+        .query[(String, String, Instant, String, Option[String], Option[String])]
         .option
     }.product {
         OptionT.liftF {

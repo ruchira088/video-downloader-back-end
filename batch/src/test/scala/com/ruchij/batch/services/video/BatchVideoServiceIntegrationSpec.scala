@@ -16,11 +16,12 @@ import com.ruchij.core.services.video.VideoService
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.Providers
 import com.ruchij.core.test.data.DataGenerators
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
+import com.ruchij.core.types.TimeUtils
 import doobie.free.connection.ConnectionIO
 import org.http4s.MediaType
 import org.http4s.implicits.http4sLiteralsSyntax
-import org.joda.time.DateTime
+import java.time.Instant
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -30,7 +31,7 @@ import scala.concurrent.duration._
 
 class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with OptionValues {
 
-  val timestamp = new DateTime(2024, 5, 15, 10, 30)
+  val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 30)
 
   def insertVideoMetadata(implicit transactor: ConnectionIO ~> IO): IO[VideoMetadata] =
     for {
@@ -82,7 +83,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
 
   def createBatchVideoService(
     videoService: VideoService[IO, IO] = new StubVideoService
-  )(implicit jodaClock: JodaClock[IO]): BatchVideoServiceImpl[IO, IO] = {
+  )(implicit clock: Clock[IO]): BatchVideoServiceImpl[IO, IO] = {
     new BatchVideoServiceImpl[IO, IO](
       videoService,
       new StubVideoDao,
@@ -99,7 +100,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
     override def insert(
       videoMetadataId: String,
       videoFileResourceId: String,
-      timestamp: DateTime,
+      timestamp: Instant,
       watchTime: FiniteDuration
     ): IO[Int] = IO.pure(1)
 
@@ -155,7 +156,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
   }
 
   "insert" should "create a new video entry" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val service = createBatchVideoService()
 
@@ -165,7 +166,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
   }
 
   "incrementWatchTime" should "return updated watch time" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val service = createBatchVideoService()
 
@@ -175,7 +176,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
   }
 
   it should "fail for non-existent video" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(incrementWatchTimeResult = None)
     val service = new BatchVideoServiceImpl[IO, IO](
@@ -192,7 +193,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
   }
 
   "update" should "update video size" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val service = createBatchVideoService()
 
@@ -202,7 +203,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
   }
 
   it should "fail for non-existent video" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(findByIdResult = None)
     val service = new BatchVideoServiceImpl[IO, IO](
@@ -219,7 +220,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
   }
 
   "fetchByVideoFileResourceId" should "return video when found" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(findByVideoFileResourceIdResult = Some(sampleVideo))
     val service = new BatchVideoServiceImpl[IO, IO](
@@ -235,7 +236,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
   }
 
   it should "fail for non-existent file resource ID" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val service = createBatchVideoService()
 
@@ -246,7 +247,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
   }
 
   "deleteById" should "delegate to videoService" in runIO {
-    implicit val jodaClock: JodaClock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     var deleteVideoFileCalled = false
 
@@ -278,7 +279,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
         _ <- transactor(DoobieFileResourceDao.insert(fileResource))
 
         // Insert video record
-        timestamp <- IO.realTimeInstant.map(instant => new DateTime(instant.toEpochMilli))
+        timestamp <- IO.realTimeInstant
         _ <- transactor(DoobieVideoDao.insert(videoMetadata.id, fileResource.id, timestamp, 0.seconds))
 
         // Verify video can be retrieved
@@ -306,7 +307,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
             videoMetadata <- insertVideoMetadata
             fileResource <- DataGenerators.fileResource[IO](cats.data.NonEmptyList.of(MediaType.video.mp4)).generate
             _ <- transactor(DoobieFileResourceDao.insert(fileResource))
-            timestamp <- IO.realTimeInstant.map(instant => new DateTime(instant.toEpochMilli))
+            timestamp <- IO.realTimeInstant
             _ <- transactor(DoobieVideoDao.insert(videoMetadata.id, fileResource.id, timestamp, 0.seconds))
             video <- transactor(DoobieVideoDao.findById(videoMetadata.id, None))
           } yield video

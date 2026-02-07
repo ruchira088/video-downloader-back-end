@@ -3,9 +3,9 @@ package com.ruchij.api.services.health.models
 import cats.effect.Sync
 import cats.implicits._
 import com.eed3si9n.ruchij.api.BuildInfo
-import com.ruchij.core.types.JodaClock
-import org.joda.time.DateTime
+import com.ruchij.core.types.Clock
 
+import java.time.Instant
 import scala.util.Properties
 
 final case class ServiceInformation(
@@ -15,16 +15,16 @@ final case class ServiceInformation(
   sbtVersion: String,
   javaVersion: String,
   `yt-dlpVersion`: String,
-  currentTimestamp: DateTime,
+  currentTimestamp: Instant,
   gitBranch: Option[String],
   gitCommit: Option[String],
-  buildTimestamp: DateTime
+  buildTimestamp: Instant
 )
 
 object ServiceInformation {
-  def create[F[_]: Sync: JodaClock](ytDlpVersion: String): F[ServiceInformation] =
+  def create[F[_]: Sync: Clock](ytDlpVersion: String): F[ServiceInformation] =
     for {
-      timestamp <- JodaClock[F].timestamp
+      timestamp <- Clock[F].timestamp
       javaVersion <- Sync[F].delay(Properties.javaVersion)
     } yield
       ServiceInformation(
@@ -37,6 +37,6 @@ object ServiceInformation {
         timestamp,
         BuildInfo.gitBranch,
         BuildInfo.gitCommit,
-        new DateTime(BuildInfo.buildTimestamp.toEpochMilli)
+        BuildInfo.buildTimestamp
       )
 }

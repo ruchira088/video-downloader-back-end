@@ -12,7 +12,7 @@ import org.http4s.Status
 import org.http4s.client.dsl.io._
 import org.http4s.dsl.io.GET
 import org.http4s.implicits.http4sLiteralsSyntax
-import org.joda.time.{DateTime, DateTimeZone}
+import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
@@ -27,10 +27,10 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
         "sbtVersion": "1.6.2",
         "javaVersion": "17.0.2",
         "yt-dlpVersion": "2025.08.22",
-        "currentTimestamp": "2022-08-01T10:10:00.000Z",
+        "currentTimestamp": "2022-08-01T10:10:00Z",
         "gitBranch": "my-branch",
         "gitCommit": "my-commit",
-        "buildTimestamp": "2022-03-24T05:56:14.000Z"
+        "buildTimestamp": "2022-03-24T05:56:14Z"
       }"""
 
     (() => healthService.serviceInformation)
@@ -44,10 +44,10 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
             "1.6.2",
             "17.0.2",
             "2025.08.22",
-            new DateTime(2022, 8, 1, 10, 10, 0, 0, DateTimeZone.UTC),
+            TimeUtils.instantOf(2022, 8, 1, 10, 10),
             Some("my-branch"),
             Some("my-commit"),
-            new DateTime(2022, 3, 24, 5, 56, 14, 0, DateTimeZone.UTC)
+            TimeUtils.instantOf(2022, 3, 24, 5, 56, 14)
           )
         }
       }

@@ -23,12 +23,12 @@ import com.ruchij.core.services.config.models.SharedConfigKey.VideoScanningStatu
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.video.VideoService
 import com.ruchij.core.services.video.models.VideoServiceSummary
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
 import org.http4s.Uri
 
 import scala.concurrent.duration.FiniteDuration
 
-class ApiVideoServiceImpl[F[_]: MonadThrow: JodaClock, G[_]: MonadThrow](
+class ApiVideoServiceImpl[F[_]: MonadThrow: Clock, G[_]: MonadThrow](
   videoService: VideoService[F, G],
   videoScanPublisher: Publisher[F, ScanVideosCommand],
   sharedConfigurationService: ConfigurationService[F, SharedConfigKey],
@@ -122,7 +122,7 @@ class ApiVideoServiceImpl[F[_]: MonadThrow: JodaClock, G[_]: MonadThrow](
           .filter(videoScan => videoScan.status == ScanStatus.InProgress) match {
           case Some(videoScan) => Applicative[F].pure(videoScan)
           case None =>
-            JodaClock[F].timestamp
+            Clock[F].timestamp
               .flatMap { timestamp =>
                 videoScanPublisher
                   .publishOne(ScanVideosCommand(timestamp))

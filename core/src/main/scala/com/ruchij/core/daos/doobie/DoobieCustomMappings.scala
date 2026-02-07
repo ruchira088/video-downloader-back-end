@@ -8,7 +8,7 @@ import com.ruchij.core.daos.videometadata.models.VideoSite
 import doobie.util.{Get, Put}
 import enumeratum.{Enum, EnumEntry}
 import org.http4s.{MediaType, Uri}
-import org.joda.time.DateTime
+import java.time.Instant
 
 import scala.concurrent.duration.FiniteDuration
 import scala.reflect.runtime.universe.TypeTag
@@ -35,10 +35,10 @@ object DoobieCustomMappings {
   implicit val finiteDurationGet: Get[FiniteDuration] =
     Get[Long].map(number => FiniteDuration(number, TimeUnit.MILLISECONDS))
 
-  implicit val dateTimePut: Put[DateTime] =
-    Put[Timestamp].tcontramap[DateTime](dateTime => new Timestamp(dateTime.getMillis))
+  implicit val instantPut: Put[Instant] =
+    Put[Timestamp].tcontramap[Instant](instant => Timestamp.from(instant))
 
-  implicit val dateTimeGet: Get[DateTime] = Get[Timestamp].map(timestamp => new DateTime(timestamp.getTime))
+  implicit val instantGet: Get[Instant] = Get[Timestamp].map(timestamp => timestamp.toInstant)
 
   implicit val pathPut: Put[Path] = Put[String].contramap[Path](_.toAbsolutePath.toString)
 

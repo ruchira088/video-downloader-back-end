@@ -7,7 +7,7 @@ import com.ruchij.api.daos.user.DoobieUserDao
 import com.ruchij.api.daos.user.models.{Email, Role, User}
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
 import com.ruchij.core.test.IOSupport.runIO
-import org.joda.time.DateTime
+import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
@@ -17,7 +17,7 @@ class DoobieCredentialsResetTokenDaoSpec extends AnyFlatSpec with Matchers {
 
   "DoobieCredentialsResetTokenDao" should "perform CRUD operations" in runIO {
     new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
-      val timestamp = new DateTime(2021, 10, 18, 18, 5, 44, 100)
+      val timestamp = TimeUtils.instantOf(2021, 10, 18, 18, 5, 44, 100)
       val user = User("my-user-id", timestamp, "John", "Doe", Email("john@ruchij.com"), Role.User)
       val credentialsResetToken = CredentialsResetToken("my-user-id", timestamp, "my-token")
 

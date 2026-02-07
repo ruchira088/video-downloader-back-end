@@ -4,16 +4,16 @@ import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.models.VideoSite.YTDownloaderSite
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata, VideoSite}
+import com.ruchij.core.types.TimeUtils
 import org.http4s.MediaType
 import org.http4s.implicits.http4sLiteralsSyntax
-import org.joda.time.DateTime
 
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
 
 object CoreTestData {
 
-  val Timestamp = new DateTime(2021, 10, 20, 20, 12, 8, 321)
+  val Timestamp = TimeUtils.instantOf(2021, 10, 20, 20, 12, 8, 321)
 
   val SpankBangVideo: Video =
     Video(

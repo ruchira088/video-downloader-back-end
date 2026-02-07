@@ -30,7 +30,7 @@ import com.ruchij.core.test.data.DataGenerators
 import doobie.free.connection.ConnectionIO
 import fs2.Stream
 import org.http4s.{MediaType, Uri}
-import org.joda.time.DateTime
+import com.ruchij.core.types.TimeUtils
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
@@ -41,7 +41,7 @@ import scala.concurrent.duration._
 
 class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matchers with OptionValues {
 
-  val timestamp = new DateTime(2024, 5, 15, 10, 0, 0)
+  val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 0)
   val storageConfiguration = StorageConfiguration("/videos", "/images", List("/other-videos"))
 
   def insertScheduledVideo(scheduledVideoDownload: ScheduledVideoDownload): ConnectionIO[ScheduledVideoDownload] = {

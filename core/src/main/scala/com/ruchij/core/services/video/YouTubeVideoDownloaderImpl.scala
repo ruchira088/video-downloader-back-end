@@ -1,6 +1,5 @@
 package com.ruchij.core.services.video
 
-import cats.ApplicativeError
 import cats.data.{Kleisli, OptionT}
 import cats.effect.{Async, Ref, Sync}
 import cats.MonadThrow
@@ -43,20 +42,20 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
           val errorMessage = cliCommandException.error
 
           if (errorMessage.contains("HTTP Error 404: Not Found")) {
-            ApplicativeError[F, Throwable].raiseError {
+            MonadThrow[F].raiseError {
               ResourceNotFoundException(s"Unable to find the video resource at ${uri.renderString}")
             }
           } else if (errorMessage.contains("Unable to extract hash;")) {
-            ApplicativeError[F, Throwable].raiseError {
+            MonadThrow[F].raiseError {
               ResourceNotFoundException(s"Video seems to have been deleted at ${uri.renderString}")
             }
-        }else {
-            ApplicativeError[F, Throwable].raiseError(cliCommandException)
+          } else {
+            MonadThrow[F].raiseError(cliCommandException)
           }
       }
       .flatMap { output =>
         MonadThrow[F].recoverWith(JsonParser.decode[YTDownloaderMetadata](output).toType[F, Throwable]) {
-          case _: Error => ApplicativeError[F, Throwable].raiseError(UnsupportedVideoUrlException(uri))
+          case _: Error => MonadThrow[F].raiseError(UnsupportedVideoUrlException(uri))
         }
       }
       .flatMap { metadata =>
@@ -107,7 +106,7 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
         .run("yt-dlp --no-warnings --list-extractors")
         .compile
         .toVector
-        .map(identity[Seq[String]])
+        .widen[Seq[String]]
     }
 
   override val version: F[String] =

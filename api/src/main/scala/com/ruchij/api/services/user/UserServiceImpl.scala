@@ -16,11 +16,11 @@ import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
 import com.ruchij.core.daos.permission.VideoPermissionDao
 import com.ruchij.core.daos.title.VideoTitleDao
 import com.ruchij.core.exceptions.ResourceNotFoundException
-import com.ruchij.core.types.{JodaClock, RandomGenerator}
+import com.ruchij.core.types.{Clock, RandomGenerator}
 
 import java.util.UUID
 
-class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: MonadThrow: JodaClock, G[_]: MonadThrow](
+class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: MonadThrow: Clock, G[_]: MonadThrow](
   passwordHashingService: PasswordHashingService[F],
   userDao: UserDao[G],
   credentialsDao: CredentialsDao[G],
@@ -40,7 +40,7 @@ class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: MonadThrow: JodaClock, 
       }
 
       hashedPassword <- passwordHashingService.hashPassword(password)
-      timestamp <- JodaClock[F].timestamp
+      timestamp <- Clock[F].timestamp
 
       userId <- RandomGenerator[F, UUID].generate.map(_.toString)
       user = User(userId, timestamp, firstName, lastName, email, Role.User)
@@ -61,7 +61,7 @@ class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: MonadThrow: JodaClock, 
   override def forgotPassword(email: Email): F[CredentialsResetToken] =
     for {
       token <- RandomGenerator[F, UUID].generate.map(_.toString)
-      timestamp <- JodaClock[F].timestamp
+      timestamp <- Clock[F].timestamp
 
       credentialsResetToken <- transaction {
         fetchUserByEmail(email)
@@ -75,12 +75,12 @@ class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: MonadThrow: JodaClock, 
     yield credentialsResetToken
 
   override def resetPassword(userId: String, resetToken: String, password: Password): F[User] =
-    JodaClock[F].timestamp.product(passwordHashingService.hashPassword(password))
+    Clock[F].timestamp.product(passwordHashingService.hashPassword(password))
       .flatMap { case (timestamp, hashedPassword) =>
         transaction {
           OptionT(credentialsResetTokenDao.find(userId, resetToken))
             .filter { resetToken =>
-              resetToken.createdAt.plus(UserService.ResetTokenValidity.toMillis).isAfter(timestamp)
+              resetToken.createdAt.plusMillis(UserService.ResetTokenValidity.toMillis).isAfter(timestamp)
             }
             .semiflatMap(_ => credentialsDao.update(Credentials(userId, timestamp, hashedPassword)))
             .semiflatMap(_ => credentialsResetTokenDao.delete(userId, resetToken))

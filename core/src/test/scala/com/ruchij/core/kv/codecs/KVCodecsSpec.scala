@@ -5,7 +5,8 @@ import cats.effect.unsafe.implicits.global
 import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 import com.ruchij.core.services.models.Order
 import com.ruchij.core.test.IOSupport.runIO
-import org.joda.time.DateTime
+import java.time.{Instant, ZoneOffset}
+import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 import shapeless.{::, HNil}
@@ -94,9 +95,9 @@ class KVCodecsSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  "KVEncoder[DateTime]" should "encode DateTime values" in runIO {
-    val encoder = KVEncoder[IO, DateTime]
-    val dateTime = new DateTime(2023, 5, 15, 10, 30, 0)
+  "KVEncoder[Instant]" should "encode Instant values" in runIO {
+    val encoder = KVEncoder[IO, Instant]
+    val dateTime = TimeUtils.instantOf(2023, 5, 15, 10, 30)
     for {
       result <- encoder.encode(dateTime)
     } yield {
@@ -104,19 +105,20 @@ class KVCodecsSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  "KVDecoder[DateTime]" should "decode DateTime values" in runIO {
-    val decoder = KVDecoder[IO, DateTime]
+  "KVDecoder[Instant]" should "decode Instant values" in runIO {
+    val decoder = KVDecoder[IO, Instant]
     for {
-      result <- decoder.decode("2023-05-15T10:30:00.000Z")
+      result <- decoder.decode("2023-05-15T10:30:00Z")
     } yield {
-      result.getYear mustBe 2023
-      result.getMonthOfYear mustBe 5
-      result.getDayOfMonth mustBe 15
+      val zdt = result.atZone(ZoneOffset.UTC)
+      zdt.getYear mustBe 2023
+      zdt.getMonthValue mustBe 5
+      zdt.getDayOfMonth mustBe 15
     }
   }
 
   it should "fail for invalid date strings" in runIO {
-    val decoder = KVDecoder[IO, DateTime]
+    val decoder = KVDecoder[IO, Instant]
     for {
       result <- decoder.decode("not-a-date").attempt
     } yield {
@@ -293,15 +295,15 @@ class KVCodecsSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  "DateTime roundtrip" should "preserve value" in runIO {
-    val now = DateTime.now()
-    val encoder = KVEncoder[IO, DateTime]
-    val decoder = KVDecoder[IO, DateTime]
+  "Instant roundtrip" should "preserve value" in runIO {
+    val now = Instant.now()
+    val encoder = KVEncoder[IO, Instant]
+    val decoder = KVDecoder[IO, Instant]
     for {
       encoded <- encoder.encode(now)
       decoded <- decoder.decode(encoded)
     } yield {
-      decoded.getMillis mustBe now.getMillis
+      decoded.toEpochMilli mustBe now.toEpochMilli
     }
   }
 

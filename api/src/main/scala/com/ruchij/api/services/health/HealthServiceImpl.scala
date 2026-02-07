@@ -16,7 +16,7 @@ import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.services.video.YouTubeVideoDownloader
-import com.ruchij.core.types.{JodaClock, RandomGenerator}
+import com.ruchij.core.types.{Clock => AppClock, RandomGenerator}
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import fs2.Stream
@@ -25,15 +25,16 @@ import org.http4s.Status
 import org.http4s.Uri.Path
 import org.http4s.client.Client
 import org.http4s.client.dsl.Http4sClientDsl
-import org.joda.time.DateTime
 
+import java.time.Instant
+import java.time.format.DateTimeFormatter
 import java.util.UUID
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
+class HealthServiceImpl[F[_]: Async: AppClock: RandomGenerator[*[_], UUID]](
   repositoryService: RepositoryService[F],
-  keySpacedKeyValueStore: KeySpacedKeyValueStore[F, HealthCheckKey, DateTime],
+  keySpacedKeyValueStore: KeySpacedKeyValueStore[F, HealthCheckKey, Instant],
   healthCheckStream: Stream[F, HealthCheckMessage],
   healthCheckPublisher: Publisher[F, HealthCheckMessage],
   youTubeVideoDownloader: YouTubeVideoDownloader[F],
@@ -51,19 +52,19 @@ class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
 
   private def healthStatusDetails(healthStatusF: F[HealthStatus]): F[HealthStatusDetails] =
     for {
-      startTime <- JodaClock[F].timestamp
+      startTime <- AppClock[F].timestamp
       healthStatus <- healthStatusF
-      endTime <- JodaClock[F].timestamp
-    } yield HealthStatusDetails(endTime.getMillis - startTime.getMillis, healthStatus)
+      endTime <- AppClock[F].timestamp
+    } yield HealthStatusDetails(endTime.toEpochMilli - startTime.toEpochMilli, healthStatus)
 
   private val keyValueStoreCheck: F[HealthStatus] =
-    JodaClock[F].timestamp
+    AppClock[F].timestamp
       .flatMap { timestamp =>
         keySpacedKeyValueStore
           .put(HealthCheckKey(timestamp), timestamp)
           .productR(keySpacedKeyValueStore.get(HealthCheckKey(timestamp)))
           .map {
-            _.filter(_.getMillis == timestamp.getMillis)
+            _.filter(_.toEpochMilli == timestamp.toEpochMilli)
               .as(HealthStatus.Healthy)
               .getOrElse[HealthStatus](HealthStatus.Unhealthy)
           }
@@ -79,7 +80,7 @@ class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
     }
 
   private val pubSubCheck: F[HealthStatus] =
-    JodaClock[F].timestamp
+    AppClock[F].timestamp
       .flatMap { dateTime =>
         RandomGenerator[F, UUID].generate.map(_.toString).flatMap { instanceId =>
           healthCheckStream
@@ -95,7 +96,7 @@ class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
             }
             .filter { healthCheckMessage =>
               healthCheckMessage.instanceId == instanceId &&
-              dateTime.isEqual(healthCheckMessage.dateTime)
+              dateTime == healthCheckMessage.dateTime
             }
             .take(10)
             .compile
@@ -106,7 +107,7 @@ class HealthServiceImpl[F[_]: Async: JodaClock: RandomGenerator[*[_], UUID]](
 
   private def fileRepositoryPathCheck(basePath: String): F[FilePathCheck] =
     for {
-      timestamp <- JodaClock[F].timestamp.map(_.toString("HH-mm-ss-SSS"))
+      timestamp <- AppClock[F].timestamp.map(_.atZone(java.time.ZoneId.systemDefault()).toLocalTime.format(DateTimeFormatter.ofPattern("HH-mm-ss-SSS")))
       fileKey = s"$basePath/image-health-check-$timestamp.txt"
       fileResult <- runHealthCheck(fileHealthCheck(fileKey))
     } yield FilePathCheck(basePath, fileResult)

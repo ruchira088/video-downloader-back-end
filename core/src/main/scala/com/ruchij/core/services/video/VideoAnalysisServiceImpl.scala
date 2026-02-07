@@ -19,7 +19,7 @@ import com.ruchij.core.services.renderer.SpaSiteRenderer
 import com.ruchij.core.services.video.VideoAnalysisService.{Existing, NewlyCreated, VideoMetadataResult}
 import com.ruchij.core.services.video.models.VideoAnalysisResult
 import com.ruchij.core.types.FunctionKTypes._
-import com.ruchij.core.types.JodaClock
+import com.ruchij.core.types.Clock
 import com.ruchij.core.utils.Http4sUtils
 import org.http4s.Method.{GET, HEAD}
 import org.http4s.Uri
@@ -32,7 +32,7 @@ import org.jsoup.nodes.Document
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
-class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
+class VideoAnalysisServiceImpl[F[_]: Async: Clock, T[_]: Monad](
   hashingService: HashingService[F],
   downloadService: DownloadService[F],
   youTubeVideoDownloader: YouTubeVideoDownloader[F],
@@ -78,7 +78,7 @@ class VideoAnalysisServiceImpl[F[_]: Async: JodaClock, T[_]: Monad](
         .product(hashingService.hash(title))
         .map { case (urlHash, titleHash) => s"${videoSite.name.toLowerCase}-$urlHash$titleHash" }
 
-      timestamp <- JodaClock[F].timestamp
+      timestamp <- Clock[F].timestamp
 
       thumbnailFileName = thumbnailUri.path.segments.lastOption.map(_.encoded).getOrElse("thumbnail.unknown")
       filePath = s"${storageConfiguration.imageFolder}/thumbnail-$videoId-$thumbnailFileName"

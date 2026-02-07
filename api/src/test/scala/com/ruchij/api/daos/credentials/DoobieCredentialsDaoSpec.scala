@@ -9,7 +9,7 @@ import com.ruchij.api.daos.user.DoobieUserDao
 import com.ruchij.api.daos.user.models.{Email, Role, User}
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
 import com.ruchij.core.test.IOSupport.runIO
-import org.joda.time.DateTime
+import com.ruchij.core.types.TimeUtils
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -20,7 +20,7 @@ class DoobieCredentialsDaoSpec extends AnyFlatSpec with Matchers with OptionValu
 
   "DoobieCredentialsDao" should "perform CRUD operations for Credentials in the database" in runIO {
     new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
-      val timestamp = new DateTime(2021, 10, 17, 22, 24, 10, 123)
+      val timestamp = TimeUtils.instantOf(2021, 10, 17, 22, 24, 10, 123)
 
       val user = User("my-user-id", timestamp, "John", "Doe", Email("john.doe@ruchij.com"), Role.Admin)
       val credentials = Credentials("my-user-id", timestamp, HashedPassword("hashed-password"))
@@ -47,7 +47,7 @@ class DoobieCredentialsDaoSpec extends AnyFlatSpec with Matchers with OptionValu
         updateResult <- transactor {
           DoobieCredentialsDao.update {
             credentials
-              .copy(hashedPassword = HashedPassword("new-credentials"), lastUpdatedAt = timestamp.plusSeconds(10))
+              .copy(hashedPassword = HashedPassword("new-credentials"), lastUpdatedAt = timestamp.plus(java.time.Duration.ofSeconds(10)))
           }
         }
 
@@ -67,7 +67,7 @@ class DoobieCredentialsDaoSpec extends AnyFlatSpec with Matchers with OptionValu
 
         _ <- IO.delay {
           updatedCredentials.userId mustBe "my-user-id"
-          updatedCredentials.lastUpdatedAt mustBe timestamp.plusSeconds(10)
+          updatedCredentials.lastUpdatedAt mustBe timestamp.plus(java.time.Duration.ofSeconds(10))
           updatedCredentials.hashedPassword mustBe HashedPassword("new-credentials")
         }
 

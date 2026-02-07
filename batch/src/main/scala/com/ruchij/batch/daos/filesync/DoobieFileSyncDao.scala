@@ -4,11 +4,12 @@ import cats.data.OptionT
 import cats.implicits._
 import com.ruchij.batch.daos.filesync.models.FileSync
 import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
-import com.ruchij.core.daos.doobie.DoobieCustomMappings.{dateTimeGet, dateTimePut}
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.{instantGet, instantPut}
 import doobie.free.connection.ConnectionIO
 import doobie.implicits.toSqlInterpolator
 import doobie.generic.auto._
-import org.joda.time.DateTime
+
+import java.time.Instant
 
 object DoobieFileSyncDao extends FileSyncDao[ConnectionIO] {
 
@@ -22,7 +23,7 @@ object DoobieFileSyncDao extends FileSyncDao[ConnectionIO] {
       .query[FileSync]
       .option
 
-  override def complete(path: String, timestamp: DateTime): ConnectionIO[Option[FileSync]] =
+  override def complete(path: String, timestamp: Instant): ConnectionIO[Option[FileSync]] =
     sql"UPDATE file_sync SET synced_at = ${Some(timestamp)} WHERE path = $path"
       .update
       .run

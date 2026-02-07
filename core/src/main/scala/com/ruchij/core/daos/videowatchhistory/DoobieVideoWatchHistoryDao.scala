@@ -8,7 +8,7 @@ import doobie.ConnectionIO
 import doobie.implicits._
 import doobie.util.fragment.Fragment
 import doobie.util.fragments.whereAnd
-import org.joda.time.DateTime
+import java.time.Instant
 
 object DoobieVideoWatchHistoryDao extends VideoWatchHistoryDao[ConnectionIO] {
   private val SelectQuery =
@@ -86,7 +86,7 @@ object DoobieVideoWatchHistoryDao extends VideoWatchHistoryDao[ConnectionIO] {
   override def findLastUpdatedAfter(
     userId: String,
     videoId: String,
-    timestamp: DateTime
+    timestamp: Instant
   ): ConnectionIO[Option[VideoWatchHistory]] =
     sql"""
       SELECT id, user_id, video_id, created_at, last_updated_at, duration_in_ms
