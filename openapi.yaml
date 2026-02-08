@@ -883,6 +883,29 @@ paths:
                 type: string
                 format: binary
 
+  /assets/album-art/id/{id}:
+    get:
+      tags:
+        - Assets
+      summary: Get playlist album art
+      description: Retrieve the album art image for a playlist
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Album art retrieved successfully
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+
   /assets/snapshot/id/{id}:
     get:
       tags:
