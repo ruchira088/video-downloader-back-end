@@ -223,6 +223,17 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
     }
   }
 
+  it should "include Thumbnail type name in error when type validation fails" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+
+    val videoMetadataDao = new StubVideoMetadataDao(isThumbnailFileResourceResult = false)
+    val service = createService(videoMetadataDao = videoMetadataDao)
+
+    service.thumbnail("thumb-123").error.map { error =>
+      error mustBe ResourceNotFoundException("Unable to find Thumbnail file thumb-123")
+    }
+  }
+
   "snapshot" should "return asset for admin user" in runIO {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
@@ -261,6 +272,28 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
     }
   }
 
+  it should "include Snapshot type name in error when type validation fails" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+
+    val snapshotDao = new StubSnapshotDao(isSnapshotFileResourceResult = false)
+    val service = createService(snapshotDao = snapshotDao)
+
+    service.snapshot("snap-456", adminUser).error.map { error =>
+      error mustBe ResourceNotFoundException("Unable to find Snapshot file snap-456")
+    }
+  }
+
+  it should "include Snapshot type name in error when normal user lacks permission" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+
+    val snapshotDao = new StubSnapshotDao(hasPermissionResult = false)
+    val service = createService(snapshotDao = snapshotDao)
+
+    service.snapshot("snap-789", normalUser).error.map { error =>
+      error mustBe ResourceNotFoundException("Unable to find Snapshot file snap-789")
+    }
+  }
+
   "videoFile" should "return asset for admin user" in runIO {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
@@ -295,6 +328,28 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
 
     service.videoFile("file-resource-1", normalUser, None, None).error.map { error =>
       error mustBe a[ResourceNotFoundException]
+    }
+  }
+
+  it should "include Video type name in error when type validation fails" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+
+    val videoDao = new StubVideoDao(isVideoFileResourceExistResult = false)
+    val service = createService(videoDao = videoDao)
+
+    service.videoFile("video-file-123", adminUser, None, None).error.map { error =>
+      error mustBe ResourceNotFoundException("Unable to find Video file video-file-123")
+    }
+  }
+
+  it should "include Video type name in error when normal user lacks permission" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+
+    val videoDao = new StubVideoDao(hasVideoFilePermissionResult = false)
+    val service = createService(videoDao = videoDao)
+
+    service.videoFile("video-file-456", normalUser, None, None).error.map { error =>
+      error mustBe ResourceNotFoundException("Unable to find Video file video-file-456")
     }
   }
 
@@ -388,6 +443,28 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
 
     service.albumArt("album-art-1", normalUser).error.map { error =>
       error mustBe a[ResourceNotFoundException]
+    }
+  }
+
+  it should "include AlbumArt type name in error when type validation fails" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+
+    val playlistDao = new StubPlaylistDao(isAlbumArtFileResourceResult = false)
+    val service = createService(playlistDao = playlistDao)
+
+    service.albumArt("art-123", adminUser).error.map { error =>
+      error mustBe ResourceNotFoundException("Unable to find AlbumArt file art-123")
+    }
+  }
+
+  it should "include AlbumArt type name in error when normal user lacks permission" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+
+    val playlistDao = new StubPlaylistDao(hasAlbumArtPermissionResult = false)
+    val service = createService(playlistDao = playlistDao)
+
+    service.albumArt("art-456", normalUser).error.map { error =>
+      error mustBe ResourceNotFoundException("Unable to find AlbumArt file art-456")
     }
   }
 }

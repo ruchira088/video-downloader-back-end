@@ -40,7 +40,7 @@ class AssetServiceImpl[F[_]: MonadThrow: Clock, T[_]: MonadThrow](
         if (isValid) Applicative[T].unit
         else
           ApplicativeError[T, Throwable].raiseError[Unit] {
-            ResourceNotFoundException(s"Unable to find ${classTag.getClass.getCanonicalName} file $resourceId")
+            ResourceNotFoundException(s"Unable to find ${classTag.runtimeClass.getSimpleName.stripSuffix("$")} file $resourceId")
           }
     }
 
@@ -48,7 +48,7 @@ class AssetServiceImpl[F[_]: MonadThrow: Clock, T[_]: MonadThrow](
     id: String
   )(implicit classTag: ClassTag[A]): K[Asset[F, A]] =
     ApplicativeError[K, Throwable].raiseError[Asset[F, A]] {
-      ResourceNotFoundException(s"Unable to find ${classTag.getClass.getCanonicalName} file $id")
+      ResourceNotFoundException(s"Unable to find ${classTag.runtimeClass.getSimpleName.stripSuffix("$")} file $id")
     }
 
   override def videoFile(
@@ -99,7 +99,7 @@ class AssetServiceImpl[F[_]: MonadThrow: Clock, T[_]: MonadThrow](
 
   override def albumArt(id: String, user: User): F[Asset[F, AlbumArt.type]] =
     user.nonAdminUserId.fold(
-      retrieve[AlbumArt.type ](id, typeValidator[AlbumArt.type ](playlistDao.isAlbumArtFileResource))
+      retrieve[AlbumArt.type ](id, typeValidator[AlbumArt.type](playlistDao.isAlbumArtFileResource))
     ) { userId =>
       transaction(playlistDao.hasAlbumArtPermission(id, userId)).flatMap {
         hasPermission =>
@@ -110,7 +110,7 @@ class AssetServiceImpl[F[_]: MonadThrow: Clock, T[_]: MonadThrow](
     }
 
   override def thumbnail(id: String): F[Asset[F, Thumbnail.type]] =
-    retrieve[Thumbnail.type](id, typeValidator(videoMetadataDao.isThumbnailFileResource))
+    retrieve[Thumbnail.type](id, typeValidator[Thumbnail.type ](videoMetadataDao.isThumbnailFileResource))
 
   private def retrieve[A <: AssetType](
     id: String,
