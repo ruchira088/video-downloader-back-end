@@ -927,4 +927,41 @@ class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
       }
     } yield ()
   }
+
+  it should "return true for isVideoFileResourceExist when video file resource exists" in runTest { fixture =>
+    for {
+      exists <- fixture.transaction(
+        DoobieVideoDao.isVideoFileResourceExist(fixture.videoFileResource.id)
+      )
+
+      _ <- IO.delay {
+        exists mustBe true
+      }
+    } yield ()
+  }
+
+  it should "return false for isVideoFileResourceExist when video file resource does not exist" in runTest { fixture =>
+    for {
+      exists <- fixture.transaction(
+        DoobieVideoDao.isVideoFileResourceExist("non-existent-file-resource")
+      )
+
+      _ <- IO.delay {
+        exists mustBe false
+      }
+    } yield ()
+  }
+
+  it should "return false for isVideoFileResourceExist when file resource exists but is not a video file" in runTest { fixture =>
+    for {
+      // thumbnail-id exists as a file resource but is not a video file resource
+      exists <- fixture.transaction(
+        DoobieVideoDao.isVideoFileResourceExist(fixture.thumbnailFileResource.id)
+      )
+
+      _ <- IO.delay {
+        exists mustBe false
+      }
+    } yield ()
+  }
 }

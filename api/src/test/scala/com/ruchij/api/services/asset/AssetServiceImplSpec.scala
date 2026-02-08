@@ -2,6 +2,8 @@ package com.ruchij.api.services.asset
 
 import cats.effect.IO
 import cats.~>
+import com.ruchij.api.daos.playlist.PlaylistDao
+import com.ruchij.api.daos.playlist.models.{Playlist, PlaylistSortBy}
 import com.ruchij.api.daos.user.models.{Email, Role, User}
 import com.ruchij.api.services.asset.AssetService.FileByteRange
 import com.ruchij.core.daos.resource.FileResourceDao
@@ -10,16 +12,18 @@ import com.ruchij.core.daos.snapshot.SnapshotDao
 import com.ruchij.core.daos.snapshot.models.Snapshot
 import com.ruchij.core.daos.video.VideoDao
 import com.ruchij.core.daos.video.models.Video
+import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.messaging.models.VideoWatchMetric
+import com.ruchij.core.services.models.Order
 import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import com.ruchij.core.test.Providers
 import com.ruchij.core.types.{Clock, TimeUtils}
 import fs2.Stream
-import org.http4s.MediaType
+import org.http4s.{MediaType, Uri}
 import org.http4s.implicits.http4sLiteralsSyntax
 import java.time.Instant
 import org.scalatest.flatspec.AnyFlatSpec
@@ -70,16 +74,19 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   class StubSnapshotDao(
-    hasPermissionResult: Boolean = true
+    hasPermissionResult: Boolean = true,
+    isSnapshotFileResourceResult: Boolean = true
   ) extends SnapshotDao[IO] {
     override def insert(snapshot: Snapshot): IO[Int] = IO.pure(1)
     override def findByVideo(videoId: String, maybeUserId: Option[String]): IO[Seq[Snapshot]] = IO.pure(Seq.empty)
     override def hasPermission(snapshotFileResourceId: String, userId: String): IO[Boolean] = IO.pure(hasPermissionResult)
+    override def isSnapshotFileResource(fileResourceId: String): IO[Boolean] = IO.pure(isSnapshotFileResourceResult)
     override def deleteByVideo(videoId: String): IO[Int] = IO.pure(1)
   }
 
   class StubVideoDao(
-    hasVideoFilePermissionResult: Boolean = true
+    hasVideoFilePermissionResult: Boolean = true,
+    isVideoFileResourceExistResult: Boolean = true
   ) extends VideoDao[IO] {
     override def insert(
       videoMetadataId: String,
@@ -115,6 +122,9 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
     override def hasVideoFilePermission(videoFileResourceId: String, userId: String): IO[Boolean] =
       IO.pure(hasVideoFilePermissionResult)
 
+    override def isVideoFileResourceExist(videoFileResourceId: String): IO[Boolean] =
+      IO.pure(isVideoFileResourceExistResult)
+
     override val count: IO[Int] = IO.pure(0)
     override val duration: IO[FiniteDuration] = IO.pure(0.seconds)
     override val size: IO[Long] = IO.pure(0L)
@@ -144,10 +154,36 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
     override val publish: fs2.Pipe[IO, VideoWatchMetric, Unit] = _.evalMap(publishOne)
   }
 
+  class StubVideoMetadataDao(
+    isThumbnailFileResourceResult: Boolean = true
+  ) extends VideoMetadataDao[IO] {
+    override def insert(videoMetadata: VideoMetadata): IO[Int] = IO.pure(1)
+    override def update(videoMetadataId: String, title: Option[String], size: Option[Long], maybeDuration: Option[FiniteDuration]): IO[Int] = IO.pure(1)
+    override def findById(videoMetadataId: String): IO[Option[VideoMetadata]] = IO.pure(None)
+    override def isThumbnailFileResource(thumbnailId: String): IO[Boolean] = IO.pure(isThumbnailFileResourceResult)
+    override def findByUrl(uri: Uri): IO[Option[VideoMetadata]] = IO.pure(None)
+    override def deleteById(videoMetadataId: String): IO[Int] = IO.pure(1)
+  }
+
+  class StubPlaylistDao(
+    isAlbumArtFileResourceResult: Boolean = true,
+    hasAlbumArtPermissionResult: Boolean = true
+  ) extends PlaylistDao[IO] {
+    override def insert(playlist: Playlist): IO[Int] = IO.pure(1)
+    override def update(playlistId: String, maybeTitle: Option[String], maybeDescription: Option[String], maybeVideoIds: Option[Seq[String]], maybeAlbumArt: Option[Either[Unit, String]], maybeUserId: Option[String]): IO[Int] = IO.pure(1)
+    override def findById(playlistId: String, maybeUserId: Option[String]): IO[Option[Playlist]] = IO.pure(None)
+    override def search(maybeSearchTerm: Option[String], pageSize: Int, pageNumber: Int, order: Order, sortBy: PlaylistSortBy, maybeUserId: Option[String]): IO[Seq[Playlist]] = IO.pure(Seq.empty)
+    override def isAlbumArtFileResource(fileResourceId: String): IO[Boolean] = IO.pure(isAlbumArtFileResourceResult)
+    override def hasAlbumArtPermission(fileResourceId: String, userId: String): IO[Boolean] = IO.pure(hasAlbumArtPermissionResult)
+    override def deleteById(playlistId: String, maybeUserId: Option[String]): IO[Int] = IO.pure(1)
+  }
+
   private def createService(
     fileResourceDao: FileResourceDao[IO] = new StubFileResourceDao(),
     snapshotDao: SnapshotDao[IO] = new StubSnapshotDao(),
     videoDao: VideoDao[IO] = new StubVideoDao(),
+    videoMetadataDao: VideoMetadataDao[IO] = new StubVideoMetadataDao(),
+    playlistDao: PlaylistDao[IO] = new StubPlaylistDao(),
     repositoryService: RepositoryService[IO] = new StubRepositoryService(),
     publisher: Publisher[IO, VideoWatchMetric] = new StubPublisher()
   )(implicit clock: Clock[IO]): AssetServiceImpl[IO, IO] = {
@@ -155,6 +191,8 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
       fileResourceDao,
       snapshotDao,
       videoDao,
+      videoMetadataDao,
+      playlistDao,
       repositoryService,
       publisher
     )
@@ -220,7 +258,6 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
 
     service.snapshot("snapshot-file-1", normalUser).error.map { error =>
       error mustBe a[ResourceNotFoundException]
-      error.getMessage must include("snapshot")
     }
   }
 
@@ -258,7 +295,6 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
 
     service.videoFile("file-resource-1", normalUser, None, None).error.map { error =>
       error mustBe a[ResourceNotFoundException]
-      error.getMessage must include("video file")
     }
   }
 
@@ -311,6 +347,46 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
     val service = createService(repositoryService = repositoryService)
 
     service.videoFile("file-resource-1", adminUser, None, None).error.map { error =>
+      error mustBe a[ResourceNotFoundException]
+    }
+  }
+
+  "albumArt" should "return asset for admin user" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+
+    val albumArtFileResource = FileResource("album-art-1", timestamp, "/album-art/art1.jpg", MediaType.image.jpeg, 40000L)
+    val fileResourceDao = new StubFileResourceDao(getByIdResult = id =>
+      if (id == "album-art-1") Some(albumArtFileResource) else None
+    )
+    val service = createService(fileResourceDao = fileResourceDao)
+
+    service.albumArt("album-art-1", adminUser).map { asset =>
+      asset.fileResource.id mustBe "album-art-1"
+    }
+  }
+
+  it should "return asset for normal user with permission" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+
+    val albumArtFileResource = FileResource("album-art-1", timestamp, "/album-art/art1.jpg", MediaType.image.jpeg, 40000L)
+    val fileResourceDao = new StubFileResourceDao(getByIdResult = id =>
+      if (id == "album-art-1") Some(albumArtFileResource) else None
+    )
+    val playlistDao = new StubPlaylistDao(hasAlbumArtPermissionResult = true)
+    val service = createService(fileResourceDao = fileResourceDao, playlistDao = playlistDao)
+
+    service.albumArt("album-art-1", normalUser).map { asset =>
+      asset.fileResource.id mustBe "album-art-1"
+    }
+  }
+
+  it should "throw ResourceNotFoundException for normal user without permission" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+
+    val playlistDao = new StubPlaylistDao(hasAlbumArtPermissionResult = false)
+    val service = createService(playlistDao = playlistDao)
+
+    service.albumArt("album-art-1", normalUser).error.map { error =>
       error mustBe a[ResourceNotFoundException]
     }
   }

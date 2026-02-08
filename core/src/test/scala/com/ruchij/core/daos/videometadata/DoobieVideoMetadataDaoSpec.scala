@@ -800,4 +800,28 @@ class DoobieVideoMetadataDaoSpec extends AnyFlatSpec with Matchers with OptionVa
       }
     } yield ()
   }
+
+  it should "return true for isThumbnailFileResource when file resource is a thumbnail" in runTest { fixture =>
+    for {
+      isThumbnail <- fixture.transaction(
+        DoobieVideoMetadataDao.isThumbnailFileResource(fixture.thumbnailFileResource.id)
+      )
+
+      _ <- IO.delay {
+        isThumbnail mustBe true
+      }
+    } yield ()
+  }
+
+  it should "return false for isThumbnailFileResource when file resource does not exist" in runTest { fixture =>
+    for {
+      isThumbnail <- fixture.transaction(
+        DoobieVideoMetadataDao.isThumbnailFileResource("non-existent-file-resource")
+      )
+
+      _ <- IO.delay {
+        isThumbnail mustBe false
+      }
+    } yield ()
+  }
 }

@@ -655,4 +655,43 @@ class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
       }
     } yield ()
   }
+
+  it should "return true for isSnapshotFileResource when file resource is a snapshot" in runTest { fixture =>
+    for {
+      _ <- fixture.transaction(DoobieSnapshotDao.insert(fixture.snapshot))
+
+      isSnapshot <- fixture.transaction(
+        DoobieSnapshotDao.isSnapshotFileResource(fixture.snapshotFileResource.id)
+      )
+
+      _ <- IO.delay {
+        isSnapshot mustBe true
+      }
+    } yield ()
+  }
+
+  it should "return false for isSnapshotFileResource when file resource is not a snapshot" in runTest { fixture =>
+    for {
+      isSnapshot <- fixture.transaction(
+        DoobieSnapshotDao.isSnapshotFileResource("non-existent-file-resource")
+      )
+
+      _ <- IO.delay {
+        isSnapshot mustBe false
+      }
+    } yield ()
+  }
+
+  it should "return false for isSnapshotFileResource when file resource exists but is not a snapshot" in runTest { fixture =>
+    for {
+      // thumbnail-id exists as a file resource but is not a snapshot
+      isSnapshot <- fixture.transaction(
+        DoobieSnapshotDao.isSnapshotFileResource("thumbnail-id")
+      )
+
+      _ <- IO.delay {
+        isSnapshot mustBe false
+      }
+    } yield ()
+  }
 }

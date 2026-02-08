@@ -533,4 +533,94 @@ class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
       } yield ()
     }
   }
+
+  it should "return true for isAlbumArtFileResource when file resource is album art" in runIO {
+    new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
+      for {
+        _ <- transactor(ApiTestData.setUpData)
+        _ <- transactor(DoobieFileResourceDao.insert(albumArtFileResource))
+
+        playlist = Playlist(
+          "art-check-playlist",
+          ApiTestData.AdminUser.id,
+          CoreTestData.Timestamp,
+          "Art Check Playlist",
+          None,
+          List.empty,
+          Some(albumArtFileResource)
+        )
+        _ <- transactor(doobiePlaylistDao.insert(playlist))
+
+        isAlbumArt <- transactor(doobiePlaylistDao.isAlbumArtFileResource(albumArtFileResource.id))
+        _ <- IO.delay { isAlbumArt mustBe true }
+
+        _ <- transactor(doobiePlaylistDao.deleteById("art-check-playlist", None))
+      } yield ()
+    }
+  }
+
+  it should "return false for isAlbumArtFileResource when file resource is not album art" in runIO {
+    new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
+      for {
+        _ <- transactor(ApiTestData.setUpData)
+
+        isAlbumArt <- transactor(doobiePlaylistDao.isAlbumArtFileResource("non-existent-file-resource"))
+        _ <- IO.delay { isAlbumArt mustBe false }
+      } yield ()
+    }
+  }
+
+  it should "return true for hasAlbumArtPermission when user owns the playlist" in runIO {
+    new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
+      for {
+        _ <- transactor(ApiTestData.setUpData)
+        _ <- transactor(DoobieFileResourceDao.insert(albumArtFileResource))
+
+        playlist = Playlist(
+          "permission-check-playlist",
+          ApiTestData.NormalUser.id,
+          CoreTestData.Timestamp,
+          "Permission Check Playlist",
+          None,
+          List.empty,
+          Some(albumArtFileResource)
+        )
+        _ <- transactor(doobiePlaylistDao.insert(playlist))
+
+        hasPermission <- transactor(
+          doobiePlaylistDao.hasAlbumArtPermission(albumArtFileResource.id, ApiTestData.NormalUser.id)
+        )
+        _ <- IO.delay { hasPermission mustBe true }
+
+        _ <- transactor(doobiePlaylistDao.deleteById("permission-check-playlist", None))
+      } yield ()
+    }
+  }
+
+  it should "return false for hasAlbumArtPermission when user does not own the playlist" in runIO {
+    new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
+      for {
+        _ <- transactor(ApiTestData.setUpData)
+        _ <- transactor(DoobieFileResourceDao.insert(albumArtFileResource))
+
+        playlist = Playlist(
+          "permission-check-playlist-2",
+          ApiTestData.AdminUser.id,
+          CoreTestData.Timestamp,
+          "Admin Permission Check",
+          None,
+          List.empty,
+          Some(albumArtFileResource)
+        )
+        _ <- transactor(doobiePlaylistDao.insert(playlist))
+
+        hasPermission <- transactor(
+          doobiePlaylistDao.hasAlbumArtPermission(albumArtFileResource.id, ApiTestData.NormalUser.id)
+        )
+        _ <- IO.delay { hasPermission mustBe false }
+
+        _ <- transactor(doobiePlaylistDao.deleteById("permission-check-playlist-2", None))
+      } yield ()
+    }
+  }
 }

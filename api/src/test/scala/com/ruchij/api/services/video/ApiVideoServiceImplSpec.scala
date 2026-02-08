@@ -130,6 +130,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     override def findByVideoPath(videoPath: String): IO[Option[Video]] = IO.pure(None)
     override def deleteById(videoId: String): IO[Int] = IO.pure(1)
     override def hasVideoFilePermission(videoFileResourceId: String, userId: String): IO[Boolean] = IO.pure(true)
+    override def isVideoFileResourceExist(videoFileResourceId: String): IO[Boolean] = IO.pure(false)
     override val count: IO[Int] = IO.pure(countResult)
     override val duration: IO[FiniteDuration] = IO.pure(durationResult)
     override val size: IO[Long] = IO.pure(sizeResult)
@@ -142,6 +143,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     override def insert(videoMetadata: VideoMetadata): IO[Int] = IO.pure(1)
     override def update(videoMetadataId: String, title: Option[String], size: Option[Long], maybeDuration: Option[FiniteDuration]): IO[Int] = IO.pure(updateResult)
     override def findById(videoMetadataId: String): IO[Option[VideoMetadata]] = IO.pure(None)
+    override def isThumbnailFileResource(thumbnailId: String): IO[Boolean] = IO.pure(false)
     override def findByUrl(uri: Uri): IO[Option[VideoMetadata]] = IO.pure(None)
     override def deleteById(videoMetadataId: String): IO[Int] = IO.pure(1)
   }
@@ -152,6 +154,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     override def insert(snapshot: Snapshot): IO[Int] = IO.pure(1)
     override def findByVideo(videoId: String, maybeUserId: Option[String]): IO[Seq[Snapshot]] = IO.pure(findByVideoResult)
     override def hasPermission(snapshotFileResourceId: String, userId: String): IO[Boolean] = IO.pure(true)
+    override def isSnapshotFileResource(fileResourceId: String): IO[Boolean] = IO.pure(false)
     override def deleteByVideo(videoId: String): IO[Int] = IO.pure(1)
   }
 

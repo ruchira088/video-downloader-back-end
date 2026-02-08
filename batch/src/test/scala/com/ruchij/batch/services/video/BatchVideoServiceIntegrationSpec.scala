@@ -133,6 +133,8 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
 
     override def hasVideoFilePermission(videoFileResourceId: String, userId: String): IO[Boolean] = IO.pure(false)
 
+    override def isVideoFileResourceExist(videoFileResourceId: String): IO[Boolean] = IO.pure(false)
+
     override val count: IO[Int] = IO.pure(0)
     override val duration: IO[FiniteDuration] = IO.pure(0.seconds)
     override val size: IO[Long] = IO.pure(0L)
@@ -144,6 +146,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
     override def findById(id: String): IO[Option[VideoMetadata]] = IO.pure(Some(sampleVideoMetadata))
     override def findByUrl(uri: org.http4s.Uri): IO[Option[VideoMetadata]] = IO.pure(None)
     override def update(id: String, title: Option[String], size: Option[Long], duration: Option[FiniteDuration]): IO[Int] = IO.pure(1)
+    override def isThumbnailFileResource(thumbnailId: String): IO[Boolean] = IO.pure(false)
     override def deleteById(videoMetadataId: String): IO[Int] = IO.pure(1)
   }
 

@@ -110,6 +110,9 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
     override def hasVideoFilePermission(videoFileResourceId: String, userId: String): IO[Boolean] =
       IO.pure(false)
 
+    override def isVideoFileResourceExist(videoFileResourceId: String): IO[Boolean] =
+      IO.pure(false)
+
     override val count: IO[Int] = IO.pure(0)
     override val duration: IO[FiniteDuration] = IO.pure(0.seconds)
     override val size: IO[Long] = IO.pure(0L)
@@ -121,6 +124,7 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
     override def findByVideo(videoId: String, maybeUserId: Option[String]): IO[Seq[Snapshot]] =
       IO.pure(findByVideoResult)
     override def hasPermission(snapshotFileResourceId: String, userId: String): IO[Boolean] = IO.pure(false)
+    override def isSnapshotFileResource(fileResourceId: String): IO[Boolean] = IO.pure(false)
     override def deleteByVideo(videoId: String): IO[Int] = IO.pure(findByVideoResult.size)
   }
 

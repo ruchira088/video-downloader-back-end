@@ -122,6 +122,10 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
       maybeUserId: Option[String]
     ): IO[Seq[Playlist]] = IO.pure(searchResult)
 
+    override def isAlbumArtFileResource(fileResourceId: String): IO[Boolean] = IO.pure(false)
+
+    override def hasAlbumArtPermission(fileResourceId: String, userId: String): IO[Boolean] = IO.pure(false)
+
     override def deleteById(id: String, maybeUserId: Option[String]): IO[Int] = IO.pure(deleteResult)
   }
 

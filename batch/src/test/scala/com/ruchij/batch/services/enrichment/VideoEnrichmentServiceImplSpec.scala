@@ -64,6 +64,8 @@ class VideoEnrichmentServiceImplSpec extends AnyFlatSpec with Matchers {
 
     override def hasPermission(snapshotFileResourceId: String, userId: String): IO[Boolean] = IO.pure(false)
 
+    override def isSnapshotFileResource(fileResourceId: String): IO[Boolean] = IO.pure(false)
+
     override def deleteByVideo(videoId: String): IO[Int] = IO.pure(0)
   }
 

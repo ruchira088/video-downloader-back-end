@@ -2,7 +2,7 @@ package com.ruchij.api.web.routes
 
 import cats.effect.IO
 import com.ruchij.api.services.asset.AssetService.FileByteRange
-import com.ruchij.api.services.asset.models.Asset
+import com.ruchij.api.services.asset.models.{Asset, AssetType}
 import com.ruchij.api.services.asset.models.Asset.FileRange
 import com.ruchij.api.services.authentication.AuthenticationService.Secret
 import com.ruchij.api.services.authentication.models.AuthenticationToken
@@ -58,12 +58,20 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
     5000000
   )
 
+  private val testAlbumArt = FileResource(
+    "album-art-123",
+    testTimestamp,
+    "/path/to/album-art.jpg",
+    MediaType.image.jpeg,
+    25000
+  )
+
   private def authHeaders = org.http4s.Headers(
     Authorization(Credentials.Token(AuthScheme.Bearer, testSecret.value))
   )
 
-  private def createAsset(fileResource: FileResource): Asset[IO] = {
-    Asset(
+  private def createAsset[A <: AssetType](fileResource: FileResource): Asset[IO, A] = {
+    Asset[IO, A](
       fileResource,
       Stream.emits[IO, Byte]("test data".getBytes.toSeq),
       FileRange(0, fileResource.size)
@@ -77,7 +85,7 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     (assetService.thumbnail _)
       .expects("thumbnail-123")
-      .returns(IO.pure(createAsset(testThumbnail)))
+      .returns(IO.pure(createAsset[AssetType.Thumbnail.type](testThumbnail)))
 
     ignoreHttpMetrics() *>
       createRoutes()
@@ -128,7 +136,7 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     (assetService.snapshot _)
       .expects("snapshot-123", ApiTestData.NormalUser)
-      .returns(IO.pure(createAsset(testSnapshot)))
+      .returns(IO.pure(createAsset[AssetType.Snapshot.type](testSnapshot)))
 
     ignoreHttpMetrics() *>
       createRoutes()
@@ -170,7 +178,7 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     (assetService.videoFile _)
       .expects("video-123", ApiTestData.NormalUser, None, Some(5000000L))
-      .returns(IO.pure(createAsset(testVideoFile)))
+      .returns(IO.pure(createAsset[AssetType.Video.type](testVideoFile)))
 
     ignoreHttpMetrics() *>
       createRoutes()
@@ -194,7 +202,7 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    val rangeAsset = Asset[IO](
+    val rangeAsset = Asset[IO, AssetType.Video.type](
       testVideoFile,
       Stream.emits[IO, Byte]("test data".getBytes.toSeq),
       FileRange(0, 999999)
@@ -258,6 +266,73 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.NotFound)
+          }
+        }
+  }
+
+  "GET /asset/album-art/id/:id" should "return album art for authenticated user" in runIO {
+    (authenticationService.authenticate _)
+      .expects(testSecret)
+      .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
+
+    (assetService.albumArt _)
+      .expects("album-art-123", ApiTestData.NormalUser)
+      .returns(IO.pure(createAsset[AssetType.AlbumArt.type](testAlbumArt)))
+
+    ignoreHttpMetrics() *>
+      createRoutes()
+        .run(
+          Request[IO](
+            method = GET,
+            uri = uri"/assets/album-art/id/album-art-123",
+            headers = authHeaders
+          )
+        )
+        .flatMap { response =>
+          IO.delay {
+            response must haveStatus(Status.Ok)
+            response.contentType.map(_.mediaType) mustBe Some(MediaType.image.jpeg)
+          }
+        }
+  }
+
+  it should "return not found when album art does not exist" in runIO {
+    (authenticationService.authenticate _)
+      .expects(testSecret)
+      .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
+
+    (assetService.albumArt _)
+      .expects("nonexistent-art", ApiTestData.NormalUser)
+      .returns(IO.raiseError(ResourceNotFoundException("Album art not found")))
+
+    ignoreHttpMetrics() *>
+      createRoutes()
+        .run(
+          Request[IO](
+            method = GET,
+            uri = uri"/assets/album-art/id/nonexistent-art",
+            headers = authHeaders
+          )
+        )
+        .flatMap { response =>
+          IO.delay {
+            response must haveStatus(Status.NotFound)
+          }
+        }
+  }
+
+  it should "return unauthorized when not authenticated" in runIO {
+    ignoreHttpMetrics() *>
+      createRoutes()
+        .run(
+          Request[IO](
+            method = GET,
+            uri = uri"/assets/album-art/id/album-art-123"
+          )
+        )
+        .flatMap { response =>
+          IO.delay {
+            response must haveStatus(Status.Unauthorized)
           }
         }
   }
