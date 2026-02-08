@@ -97,7 +97,7 @@ class AssetServiceImpl[F[_]: MonadThrow: Clock, T[_]: MonadThrow](
         }
     }
 
-  override def albumCover(id: String, user: User): F[Asset[F, AlbumArt.type]] =
+  override def albumArt(id: String, user: User): F[Asset[F, AlbumArt.type]] =
     user.nonAdminUserId.fold(
       retrieve[AlbumArt.type ](id, typeValidator[AlbumArt.type ](playlistDao.isAlbumArtFileResource))
     ) { userId =>

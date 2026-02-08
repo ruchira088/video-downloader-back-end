@@ -25,6 +25,9 @@ object AssetRoutes {
       case GET -> Root / "snapshot" / "id" / id as AuthenticatedRequestContext(user, _) =>
         assetService.snapshot(id, user).flatMap(_.asResponse)
 
+      case GET -> Root / "album-art" / "id" / id as AuthenticatedRequestContext(user, _) =>
+        assetService.albumArt(id, user).flatMap(_.asResponse)
+
       case authRequest @ GET -> Root / "video" / "id" / id as AuthenticatedRequestContext(user, _) =>
         for {
           maybeRange <- Applicative[F].pure {

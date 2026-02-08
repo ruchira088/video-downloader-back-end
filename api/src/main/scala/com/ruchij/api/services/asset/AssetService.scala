@@ -15,7 +15,7 @@ trait AssetService[F[_]] {
 
   def snapshot(id: String, user: User): F[Asset[F, Snapshot.type]]
 
-  def albumCover(id: String, user: User): F[Asset[F, AlbumArt.type]]
+  def albumArt(id: String, user: User): F[Asset[F, AlbumArt.type]]
 
   def thumbnail(id: String): F[Asset[F, Thumbnail.type]]
 }
