@@ -9,10 +9,8 @@ import doobie.util.{Get, Put}
 import enumeratum.{Enum, EnumEntry}
 import org.http4s.{MediaType, Uri}
 import java.time.Instant
-import java.time.temporal.ChronoUnit
 
 import scala.concurrent.duration.FiniteDuration
-import scala.reflect.runtime.universe.TypeTag
 import scala.util.Try
 
 object DoobieCustomMappings {
@@ -24,7 +22,7 @@ object DoobieCustomMappings {
 
   implicit def enumPut[A <: EnumEntry]: Put[A] = Put[String].contramap[A](_.entryName)
 
-  implicit def enumGet[A <: EnumEntry: TypeTag](implicit enumValues: Enum[A]): Get[A] =
+  implicit def enumGet[A <: EnumEntry](implicit enumValues: Enum[A]): Get[A] =
     Get[String].temap(text => enumValues.withNameInsensitiveEither(text).left.map(_.getMessage()))
 
   implicit val uriPut: Put[Uri] = Put[String].contramap[Uri](_.renderString)
@@ -36,10 +34,9 @@ object DoobieCustomMappings {
   implicit val finiteDurationGet: Get[FiniteDuration] =
     Get[Long].map(number => FiniteDuration(number, TimeUnit.MILLISECONDS))
 
-  implicit val instantPut: Put[Instant] =
-    Put[Timestamp].tcontramap[Instant](instant => Timestamp.from(instant.truncatedTo(ChronoUnit.MICROS)))
+  implicit val instantPut: Put[Instant] = Put[Timestamp].tcontramap[Instant](Timestamp.from)
 
-  implicit val instantGet: Get[Instant] = Get[Timestamp].map(timestamp => timestamp.toInstant)
+  implicit val instantGet: Get[Instant] = Get[Timestamp].map(_.toInstant)
 
   implicit val pathPut: Put[Path] = Put[String].contramap[Path](_.toAbsolutePath.toString)
 
