@@ -144,6 +144,12 @@ class DoobiePlaylistDao(fileResourceDao: FileResourceDao[ConnectionIO], videoDao
           .map(_.flattenOption)
       }
 
+  override def isAlbumArtFileResource(fileResourceId: String): ConnectionIO[Boolean] =
+    sql"SELECT EXISTS(SELECT 1 FROM playlist WHERE album_art_id = $fileResourceId)".query[Boolean].unique
+
+  override def hasAlbumArtPermission(fileResourceId: String, userId: String): ConnectionIO[Boolean] =
+    sql"SELECT EXISTS(SELECT 1 FROM playlist WHERE album_art_id = $fileResourceId AND user_id = $userId)".query[Boolean].unique
+
   override def deleteById(playlistId: String, maybeUserId: Option[String]): ConnectionIO[Int] =
     maybeUserId
       .fold[ConnectionIO[Int]](Applicative[ConnectionIO].pure(1)) { userId =>

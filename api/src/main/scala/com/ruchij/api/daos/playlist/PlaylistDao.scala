@@ -26,5 +26,9 @@ trait PlaylistDao[F[_]] {
     maybeUserId: Option[String]
   ): F[Seq[Playlist]]
 
+  def isAlbumArtFileResource(fileResourceId: String): F[Boolean]
+
+  def hasAlbumArtPermission(fileResourceId: String, userId: String): F[Boolean]
+
   def deleteById(playlistId: String, maybeUserId: Option[String]): F[Int]
 }

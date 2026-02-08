@@ -64,6 +64,9 @@ object DoobieVideoMetadataDao extends VideoMetadataDao[ConnectionIO] {
       .query[VideoMetadata]
       .option
 
+  override def isThumbnailFileResource(thumbnailId: String): ConnectionIO[Boolean] =
+    sql"SELECT EXISTS(SELECT 1 FROM video_metadata WHERE thumbnail_id = $thumbnailId)".query[Boolean].unique
+
   override def findByUrl(uri: Uri): ConnectionIO[Option[VideoMetadata]] =
     (SelectQuery ++ fr"WHERE video_metadata.url = $uri")
       .query[VideoMetadata]

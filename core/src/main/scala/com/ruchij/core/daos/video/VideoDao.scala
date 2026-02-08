@@ -43,6 +43,8 @@ trait VideoDao[F[_]] {
 
   def hasVideoFilePermission(videoFileResourceId: String, userId: String): F[Boolean]
 
+  def isVideoFileResourceExist(videoFileResourceId: String): F[Boolean]
+
   val count: F[Int]
 
   val duration: F[FiniteDuration]

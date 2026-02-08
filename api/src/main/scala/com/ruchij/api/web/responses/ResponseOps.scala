@@ -2,14 +2,14 @@ package com.ruchij.api.web.responses
 
 import cats.effect.Sync
 import cats.implicits._
-import com.ruchij.api.services.asset.models.Asset
+import com.ruchij.api.services.asset.models.{Asset, AssetType}
 import com.ruchij.core.types.FunctionKTypes._
 import org.http4s.headers.{Range, `Accept-Ranges`, `Content-Length`, `Content-Range`, `Content-Type`}
 import org.http4s.{Headers, Response, Status}
 
 object ResponseOps {
 
-  private def assetResponse[F[_]: Sync](asset: Asset[F]): F[Response[F]] =
+  private def assetResponse[F[_]: Sync, A <: AssetType](asset: Asset[F, A]): F[Response[F]] =
     Sync[F].defer {
       `Content-Length`.fromLong(asset.fileRange.end - asset.fileRange.start)
         .toType[F, Throwable]
@@ -36,7 +36,7 @@ object ResponseOps {
     }
 
 
-  implicit class AssetResponseOps[F[_]: Sync](asset: Asset[F]) {
-    val asResponse: F[Response[F]] = assetResponse[F](asset)
+  implicit class AssetResponseOps[F[_]: Sync, A <: AssetType](asset: Asset[F, A]) {
+    val asResponse: F[Response[F]] = assetResponse[F, A](asset)
   }
 }

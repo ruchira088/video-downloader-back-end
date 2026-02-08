@@ -12,6 +12,8 @@ trait VideoMetadataDao[F[_]] {
 
   def findById(videoMetadataId: String): F[Option[VideoMetadata]]
 
+  def isThumbnailFileResource(thumbnailId: String): F[Boolean]
+
   def findByUrl(uri: Uri): F[Option[VideoMetadata]]
 
   def deleteById(videoMetadataId: String): F[Int]

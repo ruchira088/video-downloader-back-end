@@ -9,5 +9,7 @@ trait SnapshotDao[F[_]] {
 
   def hasPermission(snapshotFileResourceId: String, userId: String): F[Boolean]
 
+  def isSnapshotFileResource(fileResourceId: String): F[Boolean]
+
   def deleteByVideo(videoId: String): F[Int]
 }

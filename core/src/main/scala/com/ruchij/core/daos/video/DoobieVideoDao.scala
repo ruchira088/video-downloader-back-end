@@ -151,6 +151,9 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
       .unique
       .map(_ == 1)
 
+  override def isVideoFileResourceExist(videoFileResourceId: String): ConnectionIO[Boolean] =
+    sql"SELECT EXISTS(SELECT 1 FROM video WHERE file_resource_id = $videoFileResourceId)".query[Boolean].unique
+
   override val count: ConnectionIO[Int] =
     sql"SELECT COUNT(*) FROM video".query[Int].unique
 

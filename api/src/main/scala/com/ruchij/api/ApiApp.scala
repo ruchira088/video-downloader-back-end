@@ -245,6 +245,8 @@ object ApiApp extends IOApp {
         DoobieFileResourceDao,
         DoobieSnapshotDao,
         DoobieVideoDao,
+        DoobieVideoMetadataDao,
+        playlistDao,
         repositoryService,
         messageBrokers.videoWatchMetricsPublisher
       )
