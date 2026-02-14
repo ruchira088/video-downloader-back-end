@@ -2,18 +2,18 @@ package com.ruchij.core.services.video
 
 import cats.effect.IO
 import cats.effect.std.Dispatcher
-import com.ruchij.core.exceptions.CliCommandException
+import com.ruchij.core.exceptions.{CliCommandException, ResourceNotFoundException}
 import com.ruchij.core.services.cli.{CliCommandRunner, CliCommandRunnerImpl}
 import com.ruchij.core.services.video.models.YTDataUnit.MiB
 import com.ruchij.core.services.video.models.{YTDataSize, YTDownloaderProgress}
 import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import fs2.Stream
+import io.circe.ParsingFailure
 import org.http4s.client.Client
 import org.http4s.implicits.http4sLiteralsSyntax
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
-import com.ruchij.core.exceptions.{ResourceNotFoundException, UnsupportedVideoUrlException}
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -252,7 +252,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
       }
   }
 
-  it should "throw UnsupportedVideoUrlException for invalid JSON response" in runIO {
+  it should "throw exceptions for invalid JSON response" in runIO {
     val cliCommandRunner = mock[CliCommandRunner[IO]]
     val client = mock[Client[IO]]
     val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client)
@@ -269,7 +269,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
       .flatMap { result =>
         IO.delay {
           result.isLeft mustBe true
-          result.left.exists(_.isInstanceOf[UnsupportedVideoUrlException]) mustBe true
+          result.left.exists(_.isInstanceOf[ParsingFailure]) mustBe true
         }
       }
   }

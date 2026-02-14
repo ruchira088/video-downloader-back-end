@@ -52,6 +52,12 @@ class CliCommandRunnerImpl[F[_]: Async](dispatcher: Dispatcher[F]) extends CliCo
             .repeat
             .metered(100 milliseconds)
             .filter(isAlive => !isAlive)
+            .productL {
+              Stream.eval {
+                logger.info[F](s"Waiting for output to be collected: $command")
+                  .productL(Sync[F].sleep(100 milliseconds))
+              }
+            }
             .productR {
               Stream
                 .eval(queue.size)

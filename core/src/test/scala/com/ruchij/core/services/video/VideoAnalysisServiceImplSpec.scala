@@ -17,8 +17,8 @@ import com.ruchij.core.services.renderer.SpaSiteRendererImpl
 import com.ruchij.core.services.video.models.VideoAnalysisResult
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.matchers.matchCaseInsensitivelyTo
-import com.ruchij.core.types.FunctionKTypes.identityFunctionK
 import com.ruchij.core.types.Clock
+import com.ruchij.core.types.FunctionKTypes.identityFunctionK
 import org.http4s.implicits.http4sLiteralsSyntax
 import org.http4s.jdkhttpclient.JdkHttpClient
 import org.http4s.{Query, Uri}
@@ -148,10 +148,13 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
     }.value
   }
 
+  private def isCI[F[_]: Sync]: F[Boolean] =
+    Sync[F].delay(sys.env.get("CI")).map(_.flatMap(_.toBooleanOption).getOrElse(false))
+
   private def analyze[F[_]: Async: Clock](videoUri: Uri): OptionT[F, VideoAnalysisResult] =
     OptionT
-      .liftF(Sync[F].delay(sys.env))
-      .filter(envs => !envs.get("CI").flatMap(_.toBooleanOption).contains(true))
+      .liftF(isCI[F])
+      .map(isCi => !isCi)
       .productR {
         OptionT.liftF {
           Sync[F]

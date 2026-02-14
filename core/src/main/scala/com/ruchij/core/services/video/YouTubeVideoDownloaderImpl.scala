@@ -5,7 +5,7 @@ import cats.effect.{Async, Ref, Sync}
 import cats.MonadThrow
 import cats.implicits._
 import com.ruchij.core.daos.videometadata.models.{VideoSite, WebPage}
-import com.ruchij.core.exceptions.{CliCommandException, ResourceNotFoundException, UnsupportedVideoUrlException}
+import com.ruchij.core.exceptions.{CliCommandException, ResourceNotFoundException}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.cli.CliCommandRunner
 import com.ruchij.core.services.video.models.{VideoAnalysisResult, YTDataSize, YTDataUnit, YTDownloaderMetadata, YTDownloaderProgress}
@@ -13,7 +13,7 @@ import com.ruchij.core.types.FunctionKTypes._
 import com.ruchij.core.services.video.models.YTDataSize.ytDataSizeOrdering
 import com.ruchij.core.utils.{JsoupSelector, Timers}
 import fs2.Stream
-import io.circe.{Error, parser => JsonParser}
+import io.circe.{parser => JsonParser}
 import io.circe.generic.auto._
 import org.http4s.Uri
 import org.http4s.circe.decodeUri
@@ -54,9 +54,7 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
           }
       }
       .flatMap { output =>
-        MonadThrow[F].recoverWith(JsonParser.decode[YTDownloaderMetadata](output).toType[F, Throwable]) {
-          case _: Error => MonadThrow[F].raiseError(UnsupportedVideoUrlException(uri))
-        }
+        JsonParser.decode[YTDownloaderMetadata](output).toType[F, Throwable]
       }
       .flatMap { metadata =>
         VideoSite
