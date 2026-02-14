@@ -5,7 +5,7 @@ object Dependencies
   val ScalaVersion = "2.13.18"
   val Http4sVersion = "0.23.33"
   val CirceVersion = "0.14.15"
-  val FlywayVersion = "12.0.0"
+  val FlywayVersion = "12.0.1"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -49,7 +49,7 @@ object Dependencies
 
   lazy val flywayPostgresql = "org.flywaydb" % "flyway-database-postgresql"  % FlywayVersion
 
-  lazy val postgresql = "org.postgresql" % "postgresql" % "42.7.9"
+  lazy val postgresql = "org.postgresql" % "postgresql" % "42.7.10"
 
   lazy val h2 = "com.h2database" % "h2" % "2.4.240"
 
@@ -71,7 +71,7 @@ object Dependencies
 
   lazy val redisTestContainer = "com.redis" % "testcontainers-redis" % "2.2.4"
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.28"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.29"
 
   lazy val logstashLogbackEncoder = "net.logstash.logback" % "logstash-logback-encoder" % "9.0"
 
@@ -87,5 +87,5 @@ object Dependencies
 
   lazy val pegdown = "org.pegdown" % "pegdown" % "1.6.0"
 
-  lazy val sentry = "io.sentry" % "sentry" % "8.31.0"
+  lazy val sentry = "io.sentry" % "sentry" % "8.32.0"
 }
