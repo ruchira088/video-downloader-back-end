@@ -154,7 +154,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
   private def analyze[F[_]: Async: Clock](videoUri: Uri): OptionT[F, VideoAnalysisResult] =
     OptionT
       .liftF(isCI[F])
-      .map(isCi => !isCi)
+      .filter(isCi => !isCi)
       .productR {
         OptionT.liftF {
           Sync[F]
