@@ -33,7 +33,7 @@ object Dependencies
 
   lazy val circeLiteral = "io.circe" %% "circe-literal" % CirceVersion
 
-  lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.9.4"
+  lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.9.5"
 
   lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.13"
 
@@ -71,7 +71,7 @@ object Dependencies
 
   lazy val redisTestContainer = "com.redis" % "testcontainers-redis" % "2.2.4"
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.29"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.31"
 
   lazy val logstashLogbackEncoder = "net.logstash.logback" % "logstash-logback-encoder" % "9.0"
 
