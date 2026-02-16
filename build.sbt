@@ -90,7 +90,8 @@ lazy val core =
           kafkaTestContainer,
           postgresqlTestContainer,
           redisTestContainer,
-          sentry
+          sentry,
+          perceptualHash
         ) ++
           Seq(scalaTest, scalaMock).map(_ % Test)
     )
