@@ -5,7 +5,7 @@ object Dependencies
   val ScalaVersion = "2.13.18"
   val Http4sVersion = "0.23.33"
   val CirceVersion = "0.14.15"
-  val FlywayVersion = "12.0.1"
+  val FlywayVersion = "12.0.2"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -37,9 +37,9 @@ object Dependencies
 
   lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.13"
 
-  lazy val doobie = "org.tpolecat" %% "doobie-core" % "1.0.0-RC11"
+  lazy val doobie = "org.tpolecat" %% "doobie-core" % "1.0.0-RC12"
 
-  lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "1.0.0-RC11"
+  lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "1.0.0-RC12"
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.22.1"
 
@@ -71,7 +71,7 @@ object Dependencies
 
   lazy val redisTestContainer = "com.redis" % "testcontainers-redis" % "2.2.4"
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.31"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.32"
 
   lazy val logstashLogbackEncoder = "net.logstash.logback" % "logstash-logback-encoder" % "9.0"
 
@@ -87,7 +87,7 @@ object Dependencies
 
   lazy val pegdown = "org.pegdown" % "pegdown" % "1.6.0"
 
-  lazy val sentry = "io.sentry" % "sentry" % "8.32.0"
+  lazy val sentry = "io.sentry" % "sentry" % "8.33.0"
 
   lazy val perceptualHash = "dev.brachtendorf" % "JImageHash" % "1.0.0"
 }
