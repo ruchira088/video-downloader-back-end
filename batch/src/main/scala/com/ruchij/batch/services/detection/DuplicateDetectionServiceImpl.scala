@@ -2,7 +2,7 @@ package com.ruchij.batch.services.detection
 
 import cats.data.OptionT
 import cats.implicits._
-import cats.{Monad, MonadThrow, ~>}
+import cats.{Applicative, Monad, MonadThrow, ~>}
 import com.ruchij.core.daos.hash.VideoPerceptualHashDao
 import com.ruchij.core.daos.hash.models.VideoPerceptualHash
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService
@@ -61,7 +61,7 @@ class DuplicateDetectionServiceImpl[F[_]: MonadThrow: Clock, G[_]: Monad](
                     .map(_.find(_.snapshotTimestamp == videoHash.snapshotTimestamp))
                     .flatMap {
                       case None => videoPerceptualHashDao.insert(videoHash)
-                      case _ => 0.pure[G]
+                      case _ => Applicative[G].pure(0)
                     }
                 }
               }
