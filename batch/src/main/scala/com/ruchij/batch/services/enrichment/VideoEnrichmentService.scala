@@ -18,8 +18,11 @@ trait VideoEnrichmentService[F[_]] {
 object VideoEnrichmentService {
   val SnapshotCount = 12
 
-  def snapshotTimestamps(video: Video, snapshotCount: Int): Seq[FiniteDuration] = {
-    val period = video.videoMetadata.duration / (snapshotCount + 1)
+  def snapshotTimestamps(video: Video, snapshotCount: Int): Seq[FiniteDuration] =
+    snapshotTimestamps(video.videoMetadata.duration, snapshotCount)
+
+  def snapshotTimestamps(videoDuration: FiniteDuration, snapshotCount: Int): Seq[FiniteDuration] = {
+    val period = videoDuration / (snapshotCount + 1)
 
     Range(1, snapshotCount + 1).map(_ * period)
   }

@@ -94,27 +94,27 @@ class PerceptualHashingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "return a low distance for similar images" in runIO {
-    val fineCheckerboard = createCheckerboard(200, 200, 20)
-    val coarseCheckerboard = createCheckerboard(200, 200, 40)
+    val stripes = createHorizontalStripes(200, 200)
+    val checkerboard = createCheckerboard(200, 200, 40)
 
     for {
-      hash1 <- hashingService.hashImage(imageStream(fineCheckerboard))
-      hash2 <- hashingService.hashImage(imageStream(coarseCheckerboard))
+      hash1 <- hashingService.hashImage(imageStream(stripes))
+      hash2 <- hashingService.hashImage(imageStream(checkerboard))
       distance <- hashingService.compareHashes(hash1, hash2)
     } yield {
       distance must be > 0.1
-      distance must be < 0.3
+      distance must be < 0.2
     }
   }
 
   it should "return a high distance for structurally different images" in runIO {
-    val stripes = createHorizontalStripes(200, 200)
-    val checkerboard = createCheckerboard(200, 200, 25)
+    val fineCheckerboard = createCheckerboard(200, 200, 20)
+    val coarseCheckerboard = createCheckerboard(200, 200, 30)
 
     for {
-      stripesHash <- hashingService.hashImage(imageStream(stripes))
-      checkerboardHash <- hashingService.hashImage(imageStream(checkerboard))
-      distance <- hashingService.compareHashes(stripesHash, checkerboardHash)
-    } yield distance must be > 0.2
+      fineHash <- hashingService.hashImage(imageStream(fineCheckerboard))
+      coarseHash <- hashingService.hashImage(imageStream(coarseCheckerboard))
+      distance <- hashingService.compareHashes(fineHash, coarseHash)
+    } yield distance must be > 0.3
   }
 }
