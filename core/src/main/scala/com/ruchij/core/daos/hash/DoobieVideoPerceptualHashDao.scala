@@ -1,6 +1,6 @@
-package com.ruchij.batch.daos.hash
+package com.ruchij.core.daos.hash
 
-import com.ruchij.batch.daos.hash.models.VideoPerceptualHash
+import com.ruchij.core.daos.hash.models.VideoPerceptualHash
 import doobie.free.connection.ConnectionIO
 import doobie.implicits.toSqlInterpolator
 import doobie.generic.auto._

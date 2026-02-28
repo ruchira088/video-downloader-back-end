@@ -3,8 +3,8 @@ package com.ruchij.batch.services.detection
 import cats.data.OptionT
 import cats.implicits._
 import cats.{Applicative, Monad, MonadThrow, ~>}
-import com.ruchij.batch.daos.hash.VideoPerceptualHashDao
-import com.ruchij.batch.daos.hash.models.VideoPerceptualHash
+import com.ruchij.core.daos.hash.VideoPerceptualHashDao
+import com.ruchij.core.daos.hash.models.VideoPerceptualHash
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService.SnapshotCount
 import com.ruchij.core.daos.duplicate.DuplicateVideoDao
