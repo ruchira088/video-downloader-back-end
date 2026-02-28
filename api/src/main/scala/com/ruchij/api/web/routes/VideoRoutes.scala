@@ -4,6 +4,7 @@ import cats.effect.Async
 import cats.implicits._
 import com.ruchij.api.daos.user.models.Role
 import com.ruchij.api.daos.user.models.Role.Admin
+import com.ruchij.api.services.detection.DuplicateDetectionService
 import com.ruchij.api.services.models.Context.AuthenticatedRequestContext
 import com.ruchij.api.services.video.ApiVideoService
 import com.ruchij.api.web.middleware.Authorizer
@@ -29,7 +30,8 @@ object VideoRoutes {
   def apply[F[_]: Async](
     apiVideoService: ApiVideoService[F],
     videoAnalysisService: VideoAnalysisService[F],
-    videoWatchHistoryService: VideoWatchHistoryService[F]
+    videoWatchHistoryService: VideoWatchHistoryService[F],
+    duplicateDetectionService: DuplicateDetectionService[F]
   )(implicit dsl: Http4sDsl[F]): ContextRoutes[AuthenticatedRequestContext, F] = {
     import dsl._
 
@@ -144,6 +146,18 @@ object VideoRoutes {
       case POST -> Root / "queue-incomplete-downloads" as AuthenticatedRequestContext(user, _)
           if user.role == Role.Admin =>
         apiVideoService.queueIncorrectlyCompletedVideos.flatMap(videos => Ok(IterableResponse(videos)))
+
+      case GET -> Root / "duplicates" :? queryParameters as AuthenticatedRequestContext(user, _)
+          if user.role == Role.Admin =>
+        for {
+          PagingQuery(pageSize, pageNumber) <- PagingQuery.from[F].run(queryParameters)
+          duplicates <- duplicateDetectionService.findDuplicateVideos(
+            offset = pageNumber * pageSize,
+            limit = pageSize
+          )
+          response <- Ok(IterableResponse(duplicates))
+        } yield response
+
     }
   }
 }

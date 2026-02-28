@@ -19,6 +19,7 @@ import com.ruchij.api.services.authentication.models.AuthenticationToken.Authent
 import com.ruchij.api.services.background.BackgroundServiceImpl
 import com.ruchij.api.services.config.models.ApiConfigKey
 import com.ruchij.api.services.config.models.ApiConfigKey.ApiConfigKeySpace
+import com.ruchij.api.services.detection.DuplicateDetectionServiceImpl
 import com.ruchij.api.services.hashing.BCryptPasswordHashingService
 import com.ruchij.api.services.health.HealthServiceImpl
 import com.ruchij.api.services.health.models.kv.HealthCheckKey
@@ -31,6 +32,7 @@ import com.ruchij.api.services.video.ApiVideoServiceImpl
 import com.ruchij.api.web.Routes
 import com.ruchij.core.commands.ScanVideosCommand
 import com.ruchij.core.daos.doobie.DoobieTransactor
+import com.ruchij.core.daos.duplicate.DoobieDuplicateVideoDao
 import com.ruchij.core.daos.permission.DoobieVideoPermissionDao
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
@@ -40,13 +42,13 @@ import com.ruchij.core.daos.title.DoobieVideoTitleDao
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videowatchhistory.DoobieVideoWatchHistoryDao
-import com.ruchij.core.kv.{KeySpacedKeyValueStore, KeyValueStore, RedisKeyValueStore}
 import com.ruchij.core.kv.codecs.KVDecoder._
 import com.ruchij.core.kv.codecs.KVEncoder._
+import com.ruchij.core.kv.{KeySpacedKeyValueStore, KeyValueStore, RedisKeyValueStore}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.kafka.{KafkaPubSub, KafkaPublisher}
-import com.ruchij.core.monitoring.Sentry
 import com.ruchij.core.messaging.models.{HttpMetric, VideoWatchMetric}
+import com.ruchij.core.monitoring.Sentry
 import com.ruchij.core.services.cli.CliCommandRunnerImpl
 import com.ruchij.core.services.config.models.SharedConfigKey
 import com.ruchij.core.services.config.models.SharedConfigKey.SharedConfigKeySpace
@@ -56,7 +58,12 @@ import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.renderer.SpaSiteRendererImpl
 import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector, RepositoryService}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
-import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, VideoWatchHistoryServiceImpl, YouTubeVideoDownloaderImpl}
+import com.ruchij.core.services.video.{
+  VideoAnalysisServiceImpl,
+  VideoServiceImpl,
+  VideoWatchHistoryServiceImpl,
+  YouTubeVideoDownloaderImpl
+}
 import com.ruchij.core.types.{Clock, RandomGenerator}
 import doobie.free.connection.ConnectionIO
 import doobie.hikari.HikariTransactor
@@ -68,12 +75,11 @@ import org.http4s.HttpApp
 import org.http4s.client.Client
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.jdkhttpclient.JdkHttpClient
-
-import java.time.Instant
 import pureconfig.ConfigSource
 
 import java.net.http.HttpClient
 import java.net.http.HttpClient.Redirect
+import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
@@ -295,6 +301,8 @@ object ApiApp extends IOApp {
         apiServiceConfiguration.spaSiteRendererConfiguration
       )
 
+      duplicateDetectionService = new DuplicateDetectionServiceImpl[F, ConnectionIO](DoobieDuplicateVideoDao)
+
       _ <- backgroundService.run
 
     } yield
@@ -311,6 +319,7 @@ object ApiApp extends IOApp {
         backgroundService.downloadProgress,
         backgroundService.updates,
         messageBrokers.httpMetricsPublisher,
+        duplicateDetectionService,
         apiServiceConfiguration.httpConfiguration.allowedOriginHosts
       )
   }

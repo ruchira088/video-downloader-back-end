@@ -5,7 +5,7 @@ import com.ruchij.core.daos.duplicate.models.DuplicateVideo
 import doobie.ConnectionIO
 import doobie.implicits._
 
-class DoobieDuplicateVideoDao extends DuplicateVideoDao[ConnectionIO] {
+object DoobieDuplicateVideoDao extends DuplicateVideoDao[ConnectionIO] {
 
   override def insert(duplicateVideo: DuplicateVideo): ConnectionIO[Int] =
     sql"""

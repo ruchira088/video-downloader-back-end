@@ -4,6 +4,7 @@ import cats.effect.Async
 import cats.implicits._
 import com.ruchij.api.services.asset.AssetService
 import com.ruchij.api.services.authentication.AuthenticationService
+import com.ruchij.api.services.detection.DuplicateDetectionService
 import com.ruchij.api.services.health.HealthService
 import com.ruchij.api.services.models.Context.RequestContext
 import com.ruchij.api.services.playlist.PlaylistService
@@ -41,6 +42,7 @@ object Routes {
     downloadProgressStream: Stream[F, DownloadProgress],
     scheduledVideoDownloadUpdatesStream: Stream[F, ScheduledVideoDownload],
     metricPublisher: Publisher[F, HttpMetric],
+    duplicateDetectionService: DuplicateDetectionService[F],
     allowedOrigins: Set[String]
   ): HttpApp[F] = {
     implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
@@ -56,7 +58,9 @@ object Routes {
           "/schedule" -> authMiddleware(
             SchedulingRoutes(apiSchedulingService, downloadProgressStream, scheduledVideoDownloadUpdatesStream)
           ),
-          "/videos" -> authMiddleware(VideoRoutes(apiVideoService, videoAnalysisService, videoWatchHistoryService)),
+          "/videos" -> authMiddleware(
+            VideoRoutes(apiVideoService, videoAnalysisService, videoWatchHistoryService, duplicateDetectionService)
+          ),
           "/playlists" -> authMiddleware(PlaylistRoutes(playlistService)),
           "/assets" -> authMiddleware(AssetRoutes(assetService)),
           "/service" -> ServiceRoutes(healthService),
