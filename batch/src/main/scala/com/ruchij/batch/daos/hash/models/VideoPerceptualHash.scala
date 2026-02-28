@@ -1,4 +1,4 @@
-package com.ruchij.batch.daos.detection.models
+package com.ruchij.batch.daos.hash.models
 
 import java.time.Instant
 import scala.concurrent.duration.FiniteDuration

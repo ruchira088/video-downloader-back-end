@@ -45,4 +45,8 @@ object DoobieCustomMappings {
   implicit val mediaTypePut: Put[MediaType] = Put[String].contramap[MediaType](Show[MediaType].show)
 
   implicit val mediaTypeGet: Get[MediaType] = Get[String].temap(value => MediaType.parse(value).left.map(_.message))
+
+  implicit val bigIntPut: Put[BigInt] = Put[String].contramap[BigInt](_.toString)
+
+  implicit val bigIntGet: Get[BigInt] = Get[String].temap(text => Try(BigInt(text)).toEither.left.map(_.getMessage))
 }

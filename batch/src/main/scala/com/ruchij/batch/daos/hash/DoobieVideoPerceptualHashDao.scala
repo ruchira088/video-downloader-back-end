@@ -1,14 +1,14 @@
-package com.ruchij.batch.daos.detection
+package com.ruchij.batch.daos.hash
 
-import com.ruchij.batch.daos.detection.models.VideoPerceptualHash
+import com.ruchij.batch.daos.hash.models.VideoPerceptualHash
 import doobie.free.connection.ConnectionIO
 import doobie.implicits.toSqlInterpolator
+import doobie.generic.auto._
 
 import scala.concurrent.duration.FiniteDuration
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
-import java.time.Instant
 
-object DoobieDuplicateDetectionDao extends DuplicateDetectionDao[ConnectionIO] {
+object DoobieVideoPerceptualHashDao extends VideoPerceptualHashDao[ConnectionIO] {
 
   override val uniqueVideoDurations: ConnectionIO[Set[FiniteDuration]] =
     sql"""
@@ -48,9 +48,15 @@ object DoobieDuplicateDetectionDao extends DuplicateDetectionDao[ConnectionIO] {
         FROM video_perceptual_hash
         WHERE duration = $duration
     """
-      .query[(String, Instant, FiniteDuration, Long, FiniteDuration)]
-      .map { case (videoId, createdAt, dur, hash, snapshotTs) =>
-        VideoPerceptualHash(videoId, createdAt, dur, BigInt(hash), snapshotTs)
-      }
+      .query[VideoPerceptualHash]
       .to[Seq]
+
+  override def getByVideoId(videoId: String): ConnectionIO[List[VideoPerceptualHash]] =
+    sql"""
+      SELECT video_id, created_at, duration, snapshot_perceptual_hash, snapshot_timestamp
+        FROM video_perceptual_hash
+        WHERE video_id = $videoId
+    """
+      .query[VideoPerceptualHash]
+      .to[List]
 }

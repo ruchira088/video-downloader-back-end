@@ -3,8 +3,8 @@ package com.ruchij.batch.services.detection
 import cats.data.OptionT
 import cats.implicits._
 import cats.{Applicative, Monad, MonadThrow, ~>}
-import com.ruchij.batch.daos.detection.DuplicateDetectionDao
-import com.ruchij.batch.daos.detection.models.VideoPerceptualHash
+import com.ruchij.batch.daos.hash.VideoPerceptualHashDao
+import com.ruchij.batch.daos.hash.models.VideoPerceptualHash
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService.SnapshotCount
 import com.ruchij.core.daos.duplicate.DuplicateVideoDao
@@ -21,13 +21,13 @@ import scala.concurrent.duration.FiniteDuration
 class DuplicateDetectionServiceImpl[F[_]: MonadThrow: Clock, G[_]: Monad](
   perceptualHashingService: PerceptualHashingService[F],
   repositoryService: RepositoryService[F],
-  duplicateDetectionDao: DuplicateDetectionDao[G],
+  videoPerceptualHashDao: VideoPerceptualHashDao[G],
   duplicateVideoDao: DuplicateVideoDao[G],
   snapshotDao: SnapshotDao[G]
 )(implicit transaction: G ~> F)
     extends DuplicateDetectionService[F] {
   override val detect: F[Map[FiniteDuration, Set[Set[String]]]] =
-    transaction(duplicateDetectionDao.uniqueVideoDurations)
+    transaction(videoPerceptualHashDao.uniqueVideoDurations)
       .flatMap { durations =>
         durations.toList.traverse { duration =>
           detectDuplicates(duration).map(duration -> _)
@@ -41,8 +41,8 @@ class DuplicateDetectionServiceImpl[F[_]: MonadThrow: Clock, G[_]: Monad](
 
     transaction {
       for {
-        videoIds <- duplicateDetectionDao.getVideoIdsByDuration(duration)
-        videoHashes <- duplicateDetectionDao.findVideoHashesByDuration(duration)
+        videoIds <- videoPerceptualHashDao.getVideoIdsByDuration(duration)
+        videoHashes <- videoPerceptualHashDao.findVideoHashesByDuration(duration)
         videoHashIds = videoHashes.map(_.videoId).toSet
         videoIdsWithoutHashes = videoIds.filterNot(videoHashIds.contains)
       } yield videoIdsWithoutHashes -> videoHashes
@@ -55,7 +55,15 @@ class DuplicateDetectionServiceImpl[F[_]: MonadThrow: Clock, G[_]: Monad](
             .map(_.collect { case Some(value) => value })
             .flatTap { newVideoHashes =>
               transaction {
-                newVideoHashes.traverse(duplicateDetectionDao.insert)
+                newVideoHashes.traverse { videoHash =>
+                  videoPerceptualHashDao
+                    .getByVideoId(videoHash.videoId)
+                    .map(_.find(_ == videoHash))
+                    .flatMap {
+                      case None => videoPerceptualHashDao.insert(videoHash)
+                      case _ => Applicative[G].pure(0)
+                    }
+                }
               }
             }
             .map(_ ++ videoHashes)
