@@ -405,7 +405,7 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     (duplicateDetectionService.findDuplicateVideos _)
       .expects(0, 25)
-      .returns(IO.pure(Set(Set(duplicateVideo))))
+      .returns(IO.pure(Map("group-1" -> Set(duplicateVideo))))
 
     ignoreHttpMetrics() *>
       createRoutes()
@@ -452,7 +452,7 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     (duplicateDetectionService.findDuplicateVideos _)
       .expects(10, 5)
-      .returns(IO.pure(Set.empty[Set[DuplicateVideo]]))
+      .returns(IO.pure(Map.empty[String, Set[DuplicateVideo]]))
 
     ignoreHttpMetrics() *>
       createRoutes()

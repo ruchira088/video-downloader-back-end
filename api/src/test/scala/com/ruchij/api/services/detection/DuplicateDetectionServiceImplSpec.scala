@@ -25,7 +25,7 @@ class DuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
     override def findByVideoId(videoId: String): IO[Option[DuplicateVideo]] = IO.pure(None)
     override def findByDuplicateGroupId(duplicateGroupId: String): IO[Seq[DuplicateVideo]] = IO.pure(findByGroupResult)
     override def getAll(offset: Int, limit: Int): IO[Seq[DuplicateVideo]] = IO.pure(getAllResult)
-    override val duplicateGroupIds: IO[Seq[String]] = IO.pure(groupIdsResult)
+    override def duplicateGroupIds: IO[Seq[String]] = IO.pure(groupIdsResult)
   }
 
   private def createService(dao: DuplicateVideoDao[IO]): DuplicateDetectionServiceImpl[IO, IO] =
@@ -45,9 +45,8 @@ class DuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
       result <- service.findDuplicateVideos(0, 25)
     } yield {
       result.size mustBe 2
-      val videoIdSets = result.map(_.map(_.videoId))
-      videoIdSets must contain(Set("video-1", "video-2"))
-      videoIdSets must contain(Set("video-3", "video-4"))
+      result("group-a").map(_.videoId) mustBe Set("video-1", "video-2")
+      result("group-b").map(_.videoId) mustBe Set("video-3", "video-4")
     }
   }
 
@@ -73,7 +72,7 @@ class DuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
       result <- service.findDuplicateVideos(0, 10)
     } yield {
       result.size mustBe 1
-      result.head.map(_.videoId) mustBe Set("video-1", "video-2", "video-3")
+      result("group-x").map(_.videoId) mustBe Set("video-1", "video-2", "video-3")
     }
   }
 
@@ -91,7 +90,7 @@ class DuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
         capturedLimit = limit
         Seq.empty
       }
-      override val duplicateGroupIds: IO[Seq[String]] = IO.pure(Seq.empty)
+      override def duplicateGroupIds: IO[Seq[String]] = IO.pure(Seq.empty)
     }
     val service = createService(dao)
 
@@ -119,10 +118,9 @@ class DuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
       result <- service.findDuplicateVideos(0, 100)
     } yield {
       result.size mustBe 3
-      val videoIdSets = result.map(_.map(_.videoId))
-      videoIdSets must contain(Set("v1"))
-      videoIdSets must contain(Set("v2", "v3"))
-      videoIdSets must contain(Set("v4", "v5", "v6"))
+      result("g1").map(_.videoId) mustBe Set("v1")
+      result("g2").map(_.videoId) mustBe Set("v2", "v3")
+      result("g3").map(_.videoId) mustBe Set("v4", "v5", "v6")
     }
   }
 

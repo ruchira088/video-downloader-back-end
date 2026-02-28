@@ -13,5 +13,5 @@ trait DuplicateVideoDao[F[_]] {
 
   def getAll(offset: Int, limit: Int): F[Seq[DuplicateVideo]]
 
-  val duplicateGroupIds: F[Seq[String]]
+  def duplicateGroupIds: F[Seq[String]]
 }

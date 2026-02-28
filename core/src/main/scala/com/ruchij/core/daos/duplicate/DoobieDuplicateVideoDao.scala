@@ -33,11 +33,20 @@ object DoobieDuplicateVideoDao extends DuplicateVideoDao[ConnectionIO] {
       .to[Seq]
 
   override def getAll(offset: Int, limit: Int): ConnectionIO[Seq[DuplicateVideo]] =
-    sql"SELECT video_id, duplicate_group_id, created_at FROM duplicate_video LIMIT $limit OFFSET $offset"
+    sql"""
+      SELECT video_id, duplicate_group_id, created_at
+        FROM duplicate_video
+        WHERE duplicate_group_id IN (
+          SELECT DISTINCT duplicate_group_id
+            FROM duplicate_video
+            ORDER BY duplicate_group_id
+            LIMIT $limit OFFSET $offset
+        )
+    """
       .query[DuplicateVideo]
       .to[Seq]
 
-  override val duplicateGroupIds: ConnectionIO[Seq[String]] =
+  override def duplicateGroupIds: ConnectionIO[Seq[String]] =
     sql"SELECT DISTINCT duplicate_group_id FROM duplicate_video"
       .query[String]
       .to[Seq]

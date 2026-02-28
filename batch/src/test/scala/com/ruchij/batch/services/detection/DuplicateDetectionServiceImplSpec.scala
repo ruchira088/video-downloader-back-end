@@ -76,7 +76,7 @@ class DuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
     override def findByDuplicateGroupId(duplicateGroupId: String): IO[Seq[DuplicateVideo]] =
       IO.pure(existingGroups.getOrElse(duplicateGroupId, Seq.empty))
     override def getAll(offset: Int, limit: Int): IO[Seq[DuplicateVideo]] = IO.pure(Seq.empty)
-    override val duplicateGroupIds: IO[Seq[String]] = IO.pure(Seq.empty)
+    override def duplicateGroupIds: IO[Seq[String]] = IO.pure(Seq.empty)
   }
 
   class StubSnapshotDao(

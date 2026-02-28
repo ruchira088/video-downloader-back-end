@@ -155,7 +155,7 @@ object VideoRoutes {
             offset = pageNumber * pageSize,
             limit = pageSize
           )
-          response <- Ok(IterableResponse(duplicates))
+          response <- Ok(duplicates)
         } yield response
 
     }

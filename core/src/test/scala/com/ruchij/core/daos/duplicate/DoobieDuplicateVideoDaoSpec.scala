@@ -130,7 +130,7 @@ class DoobieDuplicateVideoDaoSpec extends AnyFlatSpec with Matchers with OptionV
     } yield ()
   }
 
-  it should "get all duplicate videos with pagination" in runTest { transaction =>
+  it should "get all duplicate videos with group-level pagination" in runTest { transaction =>
     for {
       timestamp <- Clock[IO].timestamp
       _ <- transaction(insertVideo("video-1", timestamp))
@@ -146,11 +146,17 @@ class DoobieDuplicateVideoDaoSpec extends AnyFlatSpec with Matchers with OptionV
       allResults <- transaction(DoobieDuplicateVideoDao.getAll(offset = 0, limit = 10))
       _ <- IO.delay { allResults.size mustBe 3 }
 
-      pageOne <- transaction(DoobieDuplicateVideoDao.getAll(offset = 0, limit = 2))
-      _ <- IO.delay { pageOne.size mustBe 2 }
+      firstGroup <- transaction(DoobieDuplicateVideoDao.getAll(offset = 0, limit = 1))
+      _ <- IO.delay {
+        firstGroup.map(_.duplicateGroupId).toSet.size mustBe 1
+        firstGroup.size mustBe 2
+      }
 
-      pageTwo <- transaction(DoobieDuplicateVideoDao.getAll(offset = 2, limit = 2))
-      _ <- IO.delay { pageTwo.size mustBe 1 }
+      secondGroup <- transaction(DoobieDuplicateVideoDao.getAll(offset = 1, limit = 1))
+      _ <- IO.delay {
+        secondGroup.size mustBe 1
+        secondGroup.head.duplicateGroupId mustBe "group-b"
+      }
 
       emptyPage <- transaction(DoobieDuplicateVideoDao.getAll(offset = 10, limit = 10))
       _ <- IO.delay { emptyPage mustBe empty }
