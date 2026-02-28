@@ -474,6 +474,33 @@ paths:
               schema:
                 $ref: '#/components/schemas/VideosResponse'
 
+  /videos/duplicates:
+    get:
+      tags:
+        - Videos
+      summary: Get duplicate videos
+      description: Retrieve groups of duplicate videos detected by perceptual hashing (admin only)
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: pageNumber
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 25
+      responses:
+        '200':
+          description: Duplicate video groups retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DuplicateVideoGroups'
+
   # Scheduling Routes
   /schedule:
     post:
@@ -1442,6 +1469,25 @@ components:
               timestamp:
                 type: integer
                 description: Timestamp in the video (seconds)
+
+    DuplicateVideo:
+      type: object
+      properties:
+        videoId:
+          type: string
+        duplicateGroupId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    DuplicateVideoGroups:
+      type: object
+      description: Map of duplicate group ID to the set of duplicate videos in that group
+      additionalProperties:
+        type: array
+        items:
+          $ref: '#/components/schemas/DuplicateVideo'
 
     ErrorResponse:
       type: object
