@@ -3,6 +3,7 @@ package com.ruchij.api.test.mixins
 import cats.effect.kernel.Async
 import com.ruchij.api.services.asset.AssetService
 import com.ruchij.api.services.authentication.AuthenticationService
+import com.ruchij.api.services.detection.DuplicateDetectionService
 import com.ruchij.api.services.health.HealthService
 import com.ruchij.api.services.playlist.PlaylistService
 import com.ruchij.api.services.scheduling.ApiSchedulingService
@@ -35,6 +36,7 @@ trait MockedRoutes[F[_]] extends MockFactory with OneInstancePerTest { self: Tes
   val downloadProgressStream: Stream[F, DownloadProgress] = Stream.empty
   val scheduledVideoDownloadUpdatesStream: Stream[F, ScheduledVideoDownload] = Stream.empty
   val metricPublisher: Publisher[F, HttpMetric] = mock[Publisher[F, HttpMetric]]
+  val duplicateDetectionService: DuplicateDetectionService[F] = mock[DuplicateDetectionService[F]]
 
   val async: Async[F]
   val clock: Clock[F]
@@ -54,6 +56,7 @@ trait MockedRoutes[F[_]] extends MockFactory with OneInstancePerTest { self: Tes
       downloadProgressStream,
       scheduledVideoDownloadUpdatesStream,
       metricPublisher,
+      duplicateDetectionService,
       Set.empty
     )(async, clock, compression)
 

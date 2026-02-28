@@ -6,6 +6,7 @@ import com.ruchij.api.services.authentication.models.AuthenticationToken
 import com.ruchij.api.test.data.ApiTestData
 import com.ruchij.api.test.matchers._
 import com.ruchij.api.test.mixins.io.MockedRoutesIO
+import com.ruchij.core.daos.duplicate.models.DuplicateVideo
 import com.ruchij.core.daos.scheduling.models.RangeValue
 import com.ruchij.core.daos.snapshot.models.Snapshot
 import com.ruchij.core.exceptions.ResourceNotFoundException
@@ -32,6 +33,13 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   private val testSecret = Secret("test-secret-uuid")
   private val normalUserToken = AuthenticationToken(
     ApiTestData.NormalUser.id,
+    testSecret,
+    expiresAt,
+    testTimestamp,
+    0
+  )
+  private val adminToken = AuthenticationToken(
+    ApiTestData.AdminUser.id,
     testSecret,
     expiresAt,
     testTimestamp,
@@ -384,6 +392,80 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.Forbidden)
+          }
+        }
+  }
+
+  "GET /video/duplicates" should "return duplicate video groups for admin users" in runIO {
+    (authenticationService.authenticate _)
+      .expects(testSecret)
+      .returns(IO.pure((adminToken, ApiTestData.AdminUser)))
+
+    val duplicateVideo = DuplicateVideo("youtube-7488acd8", "group-1", testTimestamp)
+
+    (duplicateDetectionService.findDuplicateVideos _)
+      .expects(0, 25)
+      .returns(IO.pure(Set(Set(duplicateVideo))))
+
+    ignoreHttpMetrics() *>
+      createRoutes()
+        .run(
+          Request[IO](
+            method = GET,
+            uri = uri"/videos/duplicates",
+            headers = authHeaders
+          )
+        )
+        .flatMap { response =>
+          IO.delay {
+            response must beJsonContentType
+            response must haveStatus(Status.Ok)
+          }
+        }
+  }
+
+  it should "return unauthorized for non-admin users" in runIO {
+    (authenticationService.authenticate _)
+      .expects(testSecret)
+      .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
+
+    ignoreHttpMetrics() *>
+      createRoutes()
+        .run(
+          Request[IO](
+            method = GET,
+            uri = uri"/videos/duplicates",
+            headers = authHeaders
+          )
+        )
+        .flatMap { response =>
+          IO.delay {
+            response must haveStatus(Status.Unauthorized)
+          }
+        }
+  }
+
+  it should "support pagination parameters" in runIO {
+    (authenticationService.authenticate _)
+      .expects(testSecret)
+      .returns(IO.pure((adminToken, ApiTestData.AdminUser)))
+
+    (duplicateDetectionService.findDuplicateVideos _)
+      .expects(10, 5)
+      .returns(IO.pure(Set.empty[Set[DuplicateVideo]]))
+
+    ignoreHttpMetrics() *>
+      createRoutes()
+        .run(
+          Request[IO](
+            method = GET,
+            uri = uri"/videos/duplicates?page-number=2&page-size=5",
+            headers = authHeaders
+          )
+        )
+        .flatMap { response =>
+          IO.delay {
+            response must haveStatus(Status.Ok)
           }
         }
   }
