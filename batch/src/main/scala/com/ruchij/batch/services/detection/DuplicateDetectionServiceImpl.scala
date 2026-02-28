@@ -2,7 +2,7 @@ package com.ruchij.batch.services.detection
 
 import cats.data.OptionT
 import cats.implicits._
-import cats.{Applicative, Monad, MonadThrow, ~>}
+import cats.{Monad, MonadThrow, ~>}
 import com.ruchij.core.daos.hash.VideoPerceptualHashDao
 import com.ruchij.core.daos.hash.models.VideoPerceptualHash
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService
@@ -58,10 +58,10 @@ class DuplicateDetectionServiceImpl[F[_]: MonadThrow: Clock, G[_]: Monad](
                 newVideoHashes.traverse { videoHash =>
                   videoPerceptualHashDao
                     .getByVideoId(videoHash.videoId)
-                    .map(_.find(_ == videoHash))
+                    .map(_.find(_.snapshotTimestamp == videoHash.snapshotTimestamp))
                     .flatMap {
                       case None => videoPerceptualHashDao.insert(videoHash)
-                      case _ => Applicative[G].pure(0)
+                      case _ => 0.pure[G]
                     }
                 }
               }
@@ -96,7 +96,7 @@ class DuplicateDetectionServiceImpl[F[_]: MonadThrow: Clock, G[_]: Monad](
       }
 
   private def calculateDuplicates(videoHashes: Seq[VideoPerceptualHash]): F[Set[Set[String]]] =
-    videoHashes.headOption.fold(Applicative[F].pure[Set[Set[String]]](Set.empty)) { videoHash =>
+    videoHashes.headOption.fold(Set.empty[Set[String]].pure[F]) { videoHash =>
       calculateDuplicates(videoHash, videoHashes.tail, Set.empty[Set[String]])
     }
 
@@ -131,7 +131,7 @@ class DuplicateDetectionServiceImpl[F[_]: MonadThrow: Clock, G[_]: Monad](
           }
 
           updatedVideoHashes.headOption
-            .fold(Applicative[F].pure(updatedDuplicates)) { head =>
+            .fold(updatedDuplicates.pure[F]) { head =>
               calculateDuplicates(head, updatedVideoHashes.tail, updatedDuplicates)
             }
         }
@@ -145,28 +145,23 @@ class DuplicateDetectionServiceImpl[F[_]: MonadThrow: Clock, G[_]: Monad](
     }
 
   private def handleDuplicateVideoSet(duplicateVideoSet: Set[String]): F[Unit] =
-    duplicateVideoSet.toSeq.sorted.headOption
-      .toType[F, Throwable](InvalidConditionException("duplicate video set cannot be empty"))
-      .flatMap { groupId =>
-        Clock[F].timestamp
-          .map { timestamp =>
-            duplicateVideoSet.map(
-              videoId => DuplicateVideo(videoId = videoId, duplicateGroupId = groupId, createdAt = timestamp)
-            )
-          }
-          .flatMap { duplicateVideos =>
-            transaction {
-              duplicateVideoDao
-                .findByDuplicateGroupId(groupId)
-                .flatMap { existingVideosForGroup =>
-                  val existingVideoIdsForGroup = existingVideosForGroup.map(_.videoId).toSet
-                  val newDuplicateVideosToAdd =
-                    duplicateVideos.filter(duplicateVideo => !existingVideoIdsForGroup.contains(duplicateVideo.videoId))
+    for {
+      groupId <- duplicateVideoSet.toSeq.sorted.headOption
+        .toType[F, Throwable](InvalidConditionException("duplicate video set cannot be empty"))
+      timestamp <- Clock[F].timestamp
+      duplicateVideos = duplicateVideoSet.map(
+        videoId => DuplicateVideo(videoId = videoId, duplicateGroupId = groupId, createdAt = timestamp)
+      )
+      _ <- transaction {
+        duplicateVideoDao
+          .findByDuplicateGroupId(groupId)
+          .flatMap { existingVideosForGroup =>
+            val existingVideoIdsForGroup = existingVideosForGroup.map(_.videoId).toSet
+            val newDuplicateVideosToAdd =
+              duplicateVideos.filter(duplicateVideo => !existingVideoIdsForGroup.contains(duplicateVideo.videoId))
 
-                  newDuplicateVideosToAdd.toList.traverse(duplicateVideoDao.insert)
-                }
-            }
+            newDuplicateVideosToAdd.toList.traverse(duplicateVideoDao.insert)
           }
       }
-      .void
+    } yield ()
 }
