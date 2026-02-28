@@ -119,7 +119,7 @@ class DuplicateDetectionServiceImpl[F[_]: MonadThrow: Clock, G[_]: Monad](
 
           updatedVideoHashes.headOption
             .fold(Applicative[F].pure(updatedDuplicates)) { head =>
-              calculateDuplicates(head, videoHashes.tail, updatedDuplicates)
+              calculateDuplicates(head, updatedVideoHashes.tail, updatedDuplicates)
             }
         }
       }
