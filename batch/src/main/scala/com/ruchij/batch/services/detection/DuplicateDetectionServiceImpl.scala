@@ -26,7 +26,7 @@ class DuplicateDetectionServiceImpl[F[_]: MonadThrow: Clock, G[_]: Monad](
   snapshotDao: SnapshotDao[G]
 )(implicit transaction: G ~> F)
     extends DuplicateDetectionService[F] {
-  override val detect: F[Map[FiniteDuration, Set[Set[String]]]] =
+  override def detect: F[Map[FiniteDuration, Set[Set[String]]]] =
     transaction(videoPerceptualHashDao.uniqueVideoDurations)
       .flatMap { durations =>
         durations.toList.traverse { duration =>
@@ -137,13 +137,11 @@ class DuplicateDetectionServiceImpl[F[_]: MonadThrow: Clock, G[_]: Monad](
         }
       }
 
-  override val run: F[Unit] =
+  override def run: F[Unit] =
     detect.map(_.values.flatten).flatMap {
       _.toList
-        .traverse { duplicateVideoSet =>
-          handleDuplicateVideoSet(duplicateVideoSet)
-        }
-        .productR(Applicative[F].unit)
+        .traverse(handleDuplicateVideoSet)
+        .void
     }
 
   private def handleDuplicateVideoSet(duplicateVideoSet: Set[String]): F[Unit] =
@@ -170,5 +168,5 @@ class DuplicateDetectionServiceImpl[F[_]: MonadThrow: Clock, G[_]: Monad](
             }
           }
       }
-      .productR(Applicative[F].unit)
+      .void
 }
