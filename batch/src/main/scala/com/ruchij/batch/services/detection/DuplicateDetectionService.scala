@@ -4,6 +4,8 @@ import scala.concurrent.duration.FiniteDuration
 
 trait DuplicateDetectionService[F[_]] {
   val detect:  F[Map[FiniteDuration, Set[Set[String]]]]
+
+  val run: F[Unit]
 }
 
 object DuplicateDetectionService {
