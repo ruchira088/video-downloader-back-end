@@ -21,7 +21,7 @@ object DoobieVideoPerceptualHashDao extends VideoPerceptualHashDao[ConnectionIO]
 
   override def getVideoIdsByDuration(duration: FiniteDuration): ConnectionIO[Seq[String]] =
     sql"""
-      SELECT video.id
+      SELECT video.video_metadata_id
         FROM video
         INNER JOIN video_metadata ON video.video_metadata_id = video_metadata.id
         WHERE video_metadata.duration = $duration
