@@ -68,10 +68,12 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
     existingGroups: Map[String, Seq[DuplicateVideo]] = Map.empty
   ) extends DuplicateVideoDao[IO] {
     val insertedVideos: mutable.ListBuffer[DuplicateVideo] = mutable.ListBuffer.empty
+    val deletedVideoIds: mutable.ListBuffer[String] = mutable.ListBuffer.empty
 
     override def insert(duplicateVideo: DuplicateVideo): IO[Int] =
       IO.delay { insertedVideos += duplicateVideo; 1 }
-    override def delete(videoId: String): IO[Int] = IO.pure(1)
+    override def delete(videoId: String): IO[Int] =
+      IO.delay { deletedVideoIds += videoId; 1 }
     override def findByVideoId(videoId: String): IO[Option[DuplicateVideo]] = IO.pure(None)
     override def findByDuplicateGroupId(duplicateGroupId: String): IO[Seq[DuplicateVideo]] =
       IO.pure(existingGroups.getOrElse(duplicateGroupId, Seq.empty))
@@ -403,7 +405,57 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  "DifferenceThreshold" should "be 0.15" in {
+  it should "delete old records and re-insert when no existing group records found" in runIO {
+    val hash1 = VideoPerceptualHash("v1", timestamp, 5 minutes, BigInt(100L), 150 seconds)
+    val hash2 = VideoPerceptualHash("v2", timestamp, 5 minutes, BigInt(101L), 150 seconds)
+
+    val hashDao = new StubVideoPerceptualHashDao(
+      durations = Set(5 minutes),
+      videoIdsByDuration = Map((5 minutes) -> Seq("v1", "v2")),
+      hashesByDuration = Map((5 minutes) -> Seq(hash1, hash2))
+    )
+    val dupDao = new StubDuplicateVideoDao()
+    val hashingService = new StubPerceptualHashingService(
+      compareResults = Map((BigInt(100L), BigInt(101L)) -> 0.05)
+    )
+    val service = createService(hashDao = hashDao, dupDao = dupDao, hashingService = hashingService)
+
+    for {
+      _ <- service.run
+    } yield {
+      dupDao.deletedVideoIds.toSet mustBe Set("v1", "v2")
+      dupDao.insertedVideos.size mustBe 2
+    }
+  }
+
+  it should "not delete when existing group records are found" in runIO {
+    val hash1 = VideoPerceptualHash("v1", timestamp, 5 minutes, BigInt(100L), 150 seconds)
+    val hash2 = VideoPerceptualHash("v2", timestamp, 5 minutes, BigInt(101L), 150 seconds)
+
+    val hashDao = new StubVideoPerceptualHashDao(
+      durations = Set(5 minutes),
+      videoIdsByDuration = Map((5 minutes) -> Seq("v1", "v2")),
+      hashesByDuration = Map((5 minutes) -> Seq(hash1, hash2))
+    )
+    val existingRecords = Seq(
+      DuplicateVideo("v1", "v1", timestamp),
+      DuplicateVideo("v2", "v1", timestamp)
+    )
+    val dupDao = new StubDuplicateVideoDao(existingGroups = Map("v1" -> existingRecords))
+    val hashingService = new StubPerceptualHashingService(
+      compareResults = Map((BigInt(100L), BigInt(101L)) -> 0.05)
+    )
+    val service = createService(hashDao = hashDao, dupDao = dupDao, hashingService = hashingService)
+
+    for {
+      _ <- service.run
+    } yield {
+      dupDao.deletedVideoIds mustBe empty
+      dupDao.insertedVideos mustBe empty
+    }
+  }
+
+  "DifferenceThreshold" should "be 0.2" in {
     BatchDuplicateDetectionService.DifferenceThreshold mustBe 0.2
   }
 }

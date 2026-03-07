@@ -163,7 +163,6 @@ class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
   override def run: F[Unit] =
     detect
       .map(_.values.flatten)
-      .productL(transaction(duplicateVideoDao.deleteAll))
       .flatMap {
         _.toList
           .traverse(handleDuplicateVideoSet)
@@ -181,6 +180,13 @@ class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
       addedDuplicateVideos <- transaction {
         duplicateVideoDao
           .findByDuplicateGroupId(groupId)
+          .flatTap { existingVideosForGroup =>
+            if (existingVideosForGroup.isEmpty) {
+              duplicateVideoSet.toSeq.traverse(duplicateVideoDao.delete).void
+            } else {
+              Applicative[G].unit
+            }
+          }
           .flatMap { existingVideosForGroup =>
             val existingVideoIdsForGroup = existingVideosForGroup.map(_.videoId).toSet
             val newDuplicateVideosToAdd =
