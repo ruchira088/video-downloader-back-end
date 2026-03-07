@@ -230,7 +230,7 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow, M[_]](
       logger.info[F]("Starting duplicate detection") *>
         duplicateDetectionService.run *>
         logger.info[F]("Duplicate detection completed")
-    }.delayBy(30 seconds)).repeat
+    }.delayBy(2 minute) ++ Stream.sleep[F](6 hours)).repeat
 
   private def performScheduledVideoDeletions(
     scheduledVideoDownloadUpdates: Stream[F, ScheduledVideoDownload]

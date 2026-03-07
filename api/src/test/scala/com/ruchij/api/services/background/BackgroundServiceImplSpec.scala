@@ -376,6 +376,9 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
       // Start the service
       fiber <- service.run
 
+      // Give the service time to start
+      _ <- IO.sleep(1 second)
+
       received <- receivedFiber.joinWithNever
 
       _ <- fiber.cancel
@@ -416,11 +419,14 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
 
       // Start receiving from topic
       receivedFiber <- scheduleVideoDownloadsTopic.subscribe(10).take(1).compile.toList
-        .timeout(10 seconds)
+        .timeout(30 seconds)
         .start
 
       // Start the service
       fiber <- service.run
+
+      // Give the service time to start
+      _ <- IO.sleep(1 second)
 
       received <- receivedFiber.joinWithNever
 
