@@ -8,6 +8,7 @@ import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
 import com.ruchij.batch.config.WorkerConfiguration
 import com.ruchij.batch.daos.workers.WorkerDao
 import com.ruchij.batch.daos.workers.models.Worker
+import com.ruchij.batch.services.detection.BatchDuplicateDetectionService
 import com.ruchij.batch.services.scheduler.Scheduler.PausedVideoDownload
 import com.ruchij.batch.services.scheduler.SchedulerImpl.WorkerPollPeriod
 import com.ruchij.batch.services.scheduling.BatchSchedulingService
@@ -34,16 +35,17 @@ import scala.concurrent.duration.{FiniteDuration, _}
 import scala.language.postfixOps
 
 class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow, M[_]](
-  batchSchedulingService: BatchSchedulingService[F],
-  synchronizationService: SynchronizationService[F],
-  batchVideoService: BatchVideoService[F],
-  videoWatchHistoryService: VideoWatchHistoryService[F],
-  workExecutor: WorkExecutor[F],
-  videoWatchMetricsSubscriber: Subscriber[F, CommittableRecord[M, *], VideoWatchMetric],
-  scanForVideosCommandSubscriber: Subscriber[F, CommittableRecord[M, *], ScanVideosCommand],
-  workerDao: WorkerDao[T],
-  workerConfiguration: WorkerConfiguration,
-  instanceId: String
+                                                                 batchSchedulingService: BatchSchedulingService[F],
+                                                                 synchronizationService: SynchronizationService[F],
+                                                                 batchVideoService: BatchVideoService[F],
+                                                                 videoWatchHistoryService: VideoWatchHistoryService[F],
+                                                                 workExecutor: WorkExecutor[F],
+                                                                 duplicateDetectionService: BatchDuplicateDetectionService[F],
+                                                                 videoWatchMetricsSubscriber: Subscriber[F, CommittableRecord[M, *], VideoWatchMetric],
+                                                                 scanForVideosCommandSubscriber: Subscriber[F, CommittableRecord[M, *], ScanVideosCommand],
+                                                                 workerDao: WorkerDao[T],
+                                                                 workerConfiguration: WorkerConfiguration,
+                                                                 instanceId: String
 )(implicit transaction: T ~> F)
     extends Scheduler[F] {
 
@@ -196,6 +198,7 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow, M[_]](
       .concurrently(cleanUpStaleScheduledVideoDownloads)
       .concurrently(updateVideoWatchTimes)
       .concurrently(cleanUpStaleWorkers)
+      .concurrently(duplicateDetection)
       .concurrently(performScheduledVideoDeletions(scheduledVideoDownloadsTopic.subscribe(Int.MaxValue)))
       .concurrently(updateWorkersAndScheduledVideoDownloads(workerStatusUpdatesTopic.subscribe(Int.MaxValue)))
       .concurrently {
@@ -213,6 +216,15 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow, M[_]](
       .collect {
         case Some(video) => video
       }
+
+  private val duplicateDetection =
+    Stream.eval {
+      logger.info[F]("Starting duplicate detection") *>
+        duplicateDetectionService.run *>
+        logger.info[F]("Duplicate detection completed")
+    }
+      .delayBy(30 seconds)
+      .repeat
 
   private def performScheduledVideoDeletions(
     scheduledVideoDownloadUpdates: Stream[F, ScheduledVideoDownload]

@@ -4,7 +4,7 @@ import cats.effect.Async
 import cats.implicits._
 import com.ruchij.api.services.asset.AssetService
 import com.ruchij.api.services.authentication.AuthenticationService
-import com.ruchij.api.services.detection.DuplicateDetectionService
+import com.ruchij.api.services.detection.ApiDuplicateDetectionService
 import com.ruchij.api.services.health.HealthService
 import com.ruchij.api.services.models.Context.RequestContext
 import com.ruchij.api.services.playlist.PlaylistService
@@ -30,20 +30,20 @@ import org.http4s.{ContextRoutes, HttpApp}
 object Routes {
 
   def apply[F[_]: Async: Clock: Compression](
-    userService: UserService[F],
-    apiVideoService: ApiVideoService[F],
-    videoAnalysisService: VideoAnalysisService[F],
-    apiSchedulingService: ApiSchedulingService[F],
-    playlistService: PlaylistService[F],
-    assetService: AssetService[F],
-    videoWatchHistoryService: VideoWatchHistoryService[F],
-    healthService: HealthService[F],
-    authenticationService: AuthenticationService[F],
-    downloadProgressStream: Stream[F, DownloadProgress],
-    scheduledVideoDownloadUpdatesStream: Stream[F, ScheduledVideoDownload],
-    metricPublisher: Publisher[F, HttpMetric],
-    duplicateDetectionService: DuplicateDetectionService[F],
-    allowedOrigins: Set[String]
+                                              userService: UserService[F],
+                                              apiVideoService: ApiVideoService[F],
+                                              videoAnalysisService: VideoAnalysisService[F],
+                                              apiSchedulingService: ApiSchedulingService[F],
+                                              playlistService: PlaylistService[F],
+                                              assetService: AssetService[F],
+                                              videoWatchHistoryService: VideoWatchHistoryService[F],
+                                              healthService: HealthService[F],
+                                              authenticationService: AuthenticationService[F],
+                                              downloadProgressStream: Stream[F, DownloadProgress],
+                                              scheduledVideoDownloadUpdatesStream: Stream[F, ScheduledVideoDownload],
+                                              metricPublisher: Publisher[F, HttpMetric],
+                                              duplicateDetectionService: ApiDuplicateDetectionService[F],
+                                              allowedOrigins: Set[String]
   ): HttpApp[F] = {
     implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
 

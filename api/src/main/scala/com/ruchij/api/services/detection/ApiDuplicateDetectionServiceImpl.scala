@@ -6,9 +6,9 @@ import cats.~>
 import com.ruchij.core.daos.duplicate.DuplicateVideoDao
 import com.ruchij.core.daos.duplicate.models.DuplicateVideo
 
-class DuplicateDetectionServiceImpl[F[_]: Functor, G[_]](duplicateVideoDao: DuplicateVideoDao[G])(
+class ApiDuplicateDetectionServiceImpl[F[_]: Functor, G[_]](duplicateVideoDao: DuplicateVideoDao[G])(
   implicit transaction: G ~> F
-) extends DuplicateDetectionService[F] {
+) extends ApiDuplicateDetectionService[F] {
 
   override def findDuplicateVideos(offset: Int, limit: Int): F[Map[String, Set[DuplicateVideo]]] =
     transaction {

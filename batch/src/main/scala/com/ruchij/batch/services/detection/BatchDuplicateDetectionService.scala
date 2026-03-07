@@ -2,12 +2,12 @@ package com.ruchij.batch.services.detection
 
 import scala.concurrent.duration.FiniteDuration
 
-trait DuplicateDetectionService[F[_]] {
+trait BatchDuplicateDetectionService[F[_]] {
   def detect: F[Map[FiniteDuration, Set[Set[String]]]]
 
   def run: F[Unit]
 }
 
-object DuplicateDetectionService {
-  val DifferenceThreshold: Double = 0.15
+object BatchDuplicateDetectionService {
+  val DifferenceThreshold: Double = 0.2
 }

@@ -24,7 +24,7 @@ import scala.collection.mutable
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class DuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
+class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
 
   private val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 30)
   private implicit val identityTransaction: IO ~> IO = cats.arrow.FunctionK.id[IO]
@@ -77,6 +77,7 @@ class DuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
       IO.pure(existingGroups.getOrElse(duplicateGroupId, Seq.empty))
     override def getAll(offset: Int, limit: Int): IO[Seq[DuplicateVideo]] = IO.pure(Seq.empty)
     override def duplicateGroupIds: IO[Seq[String]] = IO.pure(Seq.empty)
+    override def deleteAll: IO[Int] = IO.pure(0)
   }
 
   class StubSnapshotDao(
@@ -106,8 +107,8 @@ class DuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
     snapshotDao: SnapshotDao[IO] = new StubSnapshotDao(),
     hashingService: PerceptualHashingService[IO] = new StubPerceptualHashingService(),
     repositoryService: RepositoryService[IO] = new StubRepositoryService()
-  ): DuplicateDetectionServiceImpl[IO, IO] =
-    new DuplicateDetectionServiceImpl[IO, IO](
+  ): BatchDuplicateDetectionServiceImpl[IO, IO] =
+    new BatchDuplicateDetectionServiceImpl[IO, IO](
       hashingService, repositoryService, hashDao, dupDao, snapshotDao
     )
 
@@ -277,7 +278,7 @@ class DuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  it should "handle exactly at the threshold boundary (0.15)" in runIO {
+  it should "handle exactly at the threshold boundary (0.2)" in runIO {
     val hash1 = VideoPerceptualHash("v1", timestamp, 5 minutes, BigInt(100L), 150 seconds)
     val hash2 = VideoPerceptualHash("v2", timestamp, 5 minutes, BigInt(200L), 150 seconds)
 
@@ -287,7 +288,7 @@ class DuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
       hashesByDuration = Map((5 minutes) -> Seq(hash1, hash2))
     )
     val hashingService = new StubPerceptualHashingService(
-      compareResults = Map((BigInt(100L), BigInt(200L)) -> 0.15)
+      compareResults = Map((BigInt(100L), BigInt(200L)) -> 0.2)
     )
     val service = createService(hashDao = hashDao, hashingService = hashingService)
 
@@ -309,7 +310,7 @@ class DuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
       hashesByDuration = Map((5 minutes) -> Seq(hash1, hash2))
     )
     val hashingService = new StubPerceptualHashingService(
-      compareResults = Map((BigInt(100L), BigInt(200L)) -> 0.16)
+      compareResults = Map((BigInt(100L), BigInt(200L)) -> 0.21)
     )
     val service = createService(hashDao = hashDao, hashingService = hashingService)
 
@@ -403,6 +404,6 @@ class DuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "DifferenceThreshold" should "be 0.15" in {
-    DuplicateDetectionService.DifferenceThreshold mustBe 0.15
+    BatchDuplicateDetectionService.DifferenceThreshold mustBe 0.2
   }
 }

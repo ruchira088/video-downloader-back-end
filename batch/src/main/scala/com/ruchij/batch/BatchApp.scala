@@ -8,6 +8,7 @@ import com.eed3si9n.ruchij.batch.BuildInfo
 import com.ruchij.batch.config.BatchServiceConfiguration
 import com.ruchij.batch.daos.filesync.DoobieFileSyncDao
 import com.ruchij.batch.daos.workers.DoobieWorkerDao
+import com.ruchij.batch.services.detection.BatchDuplicateDetectionServiceImpl
 import com.ruchij.batch.services.enrichment.VideoEnrichmentServiceImpl
 import com.ruchij.batch.services.scheduler.{Scheduler, SchedulerImpl}
 import com.ruchij.batch.services.scheduling.BatchSchedulingServiceImpl
@@ -17,6 +18,8 @@ import com.ruchij.batch.services.video.BatchVideoServiceImpl
 import com.ruchij.batch.services.worker.WorkExecutorImpl
 import com.ruchij.core.commands.ScanVideosCommand
 import com.ruchij.core.daos.doobie.DoobieTransactor
+import com.ruchij.core.daos.duplicate.DoobieDuplicateVideoDao
+import com.ruchij.core.daos.hash.DoobieVideoPerceptualHashDao
 import com.ruchij.core.daos.permission.DoobieVideoPermissionDao
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
@@ -37,7 +40,7 @@ import com.ruchij.core.services.config.ConfigurationServiceImpl
 import com.ruchij.core.services.config.models.SharedConfigKey
 import com.ruchij.core.services.config.models.SharedConfigKey.SharedConfigKeySpace
 import com.ruchij.core.services.download.Http4sDownloadService
-import com.ruchij.core.services.hashing.MurmurHash3Service
+import com.ruchij.core.services.hashing.{MurmurHash3Service, PerceptualHashingServiceImpl}
 import com.ruchij.core.services.renderer.SpaSiteRendererImpl
 import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
@@ -231,6 +234,16 @@ object BatchApp extends IOApp {
             batchServiceConfiguration.storageConfiguration
           )
 
+          perceptualHashingService = new PerceptualHashingServiceImpl[F]
+
+          duplicateDetectionService = new BatchDuplicateDetectionServiceImpl[F, ConnectionIO](
+            perceptualHashingService,
+            repositoryService,
+            DoobieVideoPerceptualHashDao,
+            DoobieDuplicateVideoDao,
+            DoobieSnapshotDao,
+          )
+
           instanceId <- Resource.eval(RandomGenerator[F, UUID].generate).map(_.toString)
 
           scheduler = new SchedulerImpl(
@@ -239,6 +252,7 @@ object BatchApp extends IOApp {
             batchVideoService,
             videoWatchHistoryService,
             workExecutor,
+            duplicateDetectionService,
             videoWatchMetricsSubscriber,
             scanForVideosCommandSubscriber,
             workerDao,

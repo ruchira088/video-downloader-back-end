@@ -9,7 +9,7 @@ import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-class DuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
+class ApiDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
 
   private val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 30)
 
@@ -26,10 +26,11 @@ class DuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
     override def findByDuplicateGroupId(duplicateGroupId: String): IO[Seq[DuplicateVideo]] = IO.pure(findByGroupResult)
     override def getAll(offset: Int, limit: Int): IO[Seq[DuplicateVideo]] = IO.pure(getAllResult)
     override def duplicateGroupIds: IO[Seq[String]] = IO.pure(groupIdsResult)
+    override def deleteAll: IO[Int] = IO.pure(0)
   }
 
-  private def createService(dao: DuplicateVideoDao[IO]): DuplicateDetectionServiceImpl[IO, IO] =
-    new DuplicateDetectionServiceImpl[IO, IO](dao)
+  private def createService(dao: DuplicateVideoDao[IO]): ApiDuplicateDetectionServiceImpl[IO, IO] =
+    new ApiDuplicateDetectionServiceImpl[IO, IO](dao)
 
   "findDuplicateVideos" should "return grouped duplicate videos" in runIO {
     val duplicates = Seq(
@@ -91,6 +92,7 @@ class DuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
         Seq.empty
       }
       override def duplicateGroupIds: IO[Seq[String]] = IO.pure(Seq.empty)
+      override def deleteAll: IO[Int] = IO.pure(0)
     }
     val service = createService(dao)
 

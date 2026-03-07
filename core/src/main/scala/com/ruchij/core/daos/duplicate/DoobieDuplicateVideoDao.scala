@@ -50,4 +50,9 @@ object DoobieDuplicateVideoDao extends DuplicateVideoDao[ConnectionIO] {
     sql"SELECT DISTINCT duplicate_group_id FROM duplicate_video"
       .query[String]
       .to[Seq]
+
+  override def deleteAll: ConnectionIO[Int] =
+    sql"DELETE FROM duplicate_video"
+      .update
+      .run
 }

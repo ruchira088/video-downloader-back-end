@@ -7,6 +7,7 @@ import cats.{Foldable, Functor, Id, ~>}
 import com.ruchij.batch.config.WorkerConfiguration
 import com.ruchij.batch.daos.workers.WorkerDao
 import com.ruchij.batch.daos.workers.models.Worker
+import com.ruchij.batch.services.detection.BatchDuplicateDetectionService
 import com.ruchij.batch.services.scheduling.BatchSchedulingService
 import com.ruchij.batch.services.sync.SynchronizationService
 import com.ruchij.batch.services.sync.models.SynchronizationResult
@@ -151,6 +152,11 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   class StubScanForVideosCommandSubscriber extends Subscriber[IO, CommittableRecord[Id, *], ScanVideosCommand] {
     override def subscribe(groupId: String): Stream[IO, CommittableRecord[Id, ScanVideosCommand]] = Stream.empty
     override def commit[H[_]: Foldable: Functor](records: H[CommittableRecord[Id, ScanVideosCommand]]): IO[Unit] = IO.unit
+  }
+
+  class StubBatchDuplicateDetectionService extends BatchDuplicateDetectionService[IO] {
+    override def detect: IO[Map[FiniteDuration, Set[Set[String]]]] = IO.pure(Map.empty)
+    override def run: IO[Unit] = IO.unit
   }
 
   class StubWorkerDao extends WorkerDao[IO] {
@@ -739,6 +745,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
       batchVideoService = new StubBatchVideoService,
       videoWatchHistoryService = new StubVideoWatchHistoryService,
       workExecutor = new StubWorkExecutor,
+      duplicateDetectionService = new StubBatchDuplicateDetectionService,
       videoWatchMetricsSubscriber = new StubVideoWatchMetricsSubscriber,
       scanForVideosCommandSubscriber = new StubScanForVideosCommandSubscriber,
       workerDao = workerDao,

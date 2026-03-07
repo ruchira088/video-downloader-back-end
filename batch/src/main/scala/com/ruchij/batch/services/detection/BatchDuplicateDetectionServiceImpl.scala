@@ -1,16 +1,18 @@
 package com.ruchij.batch.services.detection
 
 import cats.data.OptionT
+import cats.effect.kernel.Sync
 import cats.implicits._
-import cats.{Applicative, Monad, MonadThrow, ~>}
-import com.ruchij.core.daos.hash.VideoPerceptualHashDao
-import com.ruchij.core.daos.hash.models.VideoPerceptualHash
+import cats.{Applicative, Monad, ~>}
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService.SnapshotCount
 import com.ruchij.core.daos.duplicate.DuplicateVideoDao
 import com.ruchij.core.daos.duplicate.models.DuplicateVideo
+import com.ruchij.core.daos.hash.VideoPerceptualHashDao
+import com.ruchij.core.daos.hash.models.VideoPerceptualHash
 import com.ruchij.core.daos.snapshot.SnapshotDao
 import com.ruchij.core.exceptions.InvalidConditionException
+import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.hashing.PerceptualHashingService
 import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.types.Clock
@@ -18,20 +20,26 @@ import com.ruchij.core.types.FunctionKTypes.{FunctionKTypeOps, optionToOptionT}
 
 import scala.concurrent.duration.FiniteDuration
 
-class DuplicateDetectionServiceImpl[F[_]: MonadThrow: Clock, G[_]: Monad](
+class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
   perceptualHashingService: PerceptualHashingService[F],
   repositoryService: RepositoryService[F],
   videoPerceptualHashDao: VideoPerceptualHashDao[G],
   duplicateVideoDao: DuplicateVideoDao[G],
   snapshotDao: SnapshotDao[G]
 )(implicit transaction: G ~> F)
-    extends DuplicateDetectionService[F] {
+    extends BatchDuplicateDetectionService[F] {
+  private val logger = Logger[BatchDuplicateDetectionServiceImpl[F, G]]
+
   override def detect: F[Map[FiniteDuration, Set[Set[String]]]] =
     transaction(videoPerceptualHashDao.uniqueVideoDurations)
       .flatMap { durations =>
-        durations.toList.traverse { duration =>
-          detectDuplicates(duration).map(duration -> _)
-        }
+        logger
+          .info[F](s"Detecting duplicates for ${durations.size} durations")
+          .productR {
+            durations.toList.traverse { duration =>
+              detectDuplicates(duration).map(duration -> _)
+            }
+          }
       }
       .map(_.toMap)
 
@@ -39,36 +47,43 @@ class DuplicateDetectionServiceImpl[F[_]: MonadThrow: Clock, G[_]: Monad](
     val snapshotDurations = VideoEnrichmentService.snapshotTimestamps(duration, SnapshotCount)
     val snapshotTimestamp = snapshotDurations.sorted.toList(snapshotDurations.size / 2)
 
-    transaction {
-      for {
-        videoIds <- videoPerceptualHashDao.getVideoIdsByDuration(duration)
-        videoHashes <- videoPerceptualHashDao.findVideoHashesByDuration(duration)
-        videoHashIds = videoHashes.map(_.videoId).toSet
-        videoIdsWithoutHashes = videoIds.filterNot(videoHashIds.contains)
-      } yield videoIdsWithoutHashes -> videoHashes
-    }.flatMap {
-        case (videoIds, videoHashes) =>
-          videoIds
-            .traverse { videoId =>
-              perceptualHash(videoId, duration, snapshotTimestamp).value
-            }
-            .map(_.collect { case Some(value) => value })
-            .flatTap { newVideoHashes =>
-              transaction {
-                newVideoHashes.traverse { videoHash =>
-                  videoPerceptualHashDao
-                    .getByVideoId(videoHash.videoId)
-                    .map(_.find(_.snapshotTimestamp == videoHash.snapshotTimestamp))
-                    .flatMap {
-                      case None => videoPerceptualHashDao.insert(videoHash)
-                      case _ => Applicative[G].pure(0)
-                    }
+    logger
+      .info[F](
+        s"Detecting duplicates for duration=${duration.toSeconds}s, snapshotTimestamp=${snapshotTimestamp.toMillis}ms"
+      )
+      .productR {
+        transaction {
+          for {
+            videoIds <- videoPerceptualHashDao.getVideoIdsByDuration(duration)
+            videoHashes <- videoPerceptualHashDao.findVideoHashesByDuration(duration)
+            videoHashIds = videoHashes.map(_.videoId).toSet
+            videoIdsWithoutHashes = videoIds.filterNot(videoHashIds.contains)
+          } yield videoIdsWithoutHashes -> videoHashes
+        }.flatMap {
+            case (videoIds, videoHashes) =>
+              videoIds
+                .traverse { videoId =>
+                  perceptualHash(videoId, duration, snapshotTimestamp).value
                 }
-              }
-            }
-            .map(_ ++ videoHashes)
+                .map(_.collect { case Some(value) => value })
+                .flatTap { newVideoHashes =>
+                  transaction {
+                    newVideoHashes.traverse { videoHash =>
+                      videoPerceptualHashDao
+                        .getByVideoId(videoHash.videoId)
+                        .map(_.find(_.snapshotTimestamp == videoHash.snapshotTimestamp))
+                        .flatMap {
+                          case None => videoPerceptualHashDao.insert(videoHash)
+                          case _ => Applicative[G].pure(0)
+                        }
+                    }
+                  }
+                }
+                .map(_ ++ videoHashes)
+          }
+          .flatMap(videoHashes => calculateDuplicates(videoHashes))
+
       }
-      .flatMap(calculateDuplicates)
   }
 
   private def perceptualHash(
@@ -80,8 +95,16 @@ class DuplicateDetectionServiceImpl[F[_]: MonadThrow: Clock, G[_]: Monad](
       transaction {
         snapshotDao
           .findByVideo(videoId, None)
-          .map(_.find(_.videoTimestamp == snapshotTimestamp))
-      }
+          .map { snapshots =>
+            snapshots.find(_.videoTimestamp.toMillis == snapshotTimestamp.toMillis)
+          }
+      }.flatTap {
+          case None =>
+            logger.info[F](
+              s"Snapshot not found for videoId=$videoId, snapshotTimestamp=${snapshotTimestamp.toSeconds}s"
+            )
+          case _ => Applicative[F].unit
+        }
     }.flatMapF { snapshot =>
         repositoryService
           .read(snapshot.fileResource.path, None, None)
@@ -110,7 +133,7 @@ class DuplicateDetectionServiceImpl[F[_]: MonadThrow: Clock, G[_]: Monad](
         perceptualHashingService
           .compareHashes(videoHash.snapshotPerceptualHash, otherVideoHash.snapshotPerceptualHash)
           .map { distance =>
-            (otherVideoHash, distance <= DuplicateDetectionService.DifferenceThreshold)
+            (otherVideoHash, distance <= BatchDuplicateDetectionService.DifferenceThreshold)
           }
       }
       .flatMap { hashComparisons =>
@@ -138,11 +161,14 @@ class DuplicateDetectionServiceImpl[F[_]: MonadThrow: Clock, G[_]: Monad](
       }
 
   override def run: F[Unit] =
-    detect.map(_.values.flatten).flatMap {
-      _.toList
-        .traverse(handleDuplicateVideoSet)
-        .void
-    }
+    detect
+      .map(_.values.flatten)
+      .productL(transaction(duplicateVideoDao.deleteAll))
+      .flatMap {
+        _.toList
+          .traverse(handleDuplicateVideoSet)
+          .void
+      }
 
   private def handleDuplicateVideoSet(duplicateVideoSet: Set[String]): F[Unit] =
     for {
@@ -152,7 +178,7 @@ class DuplicateDetectionServiceImpl[F[_]: MonadThrow: Clock, G[_]: Monad](
       duplicateVideos = duplicateVideoSet.map(
         videoId => DuplicateVideo(videoId = videoId, duplicateGroupId = groupId, createdAt = timestamp)
       )
-      _ <- transaction {
+      addedDuplicateVideos <- transaction {
         duplicateVideoDao
           .findByDuplicateGroupId(groupId)
           .flatMap { existingVideosForGroup =>
@@ -160,8 +186,9 @@ class DuplicateDetectionServiceImpl[F[_]: MonadThrow: Clock, G[_]: Monad](
             val newDuplicateVideosToAdd =
               duplicateVideos.filter(duplicateVideo => !existingVideoIdsForGroup.contains(duplicateVideo.videoId))
 
-            newDuplicateVideosToAdd.toList.traverse(duplicateVideoDao.insert)
+            newDuplicateVideosToAdd.toList.traverse(duplicateVideoDao.insert).as(newDuplicateVideosToAdd)
           }
       }
+      _ <- logger.info[F](s"Added ${addedDuplicateVideos.size} duplicate videos for group $groupId")
     } yield ()
 }

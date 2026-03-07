@@ -19,7 +19,7 @@ import com.ruchij.api.services.authentication.models.AuthenticationToken.Authent
 import com.ruchij.api.services.background.BackgroundServiceImpl
 import com.ruchij.api.services.config.models.ApiConfigKey
 import com.ruchij.api.services.config.models.ApiConfigKey.ApiConfigKeySpace
-import com.ruchij.api.services.detection.DuplicateDetectionServiceImpl
+import com.ruchij.api.services.detection.ApiDuplicateDetectionServiceImpl
 import com.ruchij.api.services.hashing.BCryptPasswordHashingService
 import com.ruchij.api.services.health.HealthServiceImpl
 import com.ruchij.api.services.health.models.kv.HealthCheckKey
@@ -301,7 +301,7 @@ object ApiApp extends IOApp {
         apiServiceConfiguration.spaSiteRendererConfiguration
       )
 
-      duplicateDetectionService = new DuplicateDetectionServiceImpl[F, ConnectionIO](DoobieDuplicateVideoDao)
+      duplicateDetectionService = new ApiDuplicateDetectionServiceImpl[F, ConnectionIO](DoobieDuplicateVideoDao)
 
       _ <- backgroundService.run
 

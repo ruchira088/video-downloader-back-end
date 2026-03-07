@@ -14,4 +14,6 @@ trait DuplicateVideoDao[F[_]] {
   def getAll(offset: Int, limit: Int): F[Seq[DuplicateVideo]]
 
   def duplicateGroupIds: F[Seq[String]]
+
+  def deleteAll: F[Int]
 }
