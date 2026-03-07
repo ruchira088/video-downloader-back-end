@@ -8,4 +8,6 @@ trait ApiDuplicateDetectionService[F[_]] {
   def getDuplicateVideoGroup(groupId: String): F[Seq[DuplicateVideo]]
 
   def duplicateVideoGroups: F[Seq[String]]
+
+  def deleteVideo(videoId: String): F[Option[DuplicateVideo]]
 }

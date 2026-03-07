@@ -158,7 +158,7 @@ object BatchApp extends IOApp {
 
           perceptualHashingService = new PerceptualHashingServiceImpl[F]
 
-          duplicateDetectionService = new BatchDuplicateDetectionServiceImpl[F, ConnectionIO](
+          batchDuplicateDetectionService = new BatchDuplicateDetectionServiceImpl[F, ConnectionIO](
             perceptualHashingService,
             repositoryService,
             DoobieVideoPerceptualHashDao,
@@ -175,7 +175,6 @@ object BatchApp extends IOApp {
             workerStatusUpdatesSubscriber,
             scheduledVideoDownloadPubSub,
             repositoryService,
-            duplicateDetectionService,
             DoobieSchedulingDao,
             workerDao,
             DoobieVideoMetadataDao,
@@ -254,7 +253,7 @@ object BatchApp extends IOApp {
             batchVideoService,
             videoWatchHistoryService,
             workExecutor,
-            duplicateDetectionService,
+            batchDuplicateDetectionService,
             videoWatchMetricsSubscriber,
             scanForVideosCommandSubscriber,
             workerDao,

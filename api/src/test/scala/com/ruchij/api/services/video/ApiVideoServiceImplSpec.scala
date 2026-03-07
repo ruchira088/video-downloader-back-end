@@ -3,7 +3,9 @@ package com.ruchij.api.services.video
 import cats.data.NonEmptyList
 import cats.effect.IO
 import cats.~>
+import com.ruchij.api.services.detection.ApiDuplicateDetectionService
 import com.ruchij.core.commands.ScanVideosCommand
+import com.ruchij.core.daos.duplicate.models.DuplicateVideo
 import com.ruchij.core.daos.permission.VideoPermissionDao
 import com.ruchij.core.daos.permission.models.VideoPermission
 import com.ruchij.core.daos.resource.models.FileResource
@@ -183,6 +185,13 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     override def publishOne(input: ScanVideosCommand): IO[Unit] = publishOneResult
   }
 
+  private val stubDuplicateDetectionService: ApiDuplicateDetectionService[IO] = new ApiDuplicateDetectionService[IO] {
+    override def findDuplicateVideos(offset: Int, limit: Int): IO[Map[String, Set[DuplicateVideo]]] = IO.pure(Map.empty)
+    override def getDuplicateVideoGroup(groupId: String): IO[Seq[DuplicateVideo]] = IO.pure(Seq.empty)
+    override def duplicateVideoGroups: IO[Seq[String]] = IO.pure(Seq.empty)
+    override def deleteVideo(videoId: String): IO[Option[DuplicateVideo]] = IO.pure(None)
+  }
+
   private def createService(
     videoService: VideoService[IO, IO],
     videoScanPublisher: Publisher[IO, ScanVideosCommand],
@@ -191,7 +200,8 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     videoMetadataDao: VideoMetadataDao[IO],
     snapshotDao: SnapshotDao[IO],
     videoTitleDao: VideoTitleDao[IO],
-    videoPermissionDao: VideoPermissionDao[IO]
+    videoPermissionDao: VideoPermissionDao[IO],
+    duplicateDetectionService: ApiDuplicateDetectionService[IO] = stubDuplicateDetectionService
   )(implicit clock: Clock[IO]): ApiVideoServiceImpl[IO, IO] = {
     implicit val transaction: IO ~> IO = new (IO ~> IO) {
       override def apply[A](fa: IO[A]): IO[A] = fa
@@ -199,6 +209,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
 
     new ApiVideoServiceImpl[IO, IO](
       videoService,
+      duplicateDetectionService,
       videoScanPublisher,
       sharedConfigService,
       videoDao,

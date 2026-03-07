@@ -33,6 +33,7 @@ import com.ruchij.api.web.Routes
 import com.ruchij.core.commands.ScanVideosCommand
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.duplicate.DoobieDuplicateVideoDao
+import com.ruchij.core.daos.hash.DoobieVideoPerceptualHashDao
 import com.ruchij.core.daos.permission.DoobieVideoPermissionDao
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
@@ -58,12 +59,7 @@ import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.renderer.SpaSiteRendererImpl
 import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector, RepositoryService}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
-import com.ruchij.core.services.video.{
-  VideoAnalysisServiceImpl,
-  VideoServiceImpl,
-  VideoWatchHistoryServiceImpl,
-  YouTubeVideoDownloaderImpl
-}
+import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, VideoWatchHistoryServiceImpl, YouTubeVideoDownloaderImpl}
 import com.ruchij.core.types.{Clock, RandomGenerator}
 import doobie.free.connection.ConnectionIO
 import doobie.hikari.HikariTransactor
@@ -226,8 +222,13 @@ object ApiApp extends IOApp {
         DoobieSchedulingDao
       )
 
+    val apiDuplicateDetectionService = new ApiDuplicateDetectionServiceImpl[F, ConnectionIO](
+      DoobieDuplicateVideoDao, DoobieVideoPerceptualHashDao
+    )
+
     val apiVideoService = new ApiVideoServiceImpl[F, ConnectionIO](
       videoService,
+      apiDuplicateDetectionService,
       messageBrokers.scanVideosCommandPublisher,
       sharedConfigurationService,
       DoobieVideoDao,
@@ -301,8 +302,6 @@ object ApiApp extends IOApp {
         apiServiceConfiguration.spaSiteRendererConfiguration
       )
 
-      duplicateDetectionService = new ApiDuplicateDetectionServiceImpl[F, ConnectionIO](DoobieDuplicateVideoDao)
-
       _ <- backgroundService.run
 
     } yield
@@ -319,7 +318,7 @@ object ApiApp extends IOApp {
         backgroundService.downloadProgress,
         backgroundService.updates,
         messageBrokers.httpMetricsPublisher,
-        duplicateDetectionService,
+        apiDuplicateDetectionService,
         apiServiceConfiguration.httpConfiguration.allowedOriginHosts
       )
   }

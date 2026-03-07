@@ -5,7 +5,6 @@ import cats.effect.Async
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
 import com.ruchij.batch.daos.workers.WorkerDao
-import com.ruchij.batch.services.detection.BatchDuplicateDetectionService
 import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.SchedulingDao.notFound
@@ -27,7 +26,6 @@ class BatchSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow, M[_]](
   workerStatusSubscriber: Subscriber[F, CommittableRecord[M, *], WorkerStatusUpdate],
   scheduledVideoDownloadPubSub: PubSub[F, CommittableRecord[M, *], ScheduledVideoDownload],
   repositoryService: RepositoryService[F],
-  batchDuplicateDetectionService: BatchDuplicateDetectionService[F],
   schedulingDao: SchedulingDao[T],
   workerDao: WorkerDao[T],
   videoMetadataDao: VideoMetadataDao[T],
@@ -124,7 +122,6 @@ class BatchSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow, M[_]](
   override def deleteById(id: String): F[ScheduledVideoDownload] =
     logger
       .info[F](s"Deleting ScheduledVideoDownload with id=$id")
-      .productR(batchDuplicateDetectionService.deleteVideo(id))
       .productR {
         OptionT {
           transaction {

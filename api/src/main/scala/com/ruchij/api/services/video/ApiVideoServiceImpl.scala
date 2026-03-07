@@ -3,6 +3,7 @@ package com.ruchij.api.services.video
 import cats.data.NonEmptyList
 import cats.implicits._
 import cats.{Applicative, MonadThrow, ~>}
+import com.ruchij.api.services.detection.ApiDuplicateDetectionService
 import com.ruchij.core.commands.ScanVideosCommand
 import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
 import com.ruchij.core.daos.permission.VideoPermissionDao
@@ -30,6 +31,7 @@ import scala.concurrent.duration.FiniteDuration
 
 class ApiVideoServiceImpl[F[_]: MonadThrow: Clock, G[_]: MonadThrow](
   videoService: VideoService[F, G],
+  apiDuplicateDetectionService: ApiDuplicateDetectionService[F],
   videoScanPublisher: Publisher[F, ScanVideosCommand],
   sharedConfigurationService: ConfigurationService[F, SharedConfigKey],
   videoDao: VideoDao[G],
@@ -70,7 +72,9 @@ class ApiVideoServiceImpl[F[_]: MonadThrow: Clock, G[_]: MonadThrow](
             .productL(videoPermissionDao.delete(Some(userId), Some(videoId)))
         }
 
-      case None => videoService.deleteById(videoId, deleteVideoFile)
+      case None =>
+        apiDuplicateDetectionService.deleteVideo(videoId)
+          .productR(videoService.deleteById(videoId, deleteVideoFile))
     }
 
   override def search(

@@ -198,34 +198,4 @@ class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
       _ <- logger.info[F](s"Added ${addedDuplicateVideos.size} duplicate videos for group $groupId")
     } yield ()
 
-  override def deleteVideo(videoId: String): F[Option[DuplicateVideo]] =
-    transaction {
-      OptionT(duplicateVideoDao.findByVideoId(videoId))
-        .semiflatTap { duplicateVideo => duplicateVideoDao.delete(duplicateVideo.videoId) }
-        .semiflatTap { _ => videoPerceptualHashDao.deleteByVideoId(videoId) }
-        .semiflatTap { duplicateVideo =>
-          duplicateVideoDao.findByDuplicateGroupId(duplicateVideo.duplicateGroupId)
-            .flatMap { existingDuplicateVideosForGroup =>
-              val deleteGroupVideos =
-                existingDuplicateVideosForGroup.map(_.videoId).traverse(duplicateVideoDao.delete)
-
-              if (existingDuplicateVideosForGroup.size <= 1) {
-                deleteGroupVideos.void
-              } else {
-                val newGroupId = existingDuplicateVideosForGroup.map(_.videoId).min
-
-                if (newGroupId == duplicateVideo.duplicateGroupId) {
-                  Applicative[G].unit
-                } else {
-                  deleteGroupVideos.productR {
-                    existingDuplicateVideosForGroup.map(_.copy(duplicateGroupId = newGroupId))
-                      .traverse(duplicateVideoDao.insert)
-                  }.void
-                }
-              }
-            }
-        }
-        .value
-    }
-
 }
