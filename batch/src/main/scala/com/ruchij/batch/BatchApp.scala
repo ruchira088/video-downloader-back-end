@@ -156,6 +156,16 @@ object BatchApp extends IOApp {
             batchServiceConfiguration.kafkaConfiguration
           )
 
+          perceptualHashingService = new PerceptualHashingServiceImpl[F]
+
+          duplicateDetectionService = new BatchDuplicateDetectionServiceImpl[F, ConnectionIO](
+            perceptualHashingService,
+            repositoryService,
+            DoobieVideoPerceptualHashDao,
+            DoobieDuplicateVideoDao,
+            DoobieSnapshotDao,
+          )
+
           batchSchedulingService = new BatchSchedulingServiceImpl[F, ConnectionIO, CommittableConsumerRecord[
             F,
             Unit,
@@ -165,8 +175,10 @@ object BatchApp extends IOApp {
             workerStatusUpdatesSubscriber,
             scheduledVideoDownloadPubSub,
             repositoryService,
+            duplicateDetectionService,
             DoobieSchedulingDao,
             workerDao,
+            DoobieVideoMetadataDao,
             batchServiceConfiguration.storageConfiguration
           )
 
@@ -232,16 +244,6 @@ object BatchApp extends IOApp {
             youtubeVideoDownloader,
             videoEnrichmentService,
             batchServiceConfiguration.storageConfiguration
-          )
-
-          perceptualHashingService = new PerceptualHashingServiceImpl[F]
-
-          duplicateDetectionService = new BatchDuplicateDetectionServiceImpl[F, ConnectionIO](
-            perceptualHashingService,
-            repositoryService,
-            DoobieVideoPerceptualHashDao,
-            DoobieDuplicateVideoDao,
-            DoobieSnapshotDao,
           )
 
           instanceId <- Resource.eval(RandomGenerator[F, UUID].generate).map(_.toString)

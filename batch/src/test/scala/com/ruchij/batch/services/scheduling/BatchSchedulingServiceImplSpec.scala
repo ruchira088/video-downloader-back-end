@@ -7,6 +7,8 @@ import cats.~>
 import com.ruchij.batch.daos.workers.DoobieWorkerDao
 import com.ruchij.batch.external.BatchResourcesProvider
 import com.ruchij.batch.external.containers.ContainerBatchResourcesProvider
+import com.ruchij.batch.services.detection.BatchDuplicateDetectionService
+import com.ruchij.core.daos.duplicate.models.DuplicateVideo
 import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
@@ -51,8 +53,10 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
       workerStatusSubscriber,
       scheduledVideoDownloadPubSub,
       repositoryService,
+      stubDuplicateDetectionService,
       DoobieSchedulingDao,
       new DoobieWorkerDao(DoobieSchedulingDao),
+      DoobieVideoMetadataDao,
       storageConfiguration
     )
 
@@ -87,8 +91,10 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
           workerStatusSubscriber,
           scheduledVideoDownloadPubSub,
           repositoryService,
+          stubDuplicateDetectionService,
           DoobieSchedulingDao,
           new DoobieWorkerDao(DoobieSchedulingDao),
+          DoobieVideoMetadataDao,
           storageConfiguration
         )
 
@@ -371,8 +377,10 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         workerStatusSubscriber,
         scheduledVideoDownloadPubSub,
         repositoryService,
+        stubDuplicateDetectionService,
         DoobieSchedulingDao,
         new DoobieWorkerDao(DoobieSchedulingDao),
+        DoobieVideoMetadataDao,
         storageConfiguration
       )
 
@@ -429,8 +437,10 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         workerStatusSubscriber,
         scheduledVideoDownloadPubSub,
         repositoryService,
+        stubDuplicateDetectionService,
         DoobieSchedulingDao,
         new DoobieWorkerDao(DoobieSchedulingDao),
+        DoobieVideoMetadataDao,
         storageConfiguration
       )
 
@@ -459,8 +469,10 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         workerStatusSubscriber,
         scheduledVideoDownloadPubSub,
         repositoryService,
+        stubDuplicateDetectionService,
         DoobieSchedulingDao,
         new DoobieWorkerDao(DoobieSchedulingDao),
+        DoobieVideoMetadataDao,
         storageConfiguration
       )
 
@@ -491,8 +503,10 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         workerStatusSubscriber,
         scheduledVideoDownloadPubSub,
         repositoryService,
+        stubDuplicateDetectionService,
         DoobieSchedulingDao,
         new DoobieWorkerDao(DoobieSchedulingDao),
+        DoobieVideoMetadataDao,
         storageConfiguration
       )
 
@@ -525,8 +539,10 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         workerStatusSubscriber,
         scheduledVideoDownloadPubSub,
         repositoryService,
+        stubDuplicateDetectionService,
         DoobieSchedulingDao,
         new DoobieWorkerDao(DoobieSchedulingDao),
+        DoobieVideoMetadataDao,
         storageConfiguration
       )
 
@@ -552,8 +568,10 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         workerStatusSubscriber,
         scheduledVideoDownloadPubSub,
         repositoryService,
+        stubDuplicateDetectionService,
         DoobieSchedulingDao,
         new DoobieWorkerDao(DoobieSchedulingDao),
+        DoobieVideoMetadataDao,
         storageConfiguration
       )
 
@@ -564,6 +582,13 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         updated.foreach(_.status mustBe SchedulingStatus.Stale)
       }
     }
+  }
+
+  // Stub implementation for BatchDuplicateDetectionService
+  val stubDuplicateDetectionService: BatchDuplicateDetectionService[IO] = new BatchDuplicateDetectionService[IO] {
+    override def detect: IO[Map[scala.concurrent.duration.FiniteDuration, Set[Set[String]]]] = IO.pure(Map.empty)
+    override def run: IO[Unit] = IO.unit
+    override def deleteVideo(videoId: String): IO[Option[DuplicateVideo]] = IO.pure(None)
   }
 
   // Stub implementation for PubSub

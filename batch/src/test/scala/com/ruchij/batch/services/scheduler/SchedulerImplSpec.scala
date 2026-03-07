@@ -8,6 +8,7 @@ import com.ruchij.batch.config.WorkerConfiguration
 import com.ruchij.batch.daos.workers.WorkerDao
 import com.ruchij.batch.daos.workers.models.Worker
 import com.ruchij.batch.services.detection.BatchDuplicateDetectionService
+import com.ruchij.core.daos.duplicate.models.DuplicateVideo
 import com.ruchij.batch.services.scheduling.BatchSchedulingService
 import com.ruchij.batch.services.sync.SynchronizationService
 import com.ruchij.batch.services.sync.models.SynchronizationResult
@@ -157,6 +158,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   class StubBatchDuplicateDetectionService extends BatchDuplicateDetectionService[IO] {
     override def detect: IO[Map[FiniteDuration, Set[Set[String]]]] = IO.pure(Map.empty)
     override def run: IO[Unit] = IO.unit
+    override def deleteVideo(videoId: String): IO[Option[DuplicateVideo]] = IO.pure(None)
   }
 
   class StubWorkerDao extends WorkerDao[IO] {

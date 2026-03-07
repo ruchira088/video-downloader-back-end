@@ -5,10 +5,12 @@ import cats.effect.Async
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
 import com.ruchij.batch.daos.workers.WorkerDao
+import com.ruchij.batch.services.detection.BatchDuplicateDetectionService
 import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.SchedulingDao.notFound
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
+import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.models.CommittableRecord
 import com.ruchij.core.messaging.{PubSub, Publisher, Subscriber}
@@ -25,8 +27,10 @@ class BatchSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow, M[_]](
   workerStatusSubscriber: Subscriber[F, CommittableRecord[M, *], WorkerStatusUpdate],
   scheduledVideoDownloadPubSub: PubSub[F, CommittableRecord[M, *], ScheduledVideoDownload],
   repositoryService: RepositoryService[F],
+  batchDuplicateDetectionService: BatchDuplicateDetectionService[F],
   schedulingDao: SchedulingDao[T],
   workerDao: WorkerDao[T],
+  videoMetadataDao: VideoMetadataDao[T],
   storageConfiguration: StorageConfiguration
 )(implicit transaction: T ~> F)
     extends BatchSchedulingService[F] {
@@ -120,6 +124,7 @@ class BatchSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow, M[_]](
   override def deleteById(id: String): F[ScheduledVideoDownload] =
     logger
       .info[F](s"Deleting ScheduledVideoDownload with id=$id")
+      .productR(batchDuplicateDetectionService.deleteVideo(id))
       .productR {
         OptionT {
           transaction {
@@ -127,7 +132,8 @@ class BatchSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow, M[_]](
               OptionT.liftF {
                 workerDao
                   .clearScheduledVideoDownload(id)
-                  .product(schedulingDao.deleteById(id))
+                  .productR(schedulingDao.deleteById(id))
+                  .productR(videoMetadataDao.deleteById(id))
               }
             }.value
           }

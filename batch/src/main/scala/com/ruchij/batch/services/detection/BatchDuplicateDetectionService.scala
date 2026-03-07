@@ -1,11 +1,15 @@
 package com.ruchij.batch.services.detection
 
+import com.ruchij.core.daos.duplicate.models.DuplicateVideo
+
 import scala.concurrent.duration.FiniteDuration
 
 trait BatchDuplicateDetectionService[F[_]] {
   def detect: F[Map[FiniteDuration, Set[Set[String]]]]
 
   def run: F[Unit]
+
+  def deleteVideo(videoId: String): F[Option[DuplicateVideo]]
 }
 
 object BatchDuplicateDetectionService {

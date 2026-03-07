@@ -65,18 +65,25 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   class StubDuplicateVideoDao(
+    initialVideos: Seq[DuplicateVideo] = Seq.empty,
     existingGroups: Map[String, Seq[DuplicateVideo]] = Map.empty
   ) extends DuplicateVideoDao[IO] {
+    val videos: mutable.ListBuffer[DuplicateVideo] = mutable.ListBuffer.from(initialVideos)
     val insertedVideos: mutable.ListBuffer[DuplicateVideo] = mutable.ListBuffer.empty
     val deletedVideoIds: mutable.ListBuffer[String] = mutable.ListBuffer.empty
 
     override def insert(duplicateVideo: DuplicateVideo): IO[Int] =
-      IO.delay { insertedVideos += duplicateVideo; 1 }
+      IO.delay { insertedVideos += duplicateVideo; videos += duplicateVideo; 1 }
     override def delete(videoId: String): IO[Int] =
-      IO.delay { deletedVideoIds += videoId; 1 }
-    override def findByVideoId(videoId: String): IO[Option[DuplicateVideo]] = IO.pure(None)
+      IO.delay { deletedVideoIds += videoId; videos.filterInPlace(_.videoId != videoId); 1 }
+    override def findByVideoId(videoId: String): IO[Option[DuplicateVideo]] =
+      IO.delay(videos.find(_.videoId == videoId))
     override def findByDuplicateGroupId(duplicateGroupId: String): IO[Seq[DuplicateVideo]] =
-      IO.pure(existingGroups.getOrElse(duplicateGroupId, Seq.empty))
+      IO.delay {
+        val fromState = videos.filter(_.duplicateGroupId == duplicateGroupId).toSeq
+        if (fromState.nonEmpty) fromState
+        else existingGroups.getOrElse(duplicateGroupId, Seq.empty)
+      }
     override def getAll(offset: Int, limit: Int): IO[Seq[DuplicateVideo]] = IO.pure(Seq.empty)
     override def duplicateGroupIds: IO[Seq[String]] = IO.pure(Seq.empty)
     override def deleteAll: IO[Int] = IO.pure(0)
@@ -452,6 +459,73 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
     } yield {
       dupDao.deletedVideoIds mustBe empty
       dupDao.insertedVideos mustBe empty
+    }
+  }
+
+  "deleteVideo" should "return None when video is not a duplicate" in runIO {
+    val dupDao = new StubDuplicateVideoDao()
+    val service = createService(dupDao = dupDao)
+
+    for {
+      result <- service.deleteVideo("non-existent")
+    } yield {
+      result mustBe None
+    }
+  }
+
+  it should "delete a video and remove the group when only one member remains" in runIO {
+    val dup1 = DuplicateVideo("v1", "v1", timestamp)
+    val dup2 = DuplicateVideo("v2", "v1", timestamp)
+
+    val dupDao = new StubDuplicateVideoDao(initialVideos = Seq(dup1, dup2))
+    val service = createService(dupDao = dupDao)
+
+    for {
+      result <- service.deleteVideo("v2")
+    } yield {
+      result mustBe Some(dup2)
+      // v2 was deleted, then the remaining group (just v1) should also be deleted
+      dupDao.deletedVideoIds must contain("v2")
+      dupDao.deletedVideoIds must contain("v1")
+      dupDao.videos mustBe empty
+    }
+  }
+
+  it should "delete a video and keep the group intact when multiple members remain" in runIO {
+    val dup1 = DuplicateVideo("v1", "v1", timestamp)
+    val dup2 = DuplicateVideo("v2", "v1", timestamp)
+    val dup3 = DuplicateVideo("v3", "v1", timestamp)
+
+    val dupDao = new StubDuplicateVideoDao(initialVideos = Seq(dup1, dup2, dup3))
+    val service = createService(dupDao = dupDao)
+
+    for {
+      result <- service.deleteVideo("v3")
+    } yield {
+      result mustBe Some(dup3)
+      dupDao.deletedVideoIds must contain("v3")
+      // Group still has v1 and v2, group ID is still v1 (the min), so no re-grouping needed
+      dupDao.videos.map(_.videoId).toSet must contain allOf ("v1", "v2")
+    }
+  }
+
+  it should "re-group with new group ID when the group leader is deleted" in runIO {
+    val dup1 = DuplicateVideo("a-video", "a-video", timestamp)
+    val dup2 = DuplicateVideo("b-video", "a-video", timestamp)
+    val dup3 = DuplicateVideo("c-video", "a-video", timestamp)
+
+    val dupDao = new StubDuplicateVideoDao(initialVideos = Seq(dup1, dup2, dup3))
+    val service = createService(dupDao = dupDao)
+
+    for {
+      result <- service.deleteVideo("a-video")
+    } yield {
+      result mustBe Some(dup1)
+      // After deleting a-video, the remaining group {b-video, c-video} should be re-grouped
+      // with new group ID = "b-video" (the new min)
+      val remaining = dupDao.videos.toList
+      remaining.map(_.videoId).toSet mustBe Set("b-video", "c-video")
+      remaining.foreach(_.duplicateGroupId mustBe "b-video")
     }
   }
 
