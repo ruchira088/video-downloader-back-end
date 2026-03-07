@@ -202,6 +202,7 @@ class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
     transaction {
       OptionT(duplicateVideoDao.findByVideoId(videoId))
         .semiflatTap { duplicateVideo => duplicateVideoDao.delete(duplicateVideo.videoId) }
+        .semiflatTap { _ => videoPerceptualHashDao.deleteByVideoId(videoId) }
         .semiflatTap { duplicateVideo =>
           duplicateVideoDao.findByDuplicateGroupId(duplicateVideo.duplicateGroupId)
             .flatMap { existingDuplicateVideosForGroup =>

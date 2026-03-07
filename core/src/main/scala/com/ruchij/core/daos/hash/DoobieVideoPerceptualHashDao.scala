@@ -59,4 +59,9 @@ object DoobieVideoPerceptualHashDao extends VideoPerceptualHashDao[ConnectionIO]
     """
       .query[VideoPerceptualHash]
       .to[List]
+
+  override def deleteByVideoId(videoId: String): ConnectionIO[Int] =
+    sql"DELETE FROM video_perceptual_hash WHERE video_id = $videoId"
+      .update
+      .run
 }

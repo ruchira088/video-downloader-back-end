@@ -52,6 +52,7 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
     hashesByVideoId: Map[String, List[VideoPerceptualHash]] = Map.empty
   ) extends VideoPerceptualHashDao[IO] {
     val insertedHashes: mutable.ListBuffer[VideoPerceptualHash] = mutable.ListBuffer.empty
+    val deletedHashVideoIds: mutable.ListBuffer[String] = mutable.ListBuffer.empty
 
     override val uniqueVideoDurations: IO[Set[FiniteDuration]] = IO.pure(durations)
     override def getVideoIdsByDuration(duration: FiniteDuration): IO[Seq[String]] =
@@ -62,6 +63,8 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
       IO.pure(hashesByVideoId.getOrElse(videoId, List.empty))
     override def insert(videoPerceptualHash: VideoPerceptualHash): IO[Int] =
       IO.delay { insertedHashes += videoPerceptualHash; 1 }
+    override def deleteByVideoId(videoId: String): IO[Int] =
+      IO.delay { deletedHashVideoIds += videoId; 1 }
   }
 
   class StubDuplicateVideoDao(
@@ -478,7 +481,8 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
     val dup2 = DuplicateVideo("v2", "v1", timestamp)
 
     val dupDao = new StubDuplicateVideoDao(initialVideos = Seq(dup1, dup2))
-    val service = createService(dupDao = dupDao)
+    val hashDao = new StubVideoPerceptualHashDao()
+    val service = createService(hashDao = hashDao, dupDao = dupDao)
 
     for {
       result <- service.deleteVideo("v2")
@@ -488,6 +492,8 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
       dupDao.deletedVideoIds must contain("v2")
       dupDao.deletedVideoIds must contain("v1")
       dupDao.videos mustBe empty
+      // Perceptual hashes for the deleted video should be cleaned up
+      hashDao.deletedHashVideoIds must contain("v2")
     }
   }
 
@@ -497,7 +503,8 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
     val dup3 = DuplicateVideo("v3", "v1", timestamp)
 
     val dupDao = new StubDuplicateVideoDao(initialVideos = Seq(dup1, dup2, dup3))
-    val service = createService(dupDao = dupDao)
+    val hashDao = new StubVideoPerceptualHashDao()
+    val service = createService(hashDao = hashDao, dupDao = dupDao)
 
     for {
       result <- service.deleteVideo("v3")
@@ -506,6 +513,8 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
       dupDao.deletedVideoIds must contain("v3")
       // Group still has v1 and v2, group ID is still v1 (the min), so no re-grouping needed
       dupDao.videos.map(_.videoId).toSet must contain allOf ("v1", "v2")
+      // Perceptual hashes for the deleted video should be cleaned up
+      hashDao.deletedHashVideoIds must contain("v3")
     }
   }
 
@@ -515,7 +524,8 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
     val dup3 = DuplicateVideo("c-video", "a-video", timestamp)
 
     val dupDao = new StubDuplicateVideoDao(initialVideos = Seq(dup1, dup2, dup3))
-    val service = createService(dupDao = dupDao)
+    val hashDao = new StubVideoPerceptualHashDao()
+    val service = createService(hashDao = hashDao, dupDao = dupDao)
 
     for {
       result <- service.deleteVideo("a-video")
@@ -526,6 +536,7 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
       val remaining = dupDao.videos.toList
       remaining.map(_.videoId).toSet mustBe Set("b-video", "c-video")
       remaining.foreach(_.duplicateGroupId mustBe "b-video")
+      hashDao.deletedHashVideoIds must contain("a-video")
     }
   }
 

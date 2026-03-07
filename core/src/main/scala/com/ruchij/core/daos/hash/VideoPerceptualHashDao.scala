@@ -14,4 +14,6 @@ trait VideoPerceptualHashDao[F[_]] {
   def findVideoHashesByDuration(duration: FiniteDuration): F[Seq[VideoPerceptualHash]]
 
   def getByVideoId(videoId: String): F[List[VideoPerceptualHash]]
+
+  def deleteByVideoId(videoId: String): F[Int]
 }
