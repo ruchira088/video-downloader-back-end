@@ -35,17 +35,17 @@ import scala.concurrent.duration.{FiniteDuration, _}
 import scala.language.postfixOps
 
 class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow, M[_]](
-                                                                 batchSchedulingService: BatchSchedulingService[F],
-                                                                 synchronizationService: SynchronizationService[F],
-                                                                 batchVideoService: BatchVideoService[F],
-                                                                 videoWatchHistoryService: VideoWatchHistoryService[F],
-                                                                 workExecutor: WorkExecutor[F],
-                                                                 duplicateDetectionService: BatchDuplicateDetectionService[F],
-                                                                 videoWatchMetricsSubscriber: Subscriber[F, CommittableRecord[M, *], VideoWatchMetric],
-                                                                 scanForVideosCommandSubscriber: Subscriber[F, CommittableRecord[M, *], ScanVideosCommand],
-                                                                 workerDao: WorkerDao[T],
-                                                                 workerConfiguration: WorkerConfiguration,
-                                                                 instanceId: String
+  batchSchedulingService: BatchSchedulingService[F],
+  synchronizationService: SynchronizationService[F],
+  batchVideoService: BatchVideoService[F],
+  videoWatchHistoryService: VideoWatchHistoryService[F],
+  workExecutor: WorkExecutor[F],
+  duplicateDetectionService: BatchDuplicateDetectionService[F],
+  videoWatchMetricsSubscriber: Subscriber[F, CommittableRecord[M, *], VideoWatchMetric],
+  scanForVideosCommandSubscriber: Subscriber[F, CommittableRecord[M, *], ScanVideosCommand],
+  workerDao: WorkerDao[T],
+  workerConfiguration: WorkerConfiguration,
+  instanceId: String
 )(implicit transaction: T ~> F)
     extends Scheduler[F] {
 
@@ -99,16 +99,24 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow, M[_]](
         .flatMap {
           case (task, timestamp) =>
             ApplicativeError[OptionT[F, *], Throwable].recoverWith {
-            OptionT(transaction(workerDao.assignTask(worker.id, task.videoMetadata.id, workerConfiguration.owner, timestamp)))
-              .product {
-                OptionT.liftF {
-                  batchSchedulingService.publishScheduledVideoDownload(task.videoMetadata.id)
+              OptionT(
+                transaction(
+                  workerDao.assignTask(worker.id, task.videoMetadata.id, workerConfiguration.owner, timestamp)
+                )
+              ).product {
+                  OptionT.liftF {
+                    batchSchedulingService.publishScheduledVideoDownload(task.videoMetadata.id)
+                  }
                 }
-              }
-              .as(timestamp -> task)
-          } {
+                .as(timestamp -> task)
+            } {
               case throwable: Throwable =>
-                OptionT.liftF(logger.warn[F](s"Error assigning task to worker. workerId=${worker.id}, scheduledVideoId=${task.videoMetadata.id} error=$throwable"))
+                OptionT
+                  .liftF(
+                    logger.warn[F](
+                      s"Error assigning task to worker. workerId=${worker.id}, scheduledVideoId=${task.videoMetadata.id} error=$throwable"
+                    )
+                  )
                   .productR(OptionT.none)
             }
         }
@@ -218,13 +226,11 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow, M[_]](
       }
 
   private val duplicateDetection =
-    Stream.eval {
+    (Stream.eval {
       logger.info[F]("Starting duplicate detection") *>
         duplicateDetectionService.run *>
         logger.info[F]("Duplicate detection completed")
-    }
-      .delayBy(30 seconds)
-      .repeat
+    }.delayBy(1 minute) ++ Stream.sleep[F](6 hours)).repeat
 
   private def performScheduledVideoDeletions(
     scheduledVideoDownloadUpdates: Stream[F, ScheduledVideoDownload]
@@ -234,11 +240,13 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow, M[_]](
         scheduledVideoDownload.status == SchedulingStatus.Deleted
       }
       .flatMap { scheduledVideoDownload =>
-        Stream.eval(batchSchedulingService.deleteById(scheduledVideoDownload.videoMetadata.id))
+        Stream
+          .eval(batchSchedulingService.deleteById(scheduledVideoDownload.videoMetadata.id))
           .recoverWith {
             case throwable =>
-              Stream.eval(logger.error[F](s"Unable to perform deletion for $scheduledVideoDownload", throwable))
-              .productR(Stream.empty)
+              Stream
+                .eval(logger.error[F](s"Unable to perform deletion for $scheduledVideoDownload", throwable))
+                .productR(Stream.empty)
           }
       }
 
