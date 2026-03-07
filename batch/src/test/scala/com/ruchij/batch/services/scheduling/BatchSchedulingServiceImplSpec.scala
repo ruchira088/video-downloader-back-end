@@ -10,9 +10,13 @@ import com.ruchij.batch.external.containers.ContainerBatchResourcesProvider
 import com.ruchij.batch.services.detection.BatchDuplicateDetectionService
 import com.ruchij.core.daos.duplicate.models.DuplicateVideo
 import com.ruchij.core.config.StorageConfiguration
+import com.ruchij.core.daos.duplicate.DoobieDuplicateVideoDao
+import com.ruchij.core.daos.hash.DoobieVideoPerceptualHashDao
+import com.ruchij.core.daos.hash.models.VideoPerceptualHash
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
+import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.messaging.models.CommittableRecord
@@ -581,6 +585,64 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         // The actual timeout behavior depends on the data in the database
         updated.foreach(_.status mustBe SchedulingStatus.Stale)
       }
+    }
+  }
+
+  "video deletion" should "succeed when video has perceptual hash records" in runIO {
+    val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
+
+    batchServiceProvider.transactor.use { implicit transactor =>
+      for {
+        scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
+        _ <- transactor(insertScheduledVideo(scheduledVideo))
+
+        videoFileResource <- DataGenerators.fileResource[IO](cats.data.NonEmptyList.of(org.http4s.MediaType.video.mp4)).generate
+        _ <- transactor(DoobieFileResourceDao.insert(videoFileResource))
+
+        timestamp <- Clock[IO].timestamp
+        _ <- transactor(DoobieVideoDao.insert(scheduledVideo.videoMetadata.id, videoFileResource.id, timestamp, 0.seconds))
+
+        // Insert a perceptual hash record for this video
+        _ <- transactor(DoobieVideoPerceptualHashDao.insert(
+          VideoPerceptualHash(scheduledVideo.videoMetadata.id, timestamp, scheduledVideo.videoMetadata.duration, BigInt(42L), 150.seconds)
+        ))
+
+        // Deleting the video row should succeed despite the perceptual hash record
+        // (FK now references video_metadata, not video)
+        deleteResult <- transactor(DoobieVideoDao.deleteById(scheduledVideo.videoMetadata.id))
+        _ <- IO.delay {
+          deleteResult must be > 0
+        }
+      } yield ()
+    }
+  }
+
+  it should "succeed when video has duplicate video records" in runIO {
+    val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
+
+    batchServiceProvider.transactor.use { implicit transactor =>
+      for {
+        scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
+        _ <- transactor(insertScheduledVideo(scheduledVideo))
+
+        videoFileResource <- DataGenerators.fileResource[IO](cats.data.NonEmptyList.of(org.http4s.MediaType.video.mp4)).generate
+        _ <- transactor(DoobieFileResourceDao.insert(videoFileResource))
+
+        timestamp <- Clock[IO].timestamp
+        _ <- transactor(DoobieVideoDao.insert(scheduledVideo.videoMetadata.id, videoFileResource.id, timestamp, 0.seconds))
+
+        // Insert a duplicate video record for this video
+        _ <- transactor(DoobieDuplicateVideoDao.insert(
+          DuplicateVideo(scheduledVideo.videoMetadata.id, scheduledVideo.videoMetadata.id, timestamp)
+        ))
+
+        // Deleting the video row should succeed despite the duplicate video record
+        // (FK now references video_metadata, not video)
+        deleteResult <- transactor(DoobieVideoDao.deleteById(scheduledVideo.videoMetadata.id))
+        _ <- IO.delay {
+          deleteResult must be > 0
+        }
+      } yield ()
     }
   }
 
