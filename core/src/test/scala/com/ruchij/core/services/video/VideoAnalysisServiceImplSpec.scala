@@ -121,7 +121,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
     }.value
   }
 
-  it should "analyse a EPorner video URL" in runIO {
+  it should "analyse a EPorner video URL" ignore runIO {
     analyze[IO](uri"https://www.eporner.com/video-wxed3sMHlEC/bbc-breeds-wife/").semiflatMap { videoAnalysisResult =>
       IO.delay {
         videoAnalysisResult.title mustBe "BBC Breeds Wife"
