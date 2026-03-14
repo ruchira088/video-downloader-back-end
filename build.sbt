@@ -109,8 +109,8 @@ lazy val api =
       topLevelDirectory := None,
       Universal / javaOptions ++= Seq("-Dlogback.configurationFile=/opt/data/logback.xml"),
       libraryDependencies ++=
-        Seq(http4sEmberServer, circeGeneric, circeParser, circeLiteral, postgresql, pureconfig, jbcrypt, logbackClassic) ++ Seq(
-          pegdown
+        Seq(http4sEmberServer, circeGeneric, circeParser, postgresql, pureconfig, jbcrypt, logbackClassic) ++ Seq(
+          circeLiteral, pegdown
         ).map(_ % Test)
     )
     .dependsOn(core % "compile->compile;test->test")
