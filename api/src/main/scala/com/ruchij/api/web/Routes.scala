@@ -30,20 +30,20 @@ import org.http4s.{ContextRoutes, HttpApp}
 object Routes {
 
   def apply[F[_]: Async: Clock: Compression](
-                                              userService: UserService[F],
-                                              apiVideoService: ApiVideoService[F],
-                                              videoAnalysisService: VideoAnalysisService[F],
-                                              apiSchedulingService: ApiSchedulingService[F],
-                                              playlistService: PlaylistService[F],
-                                              assetService: AssetService[F],
-                                              videoWatchHistoryService: VideoWatchHistoryService[F],
-                                              healthService: HealthService[F],
-                                              authenticationService: AuthenticationService[F],
-                                              downloadProgressStream: Stream[F, DownloadProgress],
-                                              scheduledVideoDownloadUpdatesStream: Stream[F, ScheduledVideoDownload],
-                                              metricPublisher: Publisher[F, HttpMetric],
-                                              duplicateDetectionService: ApiDuplicateDetectionService[F],
-                                              allowedOrigins: Set[String]
+    userService: UserService[F],
+    apiVideoService: ApiVideoService[F],
+    videoAnalysisService: VideoAnalysisService[F],
+    apiSchedulingService: ApiSchedulingService[F],
+    playlistService: PlaylistService[F],
+    assetService: AssetService[F],
+    videoWatchHistoryService: VideoWatchHistoryService[F],
+    healthService: HealthService[F],
+    authenticationService: AuthenticationService[F],
+    downloadProgressStream: Stream[F, DownloadProgress],
+    scheduledVideoDownloadUpdatesStream: Stream[F, ScheduledVideoDownload],
+    metricPublisher: Publisher[F, HttpMetric],
+    duplicateDetectionService: ApiDuplicateDetectionService[F],
+    allowedOrigins: Set[String]
   ): HttpApp[F] = {
     implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
 
