@@ -57,6 +57,8 @@ object Dependencies
 
   lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "2.0.3"
 
+  lazy val redis4catsStreams = "dev.profunktor" %% "redis4cats-streams" % "2.0.3"
+
   lazy val jbcrypt = "org.mindrot" % "jbcrypt" % "0.4"
 
   lazy val embeddedRedis = "com.github.kstyrc" % "embedded-redis" % "0.6"
