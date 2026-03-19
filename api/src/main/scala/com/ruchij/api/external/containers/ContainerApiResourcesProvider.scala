@@ -5,7 +5,7 @@ import cats.effect.kernel.Sync
 import com.ruchij.api.external.ApiResourcesProvider
 import com.ruchij.core.config.RedisConfiguration
 import com.ruchij.core.external.CoreResourcesProvider
-import com.ruchij.core.external.containers.ContainerCoreResourcesProvider
+import com.ruchij.core.external.containers.{ContainerCoreResourcesProvider, RedisContainer}
 
 class ContainerApiResourcesProvider[F[_]: Sync] extends ApiResourcesProvider[F] {
 

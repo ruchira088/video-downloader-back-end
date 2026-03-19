@@ -1,7 +1,10 @@
 package com.ruchij.core.messaging.redis
 
-import cats.effect.kernel.Sync
+import cats.effect.kernel.{Async, Resource, Sync}
+import com.ruchij.core.config.RedisConfiguration
 import com.ruchij.core.messaging.Publisher
+import dev.profunktor.redis4cats.Redis
+import dev.profunktor.redis4cats.effect.Log
 import dev.profunktor.redis4cats.streams.RedisStream
 import dev.profunktor.redis4cats.streams.data.XAddMessage
 import fs2.{Pipe, Stream}
@@ -22,4 +25,13 @@ class RedisStreamPublisher[F[_]: Sync, A](redisStream: RedisStream[F, String, St
 
   override def publishOne(input: A): F[Unit] =
     publish(Stream.emit[F, A](input)).compile.drain
+}
+
+object RedisStreamPublisher {
+  def create[F[_]: Async: Log, A: RedisStreamTopic](
+    redisConfiguration: RedisConfiguration
+  ): Resource[F, RedisStreamPublisher[F, A]] =
+    Redis[F].utf8(redisConfiguration.uri).map { redisCommands =>
+      new RedisStreamPublisher[F, A](RedisStream[F, String, String](redisCommands))
+    }
 }

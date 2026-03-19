@@ -1,10 +1,9 @@
-package com.ruchij.api.external.containers
+package com.ruchij.core.external.containers
 
 import cats.effect.{Resource, Sync}
 import cats.implicits._
 import com.redis.testcontainers.{RedisContainer => RedisTestContainer}
 import com.ruchij.core.config.RedisConfiguration
-import com.ruchij.core.external.containers.ContainerCoreResourcesProvider
 
 class RedisContainer extends RedisTestContainer("redis:8")
 
