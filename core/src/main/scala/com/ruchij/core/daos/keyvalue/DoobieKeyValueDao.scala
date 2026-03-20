@@ -13,11 +13,15 @@ object DoobieKeyValueDao extends KeyValueDao[ConnectionIO] {
           ON CONFLICT (store_key) DO UPDATE SET store_value = $value, expires_at = $maybeExpiresAt"""
       .update.run
 
-  override def find(key: String, timestamp: Instant): ConnectionIO[Option[String]] =
-    sql"""SELECT store_value FROM key_value_store WHERE store_key = $key AND (expires_at IS NULL OR expires_at > $timestamp)"""
+  override def find(key: String, currentTimestamp: Instant): ConnectionIO[Option[String]] =
+    sql"""SELECT store_value FROM key_value_store WHERE store_key = $key AND (expires_at IS NULL OR expires_at > $currentTimestamp)"""
       .query[String].option
 
   override def delete(key: String): ConnectionIO[Int] =
     sql"""DELETE FROM key_value_store WHERE store_key = $key"""
+      .update.run
+
+  override def deleteExpiredKeys(timestamp: Instant): ConnectionIO[Int] =
+    sql"""DELETE FROM key_value_store WHERE expires_at IS NOT NULL AND expires_at <= $timestamp"""
       .update.run
 }

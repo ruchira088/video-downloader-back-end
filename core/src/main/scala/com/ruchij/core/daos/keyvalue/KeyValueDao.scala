@@ -8,4 +8,6 @@ trait KeyValueDao[F[_]] {
   def find(key: String, timestamp: Instant): F[Option[String]]
 
   def delete(key: String): F[Int]
+
+  def deleteExpiredKeys(timestamp: Instant): F[Int]
 }
