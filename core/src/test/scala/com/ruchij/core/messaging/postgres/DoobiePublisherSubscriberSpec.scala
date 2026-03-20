@@ -7,6 +7,7 @@ import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.messaging.DoobieMessageDao
 import com.ruchij.core.external.containers.PostgresContainer
 import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage
+import com.ruchij.core.messaging.doobie.{DoobiePublisher, DoobieSubscriber}
 import com.ruchij.core.messaging.{Publisher, PublisherSubscriberSpec, Subscriber}
 import com.ruchij.migration.MigrationApp
 import com.ruchij.migration.config.{AdminConfiguration, MigrationServiceConfiguration}
@@ -17,7 +18,7 @@ import org.scalatest.matchers.must.Matchers
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class PostgresPublisherSubscriberSpec extends AnyFlatSpec with Matchers with PublisherSubscriberSpec[Id] {
+class DoobiePublisherSubscriberSpec extends AnyFlatSpec with Matchers with PublisherSubscriberSpec[Id] {
 
   override def resource: Resource[IO, (Publisher[IO, TestMessage], Subscriber[IO, Id, TestMessage])] =
     PostgresContainer
@@ -26,15 +27,12 @@ class PostgresPublisherSubscriberSpec extends AnyFlatSpec with Matchers with Pub
         MigrationApp.migration[IO](MigrationServiceConfiguration(dbConfig, AdminConfiguration("dummy-hash"))).void
       }
       .flatMap { dbConfig =>
-        DoobieTransactor.create[IO](dbConfig).flatMap { transactor =>
+        DoobieTransactor.create[IO](dbConfig).map { transactor =>
           implicit val transaction: ConnectionIO ~> IO = transactor.trans
 
-          PostgresSubscriber
-            .create[IO, ConnectionIO, TestMessage](DoobieMessageDao, dbConfig)
-            .map { subscriber =>
-              val publisher = new PostgresPublisher[IO, ConnectionIO, TestMessage](DoobieMessageDao)
-              (publisher: Publisher[IO, TestMessage], subscriber: Subscriber[IO, Id, TestMessage])
-            }
+          val publisher = new DoobiePublisher[IO, ConnectionIO, TestMessage](DoobieMessageDao)
+          val subscriber = DoobieSubscriber.create[IO, ConnectionIO, TestMessage](DoobieMessageDao, 500 milliseconds)
+          (publisher: Publisher[IO, TestMessage], subscriber: Subscriber[IO, Id, TestMessage])
         }
       }
 
