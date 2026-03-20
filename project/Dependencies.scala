@@ -65,7 +65,7 @@ object Dependencies
 
   lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "8.2.0"
 
-  lazy val testContainers = "org.testcontainers" % "testcontainers" % "2.0.3"
+  lazy val testContainers = "org.testcontainers" % "testcontainers" % "2.0.4"
 
   lazy val kafkaTestContainer = "org.testcontainers" % "kafka" % "1.21.4"
 
