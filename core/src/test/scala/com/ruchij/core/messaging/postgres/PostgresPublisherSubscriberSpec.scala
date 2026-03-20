@@ -2,12 +2,15 @@ package com.ruchij.core.messaging.postgres
 
 import cats.Id
 import cats.effect.{IO, Resource}
+import cats.~>
 import com.ruchij.core.daos.doobie.DoobieTransactor
+import com.ruchij.core.daos.messaging.DoobieMessageDao
 import com.ruchij.core.external.containers.PostgresContainer
 import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage
 import com.ruchij.core.messaging.{Publisher, PublisherSubscriberSpec, Subscriber}
 import com.ruchij.migration.MigrationApp
 import com.ruchij.migration.config.{AdminConfiguration, MigrationServiceConfiguration}
+import doobie.ConnectionIO
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
@@ -24,10 +27,12 @@ class PostgresPublisherSubscriberSpec extends AnyFlatSpec with Matchers with Pub
       }
       .flatMap { dbConfig =>
         DoobieTransactor.create[IO](dbConfig).flatMap { transactor =>
+          implicit val transaction: ConnectionIO ~> IO = transactor.trans
+
           PostgresSubscriber
-            .create[IO, TestMessage](dbConfig, transactor)
+            .create[IO, ConnectionIO, TestMessage](DoobieMessageDao, dbConfig)
             .map { subscriber =>
-              val publisher = PostgresPublisher.create[IO, TestMessage](transactor)
+              val publisher = new PostgresPublisher[IO, ConnectionIO, TestMessage](DoobieMessageDao)
               (publisher: Publisher[IO, TestMessage], subscriber: Subscriber[IO, Id, TestMessage])
             }
         }

@@ -2,22 +2,22 @@ package com.ruchij.core.messaging.postgres
 
 import cats.effect.kernel.{Async, Ref, Resource}
 import cats.implicits._
-import cats.{Applicative, Foldable, Functor, Id}
+import cats.{Applicative, Foldable, Functor, Id, ~>}
+import com.ruchij.core.daos.messaging.MessageDao
 import com.ruchij.core.messaging.Subscriber
-import com.typesafe.scalalogging.{Logger => ScalaLogger}
 import com.ruchij.migration.config.DatabaseConfiguration
-import doobie.Transactor
-import doobie.implicits._
+import com.typesafe.scalalogging.{Logger => ScalaLogger}
 import fs2.Stream
 import io.circe.parser.parse
 import org.postgresql.PGConnection
 
 import java.sql.DriverManager
 
-class PostgresSubscriber[F[_]: Async, A](transactor: Transactor[F], listenConnection: java.sql.Connection)(
-  implicit postgresTopic: PostgresTopic[A]
+class PostgresSubscriber[F[_]: Async, G[_], A](messageDao: MessageDao[G], listenConnection: java.sql.Connection)(
+    implicit postgresTopic: PostgresTopic[A],
+    transaction: G ~> F
 ) extends Subscriber[F, Id, A] {
-  private val logger = ScalaLogger[PostgresSubscriber[F, A]]
+  private val logger = ScalaLogger[PostgresSubscriber[F, G, A]]
   private val PollTimeoutMs = 5000
 
   override def subscribe(groupId: String): Stream[F, A] = {
@@ -29,10 +29,7 @@ class PostgresSubscriber[F[_]: Async, A](transactor: Transactor[F], listenConnec
       }
     }.drain ++
       Stream.eval {
-        sql"SELECT COALESCE(MAX(id), 0) FROM message_queue WHERE channel = $channel"
-          .query[Long]
-          .unique
-          .transact(transactor)
+        transaction(messageDao.maxId(channel))
           .flatMap(maxId => Ref.of[F, Long](maxId))
       }.flatMap { cursor =>
         Stream.repeatEval {
@@ -43,10 +40,7 @@ class PostgresSubscriber[F[_]: Async, A](transactor: Transactor[F], listenConnec
 
             lastId <- cursor.get
 
-            rows <- sql"SELECT id, payload FROM message_queue WHERE channel = $channel AND id > $lastId ORDER BY id ASC"
-              .query[(Long, String)]
-              .to[List]
-              .transact(transactor)
+            rows <- transaction(messageDao.findAfter(channel, lastId))
           } yield rows
         }
           .flatMap(rows => Stream.emits(rows))
@@ -74,10 +68,10 @@ class PostgresSubscriber[F[_]: Async, A](transactor: Transactor[F], listenConnec
 }
 
 object PostgresSubscriber {
-  def create[F[_]: Async, A: PostgresTopic](
-    databaseConfiguration: DatabaseConfiguration,
-    transactor: Transactor[F]
-  ): Resource[F, PostgresSubscriber[F, A]] =
+  def create[F[_]: Async, G[_], A: PostgresTopic](
+    messageDao: MessageDao[G],
+    databaseConfiguration: DatabaseConfiguration
+  )(implicit transaction: G ~> F): Resource[F, PostgresSubscriber[F, G, A]] =
     Resource.make(
       Async[F].blocking {
         DriverManager.getConnection(
@@ -87,5 +81,5 @@ object PostgresSubscriber {
         )
       }
     )(connection => Async[F].blocking(connection.close()))
-      .map(connection => new PostgresSubscriber[F, A](transactor, connection))
+      .map(connection => new PostgresSubscriber[F, G, A](messageDao, connection))
 }
