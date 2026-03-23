@@ -90,7 +90,12 @@ object DevelopmentApp extends IOApp {
       StorageConfig,
       WorkerConfig,
       databaseConfiguration,
-      PubsubConfiguration(PubsubType.Kafka, Some(kafkaConfiguration), None, None),
+      PubsubConfiguration(
+        PubsubType.Kafka,
+        Some(kafkaConfiguration),
+        Some(redisConfiguration),
+        Some(databaseConfiguration)
+      ),
       redisConfiguration,
       spaSiteRendererConfiguration,
       SentryConfig
