@@ -12,11 +12,11 @@ import com.ruchij.api.external.containers.ContainerApiResourcesProvider
 import com.ruchij.batch.BatchApp
 import com.ruchij.batch.config.{BatchServiceConfiguration, WorkerConfiguration}
 import com.ruchij.batch.services.scheduler.Scheduler
-import com.ruchij.core.config.{KafkaConfiguration, PubsubConfiguration, RedisConfiguration, SentryConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
-import com.ruchij.core.messaging.PubSub.PubsubType
+import com.ruchij.core.config._
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.external.CoreResourcesProvider.HashedAdminPassword
 import com.ruchij.core.logging.Logger
+import com.ruchij.core.messaging.PubSub.PubsubType
 import com.ruchij.core.types.Clock
 import com.ruchij.development.frontend.FrontEndContainer
 import com.ruchij.migration.MigrationApp
@@ -28,9 +28,8 @@ import org.http4s.HttpApp
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.implicits.http4sLiteralsSyntax
 
-import java.time.LocalTime
-
 import java.security.KeyStore
+import java.time.LocalTime
 import javax.net.ssl.{KeyManagerFactory, SSLContext}
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
@@ -50,9 +49,7 @@ object DevelopmentApp extends IOApp {
     HttpConfiguration(
       ipv4"0.0.0.0",
       port"443",
-      Some(
-        Set("*.localhost", "*.ruchij.com", "192.168.*.*", "10.*.*.*", "172.*.*.*")
-      )
+      Some(Set("*.localhost", "*.ruchij.com", "192.168.*.*", "10.*.*.*", "172.*.*.*"))
     )
 
   private val AuthenticationConfig: AuthenticationConfiguration =
@@ -73,7 +70,12 @@ object DevelopmentApp extends IOApp {
       databaseConfiguration,
       redisConfiguration,
       AuthenticationConfig,
-      PubsubConfiguration(PubsubType.Kafka, Some(kafkaConfiguration), None, None),
+      PubsubConfiguration(
+        PubsubType.Kafka,
+        Some(kafkaConfiguration),
+        Some(redisConfiguration),
+        Some(databaseConfiguration)
+      ),
       spaSiteRendererConfiguration,
       SentryConfig
     )
