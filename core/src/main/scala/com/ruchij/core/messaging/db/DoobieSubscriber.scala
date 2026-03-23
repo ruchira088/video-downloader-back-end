@@ -60,7 +60,7 @@ class DoobieSubscriber[F[_]: Async, G[_], A](messageDao: MessageDao[G], pollInte
 }
 
 object DoobieSubscriber {
-  val DefaultPollInterval: FiniteDuration = 3 seconds
+  val DefaultPollInterval: FiniteDuration = 1 second
 
   def create[F[_]: Async, G[_], A: MessagingTopic](
     messageDao: MessageDao[G],
