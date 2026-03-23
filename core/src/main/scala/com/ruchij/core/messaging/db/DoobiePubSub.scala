@@ -12,7 +12,7 @@ object DoobiePubSub {
   def apply[F[_]: Async: Clock, G[_], A: DoobieTopic](
     messageDao: MessageDao[G],
     pollInterval: FiniteDuration = DoobieSubscriber.DefaultPollInterval
-  )(implicit transaction: G ~> F): PubSub[F, Id, A] = {
+  )(implicit transaction: G ~> F): PubSub[F, A] = {
     val publisher = new DoobiePublisher[F, G, A](messageDao)
     val subscriber = DoobieSubscriber.create[F, G, A](messageDao, pollInterval)
     PubSub.from(publisher, subscriber)

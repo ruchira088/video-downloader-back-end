@@ -9,7 +9,7 @@ import fs2.kafka.CommittableConsumerRecord
 object KafkaPubSub {
   def apply[F[_]: Async, A](kafkaConfiguration: KafkaConfiguration)(
     implicit kafkaTopic: KafkaTopic[A]
-  ): Resource[F, PubSub[F, CommittableRecord[CommittableConsumerRecord[F, Unit, *], *], A]] =
+  ): Resource[F, PubSub[F, A]] =
     for {
       publisher <- KafkaPublisher[F, A](kafkaConfiguration)
       subscriber = new KafkaSubscriber[F, A](kafkaConfiguration)

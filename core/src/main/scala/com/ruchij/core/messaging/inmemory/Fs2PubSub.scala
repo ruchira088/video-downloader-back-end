@@ -8,16 +8,17 @@ import com.ruchij.core.messaging.models.CommittableRecord
 import fs2.concurrent.Topic
 import fs2.{Pipe, Stream}
 
-class Fs2PubSub[F[_]: Applicative, A](topic: Topic[F, A]) extends PubSub[F, CommittableRecord[Id, *], A] {
+class Fs2PubSub[F[_]: Applicative, A](topic: Topic[F, A]) extends PubSub[F, A] {
+  override type C[X] = X
 
   override val publish: Pipe[F, A, Unit] = input => topic.publish(input)
 
   override def publishOne(input: A): F[Unit] = topic.publish1(input).as((): Unit)
 
-  override def subscribe(groupId: String): Stream[F, CommittableRecord[Id, A]] =
-    topic.subscribe(Int.MaxValue).map { value => CommittableRecord[Id, A](value, value) }
+  override def subscribe(groupId: String): Stream[F, A] =
+    topic.subscribe(Int.MaxValue)
 
-  override def commit[H[_] : Foldable : Functor](values: H[CommittableRecord[Id, A]]): F[Unit] =
+  override def commit[H[_] : Foldable : Functor](values: H[A]): F[Unit] =
     Applicative[F].unit
 }
 

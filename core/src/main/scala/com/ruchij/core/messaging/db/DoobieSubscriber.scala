@@ -2,7 +2,7 @@ package com.ruchij.core.messaging.db
 
 import cats.effect.kernel.{Async, Ref}
 import cats.implicits._
-import cats.{Applicative, Foldable, Functor, Id, ~>}
+import cats.{Applicative, Foldable, Functor, ~>}
 import com.ruchij.core.daos.messaging.MessageDao
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Subscriber
@@ -15,8 +15,10 @@ import scala.language.postfixOps
 class DoobieSubscriber[F[_]: Async, G[_], A](messageDao: MessageDao[G], pollInterval: FiniteDuration)(
   implicit doobieTopic: DoobieTopic[A],
   transaction: G ~> F
-) extends Subscriber[F, Id, A] {
+) extends Subscriber[F, A] {
   private val logger = Logger[DoobieSubscriber[F, G, A]]
+
+  override type C[X] = X
 
   override def subscribe(groupId: String): Stream[F, A] = {
     val channel = doobieTopic.topicName

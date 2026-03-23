@@ -1,5 +1,6 @@
 package com.ruchij.core.circe
 
+import com.ruchij.core.circe.CirceCodecsSpec.TestWrapper
 import com.ruchij.core.circe.Decoders._
 import com.ruchij.core.circe.Encoders._
 import com.ruchij.core.daos.scheduling.models.SchedulingStatus
@@ -8,6 +9,7 @@ import com.ruchij.core.services.models.{Order, SortBy}
 import io.circe.parser._
 import io.circe.syntax._
 import org.http4s.MediaType
+
 import java.time.{Instant, ZoneOffset}
 import com.ruchij.core.types.TimeUtils
 import org.scalatest.OptionValues
@@ -246,5 +248,8 @@ class CirceCodecsSpec extends AnyFlatSpec with Matchers with OptionValues {
 
 }
 
-// Test value class for stringWrapperDecoder tests
-final case class TestWrapper(value: String) extends AnyVal
+object CirceCodecsSpec {
+  // Test value class for stringWrapperDecoder tests
+  final case class TestWrapper(value: String) extends AnyVal
+}
+

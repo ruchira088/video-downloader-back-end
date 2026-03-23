@@ -15,7 +15,7 @@ import doobie.ConnectionIO
 import enumeratum.{Enum, EnumEntry}
 import fs2.{Pipe, Stream}
 
-trait PubSub[F[_], G[_], A] extends Publisher[F, A] with Subscriber[F, G, A]
+trait PubSub[F[_], A] extends Publisher[F, A] with Subscriber[F, A]
 
 object PubSub {
   sealed trait PubSubType extends EnumEntry
@@ -28,29 +28,27 @@ object PubSub {
     override def values: IndexedSeq[PubSubType] = findValues
   }
 
-  def from[F[_], G[_], A](publisher: Publisher[F, A], subscriber: Subscriber[F, G, A]): PubSub[F, G, A] =
-    new PubSub[F, G, A] {
+  def from[F[_], A](publisher: Publisher[F, A], subscriber: Subscriber[F, A]): PubSub[F, A] =
+    new PubSub[F, A] {
+      override type C[X] = subscriber.C[X]
+
       override val publish: Pipe[F, A, Unit] = publisher.publish
 
       override def publishOne(input: A): F[Unit] = publisher.publishOne(input)
 
-      override def subscribe(groupId: String): Stream[F, G[A]] = subscriber.subscribe(groupId)
+      override def subscribe(groupId: String): Stream[F, subscriber.C[A]] = subscriber.subscribe(groupId)
 
-      override def commit[H[_]: Foldable: Functor](values: H[G[A]]): F[Unit] = subscriber.commit(values)
+      override def commit[H[_]: Foldable: Functor](values: H[subscriber.C[A]]): F[Unit] = subscriber.commit(values)
     }
-
-  type AnyPubSub[F[_], A] = PubSub[F, G, A] forSome {
-    type G[_]
-  }
 
   def apply[F[_]: Async: Clock, A: KafkaTopic: RedisStreamTopic: DoobieTopic](
     pubSubConfiguration: PubSubConfiguration,
     messageDao: MessageDao[ConnectionIO]
-  ): Resource[F, AnyPubSub[F, A]] =
+  ): Resource[F, PubSub[F, A]] =
     pubSubConfiguration.pubSubType match {
       case PubSubType.Kafka =>
         pubSubConfiguration.kafkaConfiguration
-          .fold[Resource[F, AnyPubSub[F, A]]](
+          .fold[Resource[F, PubSub[F, A]]](
             Resource.eval(
               MonadCancelThrow[F].raiseError(
                 ExternalServiceException("kafka-configuration is empty despite the pubsub-type being 'kafka'")
@@ -62,7 +60,7 @@ object PubSub {
 
       case PubSubType.Redis =>
         pubSubConfiguration.redisConfiguration
-          .fold[Resource[F, AnyPubSub[F, A]]](
+          .fold[Resource[F, PubSub[F, A]]](
             Resource.eval(
               MonadCancelThrow[F].raiseError(
                 ExternalServiceException("redis-configuration is empty despite the pubsub-type being 'redis'")
@@ -77,7 +75,7 @@ object PubSub {
 
       case PubSubType.Doobie =>
         pubSubConfiguration.databaseConfiguration
-          .fold[Resource[F, AnyPubSub[F, A]]](
+          .fold[Resource[F, PubSub[F, A]]](
             Resource.eval(
               MonadCancelThrow[F].raiseError(
                 ExternalServiceException("database-configuration is empty despite the pubsub-type being 'doobie'")

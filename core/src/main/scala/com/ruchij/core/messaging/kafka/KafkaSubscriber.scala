@@ -10,14 +10,15 @@ import com.ruchij.core.messaging.models.CommittableRecord
 import fs2.Stream
 import fs2.kafka._
 
-class KafkaSubscriber[F[_]: Async, A](kafkaConfiguration: KafkaConfiguration)(
-  implicit topic: KafkaTopic[A]
-) extends Subscriber[F, CommittableRecord[CommittableConsumerRecord[F, Unit, *], *], A] {
+class KafkaSubscriber[F[_]: Async, A](kafkaConfiguration: KafkaConfiguration)(implicit topic: KafkaTopic[A])
+    extends Subscriber[F, A] {
+  override type C[X] = CommittableRecord[CommittableConsumerRecord[F, Unit, *], X]
 
   private val logger = Logger[KafkaSubscriber[F, A]]
 
   override def subscribe(groupId: String): Stream[F, CommittableRecord[CommittableConsumerRecord[F, Unit, *], A]] =
-    Stream.eval(logger.info[F](s"$groupId subscribed to topic=${kafkaConfiguration.label(topic.name)}"))
+    Stream
+      .eval(logger.info[F](s"$groupId subscribed to topic=${kafkaConfiguration.label(topic.name)}"))
       .productR {
         Stream
           .resource {
@@ -31,7 +32,10 @@ class KafkaSubscriber[F[_]: Async, A](kafkaConfiguration: KafkaConfiguration)(
           .evalTap(_.subscribeTo(kafkaConfiguration.label(topic.name)))
           .flatMap {
             _.stream.evalMap { committableConsumerRecord =>
-              logger.trace[F](s"Received: topic=${committableConsumerRecord.record.topic}, consumerGroupId=${committableConsumerRecord.offset.consumerGroupId}, value=${committableConsumerRecord.record.value}")
+              logger
+                .trace[F](
+                  s"Received: topic=${committableConsumerRecord.record.topic}, consumerGroupId=${committableConsumerRecord.offset.consumerGroupId}, value=${committableConsumerRecord.record.value}"
+                )
                 .as {
                   CommittableRecord(committableConsumerRecord.record.value, committableConsumerRecord)
                 }

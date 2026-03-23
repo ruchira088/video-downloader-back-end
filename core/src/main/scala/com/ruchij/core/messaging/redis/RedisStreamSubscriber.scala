@@ -14,8 +14,10 @@ import fs2.Stream
 
 class RedisStreamSubscriber[F[_]: Sync, A](redisStream: RedisStream[F, String, String])(
   implicit redisStreamTopic: RedisStreamTopic[A]
-) extends Subscriber[F, Id, A] {
+) extends Subscriber[F, A] {
   private val logger = Logger[RedisStreamSubscriber[F, A]]
+
+  override type C[X] = X
 
   override def subscribe(groupId: String): Stream[F, A] =
     redisStream
