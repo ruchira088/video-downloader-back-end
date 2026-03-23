@@ -2,7 +2,8 @@ package com.ruchij.api.config
 
 import cats.effect.IO
 import com.comcast.ip4s.IpLiteralSyntax
-import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SentryConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
+import com.ruchij.core.config.{KafkaConfiguration, PubsubConfiguration, RedisConfiguration, SentryConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
+import com.ruchij.core.messaging.PubSub.PubsubType
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.migration.config.DatabaseConfiguration
 import org.http4s.implicits.http4sLiteralsSyntax
@@ -64,13 +65,17 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
           session-duration = $${?SESSION_DURATION}
         }
 
-        kafka-configuration {
-          prefix = "local"
-          prefix = $${?KAFKA_PREFIX}
+        pubsub-configuration {
+          type = "Kafka"
 
-          bootstrap-servers = "kafka-cluster:9092"
+          kafka-configuration {
+            prefix = "local"
+            prefix = $${?KAFKA_PREFIX}
 
-          schema-registry = "http://kafka-cluster:8081"
+            bootstrap-servers = "kafka-cluster:9092"
+
+            schema-registry = "http://kafka-cluster:8081"
+          }
         }
 
         spa-site-renderer-configuration {
@@ -92,7 +97,7 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         DatabaseConfiguration("jdbc:h2:mem:video-downloader;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false", "", ""),
         RedisConfiguration("localhost", 6379, Some("redis-password")),
         AuthenticationConfiguration(30 days),
-        KafkaConfiguration("local", "kafka-cluster:9092", uri"http://kafka-cluster:8081"),
+        PubsubConfiguration(PubsubType.Kafka, Some(KafkaConfiguration("local", "kafka-cluster:9092", uri"http://kafka-cluster:8081")), None, None),
         SpaSiteRendererConfiguration(uri"http://spa-renderer-service:8000"),
         SentryConfiguration(Some("https://key@sentry.io/123"), "test", 0.5)
       )
@@ -102,6 +107,138 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         IO.delay {
           apiServiceConfiguration mustBe expectedApiServiceConfiguration
         }
+    }
+  }
+
+  it should "parse with Redis pubsub configuration" in runIO {
+    val configSource =
+      s"""
+        http-configuration {
+          host = "127.0.0.1"
+          port = 80
+          allowed-origins = "*.localhost"
+        }
+
+        storage-configuration {
+          video-folder = "./videos"
+          image-folder = "./images"
+          other-video-folders = ""
+        }
+
+        database-configuration {
+          url = "jdbc:h2:mem:test"
+          user = ""
+          password = ""
+        }
+
+        redis-configuration {
+          hostname = "localhost"
+          port = 6379
+          password = ""
+        }
+
+        authentication-configuration {
+          session-duration = "30 days"
+        }
+
+        pubsub-configuration {
+          type = "Redis"
+
+          redis-configuration {
+            hostname = "redis-host"
+            port = 6380
+            password = "secret"
+          }
+        }
+
+        spa-site-renderer-configuration {
+          uri = "http://spa-renderer:8000"
+        }
+
+        sentry-configuration {
+          environment = "test"
+          traces-sample-rate = 1.0
+        }
+      """
+
+    ApiServiceConfiguration.parse[IO](ConfigSource.string(configSource)).flatMap { config =>
+      IO.delay {
+        config.pubsubConfiguration.pubsubType mustBe PubsubType.Redis
+        config.pubsubConfiguration.redisConfiguration must not be empty
+        config.pubsubConfiguration.kafkaConfiguration mustBe None
+        config.pubsubConfiguration.databaseConfiguration mustBe None
+
+        val redisConfig = config.pubsubConfiguration.redisConfiguration.get
+        redisConfig.hostname mustBe "redis-host"
+        redisConfig.port mustBe 6380
+        redisConfig.password mustBe Some("secret")
+      }
+    }
+  }
+
+  it should "parse with Doobie pubsub configuration" in runIO {
+    val configSource =
+      s"""
+        http-configuration {
+          host = "127.0.0.1"
+          port = 80
+          allowed-origins = "*.localhost"
+        }
+
+        storage-configuration {
+          video-folder = "./videos"
+          image-folder = "./images"
+          other-video-folders = ""
+        }
+
+        database-configuration {
+          url = "jdbc:h2:mem:test"
+          user = ""
+          password = ""
+        }
+
+        redis-configuration {
+          hostname = "localhost"
+          port = 6379
+          password = ""
+        }
+
+        authentication-configuration {
+          session-duration = "30 days"
+        }
+
+        pubsub-configuration {
+          type = "Doobie"
+
+          database-configuration {
+            url = "jdbc:postgresql://pubsub-db:5432/pubsub"
+            user = "pubsub_user"
+            password = "pubsub_pass"
+          }
+        }
+
+        spa-site-renderer-configuration {
+          uri = "http://spa-renderer:8000"
+        }
+
+        sentry-configuration {
+          environment = "test"
+          traces-sample-rate = 1.0
+        }
+      """
+
+    ApiServiceConfiguration.parse[IO](ConfigSource.string(configSource)).flatMap { config =>
+      IO.delay {
+        config.pubsubConfiguration.pubsubType mustBe PubsubType.Doobie
+        config.pubsubConfiguration.databaseConfiguration must not be empty
+        config.pubsubConfiguration.kafkaConfiguration mustBe None
+        config.pubsubConfiguration.redisConfiguration mustBe None
+
+        val dbConfig = config.pubsubConfiguration.databaseConfiguration.get
+        dbConfig.url mustBe "jdbc:postgresql://pubsub-db:5432/pubsub"
+        dbConfig.user mustBe "pubsub_user"
+        dbConfig.password mustBe "pubsub_pass"
+      }
     }
   }
 

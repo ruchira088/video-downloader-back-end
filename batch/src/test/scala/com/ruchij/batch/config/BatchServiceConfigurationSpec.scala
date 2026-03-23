@@ -1,7 +1,8 @@
 package com.ruchij.batch.config
 
 import cats.effect.IO
-import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SentryConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
+import com.ruchij.core.config.{KafkaConfiguration, PubsubConfiguration, RedisConfiguration, SentryConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
+import com.ruchij.core.messaging.PubSub.PubsubType
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.migration.config.DatabaseConfiguration
 import org.http4s.implicits.http4sLiteralsSyntax
@@ -61,13 +62,17 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
           password = $${?REDIS_PASSWORD}
         }
 
-        kafka-configuration {
-          prefix = "local"
-          prefix = $${?KAFKA_PREFIX}
+        pubsub-configuration {
+          type = "Kafka"
 
-          bootstrap-servers = "kafka-cluster:9092"
+          kafka-configuration {
+            prefix = "local"
+            prefix = $${?KAFKA_PREFIX}
 
-          schema-registry = "http://kafka-cluster:8081"
+            bootstrap-servers = "kafka-cluster:9092"
+
+            schema-registry = "http://kafka-cluster:8081"
+          }
         }
 
         spa-site-renderer-configuration {
@@ -87,7 +92,7 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         StorageConfiguration("./videos", "./images", List("./video-folder-1", "./video-folder-2")),
         WorkerConfiguration(10, java.time.LocalTime.MIDNIGHT, java.time.LocalTime.MIDNIGHT, "test-suite"),
         DatabaseConfiguration("jdbc:h2:mem:video-downloader;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false", "my-user", "my-password"),
-        KafkaConfiguration("local", "kafka-cluster:9092", uri"http://kafka-cluster:8081"),
+        PubsubConfiguration(PubsubType.Kafka, Some(KafkaConfiguration("local", "kafka-cluster:9092", uri"http://kafka-cluster:8081")), None, None),
         RedisConfiguration("localhost", 6379, Some("redis-password")),
         SpaSiteRendererConfiguration(uri"http://spa-renderer-service:8000"),
         SentryConfiguration(Some("https://key@sentry.io/456"), "test", 0.5)
@@ -98,6 +103,131 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         IO.delay {
           batchServiceConfiguration mustBe expectedBatchServiceConfiguration
         }
+    }
+  }
+
+  it should "parse with Redis pubsub configuration" in runIO {
+    val configSource =
+      s"""
+        worker-configuration {
+          owner = "test"
+          max-concurrent-downloads = 5
+          start-time = "00:00"
+          end-time = "00:00"
+        }
+
+        storage-configuration {
+          video-folder = "./videos"
+          image-folder = "./images"
+          other-video-folders = ""
+        }
+
+        database-configuration {
+          url = "jdbc:h2:mem:test"
+          user = ""
+          password = ""
+        }
+
+        redis-configuration {
+          hostname = "localhost"
+          port = 6379
+          password = ""
+        }
+
+        pubsub-configuration {
+          type = "Redis"
+
+          redis-configuration {
+            hostname = "redis-pubsub"
+            port = 6380
+            password = "secret"
+          }
+        }
+
+        spa-site-renderer-configuration {
+          uri = "http://spa-renderer:8000"
+        }
+
+        sentry-configuration {
+          environment = "test"
+          traces-sample-rate = 1.0
+        }
+      """
+
+    BatchServiceConfiguration.parse[IO](ConfigSource.string(configSource)).flatMap { config =>
+      IO.delay {
+        config.pubsubConfiguration.pubsubType mustBe PubsubType.Redis
+        config.pubsubConfiguration.redisConfiguration must not be empty
+        config.pubsubConfiguration.kafkaConfiguration mustBe None
+        config.pubsubConfiguration.databaseConfiguration mustBe None
+
+        val redisConfig = config.pubsubConfiguration.redisConfiguration.get
+        redisConfig.hostname mustBe "redis-pubsub"
+        redisConfig.port mustBe 6380
+      }
+    }
+  }
+
+  it should "parse with Doobie pubsub configuration" in runIO {
+    val configSource =
+      s"""
+        worker-configuration {
+          owner = "test"
+          max-concurrent-downloads = 5
+          start-time = "00:00"
+          end-time = "00:00"
+        }
+
+        storage-configuration {
+          video-folder = "./videos"
+          image-folder = "./images"
+          other-video-folders = ""
+        }
+
+        database-configuration {
+          url = "jdbc:h2:mem:test"
+          user = ""
+          password = ""
+        }
+
+        redis-configuration {
+          hostname = "localhost"
+          port = 6379
+          password = ""
+        }
+
+        pubsub-configuration {
+          type = "Doobie"
+
+          database-configuration {
+            url = "jdbc:postgresql://pubsub-db:5432/pubsub"
+            user = "pubsub_user"
+            password = "pubsub_pass"
+          }
+        }
+
+        spa-site-renderer-configuration {
+          uri = "http://spa-renderer:8000"
+        }
+
+        sentry-configuration {
+          environment = "test"
+          traces-sample-rate = 1.0
+        }
+      """
+
+    BatchServiceConfiguration.parse[IO](ConfigSource.string(configSource)).flatMap { config =>
+      IO.delay {
+        config.pubsubConfiguration.pubsubType mustBe PubsubType.Doobie
+        config.pubsubConfiguration.databaseConfiguration must not be empty
+        config.pubsubConfiguration.kafkaConfiguration mustBe None
+        config.pubsubConfiguration.redisConfiguration mustBe None
+
+        val dbConfig = config.pubsubConfiguration.databaseConfiguration.get
+        dbConfig.url mustBe "jdbc:postgresql://pubsub-db:5432/pubsub"
+        dbConfig.user mustBe "pubsub_user"
+        dbConfig.password mustBe "pubsub_pass"
+      }
     }
   }
 

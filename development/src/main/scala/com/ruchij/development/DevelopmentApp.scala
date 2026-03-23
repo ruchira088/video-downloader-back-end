@@ -12,7 +12,8 @@ import com.ruchij.api.external.containers.ContainerApiResourcesProvider
 import com.ruchij.batch.BatchApp
 import com.ruchij.batch.config.{BatchServiceConfiguration, WorkerConfiguration}
 import com.ruchij.batch.services.scheduler.Scheduler
-import com.ruchij.core.config.{KafkaConfiguration, RedisConfiguration, SentryConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
+import com.ruchij.core.config.{KafkaConfiguration, PubsubConfiguration, RedisConfiguration, SentryConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
+import com.ruchij.core.messaging.PubSub.PubsubType
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.external.CoreResourcesProvider.HashedAdminPassword
 import com.ruchij.core.logging.Logger
@@ -72,7 +73,7 @@ object DevelopmentApp extends IOApp {
       databaseConfiguration,
       redisConfiguration,
       AuthenticationConfig,
-      kafkaConfiguration,
+      PubsubConfiguration(PubsubType.Kafka, Some(kafkaConfiguration), None, None),
       spaSiteRendererConfiguration,
       SentryConfig
     )
@@ -87,7 +88,7 @@ object DevelopmentApp extends IOApp {
       StorageConfig,
       WorkerConfig,
       databaseConfiguration,
-      kafkaConfiguration,
+      PubsubConfiguration(PubsubType.Kafka, Some(kafkaConfiguration), None, None),
       redisConfiguration,
       spaSiteRendererConfiguration,
       SentryConfig
