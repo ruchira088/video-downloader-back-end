@@ -18,7 +18,7 @@ class KafkaSubscriber[F[_]: Async, A](kafkaConfiguration: KafkaConfiguration)(im
 
   override def subscribe(groupId: String): Stream[F, CommittableRecord[CommittableConsumerRecord[F, Unit, *], A]] =
     Stream
-      .eval(logger.info[F](s"$groupId subscribed to topic=${kafkaConfiguration.label(topic.name)}"))
+      .eval(logger.info[F](s"$groupId subscribed to topic=${kafkaConfiguration.topicName(topic.name)}"))
       .productR {
         Stream
           .resource {
@@ -26,10 +26,10 @@ class KafkaSubscriber[F[_]: Async, A](kafkaConfiguration: KafkaConfiguration)(im
               ConsumerSettings[F, Unit, A](GenericDeserializer[F, Unit], topic.deserializer[F](kafkaConfiguration))
                 .withBootstrapServers(kafkaConfiguration.bootstrapServers)
                 .withAutoOffsetReset(AutoOffsetReset.Latest)
-                .withGroupId(kafkaConfiguration.label(groupId))
+                .withGroupId(kafkaConfiguration.topicName(groupId))
             }
           }
-          .evalTap(_.subscribeTo(kafkaConfiguration.label(topic.name)))
+          .evalTap(_.subscribeTo(kafkaConfiguration.topicName(topic.name)))
           .flatMap {
             _.stream.evalMap { committableConsumerRecord =>
               logger

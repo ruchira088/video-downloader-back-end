@@ -13,7 +13,7 @@ class LocalCoreResourcesProviderSpec extends AnyFlatSpec with Matchers {
       IO {
         config.bootstrapServers mustBe "localhost:9092"
         config.schemaRegistry.toString mustBe "http://localhost:8081"
-        config.label("test") mustBe "local-dev-test"
+        config.topicName("test") mustBe "local-dev-test"
       }
     }
   }

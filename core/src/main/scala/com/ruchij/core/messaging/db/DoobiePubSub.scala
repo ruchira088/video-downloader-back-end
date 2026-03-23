@@ -3,13 +3,13 @@ package com.ruchij.core.messaging.db
 import cats.effect.Async
 import cats.~>
 import com.ruchij.core.daos.messaging.MessageDao
-import com.ruchij.core.messaging.PubSub
+import com.ruchij.core.messaging.{MessagingTopic, PubSub}
 import com.ruchij.core.types.Clock
 
 import scala.concurrent.duration.FiniteDuration
 
 object DoobiePubSub {
-  def apply[F[_]: Async: Clock, G[_], A: DoobieTopic](
+  def apply[F[_]: Async: Clock, G[_], A: MessagingTopic](
     messageDao: MessageDao[G],
     pollInterval: FiniteDuration = DoobieSubscriber.DefaultPollInterval
   )(implicit transaction: G ~> F): PubSub[F, A] = {

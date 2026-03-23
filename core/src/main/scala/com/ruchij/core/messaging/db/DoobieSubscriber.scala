@@ -5,7 +5,7 @@ import cats.implicits._
 import cats.{Applicative, Foldable, Functor, ~>}
 import com.ruchij.core.daos.messaging.MessageDao
 import com.ruchij.core.logging.Logger
-import com.ruchij.core.messaging.Subscriber
+import com.ruchij.core.messaging.{MessagingTopic, Subscriber}
 import fs2.Stream
 import io.circe.parser.parse
 
@@ -13,7 +13,7 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 
 class DoobieSubscriber[F[_]: Async, G[_], A](messageDao: MessageDao[G], pollInterval: FiniteDuration)(
-  implicit doobieTopic: DoobieTopic[A],
+  implicit messagingTopic: MessagingTopic[A],
   transaction: G ~> F
 ) extends Subscriber[F, A] {
   private val logger = Logger[DoobieSubscriber[F, G, A]]
@@ -21,7 +21,7 @@ class DoobieSubscriber[F[_]: Async, G[_], A](messageDao: MessageDao[G], pollInte
   override type C[X] = X
 
   override def subscribe(groupId: String): Stream[F, A] = {
-    val channel = doobieTopic.topicName
+    val channel = messagingTopic.name
 
     Stream
       .eval(transaction(messageDao.maxId(channel)).flatMap(maxId => Ref.of[F, Long](maxId)))
@@ -39,7 +39,7 @@ class DoobieSubscriber[F[_]: Async, G[_], A](messageDao: MessageDao[G], pollInte
           .flatMap { payload =>
             val decoded = for {
               json <- parse(payload)
-              value <- doobieTopic.codec.decodeJson(json)
+              value <- messagingTopic.jsonCodec.decodeJson(json)
             } yield value
 
             decoded match {
@@ -62,7 +62,7 @@ class DoobieSubscriber[F[_]: Async, G[_], A](messageDao: MessageDao[G], pollInte
 object DoobieSubscriber {
   val DefaultPollInterval: FiniteDuration = 3 seconds
 
-  def create[F[_]: Async, G[_], A: DoobieTopic](
+  def create[F[_]: Async, G[_], A: MessagingTopic](
     messageDao: MessageDao[G],
     pollInterval: FiniteDuration = DefaultPollInterval
   )(implicit transaction: G ~> F): DoobieSubscriber[F, G, A] =

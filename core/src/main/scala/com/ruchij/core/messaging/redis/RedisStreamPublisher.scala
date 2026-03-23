@@ -2,7 +2,7 @@ package com.ruchij.core.messaging.redis
 
 import cats.effect.kernel.{Async, Resource, Sync}
 import com.ruchij.core.config.RedisConfiguration
-import com.ruchij.core.messaging.Publisher
+import com.ruchij.core.messaging.{MessagingTopic, Publisher}
 import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.effect.Log.Stdout.instance
 import dev.profunktor.redis4cats.streams.RedisStream
@@ -10,7 +10,7 @@ import dev.profunktor.redis4cats.streams.data.XAddMessage
 import fs2.{Pipe, Stream}
 
 class RedisStreamPublisher[F[_]: Sync, A](redisStream: RedisStream[F, String, String])(
-  implicit redisStreamTopic: RedisStreamTopic[A]
+  implicit messagingTopic: MessagingTopic[A]
 ) extends Publisher[F, A] {
 
   override val publish: Pipe[F, A, Unit] =
@@ -18,7 +18,7 @@ class RedisStreamPublisher[F[_]: Sync, A](redisStream: RedisStream[F, String, St
       redisStream
         .append {
           input.map { value =>
-            XAddMessage(redisStreamTopic.streamKey, RedisData(value).toMap(redisStreamTopic.codec))
+            XAddMessage(messagingTopic.name, RedisData(value).toMap(messagingTopic.jsonCodec))
           }
         }
         .as((): Unit)
@@ -29,7 +29,7 @@ class RedisStreamPublisher[F[_]: Sync, A](redisStream: RedisStream[F, String, St
 
 object RedisStreamPublisher {
 
-  def create[F[_]: Async, A: RedisStreamTopic](
+  def create[F[_]: Async, A: MessagingTopic](
     redisConfiguration: RedisConfiguration
   ): Resource[F, RedisStreamPublisher[F, A]] =
     Redis[F].utf8(redisConfiguration.uri).map { redisCommands =>

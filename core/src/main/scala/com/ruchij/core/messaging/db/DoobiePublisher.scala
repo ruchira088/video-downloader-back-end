@@ -3,13 +3,13 @@ package com.ruchij.core.messaging.db
 import cats.implicits._
 import cats.{MonadThrow, ~>}
 import com.ruchij.core.daos.messaging.MessageDao
-import com.ruchij.core.messaging.Publisher
+import com.ruchij.core.messaging.{MessagingTopic, Publisher}
 import com.ruchij.core.types.Clock
 import fs2.Pipe
 
 class DoobiePublisher[F[_]: MonadThrow: Clock, G[_], A](messageDao: MessageDao[G])(
-    implicit doobieTopic: DoobieTopic[A],
-    transaction: G ~> F
+  implicit messagingTopic: MessagingTopic[A],
+  transaction: G ~> F
 ) extends Publisher[F, A] {
 
   override val publish: Pipe[F, A, Unit] =
@@ -18,8 +18,8 @@ class DoobiePublisher[F[_]: MonadThrow: Clock, G[_], A](messageDao: MessageDao[G
   override def publishOne(input: A): F[Unit] =
     for {
       now <- Clock[F].timestamp
-      channel = doobieTopic.topicName
-      payload = doobieTopic.codec(input).noSpaces
+      channel = messagingTopic.name
+      payload = messagingTopic.jsonCodec(input).noSpaces
       _ <- transaction(messageDao.insert(channel, payload, now))
     } yield ()
 }

@@ -13,7 +13,7 @@ import io.circe.generic.auto.{exportDecoder, exportEncoder}
 import io.circe.generic.semiauto.{deriveCodec => deriveJsonCodec}
 import io.circe.{Codec => JsonCodec}
 import vulcan.generic._
-import AvroCodecs._
+import com.ruchij.core.messaging.kafka.AvroCodecs._
 import com.ruchij.core.circe.Decoders._
 import com.ruchij.core.circe.Encoders._
 import org.http4s.circe.decodeUri

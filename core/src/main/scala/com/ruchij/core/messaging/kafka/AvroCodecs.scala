@@ -1,4 +1,4 @@
-package com.ruchij.core.messaging
+package com.ruchij.core.messaging.kafka
 
 import cats.Show
 import com.ruchij.core.daos.resource.models.FileResource
