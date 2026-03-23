@@ -55,6 +55,8 @@ class DoobieSubscriber[F[_]: Async, G[_], A](messageDao: MessageDao[G], pollInte
 
   override def commit[H[_]: Foldable: Functor](values: H[A]): F[Unit] =
     Applicative[F].unit
+
+  override def extractValue(ca: A): A = ca
 }
 
 object DoobieSubscriber {

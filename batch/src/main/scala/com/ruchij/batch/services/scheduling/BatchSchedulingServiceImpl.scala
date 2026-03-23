@@ -11,7 +11,6 @@ import com.ruchij.core.daos.scheduling.SchedulingDao.notFound
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.logging.Logger
-import com.ruchij.core.messaging.models.CommittableRecord
 import com.ruchij.core.messaging.{PubSub, Publisher, Subscriber}
 import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
@@ -21,10 +20,10 @@ import fs2.Stream
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.language.postfixOps
 
-class BatchSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow, M[_]](
+class BatchSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
   downloadProgressPublisher: Publisher[F, DownloadProgress],
-  workerStatusSubscriber: Subscriber[F, CommittableRecord[M, *], WorkerStatusUpdate],
-  scheduledVideoDownloadPubSub: PubSub[F, CommittableRecord[M, *], ScheduledVideoDownload],
+  workerStatusSubscriber: Subscriber[F, WorkerStatusUpdate],
+  scheduledVideoDownloadPubSub: PubSub[F, ScheduledVideoDownload],
   repositoryService: RepositoryService[F],
   schedulingDao: SchedulingDao[T],
   workerDao: WorkerDao[T],
@@ -33,7 +32,7 @@ class BatchSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow, M[_]](
 )(implicit transaction: T ~> F)
     extends BatchSchedulingService[F] {
 
-  private val logger = Logger[BatchSchedulingServiceImpl[F, T, M]]
+  private val logger = Logger[BatchSchedulingServiceImpl[F, T]]
 
   override val acquireTask: OptionT[F, ScheduledVideoDownload] =
     OptionT.liftF(Clock[F].timestamp).flatMapF { timestamp =>
@@ -99,7 +98,7 @@ class BatchSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow, M[_]](
           .product {
             logger.debug[F](s"DownloadProgressSubscriber(groupId=$groupId) committed 1 message")
           }
-          .as(committableRecord.value)
+          .as(workerStatusSubscriber.extractValue(committableRecord))
       }
 
   override def subscribeToScheduledVideoDownloadUpdates(groupId: String): Stream[F, ScheduledVideoDownload] =
@@ -111,7 +110,7 @@ class BatchSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow, M[_]](
           .product {
             logger.debug[F](s"ScheduledVideoDownloadPubSub(groupId=$groupId) committed 1 message")
           }
-          .as(committableRecord.value)
+          .as(scheduledVideoDownloadPubSub.extractValue(committableRecord))
       }
 
   override def publishScheduledVideoDownload(id: String): F[ScheduledVideoDownload] =
@@ -148,7 +147,7 @@ class BatchSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow, M[_]](
                     .compile
                     .drain
                 }
-              
+
             } else Applicative[F].unit
           }
       }

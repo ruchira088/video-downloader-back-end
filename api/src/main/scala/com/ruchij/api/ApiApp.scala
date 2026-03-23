@@ -65,7 +65,6 @@ import doobie.free.connection.ConnectionIO
 import doobie.hikari.HikariTransactor
 import fs2.compression.Compression
 import fs2.io.file.Files
-import fs2.kafka.CommittableConsumerRecord
 import org.apache.tika.Tika
 import org.http4s.HttpApp
 import org.http4s.client.Client
@@ -138,7 +137,7 @@ object ApiApp extends IOApp {
       )
 
       httpApp <- Resource.eval {
-        program[F, CommittableConsumerRecord[F, Unit, *]](
+        program[F](
           hikariTransactor,
           httpClient,
           redisKeyValueStore,
@@ -149,11 +148,11 @@ object ApiApp extends IOApp {
       }
     } yield httpApp
 
-  def program[F[_]: Async: Clock: Files: Compression, M[_]](
+  def program[F[_]: Async: Clock: Files: Compression](
     hikariTransactor: HikariTransactor[F],
     client: Client[F],
     keyValueStore: KeyValueStore[F],
-    messageBrokers: ApiMessageBrokers[F, M],
+    messageBrokers: ApiMessageBrokers[F],
     dispatcher: Dispatcher[F],
     apiServiceConfiguration: ApiServiceConfiguration
   ): F[HttpApp[F]] = {
@@ -283,7 +282,7 @@ object ApiApp extends IOApp {
     for {
       instanceId <- RandomGenerator[F, UUID].generate.map(_.toString)
 
-      backgroundService <- BackgroundServiceImpl.create[F, M](
+      backgroundService <- BackgroundServiceImpl.create[F](
         schedulingService,
         messageBrokers.downloadProgressSubscriber,
         messageBrokers.healthCheckPubSub,

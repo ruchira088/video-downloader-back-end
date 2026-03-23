@@ -12,13 +12,11 @@ import org.scalatest.matchers.must.Matchers
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-trait PublisherSubscriberSpec[G[_]] { self: AnyFlatSpec with Matchers =>
+trait PublisherSubscriberSpec { self: AnyFlatSpec with Matchers =>
 
   import PublisherSubscriberSpec._
 
-  def resource: Resource[IO, (Publisher[IO, TestMessage], Subscriber[IO, G, TestMessage])]
-
-  def extractValue(ga: G[TestMessage]): TestMessage
+  def resource: Resource[IO, (Publisher[IO, TestMessage], Subscriber[IO, TestMessage])]
 
   def testTimeout: FiniteDuration = 30 seconds
 
@@ -28,6 +26,7 @@ trait PublisherSubscriberSpec[G[_]] { self: AnyFlatSpec with Matchers =>
         for {
           receivedFiber <- subscriber
             .subscribe("test-group")
+            .map(subscriber.extractValue)
             .take(1)
             .compile
             .toList
@@ -41,7 +40,7 @@ trait PublisherSubscriberSpec[G[_]] { self: AnyFlatSpec with Matchers =>
 
           _ <- IO.delay {
             received must have length 1
-            extractValue(received.head) mustBe TestMessage("hello", 42)
+            received.head mustBe TestMessage("hello", 42)
           }
         } yield ()
     }
@@ -55,6 +54,7 @@ trait PublisherSubscriberSpec[G[_]] { self: AnyFlatSpec with Matchers =>
         for {
           receivedFiber <- subscriber
             .subscribe("test-group")
+            .map(subscriber.extractValue)
             .take(5)
             .compile
             .toList
@@ -73,8 +73,8 @@ trait PublisherSubscriberSpec[G[_]] { self: AnyFlatSpec with Matchers =>
 
           _ <- IO.delay {
             received must have length 5
-            received.map(ga => extractValue(ga).index).toSet mustBe Set(0, 1, 2, 3, 4)
-            received.map(ga => extractValue(ga).name) mustBe messages.map(_.name)
+            received.map(_.index).toSet mustBe Set(0, 1, 2, 3, 4)
+            received.map(_.name) mustBe messages.map(_.name)
           }
         } yield ()
     }
@@ -88,6 +88,7 @@ trait PublisherSubscriberSpec[G[_]] { self: AnyFlatSpec with Matchers =>
         for {
           receivedFiber <- subscriber
             .subscribe("test-group")
+            .map(subscriber.extractValue)
             .take(count.toLong)
             .compile
             .toList
@@ -107,7 +108,7 @@ trait PublisherSubscriberSpec[G[_]] { self: AnyFlatSpec with Matchers =>
 
           _ <- IO.delay {
             received must have length count
-            received.map(ga => extractValue(ga).index).toSet mustBe Range(0, count).toSet
+            received.map(_.index).toSet mustBe Range(0, count).toSet
           }
         } yield ()
     }
@@ -132,6 +133,7 @@ trait PublisherSubscriberSpec[G[_]] { self: AnyFlatSpec with Matchers =>
         for {
           receivedFiber <- subscriber
             .subscribe("test-group")
+            .map(subscriber.extractValue)
             .take(10)
             .compile
             .toList
@@ -146,7 +148,7 @@ trait PublisherSubscriberSpec[G[_]] { self: AnyFlatSpec with Matchers =>
 
           _ <- IO.delay {
             received must have length 10
-            received.map(ga => extractValue(ga).index) mustBe (0 until 10).toList
+            received.map(_.index) mustBe (0 until 10).toList
           }
         } yield ()
     }
@@ -160,6 +162,7 @@ trait PublisherSubscriberSpec[G[_]] { self: AnyFlatSpec with Matchers =>
         for {
           receivedFiber <- subscriber
             .subscribe("test-group")
+            .map(subscriber.extractValue)
             .take(1)
             .compile
             .toList
@@ -172,7 +175,7 @@ trait PublisherSubscriberSpec[G[_]] { self: AnyFlatSpec with Matchers =>
           received <- receivedFiber.joinWithNever
 
           _ <- IO.delay {
-            val msg = extractValue(received.head)
+            val msg = received.head
             msg.name mustBe original.name
             msg.index mustBe original.index
           }

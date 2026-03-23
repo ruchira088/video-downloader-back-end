@@ -2,7 +2,7 @@ package com.ruchij.core.messaging.redis
 
 import cats.effect.kernel.{Async, Resource, Sync}
 import cats.implicits._
-import cats.{Applicative, Foldable, Functor, Id}
+import cats.{Applicative, Foldable, Functor}
 import com.ruchij.core.config.RedisConfiguration
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Subscriber
@@ -36,6 +36,8 @@ class RedisStreamSubscriber[F[_]: Sync, A](redisStream: RedisStream[F, String, S
 
   override def commit[H[_]: Foldable: Functor](values: H[A]): F[Unit] =
     Applicative[F].unit
+
+  override def extractValue(ca: A): A = ca
 }
 
 object RedisStreamSubscriber {

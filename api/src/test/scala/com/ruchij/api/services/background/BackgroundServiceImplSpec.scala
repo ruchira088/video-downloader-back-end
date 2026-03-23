@@ -1,6 +1,6 @@
 package com.ruchij.api.services.background
 
-import cats.{Foldable, Functor, Id}
+import cats.{Foldable, Functor}
 import cats.effect.IO
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.api.services.scheduling.ApiSchedulingService
@@ -10,7 +10,6 @@ import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownloa
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
 import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.messaging.Subscriber
-import com.ruchij.core.messaging.models.CommittableRecord
 import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.test.IOSupport.runIO
 import fs2.Stream
@@ -94,16 +93,19 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
       IO.pure(sampleScheduledVideoDownload)
   }
 
-  class StubSubscriber[A] extends Subscriber[IO, CommittableRecord[Id, *], A] {
-    var subscribed = false
-    var committed: List[CommittableRecord[Id, A]] = List.empty
+  class StubSubscriber[A] extends Subscriber[IO, A] {
+    override type C[X] = X
 
-    override def subscribe(groupId: String): Stream[IO, CommittableRecord[Id, A]] = {
+    var subscribed = false
+
+    override def subscribe(groupId: String): Stream[IO, A] = {
       subscribed = true
       Stream.empty
     }
 
-    override def commit[H[_]: Foldable: Functor](values: H[CommittableRecord[Id, A]]): IO[Unit] = IO.unit
+    override def commit[H[_]: Foldable: Functor](values: H[A]): IO[Unit] = IO.unit
+
+    override def extractValue(ca: A): A = ca
   }
 
   "BackgroundServiceImpl.create" should "create a BackgroundServiceImpl with topics" in runIO {
@@ -112,7 +114,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
     val healthCheckSubscriber = new StubSubscriber[HealthCheckMessage]
     val scheduledVideoDownloadsSubscriber = new StubSubscriber[ScheduledVideoDownload]
 
-    BackgroundServiceImpl.create[IO, Id](
+    BackgroundServiceImpl.create[IO](
       apiSchedulingService,
       downloadProgressSubscriber,
       healthCheckSubscriber,
@@ -129,7 +131,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
       healthCheckTopic <- Topic[IO, HealthCheckMessage]
       scheduleVideoDownloadsTopic <- Topic[IO, ScheduledVideoDownload]
 
-      service = new BackgroundServiceImpl[IO, Id](
+      service = new BackgroundServiceImpl[IO](
         new StubApiSchedulingService(),
         new StubSubscriber[DownloadProgress],
         downloadProgressTopic,
@@ -165,7 +167,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
       healthCheckTopic <- Topic[IO, HealthCheckMessage]
       scheduleVideoDownloadsTopic <- Topic[IO, ScheduledVideoDownload]
 
-      service = new BackgroundServiceImpl[IO, Id](
+      service = new BackgroundServiceImpl[IO](
         new StubApiSchedulingService(),
         new StubSubscriber[DownloadProgress],
         downloadProgressTopic,
@@ -200,7 +202,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
       healthCheckTopic <- Topic[IO, HealthCheckMessage]
       scheduleVideoDownloadsTopic <- Topic[IO, ScheduledVideoDownload]
 
-      service = new BackgroundServiceImpl[IO, Id](
+      service = new BackgroundServiceImpl[IO](
         new StubApiSchedulingService(),
         new StubSubscriber[DownloadProgress],
         downloadProgressTopic,
@@ -233,7 +235,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
       healthCheckTopic <- Topic[IO, HealthCheckMessage]
       scheduleVideoDownloadsTopic <- Topic[IO, ScheduledVideoDownload]
 
-      service = new BackgroundServiceImpl[IO, Id](
+      service = new BackgroundServiceImpl[IO](
         new StubApiSchedulingService(),
         new StubSubscriber[DownloadProgress],
         downloadProgressTopic,
@@ -254,9 +256,9 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
     val progress = DownloadProgress("video-1", timestamp, 1024L)
 
     class EmittingSubscriber extends StubSubscriber[DownloadProgress] {
-      override def subscribe(groupId: String): Stream[IO, CommittableRecord[Id, DownloadProgress]] = {
+      override def subscribe(groupId: String): Stream[IO, DownloadProgress] = {
         subscribed = true
-        Stream.emit(CommittableRecord[Id, DownloadProgress](progress, progress))
+        Stream.emit(progress)
       }
     }
 
@@ -267,7 +269,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
 
       subscriber = new EmittingSubscriber()
 
-      service = new BackgroundServiceImpl[IO, Id](
+      service = new BackgroundServiceImpl[IO](
         new StubApiSchedulingService(),
         subscriber,
         downloadProgressTopic,
@@ -306,7 +308,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
       healthCheckTopic <- Topic[IO, HealthCheckMessage]
       scheduleVideoDownloadsTopic <- Topic[IO, ScheduledVideoDownload]
 
-      service = new BackgroundServiceImpl[IO, Id](
+      service = new BackgroundServiceImpl[IO](
         apiSchedulingService,
         new StubSubscriber[DownloadProgress],
         downloadProgressTopic,
@@ -344,9 +346,9 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
     val healthCheck = HealthCheckMessage("instance-1", timestamp)
 
     class EmittingHealthSubscriber extends StubSubscriber[HealthCheckMessage] {
-      override def subscribe(groupId: String): Stream[IO, CommittableRecord[Id, HealthCheckMessage]] = {
+      override def subscribe(groupId: String): Stream[IO, HealthCheckMessage] = {
         subscribed = true
-        Stream.emit(CommittableRecord[Id, HealthCheckMessage](healthCheck, healthCheck))
+        Stream.emit(healthCheck)
       }
     }
 
@@ -357,7 +359,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
 
       subscriber = new EmittingHealthSubscriber()
 
-      service = new BackgroundServiceImpl[IO, Id](
+      service = new BackgroundServiceImpl[IO](
         new StubApiSchedulingService(),
         new StubSubscriber[DownloadProgress],
         downloadProgressTopic,
@@ -393,9 +395,9 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
 
   "scheduled video download updates topic" should "receive messages from subscriber" in runIO {
     class EmittingScheduledSubscriber extends StubSubscriber[ScheduledVideoDownload] {
-      override def subscribe(groupId: String): Stream[IO, CommittableRecord[Id, ScheduledVideoDownload]] = {
+      override def subscribe(groupId: String): Stream[IO, ScheduledVideoDownload] = {
         subscribed = true
-        Stream.emit(CommittableRecord[Id, ScheduledVideoDownload](sampleScheduledVideoDownload, sampleScheduledVideoDownload))
+        Stream.emit(sampleScheduledVideoDownload)
       }
     }
 
@@ -406,7 +408,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
 
       subscriber = new EmittingScheduledSubscriber()
 
-      service = new BackgroundServiceImpl[IO, Id](
+      service = new BackgroundServiceImpl[IO](
         new StubApiSchedulingService(),
         new StubSubscriber[DownloadProgress],
         downloadProgressTopic,

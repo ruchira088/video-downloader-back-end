@@ -4,7 +4,7 @@ import cats.effect.{Async, Resource, Sync}
 import cats.implicits._
 import com.ruchij.core.config.KafkaConfiguration
 import com.ruchij.core.logging.Logger
-import com.ruchij.core.messaging.Publisher
+import com.ruchij.core.messaging.{MessagingTopic, Publisher}
 import fs2.kafka._
 import fs2.{Pipe, Stream}
 
@@ -36,7 +36,7 @@ class KafkaPublisher[F[_]: Sync, A](topicName: String, kafkaProducer: KafkaProdu
 
 object KafkaPublisher {
   def apply[F[_]: Async, A](kafkaConfiguration: KafkaConfiguration)(
-    implicit topic: KafkaTopic[A]
+    implicit topic: MessagingTopic[A]
   ): Resource[F, KafkaPublisher[F, A]] =
     KafkaProducer.resource {
       ProducerSettings[F, Unit, A](GenericSerializer[F, Unit], topic.serializer[F](kafkaConfiguration))

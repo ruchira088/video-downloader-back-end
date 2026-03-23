@@ -8,7 +8,6 @@ import com.ruchij.api.services.scheduling.ApiSchedulingService
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Subscriber
-import com.ruchij.core.messaging.models.CommittableRecord
 import com.ruchij.core.services.scheduling.models.DownloadProgress
 import fs2.Stream
 import fs2.concurrent.Topic
@@ -17,20 +16,20 @@ import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
 import scala.reflect.{ClassTag, classTag}
 
-class BackgroundServiceImpl[F[_]: Async, M[_]](
+class BackgroundServiceImpl[F[_]: Async](
   apiSchedulingService: ApiSchedulingService[F],
-  downloadProgressSubscriber: Subscriber[F, CommittableRecord[M, *], DownloadProgress],
+  downloadProgressSubscriber: Subscriber[F, DownloadProgress],
   downloadProgressTopic: Topic[F, DownloadProgress],
-  healthCheckSubscriber: Subscriber[F, CommittableRecord[M, *], HealthCheckMessage],
+  healthCheckSubscriber: Subscriber[F, HealthCheckMessage],
   healthCheckTopic: Topic[F, HealthCheckMessage],
-  scheduleVideoDownloadsSubscriber: Subscriber[F, CommittableRecord[M, *], ScheduledVideoDownload],
+  scheduleVideoDownloadsSubscriber: Subscriber[F, ScheduledVideoDownload],
   scheduleVideoDownloadsTopic: Topic[F, ScheduledVideoDownload],
   subscriberGroupId: String
 ) extends BackgroundService[F] {
 
   override type Result = Unit
 
-  private val logger = Logger[BackgroundServiceImpl[F, M]]
+  private val logger = Logger[BackgroundServiceImpl[F]]
 
   override val downloadProgress: Stream[F, DownloadProgress] =
     downloadProgressTopic.subscribe(Int.MaxValue)
@@ -50,11 +49,11 @@ class BackgroundServiceImpl[F[_]: Async, M[_]](
   private val publishToScheduleVideoDownloadTopic: Stream[F, Unit] =
     publishToTopic(scheduleVideoDownloadsSubscriber, scheduleVideoDownloadsTopic)
 
-  private def publishToTopic[A: ClassTag](subscriber: Subscriber[F, CommittableRecord[M, *], A], topic: Topic[F, A]): Stream[F, Unit] =
+  private def publishToTopic[A: ClassTag](subscriber: Subscriber[F, A], topic: Topic[F, A]): Stream[F, Unit] =
     subscriber
       .subscribe(subscriberGroupId)
       .evalTap {
-        committableRecord => topic.publish1(committableRecord.value)
+        ca => topic.publish1(subscriber.extractValue(ca))
       }
       .groupWithin(20, 5 seconds)
       .evalMap {
@@ -102,18 +101,18 @@ class BackgroundServiceImpl[F[_]: Async, M[_]](
 }
 
 object BackgroundServiceImpl {
-  def create[F[_]: Async, M[_]](
+  def create[F[_]: Async](
     apiSchedulingService: ApiSchedulingService[F],
-    downloadProgressSubscriber: Subscriber[F, CommittableRecord[M, *], DownloadProgress],
-    healthCheckSubscriber: Subscriber[F, CommittableRecord[M, *], HealthCheckMessage],
-    scheduledVideoDownloadsSubscriber: Subscriber[F, CommittableRecord[M, *], ScheduledVideoDownload],
+    downloadProgressSubscriber: Subscriber[F, DownloadProgress],
+    healthCheckSubscriber: Subscriber[F, HealthCheckMessage],
+    scheduledVideoDownloadsSubscriber: Subscriber[F, ScheduledVideoDownload],
     subscriberGroupId: String
-  ): F[BackgroundServiceImpl[F, M]] = {
+  ): F[BackgroundServiceImpl[F]] = {
     for {
       downloadProgressTopic <- Topic[F, DownloadProgress]
       healthCheckTopic <- Topic[F, HealthCheckMessage]
       scheduleVideoDownloadsTopic <- Topic[F, ScheduledVideoDownload]
-    } yield new BackgroundServiceImpl[F, M](
+    } yield new BackgroundServiceImpl[F](
       apiSchedulingService,
       downloadProgressSubscriber,
       downloadProgressTopic,

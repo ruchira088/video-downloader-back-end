@@ -1,10 +1,9 @@
 package com.ruchij.core.messaging.inmemory
 
-import cats.{Applicative, Foldable, Functor, Id}
+import cats.{Applicative, Foldable, Functor}
 import cats.effect.Concurrent
 import cats.implicits._
 import com.ruchij.core.messaging.PubSub
-import com.ruchij.core.messaging.models.CommittableRecord
 import fs2.concurrent.Topic
 import fs2.{Pipe, Stream}
 
@@ -20,6 +19,8 @@ class Fs2PubSub[F[_]: Applicative, A](topic: Topic[F, A]) extends PubSub[F, A] {
 
   override def commit[H[_] : Foldable : Functor](values: H[A]): F[Unit] =
     Applicative[F].unit
+
+  override def extractValue(ca: A): A = ca
 }
 
 object Fs2PubSub {

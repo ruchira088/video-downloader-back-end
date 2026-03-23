@@ -1,6 +1,5 @@
 package com.ruchij.batch.services.scheduling
 
-import cats.Id
 import cats.effect.IO
 import cats.implicits._
 import cats.~>
@@ -18,7 +17,6 @@ import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, Schedulin
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.exceptions.ResourceNotFoundException
-import com.ruchij.core.messaging.models.CommittableRecord
 import com.ruchij.core.messaging.{PubSub, Publisher, Subscriber}
 import com.ruchij.core.services.repository.FileRepositoryService
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
@@ -38,20 +36,20 @@ import scala.concurrent.duration._
 class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with Matchers with OptionValues {
 
   case class TestFixture(
-    batchSchedulingService: BatchSchedulingServiceImpl[IO, ConnectionIO, Id],
+    batchSchedulingService: BatchSchedulingServiceImpl[IO, ConnectionIO],
     schedulingDao: DoobieSchedulingDao.type,
     downloadProgressPublisher: Publisher[IO, DownloadProgress],
-    scheduledVideoDownloadPubSub: PubSub[IO, CommittableRecord[Id, *], ScheduledVideoDownload]
+    scheduledVideoDownloadPubSub: PubSub[IO, ScheduledVideoDownload]
   )
 
   def createTestFixture(implicit transactor: ConnectionIO ~> IO): TestFixture = {
     val downloadProgressPublisher = mock[Publisher[IO, DownloadProgress]]
     val repositoryService = mock[FileRepositoryService[IO]]
-    val workerStatusSubscriber = mock[Subscriber[IO, CommittableRecord[Id, *], WorkerStatusUpdate]]
-    val scheduledVideoDownloadPubSub = mock[PubSub[IO, CommittableRecord[Id, *], ScheduledVideoDownload]]
+    val workerStatusSubscriber = mock[Subscriber[IO, WorkerStatusUpdate]]
+    val scheduledVideoDownloadPubSub = mock[PubSub[IO, ScheduledVideoDownload]]
     val storageConfiguration = StorageConfiguration("video-folder", "image-folder", List.empty)
 
-    val batchSchedulingService = new BatchSchedulingServiceImpl[IO, ConnectionIO, Id](
+    val batchSchedulingService = new BatchSchedulingServiceImpl[IO, ConnectionIO](
       downloadProgressPublisher,
       workerStatusSubscriber,
       scheduledVideoDownloadPubSub,
@@ -79,8 +77,8 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
 
     val downloadProgressPublisher = mock[Publisher[IO, DownloadProgress]]
     val repositoryService = mock[FileRepositoryService[IO]]
-    val workerStatusSubscriber = mock[Subscriber[IO, CommittableRecord[Id, *], WorkerStatusUpdate]]
-    val scheduledVideoDownloadPubSub = mock[PubSub[IO, CommittableRecord[Id, *], ScheduledVideoDownload]]
+    val workerStatusSubscriber = mock[Subscriber[IO, WorkerStatusUpdate]]
+    val scheduledVideoDownloadPubSub = mock[PubSub[IO, ScheduledVideoDownload]]
     val storageConfiguration = StorageConfiguration("video-folder", "image-folder", List.empty)
 
     val concurrency = 500
@@ -88,7 +86,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
 
     batchServiceProvider.transactor.use { implicit transactor =>
       val batchSchedulingServiceImpl =
-        new BatchSchedulingServiceImpl[IO, ConnectionIO, Id](
+        new BatchSchedulingServiceImpl[IO, ConnectionIO](
           downloadProgressPublisher,
           workerStatusSubscriber,
           scheduledVideoDownloadPubSub,
@@ -366,14 +364,14 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
     batchServiceProvider.transactor.use { implicit transactor =>
-      val workerStatusSubscriber = mock[Subscriber[IO, CommittableRecord[Id, *], WorkerStatusUpdate]]
+      val workerStatusSubscriber = mock[Subscriber[IO, WorkerStatusUpdate]]
       val downloadProgressPublisher = mock[Publisher[IO, DownloadProgress]]
       val repositoryService = mock[FileRepositoryService[IO]]
       val storageConfiguration = StorageConfiguration("video-folder", "image-folder", List.empty)
 
       val scheduledVideoDownloadPubSub = new StubScheduledVideoPubSub
 
-      val batchSchedulingService = new BatchSchedulingServiceImpl[IO, ConnectionIO, Id](
+      val batchSchedulingService = new BatchSchedulingServiceImpl[IO, ConnectionIO](
         downloadProgressPublisher,
         workerStatusSubscriber,
         scheduledVideoDownloadPubSub,
@@ -426,13 +424,13 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
     batchServiceProvider.transactor.use { implicit transactor =>
-      val workerStatusSubscriber = mock[Subscriber[IO, CommittableRecord[Id, *], WorkerStatusUpdate]]
+      val workerStatusSubscriber = mock[Subscriber[IO, WorkerStatusUpdate]]
       val downloadProgressPublisher = mock[Publisher[IO, DownloadProgress]]
       val repositoryService = mock[FileRepositoryService[IO]]
-      val scheduledVideoDownloadPubSub = mock[PubSub[IO, CommittableRecord[Id, *], ScheduledVideoDownload]]
+      val scheduledVideoDownloadPubSub = mock[PubSub[IO, ScheduledVideoDownload]]
       val storageConfiguration = StorageConfiguration("video-folder", "image-folder", List.empty)
 
-      val batchSchedulingService = new BatchSchedulingServiceImpl[IO, ConnectionIO, Id](
+      val batchSchedulingService = new BatchSchedulingServiceImpl[IO, ConnectionIO](
         downloadProgressPublisher,
         workerStatusSubscriber,
         scheduledVideoDownloadPubSub,
@@ -457,13 +455,13 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
     batchServiceProvider.transactor.use { implicit transactor =>
-      val workerStatusSubscriber = mock[Subscriber[IO, CommittableRecord[Id, *], WorkerStatusUpdate]]
+      val workerStatusSubscriber = mock[Subscriber[IO, WorkerStatusUpdate]]
       val downloadProgressPublisher = mock[Publisher[IO, DownloadProgress]]
       val repositoryService = mock[FileRepositoryService[IO]]
-      val scheduledVideoDownloadPubSub = mock[PubSub[IO, CommittableRecord[Id, *], ScheduledVideoDownload]]
+      val scheduledVideoDownloadPubSub = mock[PubSub[IO, ScheduledVideoDownload]]
       val storageConfiguration = StorageConfiguration("video-folder", "image-folder", List.empty)
 
-      val batchSchedulingService = new BatchSchedulingServiceImpl[IO, ConnectionIO, Id](
+      val batchSchedulingService = new BatchSchedulingServiceImpl[IO, ConnectionIO](
         downloadProgressPublisher,
         workerStatusSubscriber,
         scheduledVideoDownloadPubSub,
@@ -488,7 +486,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
     batchServiceProvider.transactor.use { implicit transactor =>
-      val workerStatusSubscriber = mock[Subscriber[IO, CommittableRecord[Id, *], WorkerStatusUpdate]]
+      val workerStatusSubscriber = mock[Subscriber[IO, WorkerStatusUpdate]]
       val downloadProgressPublisher = mock[Publisher[IO, DownloadProgress]]
       val repositoryService = mock[FileRepositoryService[IO]]
       val storageConfiguration = StorageConfiguration("video-folder", "image-folder", List.empty)
@@ -496,7 +494,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
       // Create a stub PubSub that tracks published messages
       val scheduledVideoDownloadPubSub = new StubScheduledVideoPubSub
 
-      val batchSchedulingService = new BatchSchedulingServiceImpl[IO, ConnectionIO, Id](
+      val batchSchedulingService = new BatchSchedulingServiceImpl[IO, ConnectionIO](
         downloadProgressPublisher,
         workerStatusSubscriber,
         scheduledVideoDownloadPubSub,
@@ -524,14 +522,14 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
     batchServiceProvider.transactor.use { implicit transactor =>
-      val workerStatusSubscriber = mock[Subscriber[IO, CommittableRecord[Id, *], WorkerStatusUpdate]]
+      val workerStatusSubscriber = mock[Subscriber[IO, WorkerStatusUpdate]]
       val downloadProgressPublisher = mock[Publisher[IO, DownloadProgress]]
       val repositoryService = mock[FileRepositoryService[IO]]
       val storageConfiguration = StorageConfiguration("video-folder", "image-folder", List.empty)
 
       val scheduledVideoDownloadPubSub = new StubScheduledVideoPubSub
 
-      val batchSchedulingService = new BatchSchedulingServiceImpl[IO, ConnectionIO, Id](
+      val batchSchedulingService = new BatchSchedulingServiceImpl[IO, ConnectionIO](
         downloadProgressPublisher,
         workerStatusSubscriber,
         scheduledVideoDownloadPubSub,
@@ -552,14 +550,14 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
     batchServiceProvider.transactor.use { implicit transactor =>
-      val workerStatusSubscriber = mock[Subscriber[IO, CommittableRecord[Id, *], WorkerStatusUpdate]]
+      val workerStatusSubscriber = mock[Subscriber[IO, WorkerStatusUpdate]]
       val downloadProgressPublisher = mock[Publisher[IO, DownloadProgress]]
       val repositoryService = mock[FileRepositoryService[IO]]
       val storageConfiguration = StorageConfiguration("video-folder", "image-folder", List.empty)
 
       val scheduledVideoDownloadPubSub = new StubScheduledVideoPubSub
 
-      val batchSchedulingService = new BatchSchedulingServiceImpl[IO, ConnectionIO, Id](
+      val batchSchedulingService = new BatchSchedulingServiceImpl[IO, ConnectionIO](
         downloadProgressPublisher,
         workerStatusSubscriber,
         scheduledVideoDownloadPubSub,
@@ -638,15 +636,17 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
   }
 
   // Stub implementation for PubSub
-  class StubScheduledVideoPubSub extends PubSub[IO, CommittableRecord[Id, *], ScheduledVideoDownload] {
+  class StubScheduledVideoPubSub extends PubSub[IO, ScheduledVideoDownload] {
     import cats.Foldable
     import cats.Functor
     import fs2.Pipe
 
+    override type C[X] = X
     override val publish: Pipe[IO, ScheduledVideoDownload, Unit] = _.evalMap(_ => IO.unit)
     override def publishOne(input: ScheduledVideoDownload): IO[Unit] = IO.unit
-    override def subscribe(groupId: String): Stream[IO, CommittableRecord[Id, ScheduledVideoDownload]] = Stream.empty
-    override def commit[H[_]: Foldable: Functor](values: H[CommittableRecord[Id, ScheduledVideoDownload]]): IO[Unit] = IO.unit
+    override def subscribe(groupId: String): Stream[IO, ScheduledVideoDownload] = Stream.empty
+    override def commit[H[_]: Foldable: Functor](values: H[ScheduledVideoDownload]): IO[Unit] = IO.unit
+    override def extractValue(ca: ScheduledVideoDownload): ScheduledVideoDownload = ca
   }
 
 }

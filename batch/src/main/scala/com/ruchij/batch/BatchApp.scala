@@ -53,7 +53,6 @@ import com.ruchij.core.services.video.{
 import com.ruchij.core.types.{Clock, RandomGenerator}
 import doobie.free.connection.ConnectionIO
 import fs2.io.file.Files
-import fs2.kafka.CommittableConsumerRecord
 import org.apache.tika.Tika
 import org.http4s.jdkhttpclient.JdkHttpClient
 import pureconfig.ConfigSource
@@ -166,11 +165,7 @@ object BatchApp extends IOApp {
             DoobieSnapshotDao,
           )
 
-          batchSchedulingService = new BatchSchedulingServiceImpl[F, ConnectionIO, CommittableConsumerRecord[
-            F,
-            Unit,
-            *
-          ]](
+          batchSchedulingService = new BatchSchedulingServiceImpl[F, ConnectionIO](
             downloadProgressPublisher,
             workerStatusUpdatesSubscriber,
             scheduledVideoDownloadPubSub,

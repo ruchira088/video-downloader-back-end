@@ -1,7 +1,7 @@
 package com.ruchij.core.messaging.db
 
 import cats.effect.Async
-import cats.{Id, ~>}
+import cats.~>
 import com.ruchij.core.daos.messaging.MessageDao
 import com.ruchij.core.messaging.PubSub
 import com.ruchij.core.types.Clock

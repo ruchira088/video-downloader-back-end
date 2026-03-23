@@ -22,7 +22,7 @@ import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Subscriber
-import com.ruchij.core.messaging.models.{CommittableRecord, VideoWatchMetric}
+import com.ruchij.core.messaging.models.VideoWatchMetric
 import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
 import com.ruchij.core.services.video.VideoWatchHistoryService
 import com.ruchij.core.types.Clock
@@ -34,15 +34,15 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.language.postfixOps
 
-class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow, M[_]](
+class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
   batchSchedulingService: BatchSchedulingService[F],
   synchronizationService: SynchronizationService[F],
   batchVideoService: BatchVideoService[F],
   videoWatchHistoryService: VideoWatchHistoryService[F],
   workExecutor: WorkExecutor[F],
   duplicateDetectionService: BatchDuplicateDetectionService[F],
-  videoWatchMetricsSubscriber: Subscriber[F, CommittableRecord[M, *], VideoWatchMetric],
-  scanForVideosCommandSubscriber: Subscriber[F, CommittableRecord[M, *], ScanVideosCommand],
+  videoWatchMetricsSubscriber: Subscriber[F, VideoWatchMetric],
+  scanForVideosCommandSubscriber: Subscriber[F, ScanVideosCommand],
   workerDao: WorkerDao[T],
   workerConfiguration: WorkerConfiguration,
   instanceId: String
@@ -51,7 +51,7 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow, M[_]](
 
   override type InitializationResult = Unit
 
-  private val logger = Logger[SchedulerImpl[F, T, M]]
+  private val logger = Logger[SchedulerImpl[F, T]]
 
   private val idleWorkers: Stream[F, Worker] =
     Stream
@@ -294,9 +294,9 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow, M[_]](
   private val updateVideoWatchTimes: Stream[F, Unit] =
     videoWatchMetricsSubscriber
       .subscribe("batch-scheduler")
-      .evalTap {
-        case CommittableRecord(videoWatchMetric: VideoWatchMetric, _) =>
-          batchVideoService
+      .evalTap { record =>
+        val videoWatchMetric = videoWatchMetricsSubscriber.extractValue(record)
+        batchVideoService
             .fetchByVideoFileResourceId(videoWatchMetric.videoFileResourceId)
             .flatMap { video =>
               val watchDuration =
@@ -350,7 +350,7 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow, M[_]](
       scanForVideosCommandSubscriber
         .subscribe(s"batch-scheduler")
         .evalMap { record =>
-          scanForVideosCommandSubscriber.commit(List(record)).as(record.value)
+          scanForVideosCommandSubscriber.commit(List(record)).as(scanForVideosCommandSubscriber.extractValue(record))
         }
     }
 

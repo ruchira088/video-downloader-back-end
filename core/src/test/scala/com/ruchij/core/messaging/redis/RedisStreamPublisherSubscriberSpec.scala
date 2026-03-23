@@ -1,6 +1,5 @@
 package com.ruchij.core.messaging.redis
 
-import cats.Id
 import cats.effect.{IO, Resource}
 import com.ruchij.core.external.containers.RedisContainer
 import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage
@@ -8,17 +7,15 @@ import com.ruchij.core.messaging.{Publisher, PublisherSubscriberSpec, Subscriber
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-class RedisStreamPublisherSubscriberSpec extends AnyFlatSpec with Matchers with PublisherSubscriberSpec[Id] {
+class RedisStreamPublisherSubscriberSpec extends AnyFlatSpec with Matchers with PublisherSubscriberSpec {
 
-  override def resource: Resource[IO, (Publisher[IO, TestMessage], Subscriber[IO, Id, TestMessage])] =
+  override def resource: Resource[IO, (Publisher[IO, TestMessage], Subscriber[IO, TestMessage])] =
     RedisContainer
       .create[IO]
       .flatMap { redisConfiguration =>
         for {
           publisher <- RedisStreamPublisher.create[IO, TestMessage](redisConfiguration)
           subscriber <- RedisStreamSubscriber.create[IO, TestMessage](redisConfiguration)
-        } yield (publisher: Publisher[IO, TestMessage], subscriber: Subscriber[IO, Id, TestMessage])
+        } yield (publisher: Publisher[IO, TestMessage], subscriber: Subscriber[IO, TestMessage])
       }
-
-  override def extractValue(ga: Id[TestMessage]): TestMessage = ga
 }

@@ -3,7 +3,7 @@ package com.ruchij.batch.services.scheduler
 import cats.arrow.FunctionK
 import cats.data.OptionT
 import cats.effect.IO
-import cats.{Foldable, Functor, Id, ~>}
+import cats.{Foldable, Functor, ~>}
 import com.ruchij.batch.config.WorkerConfiguration
 import com.ruchij.batch.daos.workers.WorkerDao
 import com.ruchij.batch.daos.workers.models.Worker
@@ -21,7 +21,7 @@ import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
 import com.ruchij.core.daos.videowatchhistory.models.DetailedVideoWatchHistory
 import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.messaging.Subscriber
-import com.ruchij.core.messaging.models.{CommittableRecord, VideoWatchMetric}
+import com.ruchij.core.messaging.models.VideoWatchMetric
 import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
 import com.ruchij.core.services.video.VideoWatchHistoryService
 import com.ruchij.core.test.IOSupport.runIO
@@ -144,14 +144,18 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     }
   }
 
-  class StubVideoWatchMetricsSubscriber extends Subscriber[IO, CommittableRecord[Id, *], VideoWatchMetric] {
-    override def subscribe(groupId: String): Stream[IO, CommittableRecord[Id, VideoWatchMetric]] = Stream.empty
-    override def commit[H[_]: Foldable: Functor](records: H[CommittableRecord[Id, VideoWatchMetric]]): IO[Unit] = IO.unit
+  class StubVideoWatchMetricsSubscriber extends Subscriber[IO, VideoWatchMetric] {
+    override type C[X] = X
+    override def subscribe(groupId: String): Stream[IO, VideoWatchMetric] = Stream.empty
+    override def commit[H[_]: Foldable: Functor](records: H[VideoWatchMetric]): IO[Unit] = IO.unit
+    override def extractValue(ca: VideoWatchMetric): VideoWatchMetric = ca
   }
 
-  class StubScanForVideosCommandSubscriber extends Subscriber[IO, CommittableRecord[Id, *], ScanVideosCommand] {
-    override def subscribe(groupId: String): Stream[IO, CommittableRecord[Id, ScanVideosCommand]] = Stream.empty
-    override def commit[H[_]: Foldable: Functor](records: H[CommittableRecord[Id, ScanVideosCommand]]): IO[Unit] = IO.unit
+  class StubScanForVideosCommandSubscriber extends Subscriber[IO, ScanVideosCommand] {
+    override type C[X] = X
+    override def subscribe(groupId: String): Stream[IO, ScanVideosCommand] = Stream.empty
+    override def commit[H[_]: Foldable: Functor](records: H[ScanVideosCommand]): IO[Unit] = IO.unit
+    override def extractValue(ca: ScanVideosCommand): ScanVideosCommand = ca
   }
 
   class StubBatchDuplicateDetectionService extends BatchDuplicateDetectionService[IO] {
@@ -738,8 +742,8 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   def createScheduler(
     workerDao: StubWorkerDao,
     workerConfiguration: WorkerConfiguration = createWorkerConfiguration()
-  )(implicit clock: Clock[IO]): SchedulerImpl[IO, IO, Id] = {
-    new SchedulerImpl[IO, IO, Id](
+  )(implicit clock: Clock[IO]): SchedulerImpl[IO, IO] = {
+    new SchedulerImpl[IO, IO](
       batchSchedulingService = new StubBatchSchedulingService,
       synchronizationService = new StubSynchronizationService,
       batchVideoService = new StubBatchVideoService,

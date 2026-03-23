@@ -8,7 +8,7 @@ import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.messaging.MessageDao
 import com.ruchij.core.exceptions.ExternalServiceException
 import com.ruchij.core.messaging.db.{DoobiePubSub, DoobieTopic}
-import com.ruchij.core.messaging.kafka.{KafkaPubSub, KafkaTopic}
+import com.ruchij.core.messaging.kafka.KafkaPubSub
 import com.ruchij.core.messaging.redis.{RedisStreamPublisher, RedisStreamSubscriber, RedisStreamTopic}
 import com.ruchij.core.types.Clock
 import doobie.ConnectionIO
@@ -39,9 +39,11 @@ object PubSub {
       override def subscribe(groupId: String): Stream[F, subscriber.C[A]] = subscriber.subscribe(groupId)
 
       override def commit[H[_]: Foldable: Functor](values: H[subscriber.C[A]]): F[Unit] = subscriber.commit(values)
+
+      override def extractValue(ca: subscriber.C[A]): A = subscriber.extractValue(ca)
     }
 
-  def apply[F[_]: Async: Clock, A: KafkaTopic: RedisStreamTopic: DoobieTopic](
+  def apply[F[_]: Async: Clock, A: MessagingTopic: RedisStreamTopic: DoobieTopic](
     pubSubConfiguration: PubSubConfiguration,
     messageDao: MessageDao[ConnectionIO]
   ): Resource[F, PubSub[F, A]] =

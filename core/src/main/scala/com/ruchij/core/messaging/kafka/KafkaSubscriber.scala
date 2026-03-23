@@ -5,12 +5,12 @@ import cats.implicits._
 import cats.{Foldable, Functor}
 import com.ruchij.core.config.KafkaConfiguration
 import com.ruchij.core.logging.Logger
-import com.ruchij.core.messaging.Subscriber
+import com.ruchij.core.messaging.{MessagingTopic, Subscriber}
 import com.ruchij.core.messaging.models.CommittableRecord
 import fs2.Stream
 import fs2.kafka._
 
-class KafkaSubscriber[F[_]: Async, A](kafkaConfiguration: KafkaConfiguration)(implicit topic: KafkaTopic[A])
+class KafkaSubscriber[F[_]: Async, A](kafkaConfiguration: KafkaConfiguration)(implicit topic: MessagingTopic[A])
     extends Subscriber[F, A] {
   override type C[X] = CommittableRecord[CommittableConsumerRecord[F, Unit, *], X]
 
@@ -45,4 +45,6 @@ class KafkaSubscriber[F[_]: Async, A](kafkaConfiguration: KafkaConfiguration)(im
 
   override def commit[H[_]: Foldable: Functor](values: H[CommittableRecord[CommittableConsumerRecord[F, Unit, *], A]]): F[Unit] =
     CommittableOffsetBatch.fromFoldable(values.map(_.raw.offset)).commit
+
+  override def extractValue(ca: CommittableRecord[CommittableConsumerRecord[F, Unit, *], A]): A = ca.value
 }

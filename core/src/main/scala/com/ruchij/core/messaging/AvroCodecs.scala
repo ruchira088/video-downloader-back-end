@@ -1,18 +1,18 @@
-package com.ruchij.core.messaging.kafka
+package com.ruchij.core.messaging
 
-import java.util.concurrent.TimeUnit
 import cats.Show
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload.ErrorInfo
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
 import enumeratum.{Enum, EnumEntry}
 import org.http4s.{MediaType, Method, Status, Uri}
-import vulcan.{AvroError, Codec}
 import vulcan.generic._
+import vulcan.{AvroError, Codec}
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
-object Codecs {
+object AvroCodecs {
   implicit val videoSiteCodex: Codec[VideoSite] = Codec[String].imap(VideoSite.from)(_.name)
 
   implicit def enumCodec[A <: EnumEntry](implicit enumValues: Enum[A]): Codec[A] =

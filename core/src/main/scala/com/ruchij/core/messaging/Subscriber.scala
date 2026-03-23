@@ -9,4 +9,6 @@ trait Subscriber[F[_], A] {
   def subscribe(groupId: String): Stream[F, C[A]]
 
   def commit[H[_]: Foldable: Functor](values: H[C[A]]): F[Unit]
+
+  def extractValue(ca: C[A]): A
 }

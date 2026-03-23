@@ -1,6 +1,5 @@
 package com.ruchij.core.messaging.postgres
 
-import cats.Id
 import cats.effect.{IO, Resource}
 import cats.~>
 import com.ruchij.core.daos.doobie.DoobieTransactor
@@ -20,7 +19,7 @@ import org.scalatest.matchers.must.Matchers
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class DoobiePublisherSubscriberSpec extends AnyFlatSpec with Matchers with PublisherSubscriberSpec[Id] {
+class DoobiePublisherSubscriberSpec extends AnyFlatSpec with Matchers with PublisherSubscriberSpec {
 
   private val daoResource: Resource[IO, (MessageDao[ConnectionIO], ConnectionIO ~> IO)] =
     PostgresContainer
@@ -34,16 +33,14 @@ class DoobiePublisherSubscriberSpec extends AnyFlatSpec with Matchers with Publi
         }
       }
 
-  override def resource: Resource[IO, (Publisher[IO, TestMessage], Subscriber[IO, Id, TestMessage])] =
+  override def resource: Resource[IO, (Publisher[IO, TestMessage], Subscriber[IO, TestMessage])] =
     daoResource.map { case (messageDao, transaction) =>
       implicit val tx: ConnectionIO ~> IO = transaction
 
       val publisher = new DoobiePublisher[IO, ConnectionIO, TestMessage](messageDao)
       val subscriber = DoobieSubscriber.create[IO, ConnectionIO, TestMessage](messageDao, 500 milliseconds)
-      (publisher: Publisher[IO, TestMessage], subscriber: Subscriber[IO, Id, TestMessage])
+      (publisher: Publisher[IO, TestMessage], subscriber: Subscriber[IO, TestMessage])
     }
-
-  override def extractValue(ga: Id[TestMessage]): TestMessage = ga
 
   override def testTimeout: FiniteDuration = 30 seconds
 

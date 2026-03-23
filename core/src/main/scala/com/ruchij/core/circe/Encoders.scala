@@ -5,7 +5,7 @@ import cats.Show
 import com.ruchij.core.daos.videometadata.models.VideoSite
 import enumeratum.EnumEntry
 import io.circe.{Encoder, Json}
-import org.http4s.MediaType
+import org.http4s.{MediaType, Method, Status}
 import shapeless.{::, Generic, HNil}
 
 import java.time.Instant
@@ -31,6 +31,10 @@ object Encoders {
   implicit val pathEncoder: Encoder[Path] = Encoder.encodeString.contramap[Path](_.toAbsolutePath.toString)
 
   implicit val mediaTypeEncoder: Encoder[MediaType] = Encoder.encodeString.contramap[MediaType](Show[MediaType].show)
+
+  implicit val methodEncoder: Encoder[Method] = Encoder.encodeString.contramap(_.name)
+
+  implicit val statusEncoder: Encoder[Status] = Encoder.encodeInt.contramap(_.code)
 
   implicit def stringWrapperEncoder[A <: AnyVal](implicit generic: Generic.Aux[A, String :: HNil]): Encoder[A] =
     Encoder[String].contramap[A](value => generic.to(value).head)

@@ -3,6 +3,7 @@ package com.ruchij.core.circe
 import com.ruchij.core.daos.videometadata.models.VideoSite
 import enumeratum.{Enum, EnumEntry}
 import io.circe.Decoder
+import org.http4s.{MediaType, Method, Status}
 import shapeless.{::, Generic, HNil}
 
 import java.time.Instant
@@ -19,6 +20,13 @@ object Decoders {
 
   implicit val videoSiteDecoder: Decoder[VideoSite] =
     Decoder.decodeString.map(VideoSite.from)
+
+  implicit val mediaTypeDecoder: Decoder[MediaType] =
+    Decoder.decodeString.emap(MediaType.parse(_).left.map(_.getMessage))
+
+  implicit val methodDecoder: Decoder[Method] = Decoder.decodeString.emap(Method.fromString(_).left.map(_.message))
+
+  implicit val statusDecoder: Decoder[Status] = Decoder.decodeInt.emap(Status.fromInt(_).left.map(_.message))
 
   implicit def enumDecoder[A <: EnumEntry](implicit enumValues: Enum[A]): Decoder[A] =
     Decoder.decodeString.emap { enumString =>
