@@ -47,7 +47,7 @@ object PubSubConfiguration {
                   }
                   .map { redisConfiguration =>
                     PubSubConfiguration(
-                      pubSubType = PubSubType.Kafka,
+                      pubSubType = PubSubType.Redis,
                       kafkaConfiguration = None,
                       redisConfiguration = Some(redisConfiguration),
                       databaseConfiguration = None
@@ -62,7 +62,7 @@ object PubSubConfiguration {
                   }
                   .map { databaseConfiguration =>
                     PubSubConfiguration(
-                      pubSubType = PubSubType.Kafka,
+                      pubSubType = PubSubType.Doobie,
                       kafkaConfiguration = None,
                       redisConfiguration = None,
                       databaseConfiguration = Some(databaseConfiguration)
