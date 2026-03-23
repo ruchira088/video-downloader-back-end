@@ -9,6 +9,7 @@ import com.ruchij.core.messaging.models.{HttpMetric, VideoWatchMetric}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import fs2.kafka.vulcan.{AvroSettings, SchemaRegistryClientSettings, avroDeserializer, avroSerializer}
 import fs2.kafka.{ValueDeserializer, ValueSerializer}
+import io.circe.generic.auto.{exportDecoder, exportEncoder}
 import io.circe.generic.semiauto.{deriveCodec => deriveJsonCodec}
 import io.circe.{Codec => JsonCodec}
 import vulcan.generic._
