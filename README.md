@@ -12,7 +12,7 @@ A Scala-based backend system for managing video downloads, scheduling, and strea
 - Video watch history and analytics
 - Real-time download progress via WebSocket
 - Database migrations with Flyway
-- Kafka-based messaging for asynchronous operations
+- Pluggable messaging backend (Kafka, Redis Streams, or PostgreSQL via Doobie)
 - Redis caching layer
 
 ## Technology Stack
@@ -28,7 +28,7 @@ A Scala-based backend system for managing video downloads, scheduling, and strea
 | Database Access | Doobie 1.0.0-RC11 |
 | Database | PostgreSQL 17 |
 | Migrations | Flyway 11.20.1 |
-| Message Broker | Apache Kafka 8.1.1 |
+| Messaging | Apache Kafka 8.1.1 / Redis Streams / PostgreSQL (Doobie) |
 | Caching | Redis 8 |
 | Configuration | PureConfig 0.17.9 |
 | Testing | ScalaTest 3.2.19, ScalaMock 7.5.3 |
@@ -63,7 +63,7 @@ video-downloader-back-end/
 │   └── src/main/scala/com/ruchij/core/
 │       ├── daos/                 # Data access objects
 │       ├── services/             # Shared business logic
-│       ├── messaging/            # Kafka pub/sub
+│       ├── messaging/            # Pluggable pub/sub (Kafka, Redis Streams, Doobie)
 │       └── kv/                   # Redis key-value store
 │
 ├── migration-application/        # Flyway database migration runner
@@ -176,8 +176,10 @@ Copy `key.pem` and `cert.pem` to `nginx/ssl/`
 | `REDIS_HOSTNAME` | Redis host | `localhost` |
 | `REDIS_PORT` | Redis port | `6379` |
 | `REDIS_PASSWORD` | Redis password | - |
-| `KAFKA_BROKERS` | Kafka bootstrap servers | `localhost:9092` |
-| `SCHEMA_REGISTRY` | Schema Registry URL | `http://localhost:8081` |
+| `PUBSUB_TYPE` | Messaging backend (`Kafka`, `Redis`, `Doobie`) | `Kafka` |
+| `KAFKA_BROKERS` | Kafka bootstrap servers | - |
+| `KAFKA_PREFIX` | Kafka topic/group prefix | `local` |
+| `SCHEMA_REGISTRY` | Avro Schema Registry URL | - |
 | `SESSION_DURATION` | Auth session timeout | - |
 
 #### Batch Service
@@ -296,6 +298,18 @@ sbt viewCoverageResults
 - **Integration tests**: TestContainers (PostgreSQL, Kafka, Redis)
 - **Embedded services**: Redis and Kafka Schema Registry for isolated testing
 
+## Messaging
+
+The messaging layer uses a pluggable `PubSub` abstraction, configured via the `PUBSUB_TYPE` environment variable (or `pubsub-configuration.type` in `application.conf`).
+
+| Backend | Serialization | Use Case |
+|---------|---------------|----------|
+| **Kafka** | Avro (Schema Registry) | Production — high throughput, durable messaging |
+| **Redis** | JSON (Circe) | Lightweight deployments — uses Redis Streams |
+| **Doobie** | JSON (Circe) | Simple deployments — uses PostgreSQL as a message store |
+
+All backends implement the unified `MessagingTopic[A]` trait, which provides both an Avro codec (for Kafka) and a JSON codec (for Redis/Doobie). The `Subscriber` trait uses a type member `C[_]` to abstract over backend-specific wrapper types (e.g., Kafka's `CommittableRecord` for offset management vs. identity for Redis/Doobie).
+
 ## Docker Deployment
 
 ### Services
@@ -308,7 +322,7 @@ The `docker-compose.yml` orchestrates the following services:
 | Batch (x3) | - | Batch processing workers |
 | PostgreSQL | 5432 | Primary database |
 | Redis | 6379 | Cache layer |
-| Kafka | 9092 | Message broker |
+| Kafka | 9092 | Message broker (default pubsub backend) |
 | Schema Registry | 8081 | Avro schema management |
 | Zookeeper | 2181 | Kafka coordination |
 | Kpow | 3000 | Kafka monitoring UI |
