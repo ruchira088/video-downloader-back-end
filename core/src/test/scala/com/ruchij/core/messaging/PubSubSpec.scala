@@ -6,19 +6,12 @@ import com.ruchij.core.daos.messaging.DoobieMessageDao
 import com.ruchij.core.exceptions.ExternalServiceException
 import com.ruchij.core.messaging.PubSub.PubSubType
 import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage
+import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage._
 import com.ruchij.core.test.IOSupport.runIO
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
-import vulcan.Codec
-import vulcan.generic._
 
 class PubSubSpec extends AnyFlatSpec with Matchers {
-
-  private implicit val testMessageKafkaTopic: MessagingTopic[TestMessage] =
-    new MessagingTopic[TestMessage] {
-      override val name: String = "test-message-topic"
-      override val avroCodec: Codec[TestMessage] = Codec.derive[TestMessage]
-    }
 
   "PubSubType" should "contain Kafka, Redis, and Doobie values" in {
     PubSubType.values must contain allOf (PubSubType.Kafka, PubSubType.Redis, PubSubType.Doobie)

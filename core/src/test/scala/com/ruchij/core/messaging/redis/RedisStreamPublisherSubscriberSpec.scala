@@ -3,6 +3,7 @@ package com.ruchij.core.messaging.redis
 import cats.effect.{IO, Resource}
 import com.ruchij.core.external.containers.RedisContainer
 import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage
+import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage._
 import com.ruchij.core.messaging.{Publisher, PublisherSubscriberSpec, Subscriber}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers

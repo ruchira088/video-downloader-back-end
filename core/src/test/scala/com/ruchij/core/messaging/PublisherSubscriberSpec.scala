@@ -7,6 +7,7 @@ import fs2.Stream
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import org.scalatest.flatspec.AnyFlatSpec
+import vulcan.generic._
 import org.scalatest.matchers.must.Matchers
 
 import scala.concurrent.duration._
@@ -189,5 +190,12 @@ object PublisherSubscriberSpec {
 
   object TestMessage {
     implicit val testMessageCodec: Codec.AsObject[TestMessage] = deriveCodec[TestMessage]
+
+    implicit val testMessageMessagingTopic: MessagingTopic[TestMessage] =
+      new MessagingTopic[TestMessage] {
+        override val name: String = "test-message-topic"
+        override val avroCodec: vulcan.Codec[TestMessage] = vulcan.Codec.derive[TestMessage]
+        override val jsonCodec: Codec[TestMessage] = testMessageCodec
+      }
   }
 }
