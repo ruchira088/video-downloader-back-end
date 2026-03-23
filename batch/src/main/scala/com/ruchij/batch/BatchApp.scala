@@ -32,7 +32,7 @@ import com.ruchij.core.daos.videowatchhistory.DoobieVideoWatchHistoryDao
 import com.ruchij.core.kv.codecs.KVEncoder._
 import com.ruchij.core.kv.{KeySpacedKeyValueStore, RedisKeyValueStore}
 import com.ruchij.core.logging.Logger
-import com.ruchij.core.messaging.kafka.{KafkaPubSub, KafkaPublisher, KafkaSubscriber}
+import com.ruchij.core.messaging.PubSub
 import com.ruchij.core.messaging.models.VideoWatchMetric
 import com.ruchij.core.monitoring.Sentry
 import com.ruchij.core.services.cli.CliCommandRunnerImpl
@@ -44,12 +44,7 @@ import com.ruchij.core.services.hashing.{MurmurHash3Service, PerceptualHashingSe
 import com.ruchij.core.services.renderer.SpaSiteRendererImpl
 import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
-import com.ruchij.core.services.video.{
-  VideoAnalysisServiceImpl,
-  VideoServiceImpl,
-  VideoWatchHistoryServiceImpl,
-  YouTubeVideoDownloaderImpl
-}
+import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, VideoWatchHistoryServiceImpl, YouTubeVideoDownloaderImpl}
 import com.ruchij.core.types.{Clock, RandomGenerator}
 import doobie.free.connection.ConnectionIO
 import fs2.io.file.Files
@@ -140,19 +135,19 @@ object BatchApp extends IOApp {
             batchServiceConfiguration.storageConfiguration
           )
 
-          downloadProgressPublisher <- KafkaPublisher[F, DownloadProgress](batchServiceConfiguration.kafkaConfiguration)
-          scheduledVideoDownloadPubSub <- KafkaPubSub[F, ScheduledVideoDownload](
-            batchServiceConfiguration.kafkaConfiguration
+          downloadProgressPublisher <- PubSub[F, DownloadProgress](batchServiceConfiguration.pubsubConfiguration)
+          scheduledVideoDownloadPubSub <- PubSub[F, ScheduledVideoDownload](
+            batchServiceConfiguration.pubsubConfiguration
           )
-          workerStatusUpdatesSubscriber = new KafkaSubscriber[F, WorkerStatusUpdate](
-            batchServiceConfiguration.kafkaConfiguration
+          workerStatusUpdatesSubscriber <- PubSub[F, WorkerStatusUpdate](
+            batchServiceConfiguration.pubsubConfiguration
           )
 
-          videoWatchMetricsSubscriber = new KafkaSubscriber[F, VideoWatchMetric](
-            batchServiceConfiguration.kafkaConfiguration
+          videoWatchMetricsSubscriber <- PubSub[F, VideoWatchMetric](
+            batchServiceConfiguration.pubsubConfiguration
           )
-          scanForVideosCommandSubscriber = new KafkaSubscriber[F, ScanVideosCommand](
-            batchServiceConfiguration.kafkaConfiguration
+          scanForVideosCommandSubscriber <- PubSub[F, ScanVideosCommand](
+            batchServiceConfiguration.pubsubConfiguration
           )
 
           perceptualHashingService = new PerceptualHashingServiceImpl[F]

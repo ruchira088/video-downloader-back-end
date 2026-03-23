@@ -3,7 +3,7 @@ package com.ruchij.core.messaging
 import cats.effect.kernel.Resource
 import cats.effect.{Async, MonadCancelThrow}
 import cats.{Foldable, Functor}
-import com.ruchij.core.config.PubSubConfiguration
+import com.ruchij.core.config.PubsubConfiguration
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.messaging.DoobieMessageDao
 import com.ruchij.core.exceptions.ExternalServiceException
@@ -18,14 +18,14 @@ import fs2.{Pipe, Stream}
 trait PubSub[F[_], A] extends Publisher[F, A] with Subscriber[F, A]
 
 object PubSub {
-  sealed trait PubSubType extends EnumEntry
+  sealed trait PubsubType extends EnumEntry
 
-  object PubSubType extends Enum[PubSubType] {
-    case object Kafka extends PubSubType
-    case object Redis extends PubSubType
-    case object Doobie extends PubSubType
+  object PubsubType extends Enum[PubsubType] {
+    case object Kafka extends PubsubType
+    case object Redis extends PubsubType
+    case object Doobie extends PubsubType
 
-    override def values: IndexedSeq[PubSubType] = findValues
+    override def values: IndexedSeq[PubsubType] = findValues
   }
 
   def from[F[_], A](publisher: Publisher[F, A], subscriber: Subscriber[F, A]): PubSub[F, A] =
@@ -44,11 +44,11 @@ object PubSub {
     }
 
   def apply[F[_]: Async: Clock, A: MessagingTopic](
-    pubSubConfiguration: PubSubConfiguration,
+    pubsubConfiguration: PubsubConfiguration,
   ): Resource[F, PubSub[F, A]] =
-    pubSubConfiguration.pubSubType match {
-      case PubSubType.Kafka =>
-        pubSubConfiguration.kafkaConfiguration
+    pubsubConfiguration.pubsubType match {
+      case PubsubType.Kafka =>
+        pubsubConfiguration.kafkaConfiguration
           .fold[Resource[F, PubSub[F, A]]](
             Resource.eval(
               MonadCancelThrow[F].raiseError(
@@ -59,8 +59,8 @@ object PubSub {
             KafkaPubSub(kafkaConfiguration)
           }
 
-      case PubSubType.Redis =>
-        pubSubConfiguration.redisConfiguration
+      case PubsubType.Redis =>
+        pubsubConfiguration.redisConfiguration
           .fold[Resource[F, PubSub[F, A]]](
             Resource.eval(
               MonadCancelThrow[F].raiseError(
@@ -74,8 +74,8 @@ object PubSub {
             } yield PubSub.from(publisher, subscriber)
           }
 
-      case PubSubType.Doobie =>
-        pubSubConfiguration.databaseConfiguration
+      case PubsubType.Doobie =>
+        pubsubConfiguration.databaseConfiguration
           .fold[Resource[F, PubSub[F, A]]](
             Resource.eval(
               MonadCancelThrow[F].raiseError(

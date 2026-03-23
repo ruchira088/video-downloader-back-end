@@ -1,9 +1,9 @@
 package com.ruchij.core.messaging
 
 import cats.effect.IO
-import com.ruchij.core.config.PubSubConfiguration
+import com.ruchij.core.config.PubsubConfiguration
 import com.ruchij.core.exceptions.ExternalServiceException
-import com.ruchij.core.messaging.PubSub.PubSubType
+import com.ruchij.core.messaging.PubSub.PubsubType
 import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage
 import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage._
 import com.ruchij.core.test.IOSupport.runIO
@@ -13,30 +13,30 @@ import org.scalatest.matchers.must.Matchers
 class PubSubSpec extends AnyFlatSpec with Matchers {
 
   "PubSubType" should "contain Kafka, Redis, and Doobie values" in {
-    PubSubType.values must contain allOf (PubSubType.Kafka, PubSubType.Redis, PubSubType.Doobie)
-    PubSubType.values must have length 3
+    PubsubType.values must contain allOf (PubsubType.Kafka, PubsubType.Redis, PubsubType.Doobie)
+    PubsubType.values must have length 3
   }
 
   it should "resolve by name" in {
-    PubSubType.withName("Kafka") mustBe PubSubType.Kafka
-    PubSubType.withName("Redis") mustBe PubSubType.Redis
-    PubSubType.withName("Doobie") mustBe PubSubType.Doobie
+    PubsubType.withName("Kafka") mustBe PubsubType.Kafka
+    PubsubType.withName("Redis") mustBe PubsubType.Redis
+    PubsubType.withName("Doobie") mustBe PubsubType.Doobie
   }
 
   it should "resolve case-insensitively" in {
-    PubSubType.withNameInsensitive("kafka") mustBe PubSubType.Kafka
-    PubSubType.withNameInsensitive("redis") mustBe PubSubType.Redis
-    PubSubType.withNameInsensitive("doobie") mustBe PubSubType.Doobie
+    PubsubType.withNameInsensitive("kafka") mustBe PubsubType.Kafka
+    PubsubType.withNameInsensitive("redis") mustBe PubsubType.Redis
+    PubsubType.withNameInsensitive("doobie") mustBe PubsubType.Doobie
   }
 
   it should "throw NoSuchMember for invalid names" in {
     assertThrows[NoSuchElementException] {
-      PubSubType.withName("Invalid")
+      PubsubType.withName("Invalid")
     }
   }
 
   "PubSub.apply" should "raise ExternalServiceException when Kafka configuration is missing" in runIO {
-    val config = PubSubConfiguration(PubSubType.Kafka, None, None, None)
+    val config = PubsubConfiguration(PubsubType.Kafka, None, None, None)
 
     PubSub[IO, TestMessage](config)
       .use(_ => IO.unit)
@@ -51,7 +51,7 @@ class PubSubSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "raise ExternalServiceException when Redis configuration is missing" in runIO {
-    val config = PubSubConfiguration(PubSubType.Redis, None, None, None)
+    val config = PubsubConfiguration(PubsubType.Redis, None, None, None)
 
     PubSub[IO, TestMessage](config)
       .use(_ => IO.unit)
@@ -66,7 +66,7 @@ class PubSubSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "raise ExternalServiceException when Doobie database configuration is missing" in runIO {
-    val config = PubSubConfiguration(PubSubType.Doobie, None, None, None)
+    val config = PubsubConfiguration(PubsubType.Doobie, None, None, None)
 
     PubSub[IO, TestMessage](config)
       .use(_ => IO.unit)

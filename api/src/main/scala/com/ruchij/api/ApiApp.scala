@@ -47,7 +47,7 @@ import com.ruchij.core.kv.codecs.KVDecoder._
 import com.ruchij.core.kv.codecs.KVEncoder._
 import com.ruchij.core.kv.{KeySpacedKeyValueStore, KeyValueStore, RedisKeyValueStore}
 import com.ruchij.core.logging.Logger
-import com.ruchij.core.messaging.kafka.{KafkaPubSub, KafkaPublisher}
+import com.ruchij.core.messaging.PubSub
 import com.ruchij.core.messaging.models.{HttpMetric, VideoWatchMetric}
 import com.ruchij.core.monitoring.Sentry
 import com.ruchij.core.services.cli.CliCommandRunnerImpl
@@ -117,13 +117,13 @@ object ApiApp extends IOApp {
       httpClient = JdkHttpClient[F](javaHttpClient)
 
       redisKeyValueStore <- RedisKeyValueStore.create[F](apiServiceConfiguration.redisConfiguration)
-      downloadProgressPubSub <- KafkaPubSub[F, DownloadProgress](apiServiceConfiguration.kafkaConfiguration)
-      scheduledVideoDownloadPubSub <- KafkaPubSub[F, ScheduledVideoDownload](apiServiceConfiguration.kafkaConfiguration)
-      healthCheckPubSub <- KafkaPubSub[F, HealthCheckMessage](apiServiceConfiguration.kafkaConfiguration)
-      httpMetricsPublisher <- KafkaPublisher[F, HttpMetric](apiServiceConfiguration.kafkaConfiguration)
-      videoWatchMetricsPublisher <- KafkaPublisher[F, VideoWatchMetric](apiServiceConfiguration.kafkaConfiguration)
-      workerStatusUpdatePublisher <- KafkaPublisher[F, WorkerStatusUpdate](apiServiceConfiguration.kafkaConfiguration)
-      scanVideoCommandPublisher <- KafkaPublisher[F, ScanVideosCommand](apiServiceConfiguration.kafkaConfiguration)
+      downloadProgressPubSub <- PubSub[F, DownloadProgress](apiServiceConfiguration.pubsubConfiguration)
+      scheduledVideoDownloadPubSub <- PubSub[F, ScheduledVideoDownload](apiServiceConfiguration.pubsubConfiguration)
+      healthCheckPubSub <- PubSub[F, HealthCheckMessage](apiServiceConfiguration.pubsubConfiguration)
+      httpMetricsPublisher <- PubSub[F, HttpMetric](apiServiceConfiguration.pubsubConfiguration)
+      videoWatchMetricsPublisher <- PubSub[F, VideoWatchMetric](apiServiceConfiguration.pubsubConfiguration)
+      workerStatusUpdatePublisher <- PubSub[F, WorkerStatusUpdate](apiServiceConfiguration.pubsubConfiguration)
+      scanVideoCommandPublisher <- PubSub[F, ScanVideosCommand](apiServiceConfiguration.pubsubConfiguration)
       dispatcher <- Dispatcher.parallel[F]
 
       messageBrokers = ApiMessageBrokers(

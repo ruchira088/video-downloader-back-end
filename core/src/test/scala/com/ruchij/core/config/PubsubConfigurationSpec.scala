@@ -1,13 +1,13 @@
 package com.ruchij.core.config
 
-import com.ruchij.core.config.PubSubConfiguration.pubSubConfigurationConfigReader
-import com.ruchij.core.messaging.PubSub.PubSubType
+import com.ruchij.core.config.PubsubConfiguration.pubsubConfigurationConfigReader
+import com.ruchij.core.messaging.PubSub.PubsubType
 import com.typesafe.config.ConfigFactory
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 import pureconfig.ConfigSource
 
-class PubSubConfigurationSpec extends AnyFlatSpec with Matchers {
+class PubsubConfigurationSpec extends AnyFlatSpec with Matchers {
 
   "PubSubConfiguration" should "parse Kafka configuration" in {
     val config = ConfigFactory.parseString(
@@ -21,12 +21,12 @@ class PubSubConfigurationSpec extends AnyFlatSpec with Matchers {
         |""".stripMargin
     )
 
-    val result = ConfigSource.fromConfig(config).load[PubSubConfiguration]
+    val result = ConfigSource.fromConfig(config).load[PubsubConfiguration]
 
     result.isRight mustBe true
 
     val pubSubConfig = result.toOption.get
-    pubSubConfig.pubSubType mustBe PubSubType.Kafka
+    pubSubConfig.pubsubType mustBe PubsubType.Kafka
     pubSubConfig.kafkaConfiguration must not be empty
     pubSubConfig.redisConfiguration mustBe None
     pubSubConfig.databaseConfiguration mustBe None
@@ -47,12 +47,12 @@ class PubSubConfigurationSpec extends AnyFlatSpec with Matchers {
         |""".stripMargin
     )
 
-    val result = ConfigSource.fromConfig(config).load[PubSubConfiguration]
+    val result = ConfigSource.fromConfig(config).load[PubsubConfiguration]
 
     result.isRight mustBe true
 
     val pubSubConfig = result.toOption.get
-    pubSubConfig.pubSubType mustBe PubSubType.Redis
+    pubSubConfig.pubsubType mustBe PubsubType.Redis
     pubSubConfig.kafkaConfiguration mustBe None
     pubSubConfig.redisConfiguration must not be empty
     pubSubConfig.databaseConfiguration mustBe None
@@ -74,12 +74,12 @@ class PubSubConfigurationSpec extends AnyFlatSpec with Matchers {
         |""".stripMargin
     )
 
-    val result = ConfigSource.fromConfig(config).load[PubSubConfiguration]
+    val result = ConfigSource.fromConfig(config).load[PubsubConfiguration]
 
     result.isRight mustBe true
 
     val pubSubConfig = result.toOption.get
-    pubSubConfig.pubSubType mustBe PubSubType.Doobie
+    pubSubConfig.pubsubType mustBe PubsubType.Doobie
     pubSubConfig.kafkaConfiguration mustBe None
     pubSubConfig.redisConfiguration mustBe None
     pubSubConfig.databaseConfiguration must not be empty
@@ -102,7 +102,7 @@ class PubSubConfigurationSpec extends AnyFlatSpec with Matchers {
         |""".stripMargin
     )
 
-    val result = ConfigSource.fromConfig(config).load[PubSubConfiguration]
+    val result = ConfigSource.fromConfig(config).load[PubsubConfiguration]
 
     result.isRight mustBe true
 
@@ -123,7 +123,7 @@ class PubSubConfigurationSpec extends AnyFlatSpec with Matchers {
         |""".stripMargin
     )
 
-    val result = ConfigSource.fromConfig(config).load[PubSubConfiguration]
+    val result = ConfigSource.fromConfig(config).load[PubsubConfiguration]
     result.isLeft mustBe true
   }
 
@@ -134,7 +134,7 @@ class PubSubConfigurationSpec extends AnyFlatSpec with Matchers {
         |""".stripMargin
     )
 
-    val result = ConfigSource.fromConfig(config).load[PubSubConfiguration]
+    val result = ConfigSource.fromConfig(config).load[PubsubConfiguration]
     result.isLeft mustBe true
   }
 
@@ -145,7 +145,7 @@ class PubSubConfigurationSpec extends AnyFlatSpec with Matchers {
         |""".stripMargin
     )
 
-    val result = ConfigSource.fromConfig(config).load[PubSubConfiguration]
+    val result = ConfigSource.fromConfig(config).load[PubsubConfiguration]
     result.isLeft mustBe true
   }
 
@@ -156,7 +156,7 @@ class PubSubConfigurationSpec extends AnyFlatSpec with Matchers {
         |""".stripMargin
     )
 
-    val result = ConfigSource.fromConfig(config).load[PubSubConfiguration]
+    val result = ConfigSource.fromConfig(config).load[PubsubConfiguration]
     result.isLeft mustBe true
   }
 
@@ -167,7 +167,7 @@ class PubSubConfigurationSpec extends AnyFlatSpec with Matchers {
         |""".stripMargin
     )
 
-    val result = ConfigSource.fromConfig(config).load[PubSubConfiguration]
+    val result = ConfigSource.fromConfig(config).load[PubsubConfiguration]
     result.isLeft mustBe true
   }
 
@@ -183,7 +183,7 @@ class PubSubConfigurationSpec extends AnyFlatSpec with Matchers {
         |""".stripMargin
     )
 
-    val result = ConfigSource.fromConfig(config).load[PubSubConfiguration]
+    val result = ConfigSource.fromConfig(config).load[PubsubConfiguration]
 
     result.isRight mustBe true
 
