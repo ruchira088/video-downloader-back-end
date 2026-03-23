@@ -7,7 +7,7 @@ import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.messaging.{DoobieMessageDao, MessageDao}
 import com.ruchij.core.external.containers.PostgresContainer
 import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage
-import com.ruchij.core.messaging.doobie.{DoobiePublisher, DoobieSubscriber}
+import com.ruchij.core.messaging.db.{DoobiePublisher, DoobieSubscriber}
 import com.ruchij.core.messaging.{Publisher, PublisherSubscriberSpec, Subscriber}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.types.Clock

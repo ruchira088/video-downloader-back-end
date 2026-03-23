@@ -5,7 +5,6 @@ import cats.effect.{IO, Resource}
 import com.ruchij.core.external.containers.RedisContainer
 import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage
 import com.ruchij.core.messaging.{Publisher, PublisherSubscriberSpec, Subscriber}
-import dev.profunktor.redis4cats.effect.Log.Stdout.instance
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 

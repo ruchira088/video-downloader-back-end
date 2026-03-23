@@ -8,6 +8,7 @@ import com.ruchij.core.kv.codecs.{KVDecoder, KVEncoder}
 import dev.profunktor.redis4cats.{Redis, RedisCommands}
 import dev.profunktor.redis4cats.effects.SetArgs
 import dev.profunktor.redis4cats.effects.SetArg.Ttl.Px
+import dev.profunktor.redis4cats.effect.Log.Stdout.instance
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -40,8 +41,6 @@ class RedisKeyValueStore[F[_]: MonadThrow](redisCommands: RedisCommands[F, Strin
 }
 
 object RedisKeyValueStore {
-  import dev.profunktor.redis4cats.effect.Log.Stdout.instance
-
   def create[F[_]: Async](redisConfiguration: RedisConfiguration): Resource[F, RedisKeyValueStore[F]] =
     Redis[F].utf8(redisConfiguration.uri).map { redisCommands => new RedisKeyValueStore[F](redisCommands) }
 }

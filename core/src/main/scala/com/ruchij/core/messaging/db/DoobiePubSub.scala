@@ -1,4 +1,4 @@
-package com.ruchij.core.messaging.doobie
+package com.ruchij.core.messaging.db
 
 import cats.effect.Async
 import cats.{Id, ~>}

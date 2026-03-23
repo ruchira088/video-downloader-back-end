@@ -7,7 +7,7 @@ import com.ruchij.core.config.RedisConfiguration
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Subscriber
 import dev.profunktor.redis4cats.Redis
-import dev.profunktor.redis4cats.effect.Log
+import dev.profunktor.redis4cats.effect.Log.Stdout.instance
 import dev.profunktor.redis4cats.effects.XReadOffsets
 import dev.profunktor.redis4cats.streams.RedisStream
 import fs2.Stream
@@ -37,7 +37,7 @@ class RedisStreamSubscriber[F[_]: Sync, A](redisStream: RedisStream[F, String, S
 }
 
 object RedisStreamSubscriber {
-  def create[F[_]: Async: Log, A: RedisStreamTopic](
+  def create[F[_]: Async, A: RedisStreamTopic](
     redisConfiguration: RedisConfiguration
   ): Resource[F, RedisStreamSubscriber[F, A]] =
     Redis[F].utf8(redisConfiguration.uri).map { redisCommands =>

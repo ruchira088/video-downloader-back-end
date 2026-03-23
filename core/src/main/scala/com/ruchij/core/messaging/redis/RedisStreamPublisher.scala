@@ -4,7 +4,7 @@ import cats.effect.kernel.{Async, Resource, Sync}
 import com.ruchij.core.config.RedisConfiguration
 import com.ruchij.core.messaging.Publisher
 import dev.profunktor.redis4cats.Redis
-import dev.profunktor.redis4cats.effect.Log
+import dev.profunktor.redis4cats.effect.Log.Stdout.instance
 import dev.profunktor.redis4cats.streams.RedisStream
 import dev.profunktor.redis4cats.streams.data.XAddMessage
 import fs2.{Pipe, Stream}
@@ -28,7 +28,8 @@ class RedisStreamPublisher[F[_]: Sync, A](redisStream: RedisStream[F, String, St
 }
 
 object RedisStreamPublisher {
-  def create[F[_]: Async: Log, A: RedisStreamTopic](
+
+  def create[F[_]: Async, A: RedisStreamTopic](
     redisConfiguration: RedisConfiguration
   ): Resource[F, RedisStreamPublisher[F, A]] =
     Redis[F].utf8(redisConfiguration.uri).map { redisCommands =>
