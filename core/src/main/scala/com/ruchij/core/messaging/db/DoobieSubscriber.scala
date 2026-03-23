@@ -46,7 +46,7 @@ class DoobieSubscriber[F[_]: Async, G[_], A](messageDao: MessageDao[G], pollInte
               case Right(value) => Stream.emit(value)
               case Left(error) =>
                 Stream
-                  .eval(Async[F].delay(logger.error[F]("Unable to parse message", error)))
+                  .eval(logger.error[F]("Unable to parse message", error))
                   .productR(Stream.empty)
             }
           }

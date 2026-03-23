@@ -2,7 +2,6 @@ package com.ruchij.core.messaging
 
 import cats.effect.IO
 import com.ruchij.core.config.PubSubConfiguration
-import com.ruchij.core.daos.messaging.DoobieMessageDao
 import com.ruchij.core.exceptions.ExternalServiceException
 import com.ruchij.core.messaging.PubSub.PubSubType
 import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage
@@ -39,7 +38,7 @@ class PubSubSpec extends AnyFlatSpec with Matchers {
   "PubSub.apply" should "raise ExternalServiceException when Kafka configuration is missing" in runIO {
     val config = PubSubConfiguration(PubSubType.Kafka, None, None, None)
 
-    PubSub[IO, TestMessage](config, DoobieMessageDao)
+    PubSub[IO, TestMessage](config)
       .use(_ => IO.unit)
       .attempt
       .flatMap { result =>
@@ -54,7 +53,7 @@ class PubSubSpec extends AnyFlatSpec with Matchers {
   it should "raise ExternalServiceException when Redis configuration is missing" in runIO {
     val config = PubSubConfiguration(PubSubType.Redis, None, None, None)
 
-    PubSub[IO, TestMessage](config, DoobieMessageDao)
+    PubSub[IO, TestMessage](config)
       .use(_ => IO.unit)
       .attempt
       .flatMap { result =>
@@ -69,7 +68,7 @@ class PubSubSpec extends AnyFlatSpec with Matchers {
   it should "raise ExternalServiceException when Doobie database configuration is missing" in runIO {
     val config = PubSubConfiguration(PubSubType.Doobie, None, None, None)
 
-    PubSub[IO, TestMessage](config, DoobieMessageDao)
+    PubSub[IO, TestMessage](config)
       .use(_ => IO.unit)
       .attempt
       .flatMap { result =>

@@ -5,7 +5,7 @@ import cats.effect.{Async, MonadCancelThrow}
 import cats.{Foldable, Functor}
 import com.ruchij.core.config.PubSubConfiguration
 import com.ruchij.core.daos.doobie.DoobieTransactor
-import com.ruchij.core.daos.messaging.MessageDao
+import com.ruchij.core.daos.messaging.DoobieMessageDao
 import com.ruchij.core.exceptions.ExternalServiceException
 import com.ruchij.core.messaging.db.DoobiePubSub
 import com.ruchij.core.messaging.kafka.KafkaPubSub
@@ -45,7 +45,6 @@ object PubSub {
 
   def apply[F[_]: Async: Clock, A: MessagingTopic](
     pubSubConfiguration: PubSubConfiguration,
-    messageDao: MessageDao[ConnectionIO]
   ): Resource[F, PubSub[F, A]] =
     pubSubConfiguration.pubSubType match {
       case PubSubType.Kafka =>
@@ -90,7 +89,7 @@ object PubSub {
                 hikariTransactor.trans
               }
               .map { implicit transaction =>
-                DoobiePubSub[F, ConnectionIO, A](messageDao)
+                DoobiePubSub[F, ConnectionIO, A](DoobieMessageDao)
               }
           }
 
