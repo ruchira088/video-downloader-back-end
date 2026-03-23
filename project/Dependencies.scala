@@ -53,7 +53,7 @@ object Dependencies
 
   lazy val h2 = "com.h2database" % "h2" % "2.4.240"
 
-  lazy val apacheTika = "org.apache.tika" % "tika-core" % "3.2.3"
+  lazy val apacheTika = "org.apache.tika" % "tika-core" % "3.3.0"
 
   lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "2.0.3"
 
