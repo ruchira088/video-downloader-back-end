@@ -348,7 +348,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
     class EmittingHealthSubscriber extends StubSubscriber[HealthCheckMessage] {
       override def subscribe(groupId: String): Stream[IO, HealthCheckMessage] = {
         subscribed = true
-        Stream.emit(healthCheck)
+        Stream.sleep_[IO](500.millis) ++ Stream.emit(healthCheck)
       }
     }
 
@@ -370,16 +370,16 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
         "test-group"
       )
 
-      // Start receiving from topic
+      // Start receiving from topic BEFORE starting the service
       receivedFiber <- healthCheckTopic.subscribe(10).take(1).compile.toList
-        .timeout(10 seconds)
+        .timeout(30 seconds)
         .start
+
+      // Give the topic subscription time to register
+      _ <- IO.sleep(500.millis)
 
       // Start the service
       fiber <- service.run
-
-      // Give the service time to start
-      _ <- IO.sleep(1 second)
 
       received <- receivedFiber.joinWithNever
 
