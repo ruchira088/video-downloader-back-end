@@ -14,6 +14,7 @@ import com.ruchij.batch.services.sync.models.SynchronizationResult
 import com.ruchij.batch.services.video.BatchVideoService
 import com.ruchij.batch.services.worker.WorkExecutor
 import com.ruchij.core.commands.ScanVideosCommand
+import com.ruchij.core.daos.messaging.MessageDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.video.models.Video
@@ -156,6 +157,18 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     override def subscribe(groupId: String): Stream[IO, ScanVideosCommand] = Stream.empty
     override def commit[H[_]: Foldable: Functor](records: H[ScanVideosCommand]): IO[Unit] = IO.unit
     override def extractValue(ca: ScanVideosCommand): ScanVideosCommand = ca
+  }
+
+  class StubMessageDao extends MessageDao[IO] {
+    var deletedBeforeCount: Int = 0
+
+    override def insert(channel: String, payload: String, createdAt: Instant): IO[Int] = IO.pure(1)
+    override def maxId(channel: String): IO[Long] = IO.pure(0L)
+    override def findAfter(channel: String, afterId: Long): IO[List[(Long, String)]] = IO.pure(List.empty)
+    override def deleteBefore(timestamp: Instant): IO[Int] = IO.delay {
+      deletedBeforeCount += 1
+      0
+    }
   }
 
   class StubBatchDuplicateDetectionService extends BatchDuplicateDetectionService[IO] {
@@ -741,7 +754,8 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   def createScheduler(
     workerDao: StubWorkerDao,
-    workerConfiguration: WorkerConfiguration = createWorkerConfiguration()
+    workerConfiguration: WorkerConfiguration = createWorkerConfiguration(),
+    maybeMessageTransaction: Option[IO ~> IO] = None
   )(implicit clock: Clock[IO]): SchedulerImpl[IO, IO] = {
     new SchedulerImpl[IO, IO](
       batchSchedulingService = new StubBatchSchedulingService,
@@ -753,6 +767,8 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
       videoWatchMetricsSubscriber = new StubVideoWatchMetricsSubscriber,
       scanForVideosCommandSubscriber = new StubScanForVideosCommandSubscriber,
       workerDao = workerDao,
+      messageDao = new StubMessageDao,
+      maybeMessageTransaction = maybeMessageTransaction,
       workerConfiguration = workerConfiguration,
       instanceId = "test-instance"
     )
@@ -1078,5 +1094,38 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     testIsWorkPeriod(startTime, endTime).map { result =>
       result mustBe false
     }
+  }
+
+  "createScheduler with maybeMessageTransaction=None" should "not fail during initialization" in runIO {
+    implicit val clock: Clock[IO] = defaultClock
+    val workerDao = new StubWorkerDao
+    val scheduler = createScheduler(workerDao, maybeMessageTransaction = None)
+
+    scheduler.init.map { _ =>
+      workerDao.workers must not be empty
+    }
+  }
+
+  "createScheduler with maybeMessageTransaction=Some" should "not fail during initialization" in runIO {
+    implicit val clock: Clock[IO] = defaultClock
+    val workerDao = new StubWorkerDao
+    val scheduler = createScheduler(workerDao, maybeMessageTransaction = Some(FunctionK.id[IO]))
+
+    scheduler.init.map { _ =>
+      workerDao.workers must not be empty
+    }
+  }
+
+  "StubMessageDao.deleteBefore" should "track deletion calls" in runIO {
+    val messageDao = new StubMessageDao
+
+    for {
+      now <- Clock[IO].timestamp
+      deleted <- messageDao.deleteBefore(now)
+      _ <- IO.delay {
+        deleted mustBe 0
+        messageDao.deletedBeforeCount mustBe 1
+      }
+    } yield ()
   }
 }
