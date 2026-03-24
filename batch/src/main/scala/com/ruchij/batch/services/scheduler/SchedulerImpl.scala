@@ -16,6 +16,7 @@ import com.ruchij.batch.services.sync.SynchronizationService
 import com.ruchij.batch.services.video.BatchVideoService
 import com.ruchij.batch.services.worker.WorkExecutor
 import com.ruchij.core.commands.ScanVideosCommand
+import com.ruchij.core.daos.messaging.MessageDao
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.workers.models.WorkerStatus
@@ -29,6 +30,7 @@ import com.ruchij.core.types.Clock
 import fs2.Stream
 import fs2.concurrent.Topic
 
+import java.time.temporal.ChronoUnit
 import java.time.{Duration, LocalTime, ZoneId}
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{FiniteDuration, _}
@@ -44,6 +46,8 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
   videoWatchMetricsSubscriber: Subscriber[F, VideoWatchMetric],
   scanForVideosCommandSubscriber: Subscriber[F, ScanVideosCommand],
   workerDao: WorkerDao[T],
+  messageDao: MessageDao[T],
+  maybeMessageTransaction: Option[T ~> F],
   workerConfiguration: WorkerConfiguration,
   instanceId: String
 )(implicit transaction: T ~> F)
@@ -207,6 +211,7 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
       .concurrently(updateVideoWatchTimes)
       .concurrently(cleanUpStaleWorkers)
       .concurrently(duplicateDetection)
+      .concurrently(maybeMessageTransaction.fold[Stream[F, Unit]](Stream.empty) { cleanUpDoobieStreamMessages })
       .concurrently(performScheduledVideoDeletions(scheduledVideoDownloadsTopic.subscribe(Int.MaxValue)))
       .concurrently(updateWorkersAndScheduledVideoDownloads(workerStatusUpdatesTopic.subscribe(Int.MaxValue)))
       .concurrently {
@@ -226,11 +231,15 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
       }
 
   private val duplicateDetection =
-    (Stream.eval {
-      logger.info[F]("Starting duplicate detection") *>
-        duplicateDetectionService.run *>
-        logger.info[F]("Duplicate detection completed")
-    }.delayBy(2 minute) ++ Stream.sleep[F](6 hours)).repeat
+    Stream
+      .eval {
+        logger.info[F]("Starting duplicate detection") *>
+          duplicateDetectionService.run *>
+          logger.info[F]("Duplicate detection completed")
+      }
+      .delayBy(2 minute)
+      .productL(Stream.sleep(15 minutes))
+      .repeat
 
   private def performScheduledVideoDeletions(
     scheduledVideoDownloadUpdates: Stream[F, ScheduledVideoDownload]
@@ -297,32 +306,32 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
       .evalTap { record =>
         val videoWatchMetric = videoWatchMetricsSubscriber.extractValue(record)
         batchVideoService
-            .fetchByVideoFileResourceId(videoWatchMetric.videoFileResourceId)
-            .flatMap { video =>
-              val watchDuration =
-                FiniteDuration(
-                  math.round(
-                    (videoWatchMetric.size.toDouble / video.fileResource.size) * video.videoMetadata.duration.toMillis
-                  ),
-                  TimeUnit.MILLISECONDS
-                )
+          .fetchByVideoFileResourceId(videoWatchMetric.videoFileResourceId)
+          .flatMap { video =>
+            val watchDuration =
+              FiniteDuration(
+                math.round(
+                  (videoWatchMetric.size.toDouble / video.fileResource.size) * video.videoMetadata.duration.toMillis
+                ),
+                TimeUnit.MILLISECONDS
+              )
 
-              batchVideoService
-                .incrementWatchTime(video.videoMetadata.id, watchDuration)
-                .productR {
-                  videoWatchHistoryService
-                    .addWatchHistory(
-                      videoWatchMetric.userId,
-                      video.videoMetadata.id,
-                      videoWatchMetric.timestamp,
-                      watchDuration
-                    )
-                }
-            }
-            .recoverWith {
-              case exception =>
-                logger.error[F]("Error occurred updating video watch times", exception)
-            }
+            batchVideoService
+              .incrementWatchTime(video.videoMetadata.id, watchDuration)
+              .productR {
+                videoWatchHistoryService
+                  .addWatchHistory(
+                    videoWatchMetric.userId,
+                    video.videoMetadata.id,
+                    videoWatchMetric.timestamp,
+                    watchDuration
+                  )
+              }
+          }
+          .recoverWith {
+            case exception =>
+              logger.error[F]("Error occurred updating video watch times", exception)
+          }
       }
       .groupWithin(20, 5 seconds)
       .evalMap { chunk =>
@@ -353,6 +362,20 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
           scanForVideosCommandSubscriber.commit(List(record)).as(scanForVideosCommandSubscriber.extractValue(record))
         }
     }
+
+  private def cleanUpDoobieStreamMessages(messageTransaction: T ~> F): Stream[F, Unit] =
+    Stream
+      .eval(Clock[F].timestamp)
+      .evalMap { timestamp =>
+        messageTransaction {
+          messageDao.deleteBefore(timestamp.minus(30, ChronoUnit.MINUTES))
+
+        }.flatMap { deletedMessageCount =>
+            logger.info[F](s"Deleted $deletedMessageCount doobie stream messages")
+          }
+      }
+      .delayBy(5 minutes)
+      .repeat
 
   private val cleanUpStaleScheduledVideoDownloads: Stream[F, ScheduledVideoDownload] =
     Stream
