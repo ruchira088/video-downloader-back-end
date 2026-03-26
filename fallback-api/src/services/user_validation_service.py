@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from urllib.parse import urljoin
 
 import requests
 from pydantic import HttpUrl, EmailStr
@@ -14,7 +15,7 @@ class UserValidationService(ABC):
 
 class VideoDownloaderUserValidationService(UserValidationService):
     def __init__(self, video_downloader_api_url: HttpUrl):
-        self._video_downloader_api_url = video_downloader_api_url
+        self._video_downloader_api_url = str(video_downloader_api_url)
 
     def get_user(self, email: EmailStr, password: str) -> User:
         auth_token = self._authenticate(email, password)
@@ -24,7 +25,7 @@ class VideoDownloaderUserValidationService(UserValidationService):
 
     def _authenticate(self, email: EmailStr, password: str) -> str:
         response = requests.post(
-            f"{self._video_downloader_api_url}/authentication/login",
+            urljoin(self._video_downloader_api_url, "authentication/login"),
             json={"email": email, "password": password},
         )
 
@@ -34,7 +35,7 @@ class VideoDownloaderUserValidationService(UserValidationService):
 
     def _logout(self, auth_token: str) -> User:
         response = requests.delete(
-            f"{self._video_downloader_api_url}/authentication/logout",
+            urljoin(self._video_downloader_api_url, "authentication/logout"),
             headers={"Authorization": f"Bearer {auth_token}"},
         )
 
