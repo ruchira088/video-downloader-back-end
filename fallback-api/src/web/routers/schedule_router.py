@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from src.services.models.user import User
-from src.web.decorators.authentication import get_authenticated_user
+from src.web.depends.authentication import get_authenticated_user
 
 
 def schedule_router() -> APIRouter:

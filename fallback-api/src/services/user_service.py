@@ -69,7 +69,7 @@ def get_user_service(app_configuration: AppConfiguration) -> UserService:
     )
 
     cognito_client = boto3.client(
-        "cognito-idp", endpoint_url=app_configuration.cognito.endpoint_url
+        "cognito-idp", endpoint_url=str(app_configuration.cognito.endpoint_url)
     )
 
     user_service = CognitoUserService(
