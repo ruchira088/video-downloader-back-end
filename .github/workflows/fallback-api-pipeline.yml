@@ -37,6 +37,9 @@ jobs:
       - name: Check linting
         run: ruff check
 
+      - name: Type check
+        run: mypy src
+
       - name: Execute test suite
         run: python -m unittest -v
 

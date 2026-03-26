@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Mapping, Any
 
 import boto3
 from pydantic import EmailStr
@@ -68,7 +69,7 @@ def get_user_service(app_configuration: AppConfiguration) -> UserService:
         app_configuration.video_downloader.url
     )
 
-    client_args = (
+    client_args: Mapping[str, Any] = (
         {}
         if app_configuration.cognito.endpoint_url is None
         else {"endpoint_url": str(app_configuration.cognito.endpoint_url)}
