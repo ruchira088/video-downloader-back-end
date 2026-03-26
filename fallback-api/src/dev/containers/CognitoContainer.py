@@ -43,5 +43,5 @@ class CognitoContainer(DockerContainer):
         return AwsCognitoConfiguration(
             user_pool_id=user_pool_id,
             client_id=user_pool_client_id,
-            endpoint_url=self.url()
+            endpoint_url=self.url(),
         )

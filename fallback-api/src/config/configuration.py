@@ -20,7 +20,9 @@ class AppConfiguration(BaseModel):
     def parse(cls, parse_results: ParseResults) -> "AppConfiguration":
         cognito_configuration = AwsCognitoConfiguration.parse(parse_results)
         http_configuration = HttpConfiguration.parse(parse_results)
-        video_downloader_configuration = VideoDownloaderConfiguration.parse(parse_results)
+        video_downloader_configuration = VideoDownloaderConfiguration.parse(
+            parse_results
+        )
 
         app_configuration = AppConfiguration(
             cognito=cognito_configuration,

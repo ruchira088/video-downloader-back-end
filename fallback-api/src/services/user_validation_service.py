@@ -2,10 +2,7 @@ from abc import ABC, abstractmethod
 
 import requests
 from pydantic import HttpUrl, EmailStr
-from pyparsing import ParseResults
 
-from src.config.configuration import AppConfiguration
-from src.config.video_downloader_configuration import VideoDownloaderConfiguration
 from src.services.models.user import User
 
 
