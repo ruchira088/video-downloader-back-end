@@ -8,11 +8,14 @@ Parameters:
     Description: Deployment stage
   DomainName:
     Type: String
-    Description: Custom domain name (e.g. api.example.com)
+    Description: Custom domain name (e.g. fallback-api.video.ruchij.com)
   HostedZoneId:
     Type: AWS::Route53::HostedZone::Id
     Description: Route 53 Hosted Zone ID
     Default: Z1LYXU4HVSANEL
+  VideoDownloaderApiUrl:
+    Type: String
+    Description: URL of the video downloader API
 
 Globals:
   Function:
@@ -34,6 +37,7 @@ Resources:
           STAGE: !Ref Stage
           AWS_COGNITO_USER_POOL_ID: !Ref UserPool
           AWS_COGNITO_CLIENT_ID: !Ref UserPoolClient
+          VIDEO_DOWNLOADER_API_URL: !Ref VideoDownloaderApiUrl
       Events:
         RootPath:
           Type: Api

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 
 from src.config.configuration import AppConfiguration
 from src.services.user_service import get_user_service, UserService
-from src.web.exception_handlers import register_exception_handlers
+from web.handlers.exception_handlers import register_exception_handlers
 from src.web.routers.schedule_router import schedule_router
 from src.web.routers.service_router import service_router
 from src.web.routers.user_router import user_router

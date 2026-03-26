@@ -41,7 +41,7 @@ jobs:
         run: mypy src
 
       - name: Execute test suite
-        run: python -m unittest -v
+        run: pytest -v .
 
   deploy-to-staging:
     name: Deploy to staging

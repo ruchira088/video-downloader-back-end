@@ -15,7 +15,7 @@ confirm_changeset = false
 fail_on_empty_changeset = false
 capabilities = "CAPABILITY_IAM"
 resolve_s3 = true
-parameter_overrides = "DomainName=staging.fallback-api.video.ruchij.com Stage=staging"
+parameter_overrides = "DomainName=staging.fallback-api.video.ruchij.com Stage=staging VideoDownloaderApiUrl=https://api.staging.video.dev.ruchij.com"
 
 [default.local_start_api.parameters]
 port = 8000
@@ -27,4 +27,4 @@ confirm_changeset = false
 fail_on_empty_changeset = false
 capabilities = "CAPABILITY_IAM"
 resolve_s3 = true
-parameter_overrides = "DomainName=fallback-api.video.ruchij.com Stage=prod"
+parameter_overrides = "DomainName=fallback-api.video.ruchij.com Stage=prod VideoDownloaderApiUrl=https://api.video.home.ruchij.com"
