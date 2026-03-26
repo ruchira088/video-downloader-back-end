@@ -14,12 +14,17 @@ region = "ap-southeast-2"
 confirm_changeset = false
 fail_on_empty_changeset = false
 capabilities = "CAPABILITY_IAM"
-parameter_overrides = "DomainName=staging.fallback-api.video.ruchij.com Stage=staging"
 resolve_s3 = true
+parameter_overrides = "DomainName=staging.fallback-api.video.ruchij.com Stage=staging"
 
 [default.local_start_api.parameters]
 port = 8000
 
 [prod.deploy.parameters]
 stack_name = "prod-fallback-video-api"
+region = "ap-southeast-2"
+confirm_changeset = false
+fail_on_empty_changeset = false
+capabilities = "CAPABILITY_IAM"
+resolve_s3 = true
 parameter_overrides = "DomainName=fallback-api.video.ruchij.com Stage=prod"
