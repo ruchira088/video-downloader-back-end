@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from requests import HTTPError
 
 from src.services.exceptions import (
     ResourceConflictException,
@@ -30,3 +31,13 @@ def register_exception_handlers(app: FastAPI):
         return JSONResponse(
             status_code=401, content={"detail": "Invalid authentication token"}
         )
+
+    @app.exception_handler(HTTPError)
+    async def handle_http_error(
+        request: Request, exc: HTTPError
+    ):
+        return JSONResponse(
+            status_code=exc.response.status_code, content=exc.response.json()
+        )
+
+
