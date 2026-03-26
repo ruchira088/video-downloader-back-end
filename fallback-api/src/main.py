@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from src.services.system_service import SystemService, SystemServiceImpl
 from src.config.configuration import AppConfiguration
 from src.services.user_service import get_user_service, UserService
 from src.web.handlers.exception_handlers import register_exception_handlers
@@ -13,11 +14,12 @@ def create_http_app(app_configuration: AppConfiguration) -> FastAPI:
     app = FastAPI()
 
     user_service: UserService = get_user_service(app_configuration)
+    system_service: SystemService = SystemServiceImpl(app_configuration)
 
     app.include_router(user_router(user_service))
     app.include_router(schedule_router())
     app.include_router(video_router())
-    app.include_router(service_router())
+    app.include_router(service_router(system_service))
 
     register_exception_handlers(app)
 
