@@ -1,7 +1,7 @@
 package com.ruchij.api.services.background
 
 import cats.{Foldable, Functor}
-import cats.effect.IO
+import cats.effect.{Deferred, IO}
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.api.services.scheduling.ApiSchedulingService
 import com.ruchij.api.services.scheduling.models.ScheduledVideoResult
@@ -394,19 +394,19 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "scheduled video download updates topic" should "receive messages from subscriber" in runIO {
-    class EmittingScheduledSubscriber extends StubSubscriber[ScheduledVideoDownload] {
-      override def subscribe(groupId: String): Stream[IO, ScheduledVideoDownload] = {
-        subscribed = true
-        Stream.emit(sampleScheduledVideoDownload)
-      }
-    }
-
     for {
+      gate <- Deferred[IO, Unit]
+
+      subscriber = new StubSubscriber[ScheduledVideoDownload] {
+        override def subscribe(groupId: String): Stream[IO, ScheduledVideoDownload] = {
+          subscribed = true
+          Stream.exec(gate.get) ++ Stream.emit(sampleScheduledVideoDownload)
+        }
+      }
+
       downloadProgressTopic <- Topic[IO, DownloadProgress]
       healthCheckTopic <- Topic[IO, HealthCheckMessage]
       scheduleVideoDownloadsTopic <- Topic[IO, ScheduledVideoDownload]
-
-      subscriber = new EmittingScheduledSubscriber()
 
       service = new BackgroundServiceImpl[IO](
         new StubApiSchedulingService(),
@@ -427,8 +427,9 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
       // Start the service
       fiber <- service.run
 
-      // Give the service time to start
+      // Allow the topic subscriber to register, then release the gate so the stub emits
       _ <- IO.sleep(1 second)
+      _ <- gate.complete(())
 
       received <- receivedFiber.joinWithNever
 
