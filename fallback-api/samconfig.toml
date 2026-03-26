@@ -1,7 +1,7 @@
 version = 0.1
 
 [default.global.parameters]
-stack_name = "fallback-api"
+stack_name = "fallback-video-api"
 
 [default.build.parameters]
 cached = true
@@ -9,12 +9,16 @@ parallel = true
 use_container = true
 
 [default.deploy.parameters]
-stack_name = "fallback-api"
+stack_name = "staging-fallback-video-api"
 region = "ap-southeast-2"
-confirm_changeset = true
+confirm_changeset = false
 capabilities = "CAPABILITY_IAM"
-parameter_overrides = "Stage=dev"
+parameter_overrides = "DomainName=staging.fallback-api.video.ruchij.com Stage=staging"
 resolve_s3 = true
 
 [default.local_start_api.parameters]
 port = 8000
+
+[prod.deploy.parameters]
+stack_name = "prod-fallback-video-api"
+parameter_overrides = "DomainName=fallback-api.video.ruchij.com Stage=prod"

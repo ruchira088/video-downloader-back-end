@@ -1,12 +1,18 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Fallback API - FastAPI application on AWS Lambda
+Description: Fallback Video API - API to handle fallback requests when the video API is unavailable
 
 Parameters:
   Stage:
     Type: String
-    Default: dev
     Description: Deployment stage
+  DomainName:
+    Type: String
+    Description: Custom domain name (e.g. api.example.com)
+  HostedZoneId:
+    Type: AWS::Route53::HostedZone::Id
+    Description: Route 53 Hosted Zone ID
+    Default: Z1LYXU4HVSANEL
 
 Globals:
   Function:
@@ -56,13 +62,49 @@ Resources:
       ClientName: !Sub "${Stage}-fallback-api-client"
       GenerateSecret: true
 
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: !Ref HostedZoneId
+
+  ApiDomainName:
+    Type: AWS::ApiGateway::DomainName
+    Properties:
+      DomainName: !Ref DomainName
+      RegionalCertificateArn: !Ref Certificate
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  ApiBasePathMapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    DependsOn: ServerlessRestApiProdStage
+    Properties:
+      DomainName: !Ref ApiDomainName
+      RestApiId: !Ref ServerlessRestApi
+      Stage: Prod
+
+  DnsRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt ApiDomainName.RegionalDomainName
+        HostedZoneId: !GetAtt ApiDomainName.RegionalHostedZoneId
+
 Outputs:
-  ApiUrl:
-    Description: API Gateway endpoint URL
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}/"
   UserPoolId:
     Description: Cognito User Pool ID
     Value: !Ref UserPool
   UserPoolClientId:
     Description: Cognito User Pool Client ID
     Value: !Ref UserPoolClient
+  CustomDomainUrl:
+    Description: Custom domain URL
+    Value: !Sub "https://${DomainName}/"
