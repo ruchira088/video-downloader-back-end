@@ -1,7 +1,6 @@
 services:
-  server:
+  api:
     build:
       context: .
     ports:
-      - 8000:8000
-
+      - "8000:8000"
