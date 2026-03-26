@@ -4,3 +4,7 @@ services:
       context: .
     ports:
       - "8000:8000"
+    environment:
+      VIDEO_DOWNLOADER_API_URL: "https://api.video.home.ruchij.com"
+    volumes:
+      - ~/.aws:/home/appuser/.aws:ro
