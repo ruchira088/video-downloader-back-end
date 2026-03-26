@@ -28,6 +28,4 @@ http_app = create_http_app(parse_results)
 
 if __name__ == "__main__":
     http_config: HttpConfiguration = HttpConfiguration.parse(parse_results)
-    create_http_app(parse_results).run(
-        host=http_config.host, port=http_config.port, debug=http_config.debug
-    )
+    http_app.run(host=http_config.host, port=http_config.port, debug=http_config.debug)

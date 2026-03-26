@@ -14,7 +14,7 @@ class CognitoDetails(BaseModel):
 
 
 def setup_cognito(prefix: str) -> CognitoDetails:
-    cognito_client = boto3.client("cognito-idp", region_name="ap-northeast-2")
+    cognito_client = boto3.client("cognito-idp", region_name="ap-southeast-2")
 
     user_pool_name = f"{prefix}-user-pool"
     user_pool_creation_response = cognito_client.create_user_pool(
