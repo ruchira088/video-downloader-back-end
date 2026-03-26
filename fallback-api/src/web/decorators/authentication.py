@@ -1,26 +1,23 @@
-from flask import request
-from werkzeug.exceptions import Unauthorized
+from fastapi import Header, HTTPException
 
 from src.services.authentication_service import (
     AuthenticationService,
     get_authentication_service,
 )
+from src.services.models.user import User
 
 authentication_service: AuthenticationService = get_authentication_service()
 
 
-def authenticated(func):
-    def inner(*args, **kwargs):
-        authorization_header = request.headers.get("Authorization")
+def get_authenticated_user(authorization: str = Header(...)) -> User:
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization header not found")
 
-        if not authorization_header:
-            raise Unauthorized("Authorization header not found")
+    try:
+        token = authorization.split(" ")[1]
+    except IndexError:
+        raise HTTPException(
+            status_code=401, detail="Invalid Authorization header format"
+        )
 
-        authentication_token = authorization_header.split(" ")[1]
-        user = authentication_service.authenticate(authentication_token)
-
-        request.user = user
-
-        return func(*args, **kwargs)
-
-    return inner
+    return authentication_service.authenticate(token)

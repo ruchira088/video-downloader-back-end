@@ -1,4 +1,4 @@
-from flask import Blueprint, request, Response
+from fastapi import APIRouter
 from pydantic import BaseModel, EmailStr
 
 from src.services.user_service import UserService, User
@@ -25,22 +25,14 @@ class UserResponse(BaseModel):
         )
 
 
-def user_blueprint(user_service: UserService) -> Blueprint:
-    blueprint = Blueprint("user", __name__, url_prefix="/user")
+def user_router(user_service: UserService) -> APIRouter:
+    router = APIRouter(prefix="/user")
 
-    @blueprint.post("")
-    def sign_up():
-        user_signup_request: UserSignupRequest = UserSignupRequest.model_validate_json(
-            request.data
-        )
+    @router.post("", status_code=201, response_model=UserResponse)
+    def sign_up(user_signup_request: UserSignupRequest):
         user: User = user_service.create_user(
             user_signup_request.email, user_signup_request.password
         )
+        return UserResponse.from_user(user)
 
-        return Response(
-            status=201,
-            response=UserResponse.from_user(user).model_dump_json(),
-            headers={"Content-Type": "application/json"},
-        )
-
-    return blueprint
+    return router

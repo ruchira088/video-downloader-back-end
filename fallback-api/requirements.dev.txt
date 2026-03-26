@@ -1,5 +1,6 @@
 -r requirements.txt
 botocore-stubs==1.42.41
+httpx==0.28.1
 moto==5.1.22
 mypy==1.19.1
 mypy-extensions==1.1.0
