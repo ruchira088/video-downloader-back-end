@@ -4,7 +4,8 @@ import requests
 from pydantic import HttpUrl, EmailStr
 from pyparsing import ParseResults
 
-from src.config.VideoDownloaderConfiguration import VideoDownloaderConfiguration
+from src.config.configuration import AppConfiguration
+from src.config.video_downloader_configuration import VideoDownloaderConfiguration
 from src.services.models.user import User
 
 
@@ -54,12 +55,3 @@ class VideoDownloaderUserValidationService(UserValidationService):
             first_name=first_name,
             last_name=last_name,
         )
-
-
-def get_user_validation_service(parse_results: ParseResults) -> UserValidationService:
-    video_downloader_configuration = VideoDownloaderConfiguration.parse(parse_results)
-    user_validation_service = VideoDownloaderUserValidationService(
-        video_downloader_configuration.url
-    )
-
-    return user_validation_service

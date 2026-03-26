@@ -6,6 +6,7 @@ stack_name = "fallback-api"
 [default.build.parameters]
 cached = true
 parallel = true
+use_container = true
 
 [default.deploy.parameters]
 stack_name = "fallback-api"

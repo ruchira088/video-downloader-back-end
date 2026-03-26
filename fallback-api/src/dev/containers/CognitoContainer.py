@@ -2,6 +2,8 @@ import boto3
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.waiting_utils import wait_for_logs
 
+from src.config.aws_cognito_configuration import AwsCognitoConfiguration
+
 
 class CognitoContainer(DockerContainer):
     PORT: int = 9229
@@ -10,8 +12,7 @@ class CognitoContainer(DockerContainer):
         super().__init__(image, **kwargs)
         self.with_exposed_ports(CognitoContainer.PORT)
 
-    @property
-    def url(self):
+    def url(self) -> str:
         host = self.get_container_host_ip()
         port = self.get_exposed_port(CognitoContainer.PORT)
 
@@ -23,8 +24,8 @@ class CognitoContainer(DockerContainer):
 
         return self
 
-    def create_cognito_client(self) -> str:
-        cognito_client = boto3.client("cognito-idp", endpoint_url=self.url)
+    def create_cognito_client(self) -> AwsCognitoConfiguration:
+        cognito_client = boto3.client("cognito-idp", endpoint_url=self.url())
 
         user_pool_creation_response = cognito_client.create_user_pool(
             PoolName="fallback-api-user-pool"
@@ -39,4 +40,8 @@ class CognitoContainer(DockerContainer):
             "ClientId"
         ]
 
-        return user_pool_client_id
+        return AwsCognitoConfiguration(
+            user_pool_id=user_pool_id,
+            client_id=user_pool_client_id,
+            endpoint_url=self.url()
+        )

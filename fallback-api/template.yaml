@@ -26,6 +26,8 @@ Resources:
       Environment:
         Variables:
           STAGE: !Ref Stage
+          AWS_COGNITO_USER_POOL_ID: !Ref UserPool
+          AWS_COGNITO_CLIENT_ID: !Ref UserPoolClient
       Events:
         RootPath:
           Type: Api

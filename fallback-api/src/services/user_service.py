@@ -2,14 +2,13 @@ from abc import ABC, abstractmethod
 
 import boto3
 from pydantic import EmailStr
-from pyparsing import ParseResults
 
-from src.config.AwsCognitoConfiguration import AwsCognitoConfiguration
+from src.config.configuration import AppConfiguration
 from src.services.exceptions import ResourceConflictException
 from src.services.models.user import User
 from src.services.user_validation_service import (
     UserValidationService,
-    get_user_validation_service,
+    VideoDownloaderUserValidationService,
 )
 
 
@@ -64,19 +63,20 @@ class CognitoUserService(UserService):
         return user
 
 
-def get_user_service(parse_results: ParseResults) -> UserService:
-    user_validation_service = get_user_validation_service(parse_results)
+def get_user_service(app_configuration: AppConfiguration) -> UserService:
+    user_validation_service = VideoDownloaderUserValidationService(
+        app_configuration.video_downloader.url
+    )
 
-    aws_cognito_configuration = AwsCognitoConfiguration.parse(parse_results)
     cognito_client = boto3.client(
-        "cognito-idp", endpoint_url=aws_cognito_configuration.endpoint_url
+        "cognito-idp", endpoint_url=app_configuration.cognito.endpoint_url
     )
 
     user_service = CognitoUserService(
         user_validation_service,
         cognito_client,
-        cognito_user_pool_id=aws_cognito_configuration.user_pool_id,
-        cognito_user_pool_client_id=aws_cognito_configuration.client_id,
+        cognito_user_pool_id=app_configuration.cognito.user_pool_id,
+        cognito_user_pool_client_id=app_configuration.cognito.client_id,
     )
 
     return user_service
