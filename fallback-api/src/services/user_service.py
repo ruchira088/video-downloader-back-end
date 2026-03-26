@@ -68,9 +68,11 @@ def get_user_service(app_configuration: AppConfiguration) -> UserService:
         app_configuration.video_downloader.url
     )
 
-    client_args = {} if app_configuration.cognito.endpoint_url is None else {
-        "endpoint_url": str(app_configuration.cognito.endpoint_url)
-    }
+    client_args = (
+        {}
+        if app_configuration.cognito.endpoint_url is None
+        else {"endpoint_url": str(app_configuration.cognito.endpoint_url)}
+    )
 
     cognito_client = boto3.client("cognito-idp", **client_args)
 

@@ -4,7 +4,7 @@ from src.config.aws_cognito_configuration import AwsCognitoConfiguration
 from src.config.http_configuration import HttpConfiguration
 from src.config.video_downloader_configuration import VideoDownloaderConfiguration
 from src.dev.containers.CognitoContainer import CognitoContainer
-from src.config.configuration import get_config, AppConfiguration
+from src.config.configuration import get_config_tree, AppConfiguration
 from src.main import create_http_app
 
 
@@ -14,11 +14,9 @@ def main():
             cognito_container.create_cognito_client()
         )
 
-        parse_results = get_config()
-        http_configuration = HttpConfiguration.parse(parse_results)
-        video_downloader_configuration = VideoDownloaderConfiguration.parse(
-            parse_results
-        )
+        config_tree = get_config_tree()
+        http_configuration = HttpConfiguration.parse(config_tree)
+        video_downloader_configuration = VideoDownloaderConfiguration.parse(config_tree)
 
         app_configuration: AppConfiguration = AppConfiguration(
             cognito=aws_cognito_configuration,

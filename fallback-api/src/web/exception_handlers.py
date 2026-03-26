@@ -33,11 +33,7 @@ def register_exception_handlers(app: FastAPI):
         )
 
     @app.exception_handler(HTTPError)
-    async def handle_http_error(
-        request: Request, exc: HTTPError
-    ):
+    async def handle_http_error(request: Request, exc: HTTPError):
         return JSONResponse(
             status_code=exc.response.status_code, content=exc.response.json()
         )
-
-

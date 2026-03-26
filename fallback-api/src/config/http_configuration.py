@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from pyparsing import ParseResults
+from pyhocon import ConfigTree
 
 
 class HttpConfiguration(BaseModel):
@@ -8,11 +8,11 @@ class HttpConfiguration(BaseModel):
     debug: bool
 
     @classmethod
-    def parse(cls, parse_results: ParseResults) -> "HttpConfiguration":
-        config = parse_results.get("http")
+    def parse(cls, config_tree: ConfigTree) -> "HttpConfiguration":
+        http_config: ConfigTree = config_tree["http"]
 
-        host: str = config["host"]
-        port: int = config.get_int("port")
-        debug: bool = config.get_bool("debug", False)
+        host: str = http_config["host"]
+        port: int = http_config.get_int("port")
+        debug: bool = http_config.get_bool("debug", False)
 
         return HttpConfiguration(host=host, port=port, debug=debug)
