@@ -12,6 +12,7 @@ use_container = true
 stack_name = "staging-fallback-video-api"
 region = "ap-southeast-2"
 confirm_changeset = false
+fail_on_empty_changeset = false
 capabilities = "CAPABILITY_IAM"
 parameter_overrides = "DomainName=staging.fallback-api.video.ruchij.com Stage=staging"
 resolve_s3 = true
