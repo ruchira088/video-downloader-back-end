@@ -5,7 +5,7 @@ object Dependencies
   val ScalaVersion = "2.13.18"
   private val Http4sVersion = "0.23.33"
   private val CirceVersion = "0.14.15"
-  private val FlywayVersion = "12.1.1"
+  private val FlywayVersion = "12.2.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -83,13 +83,13 @@ object Dependencies
 
   lazy val betterMonadicFor = "com.olegpy" %% "better-monadic-for" % "0.3.1"
 
-  lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.19"
+  lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.20"
 
   lazy val scalaMock = "org.scalamock" %% "scalamock" % "7.5.5"
 
   lazy val pegdown = "org.pegdown" % "pegdown" % "1.6.0"
 
-  lazy val sentry = "io.sentry" % "sentry" % "8.36.0"
+  lazy val sentry = "io.sentry" % "sentry" % "8.37.1"
 
   lazy val perceptualHash = "dev.brachtendorf" % "JImageHash" % "1.0.0"
 }
