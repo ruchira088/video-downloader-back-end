@@ -66,7 +66,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-region: ap-southeast-2
-          role-session-name: fallback-api-staging-deploy
+          role-session-name: video-downloader-fallback-api-staging-deploy
           role-to-assume: "arn:aws:iam::365562660444:role/github_iam_role"
 
       - name: Install AWS SAM CLI
@@ -110,7 +110,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-region: ap-southeast-2
-          role-session-name: fallback-api-production-deploy
+          role-session-name: video-downloader-fallback-api-production-deploy
           role-to-assume: "arn:aws:iam::365562660444:role/github_iam_role"
 
       - name: Install AWS SAM CLI
