@@ -1,0 +1,39 @@
+- name: Print start message
+  debug:
+    msg: Started building Forward Proxy
+
+- name: Gather git information
+  import_tasks: git-info.yml
+
+- name: Install dependencies
+  import_tasks: tasks/install-dependencies.yml
+
+- name: Login to GitHub container registry
+  command: docker login ghcr.io -u USERNAME -p {{ access_token }}
+  vars:
+    access_token: "{{ lookup('aws_ssm', '/github/packages/read-write-token', region='ap-southeast-2') }}"
+
+- name: Build Docker image
+  when: not publish
+  shell: |
+    docker build \
+      -f ../forward-proxy/Dockerfile \
+      -t ghcr.io/ruchira088/video-downloader-forward-proxy:{{ git_branch }} \
+      -t ghcr.io/ruchira088/video-downloader-forward-proxy:{{ git_branch }}-{{ git_commit }} \
+      ../forward-proxy
+
+- name: Build and publish Docker image
+  when: publish
+  shell: |
+    docker buildx build \
+      --push \
+      --platform linux/arm64,linux/amd64 \
+      --no-cache \
+      -f ../forward-proxy/Dockerfile \
+      -t ghcr.io/ruchira088/video-downloader-forward-proxy:{{ git_branch }} \
+      -t ghcr.io/ruchira088/video-downloader-forward-proxy:{{ git_branch }}-{{ git_commit }} \
+      ../forward-proxy
+
+- name: Print finish message
+  debug:
+    msg: Completed building Forward Proxy

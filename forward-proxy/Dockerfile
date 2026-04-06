@@ -1,5 +1,7 @@
 FROM debian:bookworm-slim
 
+LABEL org.opencontainers.image.source=https://github.com/ruchira088/video-downloader-back-end
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     iproute2 \

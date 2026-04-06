@@ -50,3 +50,9 @@
       vars:
         db_operation: restore
         publish: true
+
+    - name: Build & publish forward proxy Docker image
+      when: application == "forward-proxy"
+      import_tasks: tasks/build-and-publish-forward-proxy-docker-image.yml
+      vars:
+        publish: true

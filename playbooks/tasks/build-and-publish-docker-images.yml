@@ -29,3 +29,7 @@
   import_tasks: tasks/build-and-publish-db-operation-docker-image.yml
   vars:
     db_operation: restore
+
+- name: Build Forward Proxy Docker image
+  import_tasks: build-and-publish-forward-proxy-docker-image.yml
+

@@ -33,6 +33,7 @@ jobs:
           - api
           - batch
           - db-backup
+          - forward-proxy
 
     steps:
       - name: Checkout code
