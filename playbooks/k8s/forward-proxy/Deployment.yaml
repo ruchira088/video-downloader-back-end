@@ -19,6 +19,10 @@ spec:
       containers:
         - name: forward-proxy-container
           image: "ghcr.io/ruchira088/video-downloader-forward-proxy:{{ git_branch }}-{{ git_commit }}"
+          securityContext:
+            capabilities:
+              add:
+                - NET_ADMIN
           envFrom:
             - configMapRef:
                 name: forward-proxy-data-config-map
@@ -45,9 +49,15 @@ spec:
             - name: tiny-proxy-port
               containerPort: 8888
           volumeMounts:
+            - mountPath: /dev/net/tun
+              name: tun-device
             - mountPath: /etc/openvpn/configs
               name: file-config-map
       volumes:
+        - name: tun-device
+          hostPath:
+            path: /dev/net/tun
+            type: CharDevice
         - name: file-config-map
           configMap:
             name: forward-proxy-file-config-map
