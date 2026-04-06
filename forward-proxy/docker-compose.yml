@@ -1,0 +1,21 @@
+services:
+  forward-proxy:
+    build: .
+    container_name: forward-proxy
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    env_file:
+      - .env
+    volumes:
+      - ./vpn-config:/etc/openvpn/configs:ro
+    ports:
+      - "8888:8888"
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=1
