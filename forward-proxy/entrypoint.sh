@@ -36,8 +36,8 @@ mkdir -p /dev/net
 # --- Save Docker network info before VPN overwrites routes ---
 DEFAULT_GW=$(ip route | awk '/default/ {print $3}')
 DEFAULT_IF=$(ip route | awk '/default/ {print $5}')
-DOCKER_SUBNET=$(ip route | grep "dev ${DEFAULT_IF}" | grep -v default | awk '{print $1}')
-echo "Docker gateway: ${DEFAULT_GW} via ${DEFAULT_IF}, subnet: ${DOCKER_SUBNET}"
+DOCKER_SUBNETS=$(ip route | grep "dev ${DEFAULT_IF}" | grep -v default | awk '{print $1}')
+echo "Docker gateway: ${DEFAULT_GW} via ${DEFAULT_IF}, subnets: ${DOCKER_SUBNETS}"
 
 # --- Write credentials file ---
 echo "$OPENVPN_USER" > /etc/openvpn/credentials.txt
@@ -74,9 +74,11 @@ echo "VPN tunnel is up (tun0 ready in ${WAITED}s)."
 # OpenVPN pushes 0.0.0.0/1 and 128.0.0.0/1 via tun0 which captures return
 # traffic to Docker's port forwarding. We use policy routing to fix this:
 # any packet going back to the Docker subnet uses a separate routing table.
-ip rule add from "${DOCKER_SUBNET}" table 100
 ip route add default via "${DEFAULT_GW}" dev "${DEFAULT_IF}" table 100
-echo "Added policy route for Docker network return traffic."
+for subnet in ${DOCKER_SUBNETS}; do
+  ip rule add from "${subnet}" table 100
+  echo "Added policy route for subnet ${subnet}."
+done
 
 # --- Verify connectivity through VPN ---
 sleep 2
