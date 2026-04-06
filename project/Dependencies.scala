@@ -5,7 +5,7 @@ object Dependencies
   val ScalaVersion = "2.13.18"
   private val Http4sVersion = "0.23.33"
   private val CirceVersion = "0.14.15"
-  private val FlywayVersion = "12.2.0"
+  private val FlywayVersion = "12.3.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -33,7 +33,7 @@ object Dependencies
 
   lazy val circeLiteral = "io.circe" %% "circe-literal" % CirceVersion
 
-  lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.9.6"
+  lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.9.7"
 
   lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.13"
 
