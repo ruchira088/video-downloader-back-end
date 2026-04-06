@@ -134,7 +134,24 @@
               -n {{ k8s_namespace }} \
               --timeout=120s
 
-    - name: Deploy api
+    - name: Deploy forward-proxy
+      block:
+        - name: Create data ConfigMap
+          command: "kubectl apply -f {{ k8s_output_dir }}/forward-proxy/DataConfigMap.yaml --kubeconfig {{ kubeconfig }}"
+
+        - name: Create file ConfigMap
+          command: "kubectl apply -f {{ k8s_output_dir }}/forward-proxy/FileConfigMap.yaml --kubeconfig {{ kubeconfig }}"
+
+        - name: Create Secrets
+          command: "kubectl apply -f {{ k8s_output_dir }}/forward-proxy/Secrets.yaml --kubeconfig {{ kubeconfig }}"
+
+        - name: Deploy application
+          command: "kubectl apply -f {{ k8s_output_dir }}/forward-proxy --kubeconfig {{ kubeconfig }}"
+
+        - name: Wait for successful forward-proxy deployment
+          command: "kubectl rollout status deployment forward-proxy-deployment --kubeconfig {{ kubeconfig }} -n {{ k8s_namespace }}"
+
+    - name: Deploy API
       block:
         - name: Create data ConfigMap
           command: "kubectl apply -f {{ k8s_output_dir }}/api/DataConfigMap.yaml --kubeconfig {{ kubeconfig }}"
@@ -148,7 +165,7 @@
         - name: Deploy application
           command: "kubectl apply -f {{ k8s_output_dir }}/api --kubeconfig {{ kubeconfig }}"
 
-    - name: Deploy batch
+    - name: Deploy Batch
       block:
         - name: Create data ConfigMap
           command: "kubectl apply -f {{ k8s_output_dir }}/batch/DataConfigMap.yaml --kubeconfig {{ kubeconfig }}"
@@ -162,10 +179,10 @@
         - name: Deploy application
           command: "kubectl apply -f {{ k8s_output_dir }}/batch --kubeconfig {{ kubeconfig }}"
 
-    - name: Wait for successful api deployment
+    - name: Wait for successful API deployment
       command: "kubectl rollout status deployment api-deployment --kubeconfig {{ kubeconfig }} -n {{ k8s_namespace }}"
 
-    - name: Wait for successful batch deployment
+    - name: Wait for successful Batch deployment
       command: "kubectl rollout status deployment batch-deployment --kubeconfig {{ kubeconfig }} -n {{ k8s_namespace }}"
 
 - name: Clean up output directory

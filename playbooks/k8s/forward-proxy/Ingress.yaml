@@ -3,6 +3,8 @@ kind: Ingress
 metadata:
   name: forward-proxy-ingress
   namespace: "{{ k8s_namespace }}"
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: "{{ k8s_namespace }}-local-network-only@kubernetescrd"
 spec:
   tls:
     - secretName: forward-proxy-tls-secret
