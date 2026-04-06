@@ -20,6 +20,11 @@
         path: "{{ k8s_output_dir }}/batch"
         state: directory
 
+    - name: Create output directory - Forward proxy
+      file:
+        path: "{{ k8s_output_dir }}/forward-proxy"
+        state: directory
+
 - name: Render K8s resource files
   block:
     - name: Render K8s common resource files
@@ -56,3 +61,10 @@
         dest: "{{ k8s_output_dir }}/batch/{{ item | basename }}"
       with_fileglob:
         - k8s/batch/*.yaml
+
+    - name: Render K8s resource files - Forward proxy
+      template:
+        src: "{{ item }}"
+        dest: "{{ k8s_output_dir }}/forward-proxy/{{ item | basename }}"
+      with_fileglob:
+        - k8s/forward-proxy/*.yaml

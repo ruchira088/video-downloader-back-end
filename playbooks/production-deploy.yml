@@ -6,6 +6,7 @@
     - set_fact:
         k8s_namespace: video-downloader-back-end
         hostname: api.video.home.ruchij.com
+        forward_proxy_hostname: forward-proxy.video.home.ruchij.com
         env: production
         sentry_env: production
 

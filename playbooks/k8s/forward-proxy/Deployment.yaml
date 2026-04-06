@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forward-proxy-deployment
+  namespace: "{{ k8s_namespace }}"
+spec:
+  selector:
+    matchLabels:
+      app: forward-proxy
+      branch: "{{ git_branch }}"
+  template:
+    metadata:
+      labels:
+        app: forward-proxy
+        branch: "{{ git_branch }}"
+    spec:
+      imagePullSecrets:
+        - name: docker-registry-credentials
+      containers:
+        - name: forward-proxy-container
+          image: "ghcr.io/ruchira088/video-downloader-forward-proxy:{{ git_branch }}-{{ git_commit }}"
+          envFrom:
+            - configMapRef:
+                name: forward-proxy-data-config-map
+            - secretRef:
+                name: forward-proxy-secrets
+          readinessProbe:
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+            tcpSocket:
+              port: tiny-proxy-port
+          livenessProbe:
+            periodSeconds: 10
+            timeoutSeconds: 5
+            tcpSocket:
+              port: tiny-proxy-port
+          startupProbe:
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+            tcpSocket:
+              port: tiny-proxy-port
+          ports:
+            - name: tiny-proxy-port
+              containerPort: 8888
+          volumeMounts:
+            - mountPath: /etc/openvpn/configs
+              name: file-config-map
+      volumes:
+        - name: file-config-map
+          configMap:
+            name: forward-proxy-file-config-map

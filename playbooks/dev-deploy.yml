@@ -9,6 +9,7 @@
     - set_fact:
         k8s_namespace: "video-downloader-back-end-{{ git_branch }}"
         hostname: "api.{{ git_branch }}.video.dev.ruchij.com"
+        forward_proxy_hostname: "forward-proxy.{{ git_branch }}.video.dev.ruchij.com"
         env: development
         sentry_env: development
 

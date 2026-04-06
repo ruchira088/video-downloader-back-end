@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: forward-proxy-service
+  namespace: "{{ k8s_namespace }}"
+spec:
+  selector:
+    app: forward-proxy
+    branch: "{{ git_branch }}"
+  ports:
+    - name: tiny-proxy-port
+      port: 8888
