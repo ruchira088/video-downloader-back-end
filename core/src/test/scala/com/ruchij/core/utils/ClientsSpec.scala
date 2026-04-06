@@ -106,4 +106,42 @@ class ClientsSpec extends AnyFlatSpec with Matchers {
       }
     }
   }
+
+  it should "create both proxied and non-proxied clients concurrently" in runIO {
+    val proxyConfig = Some(HttpProxyConfiguration(uri"http://proxy.example.com:8080"))
+
+    val combined = for {
+      proxiedClient <- Clients.create[IO](proxyConfig)
+      directClient <- Clients.create[IO](None)
+    } yield (proxiedClient, directClient)
+
+    combined.use { case (proxiedClient, directClient) =>
+      IO.delay {
+        proxiedClient must not be null
+        directClient must not be null
+      }
+    }
+  }
+
+  it should "independently manage lifecycle of proxied and non-proxied clients" in runIO {
+    val proxyConfig = Some(HttpProxyConfiguration(uri"http://proxy.example.com:8080"))
+
+    var proxiedAcquired = false
+    var directAcquired = false
+
+    val proxiedResource = Clients.create[IO](proxyConfig).evalTap(_ => IO.delay { proxiedAcquired = true })
+    val directResource = Clients.create[IO](None).evalTap(_ => IO.delay { directAcquired = true })
+
+    val combined = for {
+      p <- proxiedResource
+      d <- directResource
+    } yield (p, d)
+
+    combined.use { _ =>
+      IO.delay {
+        proxiedAcquired mustBe true
+        directAcquired mustBe true
+      }
+    }
+  }
 }

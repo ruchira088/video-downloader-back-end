@@ -95,7 +95,8 @@ object BatchApp extends IOApp {
       .flatMap { implicit transaction =>
         for {
 
-          httpClient <- Clients.create[F](batchServiceConfiguration.httpProxyConfiguration)
+          proxiedHttpClient <- Clients.create[F](batchServiceConfiguration.httpProxyConfiguration)
+          httpClient <- Clients.create[F](None)
 
           keyValueStore <- RedisKeyValueStore.create[F](batchServiceConfiguration.redisConfiguration)
 
@@ -105,7 +106,7 @@ object BatchApp extends IOApp {
 
           cliCommandRunner = new CliCommandRunnerImpl[F](dispatcher)
 
-          youtubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](cliCommandRunner, httpClient, batchServiceConfiguration.httpProxyConfiguration)
+          youtubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](cliCommandRunner, proxiedHttpClient, batchServiceConfiguration.httpProxyConfiguration)
           spaSiteRenderer = new SpaSiteRendererImpl[F](
             httpClient,
             batchServiceConfiguration.spaSiteRendererConfiguration
@@ -114,13 +115,13 @@ object BatchApp extends IOApp {
           fileTypeDetector = new PathFileTypeDetector[F](new Tika())
 
           repositoryService = new FileRepositoryService[F](fileTypeDetector)
-          downloadService = new Http4sDownloadService[F](httpClient, repositoryService)
+          downloadService = new Http4sDownloadService[F](proxiedHttpClient, repositoryService)
           hashingService = new MurmurHash3Service[F]
           videoAnalysisService = new VideoAnalysisServiceImpl[F, ConnectionIO](
             hashingService,
             downloadService,
             youtubeVideoDownloader,
-            httpClient,
+            proxiedHttpClient,
             spaSiteRenderer,
             cliCommandRunner,
             DoobieVideoMetadataDao,

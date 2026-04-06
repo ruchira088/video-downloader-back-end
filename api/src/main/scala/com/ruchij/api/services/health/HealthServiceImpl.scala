@@ -16,7 +16,7 @@ import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.services.video.YouTubeVideoDownloader
-import com.ruchij.core.types.{Clock => AppClock, RandomGenerator}
+import com.ruchij.core.types.{RandomGenerator, Clock => AppClock}
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import fs2.Stream
@@ -38,7 +38,8 @@ class HealthServiceImpl[F[_]: Async: AppClock: RandomGenerator[*[_], UUID]](
   healthCheckStream: Stream[F, HealthCheckMessage],
   healthCheckPublisher: Publisher[F, HealthCheckMessage],
   youTubeVideoDownloader: YouTubeVideoDownloader[F],
-  client: Client[F],
+  proxiedHttpClient: Client[F],
+  httpClient: Client[F],
   storageConfiguration: StorageConfiguration,
   spaSiteRendererConfiguration: SpaSiteRendererConfiguration
 )(implicit transaction: ConnectionIO ~> F)
@@ -107,7 +108,8 @@ class HealthServiceImpl[F[_]: Async: AppClock: RandomGenerator[*[_], UUID]](
 
   private def fileRepositoryPathCheck(basePath: String): F[FilePathCheck] =
     for {
-      timestamp <- AppClock[F].timestamp.map(_.atZone(java.time.ZoneId.systemDefault()).toLocalTime.format(DateTimeFormatter.ofPattern("HH-mm-ss-SSS")))
+      timestamp <- AppClock[F].timestamp
+        .map(_.atZone(java.time.ZoneId.systemDefault()).toLocalTime.format(DateTimeFormatter.ofPattern("HH-mm-ss-SSS")))
       fileKey = s"$basePath/image-health-check-$timestamp.txt"
       fileResult <- runHealthCheck(fileHealthCheck(fileKey))
     } yield FilePathCheck(basePath, fileResult)
@@ -132,12 +134,12 @@ class HealthServiceImpl[F[_]: Async: AppClock: RandomGenerator[*[_], UUID]](
   }
 
   private val spaRendererCheck: F[HealthStatus] =
-    client
+    httpClient
       .status(GET(spaSiteRendererConfiguration.uri.withPath(Path.Root / "service" / "health-check")))
       .map(httpStatusHealthCheck)
 
   private val internetConnectivityCheck: F[HealthStatus] =
-    client
+    proxiedHttpClient
       .status(GET(HealthService.ConnectivityUrl))
       .map(httpStatusHealthCheck)
 

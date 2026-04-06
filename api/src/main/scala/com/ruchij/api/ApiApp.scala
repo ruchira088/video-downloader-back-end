@@ -59,7 +59,12 @@ import com.ruchij.core.services.hashing.MurmurHash3Service
 import com.ruchij.core.services.renderer.SpaSiteRendererImpl
 import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector, RepositoryService}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
-import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, VideoWatchHistoryServiceImpl, YouTubeVideoDownloaderImpl}
+import com.ruchij.core.services.video.{
+  VideoAnalysisServiceImpl,
+  VideoServiceImpl,
+  VideoWatchHistoryServiceImpl,
+  YouTubeVideoDownloaderImpl
+}
 import com.ruchij.core.types.{Clock, RandomGenerator}
 import com.ruchij.core.utils.Clients
 import doobie.free.connection.ConnectionIO
@@ -107,7 +112,8 @@ object ApiApp extends IOApp {
       _ <- Sentry.init[F](apiServiceConfiguration.sentryConfiguration)
       hikariTransactor <- DoobieTransactor.create[F](apiServiceConfiguration.databaseConfiguration)
 
-      httpClient <- Clients.create[F](apiServiceConfiguration.httpProxyConfiguration)
+      proxiedHttpClient <- Clients.create[F](apiServiceConfiguration.httpProxyConfiguration)
+      httpClient <- Clients.create[F](None)
       redisKeyValueStore <- RedisKeyValueStore.create[F](apiServiceConfiguration.redisConfiguration)
       downloadProgressPubSub <- PubSub[F, DownloadProgress](apiServiceConfiguration.pubsubConfiguration)
       scheduledVideoDownloadPubSub <- PubSub[F, ScheduledVideoDownload](apiServiceConfiguration.pubsubConfiguration)
@@ -131,6 +137,7 @@ object ApiApp extends IOApp {
       httpApp <- Resource.eval {
         program[F](
           hikariTransactor,
+          proxiedHttpClient,
           httpClient,
           redisKeyValueStore,
           messageBrokers,
@@ -142,7 +149,8 @@ object ApiApp extends IOApp {
 
   def program[F[_]: Async: Clock: Files: Compression](
     hikariTransactor: HikariTransactor[F],
-    client: Client[F],
+    proxiedHttpClient: Client[F],
+    httpClient: Client[F],
     keyValueStore: KeyValueStore[F],
     messageBrokers: ApiMessageBrokers[F],
     dispatcher: Dispatcher[F],
@@ -170,7 +178,7 @@ object ApiApp extends IOApp {
     val fileTypeDetector = new PathFileTypeDetector[F](new Tika())
 
     val repositoryService: RepositoryService[F] = new FileRepositoryService[F](fileTypeDetector)
-    val downloadService: Http4sDownloadService[F] = new Http4sDownloadService[F](client, repositoryService)
+    val downloadService: Http4sDownloadService[F] = new Http4sDownloadService[F](proxiedHttpClient, repositoryService)
     val hashingService: MurmurHash3Service[F] = new MurmurHash3Service[F]
     val passwordHashingService = new BCryptPasswordHashingService[F]
     val cliCommandRunner = new CliCommandRunnerImpl[F](dispatcher)
@@ -184,16 +192,21 @@ object ApiApp extends IOApp {
         apiServiceConfiguration.authenticationConfiguration.sessionDuration
       )
 
-    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](cliCommandRunner, client, apiServiceConfiguration.httpProxyConfiguration)
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](
+      cliCommandRunner,
+      proxiedHttpClient,
+      apiServiceConfiguration.httpProxyConfiguration
+    )
 
-    val spaSiteRenderer = new SpaSiteRendererImpl[F](client, apiServiceConfiguration.spaSiteRendererConfiguration)
+    val spaSiteRenderer =
+      new SpaSiteRendererImpl[F](httpClient, apiServiceConfiguration.spaSiteRendererConfiguration)
 
     val videoAnalysisService: VideoAnalysisServiceImpl[F, ConnectionIO] =
       new VideoAnalysisServiceImpl[F, ConnectionIO](
         hashingService,
         downloadService,
         youTubeVideoDownloader,
-        client,
+        proxiedHttpClient,
         spaSiteRenderer,
         cliCommandRunner,
         DoobieVideoMetadataDao,
@@ -213,9 +226,8 @@ object ApiApp extends IOApp {
         DoobieSchedulingDao
       )
 
-    val apiDuplicateDetectionService = new ApiDuplicateDetectionServiceImpl[F, ConnectionIO](
-      DoobieDuplicateVideoDao, DoobieVideoPerceptualHashDao
-    )
+    val apiDuplicateDetectionService =
+      new ApiDuplicateDetectionServiceImpl[F, ConnectionIO](DoobieDuplicateVideoDao, DoobieVideoPerceptualHashDao)
 
     val apiVideoService = new ApiVideoServiceImpl[F, ConnectionIO](
       videoService,
@@ -288,7 +300,8 @@ object ApiApp extends IOApp {
         backgroundService.healthChecks,
         messageBrokers.healthCheckPubSub,
         youTubeVideoDownloader,
-        client,
+        proxiedHttpClient,
+        httpClient,
         apiServiceConfiguration.storageConfiguration,
         apiServiceConfiguration.spaSiteRendererConfiguration
       )

@@ -1,7 +1,7 @@
 package com.ruchij.api.services.health
 
 import cats.effect._
-import com.ruchij.api.services.health.models.HealthCheck
+import com.ruchij.api.services.health.models.{HealthCheck, HealthStatus}
 import com.ruchij.api.services.health.models.kv.HealthCheckKey.HealthCheckKeySpace
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.core.config.{SpaSiteRendererConfiguration, StorageConfiguration}
@@ -25,17 +25,45 @@ import java.util.concurrent.ConcurrentHashMap
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class HealthServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
-  "healthCheck" should "be healthy when all the services are healthy" in runHealthCheck(Status.Ok) {
-    healthCheck: HealthCheck =>
-      healthCheck.isHealthy mustBe true
-  }
+  "healthCheck" should "be healthy when all the services are healthy" in
+    runHealthCheck(proxiedHttpStatus = Status.Ok, directHttpStatus = Status.Ok) {
+      healthCheck: HealthCheck =>
+        healthCheck.isHealthy mustBe true
+    }
 
-  it should "be unhealthy when any of the services are unhealthy" in runHealthCheck(Status.InternalServerError) {
-    healthCheck: HealthCheck =>
-      healthCheck.isHealthy mustBe false
-  }
+  it should "be unhealthy when any of the services are unhealthy" in
+    runHealthCheck(proxiedHttpStatus = Status.InternalServerError, directHttpStatus = Status.InternalServerError) {
+      healthCheck: HealthCheck =>
+        healthCheck.isHealthy mustBe false
+    }
 
-  private def runHealthCheck(httpStatus: Status)(assertion: HealthCheck => Unit): Unit =
+  it should "be unhealthy when proxied client fails but direct client succeeds" in
+    runHealthCheck(proxiedHttpStatus = Status.InternalServerError, directHttpStatus = Status.Ok) {
+      healthCheck: HealthCheck =>
+        healthCheck.isHealthy mustBe false
+        healthCheck.internetConnectivity.healthStatus mustBe HealthStatus.Unhealthy
+    }
+
+  it should "be unhealthy when direct client fails but proxied client succeeds" in
+    runHealthCheck(proxiedHttpStatus = Status.Ok, directHttpStatus = Status.InternalServerError) {
+      healthCheck: HealthCheck =>
+        healthCheck.isHealthy mustBe false
+        healthCheck.spaRenderer.healthStatus mustBe HealthStatus.Unhealthy
+    }
+
+  it should "report healthy internet connectivity when proxied client returns Ok" in
+    runHealthCheck(proxiedHttpStatus = Status.Ok, directHttpStatus = Status.Ok) {
+      healthCheck: HealthCheck =>
+        healthCheck.internetConnectivity.healthStatus mustBe HealthStatus.Healthy
+    }
+
+  it should "report healthy spa renderer when direct client returns Ok" in
+    runHealthCheck(proxiedHttpStatus = Status.Ok, directHttpStatus = Status.Ok) {
+      healthCheck: HealthCheck =>
+        healthCheck.spaRenderer.healthStatus mustBe HealthStatus.Healthy
+    }
+
+  private def runHealthCheck(proxiedHttpStatus: Status, directHttpStatus: Status)(assertion: HealthCheck => Unit): Unit =
     runIO {
       new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
         for {
@@ -53,7 +81,8 @@ class HealthServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
             otherVideoFolders = List("/a", "/b")
           )
 
-          httpClient = Client.fromHttpApp[IO](HttpApp.liftF(IO.pure(Response[IO](status = httpStatus))))
+          proxiedHttpClient = Client.fromHttpApp[IO](HttpApp.liftF(IO.pure(Response[IO](status = proxiedHttpStatus))))
+          httpClient = Client.fromHttpApp[IO](HttpApp.liftF(IO.pure(Response[IO](status = directHttpStatus))))
 
           youTubeVideoDownloader = new YouTubeVideoDownloader[IO] {
             override def videoInformation(uri: Uri): IO[VideoAnalysisResult] =
@@ -75,6 +104,7 @@ class HealthServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
             healthCheckTopic.subscribeUnbounded,
             healthCheckPubSub,
             youTubeVideoDownloader,
+            proxiedHttpClient,
             httpClient,
             storageConfiguration,
             spaSiteRendererConfiguration
