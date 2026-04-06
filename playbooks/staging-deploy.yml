@@ -6,7 +6,7 @@
     - set_fact:
         k8s_namespace: video-downloader-back-end-staging
         hostname: api.staging.video.dev.ruchij.com
-        forward_proxy_hostname: forward-proxy.staging.video.dev.ruchij.com
+        forward_proxy_port: 8889
         env: development
         sentry_env: staging
 

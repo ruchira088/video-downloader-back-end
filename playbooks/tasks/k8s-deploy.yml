@@ -74,9 +74,6 @@
     - name: Create Namespace
       command: "kubectl apply -f {{ k8s_output_dir }}/Namespace.yaml --kubeconfig {{ kubeconfig }}"
 
-    - name: Configure Traefik
-      command: "kubectl apply -f {{ k8s_output_dir }}/TraefikConfig.yaml --kubeconfig {{ kubeconfig }}"
-
     - name: Create Docker registry secret
       command: "kubectl apply -f {{ k8s_output_dir }}/DockerRegistryCredentials.yaml --kubeconfig {{ kubeconfig }}"
 
@@ -139,6 +136,18 @@
 
     - name: Deploy forward-proxy
       block:
+        - name: Remove old forward-proxy Ingress
+          command: "kubectl delete ingress forward-proxy-ingress --kubeconfig {{ kubeconfig }} -n {{ k8s_namespace }} --ignore-not-found"
+
+        - name: Remove old forward-proxy Certificate
+          command: "kubectl delete certificate forward-proxy-certificate --kubeconfig {{ kubeconfig }} -n {{ k8s_namespace }} --ignore-not-found"
+
+        - name: Remove old forward-proxy Middleware
+          command: "kubectl delete middleware local-network-only --kubeconfig {{ kubeconfig }} -n {{ k8s_namespace }} --ignore-not-found"
+
+        - name: Remove old Traefik config
+          command: "kubectl delete helmchartconfig traefik --kubeconfig {{ kubeconfig }} -n kube-system --ignore-not-found"
+
         - name: Create data ConfigMap
           command: "kubectl apply -f {{ k8s_output_dir }}/forward-proxy/DataConfigMap.yaml --kubeconfig {{ kubeconfig }}"
 
