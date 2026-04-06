@@ -70,15 +70,20 @@ while ! ip link show tun0 > /dev/null 2>&1; do
 done
 echo "VPN tunnel is up (tun0 ready in ${WAITED}s)."
 
-# --- Fix routing: ensure Docker network traffic goes back via eth0, not VPN ---
+# --- Fix routing: ensure local network traffic goes back via eth0, not VPN ---
 # OpenVPN pushes 0.0.0.0/1 and 128.0.0.0/1 via tun0 which captures return
 # traffic to Docker's port forwarding. We use policy routing to fix this:
-# any packet going back to the Docker subnet uses a separate routing table.
+# any packet destined for Docker/local subnets uses a separate routing table.
 ip route add default via "${DEFAULT_GW}" dev "${DEFAULT_IF}" table 100
 for subnet in ${DOCKER_SUBNETS}; do
   ip rule add from "${subnet}" table 100
   echo "Added policy route for subnet ${subnet}."
 done
+# Route LAN traffic (RFC 1918) via eth0 so responses reach local clients
+# even when Traefik runs with hostNetwork on the node's LAN IP.
+ip route add 192.168.0.0/16 via "${DEFAULT_GW}" dev "${DEFAULT_IF}" table main
+ip route add 172.16.0.0/12 via "${DEFAULT_GW}" dev "${DEFAULT_IF}" table main
+echo "Added LAN routes via ${DEFAULT_GW}."
 
 # --- Verify connectivity through VPN ---
 sleep 2

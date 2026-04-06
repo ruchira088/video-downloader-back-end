@@ -74,6 +74,9 @@
     - name: Create Namespace
       command: "kubectl apply -f {{ k8s_output_dir }}/Namespace.yaml --kubeconfig {{ kubeconfig }}"
 
+    - name: Configure Traefik
+      command: "kubectl apply -f {{ k8s_output_dir }}/TraefikConfig.yaml --kubeconfig {{ kubeconfig }}"
+
     - name: Create Docker registry secret
       command: "kubectl apply -f {{ k8s_output_dir }}/DockerRegistryCredentials.yaml --kubeconfig {{ kubeconfig }}"
 
