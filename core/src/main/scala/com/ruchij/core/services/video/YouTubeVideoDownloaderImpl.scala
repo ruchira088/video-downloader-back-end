@@ -1,22 +1,22 @@
 package com.ruchij.core.services.video
 
+import cats.MonadThrow
 import cats.data.{Kleisli, OptionT}
 import cats.effect.{Async, Ref, Sync}
-import cats.MonadThrow
 import cats.implicits._
+import com.ruchij.core.config.HttpProxyConfiguration
 import com.ruchij.core.daos.videometadata.models.{VideoSite, WebPage}
 import com.ruchij.core.exceptions.{CliCommandException, ResourceNotFoundException}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.cli.CliCommandRunner
-import com.ruchij.core.services.video.models.{VideoAnalysisResult, YTDataSize, YTDataUnit, YTDownloaderMetadata, YTDownloaderProgress}
-import com.ruchij.core.types.FunctionKTypes._
 import com.ruchij.core.services.video.models.YTDataSize.ytDataSizeOrdering
+import com.ruchij.core.services.video.models._
+import com.ruchij.core.types.FunctionKTypes._
 import com.ruchij.core.utils.{JsoupSelector, Timers}
 import fs2.Stream
-import io.circe.{parser => JsonParser}
 import io.circe.generic.auto._
+import io.circe.{parser => JsonParser}
 import org.http4s.Uri
-import org.http4s.circe.decodeUri
 import org.http4s.client.Client
 import org.http4s.implicits.http4sLiteralsSyntax
 import org.jsoup.Jsoup
@@ -27,14 +27,26 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.language.postfixOps
 import scala.math.Ordered.orderingToOrdered
 
-class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner[F], client: Client[F])
-    extends YouTubeVideoDownloader[F] {
+class YouTubeVideoDownloaderImpl[F[_]: Async](
+  cliCommandRunner: CliCommandRunner[F],
+  client: Client[F],
+  maybeHttpProxyConfiguration: Option[HttpProxyConfiguration]
+) extends YouTubeVideoDownloader[F] {
 
   private val logger = Logger[YouTubeVideoDownloaderImpl[F]]
 
+  private def ytDlp: String = {
+    val commands = List("yt-dlp", "--no-warnings") ++
+      maybeHttpProxyConfiguration.fold[List[String]](List.empty) {
+        httpProxy => List("--proxy", httpProxy.proxyUrl.renderString)
+      }
+
+    commands.mkString(" ")
+  }
+
   override def videoInformation(uri: Uri): F[VideoAnalysisResult] =
     cliCommandRunner
-      .run(s"""yt-dlp --no-warnings "${uri.renderString}" -j""")
+      .run(s"""$ytDlp "${uri.renderString}" -j""")
       .compile
       .string
       .recoverWith {
@@ -101,19 +113,19 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](cliCommandRunner: CliCommandRunner
   override val supportedSites: F[Seq[String]] =
     Sync[F].defer {
       cliCommandRunner
-        .run("yt-dlp --no-warnings --list-extractors")
+        .run(s"$ytDlp --list-extractors")
         .compile
         .toVector
         .widen[Seq[String]]
     }
 
   override val version: F[String] =
-    Sync[F].defer { cliCommandRunner.run("yt-dlp --version").compile.string }
+    Sync[F].defer { cliCommandRunner.run(s"$ytDlp --version").compile.string }
 
   override def downloadVideo(uri: Uri, pathWithoutExtension: String): Stream[F, YTDownloaderProgress] =
     Stream.eval(Ref.of[F, Boolean](false)).flatMap { ref =>
       cliCommandRunner
-        .run(s"""yt-dlp --no-warnings -o "$pathWithoutExtension.%(ext)s" "${uri.renderString}"""")
+        .run(s"""$ytDlp -o "$pathWithoutExtension.%(ext)s" "${uri.renderString}"""")
         .interruptWhen {
           Timers
             .createResettableTimer(30 seconds, ref)

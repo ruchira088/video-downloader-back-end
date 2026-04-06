@@ -17,7 +17,8 @@ final case class ApiServiceConfiguration(
   authenticationConfiguration: AuthenticationConfiguration,
   pubsubConfiguration: PubsubConfiguration,
   spaSiteRendererConfiguration: SpaSiteRendererConfiguration,
-  sentryConfiguration: SentryConfiguration
+  sentryConfiguration: SentryConfiguration,
+  httpProxyConfiguration: Option[HttpProxyConfiguration]
 )
 
 object ApiServiceConfiguration {

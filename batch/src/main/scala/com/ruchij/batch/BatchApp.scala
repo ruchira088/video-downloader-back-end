@@ -51,6 +51,7 @@ import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeD
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, VideoWatchHistoryServiceImpl, YouTubeVideoDownloaderImpl}
 import com.ruchij.core.types.{Clock, RandomGenerator}
+import com.ruchij.core.utils.Clients
 import doobie.free.connection.ConnectionIO
 import fs2.io.file.Files
 import org.apache.tika.Tika
@@ -97,19 +98,10 @@ object BatchApp extends IOApp {
       .map(_.trans)
       .flatMap { implicit transaction =>
         for {
-          javaHttpClient <- Resource.eval {
-            Sync[F].delay {
-              HttpClient
-                .newBuilder()
-                .followRedirects(Redirect.NORMAL)
-                .connectTimeout(Duration.ofHours(24))
-                .build()
-            }
-          }
+
+          httpClient <- Clients.create[F](batchServiceConfiguration.httpProxyConfiguration)
 
           keyValueStore <- RedisKeyValueStore.create[F](batchServiceConfiguration.redisConfiguration)
-
-          httpClient = JdkHttpClient[F](javaHttpClient)
 
           dispatcher <- Dispatcher.parallel[F]
 

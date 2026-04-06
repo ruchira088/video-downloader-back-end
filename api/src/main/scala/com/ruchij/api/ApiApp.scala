@@ -61,6 +61,7 @@ import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeD
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, VideoWatchHistoryServiceImpl, YouTubeVideoDownloaderImpl}
 import com.ruchij.core.types.{Clock, RandomGenerator}
+import com.ruchij.core.utils.Clients
 import doobie.free.connection.ConnectionIO
 import doobie.hikari.HikariTransactor
 import fs2.compression.Compression
@@ -109,13 +110,7 @@ object ApiApp extends IOApp {
       _ <- Sentry.init[F](apiServiceConfiguration.sentryConfiguration)
       hikariTransactor <- DoobieTransactor.create[F](apiServiceConfiguration.databaseConfiguration)
 
-      javaHttpClient <- Resource.eval {
-        Sync[F].delay {
-          HttpClient.newBuilder().followRedirects(Redirect.NORMAL).build()
-        }
-      }
-      httpClient = JdkHttpClient[F](javaHttpClient)
-
+      httpClient <- Clients.create[F](apiServiceConfiguration.httpProxyConfiguration)
       redisKeyValueStore <- RedisKeyValueStore.create[F](apiServiceConfiguration.redisConfiguration)
       downloadProgressPubSub <- PubSub[F, DownloadProgress](apiServiceConfiguration.pubsubConfiguration)
       scheduledVideoDownloadPubSub <- PubSub[F, ScheduledVideoDownload](apiServiceConfiguration.pubsubConfiguration)
