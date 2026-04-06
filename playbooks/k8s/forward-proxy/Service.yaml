@@ -4,11 +4,13 @@ metadata:
   name: forward-proxy-service
   namespace: "{{ k8s_namespace }}"
 spec:
+{% if forward_proxy_port is defined %}
   type: LoadBalancer
+{% endif %}
   selector:
     app: forward-proxy
     branch: "{{ git_branch }}"
   ports:
     - name: tiny-proxy-port
-      port: "{{ forward_proxy_port }}"
+      port: {{ forward_proxy_port | default(8888) | int }}
       targetPort: 8888
