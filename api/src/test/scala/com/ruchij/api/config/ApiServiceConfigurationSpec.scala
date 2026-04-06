@@ -2,7 +2,7 @@ package com.ruchij.api.config
 
 import cats.effect.IO
 import com.comcast.ip4s.IpLiteralSyntax
-import com.ruchij.core.config.{KafkaConfiguration, PubsubConfiguration, RedisConfiguration, SentryConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
+import com.ruchij.core.config.{HttpProxyConfiguration, KafkaConfiguration, PubsubConfiguration, RedisConfiguration, SentryConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
 import com.ruchij.core.messaging.PubSub.PubsubType
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.migration.config.DatabaseConfiguration
@@ -99,7 +99,8 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         AuthenticationConfiguration(30 days),
         PubsubConfiguration(PubsubType.Kafka, Some(KafkaConfiguration("local", "kafka-cluster:9092", uri"http://kafka-cluster:8081")), None, None),
         SpaSiteRendererConfiguration(uri"http://spa-renderer-service:8000"),
-        SentryConfiguration(Some("https://key@sentry.io/123"), "test", 0.5)
+        SentryConfiguration(Some("https://key@sentry.io/123"), "test", 0.5),
+        None
       )
 
     ApiServiceConfiguration.parse[IO](ConfigSource.string(configSource)).flatMap {
@@ -264,6 +265,252 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
     ApiServiceConfiguration.parse[IO](ConfigSource.string(incompleteConfig)).attempt.flatMap { result =>
       IO.delay {
         result.isLeft mustBe true
+      }
+    }
+  }
+
+  it should "parse with http-proxy-configuration present" in runIO {
+    val configSource =
+      s"""
+        http-configuration {
+          host = "127.0.0.1"
+          port = 80
+          allowed-origins = "*.localhost"
+        }
+
+        storage-configuration {
+          video-folder = "./videos"
+          image-folder = "./images"
+          other-video-folders = ""
+        }
+
+        database-configuration {
+          url = "jdbc:h2:mem:test"
+          user = ""
+          password = ""
+        }
+
+        redis-configuration {
+          hostname = "localhost"
+          port = 6379
+          password = ""
+        }
+
+        authentication-configuration {
+          session-duration = "30 days"
+        }
+
+        pubsub-configuration {
+          type = "Redis"
+
+          redis-configuration {
+            hostname = "localhost"
+            port = 6379
+            password = ""
+          }
+        }
+
+        spa-site-renderer-configuration {
+          uri = "http://spa-renderer:8000"
+        }
+
+        sentry-configuration {
+          environment = "test"
+          traces-sample-rate = 1.0
+        }
+
+        http-proxy-configuration {
+          proxy-url = "http://forward-proxy:3128"
+        }
+      """
+
+    ApiServiceConfiguration.parse[IO](ConfigSource.string(configSource)).flatMap { config =>
+      IO.delay {
+        config.httpProxyConfiguration mustBe Some(HttpProxyConfiguration(uri"http://forward-proxy:3128"))
+        config.httpProxyConfiguration.get.proxyUrl.host.map(_.renderString) mustBe Some("forward-proxy")
+        config.httpProxyConfiguration.get.proxyUrl.port mustBe Some(3128)
+      }
+    }
+  }
+
+  it should "parse with http-proxy-configuration absent as None" in runIO {
+    val configSource =
+      s"""
+        http-configuration {
+          host = "127.0.0.1"
+          port = 80
+          allowed-origins = "*.localhost"
+        }
+
+        storage-configuration {
+          video-folder = "./videos"
+          image-folder = "./images"
+          other-video-folders = ""
+        }
+
+        database-configuration {
+          url = "jdbc:h2:mem:test"
+          user = ""
+          password = ""
+        }
+
+        redis-configuration {
+          hostname = "localhost"
+          port = 6379
+          password = ""
+        }
+
+        authentication-configuration {
+          session-duration = "30 days"
+        }
+
+        pubsub-configuration {
+          type = "Redis"
+
+          redis-configuration {
+            hostname = "localhost"
+            port = 6379
+            password = ""
+          }
+        }
+
+        spa-site-renderer-configuration {
+          uri = "http://spa-renderer:8000"
+        }
+
+        sentry-configuration {
+          environment = "test"
+          traces-sample-rate = 1.0
+        }
+      """
+
+    ApiServiceConfiguration.parse[IO](ConfigSource.string(configSource)).flatMap { config =>
+      IO.delay {
+        config.httpProxyConfiguration mustBe None
+      }
+    }
+  }
+
+  it should "parse with http-proxy-configuration using HTTPS proxy URL" in runIO {
+    val configSource =
+      s"""
+        http-configuration {
+          host = "127.0.0.1"
+          port = 80
+          allowed-origins = "*.localhost"
+        }
+
+        storage-configuration {
+          video-folder = "./videos"
+          image-folder = "./images"
+          other-video-folders = ""
+        }
+
+        database-configuration {
+          url = "jdbc:h2:mem:test"
+          user = ""
+          password = ""
+        }
+
+        redis-configuration {
+          hostname = "localhost"
+          port = 6379
+          password = ""
+        }
+
+        authentication-configuration {
+          session-duration = "30 days"
+        }
+
+        pubsub-configuration {
+          type = "Redis"
+
+          redis-configuration {
+            hostname = "localhost"
+            port = 6379
+            password = ""
+          }
+        }
+
+        spa-site-renderer-configuration {
+          uri = "http://spa-renderer:8000"
+        }
+
+        sentry-configuration {
+          environment = "test"
+          traces-sample-rate = 1.0
+        }
+
+        http-proxy-configuration {
+          proxy-url = "https://secure-proxy.corp.net:8443"
+        }
+      """
+
+    ApiServiceConfiguration.parse[IO](ConfigSource.string(configSource)).flatMap { config =>
+      IO.delay {
+        config.httpProxyConfiguration mustBe Some(HttpProxyConfiguration(uri"https://secure-proxy.corp.net:8443"))
+      }
+    }
+  }
+
+  it should "fail to parse when http-proxy-configuration block is present but proxy-url is missing" in runIO {
+    val configSource =
+      s"""
+        http-configuration {
+          host = "127.0.0.1"
+          port = 80
+          allowed-origins = "*.localhost"
+        }
+
+        storage-configuration {
+          video-folder = "./videos"
+          image-folder = "./images"
+          other-video-folders = ""
+        }
+
+        database-configuration {
+          url = "jdbc:h2:mem:test"
+          user = ""
+          password = ""
+        }
+
+        redis-configuration {
+          hostname = "localhost"
+          port = 6379
+          password = ""
+        }
+
+        authentication-configuration {
+          session-duration = "30 days"
+        }
+
+        pubsub-configuration {
+          type = "Redis"
+
+          redis-configuration {
+            hostname = "localhost"
+            port = 6379
+            password = ""
+          }
+        }
+
+        spa-site-renderer-configuration {
+          uri = "http://spa-renderer:8000"
+        }
+
+        sentry-configuration {
+          environment = "test"
+          traces-sample-rate = 1.0
+        }
+
+        http-proxy-configuration {
+        }
+      """
+
+    ApiServiceConfiguration.parse[IO](ConfigSource.string(configSource)).attempt.flatMap { result =>
+      IO.delay {
+        result.isLeft mustBe true
+        result.left.exists(_.getMessage.contains("proxy-url")) mustBe true
       }
     }
   }

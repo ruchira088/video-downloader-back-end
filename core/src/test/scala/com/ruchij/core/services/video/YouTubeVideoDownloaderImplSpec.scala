@@ -2,6 +2,7 @@ package com.ruchij.core.services.video
 
 import cats.effect.IO
 import cats.effect.std.Dispatcher
+import com.ruchij.core.config.HttpProxyConfiguration
 import com.ruchij.core.exceptions.{CliCommandException, ResourceNotFoundException}
 import com.ruchij.core.services.cli.{CliCommandRunner, CliCommandRunnerImpl}
 import com.ruchij.core.services.video.models.YTDataUnit.MiB
@@ -24,7 +25,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
   "videoInformation(Uri)" should "return video metadata information for the URI" in runIO {
     val cliCommandRunner = mock[CliCommandRunner[IO]]
     val client = mock[Client[IO]]
-    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client)
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, None)
 
     val cliOutput =
       """{
@@ -87,7 +88,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
   "supportedSites" should "return a list of supported video sites" in runIO {
     val cliCommandRunner = mock[CliCommandRunner[IO]]
     val client = mock[Client[IO]]
-    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client)
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, None)
 
     val cliOutput =
       """9now.com.au
@@ -113,7 +114,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
   "downloadVideo(Uri, String, Stream[F, Boolean])" should "download the video to the file path" in runIO {
     val cliCommandRunner = mock[CliCommandRunner[IO]]
     val client = mock[Client[IO]]
-    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client)
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, None)
 
     val cliOutput =
       """[youtube] F1Zl1TRDJs0: Downloading webpage
@@ -170,7 +171,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
       val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
       val client = mock[Client[IO]]
 
-      val youTubeVideoDownloaderImpl = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client)
+      val youTubeVideoDownloaderImpl = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, None)
 
       youTubeVideoDownloaderImpl.downloadVideo(
         uri"https://www.eporner.com/video-kb38QBpRQaY/small-town-girl-cheerleader-kait-gets-double-dick/",
@@ -191,11 +192,11 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
   it should "return the yt-dlp version" in runIO {
     val cliCommandRunner = mock[CliCommandRunner[IO]]
     val client = mock[Client[IO]]
-    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client)
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, None)
 
     (cliCommandRunner.run _)
       .expects(
-        """yt-dlp --version"""
+        """yt-dlp --no-warnings --version"""
       )
       .returns {
         Stream.emit[IO, String] {  "2025.08.22" }
@@ -211,7 +212,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
   it should "throw ResourceNotFoundException for 404 error" in runIO {
     val cliCommandRunner = mock[CliCommandRunner[IO]]
     val client = mock[Client[IO]]
-    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client)
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, None)
 
     (cliCommandRunner.run _)
       .expects("""yt-dlp --no-warnings "https://www.youtube.com/watch?v=notfound" -j""")
@@ -233,7 +234,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
   it should "throw ResourceNotFoundException for deleted video" in runIO {
     val cliCommandRunner = mock[CliCommandRunner[IO]]
     val client = mock[Client[IO]]
-    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client)
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, None)
 
     (cliCommandRunner.run _)
       .expects("""yt-dlp --no-warnings "https://www.youtube.com/watch?v=deleted" -j""")
@@ -255,7 +256,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
   it should "throw exceptions for invalid JSON response" in runIO {
     val cliCommandRunner = mock[CliCommandRunner[IO]]
     val client = mock[Client[IO]]
-    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client)
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, None)
 
     (cliCommandRunner.run _)
       .expects("""yt-dlp --no-warnings "https://www.youtube.com/watch?v=invalid" -j""")
@@ -277,7 +278,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
   it should "propagate other CLI exceptions" in runIO {
     val cliCommandRunner = mock[CliCommandRunner[IO]]
     val client = mock[Client[IO]]
-    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client)
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, None)
 
     (cliCommandRunner.run _)
       .expects("""yt-dlp --no-warnings "https://www.youtube.com/watch?v=error" -j""")
@@ -307,7 +308,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
       Resource.eval(IO.raiseError(new RuntimeException("Failed to fetch")))
     }
 
-    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client)
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, None)
 
     val cliOutput =
       """{
@@ -336,7 +337,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
   it should "handle video with no filesize in formats" in runIO {
     val cliCommandRunner = mock[CliCommandRunner[IO]]
     val client = mock[Client[IO]]
-    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client)
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, None)
 
     val cliOutput =
       """{
@@ -358,6 +359,208 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
         IO.delay {
           videoAnalysisResult.title mustBe "Video Without Size"
           videoAnalysisResult.size mustBe 0
+        }
+      }
+  }
+
+  private val proxyConfig = Some(HttpProxyConfiguration(uri"http://proxy.example.com:8080"))
+
+  "videoInformation(Uri) with proxy" should "include --proxy flag in CLI command" in runIO {
+    val cliCommandRunner = mock[CliCommandRunner[IO]]
+    val client = mock[Client[IO]]
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, proxyConfig)
+
+    val cliOutput =
+      """{
+        |  "id": "abc123",
+        |  "title": "Proxy Test Video",
+        |  "formats": [{"filesize": 5000000}],
+        |  "duration": 120,
+        |  "extractor": "youtube",
+        |  "thumbnail": "https://i.ytimg.com/vi/abc123/default.jpg"
+        |}""".stripMargin
+
+    (cliCommandRunner.run _)
+      .expects("""yt-dlp --no-warnings --proxy http://proxy.example.com:8080 "https://www.youtube.com/watch?v=abc123" -j""")
+      .returns(Stream.emits[IO, String](cliOutput.split("\n")))
+
+    youTubeVideoDownloader
+      .videoInformation(uri"https://www.youtube.com/watch?v=abc123")
+      .flatMap { result =>
+        IO.delay {
+          result.title mustBe "Proxy Test Video"
+          result.size mustBe 5000000
+          result.duration mustBe FiniteDuration(120, TimeUnit.SECONDS)
+          result.thumbnail mustBe uri"https://i.ytimg.com/vi/abc123/default.jpg"
+        }
+      }
+  }
+
+  "supportedSites with proxy" should "include --proxy flag in CLI command" in runIO {
+    val cliCommandRunner = mock[CliCommandRunner[IO]]
+    val client = mock[Client[IO]]
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, proxyConfig)
+
+    (cliCommandRunner.run _)
+      .expects("yt-dlp --no-warnings --proxy http://proxy.example.com:8080 --list-extractors")
+      .returns {
+        Stream.emits[IO, String](Seq("youtube", "vimeo"))
+      }
+
+    youTubeVideoDownloader.supportedSites
+      .flatMap { sites =>
+        IO.delay {
+          sites mustBe Seq("youtube", "vimeo")
+        }
+      }
+  }
+
+  "version with proxy" should "include --proxy flag in CLI command" in runIO {
+    val cliCommandRunner = mock[CliCommandRunner[IO]]
+    val client = mock[Client[IO]]
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, proxyConfig)
+
+    (cliCommandRunner.run _)
+      .expects("yt-dlp --no-warnings --proxy http://proxy.example.com:8080 --version")
+      .returns {
+        Stream.emit[IO, String]("2025.08.22")
+      }
+
+    youTubeVideoDownloader.version.flatMap { version =>
+      IO.delay {
+        version mustBe "2025.08.22"
+      }
+    }
+  }
+
+  "downloadVideo with proxy" should "include --proxy flag in CLI command" in runIO {
+    val cliCommandRunner = mock[CliCommandRunner[IO]]
+    val client = mock[Client[IO]]
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, proxyConfig)
+
+    val cliOutput =
+      """[download]   0.3% of   50.0MiB at     3.0MiB/s ETA 00:16
+        |[download]  100% of 50.0MiB at  3.0MiB/s ETA 00:00
+        |""".stripMargin
+
+    (cliCommandRunner.run _)
+      .expects(
+        """yt-dlp --no-warnings --proxy http://proxy.example.com:8080 -o "~/Downloads/proxy-video.%(ext)s" "https://www.youtube.com/watch?v=proxy1""""
+      )
+      .returns {
+        Stream.emits[IO, String] { cliOutput.split("\n") }
+      }
+
+    youTubeVideoDownloader
+      .downloadVideo(uri"https://www.youtube.com/watch?v=proxy1", "~/Downloads/proxy-video")
+      .compile
+      .toVector
+      .flatMap { progress =>
+        IO.delay {
+          progress must not be empty
+          progress.last.completed mustBe 100.0
+        }
+      }
+  }
+
+  "videoInformation with proxy" should "handle 404 errors the same as without proxy" in runIO {
+    val cliCommandRunner = mock[CliCommandRunner[IO]]
+    val client = mock[Client[IO]]
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, proxyConfig)
+
+    (cliCommandRunner.run _)
+      .expects("""yt-dlp --no-warnings --proxy http://proxy.example.com:8080 "https://www.youtube.com/watch?v=gone" -j""")
+      .returns {
+        Stream.raiseError[IO](CliCommandException("ERROR: HTTP Error 404: Not Found"))
+      }
+
+    youTubeVideoDownloader
+      .videoInformation(uri"https://www.youtube.com/watch?v=gone")
+      .attempt
+      .flatMap { result =>
+        IO.delay {
+          result.isLeft mustBe true
+          result.left.exists(_.isInstanceOf[ResourceNotFoundException]) mustBe true
+        }
+      }
+  }
+
+  it should "handle deleted video errors the same as without proxy" in runIO {
+    val cliCommandRunner = mock[CliCommandRunner[IO]]
+    val client = mock[Client[IO]]
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, proxyConfig)
+
+    (cliCommandRunner.run _)
+      .expects("""yt-dlp --no-warnings --proxy http://proxy.example.com:8080 "https://www.youtube.com/watch?v=removed" -j""")
+      .returns {
+        Stream.raiseError[IO](CliCommandException("ERROR: Unable to extract hash; video removed"))
+      }
+
+    youTubeVideoDownloader
+      .videoInformation(uri"https://www.youtube.com/watch?v=removed")
+      .attempt
+      .flatMap { result =>
+        IO.delay {
+          result.isLeft mustBe true
+          result.left.exists(_.isInstanceOf[ResourceNotFoundException]) mustBe true
+        }
+      }
+  }
+
+  "videoInformation with HTTPS proxy" should "use HTTPS proxy URL in CLI command" in runIO {
+    val cliCommandRunner = mock[CliCommandRunner[IO]]
+    val client = mock[Client[IO]]
+    val httpsProxyConfig = Some(HttpProxyConfiguration(uri"https://secure-proxy.corp.net:3128"))
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, httpsProxyConfig)
+
+    val cliOutput =
+      """{
+        |  "id": "sec123",
+        |  "title": "HTTPS Proxy Test",
+        |  "formats": [{"filesize": 1000}],
+        |  "duration": 60,
+        |  "extractor": "youtube",
+        |  "thumbnail": "https://i.ytimg.com/vi/sec123/default.jpg"
+        |}""".stripMargin
+
+    (cliCommandRunner.run _)
+      .expects("""yt-dlp --no-warnings --proxy https://secure-proxy.corp.net:3128 "https://www.youtube.com/watch?v=sec123" -j""")
+      .returns(Stream.emits[IO, String](cliOutput.split("\n")))
+
+    youTubeVideoDownloader
+      .videoInformation(uri"https://www.youtube.com/watch?v=sec123")
+      .flatMap { result =>
+        IO.delay {
+          result.title mustBe "HTTPS Proxy Test"
+        }
+      }
+  }
+
+  "videoInformation with proxy URL without port" should "still include --proxy flag with the proxy URL as-is" in runIO {
+    val cliCommandRunner = mock[CliCommandRunner[IO]]
+    val client = mock[Client[IO]]
+    val noPortProxyConfig = Some(HttpProxyConfiguration(uri"http://proxy.example.com"))
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, noPortProxyConfig)
+
+    val cliOutput =
+      """{
+        |  "id": "noport",
+        |  "title": "No Port Proxy Test",
+        |  "formats": [{"filesize": 1000}],
+        |  "duration": 30,
+        |  "extractor": "youtube",
+        |  "thumbnail": "https://example.com/thumb.jpg"
+        |}""".stripMargin
+
+    (cliCommandRunner.run _)
+      .expects("""yt-dlp --no-warnings --proxy http://proxy.example.com "https://www.youtube.com/watch?v=noport" -j""")
+      .returns(Stream.emits[IO, String](cliOutput.split("\n")))
+
+    youTubeVideoDownloader
+      .videoInformation(uri"https://www.youtube.com/watch?v=noport")
+      .flatMap { result =>
+        IO.delay {
+          result.title mustBe "No Port Proxy Test"
         }
       }
   }

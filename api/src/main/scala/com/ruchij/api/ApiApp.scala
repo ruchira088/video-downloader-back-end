@@ -70,11 +70,8 @@ import org.apache.tika.Tika
 import org.http4s.HttpApp
 import org.http4s.client.Client
 import org.http4s.ember.server.EmberServerBuilder
-import org.http4s.jdkhttpclient.JdkHttpClient
 import pureconfig.ConfigSource
 
-import java.net.http.HttpClient
-import java.net.http.HttpClient.Redirect
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
@@ -187,7 +184,7 @@ object ApiApp extends IOApp {
         apiServiceConfiguration.authenticationConfiguration.sessionDuration
       )
 
-    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](cliCommandRunner, client)
+    val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](cliCommandRunner, client, apiServiceConfiguration.httpProxyConfiguration)
 
     val spaSiteRenderer = new SpaSiteRendererImpl[F](client, apiServiceConfiguration.spaSiteRendererConfiguration)
 

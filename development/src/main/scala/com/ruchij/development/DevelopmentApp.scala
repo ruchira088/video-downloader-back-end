@@ -58,6 +58,9 @@ object DevelopmentApp extends IOApp {
   private val SentryConfig: SentryConfiguration =
     SentryConfiguration(None, "development", 1.0)
 
+  private val HttpProxyConfig: HttpProxyConfiguration =
+    HttpProxyConfiguration(uri"http://server.internal.ruchij.com:8888")
+
   private def apiConfig(
     databaseConfiguration: DatabaseConfiguration,
     redisConfiguration: RedisConfiguration,
@@ -77,7 +80,8 @@ object DevelopmentApp extends IOApp {
         Some(databaseConfiguration)
       ),
       spaSiteRendererConfiguration,
-      SentryConfig
+      SentryConfig,
+      Some(HttpProxyConfig)
     )
 
   private def batchConfig(
@@ -98,7 +102,8 @@ object DevelopmentApp extends IOApp {
       ),
       redisConfiguration,
       spaSiteRendererConfiguration,
-      SentryConfig
+      SentryConfig,
+      Some(HttpProxyConfig)
     )
 
   private val KeyStoreResource = "/localhost.jks"

@@ -55,12 +55,8 @@ import com.ruchij.core.utils.Clients
 import doobie.free.connection.ConnectionIO
 import fs2.io.file.Files
 import org.apache.tika.Tika
-import org.http4s.jdkhttpclient.JdkHttpClient
 import pureconfig.ConfigSource
 
-import java.net.http.HttpClient
-import java.net.http.HttpClient.Redirect
-import java.time.Duration
 import java.util.UUID
 
 object BatchApp extends IOApp {
@@ -109,7 +105,7 @@ object BatchApp extends IOApp {
 
           cliCommandRunner = new CliCommandRunnerImpl[F](dispatcher)
 
-          youtubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](cliCommandRunner, httpClient)
+          youtubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](cliCommandRunner, httpClient, batchServiceConfiguration.httpProxyConfiguration)
           spaSiteRenderer = new SpaSiteRendererImpl[F](
             httpClient,
             batchServiceConfiguration.spaSiteRendererConfiguration

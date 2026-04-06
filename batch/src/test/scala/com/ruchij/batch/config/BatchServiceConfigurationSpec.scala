@@ -1,7 +1,7 @@
 package com.ruchij.batch.config
 
 import cats.effect.IO
-import com.ruchij.core.config.{KafkaConfiguration, PubsubConfiguration, RedisConfiguration, SentryConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
+import com.ruchij.core.config.{HttpProxyConfiguration, KafkaConfiguration, PubsubConfiguration, RedisConfiguration, SentryConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
 import com.ruchij.core.messaging.PubSub.PubsubType
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.migration.config.DatabaseConfiguration
@@ -95,7 +95,8 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         PubsubConfiguration(PubsubType.Kafka, Some(KafkaConfiguration("local", "kafka-cluster:9092", uri"http://kafka-cluster:8081")), None, None),
         RedisConfiguration("localhost", 6379, Some("redis-password")),
         SpaSiteRendererConfiguration(uri"http://spa-renderer-service:8000"),
-        SentryConfiguration(Some("https://key@sentry.io/456"), "test", 0.5)
+        SentryConfiguration(Some("https://key@sentry.io/456"), "test", 0.5),
+        None
       )
 
     BatchServiceConfiguration.parse[IO](ConfigSource.string(configSource)).flatMap {
@@ -259,6 +260,241 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
           result.isLeft mustBe true
         }
       }
+  }
+
+  it should "parse with http-proxy-configuration present" in runIO {
+    val configSource =
+      s"""
+        worker-configuration {
+          owner = "test"
+          max-concurrent-downloads = 5
+          start-time = "00:00"
+          end-time = "00:00"
+        }
+
+        storage-configuration {
+          video-folder = "./videos"
+          image-folder = "./images"
+          other-video-folders = ""
+        }
+
+        database-configuration {
+          url = "jdbc:h2:mem:test"
+          user = ""
+          password = ""
+        }
+
+        redis-configuration {
+          hostname = "localhost"
+          port = 6379
+          password = ""
+        }
+
+        pubsub-configuration {
+          type = "Redis"
+
+          redis-configuration {
+            hostname = "localhost"
+            port = 6379
+            password = ""
+          }
+        }
+
+        spa-site-renderer-configuration {
+          uri = "http://spa-renderer:8000"
+        }
+
+        sentry-configuration {
+          environment = "test"
+          traces-sample-rate = 1.0
+        }
+
+        http-proxy-configuration {
+          proxy-url = "http://forward-proxy:3128"
+        }
+      """
+
+    BatchServiceConfiguration.parse[IO](ConfigSource.string(configSource)).flatMap { config =>
+      IO.delay {
+        config.httpProxyConfiguration mustBe Some(HttpProxyConfiguration(uri"http://forward-proxy:3128"))
+        config.httpProxyConfiguration.get.proxyUrl.host.map(_.renderString) mustBe Some("forward-proxy")
+        config.httpProxyConfiguration.get.proxyUrl.port mustBe Some(3128)
+      }
+    }
+  }
+
+  it should "parse with http-proxy-configuration absent as None" in runIO {
+    val configSource =
+      s"""
+        worker-configuration {
+          owner = "test"
+          max-concurrent-downloads = 5
+          start-time = "00:00"
+          end-time = "00:00"
+        }
+
+        storage-configuration {
+          video-folder = "./videos"
+          image-folder = "./images"
+          other-video-folders = ""
+        }
+
+        database-configuration {
+          url = "jdbc:h2:mem:test"
+          user = ""
+          password = ""
+        }
+
+        redis-configuration {
+          hostname = "localhost"
+          port = 6379
+          password = ""
+        }
+
+        pubsub-configuration {
+          type = "Redis"
+
+          redis-configuration {
+            hostname = "localhost"
+            port = 6379
+            password = ""
+          }
+        }
+
+        spa-site-renderer-configuration {
+          uri = "http://spa-renderer:8000"
+        }
+
+        sentry-configuration {
+          environment = "test"
+          traces-sample-rate = 1.0
+        }
+      """
+
+    BatchServiceConfiguration.parse[IO](ConfigSource.string(configSource)).flatMap { config =>
+      IO.delay {
+        config.httpProxyConfiguration mustBe None
+      }
+    }
+  }
+
+  it should "parse with http-proxy-configuration using IP address proxy" in runIO {
+    val configSource =
+      s"""
+        worker-configuration {
+          owner = "test"
+          max-concurrent-downloads = 5
+          start-time = "00:00"
+          end-time = "00:00"
+        }
+
+        storage-configuration {
+          video-folder = "./videos"
+          image-folder = "./images"
+          other-video-folders = ""
+        }
+
+        database-configuration {
+          url = "jdbc:h2:mem:test"
+          user = ""
+          password = ""
+        }
+
+        redis-configuration {
+          hostname = "localhost"
+          port = 6379
+          password = ""
+        }
+
+        pubsub-configuration {
+          type = "Redis"
+
+          redis-configuration {
+            hostname = "localhost"
+            port = 6379
+            password = ""
+          }
+        }
+
+        spa-site-renderer-configuration {
+          uri = "http://spa-renderer:8000"
+        }
+
+        sentry-configuration {
+          environment = "test"
+          traces-sample-rate = 1.0
+        }
+
+        http-proxy-configuration {
+          proxy-url = "http://10.0.0.50:8080"
+        }
+      """
+
+    BatchServiceConfiguration.parse[IO](ConfigSource.string(configSource)).flatMap { config =>
+      IO.delay {
+        config.httpProxyConfiguration mustBe Some(HttpProxyConfiguration(uri"http://10.0.0.50:8080"))
+        config.httpProxyConfiguration.get.proxyUrl.port mustBe Some(8080)
+      }
+    }
+  }
+
+  it should "fail to parse when http-proxy-configuration block is present but proxy-url is missing" in runIO {
+    val configSource =
+      s"""
+        worker-configuration {
+          owner = "test"
+          max-concurrent-downloads = 5
+          start-time = "00:00"
+          end-time = "00:00"
+        }
+
+        storage-configuration {
+          video-folder = "./videos"
+          image-folder = "./images"
+          other-video-folders = ""
+        }
+
+        database-configuration {
+          url = "jdbc:h2:mem:test"
+          user = ""
+          password = ""
+        }
+
+        redis-configuration {
+          hostname = "localhost"
+          port = 6379
+          password = ""
+        }
+
+        pubsub-configuration {
+          type = "Redis"
+
+          redis-configuration {
+            hostname = "localhost"
+            port = 6379
+            password = ""
+          }
+        }
+
+        spa-site-renderer-configuration {
+          uri = "http://spa-renderer:8000"
+        }
+
+        sentry-configuration {
+          environment = "test"
+          traces-sample-rate = 1.0
+        }
+
+        http-proxy-configuration {
+        }
+      """
+
+    BatchServiceConfiguration.parse[IO](ConfigSource.string(configSource)).attempt.flatMap { result =>
+      IO.delay {
+        result.isLeft mustBe true
+        result.left.exists(_.getMessage.contains("proxy-url")) mustBe true
+      }
+    }
   }
 
 }
