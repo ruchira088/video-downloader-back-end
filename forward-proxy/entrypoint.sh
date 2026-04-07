@@ -70,7 +70,7 @@ while ! ip link show tun0 > /dev/null 2>&1; do
 done
 echo "VPN tunnel is up (tun0 ready in ${WAITED}s)."
 
-# --- Fix routing: ensure Docker network traffic goes back via eth0, not VPN ---
+# --- Fix routing: ensure Docker/K8s traffic goes back via eth0, not VPN ---
 # OpenVPN pushes 0.0.0.0/1 and 128.0.0.0/1 via tun0 which captures return
 # traffic to Docker's port forwarding. We use policy routing to fix this:
 # any packet going back to the Docker subnet uses a separate routing table.
@@ -79,6 +79,15 @@ for subnet in ${DOCKER_SUBNETS}; do
   ip rule add from "${subnet}" table 100
   echo "Added policy route for subnet ${subnet}."
 done
+
+# Route cluster Service CIDR (where CoreDNS lives) via eth0 so that DNS
+# resolution continues to work even after the VPN tunnel drops and OpenVPN
+# needs to re-resolve the VPN server hostname.
+KUBE_DNS=$(awk '/^nameserver/ {print $2; exit}' /etc/resolv.conf)
+KUBE_SVC_CIDR="${KUBE_DNS%.*}.0/16"
+ip route add "${KUBE_SVC_CIDR}" via "${DEFAULT_GW}" dev "${DEFAULT_IF}" table 100
+ip rule add to "${KUBE_SVC_CIDR}" table 100
+echo "Added route for K8s Service CIDR ${KUBE_SVC_CIDR} via ${DEFAULT_IF}."
 
 # --- Verify connectivity through VPN ---
 sleep 2
