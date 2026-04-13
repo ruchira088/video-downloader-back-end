@@ -44,6 +44,22 @@ echo "$OPENVPN_USER" > /etc/openvpn/credentials.txt
 echo "$OPENVPN_PASS" >> /etc/openvpn/credentials.txt
 chmod 600 /etc/openvpn/credentials.txt
 
+# --- Pre-route ALL VPN server IPs via eth0 ---
+# The VPN hostname resolves to multiple IPs and remote-random picks one per
+# attempt. OpenVPN only adds a host route for the IP it connects to initially.
+# On reconnection to a different IP, traffic hits 0.0.0.0/1 via the dead tun0,
+# causing TLS handshake timeouts. Adding /32 routes for every resolved IP
+# ensures reconnection traffic always bypasses the VPN tunnel.
+VPN_HOST=$(awk '/^remote / {print $2; exit}' "$OVPN_FILE")
+if [ -n "$VPN_HOST" ]; then
+  echo "Resolving VPN server: ${VPN_HOST}"
+  VPN_IPS=$(getent ahosts "$VPN_HOST" 2>/dev/null | awk '{print $1}' | grep -E '^[0-9]+\.' | sort -u)
+  for ip in $VPN_IPS; do
+    ip route add "${ip}" via "${DEFAULT_GW}" dev "${DEFAULT_IF}" 2>/dev/null || true
+    echo "Pre-routed VPN server ${ip} via ${DEFAULT_IF}."
+  done
+fi
+
 # --- Start OpenVPN in the background ---
 echo "Starting OpenVPN..."
 openvpn \
