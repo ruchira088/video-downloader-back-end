@@ -3,7 +3,7 @@ import sbt.*
 object Dependencies
 {
   val ScalaVersion = "2.13.18"
-  private val Http4sVersion = "0.23.33"
+  private val Http4sVersion = "0.23.34"
   private val CirceVersion = "0.14.15"
   private val FlywayVersion = "12.3.0"
 
@@ -25,7 +25,7 @@ object Dependencies
 
   lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "8.2.0"
 
-  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.12.0"
+  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.13.0"
 
   lazy val circeGeneric = "io.circe" %% "circe-generic" % CirceVersion
 
@@ -89,7 +89,7 @@ object Dependencies
 
   lazy val pegdown = "org.pegdown" % "pegdown" % "1.6.0"
 
-  lazy val sentry = "io.sentry" % "sentry" % "8.37.1"
+  lazy val sentry = "io.sentry" % "sentry" % "8.38.0"
 
   lazy val perceptualHash = "dev.brachtendorf" % "JImageHash" % "1.0.0"
 }
