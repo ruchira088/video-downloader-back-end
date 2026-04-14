@@ -28,23 +28,28 @@ spec:
                 name: forward-proxy-data-config-map
             - secretRef:
                 name: forward-proxy-secrets
-          readinessProbe:
-            periodSeconds: 10
+          startupProbe:
+            periodSeconds: 5
             timeoutSeconds: 5
-            failureThreshold: 3
+            failureThreshold: 12
             tcpSocket:
               port: tiny-proxy-port
           livenessProbe:
             periodSeconds: 10
             timeoutSeconds: 5
-            tcpSocket:
-              port: tiny-proxy-port
-          startupProbe:
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 5
-            tcpSocket:
-              port: tiny-proxy-port
+            failureThreshold: 3
+            exec:
+              command:
+                - /healthcheck.sh
+                - liveness
+          readinessProbe:
+            periodSeconds: 15
+            timeoutSeconds: 15
+            failureThreshold: 3
+            exec:
+              command:
+                - /healthcheck.sh
+                - readiness
           ports:
             - name: tiny-proxy-port
               containerPort: 8888

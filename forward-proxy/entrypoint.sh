@@ -39,22 +39,31 @@ DEFAULT_IF=$(ip route | awk '/default/ {print $5}')
 DOCKER_SUBNETS=$(ip route | grep "dev ${DEFAULT_IF}" | grep -v default | awk '{print $1}')
 echo "Docker gateway: ${DEFAULT_GW} via ${DEFAULT_IF}, subnets: ${DOCKER_SUBNETS}"
 
+# --- Create policy routing table for eth0 (used throughout) ---
+ip route add default via "${DEFAULT_GW}" dev "${DEFAULT_IF}" table 100
+
 # --- Write credentials file ---
 echo "$OPENVPN_USER" > /etc/openvpn/credentials.txt
 echo "$OPENVPN_PASS" >> /etc/openvpn/credentials.txt
 chmod 600 /etc/openvpn/credentials.txt
 
-# --- Pre-route ALL VPN server IPs via eth0 ---
-# The VPN hostname resolves to multiple IPs and remote-random picks one per
-# attempt. OpenVPN only adds a host route for the IP it connects to initially.
-# On reconnection to a different IP, traffic hits 0.0.0.0/1 via the dead tun0,
-# causing TLS handshake timeouts. Adding /32 routes for every resolved IP
-# ensures reconnection traffic always bypasses the VPN tunnel.
+# --- Pre-route ALL VPN server IPs via policy routing ---
+# OpenVPN manages /32 host routes in the main table, deleting them on reconnect
+# to a different server IP.  Policy rules (ip rule) are immune to this — they
+# always direct VPN server traffic through table 100 (eth0), ensuring
+# reconnection works even after OpenVPN cleans up its own routes.
 VPN_HOST=$(awk '/^remote / {print $2; exit}' "$OVPN_FILE")
 if [ -n "$VPN_HOST" ]; then
   echo "Resolving VPN server: ${VPN_HOST}"
   VPN_IPS=$(getent ahosts "$VPN_HOST" 2>/dev/null | awk '{print $1}' | grep -E '^[0-9]+\.' | sort -u)
+  if [ -z "$VPN_IPS" ]; then
+    echo "ERROR: Could not resolve any IPv4 addresses for ${VPN_HOST}"
+    exit 1
+  fi
   for ip in $VPN_IPS; do
+    # Policy rule survives OpenVPN route management
+    ip rule add to "${ip}/32" table 100 prio 100 2>/dev/null || true
+    # Main-table /32 route as belt-and-suspenders (OpenVPN may delete these)
     ip route add "${ip}" via "${DEFAULT_GW}" dev "${DEFAULT_IF}" 2>/dev/null || true
     echo "Pre-routed VPN server ${ip} via ${DEFAULT_IF}."
   done
@@ -68,7 +77,11 @@ openvpn \
   --auth-nocache \
   --daemon \
   --log /var/log/openvpn.log \
-  --writepid /run/openvpn.pid
+  --writepid /run/openvpn.pid \
+  --connect-retry 5 \
+  --connect-retry-max 0 \
+  --resolv-retry infinite \
+  --server-poll-timeout 30
 
 # --- Wait for tunnel to come up ---
 echo "Waiting for VPN tunnel..."
@@ -90,7 +103,7 @@ echo "VPN tunnel is up (tun0 ready in ${WAITED}s)."
 # OpenVPN pushes 0.0.0.0/1 and 128.0.0.0/1 via tun0 which captures return
 # traffic to Docker's port forwarding. We use policy routing to fix this:
 # any packet going back to the Docker subnet uses a separate routing table.
-ip route add default via "${DEFAULT_GW}" dev "${DEFAULT_IF}" table 100
+# (Table 100 default route was already created before OpenVPN started.)
 for subnet in ${DOCKER_SUBNETS}; do
   ip rule add from "${subnet}" table 100
   echo "Added policy route for subnet ${subnet}."
