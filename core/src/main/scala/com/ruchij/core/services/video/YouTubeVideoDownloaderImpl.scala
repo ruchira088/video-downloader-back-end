@@ -137,11 +137,11 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](
                   .as(Left(timeoutException))
             }
         }
-        .collect {
-          case YTDownloaderProgress(progress) => progress
-        }
         .evalTap { _ =>
           ref.set(true)
+        }
+        .collect {
+          case YTDownloaderProgress(progress) => progress
         }
         .scan(
           YTDownloaderProgress(
