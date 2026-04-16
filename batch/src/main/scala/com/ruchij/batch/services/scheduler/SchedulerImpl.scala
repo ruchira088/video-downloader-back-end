@@ -233,9 +233,17 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
   private val duplicateDetection =
     Stream
       .eval {
-        logger.info[F]("Starting duplicate detection") *>
-          duplicateDetectionService.run *>
-          logger.info[F]("Duplicate detection completed")
+        logger.info[F]("Starting duplicate detection")
+          .productR {
+            MonadThrow[F].recoverWith {
+              duplicateDetectionService.run
+                .productL(logger.info[F]("Duplicate detection completed"))
+            } {
+              case exception =>
+                logger.error[F]("There was an error while duplicate detection", exception)
+            }
+
+          }
       }
       .delayBy(2 minute)
       .productL(Stream.sleep(15 minutes))
