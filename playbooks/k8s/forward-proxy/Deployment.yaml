@@ -23,6 +23,12 @@ spec:
             capabilities:
               add:
                 - NET_ADMIN
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
           envFrom:
             - configMapRef:
                 name: forward-proxy-data-config-map

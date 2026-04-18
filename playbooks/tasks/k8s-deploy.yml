@@ -8,7 +8,6 @@
     k8s_vars:
       production:
         aws_ssm_k8s_config: /infrastructure/prod/k8s/config
-        api_replicas: 2
         host_path_mappings:
           - host_path: /media/disk/video-downloader/production/videos
             pod_mount_path: /home/disk/videos
@@ -20,7 +19,6 @@
             pod_mount_path: /home/images
       development:
         aws_ssm_k8s_config: /infrastructure/dev/k8s/config
-        api_replicas: 1
         host_path_mappings:
           - host_path: /media/disk/video-downloader/development/videos
             pod_mount_path: /home/disk/videos
@@ -32,7 +30,6 @@
             pod_mount_path: /home/images
 
 - set_fact:
-    api_replicas: "{{ k8s_vars[env].api_replicas }}"
     aws_ssm_k8s_config: "{{ k8s_vars[env].aws_ssm_k8s_config }}"
     host_path_mappings: "{{ k8s_vars[env].host_path_mappings }}"
     ghcr_credentials: "{{ lookup('aws_ssm', '/github/ghcr/docker-config', region='ap-southeast-2') }}"

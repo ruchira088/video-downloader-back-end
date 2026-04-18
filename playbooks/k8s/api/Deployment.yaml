@@ -8,7 +8,6 @@ spec:
     matchLabels:
       app: api
       branch: "{{ git_branch }}"
-  replicas: {{ api_replicas }}
   template:
     metadata:
       labels:
@@ -20,6 +19,12 @@ spec:
       containers:
         - name: api-container
           image: "ghcr.io/ruchira088/video-downloader-api:{{ git_branch }}-{{ git_commit }}"
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              memory: 2Gi
           envFrom:
             - configMapRef:
                 name: api-data-config-map
