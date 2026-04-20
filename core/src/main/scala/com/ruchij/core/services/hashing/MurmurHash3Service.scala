@@ -8,6 +8,6 @@ class MurmurHash3Service[F[_]: Sync] extends HashingService[F] {
   override def hash(value: String): F[String] =
     Sync[F]
       .delay[String] {
-        Integer.toHexString(MurmurHash3.stringHash(value))
+        Integer.toUnsignedString(MurmurHash3.stringHash(value), Character.MAX_RADIX)
       }
 }

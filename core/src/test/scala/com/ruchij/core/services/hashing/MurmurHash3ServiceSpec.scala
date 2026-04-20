@@ -1,6 +1,7 @@
 package com.ruchij.core.services.hashing
 
 import cats.effect.IO
+import cats.implicits._
 import com.ruchij.core.test.IOSupport.runIO
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -9,7 +10,7 @@ class MurmurHash3ServiceSpec extends AnyFlatSpec with Matchers {
 
   private val hashingService = new MurmurHash3Service[IO]
 
-  "hash" should "produce a consistent hex hash for the same input" in runIO {
+  "hash" should "produce a consistent base-36 hash for the same input" in runIO {
     for {
       hash1 <- hashingService.hash("test-string")
       hash2 <- hashingService.hash("test-string")
@@ -27,9 +28,9 @@ class MurmurHash3ServiceSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  it should "produce a hex string output" in runIO {
+  it should "produce a base-36 string output" in runIO {
     hashingService.hash("any-value").map { hash =>
-      hash.matches("[0-9a-f]+") mustBe true
+      hash.matches("[0-9a-z]+") mustBe true
     }
   }
 
@@ -41,7 +42,7 @@ class MurmurHash3ServiceSpec extends AnyFlatSpec with Matchers {
 
   it should "handle unicode characters" in runIO {
     hashingService.hash("日本語テスト").map { hash =>
-      hash.matches("[0-9a-f]+") mustBe true
+      hash.matches("[0-9a-z]+") mustBe true
     }
   }
 
@@ -50,5 +51,23 @@ class MurmurHash3ServiceSpec extends AnyFlatSpec with Matchers {
     hashingService.hash(longString).map { hash =>
       hash.nonEmpty mustBe true
     }
+  }
+
+  it should "produce expected hashes for known inputs" in runIO {
+    val cases =
+      List(
+        "test-string" -> "kghjl6",
+        "input-1" -> "1p5ebad",
+        "input-2" -> "128bs6x",
+        "" -> "690apk",
+        "日本語テスト" -> "1ucb30p",
+        "hello" -> "7rsgl2"
+      )
+
+    cases.traverse { case (input, expected) =>
+      hashingService.hash(input).map { actual =>
+        actual mustBe expected
+      }
+    }.map(_ => succeed)
   }
 }
