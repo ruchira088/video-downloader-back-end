@@ -2,7 +2,7 @@ package com.ruchij.core.services.video
 
 import cats.data.OptionT
 import cats.effect.std.Dispatcher
-import cats.effect.{Async, IO, Sync}
+import cats.effect.{Async, IO, Ref, Resource, Sync}
 import cats.implicits._
 import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.resource.FileResourceDao
@@ -12,16 +12,22 @@ import com.ruchij.core.daos.videometadata.models.VideoSite.YTDownloaderSite
 import com.ruchij.core.external.containers.SpaRendererContainer
 import com.ruchij.core.services.cli.{CliCommandRunner, CliCommandRunnerImpl}
 import com.ruchij.core.services.download.DownloadService
+import com.ruchij.core.services.download.models.DownloadResult
 import com.ruchij.core.services.hashing.HashingService
-import com.ruchij.core.services.renderer.SpaSiteRendererImpl
+import com.ruchij.core.services.renderer.{SpaSiteRenderer, SpaSiteRendererImpl}
+import com.ruchij.core.services.video.VideoAnalysisService.NewlyCreated
 import com.ruchij.core.services.video.models.VideoAnalysisResult
 import com.ruchij.core.test.IOSupport.runIO
+import com.ruchij.core.test.Providers
+import com.ruchij.core.test.data.CoreTestData
 import com.ruchij.core.test.matchers.matchCaseInsensitivelyTo
 import com.ruchij.core.types.Clock
 import com.ruchij.core.types.FunctionKTypes.identityFunctionK
+import fs2.Stream
+import org.http4s.client.Client
 import org.http4s.implicits.http4sLiteralsSyntax
 import org.http4s.jdkhttpclient.JdkHttpClient
-import org.http4s.{Query, Uri}
+import org.http4s.{HttpApp, MediaType, Query, Uri}
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -146,6 +152,156 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
           videoAnalysisResult.videoSite mustBe YTDownloaderSite("youtube")
         }
     }.value
+  }
+
+  "metadata(uri: Uri) when no existing video metadata is found" should
+    "persist the thumbnail and the video metadata in a single transaction and return NewlyCreated" in runIO {
+    val hashingService = mock[HashingService[IO]]
+    val downloadService = mock[DownloadService[IO]]
+    val youTubeVideoDownloader = mock[YouTubeVideoDownloader[IO]]
+    val videoMetadataDao = mock[VideoMetadataDao[IO]]
+    val fileResourceDao = mock[FileResourceDao[IO]]
+
+    val videoUri = uri"https://www.youtube.com/watch?v=abc123"
+
+    val analysisResult =
+      VideoAnalysisResult(
+        url = videoUri,
+        videoSite = YTDownloaderSite("youtube"),
+        title = "Sample title",
+        duration = 5 minutes,
+        size = 1000000L,
+        thumbnail = uri"https://example.com/thumb.jpg"
+      )
+
+    (videoMetadataDao.findByUrl _).expects(videoUri).returns(IO.pure(None))
+    (youTubeVideoDownloader.videoInformation _).expects(videoUri).returns(IO.pure(analysisResult))
+    (hashingService.hash _).expects(*).returns(IO.pure("hash")).anyNumberOfTimes()
+
+    val downloadResult =
+      DownloadResult.create[IO](
+        analysisResult.thumbnail,
+        downloadedFileKey = "downloaded-key",
+        size = 100L,
+        mediaType = MediaType.image.jpeg
+      )(Stream.empty)
+
+    (downloadService.download _)
+      .expects(*, *)
+      .returns(Resource.pure[IO, DownloadResult[IO]](downloadResult))
+
+    (fileResourceDao.insert _).expects(*).returns(IO.pure(1)).once()
+    (videoMetadataDao.insert _).expects(*).returns(IO.pure(1)).once()
+
+    val service =
+      buildService(hashingService, downloadService, youTubeVideoDownloader, videoMetadataDao, fileResourceDao)
+
+    service.metadata(videoUri).flatMap {
+      case NewlyCreated(metadata) =>
+        IO.delay {
+          metadata.url mustBe videoUri
+          metadata.title mustBe "Sample title"
+          metadata.size mustBe 1000000L
+          metadata.duration mustBe (5 minutes)
+          metadata.videoSite mustBe YTDownloaderSite("youtube")
+        }
+
+      case other =>
+        IO.raiseError(new AssertionError(s"Expected NewlyCreated, got $other"))
+    }
+  }
+
+  it should "propagate the failure raised by the database transaction without retrying " +
+    "(current `throwables = List(classOf[Exception])` config makes retry a no-op for any Exception)" in runIO {
+    val hashingService = mock[HashingService[IO]]
+    val downloadService = mock[DownloadService[IO]]
+    val youTubeVideoDownloader = mock[YouTubeVideoDownloader[IO]]
+    val videoMetadataDao = mock[VideoMetadataDao[IO]]
+    val fileResourceDao = mock[FileResourceDao[IO]]
+
+    val videoUri = uri"https://www.youtube.com/watch?v=fail"
+
+    val analysisResult =
+      VideoAnalysisResult(
+        url = videoUri,
+        videoSite = YTDownloaderSite("youtube"),
+        title = "Failing title",
+        duration = 1 minute,
+        size = 500L,
+        thumbnail = uri"https://example.com/thumb-fail.jpg"
+      )
+
+    (videoMetadataDao.findByUrl _).expects(videoUri).returns(IO.pure(None))
+    (youTubeVideoDownloader.videoInformation _).expects(videoUri).returns(IO.pure(analysisResult))
+    (hashingService.hash _).expects(*).returns(IO.pure("hash")).anyNumberOfTimes()
+
+    val downloadResult =
+      DownloadResult.create[IO](
+        analysisResult.thumbnail,
+        downloadedFileKey = "downloaded-key",
+        size = 100L,
+        mediaType = MediaType.image.jpeg
+      )(Stream.empty)
+
+    (downloadService.download _)
+      .expects(*, *)
+      .returns(Resource.pure[IO, DownloadResult[IO]](downloadResult))
+
+    val dbError = new RuntimeException("simulated DB failure")
+
+    Ref.of[IO, Int](0).flatMap { fileInsertEvaluations =>
+      // The mock returns a single IO that, every time it is evaluated, increments the counter
+      // and then raises `dbError`. This lets us count *runtime evaluations* (which retries
+      // increase) rather than *mock invocations* (which happen once at IO construction).
+      (fileResourceDao.insert _)
+        .expects(*)
+        .returns(fileInsertEvaluations.update(_ + 1) *> IO.raiseError[Int](dbError))
+        .once()
+
+      // `videoMetadataDao.insert(videoMetadata)` is invoked at IO construction so that
+      // `productR` has an IO node to compose, even though its body is never evaluated
+      // (the failing left-hand side short-circuits `*>`).
+      (videoMetadataDao.insert _).expects(*).returns(IO.pure(1)).once()
+
+      val service =
+        buildService(hashingService, downloadService, youTubeVideoDownloader, videoMetadataDao, fileResourceDao)
+
+      for {
+        result <- service.metadata(videoUri).attempt
+        evaluations <- fileInsertEvaluations.get
+        _ <- IO.delay {
+          result.left.toOption mustBe Some(dbError)
+          evaluations mustBe 1
+        }
+      } yield ()
+    }
+  }
+
+  private def buildService(
+    hashingService: HashingService[IO],
+    downloadService: DownloadService[IO],
+    youTubeVideoDownloader: YouTubeVideoDownloader[IO],
+    videoMetadataDao: VideoMetadataDao[IO],
+    fileResourceDao: FileResourceDao[IO]
+  ): VideoAnalysisServiceImpl[IO, IO] = {
+    val client: Client[IO] = Client.fromHttpApp[IO](HttpApp.notFound[IO])
+    val spaSiteRenderer = mock[SpaSiteRenderer[IO]]
+    val cliCommandRunner = mock[CliCommandRunner[IO]]
+    val storageConfiguration = StorageConfiguration("video-folder", "image-folder", List.empty)
+
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](CoreTestData.Timestamp)
+
+    new VideoAnalysisServiceImpl[IO, IO](
+      hashingService,
+      downloadService,
+      youTubeVideoDownloader,
+      client,
+      spaSiteRenderer,
+      cliCommandRunner,
+      videoMetadataDao,
+      fileResourceDao,
+      storageConfiguration
+    )
   }
 
   private def isCI[F[_]: Sync]: F[Boolean] =

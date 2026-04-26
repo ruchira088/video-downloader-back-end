@@ -101,11 +101,19 @@ class VideoAnalysisServiceImpl[F[_]: Async: Clock, T[_]: Monad](
 
       videoMetadata = VideoMetadata(processedUri, videoId, videoSite, title, duration, size, thumbnail)
 
-      _ <- transaction {
-        fileResourceDao
-          .insert(thumbnail)
-          .productR(videoMetadataDao.insert(videoMetadata))
-      }
+      _ <-
+        runWithRetry(
+          retryCount = 3,
+          timeout = FiniteDuration(5, TimeUnit.SECONDS),
+          throwables = List(classOf[Exception]),
+          _.toString
+        ) {
+          transaction {
+            fileResourceDao
+              .insert(thumbnail)
+              .productR(videoMetadataDao.insert(videoMetadata))
+          }
+        }
     } yield videoMetadata
 
   override def analyze(uri: Uri): F[VideoAnalysisResult] =
