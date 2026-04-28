@@ -1,7 +1,7 @@
 package com.ruchij.core.services.video
 
 import cats.data.Kleisli
-import cats.effect.{Async, Concurrent, Sync}
+import cats.effect.{Async, Concurrent, MonadCancelThrow, Sync}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, Monad, MonadError, ~>}
 import com.ruchij.core.config.StorageConfiguration
@@ -102,18 +102,29 @@ class VideoAnalysisServiceImpl[F[_]: Async: Clock, T[_]: Monad](
       videoMetadata = VideoMetadata(processedUri, videoId, videoSite, title, duration, size, thumbnail)
 
       _ <-
-        runWithRetry(
-          retryCount = 3,
-          timeout = FiniteDuration(5, TimeUnit.SECONDS),
-          throwables = List(classOf[Exception]),
-          _.toString
-        ) {
+        MonadCancelThrow[F].recoverWith {
           transaction {
             fileResourceDao
               .insert(thumbnail)
               .productR(videoMetadataDao.insert(videoMetadata))
           }
+        } {
+          case exception =>
+            runWithRetry(
+              retryCount = 1,
+              timeout = FiniteDuration(3, TimeUnit.SECONDS),
+              throwables = List(classOf[Exception]),
+              failureMessage = _.getMessage
+            ) {
+              transaction { videoMetadataDao.findByUrl(videoMetadata.url) }
+                .flatMap {
+                  case None => MonadCancelThrow[F].raiseError(exception)
+                  case _ => Applicative[F].pure(0)
+                }
+            }
         }
+
+
     } yield videoMetadata
 
   override def analyze(uri: Uri): F[VideoAnalysisResult] =

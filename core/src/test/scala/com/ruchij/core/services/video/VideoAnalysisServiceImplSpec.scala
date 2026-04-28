@@ -6,8 +6,9 @@ import cats.effect.{Async, IO, Ref, Resource, Sync}
 import cats.implicits._
 import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.resource.FileResourceDao
+import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
-import com.ruchij.core.daos.videometadata.models.CustomVideoSite
+import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata}
 import com.ruchij.core.daos.videometadata.models.VideoSite.YTDownloaderSite
 import com.ruchij.core.external.containers.SpaRendererContainer
 import com.ruchij.core.services.cli.{CliCommandRunner, CliCommandRunnerImpl}
@@ -211,8 +212,8 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
     }
   }
 
-  it should "propagate the failure raised by the database transaction without retrying " +
-    "(current `throwables = List(classOf[Exception])` config makes retry a no-op for any Exception)" in runIO {
+  it should "re-raise the original failure when the persistence transaction fails " +
+    "and the recovery lookup confirms the row was not persisted" in runIO {
     val hashingService = mock[HashingService[IO]]
     val downloadService = mock[DownloadService[IO]]
     val youTubeVideoDownloader = mock[YouTubeVideoDownloader[IO]]
@@ -231,7 +232,10 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
         thumbnail = uri"https://example.com/thumb-fail.jpg"
       )
 
-    (videoMetadataDao.findByUrl _).expects(videoUri).returns(IO.pure(None))
+    // Called twice: up-front existence check, then recovery lookup after the
+    // persistence transaction fails. Both return None, so the original error
+    // is re-raised.
+    (videoMetadataDao.findByUrl _).expects(videoUri).returns(IO.pure(None)).twice()
     (youTubeVideoDownloader.videoInformation _).expects(videoUri).returns(IO.pure(analysisResult))
     (hashingService.hash _).expects(*).returns(IO.pure("hash")).anyNumberOfTimes()
 
@@ -252,7 +256,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
     Ref.of[IO, Int](0).flatMap { fileInsertEvaluations =>
       // The mock returns a single IO that, every time it is evaluated, increments the counter
       // and then raises `dbError`. This lets us count *runtime evaluations* (which retries
-      // increase) rather than *mock invocations* (which happen once at IO construction).
+      // would increase) rather than *mock invocations* (which happen once at IO construction).
       (fileResourceDao.insert _)
         .expects(*)
         .returns(fileInsertEvaluations.update(_ + 1) *> IO.raiseError[Int](dbError))
@@ -274,6 +278,153 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
           evaluations mustBe 1
         }
       } yield ()
+    }
+  }
+
+  it should "swallow the persistence failure and return NewlyCreated when the recovery lookup " +
+    "finds the row (concurrent insert race)" in runIO {
+    val hashingService = mock[HashingService[IO]]
+    val downloadService = mock[DownloadService[IO]]
+    val youTubeVideoDownloader = mock[YouTubeVideoDownloader[IO]]
+    val videoMetadataDao = mock[VideoMetadataDao[IO]]
+    val fileResourceDao = mock[FileResourceDao[IO]]
+
+    val videoUri = uri"https://www.youtube.com/watch?v=race"
+
+    val analysisResult =
+      VideoAnalysisResult(
+        url = videoUri,
+        videoSite = YTDownloaderSite("youtube"),
+        title = "Race title",
+        duration = 2 minutes,
+        size = 1234L,
+        thumbnail = uri"https://example.com/thumb-race.jpg"
+      )
+
+    val concurrentlyPersisted = VideoMetadata(
+      url = videoUri,
+      id = "youtube-race",
+      videoSite = YTDownloaderSite("youtube"),
+      title = "Race title (persisted by concurrent writer)",
+      duration = 2 minutes,
+      size = 1234L,
+      thumbnail = FileResource(
+        id = "thumbnail-race",
+        createdAt = CoreTestData.Timestamp,
+        path = "image-folder/thumb-race.jpg",
+        mediaType = MediaType.image.jpeg,
+        size = 100L
+      )
+    )
+
+    // Models the race: the up-front existence check sees no row, but between
+    // then and the persistence transaction, a concurrent writer commits. The
+    // transaction fails (e.g. unique-constraint violation) and the recovery
+    // lookup now finds the row, which the new logic interprets as "the
+    // desired persisted state has been reached" and swallows the error.
+    inSequence {
+      (videoMetadataDao.findByUrl _).expects(videoUri).returns(IO.pure(None)).once()
+      (videoMetadataDao.findByUrl _).expects(videoUri).returns(IO.pure(Some(concurrentlyPersisted))).once()
+    }
+
+    (youTubeVideoDownloader.videoInformation _).expects(videoUri).returns(IO.pure(analysisResult))
+    (hashingService.hash _).expects(*).returns(IO.pure("hash")).anyNumberOfTimes()
+
+    val downloadResult =
+      DownloadResult.create[IO](
+        analysisResult.thumbnail,
+        downloadedFileKey = "downloaded-key",
+        size = 100L,
+        mediaType = MediaType.image.jpeg
+      )(Stream.empty)
+
+    (downloadService.download _)
+      .expects(*, *)
+      .returns(Resource.pure[IO, DownloadResult[IO]](downloadResult))
+
+    val dbError = new RuntimeException("simulated unique-constraint violation")
+
+    (fileResourceDao.insert _).expects(*).returns(IO.raiseError[Int](dbError)).once()
+    (videoMetadataDao.insert _).expects(*).returns(IO.pure(1)).once()
+
+    val service =
+      buildService(hashingService, downloadService, youTubeVideoDownloader, videoMetadataDao, fileResourceDao)
+
+    service.metadata(videoUri).flatMap {
+      case NewlyCreated(metadata) =>
+        IO.delay {
+          // The locally-built VideoMetadata is what gets returned, *not* the row
+          // returned by findByUrl — the recovery lookup is only used to confirm
+          // that persistence succeeded somewhere.
+          metadata.url mustBe videoUri
+          metadata.title mustBe "Race title"
+          metadata.duration mustBe (2 minutes)
+          metadata.size mustBe 1234L
+          metadata.videoSite mustBe YTDownloaderSite("youtube")
+        }
+
+      case other =>
+        IO.raiseError(new AssertionError(s"Expected NewlyCreated, got $other"))
+    }
+  }
+
+  it should "propagate the recovery lookup error (and lose the original DB error) " +
+    "when the recovery findByUrl itself fails" in runIO {
+    val hashingService = mock[HashingService[IO]]
+    val downloadService = mock[DownloadService[IO]]
+    val youTubeVideoDownloader = mock[YouTubeVideoDownloader[IO]]
+    val videoMetadataDao = mock[VideoMetadataDao[IO]]
+    val fileResourceDao = mock[FileResourceDao[IO]]
+
+    val videoUri = uri"https://www.youtube.com/watch?v=lookup-fails"
+
+    val analysisResult =
+      VideoAnalysisResult(
+        url = videoUri,
+        videoSite = YTDownloaderSite("youtube"),
+        title = "Lookup fails title",
+        duration = 1 minute,
+        size = 500L,
+        thumbnail = uri"https://example.com/thumb.jpg"
+      )
+
+    val dbError = new RuntimeException("simulated DB failure during insert")
+    val lookupError = new RuntimeException("simulated DB failure during recovery lookup")
+
+    // Up-front existence check returns None (so we proceed to createMetadata),
+    // and the recovery lookup itself fails. The recovery error is what surfaces
+    // — the original `dbError` is lost because the recovery branch only re-raises
+    // the original on a `None` result, not on a lookup failure.
+    inSequence {
+      (videoMetadataDao.findByUrl _).expects(videoUri).returns(IO.pure(None)).once()
+      (videoMetadataDao.findByUrl _).expects(videoUri).returns(IO.raiseError[Option[VideoMetadata]](lookupError)).once()
+    }
+
+    (youTubeVideoDownloader.videoInformation _).expects(videoUri).returns(IO.pure(analysisResult))
+    (hashingService.hash _).expects(*).returns(IO.pure("hash")).anyNumberOfTimes()
+
+    val downloadResult =
+      DownloadResult.create[IO](
+        analysisResult.thumbnail,
+        downloadedFileKey = "downloaded-key",
+        size = 100L,
+        mediaType = MediaType.image.jpeg
+      )(Stream.empty)
+
+    (downloadService.download _)
+      .expects(*, *)
+      .returns(Resource.pure[IO, DownloadResult[IO]](downloadResult))
+
+    (fileResourceDao.insert _).expects(*).returns(IO.raiseError[Int](dbError)).once()
+    (videoMetadataDao.insert _).expects(*).returns(IO.pure(1)).once()
+
+    val service =
+      buildService(hashingService, downloadService, youTubeVideoDownloader, videoMetadataDao, fileResourceDao)
+
+    service.metadata(videoUri).attempt.flatMap { result =>
+      IO.delay {
+        result.left.toOption mustBe Some(lookupError)
+      }
     }
   }
 
