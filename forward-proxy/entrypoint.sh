@@ -33,6 +33,14 @@ echo "Using VPN config: ${OVPN_FILE}"
 mkdir -p /dev/net
 [ -c /dev/net/tun ] || mknod /dev/net/tun c 10 200
 
+# --- Reset prior routing state ---
+# Kubernetes preserves the pod's network namespace across container restarts,
+# so any routes/rules added by a prior run of this script persist into the
+# next run.  Without this reset, `ip route add ... table 100` below fails
+# with "RTNETLINK answers: File exists" and `set -e` aborts the script.
+ip route flush table 100 2>/dev/null || true
+while ip rule del table 100 2>/dev/null; do :; done
+
 # --- Save Docker network info before VPN overwrites routes ---
 DEFAULT_GW=$(ip route | awk '/default/ {print $3}')
 DEFAULT_IF=$(ip route | awk '/default/ {print $5}')
