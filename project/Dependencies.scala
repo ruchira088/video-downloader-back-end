@@ -49,7 +49,7 @@ object Dependencies
 
   lazy val flywayPostgresql = "org.flywaydb" % "flyway-database-postgresql"  % FlywayVersion
 
-  lazy val postgresql = "org.postgresql" % "postgresql" % "42.7.10"
+  lazy val postgresql = "org.postgresql" % "postgresql" % "42.7.11"
 
   lazy val h2 = "com.h2database" % "h2" % "2.4.240"
 
