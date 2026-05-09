@@ -1,5 +1,6 @@
 package com.ruchij.batch
 
+import cats.Parallel
 import cats.effect._
 import cats.effect.kernel.Async
 import cats.effect.std.Dispatcher
@@ -86,7 +87,7 @@ object BatchApp extends IOApp {
         }
     } yield ExitCode.Success
 
-  def program[F[_]: Async: Clock: Files](
+  def program[F[_]: Async: Parallel: Clock: Files](
     batchServiceConfiguration: BatchServiceConfiguration
   ): Resource[F, Scheduler[F]] =
     DoobieTransactor

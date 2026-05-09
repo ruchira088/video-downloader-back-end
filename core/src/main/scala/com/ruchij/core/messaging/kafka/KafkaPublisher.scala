@@ -1,5 +1,6 @@
 package com.ruchij.core.messaging.kafka
 
+import cats.Parallel
 import cats.effect.{Async, Resource, Sync}
 import cats.implicits._
 import com.ruchij.core.config.KafkaConfiguration
@@ -8,7 +9,7 @@ import com.ruchij.core.messaging.{MessagingTopic, Publisher}
 import fs2.kafka._
 import fs2.{Pipe, Stream}
 
-class KafkaPublisher[F[_]: Sync, A](topicName: String, kafkaProducer: KafkaProducer.Metrics[F, Unit, A])
+class KafkaPublisher[F[_]: Sync, A](topicName: String, kafkaProducer: KafkaProducer[F, Unit, A])
     extends Publisher[F, A] {
 
   private val logger = Logger[KafkaPublisher[F, A]]
@@ -35,7 +36,7 @@ class KafkaPublisher[F[_]: Sync, A](topicName: String, kafkaProducer: KafkaProdu
 }
 
 object KafkaPublisher {
-  def apply[F[_]: Async, A](kafkaConfiguration: KafkaConfiguration)(
+  def apply[F[_]: Async: Parallel, A](kafkaConfiguration: KafkaConfiguration)(
     implicit topic: MessagingTopic[A]
   ): Resource[F, KafkaPublisher[F, A]] =
     KafkaProducer.resource {

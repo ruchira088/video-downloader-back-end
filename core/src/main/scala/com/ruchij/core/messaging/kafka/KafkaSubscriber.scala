@@ -1,5 +1,6 @@
 package com.ruchij.core.messaging.kafka
 
+import cats.Parallel
 import cats.effect.Async
 import cats.implicits._
 import cats.{Foldable, Functor}
@@ -10,7 +11,7 @@ import com.ruchij.core.messaging.models.CommittableRecord
 import fs2.Stream
 import fs2.kafka._
 
-class KafkaSubscriber[F[_]: Async, A](kafkaConfiguration: KafkaConfiguration)(implicit topic: MessagingTopic[A])
+class KafkaSubscriber[F[_]: Async: Parallel, A](kafkaConfiguration: KafkaConfiguration)(implicit topic: MessagingTopic[A])
     extends Subscriber[F, A] {
   override type C[X] = CommittableRecord[CommittableConsumerRecord[F, Unit, *], X]
 
@@ -34,7 +35,7 @@ class KafkaSubscriber[F[_]: Async, A](kafkaConfiguration: KafkaConfiguration)(im
             _.stream.evalMap { committableConsumerRecord =>
               logger
                 .trace[F](
-                  s"Received: topic=${committableConsumerRecord.record.topic}, consumerGroupId=${committableConsumerRecord.offset.consumerGroupId}, value=${committableConsumerRecord.record.value}"
+                  s"Received: topic=${committableConsumerRecord.record.topic}, value=${committableConsumerRecord.record.value}"
                 )
                 .as {
                   CommittableRecord(committableConsumerRecord.record.value, committableConsumerRecord)

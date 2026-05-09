@@ -1,6 +1,7 @@
 package com.ruchij.development
 
 import cats.ApplicativeError
+import cats.Parallel
 import cats.data.OptionT
 import cats.effect._
 import cats.implicits._
@@ -138,7 +139,7 @@ object DevelopmentApp extends IOApp {
         } yield ExitCode.Success
       }
 
-  private def program[F[_]: Async: Clock: Files: Compression](
+  private def program[F[_]: Async: Parallel: Clock: Files: Compression](
     externalApiServiceProvider: ApiResourcesProvider[F]
   ): Resource[F, (HttpApp[F], Scheduler[F])] =
     for {

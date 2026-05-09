@@ -1,5 +1,6 @@
 package com.ruchij.api
 
+import cats.Parallel
 import cats.effect._
 import cats.effect.kernel.Async
 import cats.effect.std.Dispatcher
@@ -105,7 +106,7 @@ object ApiApp extends IOApp {
         .use(_ => IO.never)
     } yield ExitCode.Success
 
-  def create[F[_]: Async: Clock: Files: Compression](
+  def create[F[_]: Async: Parallel: Clock: Files: Compression](
     apiServiceConfiguration: ApiServiceConfiguration
   ): Resource[F, HttpApp[F]] =
     for {

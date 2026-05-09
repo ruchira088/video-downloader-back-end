@@ -1,5 +1,6 @@
 package com.ruchij.core.messaging
 
+import cats.Parallel
 import cats.effect.kernel.Resource
 import cats.effect.{Async, MonadCancelThrow}
 import cats.{Foldable, Functor}
@@ -43,7 +44,7 @@ object PubSub {
       override def extractValue(ca: subscriber.C[A]): A = subscriber.extractValue(ca)
     }
 
-  def apply[F[_]: Async: Clock, A: MessagingTopic](
+  def apply[F[_]: Async: Parallel: Clock, A: MessagingTopic](
     pubsubConfiguration: PubsubConfiguration,
   ): Resource[F, PubSub[F, A]] =
     pubsubConfiguration.pubsubType match {

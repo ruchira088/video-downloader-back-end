@@ -1,11 +1,12 @@
 package com.ruchij.core.messaging.kafka
 
+import cats.Parallel
 import cats.effect.{Async, Resource}
 import com.ruchij.core.config.KafkaConfiguration
 import com.ruchij.core.messaging.{MessagingTopic, PubSub}
 
 object KafkaPubSub {
-  def apply[F[_]: Async, A](kafkaConfiguration: KafkaConfiguration)(
+  def apply[F[_]: Async: Parallel, A](kafkaConfiguration: KafkaConfiguration)(
     implicit kafkaTopic: MessagingTopic[A]
   ): Resource[F, PubSub[F, A]] =
     for {
