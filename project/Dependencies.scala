@@ -5,7 +5,7 @@ object Dependencies
   val ScalaVersion = "2.13.18"
   private val Http4sVersion = "0.23.34"
   private val CirceVersion = "0.14.15"
-  private val FlywayVersion = "12.5.0"
+  private val FlywayVersion = "12.6.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -89,7 +89,7 @@ object Dependencies
 
   lazy val pegdown = "org.pegdown" % "pegdown" % "1.6.0"
 
-  lazy val sentry = "io.sentry" % "sentry" % "8.40.0"
+  lazy val sentry = "io.sentry" % "sentry" % "8.41.0"
 
   lazy val perceptualHash = "dev.brachtendorf" % "JImageHash" % "1.0.0"
 }
