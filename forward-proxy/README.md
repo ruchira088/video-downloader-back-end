@@ -23,26 +23,31 @@ LAN client ──► host:8888 ──► Tinyproxy ──► OpenVPN tunnel ─�
 
 ### 2. Configure
 
+> **Note:** The credentials file and VPN configs live in the **repository root** (the
+> parent of this directory), not inside `forward-proxy/`. This lets the root
+> `docker-compose.yml` and this directory's compose file share the same configuration.
+> `docker-compose.yml` here references them as `../.env.docker-compose` and `../.vpn-config`.
+
 ```bash
-cp .env.example .env
+cp .env.example ../.env.docker-compose
 ```
 
-Edit `.env` with your OpenVPN credentials:
+Edit `../.env.docker-compose` with your OpenVPN credentials:
 
 ```
 OPENVPN_USER=your_openvpn_username
 OPENVPN_PASS=your_openvpn_password
 ```
 
-Place your downloaded `.ovpn` files in `vpn-config/`, named by country:
+Place your downloaded `.ovpn` files in the root `../.vpn-config/` directory, named by country:
 
 ```bash
-cp ~/Downloads/my_expressvpn_usa_-_new_york.ovpn vpn-config/usa.ovpn
-cp ~/Downloads/my_expressvpn_uk_-_london.ovpn vpn-config/uk.ovpn
-cp ~/Downloads/my_expressvpn_japan_-_tokyo.ovpn vpn-config/japan.ovpn
+cp ~/Downloads/my_expressvpn_usa_-_new_york.ovpn ../.vpn-config/usa.ovpn
+cp ~/Downloads/my_expressvpn_uk_-_london.ovpn ../.vpn-config/uk.ovpn
+cp ~/Downloads/my_expressvpn_japan_-_tokyo.ovpn ../.vpn-config/japan.ovpn
 ```
 
-Set which country to use in `.env`:
+Set which country to use in `../.env.docker-compose`:
 
 ```
 VPN_COUNTRY=usa
@@ -71,14 +76,14 @@ export https_proxy=http://192.168.1.100:8888
 
 ## Switching VPN locations
 
-Change the `VPN_COUNTRY` variable in `.env` and restart:
+Change the `VPN_COUNTRY` variable in `../.env.docker-compose` and restart:
 
 ```bash
-# Edit .env: VPN_COUNTRY=uk
+# Edit ../.env.docker-compose: VPN_COUNTRY=uk
 docker compose restart
 ```
 
-Or override inline without editing `.env`:
+Or override inline without editing `../.env.docker-compose`:
 
 ```bash
 VPN_COUNTRY=japan docker compose up -d
@@ -92,7 +97,11 @@ VPN_COUNTRY=japan docker compose up -d
 |---|---|---|---|
 | `OPENVPN_USER` | Yes | — | OpenVPN username from ExpressVPN manual setup page |
 | `OPENVPN_PASS` | Yes | — | OpenVPN password from ExpressVPN manual setup page |
-| `VPN_COUNTRY` | No | *(first file found)* | Country config to use — matches filename in `vpn-config/` without `.ovpn` (e.g. `usa`, `uk`, `japan`) |
+| `VPN_COUNTRY` | No | *(first file found)* | Country config to use — matches filename in `../.vpn-config/` without `.ovpn` (e.g. `usa`, `uk`, `japan`) |
+
+Both `OPENVPN_USER`/`OPENVPN_PASS` (from `../.env.docker-compose`) and the `.ovpn`
+files (from `../.vpn-config/`) are sourced from the repository root and mounted into
+the container at `/etc/openvpn/configs`.
 
 ### Tinyproxy
 
@@ -123,8 +132,8 @@ docker compose down
 
 ## Security notes
 
-- The `.env` file contains your VPN credentials and is excluded from git via `.gitignore`.
-- The `vpn-config/` directory may contain sensitive `.ovpn` files and is also excluded from git.
+- The root `.env.docker-compose` file contains your VPN credentials and must be excluded from git via the repository-root `.gitignore`.
+- The root `.vpn-config/` directory contains sensitive `.ovpn` files and must also be excluded from git.
 - The proxy allows all RFC 1918 private ranges by default. Restrict the `Allow` directives in `tinyproxy.conf` if you need tighter access control.
 - IPv6 is disabled inside the container to prevent traffic leaking outside the VPN tunnel.
 - VPN credentials are written to a file inside the container at runtime and are not baked into the image.

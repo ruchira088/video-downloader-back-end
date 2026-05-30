@@ -74,6 +74,7 @@ video-downloader-back-end/
 ├── docker-compose/               # Docker Compose orchestration
 ├── playbooks/                    # Ansible deployment automation
 ├── nginx/                        # Nginx reverse proxy configuration
+├── forward-proxy/                # ExpressVPN/OpenVPN forward proxy (see forward-proxy/README.md)
 ├── terraform/                    # Infrastructure as Code (AWS)
 │
 ├── build.sbt                     # Main build definition
@@ -110,6 +111,12 @@ docker-compose up -d
 ```
 
 This starts all services including PostgreSQL, Redis, Kafka, and the API/Batch applications.
+
+The bundled `forward-proxy` service routes traffic through an ExpressVPN/OpenVPN tunnel.
+It reads its credentials from `.env.docker-compose` and its `.ovpn` configs from
+`.vpn-config/` in the repository root — the same files are shared with
+`forward-proxy/docker-compose.yml`. Both contain secrets and must be gitignored. See
+[`forward-proxy/README.md`](forward-proxy/README.md) for setup details.
 
 **Option 2: Development Mode (All Services in One JVM)**
 
@@ -327,6 +334,7 @@ The `docker-compose.yml` orchestrates the following services:
 | Zookeeper | 2181 | Kafka coordination |
 | Kpow | 3000 | Kafka monitoring UI |
 | Nginx | 80, 443 | Load balancer / reverse proxy |
+| Forward Proxy | 8888 | ExpressVPN/OpenVPN forward proxy |
 
 ### Building Docker Images
 

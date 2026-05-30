@@ -19,4 +19,5 @@ video-downloader.trace.db
 
 *.log
 
-.kpow.env
+.env.docker-compose
+.vpn-config

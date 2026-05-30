@@ -9,9 +9,9 @@ services:
     devices:
       - /dev/net/tun:/dev/net/tun
     env_file:
-      - .env
+      - ../.env.docker-compose
     volumes:
-      - ./vpn-config:/etc/openvpn/configs:ro
+      - ../.vpn-config:/etc/openvpn/configs:ro
     ports:
       - "8888:8888"
     dns:
