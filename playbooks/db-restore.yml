@@ -22,7 +22,7 @@
         publish: true
 
     - set_fact:
-        job_id: "{{ git_branch }}-{{ ansible_date_time.iso8601_basic_short | lower }}"
+        job_id: "{{ git_branch }}-{{ ansible_facts['date_time']['iso8601_basic_short'] | lower }}"
         config_values:
           DATABASE_URL: "{{ database_url }}"
           S3_DB_BACKUP_FILE: "{{ s3_db_backup_file }}"

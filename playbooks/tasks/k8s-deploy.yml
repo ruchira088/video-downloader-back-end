@@ -89,7 +89,7 @@
           block:
             - name: Set DB snapshot job name
               set_fact:
-                snapshot_job_name: "db-backup-job-{{ git_commit }}-{{ ansible_date_time.iso8601_basic_short | lower }}"
+                snapshot_job_name: "db-backup-job-{{ git_commit }}-{{ ansible_facts['date_time']['iso8601_basic_short'] | lower }}"
 
             - name: Run DB backup job
               command: |

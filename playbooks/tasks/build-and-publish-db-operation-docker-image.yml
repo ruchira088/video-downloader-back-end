@@ -15,7 +15,7 @@
     src: docker/apps/Dockerfile-db-{{ db_operation }}.j2
     dest: docker-output/Dockerfile-db-{{ db_operation }}
   vars:
-    build_timestamp: "{{ ansible_date_time.iso8601 }}"
+    build_timestamp: "{{ ansible_facts['date_time']['iso8601'] }}"
 
 - name: Login to GitHub container registry
   command: docker login ghcr.io -u USERNAME -p {{ access_token }}
