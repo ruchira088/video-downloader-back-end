@@ -158,7 +158,7 @@ keytool -importkeystore \
 ```bash
 mkcert -key-file key.pem \
   -cert-file cert.pem \
-  localhost "api.localhost"
+  localhost "api.localhost" "spa-renderer.localhost"
 ```
 
 Copy `key.pem` and `cert.pem` to `nginx/ssl/`
