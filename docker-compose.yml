@@ -161,11 +161,6 @@ services:
     ports:
       - "6379:6379"
 
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.9.3
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-
   kafka-broker:
     image: confluentinc/cp-kafka:7.9.3
     ports:
@@ -176,17 +171,22 @@ services:
       interval: 5s
       timeout: 2s
       retries: 10
-    depends_on:
-      - zookeeper
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka-broker:29092,EXTERNAL://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      # KRaft mode (no Zookeeper), matching the k3s deployment. Single combined
+      # broker + controller node.
+      CLUSTER_ID: RxX1R00ISL2-Pak2610-GA
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-broker:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka-broker:29092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
     volumes:
       - "./docker-compose/scripts:/opt/scripts"
 
@@ -208,18 +208,17 @@ services:
     volumes:
       - "./docker-compose/scripts:/opt/scripts"
 
-  kpow:
-    image: factorhouse/kpow-ce:95.1
+  redpanda-console:
+    image: redpandadata/console:v2.8.5
     ports:
-      - "3000:3000"
+      - "3000:8080"
     depends_on:
       schema-registry:
         condition: service_healthy
-    env_file:
-      - .kpow.env
     environment:
-      BOOTSTRAP: kafka-broker:29092
-      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      KAFKA_BROKERS: "kafka-broker:29092"
+      KAFKA_SCHEMAREGISTRY_ENABLED: "true"
+      KAFKA_SCHEMAREGISTRY_URLS: "http://schema-registry:8081"
 
   front-end-1: &front-end
     image: ghcr.io/ruchira088/video-downloader-front-end:main
