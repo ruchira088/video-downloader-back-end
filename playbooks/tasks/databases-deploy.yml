@@ -1,0 +1,107 @@
+- name: Gather git information
+  import_tasks: tasks/git-info.yml
+
+- name: Install dependencies
+  import_tasks: tasks/install-dependencies.yml
+
+- set_fact:
+    aws_ssm_k8s_config: "{{ '/infrastructure/prod/k8s/config' if env == 'production' else '/infrastructure/dev/k8s/config' }}"
+
+- name: Set database config values and secrets
+  set_fact:
+    databases:
+      postgres:
+        config_values:
+          POSTGRES_DB: video-downloader
+        secrets:
+          POSTGRES_USER: "{{ lookup('aws_ssm', '/video-downloader/' + env + '/database/user', region='ap-southeast-2') }}"
+          POSTGRES_PASSWORD: "{{ lookup('aws_ssm', '/video-downloader/' + env + '/database/password', region='ap-southeast-2') }}"
+      redis:
+        secrets:
+          REDIS_PASSWORD: "{{ lookup('aws_ssm', '/video-downloader/' + env + '/redis/password', region='ap-southeast-2') }}"
+
+- name: Create output directory
+  block:
+    - set_fact:
+        k8s_output_dir: .k8s-output
+
+    - name: Delete existing output directory
+      file:
+        path: "{{ k8s_output_dir }}"
+        state: absent
+
+    - name: Create output directory
+      file:
+        path: "{{ k8s_output_dir }}/{{ item }}"
+        state: directory
+      loop:
+        - ""
+        - postgres
+        - redis
+
+- name: Render K8s resource files
+  block:
+    - name: Render Namespace
+      template:
+        src: k8s/Namespace.yaml
+        dest: "{{ k8s_output_dir }}/Namespace.yaml"
+
+    - name: Render Postgres resource files
+      template:
+        src: "{{ item }}"
+        dest: "{{ k8s_output_dir }}/postgres/{{ item | basename }}"
+      with_fileglob:
+        - k8s/postgres/*.yaml
+
+    - name: Render Redis resource files
+      template:
+        src: "{{ item }}"
+        dest: "{{ k8s_output_dir }}/redis/{{ item | basename }}"
+      with_fileglob:
+        - k8s/redis/*.yaml
+
+- name: Set kube_config
+  block:
+    - name: Set kubeconfig file location
+      set_fact:
+        kubeconfig: "{{ k8s_output_dir }}/kubeconfig"
+
+    - name: Create K8s config file
+      copy:
+        dest: "{{ kubeconfig }}"
+        content: "{{ lookup('aws_ssm', aws_ssm_k8s_config, region='ap-southeast-2') }}"
+
+- name: Deploy K8s resources
+  block:
+    - name: Create Namespace
+      command: "kubectl apply -f {{ k8s_output_dir }}/Namespace.yaml --kubeconfig {{ kubeconfig }}"
+
+    - name: Deploy Postgres
+      block:
+        - name: Create ConfigMap
+          command: "kubectl apply -f {{ k8s_output_dir }}/postgres/ConfigMap.yaml --kubeconfig {{ kubeconfig }}"
+
+        - name: Create Secrets
+          command: "kubectl apply -f {{ k8s_output_dir }}/postgres/Secrets.yaml --kubeconfig {{ kubeconfig }}"
+
+        - name: Deploy StatefulSet and Service
+          command: "kubectl apply -f {{ k8s_output_dir }}/postgres --kubeconfig {{ kubeconfig }}"
+
+        - name: Wait for successful Postgres deployment
+          command: "kubectl rollout status statefulset postgres --kubeconfig {{ kubeconfig }} -n {{ k8s_namespace }}"
+
+    - name: Deploy Redis
+      block:
+        - name: Create Secrets
+          command: "kubectl apply -f {{ k8s_output_dir }}/redis/Secrets.yaml --kubeconfig {{ kubeconfig }}"
+
+        - name: Deploy StatefulSet and Service
+          command: "kubectl apply -f {{ k8s_output_dir }}/redis --kubeconfig {{ kubeconfig }}"
+
+        - name: Wait for successful Redis deployment
+          command: "kubectl rollout status statefulset redis --kubeconfig {{ kubeconfig }} -n {{ k8s_namespace }}"
+
+- name: Clean up output directory
+  file:
+    path: "{{ k8s_output_dir }}"
+    state: absent

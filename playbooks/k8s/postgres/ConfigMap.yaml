@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config-map
+  namespace: "{{ k8s_namespace }}"
+data:
+{% for key, value in databases.postgres.config_values.items() %}
+  "{{ key }}": "{{ value }}"
+{% endfor %}

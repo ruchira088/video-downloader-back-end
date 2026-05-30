@@ -9,5 +9,8 @@
         env: development
         sentry_env: staging
 
+    - name: Deploy databases
+      import_tasks: tasks/databases-deploy.yml
+
     - name: Deploy to staging
       import_tasks: tasks/k8s-deploy.yml

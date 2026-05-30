@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: "{{ k8s_namespace }}"
+spec:
+  selector:
+    app: postgres
+    branch: "{{ git_branch }}"
+  ports:
+    - name: postgres-port
+      port: 5432
+      targetPort: 5432
