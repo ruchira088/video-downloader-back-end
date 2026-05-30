@@ -5,7 +5,7 @@ object Dependencies
   val ScalaVersion = "2.13.18"
   private val Http4sVersion = "0.23.34"
   private val CirceVersion = "0.14.15"
-  private val FlywayVersion = "12.6.1"
+  private val FlywayVersion = "12.7.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -53,7 +53,7 @@ object Dependencies
 
   lazy val h2 = "com.h2database" % "h2" % "2.4.240"
 
-  lazy val apacheTika = "org.apache.tika" % "tika-core" % "3.3.0"
+  lazy val apacheTika = "org.apache.tika" % "tika-core" % "3.3.1"
 
   lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "2.0.3"
 
@@ -73,7 +73,7 @@ object Dependencies
 
   lazy val redisTestContainer = "com.redis" % "testcontainers-redis" % "2.2.4"
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.32"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.33"
 
   lazy val logstashLogbackEncoder = "net.logstash.logback" % "logstash-logback-encoder" % "9.0"
 
@@ -89,7 +89,7 @@ object Dependencies
 
   lazy val pegdown = "org.pegdown" % "pegdown" % "1.6.0"
 
-  lazy val sentry = "io.sentry" % "sentry" % "8.41.0"
+  lazy val sentry = "io.sentry" % "sentry" % "8.43.0"
 
   lazy val perceptualHash = "dev.brachtendorf" % "JImageHash" % "1.0.0"
 }
