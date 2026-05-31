@@ -10,8 +10,6 @@ project/project
 
 .DS_Store
 
-playbooks/k8s-output
-playbooks/docker-output
 .terraform*
 
 video-downloader.mv.db

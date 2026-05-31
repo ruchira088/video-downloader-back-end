@@ -1,2 +1,3 @@
 .k8s-output
+.k8s-db-restore-output
 .docker-output
