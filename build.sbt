@@ -28,7 +28,20 @@ Global / concurrentRestrictions := Seq(
   Tags.limit(Tags.Compile, 4)
 )
 
-Global / excludeLintKeys ++= Set(maintainer)
+Global / excludeLintKeys ++= Set(
+  maintainer,
+  Test / testForkedParallel,
+  Debian / executableScriptName,
+  Debian / sourceDirectory,
+  Rpm / daemonStdoutLogFile,
+  Rpm / executableScriptName,
+  Rpm / name,
+  Rpm / sourceDirectory,
+  rpmScriptsDirectory,
+  Universal / executableScriptName,
+  UniversalDocs / name,
+  UniversalSrc / name
+)
 
 lazy val migrationApplication =
   (project in file("./migration-application"))
