@@ -26,6 +26,24 @@
 - name: Clean and build sbt project
   shell: cd ../ && sbt "clean; {{ sbt_project }}/Universal/packageZipTarball"
 
+- name: Locate the packaged tarball
+  find:
+    paths: "{{ playbook_dir }}/../target/out"
+    patterns: "video-downloader-{{ app_name }}-*.tgz"
+    recurse: true
+  register: packaged_tarball
+
+- name: Fail if the packaged tarball was not found
+  assert:
+    that: packaged_tarball.matched > 0
+    fail_msg: "Could not find video-downloader-{{ app_name }}-*.tgz under target/out"
+
+- name: Copy the packaged tarball into the Docker build context
+  copy:
+    src: "{{ (packaged_tarball.files | sort(attribute='mtime') | last).path }}"
+    dest: "{{ docker_output_dir }}/"
+    remote_src: true
+
 - name: Generate the Dockerfile
   template:
     src: docker/apps/{{ docker_file }}
@@ -45,7 +63,7 @@
       -f {{ docker_output_dir }}/Dockerfile-{{ app_name }} \
       -t ghcr.io/ruchira088/video-downloader-{{ app_name }}:{{ git_branch }} \
       -t ghcr.io/ruchira088/video-downloader-{{ app_name }}:{{ git_branch }}-{{ git_commit }} \
-      ../{{ app_name }}/target/universal/
+      {{ docker_output_dir }}
 
 - name: Build and publish Docker image
   when: publish
@@ -57,7 +75,7 @@
       -t ghcr.io/ruchira088/video-downloader-{{ app_name }}:{{ git_branch }} \
       -t ghcr.io/ruchira088/video-downloader-{{ app_name }}:{{ git_branch }}-{{ git_commit }} \
       -f {{ docker_output_dir }}/Dockerfile-{{ app_name }} \
-      ../{{ app_name }}/target/universal/
+      {{ docker_output_dir }}
 
 - name: Clean up output directory
   file:
