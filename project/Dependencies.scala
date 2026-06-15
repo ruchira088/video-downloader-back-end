@@ -93,7 +93,7 @@ object Dependencies
 
   lazy val perceptualHash = "dev.brachtendorf" % "JImageHash" % "1.0.0"
 
-  lazy val logging = Seq(scalaLogging, logbackClassic, logstashLogbackEncoder)
+  lazy val logging: Seq[ModuleID] = Seq(scalaLogging, logbackClassic, logstashLogbackEncoder)
 
-  lazy val circe = Seq(circeGeneric, circeParser)
+  lazy val circe: Seq[ModuleID] = Seq(circeGeneric, circeParser)
 }
