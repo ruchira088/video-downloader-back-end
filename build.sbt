@@ -2,26 +2,20 @@ import Dependencies.*
 
 import java.awt.Desktop
 import java.time.Instant
-import scala.language.postfixOps
 import scala.sys.process.*
 import scala.util.Try
 
-inThisBuild {
-  Seq(
-    organization := "com.ruchij",
-    scalaVersion := Dependencies.ScalaVersion,
-    maintainer := "me@ruchij.com",
-    scalacOptions ++= Seq(
-      "-deprecation", "-feature", "-unchecked", "-Xfatal-warnings", "-Xlint"
-    ),
-    resolvers ++= Seq("Confluent" at "https://packages.confluent.io/maven/", "jitpack" at "https://jitpack.io"),
-    addCompilerPlugin(kindProjector),
-    addCompilerPlugin(betterMonadicFor),
-    Test / testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-u", "target/test-reports"),
-    Test / parallelExecution := true,
-    Test / testForkedParallel := true
-  )
-}
+// sbt 2: bare settings are common settings, injected into every subproject.
+organization := "com.ruchij"
+scalaVersion := Dependencies.ScalaVersion
+maintainer := "me@ruchij.com"
+scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-Xfatal-warnings", "-Xlint")
+resolvers ++= Seq("Confluent" at "https://packages.confluent.io/maven/", "jitpack" at "https://jitpack.io")
+addCompilerPlugin(kindProjector)
+addCompilerPlugin(betterMonadicFor)
+Test / testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-u", "target/test-reports")
+Test / parallelExecution := true
+Test / testForkedParallel := true
 
 Global / concurrentRestrictions := Seq(
   Tags.limit(Tags.Test, 4),
@@ -44,26 +38,10 @@ Global / excludeLintKeys ++= Set(
 )
 
 lazy val migrationApplication =
-  (project in file("./migration-application"))
-    .enablePlugins(BuildInfoPlugin, JavaAppPackaging)
+  packagedApp("migrationApplication", "./migration-application", "com.eed3si9n.ruchij.migration")
     .settings(
-      name := "video-downloader-migration-application",
-      buildInfoKeys :=
-        Seq[BuildInfoKey](name, organization, scalaVersion, sbtVersion, buildTimestamp, gitBranch, gitCommit),
-      buildInfoPackage := "com.eed3si9n.ruchij.migration",
-      topLevelDirectory := None,
-      Universal / javaOptions ++= Seq("-Dlogback.configurationFile=/opt/data/logback.xml"),
-      libraryDependencies ++= Seq(
-        catsEffect,
-        flywayCore,
-        flywayPostgresql,
-        h2,
-        postgresql,
-        pureconfig,
-        scalaLogging,
-        logbackClassic,
-        logstashLogbackEncoder
-      ),
+      libraryDependencies ++=
+        Seq(catsEffect, flywayCore, flywayPostgresql, h2, postgresql, pureconfig) ++ logging,
       libraryDependencies ++= Seq(scalaTest).map(_ % Test)
     )
 
@@ -75,8 +53,6 @@ lazy val core =
       libraryDependencies ++=
         Seq(
           catsEffect,
-          circeGeneric,
-          circeParser,
           http4sJdkHttpClient,
           http4sDsl,
           http4sCirce,
@@ -95,9 +71,6 @@ lazy val core =
           redis4CatsEffects,
           redis4catsStreams,
           jsoup,
-          scalaLogging,
-          logbackClassic,
-          logstashLogbackEncoder,
           embeddedRedis,
           embeddedKafkaSchemaRegistry,
           testContainers,
@@ -106,42 +79,24 @@ lazy val core =
           redisTestContainer,
           sentry,
           perceptualHash
-        ) ++
+        ) ++ logging ++ circe ++
           Seq(scalaTest, scalaMock).map(_ % Test)
     )
     .dependsOn(migrationApplication)
 
 lazy val api =
-  (project in file("./api"))
-    .enablePlugins(BuildInfoPlugin, JavaAppPackaging)
+  packagedApp("api", "./api", "com.eed3si9n.ruchij.api")
     .settings(
       Test / fork := true,
-      name := "video-downloader-api",
-      buildInfoKeys :=
-        Seq[BuildInfoKey](name, organization, scalaVersion, sbtVersion, buildTimestamp, gitBranch, gitCommit),
-      buildInfoPackage := "com.eed3si9n.ruchij.api",
-      topLevelDirectory := None,
-      Universal / javaOptions ++= Seq("-Dlogback.configurationFile=/opt/data/logback.xml"),
       libraryDependencies ++=
-        Seq(http4sEmberServer, circeGeneric, circeParser, postgresql, pureconfig, jbcrypt, logbackClassic) ++ Seq(
-          circeLiteral, pegdown
-        ).map(_ % Test)
+        Seq(http4sEmberServer, postgresql, pureconfig, jbcrypt, logbackClassic) ++ circe ++
+          Seq(circeLiteral, pegdown).map(_ % Test)
     )
     .dependsOn(core % "compile->compile;test->test")
 
 lazy val batch =
-  (project in file("./batch"))
-    .enablePlugins(BuildInfoPlugin, JavaAppPackaging)
-    .settings(
-      name := "video-downloader-batch",
-      buildInfoKeys :=
-        Seq[BuildInfoKey](name, organization, scalaVersion, sbtVersion, buildTimestamp, gitBranch, gitCommit),
-      buildInfoPackage := "com.eed3si9n.ruchij.batch",
-      topLevelDirectory := None,
-      Universal / javaOptions ++= Seq("-Dlogback.configurationFile=/opt/data/logback.xml"),
-      libraryDependencies ++=
-        Seq(postgresql) ++ Seq(pegdown).map(_ % Test)
-    )
+  packagedApp("batch", "./batch", "com.eed3si9n.ruchij.batch")
+    .settings(libraryDependencies ++= Seq(postgresql) ++ Seq(pegdown).map(_ % Test))
     .dependsOn(core % "compile->compile;test->test")
 
 lazy val development =
@@ -163,9 +118,24 @@ lazy val buildTimestamp = BuildInfoKey.action("buildTimestamp") { Instant.now() 
 lazy val gitBranch = BuildInfoKey.action("gitBranch") { runGitCommand("git rev-parse --abbrev-ref HEAD") }
 lazy val gitCommit = BuildInfoKey.action("gitCommit") { runGitCommand("git rev-parse --short HEAD") }
 
-def runGitCommand(command: String): Option[String] = {
-  Try(command !!).toOption.map(_.trim).filter(_.nonEmpty)
-}
+def runGitCommand(command: String): Option[String] =
+  Try(Process(command).!!).toOption.map(_.trim).filter(_.nonEmpty)
+
+lazy val commonBuildInfoKeys =
+  Seq[BuildInfoKey](name, organization, scalaVersion, sbtVersion, buildTimestamp, gitBranch, gitCommit)
+
+lazy val logbackJavaOptions = Seq("-Dlogback.configurationFile=/opt/data/logback.xml")
+
+def packagedApp(id: String, dir: String, buildInfoPackageName: String): Project =
+  Project(id, file(dir))
+    .enablePlugins(BuildInfoPlugin, JavaAppPackaging)
+    .settings(
+      name := s"video-downloader-${file(dir).getName}",
+      buildInfoKeys := commonBuildInfoKeys,
+      buildInfoPackage := buildInfoPackageName,
+      topLevelDirectory := None,
+      Universal / javaOptions ++= logbackJavaOptions
+    )
 
 addCommandAlias("cleanCompile", "clean; compile;")
 addCommandAlias("cleanTest", "clean; test;")

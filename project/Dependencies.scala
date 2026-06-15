@@ -92,4 +92,8 @@ object Dependencies
   lazy val sentry = "io.sentry" % "sentry" % "8.43.2"
 
   lazy val perceptualHash = "dev.brachtendorf" % "JImageHash" % "1.0.0"
+
+  lazy val logging = Seq(scalaLogging, logbackClassic, logstashLogbackEncoder)
+
+  lazy val circe = Seq(circeGeneric, circeParser)
 }
