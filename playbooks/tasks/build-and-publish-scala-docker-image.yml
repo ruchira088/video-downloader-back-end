@@ -24,7 +24,7 @@
         state: directory
 
 - name: Clean and build sbt project
-  shell: cd ../ && sbt clean {{ sbt_project }}/Universal/packageZipTarball
+  shell: cd ../ && sbt "clean; {{ sbt_project }}/Universal/packageZipTarball"
 
 - name: Generate the Dockerfile
   template:
