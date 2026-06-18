@@ -20,15 +20,15 @@ A Scala-based backend system for managing video downloads, scheduling, and strea
 | Category | Technology |
 |----------|------------|
 | Language | Scala 2.13.18 |
-| Build Tool | sbt 1.12.8 |
+| Build Tool | sbt 2.0.0 |
 | Runtime | Java 25 (Eclipse Temurin) |
-| Web Framework | HTTP4s 0.23.33 |
+| Web Framework | HTTP4s 0.23.34 |
 | Effect System | Cats Effect 3.7.0 |
 | JSON | Circe 0.14.15 |
 | Database Access | Doobie 1.0.0-RC12 |
 | Database | PostgreSQL 17 |
-| Migrations | Flyway 12.3.0 |
-| Messaging | Apache Kafka 8.2.0 / Redis Streams / PostgreSQL (Doobie) |
+| Migrations | Flyway 12.9.0 |
+| Messaging | Apache Kafka 8.3.0-ccs / Redis Streams / PostgreSQL (Doobie) |
 | Caching | Redis 8 |
 | Configuration | PureConfig 0.17.10 |
 | Testing | ScalaTest 3.2.20, ScalaMock 7.5.5 |
@@ -36,7 +36,7 @@ A Scala-based backend system for managing video downloads, scheduling, and strea
 ## Prerequisites
 
 - JDK 25 (Eclipse Temurin recommended)
-- sbt 1.12.8
+- sbt 2.0.0
 - Docker & Docker Compose (for full stack deployment)
 - ffmpeg
 - yt-dlp (`pip install yt-dlp`)
@@ -261,7 +261,7 @@ For the complete API specification, see [openapi.yaml](openapi.yaml).
 
 ### Schema
 
-The database schema is managed through 33 Flyway migration scripts located in `migration-application/src/main/resources/db/migration/`.
+The database schema is managed through 39 Flyway migration scripts located in `migration-application/src/main/resources/db/migration/`.
 
 Key tables include:
 - `file_resource` - File metadata storage
@@ -329,12 +329,13 @@ The `docker-compose.yml` orchestrates the following services:
 | Batch (x3) | - | Batch processing workers |
 | PostgreSQL | 5432 | Primary database |
 | Redis | 6379 | Cache layer |
-| Kafka | 9092 | Message broker (default pubsub backend) |
+| Kafka | 9092 | Message broker (KRaft mode, default pubsub backend) |
 | Schema Registry | 8081 | Avro schema management |
-| Zookeeper | 2181 | Kafka coordination |
-| Kpow | 3000 | Kafka monitoring UI |
-| Nginx | 80, 443 | Load balancer / reverse proxy |
+| Redpanda Console | 3000 | Kafka monitoring UI |
+| Nginx (load balancer) | 80, 443 | Load balancer / reverse proxy |
 | Forward Proxy | 8888 | ExpressVPN/OpenVPN forward proxy |
+| SPA Renderer | - | Server-side rendering for the front-end SPA |
+| Front End | - | Web UI |
 
 ### Building Docker Images
 
