@@ -4,8 +4,8 @@ object Dependencies
 {
   val ScalaVersion = "2.13.18"
   private val Http4sVersion = "0.23.34"
-  private val CirceVersion = "0.14.15"
-  private val FlywayVersion = "12.9.0"
+  private val CirceVersion = "0.14.16"
+  private val FlywayVersion = "12.10.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -49,21 +49,21 @@ object Dependencies
 
   lazy val flywayPostgresql = "org.flywaydb" % "flyway-database-postgresql"  % FlywayVersion
 
-  lazy val postgresql = "org.postgresql" % "postgresql" % "42.7.11"
+  lazy val postgresql = "org.postgresql" % "postgresql" % "42.7.12"
 
   lazy val h2 = "com.h2database" % "h2" % "2.4.240"
 
   lazy val apacheTika = "org.apache.tika" % "tika-core" % "3.3.1"
 
-  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "2.0.4"
+  lazy val redis4CatsEffects = "dev.profunktor" %% "redis4cats-effects" % "2.0.5"
 
-  lazy val redis4catsStreams = "dev.profunktor" %% "redis4cats-streams" % "2.0.4"
+  lazy val redis4catsStreams = "dev.profunktor" %% "redis4cats-streams" % "2.0.5"
 
   lazy val jbcrypt = "org.mindrot" % "jbcrypt" % "0.4"
 
   lazy val embeddedRedis = "com.github.kstyrc" % "embedded-redis" % "0.6"
 
-  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "8.2.0"
+  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "8.3.0"
 
   lazy val testContainers = "org.testcontainers" % "testcontainers" % "2.0.5"
 
@@ -73,7 +73,7 @@ object Dependencies
 
   lazy val redisTestContainer = "com.redis" % "testcontainers-redis" % "2.2.4"
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.34"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.5.37"
 
   lazy val logstashLogbackEncoder = "net.logstash.logback" % "logstash-logback-encoder" % "9.0"
 
@@ -89,7 +89,7 @@ object Dependencies
 
   lazy val pegdown = "org.pegdown" % "pegdown" % "1.6.0"
 
-  lazy val sentry = "io.sentry" % "sentry" % "8.44.1"
+  lazy val sentry = "io.sentry" % "sentry" % "8.46.0"
 
   lazy val perceptualHash = "dev.brachtendorf" % "JImageHash" % "1.0.0"
 
