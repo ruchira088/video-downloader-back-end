@@ -1,6 +1,7 @@
 # Forward Proxy with ExpressVPN (OpenVPN)
 
-A Docker-based forward proxy that routes traffic through an ExpressVPN tunnel using OpenVPN. Run it on any machine in your network and point other devices at it to selectively route their traffic through the VPN.
+A Docker-based forward proxy that routes traffic through an ExpressVPN tunnel using OpenVPN. Run it on any machine
+in your network and point other devices at it to selectively route their traffic through the VPN.
 
 ## How it works
 
@@ -97,7 +98,7 @@ VPN_COUNTRY=japan docker compose up -d
 |---|---|---|---|
 | `OPENVPN_USER` | Yes | — | OpenVPN username from ExpressVPN manual setup page |
 | `OPENVPN_PASS` | Yes | — | OpenVPN password from ExpressVPN manual setup page |
-| `VPN_COUNTRY` | No | *(first file found)* | Country config to use — matches filename in `../.vpn-config/` without `.ovpn` (e.g. `usa`, `uk`, `japan`) |
+| `VPN_COUNTRY` | No | *(first file found)* | Country to use — a filename in `../.vpn-config/` without `.ovpn` |
 
 Both `OPENVPN_USER`/`OPENVPN_PASS` (from `../.env.docker-compose`) and the `.ovpn`
 files (from `../.vpn-config/`) are sourced from the repository root and mounted into
@@ -107,7 +108,8 @@ the container at `/etc/openvpn/configs`.
 
 Edit `tinyproxy.conf` to customize proxy behavior. Key settings:
 
-- **`Allow`** — Controls which IP ranges can use the proxy. Defaults to all private ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`).
+- **`Allow`** — Controls which IP ranges can use the proxy. Defaults to all private ranges
+  (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`).
 - **`Port`** — Listening port (default `8888`). Change in both `tinyproxy.conf` and `docker-compose.yml` if modified.
 - **`MaxClients`** — Max concurrent connections (default `100`).
 
@@ -132,8 +134,10 @@ docker compose down
 
 ## Security notes
 
-- The root `.env.docker-compose` file contains your VPN credentials and must be excluded from git via the repository-root `.gitignore`.
+- The root `.env.docker-compose` file contains your VPN credentials and must be excluded from git via the
+  repository-root `.gitignore`.
 - The root `.vpn-config/` directory contains sensitive `.ovpn` files and must also be excluded from git.
-- The proxy allows all RFC 1918 private ranges by default. Restrict the `Allow` directives in `tinyproxy.conf` if you need tighter access control.
+- The proxy allows all RFC 1918 private ranges by default. Restrict the `Allow` directives in `tinyproxy.conf` if
+  you need tighter access control.
 - IPv6 is disabled inside the container to prevent traffic leaking outside the VPN tunnel.
 - VPN credentials are written to a file inside the container at runtime and are not baked into the image.

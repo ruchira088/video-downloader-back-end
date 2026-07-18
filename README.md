@@ -1,6 +1,7 @@
 # Video Downloader Backend
 
-A Scala-based backend system for managing video downloads, scheduling, and streaming. This service provides a REST API for video management, metadata handling, user authentication, and batch processing for video downloads.
+A Scala-based backend system for managing video downloads, scheduling, and streaming. This service provides a REST
+API for video management, metadata handling, user authentication, and batch processing for video downloads.
 
 ## Features
 
@@ -261,7 +262,8 @@ For the complete API specification, see [openapi.yaml](openapi.yaml).
 
 ### Schema
 
-The database schema is managed through 39 Flyway migration scripts located in `migration-application/src/main/resources/db/migration/`.
+The database schema is managed through 39 Flyway migration scripts located in
+`migration-application/src/main/resources/db/migration/`.
 
 Key tables include:
 - `file_resource` - File metadata storage
@@ -307,7 +309,8 @@ sbt viewCoverageResults
 
 ## Messaging
 
-The messaging layer uses a pluggable `PubSub` abstraction, configured via the `PUBSUB_TYPE` environment variable (or `pubsub-configuration.type` in `application.conf`).
+The messaging layer uses a pluggable `PubSub` abstraction, configured via the `PUBSUB_TYPE` environment variable
+(or `pubsub-configuration.type` in `application.conf`).
 
 | Backend | Serialization | Use Case |
 |---------|---------------|----------|
@@ -315,7 +318,9 @@ The messaging layer uses a pluggable `PubSub` abstraction, configured via the `P
 | **Redis** | JSON (Circe) | Lightweight deployments — uses Redis Streams |
 | **Doobie** | JSON (Circe) | Simple deployments — uses PostgreSQL as a message store |
 
-All backends implement the unified `MessagingTopic[A]` trait, which provides both an Avro codec (for Kafka) and a JSON codec (for Redis/Doobie). The `Subscriber` trait uses a type member `C[_]` to abstract over backend-specific wrapper types (e.g., Kafka's `CommittableRecord` for offset management vs. identity for Redis/Doobie).
+All backends implement the unified `MessagingTopic[A]` trait, which provides both an Avro codec (for Kafka) and a
+JSON codec (for Redis/Doobie). The `Subscriber` trait uses a type member `C[_]` to abstract over backend-specific
+wrapper types (e.g., Kafka's `CommittableRecord` for offset management vs. identity for Redis/Doobie).
 
 ## Docker Deployment
 
