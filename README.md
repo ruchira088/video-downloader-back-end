@@ -20,14 +20,14 @@ A Scala-based backend system for managing video downloads, scheduling, and strea
 | Category | Technology |
 |----------|------------|
 | Language | Scala 2.13.18 |
-| Build Tool | sbt 2.0.0 |
+| Build Tool | sbt 2.0.3 |
 | Runtime | Java 25 (Eclipse Temurin) |
-| Web Framework | HTTP4s 0.23.34 |
+| Web Framework | HTTP4s 0.23.36 |
 | Effect System | Cats Effect 3.7.0 |
-| JSON | Circe 0.14.15 |
+| JSON | Circe 0.14.16 |
 | Database Access | Doobie 1.0.0-RC12 |
 | Database | PostgreSQL 17 |
-| Migrations | Flyway 12.9.0 |
+| Migrations | Flyway 12.11.0 |
 | Messaging | Apache Kafka 8.3.0-ccs / Redis Streams / PostgreSQL (Doobie) |
 | Caching | Redis 8 |
 | Configuration | PureConfig 0.17.10 |
@@ -36,7 +36,7 @@ A Scala-based backend system for managing video downloads, scheduling, and strea
 ## Prerequisites
 
 - JDK 25 (Eclipse Temurin recommended)
-- sbt 2.0.0
+- sbt 2.0.3
 - Docker & Docker Compose (for full stack deployment)
 - ffmpeg
 - yt-dlp (`pip install yt-dlp`)
