@@ -32,6 +32,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
           ${scheduledVideoDownload.videoMetadata.id},
           ${scheduledVideoDownload.completedAt}
         )
+        ON CONFLICT DO NOTHING
      """.update.run
 
       case _ =>

@@ -14,7 +14,7 @@ import com.ruchij.core.daos.title.VideoTitleDao
 import com.ruchij.core.daos.title.models.VideoTitle
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
 import com.ruchij.core.daos.workers.models.WorkerStatus
-import com.ruchij.core.exceptions.{InvalidConditionException, ResourceNotFoundException, ValidationException}
+import com.ruchij.core.exceptions.{ResourceNotFoundException, ValidationException}
 import com.ruchij.core.kv.codecs.{KVCodec, KVDecoder}
 import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.services.config.ConfigurationService
@@ -112,9 +112,10 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     getByIdResult: (String, Option[String]) => Option[ScheduledVideoDownload] = (_, _) => None,
     updateSchedulingStatusResult: Option[ScheduledVideoDownload] = None,
     updateDownloadProgressResult: Option[ScheduledVideoDownload] = None,
-    retryErroredResult: Seq[ScheduledVideoDownload] = Seq.empty
+    retryErroredResult: Seq[ScheduledVideoDownload] = Seq.empty,
+    insertResult: Int = 1
   ) extends SchedulingDao[IO] {
-    override def insert(scheduledVideoDownload: ScheduledVideoDownload): IO[Int] = IO.pure(1)
+    override def insert(scheduledVideoDownload: ScheduledVideoDownload): IO[Int] = IO.pure(insertResult)
     override def getById(id: String, maybeUserId: Option[String]): IO[Option[ScheduledVideoDownload]] =
       IO.pure(getByIdResult(id, maybeUserId))
     override def markScheduledVideoDownloadAsComplete(id: String, timestamp: Instant): IO[Option[ScheduledVideoDownload]] = IO.pure(None)
@@ -145,21 +146,17 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     override def acquireTask(timestamp: Instant): IO[Option[ScheduledVideoDownload]] = IO.pure(None)
   }
 
-  class StubVideoTitleDao(
-    findResult: (String, String) => Option[VideoTitle] = (_, _) => None
-  ) extends VideoTitleDao[IO] {
-    override def insert(videoTitle: VideoTitle): IO[Int] = IO.pure(1)
-    override def find(videoId: String, userId: String): IO[Option[VideoTitle]] = IO.pure(findResult(videoId, userId))
+  class StubVideoTitleDao(insertResult: Int = 1) extends VideoTitleDao[IO] {
+    override def insert(videoTitle: VideoTitle): IO[Int] = IO.pure(insertResult)
+    override def find(videoId: String, userId: String): IO[Option[VideoTitle]] = IO.pure(None)
     override def update(videoId: String, userId: String, title: String): IO[Int] = IO.pure(1)
     override def delete(maybeVideoId: Option[String], maybeUserId: Option[String]): IO[Int] = IO.pure(1)
   }
 
-  class StubVideoPermissionDao(
-    findResult: (Option[String], Option[String]) => Seq[VideoPermission] = (_, _) => Seq.empty
-  ) extends VideoPermissionDao[IO] {
-    override def insert(videoPermission: VideoPermission): IO[Int] = IO.pure(1)
+  class StubVideoPermissionDao(insertResult: Int = 1) extends VideoPermissionDao[IO] {
+    override def insert(videoPermission: VideoPermission): IO[Int] = IO.pure(insertResult)
     override def find(userId: Option[String], scheduledVideoId: Option[String]): IO[Seq[VideoPermission]] =
-      IO.pure(findResult(userId, scheduledVideoId))
+      IO.pure(Seq.empty)
     override def delete(maybeUserId: Option[String], maybeScheduledVideoId: Option[String]): IO[Int] = IO.pure(1)
   }
 
@@ -215,28 +212,19 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     val publisher = new StubPublisher[ScheduledVideoDownload]()
 
     val schedulingDao = new StubSchedulingDao(searchResult = Seq(sampleScheduledVideoDownload))
-    val videoTitleDao = new StubVideoTitleDao(
-      findResult = (videoId, userId) =>
-        if (videoId == "video-1" && userId == "user-1") Some(VideoTitle(videoId, userId, "Sample Video")) else None
-    )
-    val videoPermissionDao = new StubVideoPermissionDao(
-      findResult = (userId, videoId) =>
-        if (userId.contains("user-1") && videoId.contains("video-1"))
-          Seq(VideoPermission(timestamp, "video-1", "user-1"))
-        else Seq.empty
-    )
 
     val (service, _, _) = createService(
       scheduledVideoDownloadPublisher = publisher,
       schedulingDao = schedulingDao,
-      videoTitleDao = videoTitleDao,
-      videoPermissionDao = videoPermissionDao
+      videoTitleDao = new StubVideoTitleDao(insertResult = 0),
+      videoPermissionDao = new StubVideoPermissionDao(insertResult = 0)
     )
 
     service.schedule(videoUrl, "user-1").map { result =>
       result mustBe a[ScheduledVideoResult.AlreadyScheduled]
       result.isNew mustBe false
       result.scheduledVideoDownload mustBe sampleScheduledVideoDownload
+      publisher.publishedMessages mustBe empty
     }
   }
 
@@ -247,67 +235,79 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     val publisher = new StubPublisher[ScheduledVideoDownload]()
 
     val schedulingDao = new StubSchedulingDao(searchResult = Seq(sampleScheduledVideoDownload))
-    val videoTitleDao = new StubVideoTitleDao(findResult = (_, _) => None)
-    val videoPermissionDao = new StubVideoPermissionDao(findResult = (_, _) => Seq.empty)
 
     val (service, _, _) = createService(
       scheduledVideoDownloadPublisher = publisher,
-      schedulingDao = schedulingDao,
-      videoTitleDao = videoTitleDao,
-      videoPermissionDao = videoPermissionDao
+      schedulingDao = schedulingDao
     )
 
     service.schedule(videoUrl, "user-2").map { result =>
       result mustBe a[ScheduledVideoResult.NewlyScheduled]
       result.isNew mustBe true
       result.scheduledVideoDownload mustBe sampleScheduledVideoDownload
+      publisher.publishedMessages mustBe empty
     }
   }
 
-  it should "raise error when permissions exist but title doesn't (invalid state)" in runIO {
+  it should "return AlreadyScheduled without publishing when the insert loses a scheduling race" in runIO {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoUrl = uri"https://youtube.com/watch?v=abc123"
+    val publisher = new StubPublisher[ScheduledVideoDownload]()
 
-    val schedulingDao = new StubSchedulingDao(searchResult = Seq(sampleScheduledVideoDownload))
-    val videoTitleDao = new StubVideoTitleDao(findResult = (_, _) => None) // No title
-    val videoPermissionDao = new StubVideoPermissionDao(
-      findResult = (_, _) => Seq(VideoPermission(timestamp, "video-1", "user-1")) // Has permission
+    val videoAnalysisService = new StubVideoAnalysisService(
+      metadataResult = _ => IO.pure(NewlyCreated(sampleVideoMetadata))
+    )
+
+    val schedulingDao = new StubSchedulingDao(
+      searchResult = Seq.empty,
+      insertResult = 0,
+      getByIdResult = (id, _) => if (id == "video-1") Some(sampleScheduledVideoDownload) else None
     )
 
     val (service, _, _) = createService(
+      videoAnalysisService = videoAnalysisService,
+      scheduledVideoDownloadPublisher = publisher,
       schedulingDao = schedulingDao,
-      videoTitleDao = videoTitleDao,
-      videoPermissionDao = videoPermissionDao
+      videoTitleDao = new StubVideoTitleDao(insertResult = 0),
+      videoPermissionDao = new StubVideoPermissionDao(insertResult = 0)
     )
 
-    service.schedule(videoUrl, "user-1").error.map { error =>
-      error mustBe an[InvalidConditionException]
-      error.getMessage must include("invalid state")
+    service.schedule(videoUrl, "user-1").map { result =>
+      result mustBe a[ScheduledVideoResult.AlreadyScheduled]
+      result.isNew mustBe false
+      result.scheduledVideoDownload mustBe sampleScheduledVideoDownload
+      publisher.publishedMessages mustBe empty
     }
   }
 
-  it should "raise error when title exists but permissions don't (invalid state)" in runIO {
+  it should "return NewlyScheduled without publishing when the insert loses a scheduling race but the user gains access" in runIO {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoUrl = uri"https://youtube.com/watch?v=abc123"
+    val publisher = new StubPublisher[ScheduledVideoDownload]()
 
-    val schedulingDao = new StubSchedulingDao(searchResult = Seq(sampleScheduledVideoDownload))
-    val videoTitleDao = new StubVideoTitleDao(
-      findResult = (videoId, userId) =>
-        if (videoId == "video-1" && userId == "user-1") Some(VideoTitle(videoId, userId, "Sample Video")) else None
+    val videoAnalysisService = new StubVideoAnalysisService(
+      metadataResult = _ => IO.pure(NewlyCreated(sampleVideoMetadata))
     )
-    val videoPermissionDao = new StubVideoPermissionDao(findResult = (_, _) => Seq.empty) // No permission
+
+    val schedulingDao = new StubSchedulingDao(
+      searchResult = Seq.empty,
+      insertResult = 0,
+      getByIdResult = (id, _) => if (id == "video-1") Some(sampleScheduledVideoDownload) else None
+    )
 
     val (service, _, _) = createService(
-      schedulingDao = schedulingDao,
-      videoTitleDao = videoTitleDao,
-      videoPermissionDao = videoPermissionDao
+      videoAnalysisService = videoAnalysisService,
+      scheduledVideoDownloadPublisher = publisher,
+      schedulingDao = schedulingDao
     )
 
-    service.schedule(videoUrl, "user-1").error.map { error =>
-      error mustBe an[InvalidConditionException]
-      error.getMessage must include("invalid state")
+    service.schedule(videoUrl, "user-2").map { result =>
+      result mustBe a[ScheduledVideoResult.NewlyScheduled]
+      result.isNew mustBe true
+      result.scheduledVideoDownload mustBe sampleScheduledVideoDownload
+      publisher.publishedMessages mustBe empty
     }
   }
 

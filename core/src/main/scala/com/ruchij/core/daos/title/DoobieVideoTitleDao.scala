@@ -12,6 +12,7 @@ object DoobieVideoTitleDao extends VideoTitleDao[ConnectionIO] {
     sql"""
         INSERT INTO video_title(video_id, user_id, title)
             VALUES(${videoTitle.videoId}, ${videoTitle.userId}, ${videoTitle.title})
+            ON CONFLICT DO NOTHING
     """
       .update
       .run

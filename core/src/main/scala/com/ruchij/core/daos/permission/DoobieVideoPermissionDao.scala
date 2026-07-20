@@ -14,6 +14,7 @@ object DoobieVideoPermissionDao extends VideoPermissionDao[ConnectionIO] {
     sql"""
       INSERT INTO permission(created_at, video_id, user_id)
         VALUES(${videoPermission.grantedAt}, ${videoPermission.scheduledVideoDownloadId}, ${videoPermission.userId})
+        ON CONFLICT DO NOTHING
     """.update.run
 
   override def find(

@@ -6,7 +6,6 @@ import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
 import com.ruchij.api.services.config.models.ApiConfigKey
 import com.ruchij.api.services.scheduling.models.ScheduledVideoResult
-import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
 import com.ruchij.core.daos.permission.VideoPermissionDao
 import com.ruchij.core.daos.permission.models.VideoPermission
 import com.ruchij.core.daos.scheduling.SchedulingDao
@@ -16,7 +15,7 @@ import com.ruchij.core.daos.title.VideoTitleDao
 import com.ruchij.core.daos.title.models.VideoTitle
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
 import com.ruchij.core.daos.workers.models.WorkerStatus
-import com.ruchij.core.exceptions.{InvalidConditionException, ValidationException}
+import com.ruchij.core.exceptions.ValidationException
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.services.config.ConfigurationService
@@ -63,7 +62,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
           )
         }.map(_.toList)
           .flatMap {
-            case Nil => newScheduledVideoDownload(processedUri, userId).map(identity[ScheduledVideoResult])
+            case Nil => newScheduledVideoDownload(processedUri, userId)
 
             case scheduledVideoDownload :: _ =>
               existingScheduledVideoDownload(scheduledVideoDownload.videoMetadata, userId)
@@ -89,31 +88,13 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
 
       result <- transaction {
         videoPermissionDao
-          .find(Some(userId), Some(videoMetadata.id))
-          .product(videoTitleDao.find(videoMetadata.id, userId))
-          .flatMap {
-            case (permissions, maybeTitle) =>
-              if (permissions.isEmpty && maybeTitle.isEmpty)
-                videoPermissionDao
-                  .insert(VideoPermission(timestamp, videoMetadata.id, userId))
-                  .one
-                  .productR {
-                    videoTitleDao.insert(VideoTitle(videoMetadata.id, userId, videoMetadata.title)).one
-                  }
-                  .as(true)
-              else if (permissions.nonEmpty && maybeTitle.nonEmpty) Applicative[T].pure(false)
-              else
-                ApplicativeError[T, Throwable]
-                  .raiseError[Boolean](
-                    InvalidConditionException(
-                      s"Video title and video permissions are in an invalid state for userId=$userId, videoId=${videoMetadata.id}"
-                    )
-                  )
-          }
+          .insert(VideoPermission(timestamp, videoMetadata.id, userId))
+          .product(videoTitleDao.insert(VideoTitle(videoMetadata.id, userId, videoMetadata.title)))
+          .map { case (permissionInsertCount, titleInsertCount) => permissionInsertCount + titleInsertCount > 0 }
       }
     } yield result
 
-  private def newScheduledVideoDownload(uri: Uri, userId: String): F[ScheduledVideoResult.NewlyScheduled] =
+  private def newScheduledVideoDownload(uri: Uri, userId: String): F[ScheduledVideoResult] =
     for {
       videoMetadataResult <- videoAnalysisService.metadata(uri)
       timestamp <- Clock[F].timestamp
@@ -128,23 +109,39 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
         None
       )
 
-      _ <- transaction {
+      isNew <- transaction {
         schedulingDao
           .insert(scheduledVideoDownload)
-          .one
-          .productR {
-            videoTitleDao.insert {
-              VideoTitle(scheduledVideoDownload.videoMetadata.id, userId, scheduledVideoDownload.videoMetadata.title)
-            }
-          }
-          .product {
-            videoPermissionDao.insert(VideoPermission(timestamp, scheduledVideoDownload.videoMetadata.id, userId))
+          .flatMap { insertCount =>
+            if (insertCount == 0) Applicative[T].pure(false)
+            else
+              videoTitleDao
+                .insert {
+                  VideoTitle(scheduledVideoDownload.videoMetadata.id, userId, scheduledVideoDownload.videoMetadata.title)
+                }
+                .product {
+                  videoPermissionDao.insert(VideoPermission(timestamp, scheduledVideoDownload.videoMetadata.id, userId))
+                }
+                .as(true)
           }
       }
-      _ <- logger.info[F](s"Scheduled to download video at $uri")
 
-      _ <- scheduledVideoDownloadPublisher.publishOne(scheduledVideoDownload)
-    } yield ScheduledVideoResult.NewlyScheduled(scheduledVideoDownload)
+      result <- if (isNew)
+        logger
+          .info[F](s"Scheduled to download video at $uri")
+          .productR(scheduledVideoDownloadPublisher.publishOne(scheduledVideoDownload))
+          .as[ScheduledVideoResult](ScheduledVideoResult.NewlyScheduled(scheduledVideoDownload))
+      else
+        // A concurrent request scheduled the same video between the search and the insert
+        getById(scheduledVideoDownload.videoMetadata.id, None)
+          .flatMap { existing =>
+            existingScheduledVideoDownload(existing.videoMetadata, userId)
+              .map { created =>
+                if (created) ScheduledVideoResult.NewlyScheduled(existing)
+                else ScheduledVideoResult.AlreadyScheduled(existing)
+              }
+          }
+    } yield result
 
   override def search(
     term: Option[String],

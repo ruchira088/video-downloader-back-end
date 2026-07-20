@@ -11,6 +11,7 @@ import java.time.Instant
 import scala.concurrent.duration.FiniteDuration
 
 trait SchedulingDao[F[_]] {
+  /** Returns 0 if a scheduled download already exists for the video */
   def insert(scheduledVideoDownload: ScheduledVideoDownload): F[Int]
 
   def getById(id: String, maybeUserId: Option[String]): F[Option[ScheduledVideoDownload]]
