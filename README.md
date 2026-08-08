@@ -21,15 +21,15 @@ API for video management, metadata handling, user authentication, and batch proc
 | Category | Technology |
 |----------|------------|
 | Language | Scala 2.13.18 |
-| Build Tool | sbt 2.0.5 |
+| Build Tool | sbt 2.0.6 |
 | Runtime | Java 25 (Eclipse Temurin) |
 | Web Framework | HTTP4s 0.23.36 |
 | Effect System | Cats Effect 3.7.0 |
 | JSON | Circe 0.14.16 |
 | Database Access | Doobie 1.0.0-RC12 |
 | Database | PostgreSQL 17 |
-| Migrations | Flyway 13.1.0 |
-| Messaging | Apache Kafka 8.3.0-ccs / Redis Streams / PostgreSQL (Doobie) |
+| Migrations | Flyway 13.2.0 |
+| Messaging | Apache Kafka 8.3.1-ccs / Redis Streams / PostgreSQL (Doobie) |
 | Caching | Redis 8 |
 | Configuration | PureConfig 0.17.10 |
 | Testing | ScalaTest 3.2.20, ScalaMock 7.5.5 |
@@ -37,7 +37,7 @@ API for video management, metadata handling, user authentication, and batch proc
 ## Prerequisites
 
 - JDK 25 (Eclipse Temurin recommended)
-- sbt 2.0.5
+- sbt 2.0.6
 - Docker & Docker Compose (for full stack deployment)
 - ffmpeg
 - yt-dlp (`pip install yt-dlp`)
