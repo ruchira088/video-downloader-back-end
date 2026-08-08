@@ -6,6 +6,10 @@ info:
 servers:
   - url: http://localhost:8080
     description: Local development server
+  - url: https://api.staging.video.dev.ruchij.com
+    description: Staging server
+  - url: https://api.video.home.ruchij.com
+    description: Production server
 
 tags:
   - name: Service
