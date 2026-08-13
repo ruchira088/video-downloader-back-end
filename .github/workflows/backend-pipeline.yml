@@ -79,7 +79,7 @@ jobs:
     if: github.ref != 'refs/heads/main'
 
     concurrency:
-      group: backend-${{ github.ref }}
+      group: deploy-to-${{ github.ref }}
       cancel-in-progress: false
 
     permissions:
@@ -112,7 +112,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
 
     concurrency:
-      group: backend-main
+      group: deploy-to-staging
       cancel-in-progress: false
 
     permissions:
@@ -145,7 +145,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
 
     concurrency:
-      group: backend-main
+      group: deploy-to-production
       cancel-in-progress: false
 
     permissions:
