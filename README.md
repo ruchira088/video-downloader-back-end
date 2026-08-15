@@ -28,7 +28,7 @@ API for video management, metadata handling, user authentication, and batch proc
 | JSON | Circe 0.14.16 |
 | Database Access | Doobie 1.0.0-RC12 |
 | Database | PostgreSQL 17 |
-| Migrations | Flyway 13.2.0 |
+| Migrations | Flyway 13.3.0 |
 | Messaging | Apache Kafka 8.3.1-ccs / Redis Streams / PostgreSQL (Doobie) |
 | Caching | Redis 8 |
 | Configuration | PureConfig 0.17.10 |

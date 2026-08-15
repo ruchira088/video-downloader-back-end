@@ -5,7 +5,7 @@ object Dependencies
   val ScalaVersion = "2.13.18"
   private val Http4sVersion = "0.23.36"
   private val CirceVersion = "0.14.16"
-  private val FlywayVersion = "13.2.0"
+  private val FlywayVersion = "13.3.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -63,7 +63,7 @@ object Dependencies
 
   lazy val embeddedRedis = "com.github.kstyrc" % "embedded-redis" % "0.6"
 
-  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "8.3.0"
+  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "8.3.1"
 
   lazy val testContainers = "org.testcontainers" % "testcontainers" % "2.0.5"
 
@@ -73,7 +73,7 @@ object Dependencies
 
   lazy val redisTestContainer = "com.redis" % "testcontainers-redis" % "2.2.4"
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.6.1"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.6.3"
 
   lazy val logstashLogbackEncoder = "net.logstash.logback" % "logstash-logback-encoder" % "9.0"
 
@@ -89,7 +89,7 @@ object Dependencies
 
   lazy val pegdown = "org.pegdown" % "pegdown" % "1.6.0"
 
-  lazy val sentry = "io.sentry" % "sentry" % "8.52.0"
+  lazy val sentry = "io.sentry" % "sentry" % "8.53.0"
 
   lazy val perceptualHash = "dev.brachtendorf" % "JImageHash" % "1.0.0"
 
