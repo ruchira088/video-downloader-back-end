@@ -57,7 +57,7 @@ jobs:
         if: success() || failure()
         with:
           name: Scala Test Results
-          path: "target/test-reports/*.xml"
+          path: "target/out/**/test-reports/*.xml"
           reporter: java-junit
 
       - name: Print coverage summary
@@ -65,11 +65,12 @@ jobs:
         run: |
           echo "## 📊 Coverage Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          if [ -f target/scala-2.13/scoverage-report/scoverage.xml ]; then
-            STATEMENT=$(grep -oP 'statement-count="\K[^"]+' target/scala-2.13/scoverage-report/scoverage.xml | head -1)
-            COVERED=$(grep -oP 'statements-invoked="\K[^"]+' target/scala-2.13/scoverage-report/scoverage.xml | head -1)
-            STMT_PERCENT=$(grep -oP 'statement-rate="\K[^"]+' target/scala-2.13/scoverage-report/scoverage.xml | head -1)
-            BRANCH_PERCENT=$(grep -oP 'branch-rate="\K[^"]+' target/scala-2.13/scoverage-report/scoverage.xml | head -1)
+          COVERAGE_REPORT=$(find target/out -path '*video-downloader-back-end-root/scoverage-report/scoverage.xml' | head -1)
+          if [ -n "$COVERAGE_REPORT" ] && [ -f "$COVERAGE_REPORT" ]; then
+            STATEMENT=$(grep -oP 'statement-count="\K[^"]+' "$COVERAGE_REPORT" | head -1)
+            COVERED=$(grep -oP 'statements-invoked="\K[^"]+' "$COVERAGE_REPORT" | head -1)
+            STMT_PERCENT=$(grep -oP 'statement-rate="\K[^"]+' "$COVERAGE_REPORT" | head -1)
+            BRANCH_PERCENT=$(grep -oP 'branch-rate="\K[^"]+' "$COVERAGE_REPORT" | head -1)
             PERCENT_INT=${STMT_PERCENT%.*}
             if [ "$PERCENT_INT" -ge 80 ]; then
               STMT_EMOJI="🟢"
@@ -103,4 +104,4 @@ jobs:
         if: success() || failure()
         with:
           name: coverage-report
-          path: target/scala-2.13/scoverage-report/
+          path: target/out/**/video-downloader-back-end-root/scoverage-report/

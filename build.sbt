@@ -114,9 +114,9 @@ lazy val development =
 
 
 // scoverage ships `coverageOn` / `coverageOff` as aliases for `set ThisBuild / coverageEnabled := ...`.
-// Under sbt 2 the `set` command fails to compile its synthetic wrapper against this multi-project
-// build, so those aliases -- and therefore all coverage reporting -- are unusable. These commands
-// apply the same session setting directly, without going through `set`.
+// sbt 2's `set` command can fail to compile the synthetic wrapper it builds over this build's project
+// vals -- it does so reliably on some local setups, while CI is unaffected -- and that takes coverage
+// reporting down with it. These commands apply the same session setting without going through `set`.
 def coverageToggle(commandName: String, enabled: Boolean): Command =
   Command.command(commandName) { state =>
     val extracted = Project.extract(state)
