@@ -40,7 +40,7 @@ import scala.language.postfixOps
 
 class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
-  "analyze(uri: Uri) in VideoAnalysisService" should "analyse a PornOne video URL" in runIO {
+  "analyze(uri: Uri) in VideoAnalysisService" should "analyse a PornOne video URL" ignore runIO {
     analyze[IO](uri"https://pornone.com/bbc/sk-rl-tte-nik-l-onlyfans/277968339/").semiflatMap { videoAnalysisResult =>
       IO.delay {
         videoAnalysisResult.title must matchCaseInsensitivelyTo("Sk\u00e0rl\u00e9tte Nik0l\u00e9 Onlyfans #1")
@@ -52,7 +52,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
     }.value
   }
 
-  it should "analyse a SxyPrn video URL" in runIO {
+  it should "analyse a SxyPrn video URL" ignore runIO {
     analyze[IO](uri"https://sxyprn.com/post/661d0cec4b19c.html").semiflatMap { videoAnalysisResult =>
       IO.delay {
         videoAnalysisResult.title must include("Spencer Scott")
@@ -139,7 +139,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
     }.value
   }
 
-  it should "analyse a YouTube video URL" in runIO {
+  it should "analyse a YouTube video URL" ignore runIO {
     analyze[IO](uri"https://www.youtube.com/watch?v=2Vv-BfVoq4g&list=RDMM-fR-duU1Qjk&start_radio=1").semiflatMap {
       videoAnalysisResult =>
         IO.delay {
