@@ -21,7 +21,7 @@ API for video management, metadata handling, user authentication, and batch proc
 | Category | Technology |
 |----------|------------|
 | Language | Scala 2.13.18 |
-| Build Tool | sbt 2.0.6 |
+| Build Tool | sbt 2.0.7 |
 | Runtime | Java 25 (Eclipse Temurin) |
 | Web Framework | HTTP4s 0.23.36 |
 | Effect System | Cats Effect 3.7.0 |
@@ -37,7 +37,7 @@ API for video management, metadata handling, user authentication, and batch proc
 ## Prerequisites
 
 - JDK 25 (Eclipse Temurin recommended)
-- sbt 2.0.6
+- sbt 2.0.7
 - Docker & Docker Compose (for full stack deployment)
 - ffmpeg
 - yt-dlp (`pip install yt-dlp`)
