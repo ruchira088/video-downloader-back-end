@@ -13,7 +13,15 @@ scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-Xfatal-warning
 resolvers ++= Seq("Confluent" at "https://packages.confluent.io/maven/", "jitpack" at "https://jitpack.io")
 addCompilerPlugin(kindProjector)
 addCompilerPlugin(betterMonadicFor)
-Test / testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-u", "target/test-reports")
+// The report directory must be per project and absolute. A relative path resolves against each
+// forked test JVM's working directory, so every module wrote into the same root `target/test-reports`
+// and suites were silently dropped from the run -- `api/test` executed 14 of its 44 suites.
+Test / testOptions += Tests.Argument(
+  TestFrameworks.ScalaTest,
+  "-u",
+  ((Test / target).value / "test-reports").getAbsolutePath
+)
+
 Test / parallelExecution := true
 Test / testForkedParallel := true
 
@@ -105,6 +113,18 @@ lazy val development =
     .dependsOn(migrationApplication, core, api, batch)
 
 
+// scoverage ships `coverageOn` / `coverageOff` as aliases for `set ThisBuild / coverageEnabled := ...`.
+// Under sbt 2 the `set` command fails to compile its synthetic wrapper against this multi-project
+// build, so those aliases -- and therefore all coverage reporting -- are unusable. These commands
+// apply the same session setting directly, without going through `set`.
+def coverageToggle(commandName: String, enabled: Boolean): Command =
+  Command.command(commandName) { state =>
+    val extracted = Project.extract(state)
+    extracted.appendWithSession(Seq(ThisBuild / coverageEnabled := enabled), state)
+  }
+
+commands ++= Seq(coverageToggle("coverageEnable", true), coverageToggle("coverageDisable", false))
+
 val viewCoverageResults = taskKey[Unit]("Opens the coverage result in the default browser")
 
 viewCoverageResults := {
@@ -139,4 +159,7 @@ def packagedApp(id: String, dir: String, buildInfoPackageName: String): Project 
 
 addCommandAlias("cleanCompile", "clean; compile;")
 addCommandAlias("cleanTest", "clean; test;")
-addCommandAlias("testWithCoverage", "clean; coverageOn; test; coverageAggregate; coverageOff; coverageReport; viewCoverageResults;")
+addCommandAlias(
+  "testWithCoverage",
+  "clean; coverageEnable; test; coverageAggregate; coverageDisable; coverageReport; viewCoverageResults;"
+)
