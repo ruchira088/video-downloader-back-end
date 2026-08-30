@@ -5,7 +5,7 @@ object Dependencies
   val ScalaVersion = "2.13.18"
   private val Http4sVersion = "0.23.36"
   private val CirceVersion = "0.14.16"
-  private val FlywayVersion = "13.3.0"
+  private val FlywayVersion = "13.4.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -15,7 +15,7 @@ object Dependencies
 
   lazy val http4sJdkHttpClient = "org.http4s" %% "http4s-jdk-http-client" % "0.10.0"
 
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.7.0"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.7.1"
 
   lazy val kafka = "org.apache.kafka" %% "kafka" % "8.3.1-ccs"
 
@@ -41,7 +41,7 @@ object Dependencies
 
   lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "1.0.0-RC12"
 
-  lazy val jsoup = "org.jsoup" % "jsoup" % "1.23.1"
+  lazy val jsoup = "org.jsoup" % "jsoup" % "1.23.2"
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.10"
 
@@ -89,7 +89,7 @@ object Dependencies
 
   lazy val pegdown = "org.pegdown" % "pegdown" % "1.6.0"
 
-  lazy val sentry = "io.sentry" % "sentry" % "8.53.0"
+  lazy val sentry = "io.sentry" % "sentry" % "8.54.0"
 
   lazy val perceptualHash = "dev.brachtendorf" % "JImageHash" % "1.0.0"
 
