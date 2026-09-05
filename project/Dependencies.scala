@@ -5,7 +5,7 @@ object Dependencies
   val ScalaVersion = "2.13.18"
   private val Http4sVersion = "0.23.36"
   private val CirceVersion = "0.14.16"
-  private val FlywayVersion = "13.4.0"
+  private val FlywayVersion = "13.5.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -51,7 +51,7 @@ object Dependencies
 
   lazy val postgresql = "org.postgresql" % "postgresql" % "42.7.13"
 
-  lazy val h2 = "com.h2database" % "h2" % "2.4.240"
+  lazy val h2 = "com.h2database" % "h2" % "2.5.250"
 
   lazy val apacheTika = "org.apache.tika" % "tika-core" % "4.0.0"
 
@@ -89,7 +89,7 @@ object Dependencies
 
   lazy val pegdown = "org.pegdown" % "pegdown" % "1.6.0"
 
-  lazy val sentry = "io.sentry" % "sentry" % "8.54.0"
+  lazy val sentry = "io.sentry" % "sentry" % "8.55.0"
 
   lazy val perceptualHash = "dev.brachtendorf" % "JImageHash" % "1.0.0"
 
