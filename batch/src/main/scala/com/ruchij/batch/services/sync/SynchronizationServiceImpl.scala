@@ -125,24 +125,26 @@ class SynchronizationServiceImpl[F[_]: Async: Clock, A, T[_]: MonadThrow](
           }
       }
 
-  private val scanForVideoWithoutSnapshots: F[SynchronizationResult] = {
-    logger.info[F](s"Scanning for videos without ${VideoEnrichmentService.SnapshotCount} snapshots")
-    getAllVideos(0, 50)
-      .evalFilter { video =>
-        transaction { snapshotDao.findByVideo(video.videoMetadata.id, None) }
-          .map(_.size != VideoEnrichmentService.SnapshotCount)
-      }
-      .evalMap { video =>
-        transaction { snapshotDao.deleteByVideo(video.videoMetadata.id) }
-          .product {
-            videoEnrichmentService.videoSnapshots(video)
+  private val scanForVideoWithoutSnapshots: F[SynchronizationResult] =
+    logger
+      .info[F](s"Scanning for videos without ${VideoEnrichmentService.SnapshotCount} snapshots")
+      .productR {
+        getAllVideos(0, 50)
+          .evalFilter { video =>
+            transaction { snapshotDao.findByVideo(video.videoMetadata.id, None) }
+              .map(_.size != VideoEnrichmentService.SnapshotCount)
           }
-          .as(VideoSnapshotsCreated(video))
+          .evalMap { video =>
+            transaction { snapshotDao.deleteByVideo(video.videoMetadata.id) }
+              .product {
+                videoEnrichmentService.videoSnapshots(video)
+              }
+              .as(VideoSnapshotsCreated(video))
+          }
+          .fold(SynchronizationResult.Zero)(_ + _)
+          .compile
+          .lastOrError
       }
-      .fold(SynchronizationResult.Zero)(_ + _)
-      .compile
-      .lastOrError
-  }
 
   private def setVideoScanningStatus(scanStatus: ScanStatus): F[Option[VideoScan]] =
     Clock[F].timestamp.flatMap { timestamp =>

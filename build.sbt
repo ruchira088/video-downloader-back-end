@@ -10,6 +10,10 @@ organization := "com.ruchij"
 scalaVersion := Dependencies.ScalaVersion
 maintainer := "me@ruchij.com"
 scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-Xfatal-warnings", "-Xlint")
+// Production code must not silently discard effects such as an un-chained `logger.info(...)`.
+// The test sources are exempt because their assertions are non-Unit statements by design.
+Compile / scalacOptions += "-Wnonunit-statement"
+Test / scalacOptions -= "-Wnonunit-statement"
 resolvers ++= Seq("Confluent" at "https://packages.confluent.io/maven/", "jitpack" at "https://jitpack.io")
 addCompilerPlugin(kindProjector)
 addCompilerPlugin(betterMonadicFor)
