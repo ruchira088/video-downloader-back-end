@@ -68,7 +68,6 @@ lazy val core =
           http4sJdkHttpClient,
           http4sDsl,
           http4sCirce,
-          kafka,
           fs2Kafka,
           fs2KafkaVulkan,
           vulkanGeneric,
@@ -83,16 +82,21 @@ lazy val core =
           redis4CatsEffects,
           redis4catsStreams,
           jsoup,
-          embeddedRedis,
-          embeddedKafkaSchemaRegistry,
-          testContainers,
-          kafkaTestContainer,
-          postgresqlTestContainer,
-          redisTestContainer,
           sentry,
           perceptualHash
         ) ++ logging ++ circe ++
-          Seq(scalaTest, scalaMock).map(_ % Test)
+          // The resource providers under core/src/test (TestContainers, embedded Kafka) back the test suites and
+          // DevelopmentApp; keeping them out of the compile scope keeps them out of the packaged applications.
+          Seq(
+            scalaTest,
+            scalaMock,
+            kafka,
+            embeddedKafkaSchemaRegistry,
+            testContainers,
+            kafkaTestContainer,
+            postgresqlTestContainer,
+            redisTestContainer
+          ).map(_ % Test)
     )
     .dependsOn(migrationApplication)
 
@@ -102,7 +106,7 @@ lazy val api =
       Test / fork := true,
       libraryDependencies ++=
         Seq(http4sEmberServer, postgresql, pureconfig, jbcrypt, logbackClassic) ++ circe ++
-          Seq(circeLiteral, pegdown).map(_ % Test)
+          Seq(circeLiteral, pegdown, embeddedRedis).map(_ % Test)
     )
     .dependsOn(core % "compile->compile;test->test")
 
@@ -111,10 +115,17 @@ lazy val batch =
     .settings(libraryDependencies ++= Seq(postgresql) ++ Seq(pegdown).map(_ % Test))
     .dependsOn(core % "compile->compile;test->test")
 
+// DevelopmentApp wires the API and batch apps to the TestContainers-backed resource providers, which live in the
+// test sources of core, api and batch, so its compile scope depends on those test configurations.
 lazy val development =
   (project in file("./development"))
     .settings(name := "video-downloader-development")
-    .dependsOn(migrationApplication, core, api, batch)
+    .dependsOn(
+      migrationApplication,
+      core % "compile->compile;compile->test",
+      api % "compile->compile;compile->test",
+      batch % "compile->compile;compile->test"
+    )
 
 
 // scoverage ships `coverageOn` / `coverageOff` as aliases for `set ThisBuild / coverageEnabled := ...`.

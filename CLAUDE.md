@@ -68,10 +68,11 @@ exclusively through these topics (scheduled downloads, download progress, health
 **Redis KV store** (`core/.../kv/`). `KeyValueStore[F]` wrapped by `KeySpacedKeyValueStore` for typed key spaces —
 used for auth session tokens, health checks, and dynamic config (`ConfigurationService`).
 
-**ResourcesProvider pattern** (the `external/` packages in core, api, and batch). `CoreResourcesProvider` /
-`ApiResourcesProvider` abstract where external services come from, with three implementations each: `local`
-(already-running services), `containers` (TestContainers), and `embedded` (embedded Redis/Kafka). Tests and
-`DevelopmentApp` use these; production parses `application.conf` instead.
+**ResourcesProvider pattern** (the `external/` packages in the *test* sources of core, api, and batch).
+`CoreResourcesProvider` / `ApiResourcesProvider` abstract where external services come from, with implementations
+for `local` (already-running services), `containers` (TestContainers), and `embedded` (embedded Redis/Kafka). Tests
+and `DevelopmentApp` (whose compile scope depends on those test configurations) use these; production parses
+`application.conf` instead, and the packaged apps do not ship TestContainers or the embedded services.
 
 **Configuration.** PureConfig reads each module's `src/main/resources/application.conf`; every setting has an env-var
 override (`${?VAR}`). Default DB is in-memory H2 in PostgreSQL mode; production uses PostgreSQL.
