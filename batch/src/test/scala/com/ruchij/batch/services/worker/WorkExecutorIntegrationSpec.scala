@@ -5,26 +5,18 @@ import com.ruchij.batch.daos.workers.DoobieWorkerDao
 import com.ruchij.batch.daos.workers.models.Worker
 import com.ruchij.batch.external.BatchResourcesProvider
 import com.ruchij.batch.external.containers.ContainerBatchResourcesProvider
-import com.ruchij.batch.services.enrichment.VideoEnrichmentService
-import com.ruchij.batch.services.scheduling.BatchSchedulingService
-import com.ruchij.batch.services.video.BatchVideoService
+import com.ruchij.batch.test.stubs.BatchStubs._
 import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
-import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
-import com.ruchij.core.daos.snapshot.models.Snapshot
+import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
+import com.ruchij.core.services.video.models.YTDownloaderProgress
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoSite}
 import com.ruchij.core.daos.workers.models.WorkerStatus
-import com.ruchij.core.services.download.DownloadService
 import com.ruchij.core.services.download.models.DownloadResult
-import com.ruchij.core.services.repository.RepositoryService
-import com.ruchij.core.services.video.VideoAnalysisService
-import com.ruchij.core.services.video.VideoAnalysisService.VideoMetadataResult
-import com.ruchij.core.services.video.models.{VideoAnalysisResult, YTDownloaderProgress}
-import com.ruchij.core.services.video.YouTubeVideoDownloader
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.data.DataGenerators
 import doobie.free.connection.ConnectionIO
@@ -55,122 +47,6 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
   def insertWorker(worker: Worker): ConnectionIO[Int] =
     new DoobieWorkerDao(DoobieSchedulingDao).insert(worker)
 
-  class StubBatchSchedulingService(
-    updateStatusResult: ScheduledVideoDownload,
-    completeResult: ScheduledVideoDownload
-  ) extends BatchSchedulingService[IO] {
-    override val acquireTask: cats.data.OptionT[IO, ScheduledVideoDownload] =
-      cats.data.OptionT.none
-
-    override val staleTask: cats.data.OptionT[IO, ScheduledVideoDownload] =
-      cats.data.OptionT.none
-
-    override def updateTimedOutTasks(duration: FiniteDuration): IO[Seq[ScheduledVideoDownload]] =
-      IO.pure(Seq.empty)
-
-    override def updateSchedulingStatusById(videoId: String, schedulingStatus: SchedulingStatus): IO[ScheduledVideoDownload] =
-      IO.pure(updateStatusResult)
-
-    override def setErrorById(videoId: String, throwable: Throwable): IO[ScheduledVideoDownload] =
-      IO.pure(updateStatusResult)
-
-    override def publishDownloadProgress(videoId: String, downloadedBytes: Long): IO[Unit] =
-      IO.unit
-
-    override def completeScheduledVideoDownload(videoId: String): IO[ScheduledVideoDownload] =
-      IO.pure(completeResult)
-
-    override def publishScheduledVideoDownload(videoId: String): IO[ScheduledVideoDownload] =
-      IO.pure(updateStatusResult)
-
-    override def deleteById(videoId: String): IO[ScheduledVideoDownload] =
-      IO.pure(updateStatusResult)
-
-    override def updateSchedulingStatus(
-      current: SchedulingStatus,
-      next: SchedulingStatus
-    ): IO[Seq[ScheduledVideoDownload]] =
-      IO.pure(Seq.empty)
-
-    override def subscribeToScheduledVideoDownloadUpdates(groupId: String): Stream[IO, ScheduledVideoDownload] =
-      Stream.empty
-
-    override def subscribeToWorkerStatusUpdates(
-      groupId: String
-    ): Stream[IO, com.ruchij.core.services.scheduling.models.WorkerStatusUpdate] =
-      Stream.empty
-  }
-
-  class StubBatchVideoService(insertResult: Video) extends BatchVideoService[IO] {
-    override def insert(videoMetadataKey: String, fileResourceKey: String): IO[Video] =
-      IO.pure(insertResult)
-
-    override def incrementWatchTime(videoId: String, duration: FiniteDuration): IO[FiniteDuration] =
-      IO.pure(duration)
-
-    override def fetchByVideoFileResourceId(videoFileResourceId: String): IO[Video] =
-      IO.pure(insertResult)
-
-    override def update(videoId: String, size: Long): IO[Video] =
-      IO.pure(insertResult)
-
-    override def deleteById(videoId: String, deleteVideoFile: Boolean): IO[Video] =
-      IO.pure(insertResult)
-  }
-
-  class StubVideoEnrichmentService extends VideoEnrichmentService[IO] {
-    override val snapshotMediaType: MediaType = MediaType.image.png
-
-    override def snapshotFileResource(
-      videoPath: String,
-      snapshotPath: String,
-      snapshotTimestamp: FiniteDuration
-    ): IO[FileResource] =
-      IO.pure(FileResource("snapshot-id", timestamp, snapshotPath, MediaType.image.png, 1000))
-
-    override def videoSnapshots(video: Video): IO[List[Snapshot]] =
-      IO.pure(List.empty)
-  }
-
-  class StubRepositoryService(existsResult: Boolean, fileSize: Option[Long], fileType: Option[MediaType])
-      extends RepositoryService[IO] {
-    override type BackedType = String
-    override def write(key: String, data: Stream[IO, Byte]): Stream[IO, Nothing] = Stream.empty
-    override def read(key: String, start: Option[Long], end: Option[Long]): IO[Option[Stream[IO, Byte]]] = IO.pure(None)
-    override def size(key: String): IO[Option[Long]] = IO.pure(fileSize)
-    override def fileType(key: String): IO[Option[MediaType]] = IO.pure(fileType)
-    override def delete(key: String): IO[Boolean] = IO.pure(true)
-    override def list(prefix: String): Stream[IO, String] = Stream.empty
-    override def exists(key: String): IO[Boolean] = IO.pure(existsResult)
-    override def backedType(key: String): IO[String] = IO.pure(key)
-  }
-
-  class StubVideoAnalysisService(downloadUriResult: Uri, videoDuration: FiniteDuration) extends VideoAnalysisService[IO] {
-    override def downloadUri(videoUri: Uri): IO[Uri] = IO.pure(downloadUriResult)
-    override def videoDurationFromPath(videoPath: String): IO[FiniteDuration] = IO.pure(videoDuration)
-    override def metadata(uri: Uri): IO[VideoMetadataResult] =
-      IO.raiseError(new NotImplementedError("metadata not implemented in stub"))
-    override def analyze(uri: Uri): IO[VideoAnalysisResult] =
-      IO.raiseError(new NotImplementedError("analyze not implemented in stub"))
-  }
-
-  class StubDownloadService(downloadResult: DownloadResult[IO]) extends DownloadService[IO] {
-    override def download(uri: Uri, fileKey: String): Resource[IO, DownloadResult[IO]] =
-      Resource.pure(downloadResult)
-  }
-
-  class StubYouTubeVideoDownloader extends YouTubeVideoDownloader[IO] {
-    override def downloadVideo(videoUrl: Uri, destinationPath: String): Stream[IO, YTDownloaderProgress] =
-      Stream.empty
-
-    override val version: IO[String] = IO.pure("test-version")
-
-    override val supportedSites: IO[Seq[String]] = IO.pure(Seq("youtube.com", "youtu.be"))
-
-    override def videoInformation(uri: Uri): IO[VideoAnalysisResult] =
-      IO.raiseError(new NotImplementedError("videoInformation not implemented in stub"))
-  }
-
   "WorkExecutor download" should "download custom video site videos using download service" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
@@ -192,15 +68,15 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
         _ <- transactor(insertScheduledVideo(customSiteVideo))
         _ <- transactor(insertWorker(Worker("worker-0", WorkerStatus.Active, None, None, None, None)))
 
-        batchSchedulingService = new StubBatchSchedulingService(customSiteVideo, customSiteVideo)
+        batchSchedulingService <- StubBatchSchedulingService.create(customSiteVideo)
         batchVideoService = new StubBatchVideoService(
           Video(customSiteVideo.videoMetadata, FileResource("file-id", timestamp, "/videos/test.mp4", MediaType.video.mp4, 1000), timestamp, 0.seconds)
         )
-        videoEnrichmentService = new StubVideoEnrichmentService
+        videoEnrichmentService = new StubVideoEnrichmentService(timestamp)
         repositoryService = new StubRepositoryService(true, Some(1000L), Some(MediaType.video.mp4))
         videoAnalysisService = new StubVideoAnalysisService(Uri.unsafeFromString("https://example.com/video.mp4"), 10.minutes)
         downloadService = new StubDownloadService(downloadResult)
-        youTubeVideoDownloader = new StubYouTubeVideoDownloader
+        youTubeVideoDownloader = new StubYouTubeVideoDownloader()
 
         workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
 
@@ -269,13 +145,13 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
         _ <- transactor(insertScheduledVideo(customSiteVideo))
         _ <- transactor(insertWorker(Worker("worker-0", WorkerStatus.Active, None, None, None, None)))
 
-        batchSchedulingService = new StubBatchSchedulingService(customSiteVideo, customSiteVideo)
+        batchSchedulingService <- StubBatchSchedulingService.create(customSiteVideo)
         batchVideoService = new StubBatchVideoService(sampleVideo)
-        videoEnrichmentService = new StubVideoEnrichmentService
+        videoEnrichmentService = new StubVideoEnrichmentService(timestamp)
         repositoryService = new StubRepositoryService(true, Some(5L), Some(MediaType.video.mp4))
         videoAnalysisService = new StubVideoAnalysisService(Uri.unsafeFromString("https://example.com/video.mp4"), 10.minutes)
         downloadService = new StubDownloadService(downloadResult)
-        youTubeVideoDownloader = new StubYouTubeVideoDownloader
+        youTubeVideoDownloader = new StubYouTubeVideoDownloader()
 
         workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
 
@@ -349,13 +225,13 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
         _ <- transactor(insertScheduledVideo(customSiteVideo))
         _ <- transactor(insertWorker(Worker("worker-retry", WorkerStatus.Active, None, None, None, None)))
 
-        batchSchedulingService = new StubBatchSchedulingService(customSiteVideo, customSiteVideo)
+        batchSchedulingService <- StubBatchSchedulingService.create(customSiteVideo)
         batchVideoService = new StubBatchVideoService(sampleVideo)
-        videoEnrichmentService = new StubVideoEnrichmentService
+        videoEnrichmentService = new StubVideoEnrichmentService(timestamp)
         repositoryService = new StubRepositoryService(true, Some(5L), Some(MediaType.video.mp4))
         videoAnalysisService = new StubVideoAnalysisService(Uri.unsafeFromString("https://example.com/video.mp4"), 10.minutes)
         downloadService = new StubDownloadService(downloadResult)
-        youTubeVideoDownloader = new StubYouTubeVideoDownloader
+        youTubeVideoDownloader = new StubYouTubeVideoDownloader()
 
         workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
 
@@ -422,14 +298,14 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
         _ <- transactor(insertScheduledVideo(customSiteVideo))
         _ <- transactor(insertWorker(Worker("worker-duration", WorkerStatus.Active, None, None, None, None)))
 
-        batchSchedulingService = new StubBatchSchedulingService(customSiteVideo, customSiteVideo)
+        batchSchedulingService <- StubBatchSchedulingService.create(customSiteVideo)
         batchVideoService = new StubBatchVideoService(sampleVideo)
-        videoEnrichmentService = new StubVideoEnrichmentService
+        videoEnrichmentService = new StubVideoEnrichmentService(timestamp)
         repositoryService = new StubRepositoryService(true, Some(5L), Some(MediaType.video.mp4))
         // Return a non-zero duration
         videoAnalysisService = new StubVideoAnalysisService(Uri.unsafeFromString("https://example.com/video.mp4"), 15.minutes)
         downloadService = new StubDownloadService(downloadResult)
-        youTubeVideoDownloader = new StubYouTubeVideoDownloader
+        youTubeVideoDownloader = new StubYouTubeVideoDownloader()
 
         workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
 
@@ -495,13 +371,13 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
         _ <- transactor(insertScheduledVideo(customSiteVideo))
         _ <- transactor(insertWorker(Worker("worker-size", WorkerStatus.Active, None, None, None, None)))
 
-        batchSchedulingService = new StubBatchSchedulingService(customSiteVideo, customSiteVideo)
+        batchSchedulingService <- StubBatchSchedulingService.create(customSiteVideo)
         batchVideoService = new StubBatchVideoService(sampleVideo)
-        videoEnrichmentService = new StubVideoEnrichmentService
+        videoEnrichmentService = new StubVideoEnrichmentService(timestamp)
         repositoryService = new StubRepositoryService(true, Some(200L), Some(MediaType.video.mp4))
         videoAnalysisService = new StubVideoAnalysisService(Uri.unsafeFromString("https://example.com/video.mp4"), 10.minutes)
         downloadService = new StubDownloadService(downloadResult)
-        youTubeVideoDownloader = new StubYouTubeVideoDownloader
+        youTubeVideoDownloader = new StubYouTubeVideoDownloader()
 
         workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
 
@@ -550,17 +426,17 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
         _ <- transactor(insertScheduledVideo(ytVideo))
         _ <- transactor(insertWorker(Worker("worker-yt", WorkerStatus.Active, None, None, None, None)))
 
-        batchSchedulingService = new StubBatchSchedulingService(ytVideo, ytVideo)
+        batchSchedulingService <- StubBatchSchedulingService.create(ytVideo)
         batchVideoService = new StubBatchVideoService(
           Video(ytVideo.videoMetadata, FileResource("file-id", timestamp, "/videos/test.mp4", MediaType.video.mp4, 1000), timestamp, 0.seconds)
         )
-        videoEnrichmentService = new StubVideoEnrichmentService
+        videoEnrichmentService = new StubVideoEnrichmentService(timestamp)
         repositoryService = new StubRepositoryService(true, Some(1000L), Some(MediaType.video.mp4))
         videoAnalysisService = new StubVideoAnalysisService(Uri.unsafeFromString("https://youtube.com/watch?v=abc"), 10.minutes)
         downloadService = new StubDownloadService(
           DownloadResult[IO](Uri.unsafeFromString("https://youtube.com/video"), "/videos/yt.mp4", 1000L, MediaType.video.mp4, Stream.empty)
         )
-        youTubeVideoDownloader = new StubYouTubeVideoDownloader
+        youTubeVideoDownloader = new StubYouTubeVideoDownloader()
 
         workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
 
@@ -606,11 +482,11 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
         _ <- transactor(insertScheduledVideo(ytVideo))
         _ <- transactor(insertWorker(Worker("worker-crawl", WorkerStatus.Active, None, None, None, None)))
 
-        batchSchedulingService = new StubBatchSchedulingService(ytVideo, ytVideo)
+        batchSchedulingService <- StubBatchSchedulingService.create(ytVideo)
         batchVideoService = new StubBatchVideoService(
           Video(ytVideo.videoMetadata, FileResource("file-id", timestamp, s"/videos/${ytVideo.videoMetadata.id}.mp4", MediaType.video.mp4, 1000), timestamp, 0.seconds)
         )
-        videoEnrichmentService = new StubVideoEnrichmentService
+        videoEnrichmentService = new StubVideoEnrichmentService(timestamp)
         // Repository that finds file by crawling
         repositoryService = new StubRepositoryService(true, Some(1000L), Some(MediaType.video.mp4)) {
           private var sizeCallCount = 0
@@ -629,7 +505,7 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
         downloadService = new StubDownloadService(
           DownloadResult[IO](Uri.unsafeFromString("https://youtube.com/video"), "/videos/yt.mp4", 1000L, MediaType.video.mp4, Stream.empty)
         )
-        youTubeVideoDownloader = new StubYouTubeVideoDownloader {
+        youTubeVideoDownloader = new StubYouTubeVideoDownloader() {
           import com.ruchij.core.services.video.models.{YTDataSize, YTDataUnit}
           override def downloadVideo(videoUrl: Uri, destinationPath: String): Stream[IO, YTDownloaderProgress] =
             Stream.emit(YTDownloaderProgress(100.0, YTDataSize(1.0, YTDataUnit.MiB), YTDataSize(1.0, YTDataUnit.MiB), 0.seconds))
@@ -685,11 +561,11 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
         _ <- transactor(insertScheduledVideo(ytVideo))
         _ <- transactor(insertWorker(Worker("worker-notfound", WorkerStatus.Active, None, None, None, None)))
 
-        batchSchedulingService = new StubBatchSchedulingService(ytVideo, ytVideo)
+        batchSchedulingService <- StubBatchSchedulingService.create(ytVideo)
         batchVideoService = new StubBatchVideoService(
           Video(ytVideo.videoMetadata, FileResource("file-id", timestamp, "/videos/test.mp4", MediaType.video.mp4, 1000), timestamp, 0.seconds)
         )
-        videoEnrichmentService = new StubVideoEnrichmentService
+        videoEnrichmentService = new StubVideoEnrichmentService(timestamp)
         // Repository returns empty list - no files found
         repositoryService = new StubRepositoryService(true, Some(1000L), Some(MediaType.video.mp4)) {
           override def size(key: String): IO[Option[Long]] = IO.pure(None)
@@ -699,7 +575,7 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
         downloadService = new StubDownloadService(
           DownloadResult[IO](Uri.unsafeFromString("https://youtube.com/video"), "/videos/yt.mp4", 1000L, MediaType.video.mp4, Stream.empty)
         )
-        youTubeVideoDownloader = new StubYouTubeVideoDownloader
+        youTubeVideoDownloader = new StubYouTubeVideoDownloader()
 
         workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
 
@@ -747,11 +623,11 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
         _ <- transactor(insertScheduledVideo(ytVideo))
         _ <- transactor(insertWorker(Worker("worker-multi", WorkerStatus.Active, None, None, None, None)))
 
-        batchSchedulingService = new StubBatchSchedulingService(ytVideo, ytVideo)
+        batchSchedulingService <- StubBatchSchedulingService.create(ytVideo)
         batchVideoService = new StubBatchVideoService(
           Video(ytVideo.videoMetadata, FileResource("file-id", timestamp, "/videos/test.mp4", MediaType.video.mp4, 1000), timestamp, 0.seconds)
         )
-        videoEnrichmentService = new StubVideoEnrichmentService
+        videoEnrichmentService = new StubVideoEnrichmentService(timestamp)
         // Repository returns multiple files with the same ID prefix
         repositoryService = new StubRepositoryService(true, Some(1000L), Some(MediaType.video.mp4)) {
           override def size(key: String): IO[Option[Long]] = IO.pure(None)
@@ -765,7 +641,7 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
         downloadService = new StubDownloadService(
           DownloadResult[IO](Uri.unsafeFromString("https://youtube.com/video"), "/videos/yt.mp4", 1000L, MediaType.video.mp4, Stream.empty)
         )
-        youTubeVideoDownloader = new StubYouTubeVideoDownloader
+        youTubeVideoDownloader = new StubYouTubeVideoDownloader()
 
         workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
 
@@ -815,17 +691,17 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
 
         downloadUri = Uri.unsafeFromString("https://cdn.spankbang.com/video.mp4")
 
-        batchSchedulingService = new StubBatchSchedulingService(customVideo, customVideo)
+        batchSchedulingService <- StubBatchSchedulingService.create(customVideo)
         batchVideoService = new StubBatchVideoService(
           Video(customVideo.videoMetadata, FileResource("file-id", timestamp, "/videos/custom.mp4", MediaType.video.mp4, 2000), timestamp, 0.seconds)
         )
-        videoEnrichmentService = new StubVideoEnrichmentService
+        videoEnrichmentService = new StubVideoEnrichmentService(timestamp)
         repositoryService = new StubRepositoryService(true, Some(2000L), Some(MediaType.video.mp4))
         videoAnalysisService = new StubVideoAnalysisService(downloadUri, 10.minutes)
         downloadService = new StubDownloadService(
           DownloadResult[IO](downloadUri, s"/videos/${customVideo.videoMetadata.id}-video.mp4", 2000L, MediaType.video.mp4, Stream.emit(2000L))
         )
-        youTubeVideoDownloader = new StubYouTubeVideoDownloader
+        youTubeVideoDownloader = new StubYouTubeVideoDownloader()
 
         workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
 
