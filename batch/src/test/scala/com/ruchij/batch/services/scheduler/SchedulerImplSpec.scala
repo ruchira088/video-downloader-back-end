@@ -25,7 +25,8 @@ import com.ruchij.core.messaging.Subscriber
 import com.ruchij.core.messaging.models.VideoWatchMetric
 import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
 import com.ruchij.core.services.video.VideoWatchHistoryService
-import com.ruchij.core.test.IOSupport.runIO
+import com.ruchij.batch.services.scheduler.Scheduler.PausedVideoDownload
+import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import com.ruchij.core.types.Clock
 import com.ruchij.core.types.TimeUtils
 import fs2.Stream
@@ -42,14 +43,16 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   val testTimestamp = TimeUtils.instantOf(2024, 5, 15, 14, 30)
 
   // Stub implementations for testing
-  class StubBatchSchedulingService extends BatchSchedulingService[IO] {
-    var acquiredTasks: List[ScheduledVideoDownload] = List.empty
-    var staleTasks: List[ScheduledVideoDownload] = List.empty
-    var deletedIds: List[String] = List.empty
-    var publishedIds: List[String] = List.empty
-    var erroredTasks: List[(String, Throwable)] = List.empty
-    var statusUpdates: List[(String, SchedulingStatus)] = List.empty
-    var downloadProgressUpdates: List[(String, Long)] = List.empty
+  class StubBatchSchedulingService(workerStatusUpdates: Stream[IO, WorkerStatusUpdate] = Stream.empty)
+      extends BatchSchedulingService[IO] {
+    @volatile var acquiredTasks: List[ScheduledVideoDownload] = List.empty
+    @volatile var staleTasks: List[ScheduledVideoDownload] = List.empty
+    @volatile var deletedIds: List[String] = List.empty
+    @volatile var publishedIds: List[String] = List.empty
+    @volatile var erroredTasks: List[(String, Throwable)] = List.empty
+    @volatile var statusUpdates: List[(String, SchedulingStatus)] = List.empty
+    @volatile var bulkStatusUpdates: List[(SchedulingStatus, SchedulingStatus)] = List.empty
+    @volatile var downloadProgressUpdates: List[(String, Long)] = List.empty
 
     override val acquireTask: OptionT[IO, ScheduledVideoDownload] =
       OptionT(IO.delay(acquiredTasks.headOption))
@@ -59,7 +62,9 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
     override def publishScheduledVideoDownload(id: String): IO[ScheduledVideoDownload] = {
       publishedIds = publishedIds :+ id
-      IO.raiseError(new NotImplementedError("publishScheduledVideoDownload stub"))
+      IO.fromOption((acquiredTasks ++ staleTasks).find(_.videoMetadata.id == id))(
+        new NoSuchElementException(s"Unknown scheduled video download: $id")
+      )
     }
 
     override def deleteById(id: String): IO[ScheduledVideoDownload] = {
@@ -69,16 +74,18 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
     override def setErrorById(id: String, throwable: Throwable): IO[ScheduledVideoDownload] = {
       erroredTasks = erroredTasks :+ (id, throwable)
-      IO.raiseError(new NotImplementedError("setErrorById stub"))
+      IO.pure(createScheduledVideoDownload(id, SchedulingStatus.Error))
     }
 
     override def updateSchedulingStatusById(id: String, schedulingStatus: SchedulingStatus): IO[ScheduledVideoDownload] = {
       statusUpdates = statusUpdates :+ (id, schedulingStatus)
-      IO.raiseError(new NotImplementedError("updateSchedulingStatusById stub"))
+      IO.pure(createScheduledVideoDownload(id, schedulingStatus))
     }
 
-    override def updateSchedulingStatus(from: SchedulingStatus, to: SchedulingStatus): IO[Seq[ScheduledVideoDownload]] =
+    override def updateSchedulingStatus(from: SchedulingStatus, to: SchedulingStatus): IO[Seq[ScheduledVideoDownload]] = {
+      bulkStatusUpdates = bulkStatusUpdates :+ (from, to)
       IO.pure(Seq.empty)
+    }
 
     override def updateTimedOutTasks(timeout: FiniteDuration): IO[Seq[ScheduledVideoDownload]] =
       IO.pure(Seq.empty)
@@ -94,8 +101,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     override def subscribeToScheduledVideoDownloadUpdates(groupId: String): Stream[IO, ScheduledVideoDownload] =
       Stream.empty
 
-    override def subscribeToWorkerStatusUpdates(groupId: String): Stream[IO, WorkerStatusUpdate] =
-      Stream.empty
+    override def subscribeToWorkerStatusUpdates(groupId: String): Stream[IO, WorkerStatusUpdate] = workerStatusUpdates
   }
 
   class StubSynchronizationService extends SynchronizationService[IO] {
@@ -131,17 +137,20 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
       IO.pure(List.empty)
   }
 
-  class StubWorkExecutor extends WorkExecutor[IO] {
-    var executedTasks: List[ScheduledVideoDownload] = List.empty
+  class StubWorkExecutor(
+    result: (ScheduledVideoDownload, Stream[IO, Boolean]) => IO[Video] =
+      (_, _) => IO.raiseError(new NotImplementedError("execute stub"))
+  ) extends WorkExecutor[IO] {
+    @volatile var executedTasks: List[ScheduledVideoDownload] = List.empty
 
     override def execute(
       scheduledVideoDownload: ScheduledVideoDownload,
       worker: Worker,
-      cancellationToken: Stream[IO, Boolean],
+      interrupt: Stream[IO, Boolean],
       retries: Int
     ): IO[Video] = {
       executedTasks = executedTasks :+ scheduledVideoDownload
-      IO.raiseError(new NotImplementedError("execute stub"))
+      result(scheduledVideoDownload, interrupt)
     }
   }
 
@@ -465,14 +474,16 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   def createScheduler(
     workerDao: StubWorkerDao,
     workerConfiguration: WorkerConfiguration = createWorkerConfiguration(),
-    maybeMessageTransaction: Option[IO ~> IO] = None
+    maybeMessageTransaction: Option[IO ~> IO] = None,
+    batchSchedulingService: StubBatchSchedulingService = new StubBatchSchedulingService(),
+    workExecutor: StubWorkExecutor = new StubWorkExecutor()
   )(implicit clock: Clock[IO]): SchedulerImpl[IO, IO] = {
     new SchedulerImpl[IO, IO](
-      batchSchedulingService = new StubBatchSchedulingService,
+      batchSchedulingService = batchSchedulingService,
       synchronizationService = new StubSynchronizationService,
       batchVideoService = new StubBatchVideoService,
       videoWatchHistoryService = new StubVideoWatchHistoryService,
-      workExecutor = new StubWorkExecutor,
+      workExecutor = workExecutor,
       duplicateDetectionService = new StubBatchDuplicateDetectionService,
       videoWatchMetricsSubscriber = new StubVideoWatchMetricsSubscriber,
       scanForVideosCommandSubscriber = new StubScanForVideosCommandSubscriber,
@@ -672,4 +683,103 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     }
   }
 
+
+  private def availableWorker(id: String = "worker-00"): Worker =
+    Worker(id, WorkerStatus.Available, None, None, None, None)
+
+  "SchedulerImpl.run" should "assign a queued task to an idle worker and emit the downloaded video" in runIO {
+    implicit val clock: Clock[IO] = defaultClock
+
+    val task = createScheduledVideoDownload("queued-task")
+    val video = createTestVideo("queued-task")
+
+    val workerDao = new StubWorkerDao
+    workerDao.workers = List(availableWorker())
+
+    val batchSchedulingService = new StubBatchSchedulingService()
+    batchSchedulingService.acquiredTasks = List(task)
+
+    val workExecutor = new StubWorkExecutor((_, _) => IO.pure(video))
+
+    val scheduler =
+      createScheduler(
+        workerDao,
+        createWorkerConfiguration(maxConcurrentDownloads = 1),
+        batchSchedulingService = batchSchedulingService,
+        workExecutor = workExecutor
+      )
+
+    scheduler.run.head.compile.lastOrError.withTimeout(15.seconds).map { downloaded =>
+      downloaded mustBe video
+      workerDao.reservedWorkers must contain("worker-00")
+      workerDao.assignedTasks must contain(("worker-00", task.videoMetadata.id))
+      workerDao.releasedWorkers must contain("worker-00")
+      batchSchedulingService.publishedIds must contain(task.videoMetadata.id)
+      workExecutor.executedTasks mustBe List(task)
+    }
+  }
+
+  it should "record an error against the task and release the worker when the executor fails" in runIO {
+    implicit val clock: Clock[IO] = defaultClock
+
+    val task = createScheduledVideoDownload("failing-task")
+    val failure = new RuntimeException("Download failed")
+
+    val workerDao = new StubWorkerDao
+    workerDao.workers = List(availableWorker())
+
+    val batchSchedulingService = new StubBatchSchedulingService()
+    batchSchedulingService.acquiredTasks = List(task)
+
+    val scheduler =
+      createScheduler(
+        workerDao,
+        createWorkerConfiguration(maxConcurrentDownloads = 1),
+        batchSchedulingService = batchSchedulingService,
+        workExecutor = new StubWorkExecutor((_, _) => IO.raiseError(failure))
+      )
+
+    scheduler.run.interruptAfter(3.seconds).compile.toList.map { downloaded =>
+      downloaded mustBe empty
+      batchSchedulingService.erroredTasks.map { case (id, _) => id } must contain(task.videoMetadata.id)
+      batchSchedulingService.erroredTasks.map { case (_, throwable) => throwable } must contain(failure)
+      workerDao.releasedWorkers must contain("worker-00")
+    }
+  }
+
+  it should "pause the active download and the workers when a worker pause update arrives" in runIO {
+    implicit val clock: Clock[IO] = defaultClock
+
+    val task = createScheduledVideoDownload("paused-task")
+
+    val workerDao = new StubWorkerDao
+    workerDao.workers = List(availableWorker())
+
+    val batchSchedulingService =
+      new StubBatchSchedulingService(
+        workerStatusUpdates = Stream.awakeEvery[IO](500.millis).as(WorkerStatusUpdate(WorkerStatus.Paused))
+      )
+    batchSchedulingService.acquiredTasks = List(task)
+
+    // Behaves like WorkExecutorImpl: the first pause signal abandons the download
+    val workExecutor =
+      new StubWorkExecutor((_, interrupt) => interrupt.head.compile.drain.productR(IO.raiseError(PausedVideoDownload)))
+
+    val scheduler =
+      createScheduler(
+        workerDao,
+        createWorkerConfiguration(maxConcurrentDownloads = 1),
+        batchSchedulingService = batchSchedulingService,
+        workExecutor = workExecutor
+      )
+
+    scheduler.run.interruptAfter(4.seconds).compile.toList.map { downloaded =>
+      downloaded mustBe empty
+      workExecutor.executedTasks must contain(task)
+      batchSchedulingService.erroredTasks mustBe empty
+      batchSchedulingService.bulkStatusUpdates must contain((SchedulingStatus.Active, SchedulingStatus.WorkersPaused))
+      workerDao.allStatusUpdates must contain(WorkerStatus.Paused)
+      workerDao.releasedWorkers must contain("worker-00")
+    }
+  }
 }
