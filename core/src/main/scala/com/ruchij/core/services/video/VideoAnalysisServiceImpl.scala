@@ -110,12 +110,8 @@ class VideoAnalysisServiceImpl[F[_]: Async: Clock, T[_]: Monad](
           }
         } {
           case exception =>
-            runWithRetry(
-              retryCount = 1,
-              timeout = FiniteDuration(3, TimeUnit.SECONDS),
-              throwables = List(classOf[Exception]),
-              failureMessage = _.getMessage
-            ) {
+            // A concurrent request may have inserted the same metadata between the lookup and the insert
+            withTimeout(FiniteDuration(3, TimeUnit.SECONDS)) {
               transaction { videoMetadataDao.findByUrl(videoMetadata.url) }
                 .flatMap {
                   case None => MonadCancelThrow[F].raiseError(exception)
@@ -135,11 +131,11 @@ class VideoAnalysisServiceImpl[F[_]: Async: Clock, T[_]: Monad](
     } yield videoAnalysisResult
 
   private def analyze(processedUri: Uri, videoSite: VideoSite): F[VideoAnalysisResult] =
-    runWithRetry(
-      3,
-      FiniteDuration(30, TimeUnit.SECONDS),
-      List(classOf[ResourceNotFoundException]),
-      errorMessage => s"Error occurred when analyzing uri=$processedUri. ${errorMessage.getMessage}. Retrying..."
+    retryOnFailure(
+      retries = 3,
+      timeout = FiniteDuration(30, TimeUnit.SECONDS),
+      isRetryable = throwable => !throwable.isInstanceOf[ResourceNotFoundException],
+      failureMessage = throwable => s"Error occurred when analyzing uri=$processedUri. ${throwable.getMessage}. Retrying..."
     ) {
       videoSite match {
         case customVideoSite: CustomVideoSite =>
@@ -237,12 +233,7 @@ class VideoAnalysisServiceImpl[F[_]: Async: Clock, T[_]: Monad](
         }
       }
 
-  private def runWithRetry[A](
-    retryCount: Int,
-    timeout: FiniteDuration,
-    throwables: Seq[Class[_ <: Exception]],
-    failureMessage: Throwable => String
-  )(run: F[A]): F[A] = {
+  private def withTimeout[A](timeout: FiniteDuration)(run: F[A]): F[A] =
     Concurrent[F]
       .race[Unit, A](Sync[F].sleep(timeout), run)
       .flatMap {
@@ -253,13 +244,21 @@ class VideoAnalysisServiceImpl[F[_]: Async: Clock, T[_]: Monad](
 
         case Right(value) => Applicative[F].pure(value)
       }
+
+  /** Runs `run` under `timeout`, retrying up to `retries` more times after a retryable failure. */
+  private def retryOnFailure[A](
+    retries: Int,
+    timeout: FiniteDuration,
+    isRetryable: Throwable => Boolean,
+    failureMessage: Throwable => String
+  )(run: F[A]): F[A] =
+    withTimeout(timeout)(run)
       .handleErrorWith { throwable =>
-        if (retryCount < 1 || throwables.exists(_.isInstance(throwable))) MonadError[F, Throwable].raiseError(throwable)
+        if (retries < 1 || !isRetryable(throwable)) MonadError[F, Throwable].raiseError(throwable)
         else
           logger
             .warn[F](failureMessage(throwable))
             .productR(Sync[F].sleep(FiniteDuration(1, TimeUnit.SECONDS)))
-            .productR(runWithRetry(retryCount - 1, timeout, throwables, failureMessage)(run))
+            .productR(retryOnFailure(retries - 1, timeout, isRetryable, failureMessage)(run))
       }
-  }
 }
