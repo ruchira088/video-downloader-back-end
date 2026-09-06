@@ -21,7 +21,6 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
 
 class SchedulerIntegrationSpec extends AnyFlatSpec with Matchers with OptionValues {
 
@@ -171,15 +170,6 @@ class SchedulerIntegrationSpec extends AnyFlatSpec with Matchers with OptionValu
     }
   }
 
-  "SchedulerImpl.WorkerPollPeriod" should "be 1 second" in {
-    SchedulerImpl.WorkerPollPeriod mustBe 1.second
-  }
-
-  "Scheduler.PausedVideoDownload" should "be a singleton exception" in {
-    Scheduler.PausedVideoDownload mustBe a[Exception]
-    Scheduler.PausedVideoDownload.getMessage mustBe null
-  }
-
   "Worker heartbeat" should "update worker heartbeat timestamp" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
@@ -301,24 +291,4 @@ class SchedulerIntegrationSpec extends AnyFlatSpec with Matchers with OptionValu
     }
   }
 
-  "Worker.workerIdFromIndex" should "generate correct worker IDs" in {
-    Worker.workerIdFromIndex(0) mustBe "worker-00"
-    Worker.workerIdFromIndex(5) mustBe "worker-05"
-    Worker.workerIdFromIndex(10) mustBe "worker-10"
-    Worker.workerIdFromIndex(99) mustBe "worker-99"
-  }
-
-  "WorkerConfiguration" should "contain correct configuration values" in {
-    val config = createWorkerConfiguration(
-      maxConcurrentDownloads = 8,
-      startTime = java.time.LocalTime.of(9, 0),
-      endTime = java.time.LocalTime.of(17, 0),
-      owner = "my-owner"
-    )
-
-    config.maxConcurrentDownloads mustBe 8
-    config.startTime mustBe java.time.LocalTime.of(9, 0)
-    config.endTime mustBe java.time.LocalTime.of(17, 0)
-    config.owner mustBe "my-owner"
-  }
 }

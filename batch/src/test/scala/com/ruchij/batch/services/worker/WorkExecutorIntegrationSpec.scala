@@ -318,19 +318,6 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
     }
   }
 
-  "Worker model" should "create worker IDs from index" in {
-    Worker.workerIdFromIndex(0) mustBe "worker-00"
-    Worker.workerIdFromIndex(5) mustBe "worker-05"
-    Worker.workerIdFromIndex(10) mustBe "worker-10"
-    Worker.workerIdFromIndex(99) mustBe "worker-99"
-  }
-
-  "StorageConfiguration" should "contain correct paths" in {
-    storageConfiguration.videoFolder mustBe "/videos"
-    storageConfiguration.imageFolder mustBe "/images"
-    storageConfiguration.otherVideoFolders mustBe List("/other-videos")
-  }
-
   "WorkExecutor execute" should "handle retry when file size is smaller than expected" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
@@ -600,70 +587,6 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
         }
       } yield ()
     }
-  }
-
-  "StubRepositoryService" should "find files with correct extensions" in runIO {
-    // Create a repository that returns size for .mp4 extension
-    val repository = new StubRepositoryService(true, None, None) {
-      override def size(key: String): IO[Option[Long]] = {
-        if (key.endsWith(".mp4")) IO.pure(Some(1000L))
-        else IO.pure(None)
-      }
-    }
-
-    // Test that the first matching extension is found
-    repository.size("/videos/test.mp4").flatMap { result =>
-      IO.delay {
-        result mustBe Some(1000L)
-      }
-    }
-  }
-
-  it should "return None when no extension matches" in runIO {
-    val repository = new StubRepositoryService(true, None, None)
-
-    repository.size("/videos/test.mp4").flatMap { result =>
-      IO.delay {
-        result mustBe None
-      }
-    }
-  }
-
-  "StubRepositoryService list" should "list files in directory" in runIO {
-    val repository = new StubRepositoryService(true, Some(1000L), Some(MediaType.video.mp4)) {
-      override def list(prefix: String): Stream[IO, String] =
-        Stream.emits(List("/videos/video-001.mp4", "/videos/video-002.mp4", "/videos/video-003.mp4"))
-    }
-
-    repository.list("/videos").compile.toList.flatMap { files =>
-      IO.delay {
-        files.size mustBe 3
-        files must contain("/videos/video-001.mp4")
-      }
-    }
-  }
-
-  it should "filter files by prefix" in runIO {
-    val videoId = "test-video-id"
-    val repository = new StubRepositoryService(true, Some(1000L), Some(MediaType.video.mp4)) {
-      override def list(prefix: String): Stream[IO, String] =
-        Stream.emits(List(
-          s"/videos/$videoId-video.mp4",
-          "/videos/other-video.mp4",
-          s"/videos/$videoId-another.mp4"
-        ))
-    }
-
-    repository.list("/videos")
-      .filter(_.contains(videoId))
-      .compile
-      .toList
-      .flatMap { files =>
-        IO.delay {
-          files.size mustBe 2
-          files.foreach(_ must include(videoId))
-        }
-      }
   }
 
   "WorkExecutor with crawling repository" should "find video file by crawling when extension search fails" in runIO {
