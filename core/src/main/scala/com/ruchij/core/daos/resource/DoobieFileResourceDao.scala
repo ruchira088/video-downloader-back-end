@@ -28,7 +28,7 @@ object DoobieFileResourceDao extends FileResourceDao[ConnectionIO] {
       .option
 
   override def findByPath(path: String): ConnectionIO[Option[FileResource]] =
-    sql"SELECT id, created_at, path, media_type, size FROM file_resource WHERE path LIKE ${"%" + path}"
+    sql"SELECT id, created_at, path, media_type, size FROM file_resource WHERE path = $path"
       .query[FileResource]
       .option
 
