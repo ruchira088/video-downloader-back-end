@@ -10,7 +10,6 @@ import fs2.io.file.{Files, Flags, Path, WalkOptions}
 import org.http4s.MediaType
 
 import java.nio.file.Paths
-import java.util.concurrent.TimeoutException
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
 
@@ -71,11 +70,9 @@ class FileRepositoryService[F[_]: Async: Files](fileTypeDetector: FileTypeDetect
         .interruptWhen {
           Timers
             .createResettableTimer(100 seconds, ref)
-            .recoverWith {
-              case timeoutException: TimeoutException =>
-                logger
-                  .error[F](s"Unable to list files for $key", timeoutException)
-                  .as(Left(timeoutException))
+            .flatTap {
+              case Left(timeoutException) => logger.error[F](s"Unable to list files for $key", timeoutException)
+              case Right(_) => Applicative[F].unit
             }
         }
         .productR {

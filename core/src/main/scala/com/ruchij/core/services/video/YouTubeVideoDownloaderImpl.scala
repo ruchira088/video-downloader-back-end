@@ -1,6 +1,6 @@
 package com.ruchij.core.services.video
 
-import cats.MonadThrow
+import cats.{Applicative, MonadThrow}
 import cats.data.{Kleisli, OptionT}
 import cats.effect.{Async, Ref, Sync}
 import cats.implicits._
@@ -23,7 +23,6 @@ import org.http4s.implicits.http4sLiteralsSyntax
 import org.jsoup.Jsoup
 
 import java.util.concurrent.TimeUnit
-import scala.concurrent.TimeoutException
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.language.postfixOps
 import scala.math.Ordered.orderingToOrdered
@@ -130,11 +129,12 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](
         .interruptWhen {
           Timers
             .createResettableTimer(30 seconds, ref)
-            .recoverWith {
-              case timeoutException: TimeoutException =>
+            .flatTap {
+              case Left(timeoutException) =>
                 logger
                   .error[F](s"YoutubeDownloader failed download any data for url=${uri.renderString}", timeoutException)
-                  .as(Left(timeoutException))
+
+              case Right(_) => Applicative[F].unit
             }
         }
         .evalTap { _ =>
