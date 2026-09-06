@@ -15,7 +15,7 @@ import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
 import com.ruchij.core.types.Clock
 import doobie.ConnectionIO
-import org.http4s.MediaType
+import org.http4s.{MediaType, Uri}
 import org.http4s.implicits.http4sLiteralsSyntax
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
@@ -431,6 +431,60 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
 
         _ <- IO.delay {
           retriedAgain mustBe empty
+        }
+      }
+      yield (): Unit
+  }
+
+  it should "retry every errored download when there is more than one page of failures" in runTest {
+    (scheduledVideoDownload, transaction) =>
+      val erroredCount = 120
+
+      for {
+        timestamp <- Clock[IO].timestamp
+        thumbnail = scheduledVideoDownload.videoMetadata.thumbnail
+
+        _ <- transaction {
+          (1 to erroredCount).toList.traverse_ { index =>
+            val videoMetadata =
+              scheduledVideoDownload.videoMetadata.copy(
+                url = Uri.unsafeFromString(s"https://spankbang.com/video-$index"),
+                id = f"video-metadata-id-$index%03d",
+                thumbnail = thumbnail
+              )
+
+            DoobieVideoMetadataDao
+              .insert(videoMetadata)
+              .productR(DoobieSchedulingDao.insert(scheduledVideoDownload.copy(videoMetadata = videoMetadata)))
+              .productR(DoobieSchedulingDao.setErrorById(videoMetadata.id, new Exception(s"Failure $index"), timestamp))
+          }
+        }
+
+        errored <- transaction {
+          DoobieSchedulingDao.search(None, None, RangeValue.all[FiniteDuration], RangeValue.all[Long], 0, 1000, SortBy.Date, Order.Descending, Some(NonEmptyList.one(SchedulingStatus.Error)), None, None)
+        }
+        _ <- IO.delay { errored.size mustBe erroredCount }
+
+        retried <- transaction(DoobieSchedulingDao.retryErroredScheduledDownloads(None, timestamp))
+
+        _ <- IO.delay {
+          retried.size mustBe erroredCount
+          retried.map(_.videoMetadata.id).toSet.size mustBe erroredCount
+          all(retried.map(_.status)) mustBe SchedulingStatus.Queued
+          all(retried.map(_.errorInfo)) mustBe None
+        }
+
+        remainingErrored <- transaction {
+          DoobieSchedulingDao.search(None, None, RangeValue.all[FiniteDuration], RangeValue.all[Long], 0, 1000, SortBy.Date, Order.Descending, Some(NonEmptyList.one(SchedulingStatus.Error)), None, None)
+        }
+        queued <- transaction {
+          DoobieSchedulingDao.search(None, None, RangeValue.all[FiniteDuration], RangeValue.all[Long], 0, 1000, SortBy.Date, Order.Descending, Some(NonEmptyList.one(SchedulingStatus.Queued)), None, None)
+        }
+
+        _ <- IO.delay {
+          remainingErrored mustBe empty
+          // The fixture's own queued download plus every retried one
+          queued.size mustBe erroredCount + 1
         }
       }
       yield (): Unit

@@ -18,6 +18,7 @@ import java.time.Instant
 import scala.concurrent.duration.FiniteDuration
 
 object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
+  private val RetryPageSize = 50
 
   override def insert(scheduledVideoDownload: ScheduledVideoDownload): ConnectionIO[Int] =
     scheduledVideoDownload.errorInfo match {
@@ -174,21 +175,27 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       .query[ScheduledVideoDownload]
       .to[Seq]
 
-  override def retryErroredScheduledDownloads(maybeUserId: Option[String], timestamp: Instant): ConnectionIO[Seq[ScheduledVideoDownload]] =
-    retryErroredScheduledDownloads(maybeUserId, timestamp, 50, 0)
+  override def retryErroredScheduledDownloads(
+    maybeUserId: Option[String],
+    timestamp: Instant
+  ): ConnectionIO[Seq[ScheduledVideoDownload]] =
+    retryErroredScheduledDownloads(maybeUserId, timestamp, RetryPageSize)
 
+  /**
+    * Retries errored downloads one page at a time. Every retried row leaves the `Error` status, so the next
+    * batch is always found on the first page again. Requesting subsequent page numbers would skip rows.
+    */
   private def retryErroredScheduledDownloads(
     maybeUserId: Option[String],
     timestamp: Instant,
-    pageSize: Int,
-    pageNumber: Int
+    pageSize: Int
   ): ConnectionIO[Seq[ScheduledVideoDownload]] =
     search(
       term = None,
       videoUrls = None,
       durationRange = RangeValue.all,
       sizeRange = RangeValue.all,
-      pageNumber = pageNumber,
+      pageNumber = 0,
       pageSize = pageSize,
       sortBy = SortBy.Date,
       order = Order.Descending,
@@ -201,34 +208,29 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
         case None => Applicative[ConnectionIO].pure(Seq.empty)
 
         case Some(failedScheduledVideos) =>
-            val videoMetadataIds = failedScheduledVideos.map(_.videoMetadata.id)
+          val videoMetadataIds = failedScheduledVideos.map(_.videoMetadata.id)
 
-            (fr"""
-                  UPDATE scheduled_video
-                  SET
-                    status = ${SchedulingStatus.Queued},
-                    error_id = NULL,
-                    completed_at = NULL,
-                    last_updated_at = $timestamp
-                  WHERE
-              """ ++ in(fr"video_metadata_id", videoMetadataIds)
-              ).update.run
-              .productR {
-                (fr"DELETE FROM scheduled_video_error WHERE" ++ in(fr"video_id", videoMetadataIds))
-                  .update.run
-              }
-          .productR {
-            if (failedScheduledVideos.size < pageSize) {
-              Applicative[ConnectionIO].pure {
-                failedScheduledVideos.toList.map {
-                  _.copy(status = SchedulingStatus.Queued, lastUpdatedAt = timestamp)
-                }
-              }
-            } else {
-                retryErroredScheduledDownloads(maybeUserId, timestamp, pageSize, pageNumber + 1)
-                    .map(failedScheduledVideos.toList ++ _)
+          val retried =
+            failedScheduledVideos.toList.map {
+              _.copy(status = SchedulingStatus.Queued, lastUpdatedAt = timestamp, completedAt = None, errorInfo = None)
             }
-          }
+
+          (fr"""
+              UPDATE scheduled_video
+              SET
+                status = ${SchedulingStatus.Queued},
+                error_id = NULL,
+                completed_at = NULL,
+                last_updated_at = $timestamp
+              WHERE
+            """ ++ in(fr"video_metadata_id", videoMetadataIds)).update.run
+            .productR {
+              (fr"DELETE FROM scheduled_video_error WHERE" ++ in(fr"video_id", videoMetadataIds)).update.run
+            }
+            .productR {
+              if (failedScheduledVideos.size < pageSize) Applicative[ConnectionIO].pure(retried)
+              else retryErroredScheduledDownloads(maybeUserId, timestamp, pageSize).map(retried ++ _)
+            }
       }
 
   override def staleTask(delay: FiniteDuration, timestamp: Instant): ConnectionIO[Option[ScheduledVideoDownload]] =
