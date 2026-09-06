@@ -331,4 +331,29 @@ class QueryParameterSpec extends AnyFlatSpec with Matchers {
       result mustBe List.empty
     }
   }
+
+  "PagingQuery.from" should "use the default page size and number" in runIO {
+    PagingQuery.from[IO].run(Map.empty).map { pagingQuery =>
+      pagingQuery mustBe PagingQuery(25, 0)
+    }
+  }
+
+  it should "reject page sizes above the maximum" in runIO {
+    val params: QueryParameters = Map("page-size" -> Seq((PagingQuery.MaxPageSize + 1).toString))
+
+    PagingQuery.from[IO].run(params).error.map { error =>
+      error mustBe a[ValidationException]
+      error.getMessage must include("page-size")
+    }
+  }
+
+  it should "reject non-positive page sizes and negative page numbers" in runIO {
+    for {
+      zeroPageSize <- PagingQuery.from[IO].run(Map("page-size" -> Seq("0"))).error
+      negativePageNumber <- PagingQuery.from[IO].run(Map("page-number" -> Seq("-1"))).error
+    } yield {
+      zeroPageSize mustBe a[ValidationException]
+      negativePageNumber mustBe a[ValidationException]
+    }
+  }
 }
