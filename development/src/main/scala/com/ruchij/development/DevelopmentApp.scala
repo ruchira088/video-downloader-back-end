@@ -29,6 +29,7 @@ import org.http4s.HttpApp
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.implicits.http4sLiteralsSyntax
 
+import java.nio.file.Paths
 import java.security.KeyStore
 import java.time.LocalTime
 import javax.net.ssl.{KeyManagerFactory, SSLContext}
@@ -38,8 +39,8 @@ import scala.language.postfixOps
 object DevelopmentApp extends IOApp {
   private val StorageConfig: StorageConfiguration =
     StorageConfiguration(
-      "/Users/ruchira/Development/video-downloader-back-end/videos",
-      "/Users/ruchira/Development/video-downloader-back-end/images",
+      Paths.get("videos").toAbsolutePath.toString,
+      Paths.get("images").toAbsolutePath.toString,
       List.empty
     )
 
