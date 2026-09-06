@@ -82,7 +82,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
     override def retryFailed(maybeUserId: Option[String]): IO[Seq[ScheduledVideoDownload]] =
       IO.pure(Seq.empty)
 
-    override def updateSchedulingStatus(id: String, status: SchedulingStatus): IO[ScheduledVideoDownload] =
+    override def updateSchedulingStatus(id: String, status: SchedulingStatus, maybeUserId: Option[String]): IO[ScheduledVideoDownload] =
       IO.pure(sampleScheduledVideoDownload.copy(status = status))
 
     override def updateWorkerStatus(workerStatus: WorkerStatus): IO[Unit] = IO.unit

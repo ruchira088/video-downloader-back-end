@@ -424,7 +424,7 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
         }
   }
 
-  it should "return unauthorized for non-admin users" in runIO {
+  it should "return forbidden for non-admin users" in runIO {
     (authenticationService.authenticate _)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
@@ -440,7 +440,7 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
         )
         .flatMap { response =>
           IO.delay {
-            response must haveStatus(Status.Unauthorized)
+            response must haveStatus(Status.Forbidden)
           }
         }
   }
@@ -466,6 +466,36 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.Ok)
+          }
+        }
+  }
+
+  "GET /videos/summary" should "return forbidden for non-admin users" in runIO {
+    (authenticationService.authenticate _)
+      .expects(testSecret)
+      .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
+
+    ignoreHttpMetrics() *>
+      createRoutes()
+        .run(Request[IO](method = GET, uri = uri"/videos/summary", headers = authHeaders))
+        .flatMap { response =>
+          IO.delay {
+            response must haveStatus(Status.Forbidden)
+          }
+        }
+  }
+
+  "POST /videos/queue-incomplete-downloads" should "return forbidden for non-admin users" in runIO {
+    (authenticationService.authenticate _)
+      .expects(testSecret)
+      .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
+
+    ignoreHttpMetrics() *>
+      createRoutes()
+        .run(Request[IO](method = POST, uri = uri"/videos/queue-incomplete-downloads", headers = authHeaders))
+        .flatMap { response =>
+          IO.delay {
+            response must haveStatus(Status.Forbidden)
           }
         }
   }

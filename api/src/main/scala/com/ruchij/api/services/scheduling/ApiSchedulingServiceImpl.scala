@@ -181,8 +181,14 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
           )
         }
 
-  override def updateSchedulingStatus(id: String, status: SchedulingStatus): F[ScheduledVideoDownload] =
-    Clock[F].timestamp
+  override def updateSchedulingStatus(
+    id: String,
+    status: SchedulingStatus,
+    maybeUserId: Option[String]
+  ): F[ScheduledVideoDownload] =
+    maybeUserId
+      .traverse_(userId => getById(id, Some(userId)))
+      .productR(Clock[F].timestamp)
       .flatMap { timestamp =>
         OptionT(transaction(schedulingDao.updateSchedulingStatusById(id, status, timestamp))).getOrElseF {
           ApplicativeError[F, Throwable].raiseError(notFound(id))

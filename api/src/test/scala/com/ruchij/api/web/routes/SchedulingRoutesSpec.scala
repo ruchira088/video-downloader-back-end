@@ -287,7 +287,7 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
     val pausedDownload = testScheduledDownload.copy(status = SchedulingStatus.Paused)
 
     (apiSchedulingService.updateSchedulingStatus _)
-      .expects("youtube-7488acd8", SchedulingStatus.Paused)
+      .expects("youtube-7488acd8", SchedulingStatus.Paused, Some(ApiTestData.NormalUser.id))
       .returns(IO.pure(pausedDownload))
 
     ignoreHttpMetrics() *>
@@ -332,6 +332,27 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
             response must beJsonContentType
             response must haveJson(expectedJsonResponse)
             response must haveStatus(Status.Ok)
+          }
+        }
+  }
+
+  it should "return forbidden for non-admin users" in runIO {
+    (authenticationService.authenticate _)
+      .expects(testSecret)
+      .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
+
+    ignoreHttpMetrics() *>
+      createRoutes()
+        .run(
+          Request[IO](
+            method = PUT,
+            uri = uri"/schedule/worker-status",
+            headers = authHeaders
+          ).withEntity(json"""{"workerStatus": "Paused"}""")
+        )
+        .flatMap { response =>
+          IO.delay {
+            response must haveStatus(Status.Forbidden)
           }
         }
   }

@@ -2,7 +2,6 @@ package com.ruchij.api.web.routes
 
 import cats.effect.Async
 import cats.implicits._
-import com.ruchij.api.daos.user.models.Role
 import com.ruchij.api.daos.user.models.Role.Admin
 import com.ruchij.api.services.detection.ApiDuplicateDetectionService
 import com.ruchij.api.services.models.Context.AuthenticatedRequestContext
@@ -71,8 +70,10 @@ object VideoRoutes {
           )
         } yield response
 
-      case GET -> Root / "summary" as AuthenticatedRequestContext(user, _) if user.role == Admin =>
-        apiVideoService.summary.flatMap(videoServiceSummary => Ok(videoServiceSummary))
+      case GET -> Root / "summary" as AuthenticatedRequestContext(user, _) =>
+        Authorizer[F](user.role == Admin) {
+          apiVideoService.summary.flatMap(videoServiceSummary => Ok(videoServiceSummary))
+        }
 
       case GET -> Root / "history" :? queryParameters as AuthenticatedRequestContext(user, _) =>
         for {
@@ -143,20 +144,22 @@ object VideoRoutes {
           .productR(apiVideoService.fetchVideoSnapshots(videoId, user.nonAdminUserId))
           .flatMap(snapshots => Ok(IterableResponse(snapshots)))
 
-      case POST -> Root / "queue-incomplete-downloads" as AuthenticatedRequestContext(user, _)
-          if user.role == Role.Admin =>
-        apiVideoService.queueIncorrectlyCompletedVideos.flatMap(videos => Ok(IterableResponse(videos)))
+      case POST -> Root / "queue-incomplete-downloads" as AuthenticatedRequestContext(user, _) =>
+        Authorizer[F](user.role == Admin) {
+          apiVideoService.queueIncorrectlyCompletedVideos.flatMap(videos => Ok(IterableResponse(videos)))
+        }
 
-      case GET -> Root / "duplicates" :? queryParameters as AuthenticatedRequestContext(user, _)
-          if user.role == Role.Admin =>
-        for {
-          PagingQuery(pageSize, pageNumber) <- PagingQuery.from[F].run(queryParameters)
-          duplicates <- duplicateDetectionService.findDuplicateVideos(
-            offset = pageNumber * pageSize,
-            limit = pageSize
-          )
-          response <- Ok(duplicates)
-        } yield response
+      case GET -> Root / "duplicates" :? queryParameters as AuthenticatedRequestContext(user, _) =>
+        Authorizer[F](user.role == Admin) {
+          for {
+            PagingQuery(pageSize, pageNumber) <- PagingQuery.from[F].run(queryParameters)
+            duplicates <- duplicateDetectionService.findDuplicateVideos(
+              offset = pageNumber * pageSize,
+              limit = pageSize
+            )
+            response <- Ok(duplicates)
+          } yield response
+        }
 
     }
   }

@@ -2,8 +2,10 @@ package com.ruchij.api.web.routes
 
 import cats.effect.Async
 import cats.implicits._
+import com.ruchij.api.daos.user.models.Role
 import com.ruchij.api.services.models.Context.AuthenticatedRequestContext
 import com.ruchij.api.services.scheduling.ApiSchedulingService
+import com.ruchij.api.web.middleware.Authorizer
 import com.ruchij.api.web.requests.RequestOps.ContextRequestOpsSyntax
 import com.ruchij.api.web.requests.UpdateScheduledVideoRequest.updateScheduledVideoRequestValidator
 import com.ruchij.api.web.requests.queryparams.SearchQuery
@@ -102,11 +104,12 @@ object SchedulingRoutes {
             Ok(scheduledVideoDownload)
           }
 
-      case authRequest @ PUT -> Root / "id" / videoId as _ =>
+      case authRequest @ PUT -> Root / "id" / videoId as AuthenticatedRequestContext(user, _) =>
         for {
           UpdateScheduledVideoRequest(schedulingStatus) <- authRequest.to[UpdateScheduledVideoRequest]
 
-          updatedScheduledVideoDownload <- apiSchedulingService.updateSchedulingStatus(videoId, schedulingStatus)
+          updatedScheduledVideoDownload <-
+            apiSchedulingService.updateSchedulingStatus(videoId, schedulingStatus, user.nonAdminUserId)
 
           response <- Ok(updatedScheduledVideoDownload)
         } yield response
@@ -140,14 +143,16 @@ object SchedulingRoutes {
           Ok(WorkerStatusResponse(workerStatus))
         }
 
-      case authRequest @ PUT -> Root / "worker-status" as _ =>
-        for {
-          workerStatusUpdateRequest <- authRequest.to[WorkerStatusUpdateRequest]
+      case authRequest @ PUT -> Root / "worker-status" as AuthenticatedRequestContext(user, _) =>
+        Authorizer[F](user.role == Role.Admin) {
+          for {
+            workerStatusUpdateRequest <- authRequest.to[WorkerStatusUpdateRequest]
 
-          _ <- apiSchedulingService.updateWorkerStatus(workerStatusUpdateRequest.workerStatus)
+            _ <- apiSchedulingService.updateWorkerStatus(workerStatusUpdateRequest.workerStatus)
 
-          response <- Ok(WorkerStatusResponse(workerStatusUpdateRequest.workerStatus))
-        } yield response
+            response <- Ok(WorkerStatusResponse(workerStatusUpdateRequest.workerStatus))
+          } yield response
+        }
     }
   }
 }

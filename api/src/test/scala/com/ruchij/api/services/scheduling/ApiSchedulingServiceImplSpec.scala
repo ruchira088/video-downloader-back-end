@@ -476,9 +476,52 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
       schedulingDao = schedulingDao
     )
 
-    service.updateSchedulingStatus("video-1", SchedulingStatus.Active).map { result =>
+    service.updateSchedulingStatus("video-1", SchedulingStatus.Active, None).map { result =>
       result mustBe updatedDownload
       publisher.publishedMessages.toList mustBe List(updatedDownload)
+    }
+  }
+
+  it should "update the status when the user has permission for the download" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+
+    val updatedDownload = sampleScheduledVideoDownload.copy(status = SchedulingStatus.Paused)
+    val publisher = new StubPublisher[ScheduledVideoDownload]()
+    val schedulingDao =
+      new StubSchedulingDao(
+        getByIdResult = {
+          case ("video-1", Some("user-1")) => Some(sampleScheduledVideoDownload)
+          case _ => None
+        },
+        updateSchedulingStatusResult = Some(updatedDownload)
+      )
+
+    val (service, _, _) = createService(scheduledVideoDownloadPublisher = publisher, schedulingDao = schedulingDao)
+
+    service.updateSchedulingStatus("video-1", SchedulingStatus.Paused, Some("user-1")).map { result =>
+      result mustBe updatedDownload
+      publisher.publishedMessages.toList mustBe List(updatedDownload)
+    }
+  }
+
+  it should "not update the status when the user has no permission for the download" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+
+    val publisher = new StubPublisher[ScheduledVideoDownload]()
+    val schedulingDao =
+      new StubSchedulingDao(
+        getByIdResult = {
+          case ("video-1", Some("user-1")) => Some(sampleScheduledVideoDownload)
+          case _ => None
+        },
+        updateSchedulingStatusResult = Some(sampleScheduledVideoDownload.copy(status = SchedulingStatus.Paused))
+      )
+
+    val (service, _, _) = createService(scheduledVideoDownloadPublisher = publisher, schedulingDao = schedulingDao)
+
+    service.updateSchedulingStatus("video-1", SchedulingStatus.Paused, Some("other-user")).error.map { error =>
+      error mustBe a[ResourceNotFoundException]
+      publisher.publishedMessages.toList mustBe empty
     }
   }
 
@@ -488,7 +531,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     val schedulingDao = new StubSchedulingDao(updateSchedulingStatusResult = None)
     val (service, _, _) = createService(schedulingDao = schedulingDao)
 
-    service.updateSchedulingStatus("non-existent", SchedulingStatus.Active).error.map { error =>
+    service.updateSchedulingStatus("non-existent", SchedulingStatus.Active, None).error.map { error =>
       error mustBe a[ResourceNotFoundException]
     }
   }
