@@ -141,13 +141,14 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
 
   override def hasVideoFilePermission(videoFileResourceId: String, userId: String): ConnectionIO[Boolean] =
     sql"""
-      SELECT COUNT(*) FROM video
-        JOIN permission ON video.video_metadata_id = permission.video_id
-        WHERE video.file_resource_id = $videoFileResourceId AND permission.user_id = $userId
+      SELECT EXISTS(
+        SELECT 1 FROM video
+          JOIN permission ON video.video_metadata_id = permission.video_id
+          WHERE video.file_resource_id = $videoFileResourceId AND permission.user_id = $userId
+      )
     """
-      .query[Int]
+      .query[Boolean]
       .unique
-      .map(_ == 1)
 
   override def isVideoFileResourceExist(videoFileResourceId: String): ConnectionIO[Boolean] =
     sql"SELECT EXISTS(SELECT 1 FROM video WHERE file_resource_id = $videoFileResourceId)".query[Boolean].unique

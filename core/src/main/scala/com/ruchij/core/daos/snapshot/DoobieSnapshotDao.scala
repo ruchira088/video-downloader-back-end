@@ -35,15 +35,16 @@ object DoobieSnapshotDao extends SnapshotDao[ConnectionIO] {
 
   override def hasPermission(snapshotFileResourceId: String, userId: String): ConnectionIO[Boolean] =
     sql"""
-      SELECT COUNT(*) FROM video_snapshot
-        INNER JOIN permission ON permission.video_id = video_snapshot.video_id
-        WHERE
-            video_snapshot.file_resource_id = $snapshotFileResourceId AND
-            permission.user_id = $userId
+      SELECT EXISTS(
+        SELECT 1 FROM video_snapshot
+          INNER JOIN permission ON permission.video_id = video_snapshot.video_id
+          WHERE
+              video_snapshot.file_resource_id = $snapshotFileResourceId AND
+              permission.user_id = $userId
+      )
     """
-      .query[Int]
+      .query[Boolean]
       .unique
-      .map(_ == 1)
 
   override def isSnapshotFileResource(fileResourceId: String): ConnectionIO[Boolean] =
     sql"SELECT EXISTS(SELECT 1 FROM video_snapshot WHERE file_resource_id = $fileResourceId)".query[Boolean].unique

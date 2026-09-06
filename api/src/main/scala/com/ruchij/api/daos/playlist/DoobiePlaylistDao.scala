@@ -152,13 +152,13 @@ class DoobiePlaylistDao(fileResourceDao: FileResourceDao[ConnectionIO], videoDao
 
   override def deleteById(playlistId: String, maybeUserId: Option[String]): ConnectionIO[Int] =
     maybeUserId
-      .fold[ConnectionIO[Int]](Applicative[ConnectionIO].pure(1)) { userId =>
-        sql"SELECT COUNT(1) FROM playlist WHERE id = $playlistId AND user_id = $userId"
-          .query[Int]
+      .fold[ConnectionIO[Boolean]](Applicative[ConnectionIO].pure(true)) { userId =>
+        sql"SELECT EXISTS(SELECT 1 FROM playlist WHERE id = $playlistId AND user_id = $userId)"
+          .query[Boolean]
           .unique
       }
-      .flatMap { count =>
-        if (count == 1) {
+      .flatMap { isOwner =>
+        if (isOwner) {
           sql"DELETE FROM playlist_video WHERE playlist_id = $playlistId".update.run
             .product {
               sql"DELETE FROM playlist WHERE id = $playlistId".update.run
