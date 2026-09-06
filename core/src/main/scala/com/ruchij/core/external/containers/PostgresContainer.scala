@@ -3,16 +3,14 @@ package com.ruchij.core.external.containers
 import cats.effect.{Resource, Sync}
 import cats.implicits._
 import com.ruchij.migration.config.DatabaseConfiguration
-import org.testcontainers.containers.PostgreSQLContainer
-
-class PostgresContainer extends PostgreSQLContainer[PostgresContainer]("postgres:16")
+import org.testcontainers.postgresql.PostgreSQLContainer
 
 object PostgresContainer {
   def create[F[_]: Sync]: Resource[F, DatabaseConfiguration] =
     Resource
       .eval {
         Sync[F].delay {
-          new PostgresContainer()
+          new PostgreSQLContainer("postgres:16")
             .withUsername("my-user")
             .withPassword("my-password")
             .withDatabaseName("video-downloader")
