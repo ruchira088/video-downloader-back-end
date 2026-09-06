@@ -21,7 +21,7 @@ class RedisStreamPublisher[F[_]: Sync, A](redisStream: RedisStream[F, String, St
             XAddMessage(messagingTopic.name, RedisData(value).toMap(messagingTopic.jsonCodec))
           }
         }
-        .as((): Unit)
+        .as(())
 
   override def publishOne(input: A): F[Unit] =
     publish(Stream.emit[F, A](input)).compile.drain

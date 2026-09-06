@@ -12,7 +12,7 @@ class Fs2PubSub[F[_]: Applicative, A](topic: Topic[F, A]) extends PubSub[F, A] {
 
   override val publish: Pipe[F, A, Unit] = input => topic.publish(input)
 
-  override def publishOne(input: A): F[Unit] = topic.publish1(input).as((): Unit)
+  override def publishOne(input: A): F[Unit] = topic.publish1(input).void
 
   override def subscribe(groupId: String): Stream[F, A] =
     topic.subscribe(Int.MaxValue)

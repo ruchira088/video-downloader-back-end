@@ -169,7 +169,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
           maybeUserId.map(userId => fr"permission.user_id = $userId")
         )
       ++ fr"ORDER BY"
-      ++ schedulingSortByFiledName(sortBy)
+      ++ schedulingSortByFieldName(sortBy)
       ++ ordering(order)
       ++ fr"LIMIT $pageSize OFFSET ${pageNumber * pageSize}")
       .query[ScheduledVideoDownload]
@@ -349,7 +349,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       rootException(cause)
     }
 
-  private val schedulingSortByFiledName: SortBy => Fragment =
+  private val schedulingSortByFieldName: SortBy => Fragment =
     sortByFieldName.orElse {
       case SortBy.Date => fr"scheduled_video.scheduled_at"
       case _ => fr"RANDOM()"

@@ -214,11 +214,11 @@ class SynchronizationServiceImpl[F[_]: Async: Clock, A, T[_]: MonadThrow](
   private def syncVideo(videoPath: String): F[FileSyncResult] =
     Clock[F].timestamp.flatMap { startTimestamp =>
       transaction {
-        OptionT(videoDao.findByVideoPath(videoPath).map(_.as((): Unit)))
+        OptionT(videoDao.findByVideoPath(videoPath).map(_.void))
           .orElse {
             OptionT
               .fromOption[T](videoIdFromVideoFile(videoPath))
-              .flatMapF(videoId => schedulingDao.getById(videoId, None).map(_.as((): Unit)))
+              .flatMapF(videoId => schedulingDao.getById(videoId, None).map(_.void))
           }
           .orElse {
             OptionT(fileSyncDao.findByPath(videoPath))

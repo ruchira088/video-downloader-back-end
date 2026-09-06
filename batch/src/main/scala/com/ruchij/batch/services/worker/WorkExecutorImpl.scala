@@ -102,8 +102,8 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
                                 )
                                 .productR {
                                   exitCase match {
-                                    case ExitCase.Errored(throwable) => deferred.complete(Left(throwable)).as((): Unit)
-                                    case _ => deferred.complete(Right((): Unit)).as((): Unit)
+                                    case ExitCase.Errored(throwable) => deferred.complete(Left(throwable)).void
+                                    case _ => deferred.complete(Right((): Unit)).void
                                   }
                                 }
                             }
@@ -125,7 +125,7 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
                                 ),
                                 None
                               )
-                            }.as((): Unit)
+                            }.void
                           }
                       }
                       .interruptWhen(deferred)
@@ -303,7 +303,7 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
                             videoMetadataDao.update(scheduledVideoDownload.videoMetadata.id, None, None, Some(duration))
                         )
                       )
-                      .as((): Unit)
+                      .void
                   else Applicative[F].unit
                 }
                 .productL {
