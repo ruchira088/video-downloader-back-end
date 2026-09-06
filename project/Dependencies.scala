@@ -61,8 +61,6 @@ object Dependencies
 
   lazy val jbcrypt = "org.mindrot" % "jbcrypt" % "0.4"
 
-  lazy val embeddedRedis = "com.github.kstyrc" % "embedded-redis" % "0.6"
-
   lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "8.3.1"
 
   private val TestContainersVersion = "2.0.5"

@@ -305,7 +305,7 @@ sbt viewCoverageResults
 
 - **Unit tests**: In-memory H2 database
 - **Integration tests**: TestContainers (PostgreSQL, Kafka, Redis)
-- **Embedded services**: Redis and Kafka Schema Registry for isolated testing
+- **Embedded services**: H2 database plus embedded Kafka and Schema Registry for isolated testing
 
 ## Messaging
 

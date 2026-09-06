@@ -106,7 +106,7 @@ lazy val api =
       Test / fork := true,
       libraryDependencies ++=
         Seq(http4sEmberServer, postgresql, pureconfig, jbcrypt, logbackClassic) ++ circe ++
-          Seq(circeLiteral, pegdown, embeddedRedis).map(_ % Test)
+          Seq(circeLiteral, pegdown).map(_ % Test)
     )
     .dependsOn(core % "compile->compile;test->test")
 
