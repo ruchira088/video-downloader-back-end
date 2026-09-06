@@ -9,7 +9,7 @@ import com.ruchij.core.exceptions.ValidationException
 import com.ruchij.core.services.renderer.SpaSiteRenderer
 import com.ruchij.core.types.FunctionKTypes._
 import com.ruchij.core.utils.JsoupSelector
-import com.ruchij.core.utils.MatcherUtils.IntNumber
+import com.ruchij.core.utils.MatcherUtils.FiniteDurationValue
 import enumeratum.{Enum, EnumEntry}
 import org.http4s.circe.decodeUri
 import org.http4s.implicits.http4sLiteralsSyntax
@@ -38,16 +38,9 @@ sealed trait CustomVideoSite extends VideoSite with EnumEntry { self =>
 object CustomVideoSite extends Enum[CustomVideoSite] {
   type Selector[F[_], A] = Kleisli[F, WebPage, A]
 
-  private val VideoDurationFormatOne: Regex = "(\\d+):(\\d+)".r
-  private val VideoDurationFormatTwo: Regex = "(\\d+):(\\d+):(\\d+)".r
-
   private def parseDuration[F[_]: ApplicativeError[*[_], Throwable]](duration: String): F[FiniteDuration] =
     duration match {
-      case VideoDurationFormatTwo(IntNumber(hours), IntNumber(minutes), IntNumber(seconds)) =>
-        Applicative[F].pure(FiniteDuration(hours * 3600 + minutes * 60 + seconds, TimeUnit.SECONDS))
-
-      case VideoDurationFormatOne(IntNumber(minutes), IntNumber(seconds)) =>
-        Applicative[F].pure(FiniteDuration(minutes * 60 + seconds, TimeUnit.SECONDS))
+      case FiniteDurationValue(finiteDuration) => Applicative[F].pure(finiteDuration)
 
       case duration =>
         ApplicativeError[F, Throwable].raiseError {

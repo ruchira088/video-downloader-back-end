@@ -29,6 +29,15 @@ class YTDownloaderProgressSpec extends AnyFlatSpec with Matchers {
         )
       }
 
+    YTDownloaderProgress.unapply("[download]  45.0% of 512.00MiB at 1.00MiB/s ETA 12:34") mustBe
+      Some {
+        YTDownloaderProgress(
+          45,
+          YTDataSize(512, YTDataUnit.MiB),
+          YTDataSize(1, YTDataUnit.MiB),
+          FiniteDuration(12 * 60 + 34, TimeUnit.SECONDS)
+        )
+      }
   }
 
 }

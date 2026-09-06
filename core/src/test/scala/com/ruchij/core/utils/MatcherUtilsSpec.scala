@@ -67,8 +67,12 @@ class MatcherUtilsSpec extends AnyFlatSpec with Matchers {
 
   it should "extract duration with just minutes and seconds" in {
     val result = MatcherUtils.FiniteDurationValue.unapply("5:30")
-    // When there's no hours, the first capture group is null
-    result mustBe None
+    result mustBe Some((5 * 60 + 30).seconds)
+  }
+
+  it should "not treat the first digit of the minutes as hours" in {
+    MatcherUtils.FiniteDurationValue.unapply("12:34") mustBe Some((12 * 60 + 34).seconds)
+    MatcherUtils.FiniteDurationValue.unapply("59:59") mustBe Some((59 * 60 + 59).seconds)
   }
 
   it should "extract duration with 0 hours" in {

@@ -13,13 +13,14 @@ object MatcherUtils {
     def unapply(text: String): Option[Double] = text.toDoubleOption
   }
 
+  /** Matches `mm:ss` and `hh:mm:ss` durations. */
   object FiniteDurationValue {
-    private val FiniteDurationPattern: Regex = "(\\d+)?:?(\\d+):(\\d+)".r
+    private val FiniteDurationPattern: Regex = "(?:(\\d+):)?(\\d+):(\\d+)".r
 
     def unapply(text: String): Option[FiniteDuration] =
       text match {
-        case FiniteDurationPattern(IntNumber(hours), IntNumber(minutes), IntNumber(seconds)) =>
-          Some(FiniteDuration(3600 * hours + minutes * 60 + seconds, TimeUnit.SECONDS))
+        case FiniteDurationPattern(hours, IntNumber(minutes), IntNumber(seconds)) =>
+          Some(FiniteDuration(3600 * Option(hours).flatMap(_.toIntOption).getOrElse(0) + minutes * 60 + seconds, TimeUnit.SECONDS))
 
         case _ => None
       }
