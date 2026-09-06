@@ -39,7 +39,7 @@ object RandomGenerator {
   def range[F[_]: Sync](start: Int, end: Int): RandomGenerator[F, Int] =
     new RandomGenerator[F, Int] {
       override def generate: F[Int] =
-        if (start > end) MonadThrow[F].raiseError(ValidationException(s"$start must be less than $end"))
+        if (start >= end) MonadThrow[F].raiseError(ValidationException(s"$start must be less than $end"))
         else Sync[F].delay(Random.between(start, end))
     }
 
