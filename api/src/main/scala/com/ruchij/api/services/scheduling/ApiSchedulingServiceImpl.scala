@@ -74,9 +74,10 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
       }
 
   override def retryFailed(maybeUserId: Option[String]): F[Seq[ScheduledVideoDownload]] =
-    transaction {
-      schedulingDao.retryErroredScheduledDownloads(maybeUserId, Instant.now())
-    }
+    Clock[F].timestamp
+      .flatMap { timestamp =>
+        transaction(schedulingDao.retryErroredScheduledDownloads(maybeUserId, timestamp))
+      }
       .flatTap {
         scheduledVideoDownloads =>
           scheduledVideoDownloadPublisher.publish(Stream.emits(scheduledVideoDownloads)).compile.drain
