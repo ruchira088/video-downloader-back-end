@@ -117,4 +117,9 @@ class ExceptionsSpec extends AnyFlatSpec with Matchers {
     val exception = AggregatedException(NonEmptyList.one(error))
     exception.errors.head mustBe error
   }
+
+  it should "combine the error messages" in {
+    val exception = AggregatedException(NonEmptyList.of(new RuntimeException("Error 1"), new RuntimeException("Error 2")))
+    exception.getMessage mustBe "Error 1; Error 2"
+  }
 }

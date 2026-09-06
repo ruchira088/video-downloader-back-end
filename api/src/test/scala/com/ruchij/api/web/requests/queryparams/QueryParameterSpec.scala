@@ -6,7 +6,7 @@ import com.ruchij.api.daos.user.models.Role
 import com.ruchij.api.web.requests.queryparams.QueryParameter._
 import com.ruchij.core.daos.scheduling.models.RangeValue
 import com.ruchij.core.daos.videometadata.models.VideoSite
-import com.ruchij.core.exceptions.AggregatedException
+import com.ruchij.core.exceptions.{AggregatedException, ValidationException}
 import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import org.http4s.{QueryParamDecoder, QueryParameterValue}
 import org.scalatest.flatspec.AnyFlatSpec
@@ -45,8 +45,8 @@ class QueryParameterSpec extends AnyFlatSpec with Matchers {
     val params: QueryParameters = Map("count" -> Seq("not-a-number"))
 
     QueryParameter.parse[IO, Int]("count").run(params).error.map { error =>
-      error mustBe an[AggregatedException[_]]
-      val aggregated = error.asInstanceOf[AggregatedException[Exception]]
+      error mustBe an[AggregatedException]
+      val aggregated = error.asInstanceOf[AggregatedException]
       aggregated.errors.head.getMessage must include("count")
     }
   }
