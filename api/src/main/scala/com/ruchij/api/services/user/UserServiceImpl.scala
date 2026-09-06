@@ -82,7 +82,7 @@ class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: MonadThrow: Clock, G[_]
             .filter { resetToken =>
               resetToken.createdAt.plusMillis(UserService.ResetTokenValidity.toMillis).isAfter(timestamp)
             }
-            .semiflatMap(_ => credentialsDao.update(Credentials(userId, timestamp, hashedPassword)))
+            .semiflatMap(_ => credentialsDao.update(Credentials(userId, timestamp, hashedPassword)).one)
             .semiflatMap(_ => credentialsResetTokenDao.delete(userId, resetToken))
             .productR(OptionT(userDao.findById(userId)))
             .getOrElseF {
