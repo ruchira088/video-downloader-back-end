@@ -271,25 +271,25 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
             ORDER BY scheduled_at ASC
       """
       .query[String]
-      .to[Seq]
+      .to[List]
+      .map(NonEmptyList.fromList)
       .flatMap {
-        _.traverse { videoMetadataId =>
-          sql"""
+        case None => Applicative[ConnectionIO].pure(Seq.empty)
+
+        case Some(videoMetadataIds) =>
+          (fr"""
               UPDATE scheduled_video
                 SET
                   status = ${SchedulingStatus.Stale},
                   last_updated_at = $timestamp,
                   error_id = NULL
                 WHERE
-                  video_metadata_id = $videoMetadataId
-            """.update.run
-            .map(videoMetadataId -> _)
-        }
-      }
-      .flatMap {
-        _.collect { case (videoMetadataId, 1) => videoMetadataId }
-          .traverse(getById(_, None))
-          .map(_.flatten)
+            """ ++ in(fr"video_metadata_id", videoMetadataIds)).update.run
+            .productR {
+              (SelectQuery ++ fr"WHERE" ++ in(fr"scheduled_video.video_metadata_id", videoMetadataIds))
+                .query[ScheduledVideoDownload]
+                .to[Seq]
+            }
       }
 
   override def acquireTask(timestamp: Instant): ConnectionIO[Option[ScheduledVideoDownload]] =

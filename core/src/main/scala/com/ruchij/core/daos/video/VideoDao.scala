@@ -35,6 +35,9 @@ trait VideoDao[F[_]] {
 
   def findById(videoId: String, maybeUserId: Option[String]): F[Option[Video]]
 
+  /** Returns the matching videos in no particular order. */
+  def findByIds(videoIds: NonEmptyList[String]): F[Seq[Video]]
+
   def findByVideoFileResourceId(fileResourceId: String): F[Option[Video]]
 
   def findByVideoPath(videoPath: String): F[Option[Video]]

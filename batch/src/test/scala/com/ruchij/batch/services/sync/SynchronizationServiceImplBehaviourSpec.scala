@@ -646,6 +646,8 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
 
     override def findById(videoId: String, maybeUserId: Option[String]): IO[Option[Video]] = notImplemented
 
+    override def findByIds(videoIds: NonEmptyList[String]): IO[Seq[Video]] = notImplemented
+
     override def findByVideoFileResourceId(fileResourceId: String): IO[Option[Video]] = notImplemented
 
     override def hasVideoFilePermission(videoFileResourceId: String, userId: String): IO[Boolean] = notImplemented

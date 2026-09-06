@@ -1,5 +1,6 @@
 package com.ruchij.api.services.asset
 
+import cats.data.NonEmptyList
 import cats.effect.IO
 import cats.~>
 import com.ruchij.api.daos.playlist.PlaylistDao
@@ -112,6 +113,8 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
       IO.pure(Some(finiteDuration))
 
     override def findById(videoId: String, maybeUserId: Option[String]): IO[Option[Video]] = IO.pure(Some(sampleVideo))
+
+    override def findByIds(videoIds: NonEmptyList[String]): IO[Seq[Video]] = IO.pure(Seq(sampleVideo))
 
     override def findByVideoFileResourceId(fileResourceId: String): IO[Option[Video]] = IO.pure(None)
 

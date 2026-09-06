@@ -98,6 +98,9 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
     override def findById(videoId: String, maybeUserId: Option[String]): IO[Option[Video]] =
       IO.pure(findByIdResult(videoId, maybeUserId))
 
+    override def findByIds(videoIds: NonEmptyList[String]): IO[Seq[Video]] =
+      IO.pure(videoIds.toList.flatMap(videoId => findByIdResult(videoId, None)))
+
     override def findByVideoFileResourceId(fileResourceId: String): IO[Option[Video]] =
       IO.pure(None)
 

@@ -128,6 +128,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     override def search(term: Option[String], videoUrls: Option[NonEmptyList[Uri]], durationRange: RangeValue[FiniteDuration], sizeRange: RangeValue[Long], pageNumber: Int, pageSize: Int, sortBy: SortBy, order: Order, videoSites: Option[NonEmptyList[VideoSite]], maybeUserId: Option[String]): IO[Seq[Video]] = IO.pure(searchResult)
     override def incrementWatchTime(videoId: String, finiteDuration: FiniteDuration): IO[Option[FiniteDuration]] = IO.pure(None)
     override def findById(videoId: String, maybeUserId: Option[String]): IO[Option[Video]] = IO.pure(None)
+    override def findByIds(videoIds: NonEmptyList[String]): IO[Seq[Video]] = IO.pure(Seq.empty)
     override def findByVideoFileResourceId(fileResourceId: String): IO[Option[Video]] = IO.pure(None)
     override def findByVideoPath(videoPath: String): IO[Option[Video]] = IO.pure(None)
     override def deleteById(videoId: String): IO[Int] = IO.pure(1)

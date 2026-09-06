@@ -112,6 +112,9 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
       .query[Video]
       .option
 
+  override def findByIds(videoIds: NonEmptyList[String]): ConnectionIO[Seq[Video]] =
+    (selectQuery(None) ++ fr"WHERE" ++ in(fr"video.video_metadata_id", videoIds)).query[Video].to[Seq]
+
   private val videoSortByFieldName: SortBy => Fragment =
     sortByFieldName.orElse {
       case SortBy.Date => fr"video.created_at"

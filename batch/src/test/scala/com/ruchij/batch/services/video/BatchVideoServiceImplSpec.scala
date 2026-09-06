@@ -1,5 +1,6 @@
 package com.ruchij.batch.services.video
 
+import cats.data.NonEmptyList
 import cats.effect.IO
 import cats.~>
 import com.ruchij.core.daos.resource.FileResourceDao
@@ -91,6 +92,8 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
 
     override def findById(videoId: String, maybeUserId: Option[String]): IO[Option[Video]] =
       IO.pure(findByIdResult)
+
+    override def findByIds(videoIds: NonEmptyList[String]): IO[Seq[Video]] = IO.pure(findByIdResult.toSeq)
 
     override def findByVideoFileResourceId(fileResourceId: String): IO[Option[Video]] =
       IO.pure(findByVideoFileResourceIdResult)
