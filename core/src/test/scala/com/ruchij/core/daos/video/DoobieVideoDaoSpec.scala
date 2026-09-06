@@ -849,6 +849,49 @@ class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
     } yield ()
   }
 
+  it should "fall back to the metadata title when the user has permission but no custom title" in runTest { fixture =>
+    for {
+      timestamp <- Clock[IO].timestamp
+      userId = "test-user-no-title"
+
+      _ <- fixture.transaction(insertTestUser(userId, "no-title@example.com", timestamp))
+      _ <- fixture.transaction {
+        sql"""
+          INSERT INTO scheduled_video (scheduled_at, last_updated_at, status, downloaded_bytes, video_metadata_id, completed_at)
+            VALUES ($timestamp, $timestamp, ${SchedulingStatus.Completed: SchedulingStatus}, 0, ${fixture.video.videoMetadata.id}, $timestamp)
+        """.update.run
+      }
+      _ <- fixture.transaction(
+        DoobieVideoPermissionDao.insert(VideoPermission(timestamp, fixture.video.videoMetadata.id, userId))
+      )
+
+      searchResults <- fixture.transaction(
+        DoobieVideoDao.search(None, None, RangeValue.all[FiniteDuration], RangeValue.all[Long], 0, 10, SortBy.Date, Order.Descending, None, Some(userId))
+      )
+      foundById <- fixture.transaction(DoobieVideoDao.findById(fixture.video.videoMetadata.id, Some(userId)))
+
+      _ <- IO.delay {
+        searchResults.map(_.videoMetadata.title) mustBe Seq(fixture.videoMetadata.title)
+        foundById.value.videoMetadata.title mustBe fixture.videoMetadata.title
+      }
+
+      _ <- fixture.transaction {
+        sql"""
+          INSERT INTO video_title (video_id, user_id, title)
+            VALUES (${fixture.video.videoMetadata.id}, $userId, 'Custom Title')
+        """.update.run
+      }
+
+      foundWithTitle <- fixture.transaction(DoobieVideoDao.findById(fixture.video.videoMetadata.id, Some(userId)))
+      foundAsAdmin <- fixture.transaction(DoobieVideoDao.findById(fixture.video.videoMetadata.id, None))
+
+      _ <- IO.delay {
+        foundWithTitle.value.videoMetadata.title mustBe "Custom Title"
+        foundAsAdmin.value.videoMetadata.title mustBe fixture.videoMetadata.title
+      }
+    } yield ()
+  }
+
   it should "find video by ID with user permission" in runTest { fixture =>
     import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 

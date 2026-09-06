@@ -19,13 +19,18 @@ import scala.concurrent.duration.FiniteDuration
 
 object DoobieVideoDao extends VideoDao[ConnectionIO] {
 
-  private def selectQuery(hasUserId: Boolean): Fragment =
+  /**
+    * When a user ID is given, the query is restricted to videos the user has permission to view and the user's own
+    * title (if any) replaces the metadata title. The title join is a LEFT JOIN so that a permission without a
+    * matching `video_title` row still returns the video.
+    */
+  private def selectQuery(maybeUserId: Option[String]): Fragment =
     fr"""
        SELECT
         video_metadata.url,
         video_metadata.id,
         video_metadata.video_site,
-    """ ++ (if (hasUserId) fr"video_title.title," else fr"video_metadata.title,") ++
+    """ ++ (if (maybeUserId.nonEmpty) fr"COALESCE(video_title.title, video_metadata.title)," else fr"video_metadata.title,") ++
       fr"""
         video_metadata.duration,
         video_metadata.size,
@@ -42,14 +47,14 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
       INNER JOIN file_resource AS thumbnail ON video_metadata.thumbnail_id = thumbnail.id
       INNER JOIN file_resource AS video_file ON video.file_resource_id = video_file.id
       INNER JOIN video_watch_time ON video.video_metadata_id = video_watch_time.video_id
-    """ ++ (
-      if (hasUserId)
-        fr"""
-          INNER JOIN permission ON permission.video_id = video.video_metadata_id
-          LEFT JOIN video_title ON video_title.video_id = video.video_metadata_id
-        """
-      else Fragment.empty
-    )
+    """ ++ maybeUserId.fold(Fragment.empty) { userId =>
+      fr"""
+        INNER JOIN permission
+          ON permission.video_id = video.video_metadata_id AND permission.user_id = $userId
+        LEFT JOIN video_title
+          ON video_title.video_id = video.video_metadata_id AND video_title.user_id = $userId
+      """
+    }
 
   override def insert(
     videoMetadataId: String,
@@ -82,7 +87,7 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
     videoSites: Option[NonEmptyList[VideoSite]],
     maybeUserId: Option[String]
   ): ConnectionIO[Seq[Video]] =
-    (selectQuery(maybeUserId.nonEmpty)
+    (selectQuery(maybeUserId)
       ++
         whereAndOpt(
           term.map(searchTerm => fr"video_metadata.title ILIKE ${"%" + searchTerm + "%"}"),
@@ -91,9 +96,7 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
           durationRange.max.map(maximum => fr"video_metadata.duration <= $maximum"),
           sizeRange.min.map(minimum => fr"video_metadata.size >= $minimum"),
           sizeRange.max.map(maximum => fr"video_metadata.size <= $maximum"),
-          videoSites.map(sites => in(fr"video_metadata.video_site", sites)),
-          maybeUserId.map(userId => fr"permission.user_id = $userId"),
-          maybeUserId.map(userId => fr"video_title.user_id = $userId")
+          videoSites.map(sites => in(fr"video_metadata.video_site", sites))
         )
       ++ fr"ORDER BY"
       ++ videoSortByFieldName(sortBy)
@@ -105,12 +108,7 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
       .to[Seq]
 
   override def findById(id: String, maybeUserId: Option[String]): ConnectionIO[Option[Video]] =
-    (selectQuery(maybeUserId.nonEmpty) ++
-      whereAndOpt(
-        Some(fr"video_metadata_id = $id"),
-        maybeUserId.map(userId => fr"permission.user_id = $userId"),
-        maybeUserId.map(userId => fr"video_title.user_id = $userId")
-      ))
+    (selectQuery(maybeUserId) ++ fr"WHERE video.video_metadata_id = $id")
       .query[Video]
       .option
 
@@ -122,10 +120,10 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
     }
 
   override def findByVideoFileResourceId(fileResourceId: String): ConnectionIO[Option[Video]] =
-    (selectQuery(false) ++ fr"WHERE video_file.id = $fileResourceId").query[Video].option
+    (selectQuery(None) ++ fr"WHERE video_file.id = $fileResourceId").query[Video].option
 
   override def findByVideoPath(videoPath: String): ConnectionIO[Option[Video]] =
-    (selectQuery(false) ++ fr"WHERE video_file.path = $videoPath").query[Video].option
+    (selectQuery(None) ++ fr"WHERE video_file.path = $videoPath").query[Video].option
 
   override def incrementWatchTime(
     videoId: String,
