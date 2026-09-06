@@ -147,8 +147,7 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
                         workerStatusUpdate.workerStatus == WorkerStatus.Paused
                       }
                     }
-                    .filter(identity)
-                    .productR[Boolean](Stream.raiseError[F](PausedVideoDownload)),
+                    .filter(identity),
                   5
                 )
                 .map[Option[Video]](Some.apply)

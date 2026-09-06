@@ -9,6 +9,7 @@ import cats.{Applicative, ApplicativeError, ~>}
 import com.ruchij.batch.daos.workers.WorkerDao
 import com.ruchij.batch.daos.workers.models.Worker
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService
+import com.ruchij.batch.services.scheduler.Scheduler.PausedVideoDownload
 import com.ruchij.batch.services.scheduling.BatchSchedulingService
 import com.ruchij.batch.services.video.BatchVideoService
 import com.ruchij.batch.utils.Constants
@@ -244,7 +245,13 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
             .evalTap { byteCount =>
               batchSchedulingService.publishDownloadProgress(scheduledVideoDownload.videoMetadata.id, byteCount)
             }
-            .interruptWhen(interrupt)
+            // fs2 halts the stream gracefully on `true`, which would look like a finished download, so turn the
+            // signal into an error that the scheduler recognises as a pause
+            .interruptWhen {
+              interrupt.flatMap { halt =>
+                if (halt) Stream.raiseError[F](PausedVideoDownload) else Stream.emit(false)
+              }
+            }
             .compile
             .last
             .flatMap {
