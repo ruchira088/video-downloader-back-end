@@ -116,13 +116,14 @@ object ApiApp extends IOApp {
       proxiedHttpClient <- Clients.create[F](apiServiceConfiguration.httpProxyConfiguration)
       httpClient <- Clients.create[F](None)
       redisKeyValueStore <- RedisKeyValueStore.create[F](apiServiceConfiguration.redisConfiguration)
-      downloadProgressPubSub <- PubSub[F, DownloadProgress](apiServiceConfiguration.pubsubConfiguration)
-      scheduledVideoDownloadPubSub <- PubSub[F, ScheduledVideoDownload](apiServiceConfiguration.pubsubConfiguration)
-      healthCheckPubSub <- PubSub[F, HealthCheckMessage](apiServiceConfiguration.pubsubConfiguration)
-      httpMetricsPublisher <- PubSub[F, HttpMetric](apiServiceConfiguration.pubsubConfiguration)
-      videoWatchMetricsPublisher <- PubSub[F, VideoWatchMetric](apiServiceConfiguration.pubsubConfiguration)
-      workerStatusUpdatePublisher <- PubSub[F, WorkerStatusUpdate](apiServiceConfiguration.pubsubConfiguration)
-      scanVideoCommandPublisher <- PubSub[F, ScanVideosCommand](apiServiceConfiguration.pubsubConfiguration)
+      pubSubProvider <- PubSub.provider[F](apiServiceConfiguration.pubsubConfiguration)
+      downloadProgressPubSub <- pubSubProvider.pubSub[DownloadProgress]
+      scheduledVideoDownloadPubSub <- pubSubProvider.pubSub[ScheduledVideoDownload]
+      healthCheckPubSub <- pubSubProvider.pubSub[HealthCheckMessage]
+      httpMetricsPublisher <- pubSubProvider.pubSub[HttpMetric]
+      videoWatchMetricsPublisher <- pubSubProvider.pubSub[VideoWatchMetric]
+      workerStatusUpdatePublisher <- pubSubProvider.pubSub[WorkerStatusUpdate]
+      scanVideoCommandPublisher <- pubSubProvider.pubSub[ScanVideosCommand]
       dispatcher <- Dispatcher.parallel[F]
 
       messageBrokers = ApiMessageBrokers(

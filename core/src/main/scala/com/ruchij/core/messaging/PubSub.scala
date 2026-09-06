@@ -3,7 +3,7 @@ package com.ruchij.core.messaging
 import cats.Parallel
 import cats.effect.kernel.Resource
 import cats.effect.{Async, MonadCancelThrow}
-import cats.{Foldable, Functor}
+import cats.{Foldable, Functor, ~>}
 import com.ruchij.core.config.PubsubConfiguration
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.messaging.DoobieMessageDao
@@ -17,6 +17,13 @@ import enumeratum.{Enum, EnumEntry}
 import fs2.{Pipe, Stream}
 
 trait PubSub[F[_], A] extends Publisher[F, A] with Subscriber[F, A]
+
+trait PubSubProvider[F[_]] {
+  def pubSub[A: MessagingTopic]: Resource[F, PubSub[F, A]]
+
+  /** The transactor backing the message queue when the Doobie backend is configured. */
+  val messageTransaction: Option[ConnectionIO ~> F]
+}
 
 object PubSub {
   sealed trait PubsubType extends EnumEntry
@@ -44,55 +51,62 @@ object PubSub {
       override def extractValue(ca: subscriber.C[A]): A = subscriber.extractValue(ca)
     }
 
-  def apply[F[_]: Async: Parallel: Clock, A: MessagingTopic](
-    pubsubConfiguration: PubsubConfiguration,
-  ): Resource[F, PubSub[F, A]] =
+  /**
+    * Creates the backend-specific resources once (for example a single connection pool for the Doobie backend) and
+    * hands out per-topic `PubSub` instances from them.
+    */
+  def provider[F[_]: Async: Parallel: Clock](pubsubConfiguration: PubsubConfiguration): Resource[F, PubSubProvider[F]] =
     pubsubConfiguration.pubsubType match {
       case PubsubType.Kafka =>
         pubsubConfiguration.kafkaConfiguration
-          .fold[Resource[F, PubSub[F, A]]](
-            Resource.eval(
-              MonadCancelThrow[F].raiseError(
-                ExternalServiceException("kafka-configuration is empty despite the pubsub-type being 'kafka'")
-              )
-            )
-          ) { kafkaConfiguration =>
-            KafkaPubSub(kafkaConfiguration)
+          .fold(missingConfiguration[F]("kafka-configuration", "kafka")) { kafkaConfiguration =>
+            Resource.pure {
+              new PubSubProvider[F] {
+                override def pubSub[A: MessagingTopic]: Resource[F, PubSub[F, A]] = KafkaPubSub[F, A](kafkaConfiguration)
+
+                override val messageTransaction: Option[ConnectionIO ~> F] = None
+              }
+            }
           }
 
       case PubsubType.Redis =>
         pubsubConfiguration.redisConfiguration
-          .fold[Resource[F, PubSub[F, A]]](
-            Resource.eval(
-              MonadCancelThrow[F].raiseError(
-                ExternalServiceException("redis-configuration is empty despite the pubsub-type being 'redis'")
-              )
-            )
-          ) { redisConfiguration =>
-            for {
-              publisher <- RedisStreamPublisher.create[F, A](redisConfiguration)
-              subscriber <- RedisStreamSubscriber.create[F, A](redisConfiguration)
-            } yield PubSub.from(publisher, subscriber)
+          .fold(missingConfiguration[F]("redis-configuration", "redis")) { redisConfiguration =>
+            Resource.pure {
+              new PubSubProvider[F] {
+                override def pubSub[A: MessagingTopic]: Resource[F, PubSub[F, A]] =
+                  for {
+                    publisher <- RedisStreamPublisher.create[F, A](redisConfiguration)
+                    subscriber <- RedisStreamSubscriber.create[F, A](redisConfiguration)
+                  } yield PubSub.from(publisher, subscriber)
+
+                override val messageTransaction: Option[ConnectionIO ~> F] = None
+              }
+            }
           }
 
       case PubsubType.Doobie =>
         pubsubConfiguration.databaseConfiguration
-          .fold[Resource[F, PubSub[F, A]]](
-            Resource.eval(
-              MonadCancelThrow[F].raiseError(
-                ExternalServiceException("database-configuration is empty despite the pubsub-type being 'doobie'")
-              )
-            )
-          ) { databaseConfiguration =>
+          .fold(missingConfiguration[F]("database-configuration", "doobie")) { databaseConfiguration =>
             DoobieTransactor
               .create[F](databaseConfiguration)
               .map { hikariTransactor =>
-                hikariTransactor.trans
-              }
-              .map { implicit transaction =>
-                DoobiePubSub[F, ConnectionIO, A](DoobieMessageDao)
+                implicit val transaction: ConnectionIO ~> F = hikariTransactor.trans
+
+                new PubSubProvider[F] {
+                  override def pubSub[A: MessagingTopic]: Resource[F, PubSub[F, A]] =
+                    Resource.pure(DoobiePubSub[F, ConnectionIO, A](DoobieMessageDao))
+
+                  override val messageTransaction: Option[ConnectionIO ~> F] = Some(transaction)
+                }
               }
           }
+    }
 
+  private def missingConfiguration[F[_]: MonadCancelThrow](key: String, pubsubType: String): Resource[F, PubSubProvider[F]] =
+    Resource.eval {
+      MonadCancelThrow[F].raiseError {
+        ExternalServiceException(s"$key is empty despite the pubsub-type being '$pubsubType'")
+      }
     }
 }

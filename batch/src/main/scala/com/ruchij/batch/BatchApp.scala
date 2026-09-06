@@ -5,7 +5,6 @@ import cats.effect._
 import cats.effect.kernel.Async
 import cats.effect.std.Dispatcher
 import cats.implicits._
-import cats.~>
 import com.eed3si9n.ruchij.batch.BuildInfo
 import com.ruchij.batch.config.BatchServiceConfiguration
 import com.ruchij.batch.daos.filesync.DoobieFileSyncDao
@@ -19,7 +18,6 @@ import com.ruchij.batch.services.sync.SynchronizationServiceImpl
 import com.ruchij.batch.services.video.BatchVideoServiceImpl
 import com.ruchij.batch.services.worker.WorkExecutorImpl
 import com.ruchij.core.commands.ScanVideosCommand
-import com.ruchij.core.config.PubsubConfiguration
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.duplicate.DoobieDuplicateVideoDao
 import com.ruchij.core.daos.hash.DoobieVideoPerceptualHashDao
@@ -33,12 +31,10 @@ import com.ruchij.core.daos.title.DoobieVideoTitleDao
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videowatchhistory.DoobieVideoWatchHistoryDao
-import com.ruchij.core.exceptions.ExternalServiceException
 import com.ruchij.core.kv.codecs.KVEncoder._
 import com.ruchij.core.kv.{KeySpacedKeyValueStore, RedisKeyValueStore}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.PubSub
-import com.ruchij.core.messaging.PubSub.PubsubType
 import com.ruchij.core.messaging.models.VideoWatchMetric
 import com.ruchij.core.monitoring.Sentry
 import com.ruchij.core.services.cli.CliCommandRunnerImpl
@@ -130,14 +126,12 @@ object BatchApp extends IOApp {
             batchServiceConfiguration.storageConfiguration
           )
 
-          downloadProgressPublisher <- PubSub[F, DownloadProgress](batchServiceConfiguration.pubsubConfiguration)
-          scheduledVideoDownloadPubSub <- PubSub[F, ScheduledVideoDownload](
-            batchServiceConfiguration.pubsubConfiguration
-          )
-          workerStatusUpdatesSubscriber <- PubSub[F, WorkerStatusUpdate](batchServiceConfiguration.pubsubConfiguration)
-
-          videoWatchMetricsSubscriber <- PubSub[F, VideoWatchMetric](batchServiceConfiguration.pubsubConfiguration)
-          scanForVideosCommandSubscriber <- PubSub[F, ScanVideosCommand](batchServiceConfiguration.pubsubConfiguration)
+          pubSubProvider <- PubSub.provider[F](batchServiceConfiguration.pubsubConfiguration)
+          downloadProgressPublisher <- pubSubProvider.pubSub[DownloadProgress]
+          scheduledVideoDownloadPubSub <- pubSubProvider.pubSub[ScheduledVideoDownload]
+          workerStatusUpdatesSubscriber <- pubSubProvider.pubSub[WorkerStatusUpdate]
+          videoWatchMetricsSubscriber <- pubSubProvider.pubSub[VideoWatchMetric]
+          scanForVideosCommandSubscriber <- pubSubProvider.pubSub[ScanVideosCommand]
 
           perceptualHashingService = new PerceptualHashingServiceImpl[F]
 
@@ -226,8 +220,6 @@ object BatchApp extends IOApp {
 
           instanceId <- Resource.eval(RandomGenerator[F, UUID].generate).map(_.toString)
 
-          maybeMessageTransactor <- getMessageTransactor(batchServiceConfiguration.pubsubConfiguration)
-
           scheduler = new SchedulerImpl(
             batchSchedulingService,
             synchronizationService,
@@ -239,24 +231,10 @@ object BatchApp extends IOApp {
             scanForVideosCommandSubscriber,
             workerDao,
             DoobieMessageDao,
-            maybeMessageTransactor,
+            pubSubProvider.messageTransaction,
             batchServiceConfiguration.workerConfiguration,
             instanceId
           )
         } yield scheduler
       }
-
-  private def getMessageTransactor[F[_]: Async](
-    pubsubConfiguration: PubsubConfiguration
-  ): Resource[F, Option[ConnectionIO ~> F]] =
-    if (pubsubConfiguration.pubsubType == PubsubType.Doobie) {
-      pubsubConfiguration.databaseConfiguration
-        .fold[Resource[F, Option[ConnectionIO ~> F]]](
-          Resource.raiseError[F, Option[ConnectionIO ~> F], Throwable](
-            ExternalServiceException("database-configuration is empty despite the pubsub-type being 'doobie'")
-          )
-        ) { databaseConfiguration =>
-          DoobieTransactor.create(databaseConfiguration).map(_.trans).map(Some.apply)
-        }
-    } else Resource.pure[F, Option[ConnectionIO ~> F]](None)
 }
