@@ -228,14 +228,14 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
   override def deleteById(id: String, maybeUserId: Option[String]): F[ScheduledVideoDownload] =
     transaction {
       OptionT(schedulingDao.getById(id, maybeUserId))
-        .productL(OptionT.liftF(videoPermissionDao.delete(maybeUserId, Some(id))))
-        .productL(OptionT.liftF(videoTitleDao.delete(Some(id), maybeUserId)))
         .semiflatTap { scheduledVideoDownload =>
           if (List(SchedulingStatus.Completed, SchedulingStatus.Downloaded).contains(scheduledVideoDownload.status))
-            ApplicativeError[T, Throwable].raiseError[Int] {
+            ApplicativeError[T, Throwable].raiseError[Unit] {
               ValidationException("Unable to delete scheduled video downloads that are completed or downloaded")
-            } else Applicative[T].pure(0)
+            } else Applicative[T].unit
         }
+        .productL(OptionT.liftF(videoPermissionDao.delete(maybeUserId, Some(id))))
+        .productL(OptionT.liftF(videoTitleDao.delete(Some(id), maybeUserId)))
         .getOrElseF(ApplicativeError[T, Throwable].raiseError(notFound(id)))
     }
       .flatMap { scheduledVideoDownload =>
