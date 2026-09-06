@@ -2,6 +2,7 @@ package com.ruchij.api.services.health
 
 import cats.data.OptionT
 import cats.effect.kernel.Async
+import cats.effect.implicits._
 import cats.effect.{Clock, Concurrent}
 import cats.implicits._
 import cats.{Applicative, ~>}
@@ -115,18 +116,11 @@ class HealthServiceImpl[F[_]: Async: AppClock: RandomGenerator[*[_], UUID]](
     } yield FilePathCheck(basePath, fileResult)
 
   private val fileRepositoryCheck: F[FileRepositoryCheck] =
-    for {
-      imageFolderFiber <- Concurrent[F].start(fileRepositoryPathCheck(storageConfiguration.imageFolder))
-      videoFolderFiber <- Concurrent[F].start(fileRepositoryPathCheck(storageConfiguration.videoFolder))
-      otherFoldersFiber <- storageConfiguration.otherVideoFolders.traverse(
-        path => Concurrent[F].start(fileRepositoryPathCheck(path))
-      )
-
-      imageFolderCheck <- imageFolderFiber.joinWithNever
-      videoFolderCheck <- videoFolderFiber.joinWithNever
-      otherFoldersCheck <- otherFoldersFiber.traverse(_.joinWithNever)
-
-    } yield FileRepositoryCheck(imageFolderCheck, videoFolderCheck, otherFoldersCheck)
+    (
+      fileRepositoryPathCheck(storageConfiguration.imageFolder),
+      fileRepositoryPathCheck(storageConfiguration.videoFolder),
+      storageConfiguration.otherVideoFolders.parTraverse(fileRepositoryPathCheck)
+    ).parMapN(FileRepositoryCheck.apply)
 
   private val httpStatusHealthCheck: Status => HealthStatus = {
     case Status.Ok => HealthStatus.Healthy
@@ -179,30 +173,15 @@ class HealthServiceImpl[F[_]: Async: AppClock: RandomGenerator[*[_], UUID]](
     youTubeVideoDownloader.version.flatMap(ServiceInformation.create[F])
 
   override val healthCheck: F[HealthCheck] =
-    for {
-      databaseStatusFiber <- Concurrent[F].start(runHealthCheck(databaseCheck))
-      fileRepositoryCheckFiber <- Concurrent[F].start(fileRepositoryCheck)
-      keyValueStoreStatusFiber <- Concurrent[F].start(runHealthCheck(keyValueStoreCheck))
-      pubSubStatusFiber <- Concurrent[F].start(runHealthCheck(pubSubCheck))
-      internetConnectivityStatusFiber <- Concurrent[F].start(runHealthCheck(internetConnectivityCheck))
-      spaRendererStatusFiber <- Concurrent[F].start(runHealthCheck(spaRendererCheck))
-
-      databaseStatus <- databaseStatusFiber.joinWithNever
-      fileRepositoryStatus <- fileRepositoryCheckFiber.joinWithNever
-      keyValueStoreStatus <- keyValueStoreStatusFiber.joinWithNever
-      pubSubStatus <- pubSubStatusFiber.joinWithNever
-      internetConnectivityStatus <- internetConnectivityStatusFiber.joinWithNever
-      spaRendererStatus <- spaRendererStatusFiber.joinWithNever
-
-      healthCheck = HealthCheck(
-        databaseStatus,
-        fileRepositoryStatus,
-        keyValueStoreStatus,
-        pubSubStatus,
-        spaRendererStatus,
-        internetConnectivityStatus
-      )
-
-      _ <- if (healthCheck.isHealthy) Applicative[F].unit else logger.warn[F](s"Health check failed: $healthCheck")
-    } yield healthCheck
+    (
+      runHealthCheck(databaseCheck),
+      fileRepositoryCheck,
+      runHealthCheck(keyValueStoreCheck),
+      runHealthCheck(pubSubCheck),
+      runHealthCheck(spaRendererCheck),
+      runHealthCheck(internetConnectivityCheck)
+    ).parMapN(HealthCheck.apply)
+      .flatTap { healthCheck =>
+        if (healthCheck.isHealthy) Applicative[F].unit else logger.warn[F](s"Health check failed: $healthCheck")
+      }
 }
