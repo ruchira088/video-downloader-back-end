@@ -1,10 +1,10 @@
-boto3==1.42.76
-botocore==1.42.76
+boto3==1.43.90
+botocore==1.43.90
 email-validator==2.3.0
-fastapi==0.135.2
-mangum==0.21.0
-pydantic==2.12.5
+fastapi==0.141.1
+mangum==0.22.0
+pydantic==2.13.5
 pyhocon==0.3.63
 pyparsing==3.3.2
-requests==2.33.0
-uvicorn[standard]==0.42.0
+requests==2.34.2
+uvicorn[standard]==0.52.4
