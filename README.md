@@ -23,12 +23,12 @@ API for video management, metadata handling, user authentication, and batch proc
 | Language | Scala 2.13.18 |
 | Build Tool | sbt 2.0.8 |
 | Runtime | Java 25 (Eclipse Temurin) |
-| Web Framework | HTTP4s 0.23.36 |
+| Web Framework | HTTP4s 0.23.37 |
 | Effect System | Cats Effect 3.7.1 |
 | JSON | Circe 0.14.16 |
 | Database Access | Doobie 1.0.0-RC12 |
 | Database | PostgreSQL 17 |
-| Migrations | Flyway 13.5.0 |
+| Migrations | Flyway 13.6.0 |
 | Messaging | Apache Kafka 8.3.1-ccs / Redis Streams / PostgreSQL (Doobie) |
 | Caching | Redis 8 |
 | Configuration | PureConfig 0.17.10 |
