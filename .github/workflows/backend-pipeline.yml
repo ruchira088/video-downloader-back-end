@@ -15,6 +15,9 @@ jobs:
     name: Publish Docker Images
     runs-on: ubuntu-latest
 
+    # Dependabot branches only need the test suite; skipping this job also skips every deploy job that needs it.
+    if: "!startsWith(github.ref, 'refs/heads/dependabot/')"
+
     permissions:
       contents: read
       id-token: write
