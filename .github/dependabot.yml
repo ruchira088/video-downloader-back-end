@@ -10,7 +10,7 @@ updates:
         patterns:
           - "*"
     commit-message:
-      prefix: "Bump GitHub Actions:"
+      prefix: "GitHub Actions:"
 
   - package-ecosystem: pip
     directory: /fallback-api
@@ -21,4 +21,4 @@ updates:
         patterns:
           - "*"
     commit-message:
-      prefix: "Bump fallback-api dependencies:"
+      prefix: "fallback-api:"
