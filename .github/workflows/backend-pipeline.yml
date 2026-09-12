@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - "**"
+    paths-ignore:
+      - fallback-api/**
+      - .github/workflows/fallback-api-pipeline.yml
+      - .github/dependabot.yml
+      - terraform/**
+      - "**.md"
 
 jobs:
   compile-and-test:

@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - "**"
+    paths:
+      - fallback-api/**
+      - .github/workflows/fallback-api-pipeline.yml
 
 concurrency:
   group: fallback-api-job-${{ github.ref }}
