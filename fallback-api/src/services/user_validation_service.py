@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from urllib.parse import urljoin
 
 import requests
-from pydantic import HttpUrl, EmailStr
+from pydantic import EmailStr, HttpUrl
 
 from src.services.models.user import User
 

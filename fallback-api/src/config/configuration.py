@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-from typing import Optional
 
 from pydantic import BaseModel
 from pyhocon import ConfigFactory, ConfigTree
@@ -31,7 +30,7 @@ class AppConfiguration(BaseModel):
 
 
 def get_config_tree() -> ConfigTree:
-    config_file_path_str: Optional[str] = os.environ.get("CONFIG_FILE_PATH")
+    config_file_path_str: str | None = os.environ.get("CONFIG_FILE_PATH")
 
     if config_file_path_str is None:
         config_file_path = _default_config_file_path()

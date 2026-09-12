@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel, EmailStr
 
-from src.services.user_service import UserService, User
+from src.services.user_service import User, UserService
 
 
 class UserSignupRequest(BaseModel):

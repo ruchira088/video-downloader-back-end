@@ -1,9 +1,9 @@
 import hmac
+from abc import ABC, abstractmethod
 from base64 import b64encode
 from hashlib import sha256
-from abc import ABC, abstractmethod
 
-from pydantic import EmailStr, BaseModel
+from pydantic import BaseModel, EmailStr
 
 from src.services.exceptions import (
     IncorrectCredentialsException,

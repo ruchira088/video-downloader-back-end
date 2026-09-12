@@ -1,6 +1,6 @@
 from mangum import Mangum
 
-from src.config.configuration import get_config_tree, AppConfiguration
+from src.config.configuration import AppConfiguration, get_config_tree
 from src.main import create_http_app
 
 app_configuration: AppConfiguration = AppConfiguration.parse(get_config_tree())

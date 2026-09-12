@@ -1,0 +1,3 @@
+[lint.flake8-bugbear]
+# FastAPI's dependency-injection idiom relies on `Depends(...)` in argument defaults.
+extend-immutable-calls = ["fastapi.Depends"]

@@ -1,14 +1,13 @@
 import unittest
-from typing import Union
 from unittest.mock import MagicMock
 
 from moto import mock_aws
 
 from src.services.exceptions import ResourceConflictException
 from src.services.models.user import User
-from src.services.user_service import UserService, CognitoUserService
+from src.services.user_service import CognitoUserService, UserService
 from src.services.user_validation_service import UserValidationService
-from tests.services.test_data_helpers import sample_user, sample_password
+from tests.services.test_data_helpers import sample_password, sample_user
 from tests.services.test_service_helpers import setup_cognito
 
 
@@ -17,9 +16,7 @@ class TestCognitoUserService(unittest.TestCase):
     def setUp(self):
         cognito_details = setup_cognito(__name__)
 
-        self.user_validation_service: Union[UserValidationService, MagicMock] = (
-            MagicMock()
-        )
+        self.user_validation_service: UserValidationService | MagicMock = MagicMock()
 
         self.user_service: UserService = CognitoUserService(
             user_validation_service=self.user_validation_service,

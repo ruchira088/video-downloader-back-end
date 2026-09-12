@@ -3,9 +3,9 @@ from fastapi.responses import JSONResponse
 from requests import HTTPError
 
 from src.services.exceptions import (
-    ResourceConflictException,
     IncorrectCredentialsException,
     InvalidAuthenticationTokenException,
+    ResourceConflictException,
 )
 
 
@@ -34,6 +34,11 @@ def register_exception_handlers(app: FastAPI):
 
     @app.exception_handler(HTTPError)
     async def handle_http_error(request: Request, exc: HTTPError):
+        if exc.response is None:
+            return JSONResponse(
+                status_code=502, content={"detail": "Upstream request failed"}
+            )
+
         return JSONResponse(
             status_code=exc.response.status_code, content=exc.response.json()
         )

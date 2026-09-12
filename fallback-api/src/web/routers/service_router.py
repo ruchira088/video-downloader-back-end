@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from src.services.system_service import SystemService, SystemInfo
+from src.services.system_service import SystemInfo, SystemService
 
 
 def service_router(system_service: SystemService) -> APIRouter:

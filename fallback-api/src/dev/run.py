@@ -1,10 +1,10 @@
 import uvicorn
 
 from src.config.aws_cognito_configuration import AwsCognitoConfiguration
+from src.config.configuration import AppConfiguration, get_config_tree
 from src.config.http_configuration import HttpConfiguration
 from src.config.video_downloader_configuration import VideoDownloaderConfiguration
-from src.dev.containers.CognitoContainer import CognitoContainer
-from src.config.configuration import get_config_tree, AppConfiguration
+from src.dev.containers.cognito_container import CognitoContainer
 from src.main import create_http_app
 
 

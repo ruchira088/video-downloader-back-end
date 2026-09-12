@@ -1,21 +1,20 @@
 import unittest
-from typing import Union
 from unittest.mock import MagicMock
 
 from moto import mock_aws
 
 from src.services.authentication_service import (
-    CognitoAuthenticationService,
     AuthenticationToken,
+    CognitoAuthenticationService,
 )
 from src.services.exceptions import (
     IncorrectCredentialsException,
     InvalidAuthenticationTokenException,
 )
 from src.services.models.user import User
-from src.services.user_service import UserService, CognitoUserService
+from src.services.user_service import CognitoUserService, UserService
 from src.services.user_validation_service import UserValidationService
-from tests.services.test_data_helpers import sample_user, sample_password
+from tests.services.test_data_helpers import sample_password, sample_user
 from tests.services.test_service_helpers import setup_cognito
 
 
@@ -23,7 +22,7 @@ from tests.services.test_service_helpers import setup_cognito
 class TestCognitoAuthenticationService(unittest.TestCase):
     def setUp(self):
         cognito_details = setup_cognito(__name__)
-        user_validation_service: Union[UserValidationService, MagicMock] = MagicMock()
+        user_validation_service: UserValidationService | MagicMock = MagicMock()
         user_validation_service.get_user.return_value = sample_user
 
         user_service: UserService = CognitoUserService(

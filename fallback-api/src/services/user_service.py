@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import Mapping, Any
+from collections.abc import Mapping
+from typing import Any
 
 import boto3
 from pydantic import EmailStr

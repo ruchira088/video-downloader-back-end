@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 
-from src.services.system_service import SystemService, SystemServiceImpl
 from src.config.configuration import AppConfiguration
-from src.services.user_service import get_user_service, UserService
+from src.services.system_service import SystemService, SystemServiceImpl
+from src.services.user_service import UserService, get_user_service
 from src.web.handlers.exception_handlers import register_exception_handlers
 from src.web.routers.schedule_router import schedule_router
 from src.web.routers.service_router import service_router

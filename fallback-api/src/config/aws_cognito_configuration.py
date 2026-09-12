@@ -1,5 +1,3 @@
-from typing import Optional
-
 from pydantic import BaseModel, HttpUrl
 from pyhocon import ConfigTree
 
@@ -7,7 +5,7 @@ from pyhocon import ConfigTree
 class AwsCognitoConfiguration(BaseModel):
     user_pool_id: str
     client_id: str
-    endpoint_url: Optional[HttpUrl] = None
+    endpoint_url: HttpUrl | None = None
 
     @classmethod
     def parse(cls, config_tree: ConfigTree) -> "AwsCognitoConfiguration":
@@ -15,7 +13,7 @@ class AwsCognitoConfiguration(BaseModel):
 
         user_pool_id = aws_cognito_config["user-pool-id"]
         client_id: str = aws_cognito_config["client-id"]
-        endpoint_url: Optional[str] = aws_cognito_config.get("endpoint-url", None)
+        endpoint_url: str | None = aws_cognito_config.get("endpoint-url", None)
 
         aws_cognito_configuration = AwsCognitoConfiguration(
             user_pool_id=user_pool_id, client_id=client_id, endpoint_url=endpoint_url
