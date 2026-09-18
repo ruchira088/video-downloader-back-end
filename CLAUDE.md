@@ -85,5 +85,5 @@ override (`${?VAR}`). Default DB is in-memory H2 in PostgreSQL mode; production 
 - When bumping any dependency version in `project/Dependencies.scala` or the sbt version in
   `project/build.properties`, update the matching entries in `README.md` — the Technology Stack table, and the
   Prerequisites list (which also mentions the sbt version).
-- Commit messages follow the existing style, e.g. `Bump dependencies: Http4s to 0.23.37, Flyway to 13.6.0.`
+- Commit messages follow the existing style, e.g. `Bump dependencies: Flyway to 13.7.0, Kafka to 8.3.2-ccs.`
 - Markdown files must keep lines at 120 characters or fewer.
