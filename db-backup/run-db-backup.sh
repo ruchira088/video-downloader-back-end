@@ -2,8 +2,8 @@
 
 set -e
 
-: "${GIT_BRANCH:? Variable NOT defined}"
 : "${GIT_COMMIT:? Variable NOT defined}"
+: "${S3_BACKUP_DESTINATION:? Variable NOT defined}"
 : "${DATABASE_URL:? Variable NOT defined}"
 : "${DATABASE_USER:? Variable NOT defined}"
 : "${DATABASE_PASSWORD:? Variable NOT defined}"
@@ -19,8 +19,8 @@ zip -j "$backup_zip_file" "$backup_sql_file"
 
 echo "Backup completed"
 
-echo "Saving to S3..."
+echo "Saving to S3: $S3_BACKUP_DESTINATION"
 
-aws s3 cp "$backup_zip_file" "s3://backups.video-downloader.ruchij.com/$GIT_BRANCH/"
+aws s3 cp "$backup_zip_file" "$S3_BACKUP_DESTINATION"
 
 echo "Save completed"
