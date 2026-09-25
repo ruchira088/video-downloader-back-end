@@ -28,11 +28,11 @@ API for video management, metadata handling, user authentication, and batch proc
 | JSON | Circe 0.14.16 |
 | Database Access | Doobie 1.0.0-RC12 |
 | Database | PostgreSQL 17 |
-| Migrations | Flyway 13.7.0 |
+| Migrations | Flyway 13.8.0 |
 | Messaging | Apache Kafka 8.3.2-ccs / Redis Streams / PostgreSQL (Doobie) |
 | Caching | Redis 8 |
 | Configuration | PureConfig 0.17.10 |
-| Testing | ScalaTest 3.2.20, ScalaMock 7.5.5 |
+| Testing | ScalaTest 3.2.20, ScalaMock 7.6.0 |
 
 ## Prerequisites
 

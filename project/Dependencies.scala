@@ -5,7 +5,7 @@ object Dependencies
   val ScalaVersion = "2.13.18"
   private val Http4sVersion = "0.23.37"
   private val CirceVersion = "0.14.16"
-  private val FlywayVersion = "13.7.0"
+  private val FlywayVersion = "13.8.0"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -19,9 +19,9 @@ object Dependencies
 
   lazy val kafka = "org.apache.kafka" %% "kafka" % "8.3.2-ccs"
 
-  lazy val fs2Kafka = "org.typelevel" %% "fs2-kafka" % "4.1.0"
+  lazy val fs2Kafka = "org.typelevel" %% "fs2-kafka" % "4.1.1"
 
-  lazy val fs2KafkaVulkan = "org.typelevel" %% "fs2-kafka-vulcan" % "4.1.0"
+  lazy val fs2KafkaVulkan = "org.typelevel" %% "fs2-kafka-vulcan" % "4.1.1"
 
   lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "8.3.2"
 
@@ -73,7 +73,7 @@ object Dependencies
 
   lazy val redisTestContainer = "com.redis" % "testcontainers-redis" % "2.2.4"
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.6.3"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.6.4"
 
   lazy val logstashLogbackEncoder = "net.logstash.logback" % "logstash-logback-encoder" % "9.0"
 
@@ -85,11 +85,11 @@ object Dependencies
 
   lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.20"
 
-  lazy val scalaMock = "org.scalamock" %% "scalamock" % "7.5.5"
+  lazy val scalaMock = "org.scalamock" %% "scalamock-scalatest" % "7.6.0"
 
   lazy val pegdown = "org.pegdown" % "pegdown" % "1.6.0"
 
-  lazy val sentry = "io.sentry" % "sentry" % "8.57.0"
+  lazy val sentry = "io.sentry" % "sentry" % "8.58.0"
 
   lazy val perceptualHash = "dev.brachtendorf" % "JImageHash" % "1.0.0"
 
