@@ -91,8 +91,8 @@ video-downloader-back-end/
 # Compile all modules
 sbt compile
 
-# Run tests
-sbt test
+# Run all tests (sbt 2's `test` only re-runs tests affected by changes)
+sbt testFull
 
 # Run tests with coverage
 sbt testWithCoverage
@@ -291,8 +291,8 @@ Migrations run automatically before API/Batch services start in Docker Compose.
 ## Testing
 
 ```bash
-# Run all tests
-sbt test
+# Run all tests (sbt 2's `test` only re-runs tests affected by changes)
+sbt testFull
 
 # Run with coverage
 sbt testWithCoverage
@@ -376,5 +376,5 @@ This project is proprietary software.
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Run tests: `sbt test`
+4. Run tests: `sbt testFull`
 5. Submit a pull request to the `main` branch

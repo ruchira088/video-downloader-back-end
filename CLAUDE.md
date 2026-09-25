@@ -11,11 +11,12 @@ Uses sbt 2.x. The build compiles with `-Xfatal-warnings`, so any compiler warnin
 
 ```bash
 sbt compile                  # Compile all modules
-sbt test                     # Run all tests
+sbt testFull                 # Run all tests
+sbt test                     # sbt 2: incremental -- only tests that failed, never ran, or whose deps changed
 sbt "core/testOnly *ClockSpec"                                  # Single test class (glob)
 sbt "api/testOnly com.ruchij.api.services.user.UserServiceSpec" # Single test class (FQN)
 sbt testWithCoverage         # Clean, test with scoverage, open HTML report
-sbt cleanCompile / cleanTest # Aliases for clean;compile / clean;test
+sbt cleanCompile / cleanTest # Aliases for clean;compile / clean;testFull
 
 sbt "development/run"        # Run everything (migrations + API + batch) in one JVM,
                              # backed by Docker containers via TestContainers; HTTPS on port 443
@@ -29,7 +30,8 @@ docker-compose up -d         # Full stack: Postgres, Redis, Kafka, Schema Regist
 ```
 
 Integration-style tests use TestContainers, so Docker must be running. `core` tests are forked and run sequentially
-(`Test / parallelExecution := false` for that module only).
+(`Test / parallelExecution := false` for that module only). Under sbt 2, `test` skips suites that passed before and are
+unchanged -- the results live in the sbt disk cache, which CI also restores -- so use `testFull` to run everything.
 
 ## Module Structure
 

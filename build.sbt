@@ -17,15 +17,6 @@ Test / scalacOptions -= "-Wnonunit-statement"
 resolvers ++= Seq("Confluent" at "https://packages.confluent.io/maven/", "jitpack" at "https://jitpack.io")
 addCompilerPlugin(kindProjector)
 addCompilerPlugin(betterMonadicFor)
-// The report directory must be per project and absolute. A relative path resolves against each
-// forked test JVM's working directory, so every module wrote into the same root `target/test-reports`
-// and suites were silently dropped from the run -- `api/test` executed 14 of its 44 suites.
-Test / testOptions += Tests.Argument(
-  TestFrameworks.ScalaTest,
-  "-u",
-  ((Test / target).value / "test-reports").getAbsolutePath
-)
-
 Test / parallelExecution := true
 Test / testForkedParallel := true
 
@@ -173,8 +164,8 @@ def packagedApp(id: String, dir: String, buildInfoPackageName: String): Project 
     )
 
 addCommandAlias("cleanCompile", "clean; compile;")
-addCommandAlias("cleanTest", "clean; test;")
+addCommandAlias("cleanTest", "clean; testFull;")
 addCommandAlias(
   "testWithCoverage",
-  "clean; coverageEnable; test; coverageAggregate; coverageDisable; coverageReport; viewCoverageResults;"
+  "clean; coverageEnable; testFull; coverageAggregate; coverageDisable; coverageReport; viewCoverageResults;"
 )
