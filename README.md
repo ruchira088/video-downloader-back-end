@@ -100,7 +100,7 @@ sbt testWithCoverage
 # Package applications
 sbt "api/Universal/packageBin"
 sbt "batch/Universal/packageBin"
-sbt "migration-application/Universal/packageBin"
+sbt "migrationApplication/Universal/packageBin"
 ```
 
 ### Running Locally
@@ -135,7 +135,7 @@ sbt "api/run"
 sbt "batch/run"
 
 # Database migrations
-sbt "migration-application/run"
+sbt "migrationApplication/run"
 ```
 
 ### Local HTTPS Setup
@@ -280,7 +280,7 @@ Key tables include:
 
 ```bash
 # Via sbt
-sbt "migration-application/run"
+sbt "migrationApplication/run"
 
 # Via Docker Compose
 docker-compose up migration-application

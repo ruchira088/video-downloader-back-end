@@ -21,9 +21,9 @@ sbt "development/run"        # Run everything (migrations + API + batch) in one 
                              # backed by Docker containers via TestContainers; HTTPS on port 443
 sbt "api/run"                # API server only (default: http://localhost:8000)
 sbt "batch/run"              # Batch worker only
-sbt "migration-application/run"  # Run Flyway migrations
+sbt "migrationApplication/run"   # Run Flyway migrations
 
-sbt "api/Universal/packageBin"   # Package a distributable app (also batch, migration-application)
+sbt "api/Universal/packageBin"   # Package a distributable app (also batch, migrationApplication)
 
 docker-compose up -d         # Full stack: Postgres, Redis, Kafka, Schema Registry, API x3, batch x3, nginx
 ```
