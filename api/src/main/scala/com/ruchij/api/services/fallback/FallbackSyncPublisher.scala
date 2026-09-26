@@ -26,8 +26,8 @@ class FallbackSyncPublisher[F[_]: Async, T[_]: Monad](
   private val logger = Logger[FallbackSyncPublisher[Any, Any]]
 
   /** Reads the current state at send time, so a late duplicate still carries fresh data. `deletions` maps each id
-    * whose latest event was a `Deleted` event to that event's timestamp. An admin delete publishes `Deleted` before
-    * batch hard-deletes the row, so a row that is still there only becomes an upsert when it was scheduled after the
+    * with a `Deleted` event to the latest such event's timestamp. An admin delete publishes `Deleted` before batch
+    * hard-deletes the row, so a row that is still there only becomes an upsert when it was scheduled after the
     * deletion, i.e. its URL was scheduled again (a replayed `Deleted` event must not tombstone that live video);
     * otherwise the row is awaiting its hard delete and the id becomes a removal. */
   def messagesFor(
@@ -57,8 +57,10 @@ class FallbackSyncPublisher[F[_]: Async, T[_]: Monad](
           coordination.markReconcileNeeded
       }
 
-  /** `deletedAt` gives the timestamp of an event that deletes its video. Within a window only the latest event for
-    * each id counts, so a `Deleted` event followed by the URL being scheduled again syncs the new row. */
+  /** `deletedAt` gives the timestamp of an event that deletes its video. Within a window, the latest `Deleted` event
+    * for an id counts even when other events for it follow, since an event that only updates the row awaiting its
+    * hard delete (e.g. an admin changing its status) must not turn the removal into an upsert. The row's scheduledAt
+    * tells the two apart: only a row scheduled after the deletion, i.e. the URL scheduled again, is upserted. */
   def pipeline[A](subscriber: Subscriber[F, A], groupId: String)(
     videoId: A => String,
     deletedAt: A => Option[Instant] = (_: A) => None
@@ -68,11 +70,10 @@ class FallbackSyncPublisher[F[_]: Async, T[_]: Monad](
       .groupWithin(maxBatchSize, window)
       .evalMap { chunk =>
         val values = chunk.toList.map(subscriber.extractValue)
-        // toMap keeps the last value for a repeated key, so each id maps to its latest event's deletion
         val deletions =
-          values.map(value => videoId(value) -> deletedAt(value)).toMap.collect {
-            case (id, Some(timestamp)) => id -> timestamp
-          }
+          values
+            .flatMap(value => deletedAt(value).map(videoId(value) -> _))
+            .groupMapReduce { case (id, _) => id } { case (_, timestamp) => timestamp }(Ordering[Instant].max)
 
         publish(values.map(videoId), deletions) *> subscriber.commit(chunk)
       }

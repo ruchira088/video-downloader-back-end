@@ -212,7 +212,7 @@ class FallbackSyncPublisherSpec extends AnyFlatSpec with Matchers {
     } yield sent.collect { case upsert: ScheduledVideoUpsert => upsert.videoId } mustBe List("video-1")
   }
 
-  it should "let a later event win over a Deleted event for the same video in one window" in runIO {
+  it should "upsert a video scheduled again after its Deleted event in the same window" in runIO {
     val deletedAt = Instant.parse("2026-09-26T08:00:00Z")
     val rescheduled = scheduledAt("video-1", deletedAt.plusSeconds(10))
 
@@ -220,5 +220,32 @@ class FallbackSyncPublisherSpec extends AnyFlatSpec with Matchers {
       dao <- StubFallbackSyncDao(rescheduled)
       (sent, _) <- runPipeline(dao, List(deleted("video-1", deletedAt), rescheduled.scheduledVideoDownload))
     } yield sent.collect { case upsert: ScheduledVideoUpsert => upsert.videoId } mustBe List("video-1")
+  }
+
+  it should "send a removal for a Deleted event followed in its window by an update of the row awaiting deletion" in
+    runIO {
+      val scheduled = Instant.parse("2026-09-26T08:00:00Z")
+      val deletedAt = scheduled.plusSeconds(60)
+      // e.g. an admin retrying or changing the status of the video before batch hard-deletes its row
+      val updated =
+        scheduledAt("video-1", scheduled).scheduledVideoDownload.copy(lastUpdatedAt = deletedAt.plusSeconds(5))
+
+      for {
+        dao <- StubFallbackSyncDao(scheduledAt("video-1", scheduled))
+        (sent, _) <- runPipeline(dao, List(deleted("video-1", deletedAt), updated))
+      } yield sent mustBe List(ScheduledVideoRemoval("video-1", capturedAt))
+    }
+
+  it should "judge a row against the latest of several Deleted events for it in one window" in runIO {
+    val scheduled = Instant.parse("2026-09-26T08:00:00Z")
+
+    for {
+      // Scheduled again between two deletions, so only the later deletion covers it
+      dao <- StubFallbackSyncDao(scheduledAt("video-1", scheduled))
+      (sent, _) <- runPipeline(
+        dao,
+        List(deleted("video-1", scheduled.plusSeconds(60)), deleted("video-1", scheduled.minusSeconds(60)))
+      )
+    } yield sent mustBe List(ScheduledVideoRemoval("video-1", capturedAt))
   }
 }

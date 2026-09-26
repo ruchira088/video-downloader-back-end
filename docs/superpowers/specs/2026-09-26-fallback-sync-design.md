@@ -72,12 +72,14 @@ The whole feature is off unless `FALLBACK_SYNC_ENABLED=true`.
   - Subscribes to `scheduled-video-downloads` (group id `fallback-sync`) and to a new internal topic,
     `fallback-sync-requests`, whose message is `FallbackSyncRequest(videoId: String)`. It gets a `MessagingTopic`
     instance with Avro and JSON codecs, like every other topic.
-  - Collects video ids in 30 s windows and removes duplicates; per id, the latest event in the window wins. It then
-    reads each video's current row and `permission` user ids, and sends a `ScheduledVideoUpsert` for each row found
-    and a `ScheduledVideoRemoval` for each id with no row.
+  - Collects video ids in 30 s windows and removes duplicates. It then reads each video's current row and
+    `permission` user ids, and sends a `ScheduledVideoUpsert` for each row found and a `ScheduledVideoRemoval` for
+    each id with no row.
   - A `Deleted` event (an admin delete, published before batch hard-deletes the row) becomes a removal unless the
     row read at send time was scheduled after the event's timestamp, i.e. the URL was scheduled again. A replayed
-    `Deleted` event therefore can't tombstone a live video.
+    `Deleted` event therefore can't tombstone a live video. The latest `Deleted` event for an id in the window
+    counts even when later events for it follow, so an update of the row awaiting its hard delete (e.g. an admin
+    changing its status) can't turn the removal into an upsert of a row about to disappear.
   - Sends with `SendMessageBatch`, at most 10 messages and 240 KiB of bodies per call, a margin under the 256 KiB
     limit. A message SQS rejects as the sender's fault, for its entry or for a whole call (e.g.
     `BatchRequestTooLong`, after which each message of the call is sent alone), is logged and dropped.
