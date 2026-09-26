@@ -8,10 +8,6 @@ on:
       - fallback-api/**
       - .github/workflows/fallback-api-pipeline.yml
 
-concurrency:
-  group: fallback-api-job-${{ github.ref }}
-  cancel-in-progress: true
-
 defaults:
   run:
     working-directory: ./fallback-api
@@ -57,6 +53,10 @@ jobs:
 
     if: github.ref == 'refs/heads/main'
 
+    concurrency:
+      group: deploy-to-staging
+      cancel-in-progress: false
+
     permissions:
       contents: read
       id-token: write
@@ -101,6 +101,10 @@ jobs:
 
     if: github.ref == 'refs/heads/main'
 
+    concurrency:
+      group: deploy-to-production
+      cancel-in-progress: false
+
     permissions:
       contents: read
       id-token: write
@@ -134,7 +138,7 @@ jobs:
       - name: SAM build
         run: sam build
 
-      - name: Deploy to staging
+      - name: Deploy to production
         run: sam deploy --config-env prod
 
   send-notification:
