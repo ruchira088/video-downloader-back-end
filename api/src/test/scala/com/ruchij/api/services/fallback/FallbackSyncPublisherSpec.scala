@@ -32,6 +32,23 @@ class FallbackSyncPublisherSpec extends AnyFlatSpec with Matchers {
     }
   }
 
+  it should "turn removed ids into removals without reading the database, even for rows that still exist" in runIO {
+    for {
+      dao <- StubFallbackSyncDao(
+        SyncedVideo(scheduledVideoDownload("video-1"), List("user-1")),
+        SyncedVideo(scheduledVideoDownload("video-2"), List("user-1"))
+      )
+      transport <- RecordingTransport()
+      coordination = new FallbackSyncCoordination[IO](new InMemoryKeyValueStore[IO])
+      publisher = new FallbackSyncPublisher[IO, IO](dao, transport, coordination, retryDelays = noDelays)
+      messages <- publisher.messagesFor(List("video-1", "video-2", "video-1"), removedVideoIds = Set("video-1"))
+    } yield {
+      messages.size mustBe 2
+      messages.head mustBe ScheduledVideoRemoval("video-1", capturedAt)
+      messages(1) mustBe a[ScheduledVideoUpsert]
+    }
+  }
+
   "FallbackSyncPublisher.publish" should "retry a failing send" in runIO {
     for {
       dao <- StubFallbackSyncDao(SyncedVideo(scheduledVideoDownload("video-1"), List("user-1")))

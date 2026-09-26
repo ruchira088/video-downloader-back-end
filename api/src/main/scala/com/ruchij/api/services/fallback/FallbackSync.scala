@@ -9,7 +9,7 @@ import com.ruchij.api.services.fallback.models.FallbackSyncRequest
 import com.ruchij.api.services.scheduling.ApiSchedulingService
 import com.ruchij.core.daos.permission.DoobieVideoPermissionDao
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
-import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
+import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.kv.KeyValueStore
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.{PubSub, Subscriber}
@@ -63,7 +63,10 @@ object FallbackSync {
 
     Stream(
       resilient("scheduled-video-download publisher pipeline") {
-        publisher.pipeline(scheduledVideoDownloadSubscriber, SubscriberGroupId)(_.videoMetadata.id)
+        publisher.pipeline(scheduledVideoDownloadSubscriber, SubscriberGroupId)(
+          _.videoMetadata.id,
+          _.status == SchedulingStatus.Deleted
+        )
       },
       resilient("fallback-sync-request publisher pipeline") {
         publisher.pipeline(resources.fallbackSyncRequestPubSub, SubscriberGroupId)(_.videoId)

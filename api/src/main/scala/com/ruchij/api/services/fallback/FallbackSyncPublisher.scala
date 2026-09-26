@@ -1,5 +1,6 @@
 package com.ruchij.api.services.fallback
 
+import cats.Applicative
 import cats.effect.{Async, Temporal}
 import cats.implicits._
 import cats.~>
@@ -25,32 +26,46 @@ class FallbackSyncPublisher[F[_]: Async: Clock, T[_]](
 )(implicit transaction: T ~> F) {
   private val logger = Logger[FallbackSyncPublisher[Any, Any]]
 
-  /** Reads the current state at send time, so a late duplicate still carries fresh data. */
-  def messagesFor(videoIds: List[String]): F[List[MainToFallbackMessage]] =
+  /** Reads the current state at send time, so a late duplicate still carries fresh data. Ids in `removedVideoIds`
+    * become removals without a read (and win over any other event for the same id): an admin delete publishes a
+    * `Deleted` event before the row is gone, so a read would still find it and send a stale upsert. */
+  def messagesFor(
+    videoIds: List[String],
+    removedVideoIds: Set[String] = Set.empty
+  ): F[List[MainToFallbackMessage]] =
     Clock[F].timestamp.flatMap { capturedAt =>
-      videoIds.distinct.traverse { videoId =>
-        transaction(fallbackSyncDao.findById(videoId)).map[MainToFallbackMessage] {
-          case Some(syncedVideo) => ScheduledVideoUpserts.from(syncedVideo, capturedAt)
-          case None => ScheduledVideoRemoval(videoId, capturedAt)
-        }
+      (videoIds ++ removedVideoIds).distinct.traverse { videoId =>
+        if (removedVideoIds.contains(videoId))
+          Applicative[F].pure[MainToFallbackMessage](ScheduledVideoRemoval(videoId, capturedAt))
+        else
+          transaction(fallbackSyncDao.findById(videoId)).map[MainToFallbackMessage] {
+            case Some(syncedVideo) => ScheduledVideoUpserts.from(syncedVideo, capturedAt)
+            case None => ScheduledVideoRemoval(videoId, capturedAt)
+          }
       }
     }
 
   /** Never fails: if the fallback stays unreachable, a reconcile is flagged to repair it later. */
-  def publish(videoIds: List[String]): F[Unit] =
-    messagesFor(videoIds)
+  def publish(videoIds: List[String], removedVideoIds: Set[String] = Set.empty): F[Unit] =
+    messagesFor(videoIds, removedVideoIds)
       .flatMap(sendWithRetries)
       .handleErrorWith { error =>
         logger.error[F](s"Fallback sync of ${videoIds.size} videos failed; flagging a reconcile", error) *>
           coordination.markReconcileNeeded
       }
 
-  def pipeline[A](subscriber: Subscriber[F, A], groupId: String)(videoId: A => String): Stream[F, Unit] =
+  /** `isRemoval` marks events that must reach the fallback as removals whatever the database currently holds. */
+  def pipeline[A](subscriber: Subscriber[F, A], groupId: String)(
+    videoId: A => String,
+    isRemoval: A => Boolean = (_: A) => false
+  ): Stream[F, Unit] =
     subscriber
       .subscribe(groupId)
       .groupWithin(maxBatchSize, window)
       .evalMap { chunk =>
-        publish(chunk.toList.map(value => videoId(subscriber.extractValue(value)))) *> subscriber.commit(chunk)
+        val values = chunk.toList.map(subscriber.extractValue)
+
+        publish(values.map(videoId), values.filter(isRemoval).map(videoId).toSet) *> subscriber.commit(chunk)
       }
 
   private def sendWithRetries(messages: List[MainToFallbackMessage]): F[Unit] =
