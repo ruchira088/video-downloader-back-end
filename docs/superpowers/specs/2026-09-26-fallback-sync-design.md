@@ -69,9 +69,12 @@ other users' pending requests.
 The whole feature is off unless `FALLBACK_SYNC_ENABLED=true`.
 
 - **`FallbackSyncPublisher`**
-  - Subscribes to `scheduled-video-downloads` (group id `fallback-sync`) and to a new internal topic,
-    `fallback-sync-requests`, whose message is `FallbackSyncRequest(videoId: String)`. It gets a `MessagingTopic`
-    instance with Avro and JSON codecs, like every other topic.
+  - Subscribes to `scheduled-video-downloads` (group id `fallback-sync-scheduled-videos`) and to a new internal
+    topic, `fallback-sync-requests` (group id `fallback-sync-requests`), whose message is
+    `FallbackSyncRequest(videoId: String)`. It gets a `MessagingTopic` instance with Avro and JSON codecs, like every
+    other topic. Every API instance subscribes under the same group ids: Kafka splits a group's messages across
+    them, while Redis and Doobie deliver every message to every instance, which is harmless because sync messages
+    are idempotent.
   - Collects video ids in 30 s windows and removes duplicates. It then reads each video's current row and
     `permission` user ids, and sends a `ScheduledVideoUpsert` for each row found and a `ScheduledVideoRemoval` for
     each id with no row.
@@ -91,8 +94,13 @@ The whole feature is off unless `FALLBACK_SYNC_ENABLED=true`.
   These use a separate topic, because batch's `SchedulerImpl` reacts to `scheduled-video-downloads`.
 - **`FallbackReconciler`**: see Flow D.
 - **`FallbackRequestConsumer`**: see Flow B.
-- **Leader election:** the reconcile and the consumer each run on one API instance, which holds a lease key with a
-  TTL in the Redis `KeyValueStore`. If the store has no set-if-absent operation, add one.
+- **No leader election.** Every API instance runs the publisher, the consumer and the reconciler:
+  - The consumer needs no lease: SQS hides a received message from other receivers for its visibility timeout,
+    and the consumer is idempotent (Flow B), so a message handled twice does no harm.
+  - The reconcile takes a best-effort lock, a key with a 30-minute TTL in the Redis `KeyValueStore`, read and then
+    written, since the store has no set-if-absent operation. Two instances can both take it in a race, which is
+    harmless because every sync message is idempotent; it only saves the instances from routinely repeating the
+    same work.
 - **Dependencies:** AWS SDK v2 `sqs` and `dynamodb`. Record them in `project/Dependencies.scala` and update the
   README tables, per `CLAUDE.md`.
 - **Configuration:** `application.conf` gains a `fallback-sync` block, each setting with a `${?VAR}` override:
@@ -186,8 +194,8 @@ request will ever resolve.
 
 ### B. The main side consuming requests (`FallbackRequestConsumer`)
 
-1. The lease holder polls every 60 s (`ReceiveMessage`, one message at a time, so a slow schedule can't push a batch
-   past the visibility timeout) and drains the queue while messages keep arriving.
+1. Every API instance polls every 60 s (`ReceiveMessage`, one message at a time, so a slow schedule can't push a
+   batch past the visibility timeout) and drains the queue while messages keep arriving.
 2. For each `ScheduleRequest`, call `ApiSchedulingService.schedule(url, userId)`, with the URL's fragment dropped as
    the main API's own route does. URLs over 2048 characters are rejected.
    The consumer is idempotent: each reply is stored in Redis for 14 days, keyed by `requestId`, before it is sent,
@@ -225,7 +233,8 @@ have crashed, until a reconcile by any instance completes after it found the loc
 instance, not set as the shared flag, so instances starting together after a deploy don't each run one more
 reconcile once the lock's holder has finished.
 
-1. Acquire the lease.
+1. Take the reconcile lock, or skip the run if another instance holds it, then clear the flag before reading
+   anything, so a flag raised for a change made during the run survives it.
 2. **Scan the manifest first.** Scan the sparse `GSI1` (projection `ALL`, so it holds exactly the live videos) with
    `ProjectionExpression` `PK, hash, capturedAt`, paginating until the scan completes. An item with a missing or
    unparseable hash or `capturedAt` stays in the manifest under a hash that never matches, so it is always repaired.
@@ -237,7 +246,8 @@ reconcile once the lock's holder has finished.
 5. **Mass-removal guard:** if the DB returned no videos while the manifest has some, or removals exceed 50 or 20% of
    the manifest (whichever is more), log an error and send only the upserts, unless
    `FALLBACK_SYNC_RECONCILE_ALLOW_MASS_REMOVAL` is set.
-6. Send the fixes to `MainToFallbackQueue`, clear the flag, and release the lease.
+6. Send the fixes to `MainToFallbackQueue`, record the completion time, and release the lock. A failed run sets
+   the flag again.
 
 The order matters. A video synced between the two reads appears in the DB read and is harmlessly upserted again.
 Reading the DB first would show such a video as manifest-only, and it would be wrongly removed. Removals carry
@@ -276,7 +286,8 @@ The following must be fixed or completed first:
 | `SyncFunction` | One message fails | Partial batch failure; DLQ after 5 receives; alarm |
 | `FallbackSyncPublisher` | SQS unreachable | 3 retries with backoff, then set the "reconcile needed" flag |
 | Sync request publish | Kafka publish fails or times out | Set the flag; skip for 60 s once an id's publish times out |
-| SQS send | Entry rejected as the sender's fault | Log an error and drop it; retry other failures, then raise |
+| SQS send | Entry or call rejected as the sender's fault | Log and drop it, sending a call's messages alone first |
+| SQS send | Any other failure of an entry or call, e.g. throttling | Retry twice, then raise it with the others |
 | `FallbackRequestConsumer` | Permanent or transient failure | Flow B steps 4 and 5; DLQ after 5 receives; alarm |
 | `FallbackReconciler` | Scan or send fails | Leave the flag set, log, and retry on the next trigger |
 
