@@ -91,6 +91,13 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
       IO.delay(publishedMessages += message).void
   }
 
+  class FailingPublisher[A] extends StubPublisher[A] {
+    override val publish: fs2.Pipe[IO, A, Unit] =
+      stream => stream.evalMap(_ => IO.raiseError(new RuntimeException("Publish failed")))
+
+    override def publishOne(message: A): IO[Unit] = IO.raiseError(new RuntimeException("Publish failed"))
+  }
+
   class StubConfigurationService(
     storage: mutable.Map[String, WorkerStatus] = mutable.Map.empty
   ) extends ConfigurationService[IO, ApiConfigKey] {
@@ -289,6 +296,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
 
     val videoUrl = uri"https://youtube.com/watch?v=abc123"
     val publisher = new StubPublisher[ScheduledVideoDownload]()
+    val fallbackSyncRequests = new StubPublisher[FallbackSyncRequest]()
 
     val videoAnalysisService = new StubVideoAnalysisService(
       metadataResult = _ => IO.pure(NewlyCreated(sampleVideoMetadata))
@@ -303,6 +311,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     val (service, _, _) = createService(
       videoAnalysisService = videoAnalysisService,
       scheduledVideoDownloadPublisher = publisher,
+      fallbackSyncRequestPublisher = fallbackSyncRequests,
       schedulingDao = schedulingDao
     )
 
@@ -311,6 +320,9 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
       result.isNew mustBe true
       result.scheduledVideoDownload mustBe sampleScheduledVideoDownload
       publisher.publishedMessages mustBe empty
+      fallbackSyncRequests.publishedMessages.toList mustBe List(
+        FallbackSyncRequest(sampleScheduledVideoDownload.videoMetadata.id)
+      )
     }
   }
 
@@ -345,6 +357,22 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
 
     service.schedule(uri"https://youtube.com/watch?v=abc123", "user-1").map { _ =>
       fallbackSyncRequests.publishedMessages mustBe empty
+    }
+  }
+
+  it should "not fail when the fallback sync request publisher fails for an existing video that gains a user" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+
+    val (service, _, _) = createService(
+      fallbackSyncRequestPublisher = new FailingPublisher[FallbackSyncRequest](),
+      schedulingDao = new StubSchedulingDao(searchResult = Seq(sampleScheduledVideoDownload)),
+      videoTitleDao = new StubVideoTitleDao(insertResult = 1),
+      videoPermissionDao = new StubVideoPermissionDao(insertResult = 1)
+    )
+
+    service.schedule(uri"https://youtube.com/watch?v=abc123", "user-2").map { result =>
+      result mustBe a[ScheduledVideoResult.NewlyScheduled]
+      result.scheduledVideoDownload mustBe sampleScheduledVideoDownload
     }
   }
 
@@ -776,6 +804,19 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
       fallbackSyncRequests.publishedMessages.toList mustBe List(
         FallbackSyncRequest(sampleScheduledVideoDownload.videoMetadata.id)
       )
+    }
+  }
+
+  it should "not fail when the fallback sync request publisher fails for a non-admin delete" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+
+    val (service, _, _) = createService(
+      fallbackSyncRequestPublisher = new FailingPublisher[FallbackSyncRequest](),
+      schedulingDao = new StubSchedulingDao(getByIdResult = (_, _) => Some(sampleScheduledVideoDownload))
+    )
+
+    service.deleteById(sampleScheduledVideoDownload.videoMetadata.id, Some("user-1")).map { result =>
+      result mustBe sampleScheduledVideoDownload
     }
   }
 }

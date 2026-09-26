@@ -44,6 +44,13 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
 
   private val logger = Logger[ApiSchedulingServiceImpl[F, T]]
 
+  private def requestFallbackSync(videoId: String): F[Unit] =
+    fallbackSyncRequestPublisher
+      .publishOne(FallbackSyncRequest(videoId))
+      .handleErrorWith { error =>
+        logger.warn[F](s"Unable to request a fallback sync for video $videoId: ${error.getMessage}")
+      }
+
   override def schedule(uri: Uri, userId: String): F[ScheduledVideoResult] =
     VideoSite
       .processUri[F](uri)
@@ -69,9 +76,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
             case scheduledVideoDownload :: _ =>
               existingScheduledVideoDownload(scheduledVideoDownload.videoMetadata, userId)
                 .flatTap { created =>
-                  fallbackSyncRequestPublisher
-                    .publishOne(FallbackSyncRequest(scheduledVideoDownload.videoMetadata.id))
-                    .whenA(created)
+                  requestFallbackSync(scheduledVideoDownload.videoMetadata.id).whenA(created)
                 }
                 .map { created =>
                   if (created) ScheduledVideoResult.NewlyScheduled(scheduledVideoDownload)
@@ -145,9 +150,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
           .flatMap { existing =>
             existingScheduledVideoDownload(existing.videoMetadata, userId)
               .flatTap { created =>
-                fallbackSyncRequestPublisher
-                  .publishOne(FallbackSyncRequest(existing.videoMetadata.id))
-                  .whenA(created)
+                requestFallbackSync(existing.videoMetadata.id).whenA(created)
               }
               .map { created =>
                 if (created) ScheduledVideoResult.NewlyScheduled(existing)
@@ -257,8 +260,6 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
           scheduledVideoDownloadPublisher.publishOne(deleted).as(deleted)
         }
       } else
-        fallbackSyncRequestPublisher
-          .publishOne(FallbackSyncRequest(scheduledVideoDownload.videoMetadata.id))
-          .as(scheduledVideoDownload)
+        requestFallbackSync(scheduledVideoDownload.videoMetadata.id).as(scheduledVideoDownload)
     }
 }
