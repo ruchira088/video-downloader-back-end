@@ -6,7 +6,7 @@ import org.testcontainers.containers.GenericContainer
 import org.testcontainers.utility.DockerImageName
 
 class ElasticMqContainer
-    extends GenericContainer[ElasticMqContainer](DockerImageName.parse("softwaremill/elasticmq-native:latest")) {
+    extends GenericContainer[ElasticMqContainer](DockerImageName.parse("softwaremill/elasticmq-native:1.7.1")) {
   withExposedPorts(9324)
 }
 

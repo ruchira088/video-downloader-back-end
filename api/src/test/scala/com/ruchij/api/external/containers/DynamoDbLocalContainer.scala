@@ -6,7 +6,7 @@ import org.testcontainers.containers.GenericContainer
 import org.testcontainers.utility.DockerImageName
 
 class DynamoDbLocalContainer
-    extends GenericContainer[DynamoDbLocalContainer](DockerImageName.parse("amazon/dynamodb-local:latest")) {
+    extends GenericContainer[DynamoDbLocalContainer](DockerImageName.parse("amazon/dynamodb-local:3.3.1")) {
   withExposedPorts(8000)
 }
 
