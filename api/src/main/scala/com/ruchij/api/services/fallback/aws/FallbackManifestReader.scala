@@ -12,10 +12,19 @@ import scala.jdk.CollectionConverters._
 
 final case class ManifestEntry(hash: String, capturedAt: Instant)
 
+object ManifestEntry {
+  /** Stands in for the hash of an item the reader can't parse. SyncHash is 16 hex characters, so this never matches:
+    * the reconcile then upserts the video if it still exists on the main side and removes it otherwise. */
+  val MalformedHash = "malformed"
+}
+
 trait FallbackManifestReader[F[_]] {
   def manifest: F[Map[String, ManifestEntry]]
 }
 
+/** Scans the sparse GSI1, which holds exactly the live videos: the fallback gives a video item GSI1 attributes when
+  * it is live and drops them when it tombstones it (or while a new video's item is only a lock placeholder). The
+  * index projects every attribute, so the scan reads the hash and capturedAt from it directly. */
 class DynamoDbFallbackManifestReader[F[_]: Async](dynamoDbClient: DynamoDbAsyncClient, tableName: String)
     extends FallbackManifestReader[F] {
   private val logger = Logger[DynamoDbFallbackManifestReader[F]]
@@ -30,15 +39,12 @@ class DynamoDbFallbackManifestReader[F[_]: Async](dynamoDbClient: DynamoDbAsyncC
       ScanRequest
         .builder()
         .tableName(tableName)
+        .indexName(DynamoDbFallbackManifestReader.IndexName)
         .projectionExpression("PK, #hash, capturedAt")
-        .filterExpression("SK = :video AND (attribute_not_exists(deleted) OR deleted = :false)")
+        // GSI1 holds live videos only; the filter just guards against an item that is somehow both
+        .filterExpression("attribute_not_exists(deleted) OR deleted = :false")
         .expressionAttributeNames(Map("#hash" -> "hash").asJava)
-        .expressionAttributeValues(
-          Map(
-            ":video" -> AttributeValue.builder().s("VIDEO").build(),
-            ":false" -> AttributeValue.builder().bool(false).build()
-          ).asJava
-        )
+        .expressionAttributeValues(Map(":false" -> AttributeValue.builder().bool(false).build()).asJava)
 
     val request = exclusiveStartKey.fold(builder)(builder.exclusiveStartKey).build()
 
@@ -53,25 +59,33 @@ class DynamoDbFallbackManifestReader[F[_]: Async](dynamoDbClient: DynamoDbAsyncC
     } yield result
   }
 
-  /** An item with an unparseable `capturedAt` is skipped rather than failing the whole scan: missing from the
-    * manifest, it is simply re-sent as an upsert by the reconcile. */
+  /** An item whose hash or capturedAt is missing or unparseable stays in the manifest under `MalformedHash` instead
+    * of failing the scan or being skipped: skipped, a video gone from the main side would never be removed. */
   private def entry(item: JMap[String, AttributeValue]): F[List[(String, ManifestEntry)]] = {
-    val fields =
-      for {
-        partitionKey <- Option(item.get("PK")).map(_.s())
-        hash <- Option(item.get("hash")).map(_.s())
-        capturedAt <- Option(item.get("capturedAt")).map(_.s())
-      } yield (partitionKey.stripPrefix("VIDEO#"), hash, capturedAt)
+    def string(name: String): Option[String] = Option(item.get(name)).flatMap(value => Option(value.s()))
 
-    fields.fold(Async[F].pure(List.empty[(String, ManifestEntry)])) {
-      case (videoId, hash, capturedAt) =>
-        Either.catchNonFatal(Instant.parse(capturedAt)) match {
-          case Right(instant) => Async[F].pure(List(videoId -> ManifestEntry(hash, instant)))
-          case Left(error) =>
+    string("PK").map(_.stripPrefix("VIDEO#")) match {
+      case None => logger.warn[F](s"Ignoring a fallback manifest item without a PK: $item").as(Nil)
+
+      case Some(videoId) =>
+        val parsed =
+          for {
+            hash <- string("hash")
+            capturedAt <- string("capturedAt").flatMap(value => Either.catchNonFatal(Instant.parse(value)).toOption)
+          } yield ManifestEntry(hash, capturedAt)
+
+        parsed match {
+          case Some(manifestEntry) => Async[F].pure(List(videoId -> manifestEntry))
+
+          case None =>
             logger
-              .warn[F](s"Skipping fallback manifest item for video $videoId with invalid capturedAt: $error")
-              .as(List.empty)
+              .warn[F](s"Fallback manifest item for video $videoId has no valid hash or capturedAt; re-syncing it")
+              .as(List(videoId -> ManifestEntry(ManifestEntry.MalformedHash, Instant.EPOCH)))
         }
     }
   }
+}
+
+object DynamoDbFallbackManifestReader {
+  val IndexName = "GSI1"
 }

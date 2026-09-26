@@ -160,72 +160,101 @@ class FallbackAwsSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  "DynamoDbFallbackManifestReader" should "return live video items only, across scan pages, skipping malformed ones" in
+  private def put(aws: FallbackSyncAwsClients, item: Map[String, AttributeValue]): IO[Unit] =
+    IO.fromCompletableFuture(
+      IO(aws.dynamoDb.putItem(PutItemRequest.builder().tableName("videos").item(item.asJava).build()))
+    ).void
+
+  private def s(value: String): AttributeValue = AttributeValue.builder().s(value).build()
+
+  private def bool(value: Boolean): AttributeValue = AttributeValue.builder().bool(value).build()
+
+  /** The table as fallback-api/template.yaml defines it, including the sparse GSI1 with projection ALL. */
+  private def createVideosTable(aws: FallbackSyncAwsClients): IO[Unit] = {
+    def key(name: String, keyType: KeyType) = KeySchemaElement.builder().attributeName(name).keyType(keyType).build()
+    def attribute(name: String) =
+      AttributeDefinition.builder().attributeName(name).attributeType(ScalarAttributeType.S).build()
+
+    val createTable =
+      CreateTableRequest
+        .builder()
+        .tableName("videos")
+        .billingMode(BillingMode.PAY_PER_REQUEST)
+        .keySchema(key("PK", KeyType.HASH), key("SK", KeyType.RANGE))
+        .attributeDefinitions(attribute("PK"), attribute("SK"), attribute("GSI1PK"), attribute("GSI1SK"))
+        .globalSecondaryIndexes(
+          GlobalSecondaryIndex
+            .builder()
+            .indexName("GSI1")
+            .keySchema(key("GSI1PK", KeyType.HASH), key("GSI1SK", KeyType.RANGE))
+            .projection(Projection.builder().projectionType(ProjectionType.ALL).build())
+            .build()
+        )
+        .build()
+
+    IO.fromCompletableFuture(IO(aws.dynamoDb.createTable(createTable))).void
+  }
+
+  private def liveVideo(videoId: String, hash: String, capturedAt: String): Map[String, AttributeValue] =
+    Map(
+      "PK" -> s(s"VIDEO#$videoId"),
+      "SK" -> s("VIDEO"),
+      "hash" -> s(hash),
+      "capturedAt" -> s(capturedAt),
+      "deleted" -> bool(false),
+      "GSI1PK" -> s("VIDEO"),
+      "GSI1SK" -> s(s"2026-09-25T21:04:11.000000Z#$videoId")
+    )
+
+  "DynamoDbFallbackManifestReader" should "read live videos from GSI1 across scan pages, keeping malformed ones" in
     runIO {
-    (DynamoDbLocalContainer.create[IO].flatMap(clients)).use { aws =>
-      def put(item: Map[String, AttributeValue]): IO[Unit] =
-        IO.fromCompletableFuture(
-          IO(aws.dynamoDb.putItem(PutItemRequest.builder().tableName("videos").item(item.asJava).build()))
-        ).void
-
-      def s(value: String): AttributeValue = AttributeValue.builder().s(value).build()
-      def bool(value: Boolean): AttributeValue = AttributeValue.builder().bool(value).build()
-
-      val createTable =
-        CreateTableRequest
-          .builder()
-          .tableName("videos")
-          .billingMode(BillingMode.PAY_PER_REQUEST)
-          .keySchema(
-            KeySchemaElement.builder().attributeName("PK").keyType(KeyType.HASH).build(),
-            KeySchemaElement.builder().attributeName("SK").keyType(KeyType.RANGE).build()
-          )
-          .attributeDefinitions(
-            AttributeDefinition.builder().attributeName("PK").attributeType(ScalarAttributeType.S).build(),
-            AttributeDefinition.builder().attributeName("SK").attributeType(ScalarAttributeType.S).build()
-          )
-          .build()
-
-      for {
-        _ <- IO.fromCompletableFuture(IO(aws.dynamoDb.createTable(createTable)))
-        _ <- (1 to 30).toList.traverse_ { index =>
-          put(
+      (DynamoDbLocalContainer.create[IO].flatMap(clients)).use { aws =>
+        for {
+          _ <- createVideosTable(aws)
+          _ <- (1 to 30).toList.traverse_ { index =>
+            val video = liveVideo(s"video-$index", s"hash-$index", "2026-09-26T08:15:30.123456Z")
+            put(aws, video + ("padding" -> s("p" * 40000)))
+          }
+          // A tombstone, and a new video's lock placeholder: neither carries GSI1 attributes
+          _ <- put(
+            aws,
             Map(
-              "PK" -> s(s"VIDEO#video-$index"),
+              "PK" -> s("VIDEO#gone"),
               "SK" -> s("VIDEO"),
-              "hash" -> s(s"hash-$index"),
-              "capturedAt" -> s("2026-09-26T08:15:30.123Z"),
-              "deleted" -> bool(false),
-              "padding" -> s("p" * 40000)
+              "capturedAt" -> s("2026-09-26T08:15:30.123456Z"),
+              "deleted" -> bool(true)
             )
           )
+          _ <- put(
+            aws,
+            Map(
+              "PK" -> s("VIDEO#locked-new"),
+              "SK" -> s("VIDEO"),
+              "deleted" -> bool(true),
+              "lockId" -> s("lock-1"),
+              "lockedUntil" -> s("2026-09-26T08:17:30.123456Z")
+            )
+          )
+          _ <- put(aws, Map("PK" -> s("USER#user-1"), "SK" -> s("VIDEO#2026#video-1")))
+          // A live video mid-way through a large apply carries extra lock attributes
+          _ <- put(
+            aws,
+            liveVideo("locked-live", "hash-locked", "2026-09-26T08:15:30.123456Z") + ("lockId" -> s("lock-2"))
+          )
+          // Kept, under a hash that never matches, so the reconcile upserts or removes it
+          _ <- put(aws, liveVideo("malformed-captured-at", "hash-malformed", "not-a-timestamp"))
+          _ <- put(aws, liveVideo("missing-hash", "unused", "2026-09-26T08:15:30.123456Z") - "hash")
+          manifest <- new DynamoDbFallbackManifestReader[IO](aws.dynamoDb, "videos").manifest
+        } yield {
+          val expected = Set("locked-live", "malformed-captured-at", "missing-hash")
+          manifest.keySet mustBe ((1 to 30).map(index => s"video-$index").toSet ++ expected)
+          manifest("video-7") mustBe ManifestEntry("hash-7", Instant.parse("2026-09-26T08:15:30.123456Z"))
+          manifest("locked-live").hash mustBe "hash-locked"
+          manifest("malformed-captured-at").hash mustBe ManifestEntry.MalformedHash
+          manifest("missing-hash").hash mustBe ManifestEntry.MalformedHash
         }
-        _ <- put(
-          Map(
-            "PK" -> s("VIDEO#gone"),
-            "SK" -> s("VIDEO"),
-            "capturedAt" -> s("2026-09-26T08:15:30.123Z"),
-            "deleted" -> bool(true)
-          )
-        )
-        _ <- put(Map("PK" -> s("USER#user-1"), "SK" -> s("VIDEO#2026#video-1")))
-        // Left out of the manifest instead of failing the scan, so the reconcile re-sends it as an upsert
-        _ <- put(
-          Map(
-            "PK" -> s("VIDEO#malformed"),
-            "SK" -> s("VIDEO"),
-            "hash" -> s("hash-malformed"),
-            "capturedAt" -> s("not-a-timestamp"),
-            "deleted" -> bool(false)
-          )
-        )
-        manifest <- new DynamoDbFallbackManifestReader[IO](aws.dynamoDb, "videos").manifest
-      } yield {
-        manifest.keySet mustBe (1 to 30).map(index => s"video-$index").toSet
-        manifest("video-7") mustBe ManifestEntry("hash-7", Instant.parse("2026-09-26T08:15:30.123Z"))
       }
     }
-  }
 
   "The contract fixture" should "fit in one SQS message" in {
     SyncJson.encode(fixtureUpsert).length must be < 1024 * 1024

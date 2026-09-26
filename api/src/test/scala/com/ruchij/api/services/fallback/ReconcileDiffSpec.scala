@@ -25,4 +25,15 @@ class ReconcileDiffSpec extends AnyFlatSpec with Matchers {
   it should "do nothing when both sides match" in {
     ReconcileDiff.compute(Map("a" -> entry("h")), List(upsert("a", "h"))) mustBe ReconcileDiff(Nil, Nil)
   }
+
+  it should "upsert a malformed manifest item that still exists and remove one that doesn't" in {
+    val malformed = ManifestEntry(ManifestEntry.MalformedHash, Instant.EPOCH)
+    val diff =
+      ReconcileDiff.compute(
+        manifest = Map("exists" -> malformed, "gone" -> malformed),
+        current = List(upsert("exists", "h1"))
+      )
+
+    diff mustBe ReconcileDiff(List(upsert("exists", "h1")), List("gone"))
+  }
 }
