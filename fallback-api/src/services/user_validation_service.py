@@ -3,8 +3,14 @@ from urllib.parse import urljoin
 
 import requests
 from pydantic import EmailStr, HttpUrl
+from requests.exceptions import ConnectionError as RequestsConnectionError
+from requests.exceptions import Timeout
 
+from src.services.exceptions import ServiceUnavailableException
 from src.services.models.user import User, parse_role
+
+# Well inside the Lambda's 30 s timeout, even for the two calls a sign-up makes.
+MAIN_API_TIMEOUT_SECONDS = 10
 
 
 class UserValidationService(ABC):
@@ -18,15 +24,19 @@ class VideoDownloaderUserValidationService(UserValidationService):
         self._video_downloader_api_url = str(video_downloader_api_url)
 
     def get_user(self, email: EmailStr, password: str) -> User:
-        auth_token = self._authenticate(email, password)
-        user = self._logout(auth_token)
-
-        return user
+        try:
+            auth_token = self._authenticate(email, password)
+            return self._logout(auth_token)
+        except (Timeout, RequestsConnectionError) as error:
+            raise ServiceUnavailableException(
+                "The main video downloader API could not be reached"
+            ) from error
 
     def _authenticate(self, email: EmailStr, password: str) -> str:
         response = requests.post(
             urljoin(self._video_downloader_api_url, "authentication/login"),
             json={"email": email, "password": password},
+            timeout=MAIN_API_TIMEOUT_SECONDS,
         )
 
         response.raise_for_status()
@@ -37,6 +47,7 @@ class VideoDownloaderUserValidationService(UserValidationService):
         response = requests.delete(
             urljoin(self._video_downloader_api_url, "authentication/logout"),
             headers={"Authorization": f"Bearer {auth_token}"},
+            timeout=MAIN_API_TIMEOUT_SECONDS,
         )
 
         response.raise_for_status()
