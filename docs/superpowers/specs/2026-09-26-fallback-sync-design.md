@@ -220,7 +220,10 @@ request will ever resolve.
 
 Runs daily, when the API starts (which also does the initial backfill), and when the "reconcile needed" flag is set.
 The time of each completed reconcile is kept in Redis, and the daily run is skipped when any instance completed one in
-the last 20 h. A startup or flagged run that finds the lock held flags a retry, since the holder may have crashed.
+the last 20 h. A startup or flagged run that finds the lock held retries at each flag check, since the holder may
+have crashed, until a reconcile by any instance completes after it found the lock held. The retry is kept on that
+instance, not set as the shared flag, so instances starting together after a deploy don't each run one more
+reconcile once the lock's holder has finished.
 
 1. Acquire the lease.
 2. **Scan the manifest first.** Scan the sparse `GSI1` (projection `ALL`, so it holds exactly the live videos) with

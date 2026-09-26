@@ -239,7 +239,7 @@ class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
     runIO(TestControl.executeEmbed(test))
   }
 
-  it should "flag a retry when the startup reconcile finds the lock held, and run once the lock is free" in {
+  it should "retry when the startup reconcile finds the lock held, and run once the lock is free" in {
     // A crashed instance's lock outlives it, and it already cleared the flag when it took the lock
     val test =
       for {
@@ -248,20 +248,65 @@ class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
         (reconciler, manifestReads) <- countingReconciler(coordination)
         _ <- holdLock(keyValueStore, "crashed-instance")
         fiber <- reconciler.run(flagCheckInterval = 5.minutes).compile.drain.start
-        _ <- IO.sleep(1.minute)
-        flaggedAtStartup <- coordination.isReconcileNeeded
-        _ <- IO.sleep(5.minutes)
-        // Still locked at the first flag check, which flags the retry again
-        flaggedWhileLocked <- coordination.isReconcileNeeded
+        _ <- IO.sleep(6.minutes)
+        // Still locked at the first flag check, so the retry stays pending
         readsWhileLocked <- manifestReads.get
         _ <- releaseLock(keyValueStore)
         _ <- IO.sleep(5.minutes)
         readsAfterRelease <- manifestReads.get
-        flaggedAfterRelease <- coordination.isReconcileNeeded
+        _ <- IO.sleep(10.minutes)
+        readsLater <- manifestReads.get
         _ <- fiber.cancel
-      } yield (flaggedAtStartup, flaggedWhileLocked, readsWhileLocked, readsAfterRelease, flaggedAfterRelease)
+      } yield (readsWhileLocked, readsAfterRelease, readsLater)
 
-    runIO(TestControl.executeEmbed(test).map(_ mustBe ((true, true, 0, 1, false))))
+    runIO(TestControl.executeEmbed(test).map(_ mustBe ((0, 1, 1))))
+  }
+
+  it should "not rerun after a simultaneous startup once the lock's holder completes a reconcile" in {
+    // Every instance starts at once after a deploy, and only one of them takes the lock
+    val test =
+      for {
+        keyValueStore <- IO.pure(new InMemoryKeyValueStore[IO])
+        coordination = new FallbackSyncCoordination[IO](keyValueStore)
+        (reconciler, manifestReads) <- countingReconciler(coordination)
+        _ <- holdLock(keyValueStore, "instance-b")
+        fiber <- reconciler.run(flagCheckInterval = 5.minutes).compile.drain.start
+        _ <- IO.sleep(1.minute)
+        // instance-b completes its startup reconcile
+        completedAt <- IO.realTimeInstant
+        _ <- coordination.recordSuccessfulReconcile(completedAt)
+        _ <- releaseLock(keyValueStore)
+        _ <- IO.sleep(20.minutes)
+        reads <- manifestReads.get
+        flagged <- coordination.isReconcileNeeded
+        _ <- fiber.cancel
+      } yield (reads, flagged)
+
+    runIO(TestControl.executeEmbed(test).map(_ mustBe ((0, false))))
+  }
+
+  it should "still run a flagged reconcile after the lock's holder completes one that began before the flag" in {
+    val test =
+      for {
+        keyValueStore <- IO.pure(new InMemoryKeyValueStore[IO])
+        coordination = new FallbackSyncCoordination[IO](keyValueStore)
+        (reconciler, manifestReads) <- countingReconciler(coordination)
+        fiber <- reconciler.run(flagCheckInterval = 5.minutes).compile.drain.start
+        _ <- IO.sleep(1.minute)
+        // instance-b takes the lock and clears the flag, then a change is flagged while it runs
+        _ <- holdLock(keyValueStore, "instance-b")
+        _ <- coordination.markReconcileNeeded
+        _ <- IO.sleep(5.minutes)
+        readsWhileLocked <- manifestReads.get
+        completedAt <- IO.realTimeInstant
+        _ <- coordination.recordSuccessfulReconcile(completedAt)
+        _ <- releaseLock(keyValueStore)
+        _ <- IO.sleep(5.minutes)
+        reads <- manifestReads.get
+        _ <- fiber.cancel
+      } yield (readsWhileLocked, reads)
+
+    runIO(TestControl.executeEmbed(test).map(_ mustBe ((1, 2))))
   }
 
   it should "not flag a retry when the daily reconcile finds the lock held" in {

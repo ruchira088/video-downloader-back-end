@@ -1,6 +1,6 @@
 package com.ruchij.api.services.fallback
 
-import cats.effect.Async
+import cats.effect.{Async, Ref}
 import cats.implicits._
 import cats.{Monad, ~>}
 import com.ruchij.api.services.fallback.aws.{FallbackManifestReader, FallbackSyncTransport, ManifestEntry}
@@ -81,22 +81,43 @@ class FallbackReconciler[F[_]: Async: Clock, T[_]: Monad](
     scheduled.merge(flagged)
   }
 
-  /** `retryWhenLocked` flags a retry when another holder has the lock: that holder may be a crashed instance whose
-    * lock outlives it by up to its TTL, having already cleared the flag, so without it the startup or flagged run
-    * would be lost. The flag is only checked every `flagCheckInterval`, so this retries at that pace, not in a loop.
+  /** `retryWhenLocked` keeps a retry pending when another holder has the lock: that holder may be a crashed instance
+    * whose lock outlives it by up to its TTL, having already cleared the flag, so without it the startup or flagged
+    * run would be lost. Each flag check retries it until a reconcile, by any instance, completes after the lock was
+    * found held. The retry is kept on this instance rather than set as the shared flag, which would make every
+    * instance that starts alongside the lock's live holder after a deploy run one more full reconcile about
+    * `flagCheckInterval` later: the holder's run, completing after theirs found the lock held, now satisfies them.
     * The daily run doesn't need it: if another instance holds the lock, that instance is reconciling. */
   private def reconcileSafely(retryWhenLocked: Boolean): F[Unit] =
     reconcile
       .flatMap {
         case None if retryWhenLocked =>
-          logger.info[F]("Another instance holds the fallback reconcile lock; flagging a retry") *>
-            coordination.markReconcileNeeded
+          logger.info[F] {
+            "Another instance holds the fallback reconcile lock; retrying unless a reconcile completes first"
+          } *> Clock[F].timestamp.flatMap(now => retryPendingSince.update(_.orElse(Some(now))))
 
-        case _ => Async[F].unit
+        case None => Async[F].unit
+
+        case Some(_) => retryPendingSince.set(None)
       }
       .handleErrorWith { error =>
         logger.error[F]("Fallback reconcile failed; it will be retried", error) *> coordination.markReconcileNeeded
       }
+
+  // When a startup or flagged reconcile first found the lock held, while its retry is pending
+  private val retryPendingSince: Ref[F, Option[Instant]] = Ref.unsafe[F, Option[Instant]](None)
+
+  /** A pending retry is satisfied by any reconcile that completed after the lock was found held. */
+  private val retryDue: F[Boolean] =
+    retryPendingSince.get.flatMap {
+      case None => Async[F].pure(false)
+
+      case Some(since) =>
+        coordination.lastSuccessfulReconcile.attempt.flatMap {
+          case Right(Some(completedAt)) if completedAt.isAfter(since) => retryPendingSince.set(None).as(false)
+          case _ => Async[F].pure(true)
+        }
+    }
 
   private def dailyReconcile(skipWindow: FiniteDuration): F[Unit] =
     (coordination.lastSuccessfulReconcile, Clock[F].timestamp).tupled.flatMap {
@@ -114,8 +135,8 @@ class FallbackReconciler[F[_]: Async: Clock, T[_]: Monad](
     run.handleErrorWith(error => logger.error[F]("Fallback reconcile tick failed unexpectedly", error))
 
   private val flagCheckTick: F[Unit] =
-    coordination.isReconcileNeeded
-      .ifM(reconcileSafely(retryWhenLocked = true), Async[F].unit)
+    (coordination.isReconcileNeeded, retryDue).tupled
+      .flatMap { case (flagged, due) => reconcileSafely(retryWhenLocked = true).whenA(flagged || due) }
       .handleErrorWith(error => logger.error[F]("Fallback reconcile flag check failed unexpectedly", error))
 
   /** Refuses a mass removal, which more likely means the main side read the wrong or an empty database than that
