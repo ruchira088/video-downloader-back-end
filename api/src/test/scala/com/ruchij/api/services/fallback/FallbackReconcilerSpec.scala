@@ -46,16 +46,19 @@ class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
       override val manifest: IO[Map[String, ManifestEntry]] = IO.pure(entries.toMap)
     }
 
-  /** Fails the first `failures` reads of the reconcile flag, then delegates. Simulates the key-value store (e.g.
-    * Redis) being unreachable for the flag check specifically (the scenario the fix addresses) while everything
-    * else, including the reconcile lock, keeps working normally. */
-  private final class FlakyKeyValueStore(delegate: InMemoryKeyValueStore[IO], remainingFailures: Ref[IO, Int])
-      extends KeyValueStore[IO] {
+  /** Fails the first `remainingFailures` reads of `failingKey` (by default the reconcile flag), then delegates.
+    * Simulates the key-value store (e.g. Redis) being unreachable for that one read while everything else,
+    * including the reconcile lock, keeps working normally. */
+  private final class FlakyKeyValueStore(
+    delegate: InMemoryKeyValueStore[IO],
+    remainingFailures: Ref[IO, Int],
+    failingKey: String = FallbackSyncCoordination.ReconcileNeededKey
+  ) extends KeyValueStore[IO] {
     override type InsertionResult = Boolean
     override type DeletionResult = Boolean
 
     override def get[K: KVEncoder[IO, *], V: KVDecoder[IO, *]](key: K): IO[Option[V]] =
-      if (key != FallbackSyncCoordination.ReconcileNeededKey) delegate.get(key)
+      if (key != failingKey) delegate.get(key)
       else
         remainingFailures.modify(n => (math.max(n - 1, 0), n)).flatMap { n =>
           if (n > 0) IO.raiseError(new RuntimeException("Key-value store unavailable")) else delegate.get(key)
@@ -325,6 +328,28 @@ class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
       } yield (flagged, reads)
 
     runIO(TestControl.executeEmbed(test).map(_ mustBe ((false, 1))))
+  }
+
+  it should "run the daily reconcile when reading when the last one completed fails" in {
+    val test =
+      for {
+        remainingFailures <- Ref.of[IO, Int](Int.MaxValue)
+        coordination = new FallbackSyncCoordination[IO](
+          new FlakyKeyValueStore(
+            new InMemoryKeyValueStore[IO],
+            remainingFailures,
+            FallbackSyncCoordination.LastSuccessfulReconcileKey
+          )
+        )
+        (reconciler, manifestReads) <- countingReconciler(coordination)
+        fiber <- reconciler.run(interval = 24.hours, flagCheckInterval = 5.minutes).compile.drain.start
+        _ <- IO.sleep(24.hours + 1.minute)
+        reads <- manifestReads.get
+        _ <- fiber.cancel
+      } yield reads
+
+    // The startup reconcile, then the daily one
+    runIO(TestControl.executeEmbed(test).map(_ mustBe 2))
   }
 
   it should "skip the daily reconcile when any instance completed one within the last 20 hours" in {

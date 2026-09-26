@@ -119,13 +119,21 @@ class FallbackReconciler[F[_]: Async: Clock, T[_]: Monad](
         }
     }
 
+  /** Runs anyway when the time of the last completed reconcile can't be read, rather than losing the day's run. */
   private def dailyReconcile(skipWindow: FiniteDuration): F[Unit] =
-    (coordination.lastSuccessfulReconcile, Clock[F].timestamp).tupled.flatMap {
-      case (Some(lastRun), now) if lastRun.isAfter(now.minusMillis(skipWindow.toMillis)) =>
-        logger.info[F](s"Skipping the daily fallback reconcile: one completed at $lastRun")
+    coordination.lastSuccessfulReconcile
+      .handleErrorWith { error =>
+        logger
+          .warn[F](s"Unable to read when the last fallback reconcile completed; running the daily one anyway: $error")
+          .as(Option.empty[Instant])
+      }
+      .product(Clock[F].timestamp)
+      .flatMap {
+        case (Some(lastRun), now) if lastRun.isAfter(now.minusMillis(skipWindow.toMillis)) =>
+          logger.info[F](s"Skipping the daily fallback reconcile: one completed at $lastRun")
 
-      case _ => reconcileSafely(retryWhenLocked = false)
-    }
+        case _ => reconcileSafely(retryWhenLocked = false)
+      }
 
   /** Every tick of the schedule must be fail-safe end to end: `Stream.merge` ends both the daily and flag-check
     * paths the moment either side's `evalMap` raises, so a single bad tick (e.g. the key-value store or transport
