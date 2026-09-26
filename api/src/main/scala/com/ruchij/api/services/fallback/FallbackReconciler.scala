@@ -43,7 +43,7 @@ class FallbackReconciler[F[_]: Async: Clock, T[_]: Monad](
         // extra (harmless) upsert instead of being wrongly removed.
         manifest <- manifestReader.manifest
         // capturedAt comes from the database clock, in the same transaction as the read it stamps
-        (capturedAt, videos) <- transaction(fallbackSyncDao.currentTimestamp.product(fallbackSyncDao.findAll))
+        (capturedAt, videos) <- transaction(fallbackSyncDao.timestamped(fallbackSyncDao.findAll))
         _ <- warnAboutFutureCapturedAt(manifest, capturedAt)
         diff = ReconcileDiff.compute(manifest, videos.map(ScheduledVideoUpserts.from(_, capturedAt)))
         rechecked <- confirmedRemovals(diff.removedVideoIds)
@@ -191,7 +191,7 @@ class FallbackReconciler[F[_]: Async: Clock, T[_]: Monad](
     * a removal lose to, or be stamped before, a change made between the listing and the re-check. */
   private def confirmedRemovals(videoIds: List[String]): F[List[MainToFallbackMessage]] =
     videoIds.traverse { videoId =>
-      transaction(fallbackSyncDao.currentTimestamp.product(fallbackSyncDao.findById(videoId)))
+      transaction(fallbackSyncDao.timestamped(fallbackSyncDao.findById(videoId)))
         .map[MainToFallbackMessage] {
           case (capturedAt, Some(syncedVideo)) => ScheduledVideoUpserts.from(syncedVideo, capturedAt)
           case (capturedAt, None) => ScheduledVideoRemoval(videoId, capturedAt)

@@ -1,6 +1,7 @@
 package com.ruchij.api.services.fallback
 
 import cats.effect.IO
+import cats.effect.unsafe.implicits.{global => runtime}
 import cats.implicits._
 import cats.~>
 import com.ruchij.api.services.fallback.FallbackSyncTestData.scheduledVideoDownload
@@ -22,6 +23,7 @@ import org.http4s.Uri
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
+import java.sql.Connection
 import java.time.Instant
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -126,5 +128,49 @@ class DoobieFallbackSyncDaoSpec extends AnyFlatSpec with Matchers {
     new ContainerCoreResourcesProvider[IO].transactor.use {
       checkCurrentTimestamp(Fragment.const(s"SET LOCAL TIME ZONE '$SessionTimeZone'").update.run.void)
     }
+  }
+
+  private val videoCount: ConnectionIO[Int] = sql"SELECT COUNT(*) FROM scheduled_video".query[Int].unique
+
+  /** A video committed by another transaction between the timestamp and the rest of the read must stay invisible to
+    * that read, or the read could carry data newer than its timestamp. */
+  private def checkTimestampedReadSeesOneSnapshot(transaction: ConnectionIO ~> IO): IO[Unit] = {
+    val video = {
+      val base = scheduledVideoDownload("video-committed-mid-read")
+      base.copy(
+        videoMetadata = base.videoMetadata.copy(
+          url = Uri.unsafeFromString("https://example.com/video-committed-mid-read"),
+          thumbnail = base.videoMetadata.thumbnail.copy(path = "/opt/thumbnail-committed-mid-read.jpg")
+        )
+      )
+    }
+
+    for {
+      (_, (before, after)) <- transaction {
+        dao.timestamped {
+          for {
+            before <- videoCount
+            // Commits on another connection while this transaction is still open
+            _ <- FC.delay(transaction(insertVideo(video)).unsafeRunSync()(runtime))
+            after <- videoCount
+          } yield (before, after)
+        }
+      }
+      committed <- transaction(videoCount)
+      isolation <- transaction(FC.getTransactionIsolation)
+    } yield {
+      after mustBe before
+      committed mustBe before + 1
+      // The pool's own level again once the connection is returned
+      isolation mustBe Connection.TRANSACTION_READ_COMMITTED
+    }
+  }
+
+  "DoobieFallbackSyncDao.timestamped" should "read under one snapshot on H2" in runIO {
+    new EmbeddedCoreResourcesProvider[IO].transactor.use(checkTimestampedReadSeesOneSnapshot)
+  }
+
+  it should "read under one snapshot on Postgres" in runIO {
+    new ContainerCoreResourcesProvider[IO].transactor.use(checkTimestampedReadSeesOneSnapshot)
   }
 }

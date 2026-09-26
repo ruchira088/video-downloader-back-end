@@ -126,9 +126,10 @@ rejected.
   - `{"result": "Rejected", "reason": "..."}`
 
 - `capturedAt` is the database's `CURRENT_TIMESTAMP`, read in the same transaction as the row it versions (in
-  Postgres, the transaction's start, so never after the read). Using the DB clock keeps every API instance on one
-  clock. It is the version used for ordering. `lastUpdatedAt` can't be used, because permission changes don't
-  update it.
+  Postgres, the transaction's start, so never after the read). The transaction runs under `REPEATABLE READ`, so the
+  whole read sees the snapshot taken with the timestamp; under `READ COMMITTED` a later statement could read a
+  change committed after it. Using the DB clock keeps every API instance on one clock. It is the version used for
+  ordering. `lastUpdatedAt` can't be used, because permission changes don't update it.
 - `status` is the main side's `SchedulingStatus` name, passed through unchanged.
 
 ### fallback → main (`FallbackToMainQueue`)

@@ -160,7 +160,7 @@ class FallbackRequestConsumer[F[_]: Async, T[_]: Monad](
 
   private def scheduledOutcome(videoId: String): F[ResolutionOutcome] =
     // capturedAt comes from the database clock, in the same transaction as the read it stamps
-    transaction(fallbackSyncDao.currentTimestamp.product(fallbackSyncDao.findById(videoId))).flatMap {
+    transaction(fallbackSyncDao.timestamped(fallbackSyncDao.findById(videoId))).flatMap {
       case (capturedAt, Some(syncedVideo)) =>
         Async[F].pure[ResolutionOutcome] {
           ResolutionOutcome.Scheduled(ScheduledVideoUpserts.from(syncedVideo, capturedAt))

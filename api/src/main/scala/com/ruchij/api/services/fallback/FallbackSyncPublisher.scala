@@ -46,7 +46,7 @@ class FallbackSyncPublisher[F[_]: Async, T[_]: Monad](
     }
 
   private def readWithTimestamp(videoId: String): F[(Instant, Option[SyncedVideo])] =
-    transaction(fallbackSyncDao.currentTimestamp.product(fallbackSyncDao.findById(videoId)))
+    transaction(fallbackSyncDao.timestamped(fallbackSyncDao.findById(videoId)))
 
   /** Never fails: if the fallback stays unreachable, a reconcile is flagged to repair it later. */
   def publish(videoIds: List[String], deletions: Map[String, Instant] = Map.empty): F[Unit] =
