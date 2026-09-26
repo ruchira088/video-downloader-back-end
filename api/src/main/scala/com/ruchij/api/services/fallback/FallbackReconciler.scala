@@ -2,14 +2,12 @@ package com.ruchij.api.services.fallback
 
 import cats.effect.Async
 import cats.implicits._
-import cats.~>
+import cats.{Monad, ~>}
 import com.ruchij.api.services.fallback.aws.{FallbackManifestReader, FallbackSyncTransport}
 import com.ruchij.api.services.fallback.models.{MainToFallbackMessage, ScheduledVideoRemoval}
 import com.ruchij.core.logging.Logger
-import com.ruchij.core.types.Clock
 import fs2.Stream
 
-import java.time.Instant
 import scala.concurrent.duration._
 
 final case class ReconcileSummary(upserts: Int, removals: Int)
@@ -17,7 +15,7 @@ final case class ReconcileSummary(upserts: Int, removals: Int)
 // Async[F], not just Temporal[F], because the failure path logs via `com.ruchij.core.logging.Logger`, which is
 // Sync-based; Temporal and Sync are siblings in the cats-effect hierarchy (joined only by Async), so requiring both
 // separately produces ambiguous implicits (see FallbackSyncPublisher).
-class FallbackReconciler[F[_]: Async: Clock, T[_]](
+class FallbackReconciler[F[_]: Async, T[_]: Monad](
   manifestReader: FallbackManifestReader[F],
   fallbackSyncDao: FallbackSyncDao[T],
   transport: FallbackSyncTransport[F],
@@ -38,10 +36,10 @@ class FallbackReconciler[F[_]: Async: Clock, T[_]](
         // The manifest must be read before the DB: a video synced between the two reads then shows up as an
         // extra (harmless) upsert instead of being wrongly removed.
         manifest <- manifestReader.manifest
-        capturedAt <- Clock[F].timestamp
-        videos <- transaction(fallbackSyncDao.findAll)
+        // capturedAt comes from the database clock, in the same transaction as the read it stamps
+        (capturedAt, videos) <- transaction(fallbackSyncDao.currentTimestamp.product(fallbackSyncDao.findAll))
         diff = ReconcileDiff.compute(manifest, videos.map(ScheduledVideoUpserts.from(_, capturedAt)))
-        removals <- confirmedRemovals(diff.removedVideoIds, capturedAt)
+        removals <- confirmedRemovals(diff.removedVideoIds)
         _ <- transport.send(diff.upserts ++ removals)
         summary = ReconcileSummary(diff.upserts.size, removals.count(_.isInstanceOf[ScheduledVideoRemoval]))
         _ <- logger.info[F](s"Fallback reconcile sent ${summary.upserts} upserts and ${summary.removals} removals")
@@ -72,12 +70,15 @@ class FallbackReconciler[F[_]: Async: Clock, T[_]](
       logger.error[F]("Fallback reconcile flag check failed unexpectedly", error)
     }
 
-  /** Re-checks each candidate: paging through the DB while rows change can miss a video that still exists. */
-  private def confirmedRemovals(videoIds: List[String], capturedAt: Instant): F[List[MainToFallbackMessage]] =
+  /** Re-checks each candidate: paging through the DB while rows change can miss a video that still exists. Each
+    * re-check takes a fresh timestamp in its own read's transaction: reusing the listing's older timestamp would let
+    * a removal lose to, or be stamped before, a change made between the listing and the re-check. */
+  private def confirmedRemovals(videoIds: List[String]): F[List[MainToFallbackMessage]] =
     videoIds.traverse { videoId =>
-      transaction(fallbackSyncDao.findById(videoId)).map[MainToFallbackMessage] {
-        case Some(syncedVideo) => ScheduledVideoUpserts.from(syncedVideo, capturedAt)
-        case None => ScheduledVideoRemoval(videoId, capturedAt)
-      }
+      transaction(fallbackSyncDao.currentTimestamp.product(fallbackSyncDao.findById(videoId)))
+        .map[MainToFallbackMessage] {
+          case (capturedAt, Some(syncedVideo)) => ScheduledVideoUpserts.from(syncedVideo, capturedAt)
+          case (capturedAt, None) => ScheduledVideoRemoval(videoId, capturedAt)
+        }
     }
 }

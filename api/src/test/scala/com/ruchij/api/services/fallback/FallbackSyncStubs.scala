@@ -9,12 +9,27 @@ import com.ruchij.api.services.fallback.models.MainToFallbackMessage
 import com.ruchij.core.messaging.Publisher
 import fs2.Pipe
 
+import java.time.Instant
+
 object FallbackSyncStubs {
   implicit val identityTransaction: IO ~> IO = new (IO ~> IO) {
     override def apply[A](fa: IO[A]): IO[A] = fa
   }
 
-  final class StubFallbackSyncDao(videos: Ref[IO, Map[String, SyncedVideo]]) extends FallbackSyncDao[IO] {
+  /** `timestamps` stands in for the database clock: each read returns and removes its head, repeating the last. */
+  final class StubFallbackSyncDao(videos: Ref[IO, Map[String, SyncedVideo]], timestamps: Ref[IO, List[Instant]])
+      extends FallbackSyncDao[IO] {
+    override val currentTimestamp: IO[Instant] =
+      timestamps.modify {
+        case last :: Nil => (List(last), last)
+        case head :: tail => (tail, head)
+        case Nil => (Nil, FallbackSyncTestData.capturedAt)
+      }
+
+    def setTimestamps(values: Instant*): IO[Unit] = timestamps.set(values.toList)
+
+    def put(video: SyncedVideo): IO[Unit] = videos.update(_ + (video.scheduledVideoDownload.videoMetadata.id -> video))
+
     override def findById(videoId: String): IO[Option[SyncedVideo]] = videos.get.map(_.get(videoId))
 
     override def findAll: IO[List[SyncedVideo]] = videos.get.map(_.values.toList)
@@ -24,11 +39,12 @@ object FallbackSyncStubs {
 
   object StubFallbackSyncDao {
     def apply(videos: SyncedVideo*): IO[StubFallbackSyncDao] =
-      Ref
-        .of[IO, Map[String, SyncedVideo]] {
+      (
+        Ref.of[IO, Map[String, SyncedVideo]] {
           videos.map(video => video.scheduledVideoDownload.videoMetadata.id -> video).toMap
-        }
-        .map(new StubFallbackSyncDao(_))
+        },
+        Ref.of[IO, List[Instant]](List(FallbackSyncTestData.capturedAt))
+      ).mapN(new StubFallbackSyncDao(_, _))
   }
 
   final class RecordingTransport(sent: Ref[IO, List[MainToFallbackMessage]]) extends FallbackSyncTransport[IO] {

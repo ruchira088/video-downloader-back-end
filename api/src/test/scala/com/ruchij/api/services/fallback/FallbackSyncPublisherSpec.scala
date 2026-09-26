@@ -12,18 +12,15 @@ import com.ruchij.core.kv.InMemoryKeyValueStore
 import com.ruchij.core.messaging.Subscriber
 import com.ruchij.core.messaging.inmemory.Fs2PubSub
 import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
-import com.ruchij.core.test.Providers
-import com.ruchij.core.types.Clock
 import org.scalatest.flatspec.AnyFlatSpec
 import fs2.Stream
 import fs2.concurrent.Topic
 import org.scalatest.matchers.must.Matchers
 
+import java.time.Instant
 import scala.concurrent.duration._
 
 class FallbackSyncPublisherSpec extends AnyFlatSpec with Matchers {
-  implicit val clock: Clock[IO] = Providers.stubClock[IO](capturedAt)
-
   private val noDelays = List(Duration.Zero, Duration.Zero, Duration.Zero)
 
   "FallbackSyncPublisher.messagesFor" should "turn found rows into upserts and missing rows into removals" in runIO {
@@ -54,6 +51,23 @@ class FallbackSyncPublisherSpec extends AnyFlatSpec with Matchers {
       messages.size mustBe 2
       messages.head mustBe ScheduledVideoRemoval("video-1", capturedAt)
       messages(1) mustBe a[ScheduledVideoUpsert]
+    }
+  }
+
+  it should "stamp each message with the database clock read in the same transaction as its row" in runIO {
+    val first = Instant.parse("2026-09-26T09:00:00.000001Z")
+    val second = Instant.parse("2026-09-26T09:00:00.000002Z")
+
+    for {
+      dao <- StubFallbackSyncDao(SyncedVideo(scheduledVideoDownload("video-1"), List("user-1")))
+      _ <- dao.setTimestamps(first, second)
+      transport <- RecordingTransport()
+      coordination = new FallbackSyncCoordination[IO](new InMemoryKeyValueStore[IO])
+      publisher = new FallbackSyncPublisher[IO, IO](dao, transport, coordination, retryDelays = noDelays)
+      messages <- publisher.messagesFor(List("video-1", "missing"))
+    } yield {
+      messages.collect { case upsert: ScheduledVideoUpsert => upsert.capturedAt } mustBe List(first)
+      messages.collect { case removal: ScheduledVideoRemoval => removal } mustBe List(ScheduledVideoRemoval("missing", second))
     }
   }
 

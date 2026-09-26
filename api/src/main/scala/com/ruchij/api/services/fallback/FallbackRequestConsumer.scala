@@ -2,14 +2,13 @@ package com.ruchij.api.services.fallback
 
 import cats.effect.Async
 import cats.implicits._
-import cats.~>
+import cats.{Monad, ~>}
 import com.ruchij.api.daos.user.UserDao
 import com.ruchij.api.services.fallback.aws.{FallbackRequestQueue, FallbackSyncTransport, ReceivedMessage}
 import com.ruchij.api.services.fallback.models.{RequestResolved, ResolutionOutcome, ScheduleRequest, SyncJson}
 import com.ruchij.api.services.scheduling.ApiSchedulingService
 import com.ruchij.core.exceptions.{ResourceNotFoundException, UnsupportedVideoUrlException, ValidationException}
 import com.ruchij.core.logging.Logger
-import com.ruchij.core.types.Clock
 import fs2.Stream
 import org.http4s.Uri
 
@@ -18,7 +17,7 @@ import scala.concurrent.duration._
 // Async[F], not just Temporal[F], because the failure path logs via `com.ruchij.core.logging.Logger`, which is
 // Sync-based; Temporal and Sync are siblings in the cats-effect hierarchy (joined only by Async), so requiring both
 // separately produces ambiguous implicits (see FallbackSyncPublisher / FallbackReconciler).
-class FallbackRequestConsumer[F[_]: Async: Clock, T[_]](
+class FallbackRequestConsumer[F[_]: Async, T[_]: Monad](
   requestQueue: FallbackRequestQueue[F],
   schedulingService: ApiSchedulingService[F],
   userDao: UserDao[T],
@@ -105,15 +104,14 @@ class FallbackRequestConsumer[F[_]: Async: Clock, T[_]](
     }
 
   private def scheduledOutcome(videoId: String): F[ResolutionOutcome] =
-    Clock[F].timestamp.flatMap { capturedAt =>
-      transaction(fallbackSyncDao.findById(videoId)).flatMap {
-        case Some(syncedVideo) =>
-          Async[F].pure[ResolutionOutcome] {
-            ResolutionOutcome.Scheduled(ScheduledVideoUpserts.from(syncedVideo, capturedAt))
-          }
+    // capturedAt comes from the database clock, in the same transaction as the read it stamps
+    transaction(fallbackSyncDao.currentTimestamp.product(fallbackSyncDao.findById(videoId))).flatMap {
+      case (capturedAt, Some(syncedVideo)) =>
+        Async[F].pure[ResolutionOutcome] {
+          ResolutionOutcome.Scheduled(ScheduledVideoUpserts.from(syncedVideo, capturedAt))
+        }
 
-        case None => Async[F].raiseError(new IllegalStateException(s"Scheduled video $videoId was not found"))
-      }
+      case (_, None) => Async[F].raiseError(new IllegalStateException(s"Scheduled video $videoId was not found"))
     }
 
   private def rejected(reason: String): F[Option[ResolutionOutcome]] =

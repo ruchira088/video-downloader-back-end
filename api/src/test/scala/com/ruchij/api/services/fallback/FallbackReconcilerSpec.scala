@@ -10,8 +10,6 @@ import com.ruchij.api.services.fallback.models.{MainToFallbackMessage, Scheduled
 import com.ruchij.core.kv.{InMemoryKeyValueStore, KeyValueStore}
 import com.ruchij.core.kv.codecs.{KVDecoder, KVEncoder}
 import com.ruchij.core.test.IOSupport._
-import com.ruchij.core.test.Providers
-import com.ruchij.core.types.Clock
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
@@ -19,8 +17,6 @@ import java.time.Instant
 import scala.concurrent.duration._
 
 class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
-  implicit val clock: Clock[IO] = Providers.stubClock[IO](capturedAt)
-
   private def manifestOf(entries: (String, ManifestEntry)*): FallbackManifestReader[IO] =
     new FallbackManifestReader[IO] {
       override val manifest: IO[Map[String, ManifestEntry]] = IO.pure(entries.toMap)
@@ -86,6 +82,7 @@ class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
       dao <- StubFallbackSyncDao(video1)
       // Simulates a paging skip: findAll misses the video while findById still finds it.
       skippingDao = new FallbackSyncDao[IO] {
+        override val currentTimestamp: IO[Instant] = IO.pure(capturedAt)
         override def findById(videoId: String): IO[Option[SyncedVideo]] = dao.findById(videoId)
         override val findAll: IO[List[SyncedVideo]] = IO.pure(Nil)
       }
@@ -103,6 +100,31 @@ class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
     } yield sent.collect { case removal: ScheduledVideoRemoval => removal } mustBe empty
   }
 
+  it should "stamp messages with the database clock, taking a fresh timestamp for each removal re-check" in runIO {
+    val video1 = SyncedVideo(scheduledVideoDownload("video-1"), List("user-1"))
+    val listedAt = Instant.parse("2026-09-26T09:00:00.000001Z")
+    val recheckedAt = Instant.parse("2026-09-26T09:00:05.000002Z")
+
+    for {
+      dao <- StubFallbackSyncDao(video1)
+      _ <- dao.setTimestamps(listedAt, recheckedAt)
+      transport <- RecordingTransport()
+      coordination = new FallbackSyncCoordination[IO](new InMemoryKeyValueStore[IO])
+      reconciler = new FallbackReconciler[IO, IO](
+        manifestOf("gone" -> ManifestEntry("h", Instant.EPOCH)),
+        dao,
+        transport,
+        coordination,
+        "instance-a"
+      )
+      _ <- reconciler.reconcile
+      sent <- transport.messages
+    } yield {
+      sent.collect { case upsert: ScheduledVideoUpsert => upsert.capturedAt } mustBe List(listedAt)
+      sent.collect { case removal: ScheduledVideoRemoval => removal } mustBe List(ScheduledVideoRemoval("gone", recheckedAt))
+    }
+  }
+
   it should "read the manifest before the database" in runIO {
     for {
       order <- Ref.of[IO, List[String]](Nil)
@@ -110,6 +132,7 @@ class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
         override val manifest: IO[Map[String, ManifestEntry]] = order.update(_ :+ "manifest").as(Map.empty)
       }
       dao = new FallbackSyncDao[IO] {
+        override val currentTimestamp: IO[Instant] = IO.pure(capturedAt)
         override def findById(videoId: String): IO[Option[SyncedVideo]] = IO.pure(None)
         override val findAll: IO[List[SyncedVideo]] = order.update(_ :+ "database").as(Nil)
       }
@@ -159,6 +182,7 @@ class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
           override val manifest: IO[Map[String, ManifestEntry]] = manifestReads.update(_ + 1).as(Map.empty)
         }
         dao = new FallbackSyncDao[IO] {
+          override val currentTimestamp: IO[Instant] = IO.pure(capturedAt)
           override def findById(videoId: String): IO[Option[SyncedVideo]] = IO.pure(None)
           override val findAll: IO[List[SyncedVideo]] = IO.pure(Nil)
         }

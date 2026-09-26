@@ -2,6 +2,7 @@ package com.ruchij.api.services.fallback
 
 import cats.effect.IO
 import cats.implicits._
+import cats.~>
 import com.ruchij.api.services.fallback.FallbackSyncTestData.scheduledVideoDownload
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 import com.ruchij.core.daos.permission.DoobieVideoPermissionDao
@@ -10,10 +11,12 @@ import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
+import com.ruchij.core.external.containers.ContainerCoreResourcesProvider
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.types.Clock
 import doobie.ConnectionIO
+import doobie.free.{connection => FC}
 import doobie.implicits._
 import org.http4s.Uri
 import org.scalatest.flatspec.AnyFlatSpec
@@ -73,5 +76,31 @@ class DoobieFallbackSyncDaoSpec extends AnyFlatSpec with Matchers {
         all.find(_.scheduledVideoDownload.videoMetadata.id == "video-2").map(_.userIds) mustBe Some(Nil)
       }
     }
+  }
+
+  private val dao = new DoobieFallbackSyncDao(DoobieSchedulingDao, DoobieVideoPermissionDao)
+
+  private def checkCurrentTimestamp(transaction: ConnectionIO ~> IO): IO[Unit] =
+    for {
+      before <- IO.realTimeInstant
+      (first, second) <- transaction {
+        dao.currentTimestamp.flatMap(first => FC.delay(Thread.sleep(20)) *> dao.currentTimestamp.map(first -> _))
+      }
+      after <- IO.realTimeInstant
+      later <- transaction(dao.currentTimestamp)
+    } yield {
+      first.isBefore(before.minusSeconds(60)) mustBe false
+      first.isAfter(after.plusSeconds(60)) mustBe false
+      // The transaction's start time, stable within one transaction
+      second mustBe first
+      later.isAfter(first) mustBe true
+    }
+
+  "DoobieFallbackSyncDao.currentTimestamp" should "read the database clock on H2" in runIO {
+    new EmbeddedCoreResourcesProvider[IO].transactor.use(checkCurrentTimestamp)
+  }
+
+  it should "read the database clock on Postgres" in runIO {
+    new ContainerCoreResourcesProvider[IO].transactor.use(checkCurrentTimestamp)
   }
 }

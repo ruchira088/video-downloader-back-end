@@ -1,22 +1,21 @@
 package com.ruchij.api.services.fallback
 
-import cats.Applicative
 import cats.effect.{Async, Temporal}
 import cats.implicits._
-import cats.~>
+import cats.{Monad, ~>}
 import com.ruchij.api.services.fallback.aws.FallbackSyncTransport
 import com.ruchij.api.services.fallback.models.{MainToFallbackMessage, ScheduledVideoRemoval}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Subscriber
-import com.ruchij.core.types.Clock
 import fs2.Stream
 
+import java.time.Instant
 import scala.concurrent.duration._
 
 // Async[F], not just Temporal[F], because the failure path logs via `com.ruchij.core.logging.Logger`, which is
 // Sync-based; Temporal and Sync are siblings in the cats-effect hierarchy (joined only by Async), so requiring both
 // separately produces ambiguous implicits.
-class FallbackSyncPublisher[F[_]: Async: Clock, T[_]](
+class FallbackSyncPublisher[F[_]: Async, T[_]: Monad](
   fallbackSyncDao: FallbackSyncDao[T],
   transport: FallbackSyncTransport[F],
   coordination: FallbackSyncCoordination[F],
@@ -33,17 +32,17 @@ class FallbackSyncPublisher[F[_]: Async: Clock, T[_]](
     videoIds: List[String],
     removedVideoIds: Set[String] = Set.empty
   ): F[List[MainToFallbackMessage]] =
-    Clock[F].timestamp.flatMap { capturedAt =>
-      (videoIds ++ removedVideoIds).distinct.traverse { videoId =>
-        if (removedVideoIds.contains(videoId))
-          Applicative[F].pure[MainToFallbackMessage](ScheduledVideoRemoval(videoId, capturedAt))
-        else
-          transaction(fallbackSyncDao.findById(videoId)).map[MainToFallbackMessage] {
-            case Some(syncedVideo) => ScheduledVideoUpserts.from(syncedVideo, capturedAt)
-            case None => ScheduledVideoRemoval(videoId, capturedAt)
-          }
+    (videoIds ++ removedVideoIds).distinct.traverse { videoId =>
+      // capturedAt comes from the database clock, in the same transaction as the read it stamps
+      readWithTimestamp(videoId).map[MainToFallbackMessage] {
+        case (capturedAt, _) if removedVideoIds.contains(videoId) => ScheduledVideoRemoval(videoId, capturedAt)
+        case (capturedAt, Some(syncedVideo)) => ScheduledVideoUpserts.from(syncedVideo, capturedAt)
+        case (capturedAt, None) => ScheduledVideoRemoval(videoId, capturedAt)
       }
     }
+
+  private def readWithTimestamp(videoId: String): F[(Instant, Option[SyncedVideo])] =
+    transaction(fallbackSyncDao.currentTimestamp.product(fallbackSyncDao.findById(videoId)))
 
   /** Never fails: if the fallback stays unreachable, a reconcile is flagged to repair it later. */
   def publish(videoIds: List[String], removedVideoIds: Set[String] = Set.empty): F[Unit] =

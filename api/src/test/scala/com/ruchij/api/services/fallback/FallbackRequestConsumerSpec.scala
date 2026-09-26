@@ -17,8 +17,6 @@ import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.exceptions.{ExternalServiceException, ValidationException}
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.test.IOSupport.runIO
-import com.ruchij.core.test.Providers
-import com.ruchij.core.types.Clock
 import org.http4s.Uri
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -27,8 +25,6 @@ import java.time.Instant
 import scala.concurrent.duration.FiniteDuration
 
 class FallbackRequestConsumerSpec extends AnyFlatSpec with Matchers {
-  implicit val clock: Clock[IO] = Providers.stubClock[IO](capturedAt)
-
   private val request = ScheduleRequest("request-1", "user-1", "https://example.com/video", capturedAt)
 
   private def message(body: String, receiveCount: Int = 1) = ReceivedMessage(body, "receipt-1", receiveCount)
@@ -148,6 +144,8 @@ class FallbackRequestConsumerSpec extends AnyFlatSpec with Matchers {
         sent match {
           case List(RequestResolved("request-1", "user-1", ResolutionOutcome.Scheduled(upsert))) =>
             upsert.videoId mustBe "video-1"
+            // The stub database clock's reading, not the application clock
+            upsert.capturedAt mustBe capturedAt
           case other => fail(s"Unexpected messages: $other")
         }
         deleted mustBe List("receipt-1")
