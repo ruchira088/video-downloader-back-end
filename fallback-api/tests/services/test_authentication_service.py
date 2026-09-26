@@ -11,6 +11,7 @@ from src.services.exceptions import (
     IncorrectCredentialsException,
     InvalidAuthenticationTokenException,
     PasswordResetRequiredException,
+    ServiceUnavailableException,
     TooManyRequestsException,
 )
 from src.services.models.user import Role, User
@@ -126,6 +127,48 @@ class TestCognitoAuthenticationService(unittest.TestCase):
     def test_logout_user_with_invalid_access_token(self):
         with self.assertRaises(InvalidAuthenticationTokenException):
             self.cognito_authentication_service.logout("invalid-token")
+
+    def _call_with_valid_token_failing_with(
+        self, method: str, operation: str, exception_name: str
+    ) -> None:
+        auth_token = self.cognito_authentication_service.login(
+            sample_user.email, sample_password
+        )
+        cognito_client = self.cognito_details.cognito_client
+        error = getattr(cognito_client.exceptions, exception_name)(
+            {"Error": {"Code": exception_name, "Message": "x"}}, operation
+        )
+
+        with patch.object(cognito_client, method, side_effect=error):
+            if method == "get_user":
+                self.cognito_authentication_service.authenticate(
+                    auth_token.access_token
+                )
+            else:
+                self.cognito_authentication_service.logout(auth_token.access_token)
+
+    def test_cognito_errors_on_token_calls_are_mapped_instead_of_failing_with_500(self):
+        expected = {
+            "NotAuthorizedException": InvalidAuthenticationTokenException,
+            "UserNotFoundException": InvalidAuthenticationTokenException,
+            "UserNotConfirmedException": InvalidAuthenticationTokenException,
+            "PasswordResetRequiredException": PasswordResetRequiredException,
+            "TooManyRequestsException": TooManyRequestsException,
+            "InternalErrorException": ServiceUnavailableException,
+        }
+
+        for method, operation in [
+            ("get_user", "GetUser"),
+            ("global_sign_out", "GlobalSignOut"),
+        ]:
+            for exception_name, mapped in expected.items():
+                with (
+                    self.subTest(method=method, error=exception_name),
+                    self.assertRaises(mapped),
+                ):
+                    self._call_with_valid_token_failing_with(
+                        method, operation, exception_name
+                    )
 
     def test_authenticate_returns_the_user_role(self):
         auth_token: AuthenticationToken = self.cognito_authentication_service.login(

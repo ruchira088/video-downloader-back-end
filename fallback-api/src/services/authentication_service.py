@@ -8,6 +8,7 @@ from src.services.exceptions import (
     IncorrectCredentialsException,
     InvalidAuthenticationTokenException,
     PasswordResetRequiredException,
+    ServiceUnavailableException,
     TooManyRequestsException,
 )
 from src.services.models.user import User, parse_role
@@ -98,10 +99,7 @@ class CognitoAuthenticationService(AuthenticationService):
         claims = self._access_token_verifier.verify(token)
 
         # Still call GetUser, which rejects revoked tokens (e.g. after a global sign-out).
-        try:
-            response = self._cognito_idp_client.get_user(AccessToken=token)
-        except self._cognito_idp_client.exceptions.NotAuthorizedException:
-            raise InvalidAuthenticationTokenException()
+        response = self._with_access_token(self._cognito_idp_client.get_user, token)
 
         if response["Username"] != claims["username"]:
             raise InvalidAuthenticationTokenException()
@@ -119,9 +117,27 @@ class CognitoAuthenticationService(AuthenticationService):
     def logout(self, token: str) -> User:
         user = self.authenticate(token)
 
-        try:
-            self._cognito_idp_client.global_sign_out(AccessToken=token)
-        except self._cognito_idp_client.exceptions.NotAuthorizedException:
-            raise InvalidAuthenticationTokenException()
+        self._with_access_token(self._cognito_idp_client.global_sign_out, token)
 
         return user
+
+    def _with_access_token(self, call, token: str):
+        """Calls a Cognito API that takes an access token, mapping its documented errors like
+        login does, so none of them surfaces as a 500."""
+        exceptions = self._cognito_idp_client.exceptions
+
+        try:
+            return call(AccessToken=token)
+        except (
+            exceptions.NotAuthorizedException,
+            # The user was deleted, or not confirmed, after the token was issued.
+            exceptions.UserNotFoundException,
+            exceptions.UserNotConfirmedException,
+        ):
+            raise InvalidAuthenticationTokenException()
+        except exceptions.PasswordResetRequiredException:
+            raise PasswordResetRequiredException()
+        except exceptions.TooManyRequestsException:
+            raise TooManyRequestsException()
+        except exceptions.InternalErrorException as error:
+            raise ServiceUnavailableException("Cognito is unavailable") from error
