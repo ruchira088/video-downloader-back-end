@@ -3,19 +3,15 @@ package com.ruchij.api.services.fallback
 import io.circe.{Json, Printer}
 import io.circe.parser.parse
 
-import java.nio.file.{Files, Path, Paths}
+import scala.io.Source
+import scala.util.Using
 
 object ContractFixtures {
-  // Forked tests run from the module directory and unforked ones from the repository root, so search upwards.
-  private lazy val directory: Path =
-    Iterator
-      .iterate(Paths.get("").toAbsolutePath)(_.getParent)
-      .takeWhile(_ != null)
-      .map(_.resolve("fallback-api").resolve("contract"))
-      .find(Files.isDirectory(_))
-      .getOrElse(throw new IllegalStateException("fallback-api/contract not found"))
-
-  def read(name: String): String = Files.readString(directory.resolve(name))
+  // build.sbt adds fallback-api/contract as a test resource directory, so the fixtures are on the test classpath.
+  def read(name: String): String =
+    Option(getClass.getClassLoader.getResource(name))
+      .map(url => Using.resource(Source.fromURL(url, "UTF-8"))(_.mkString))
+      .getOrElse(throw new IllegalStateException(s"Contract fixture not found on the test classpath: $name"))
 
   def json(name: String): Json = parse(read(name)).fold(throw _, identity)
 

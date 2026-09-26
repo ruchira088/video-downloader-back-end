@@ -98,7 +98,10 @@ lazy val api =
       Test / fork := true,
       libraryDependencies ++=
         Seq(http4sEmberServer, postgresql, pureconfig, jbcrypt, logbackClassic, awsSqs, awsDynamoDb) ++ circe ++
-          Seq(circeLiteral, pegdown, catsEffectTestkit).map(_ % Test)
+          Seq(circeLiteral, pegdown, catsEffectTestkit).map(_ % Test),
+      // The JSON contract shared with fallback-api/. As a resource directory its files are tracked inputs, so the
+      // incremental `test` reruns the contract suites when a fixture changes. They land at the classpath root.
+      Test / unmanagedResourceDirectories += (ThisBuild / baseDirectory).value / "fallback-api" / "contract"
     )
     .dependsOn(core % "compile->compile;test->test")
 
