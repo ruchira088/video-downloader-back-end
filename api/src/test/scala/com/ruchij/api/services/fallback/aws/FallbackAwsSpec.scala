@@ -71,7 +71,8 @@ class FallbackAwsSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  "DynamoDbFallbackManifestReader" should "return live video items only, across scan pages" in runIO {
+  "DynamoDbFallbackManifestReader" should "return live video items only, across scan pages, skipping malformed ones" in
+    runIO {
     (DynamoDbLocalContainer.create[IO].flatMap(clients)).use { aws =>
       def put(item: Map[String, AttributeValue]): IO[Unit] =
         IO.fromCompletableFuture(
@@ -119,6 +120,16 @@ class FallbackAwsSpec extends AnyFlatSpec with Matchers {
           )
         )
         _ <- put(Map("PK" -> s("USER#user-1"), "SK" -> s("VIDEO#2026#video-1")))
+        // Left out of the manifest instead of failing the scan, so the reconcile re-sends it as an upsert
+        _ <- put(
+          Map(
+            "PK" -> s("VIDEO#malformed"),
+            "SK" -> s("VIDEO"),
+            "hash" -> s("hash-malformed"),
+            "capturedAt" -> s("not-a-timestamp"),
+            "deleted" -> bool(false)
+          )
+        )
         manifest <- new DynamoDbFallbackManifestReader[IO](aws.dynamoDb, "videos").manifest
       } yield {
         manifest.keySet mustBe (1 to 30).map(index => s"video-$index").toSet
