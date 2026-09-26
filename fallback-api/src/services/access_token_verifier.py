@@ -4,17 +4,28 @@ from typing import Any
 import jwt
 from jwt import PyJWKClient
 
-from src.services.exceptions import InvalidAuthenticationTokenException
+from src.services.exceptions import (
+    InvalidAuthenticationTokenException,
+    ServiceUnavailableException,
+)
 
 # Returns the public key that should have signed the given (still unverified) token.
 SigningKeyResolver = Callable[[str], Any]
 
 JWKS_CACHE_SECONDS = 3600
+# Well under API Gateway's 29 s integration timeout, so an unreachable JWKS endpoint fails the
+# request with a 503 instead of hanging it until the gateway gives up.
+JWKS_TIMEOUT_SECONDS = 5
 
 
 def jwks_signing_key_resolver(jwks_url: str) -> SigningKeyResolver:
     """Look keys up by the token's `kid` in the user pool's JWKS, fetched once and cached."""
-    jwks_client = PyJWKClient(jwks_url, cache_keys=True, lifespan=JWKS_CACHE_SECONDS)
+    jwks_client = PyJWKClient(
+        jwks_url,
+        cache_keys=True,
+        lifespan=JWKS_CACHE_SECONDS,
+        timeout=JWKS_TIMEOUT_SECONDS,
+    )
 
     return lambda token: jwks_client.get_signing_key_from_jwt(token).key
 
@@ -45,6 +56,11 @@ class CognitoAccessTokenVerifier:
                     "require": ["exp", "iss", "client_id", "token_use", "username"]
                 },
             )
+        except jwt.PyJWKClientConnectionError as error:
+            # The keys couldn't be fetched, which says nothing about the token.
+            raise ServiceUnavailableException(
+                "Unable to fetch the user pool's signing keys"
+            ) from error
         except jwt.PyJWTError as error:
             raise InvalidAuthenticationTokenException() from error
 

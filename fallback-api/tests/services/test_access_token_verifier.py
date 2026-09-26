@@ -1,15 +1,24 @@
 import time
 import unittest
 from typing import Any
+from unittest.mock import MagicMock, patch
+from urllib.error import URLError
 
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from src.services.access_token_verifier import CognitoAccessTokenVerifier
-from src.services.exceptions import InvalidAuthenticationTokenException
+from src.services.access_token_verifier import (
+    CognitoAccessTokenVerifier,
+    jwks_signing_key_resolver,
+)
+from src.services.exceptions import (
+    InvalidAuthenticationTokenException,
+    ServiceUnavailableException,
+)
 
 ISSUER = "https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_pool"
 CLIENT_ID = "client-1"
+JWKS_URL = f"{ISSUER}/.well-known/jwks.json"
 
 _signing_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 _other_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -30,8 +39,13 @@ def _claims(**overrides: Any) -> dict[str, Any]:
     return {name: value for name, value in claims.items() if value is not None}
 
 
-def _token(key: Any = _signing_key, algorithm: str = "RS256", **overrides) -> str:
-    return jwt.encode(_claims(**overrides), key, algorithm=algorithm)
+def _token(
+    key: Any = _signing_key,
+    algorithm: str = "RS256",
+    headers: dict[str, Any] | None = None,
+    **overrides,
+) -> str:
+    return jwt.encode(_claims(**overrides), key, algorithm=algorithm, headers=headers)
 
 
 class TestCognitoAccessTokenVerifier(unittest.TestCase):
@@ -88,7 +102,18 @@ class TestCognitoAccessTokenVerifier(unittest.TestCase):
     def test_a_malformed_token_is_rejected(self):
         self._assert_rejected("invalid-token")
 
-    def test_a_failure_to_resolve_the_signing_key_is_rejected(self):
+    def test_a_signing_key_that_cant_be_found_is_rejected(self):
+        def unknown(token: str) -> Any:
+            raise jwt.PyJWKClientError("Unable to find a signing key")
+
+        verifier = CognitoAccessTokenVerifier(
+            issuer=ISSUER, client_id=CLIENT_ID, signing_key_resolver=unknown
+        )
+
+        with self.assertRaises(InvalidAuthenticationTokenException):
+            verifier.verify(_token())
+
+    def test_an_unreachable_jwks_endpoint_is_reported_as_unavailable(self):
         def unavailable(token: str) -> Any:
             raise jwt.PyJWKClientConnectionError("JWKS unreachable")
 
@@ -96,5 +121,18 @@ class TestCognitoAccessTokenVerifier(unittest.TestCase):
             issuer=ISSUER, client_id=CLIENT_ID, signing_key_resolver=unavailable
         )
 
-        with self.assertRaises(InvalidAuthenticationTokenException):
+        with self.assertRaises(ServiceUnavailableException):
             verifier.verify(_token())
+
+
+class TestJwksSigningKeyResolver(unittest.TestCase):
+    def test_the_jwks_is_fetched_with_a_short_timeout(self):
+        opener = MagicMock()
+        opener.open.side_effect = URLError("timed out")
+
+        with patch("urllib.request.build_opener", return_value=opener):
+            resolve = jwks_signing_key_resolver(JWKS_URL)
+            with self.assertRaises(jwt.PyJWKClientConnectionError):
+                resolve(_token(headers={"kid": "key-1"}))
+
+        self.assertEqual(opener.open.call_args.kwargs["timeout"], 5)
