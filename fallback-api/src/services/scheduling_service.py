@@ -32,7 +32,7 @@ from src.sync.items import (
 )
 from src.sync.messages import ScheduleRequest, to_json
 from src.sync.page_tokens import decode_page_token, encode_page_token
-from src.sync.timestamps import iso_millis
+from src.sync.timestamps import iso_micros
 
 PAGE_SIZE = 25
 
@@ -110,7 +110,7 @@ class DynamoDbSchedulingService(SchedulingService):
                 **pending_key(user.id, request.request_id),
                 "requestId": request.request_id,
                 "url": url,
-                "requestedAt": iso_millis(request.requested_at),
+                "requestedAt": iso_micros(request.requested_at),
                 "status": "Pending",
                 # Flow A sends to SQS before this write, so a fast RequestResolved could land
                 # before this put and leave a "Pending" item forever. 14 days matches SQS

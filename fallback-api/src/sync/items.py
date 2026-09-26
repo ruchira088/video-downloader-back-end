@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from src.sync.messages import ScheduledVideoUpsert
-from src.sync.timestamps import iso_millis
+from src.sync.timestamps import iso_micros
 
 VIDEO_SORT_KEY = "VIDEO"
 ALL_VIDEOS_PARTITION = "VIDEO"
@@ -45,17 +45,17 @@ def display_fields(upsert: ScheduledVideoUpsert) -> dict[str, Any]:
         "durationMs": upsert.duration_ms,
         "sizeBytes": upsert.size_bytes,
         "status": upsert.status,
-        "scheduledAt": iso_millis(upsert.scheduled_at),
+        "scheduledAt": iso_micros(upsert.scheduled_at),
     }
 
     if upsert.completed_at is not None:
-        fields["completedAt"] = iso_millis(upsert.completed_at)
+        fields["completedAt"] = iso_micros(upsert.completed_at)
 
     return fields
 
 
 def link_item(user_id: str, upsert: ScheduledVideoUpsert) -> dict[str, Any]:
-    scheduled_at = iso_millis(upsert.scheduled_at)
+    scheduled_at = iso_micros(upsert.scheduled_at)
 
     return {
         **link_key(user_id, scheduled_at, upsert.video_id),
@@ -64,13 +64,13 @@ def link_item(user_id: str, upsert: ScheduledVideoUpsert) -> dict[str, Any]:
 
 
 def video_item(upsert: ScheduledVideoUpsert) -> dict[str, Any]:
-    scheduled_at = iso_millis(upsert.scheduled_at)
+    scheduled_at = iso_micros(upsert.scheduled_at)
 
     return {
         **video_key(upsert.video_id),
         **display_fields(upsert),
         "userIds": sorted(set(upsert.user_ids)),
-        "capturedAt": iso_millis(upsert.captured_at),
+        "capturedAt": iso_micros(upsert.captured_at),
         "hash": upsert.hash,
         "deleted": False,
         "GSI1PK": ALL_VIDEOS_PARTITION,
@@ -84,7 +84,7 @@ def tombstone_item(
     return {
         **video_key(video_id),
         "videoId": video_id,
-        "capturedAt": iso_millis(captured_at),
+        "capturedAt": iso_micros(captured_at),
         "deleted": True,
         "ttl": epoch_seconds(now + TOMBSTONE_TTL),
     }

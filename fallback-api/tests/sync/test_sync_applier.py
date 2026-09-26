@@ -21,7 +21,7 @@ from src.sync.sync_applier import (
 from tests.services.test_service_helpers import setup_dynamodb
 from tests.sync.sync_test_data import FIXED_NOW, T0, later, sample_upsert
 
-SCHEDULED_AT = "2026-09-25T21:04:11.000Z"
+SCHEDULED_AT = "2026-09-25T21:04:11.000000Z"
 
 
 @mock_aws
@@ -45,7 +45,7 @@ class TestSyncApplier(unittest.TestCase):
                 **pending_key(user_id, request_id),
                 "requestId": request_id,
                 "url": "https://www.youtube.com/watch?v=abc",
-                "requestedAt": "2026-09-26T06:59:00.000Z",
+                "requestedAt": "2026-09-26T06:59:00.000000Z",
                 "status": "Pending",
             }
         )
@@ -57,7 +57,7 @@ class TestSyncApplier(unittest.TestCase):
         video = self._video()
         assert video is not None
         self.assertEqual(video["userIds"], ["user-1", "user-2"])
-        self.assertEqual(video["capturedAt"], "2026-09-26T07:00:00.000Z")
+        self.assertEqual(video["capturedAt"], "2026-09-26T07:00:00.000000Z")
         self.assertEqual(video["GSI1PK"], "VIDEO")
         self.assertEqual(video["GSI1SK"], f"{SCHEDULED_AT}#youtube-abc")
         self.assertFalse(video["deleted"])
@@ -223,7 +223,9 @@ class TestSyncApplier(unittest.TestCase):
 
         links = self._links("user-1")
         self.assertEqual(len(links), 1)
-        self.assertEqual(links[0]["SK"], "VIDEO#2026-09-26T10:00:00.000Z#youtube-abc")
+        self.assertEqual(
+            links[0]["SK"], "VIDEO#2026-09-26T10:00:00.000000Z#youtube-abc"
+        )
 
     def test_stale_removal_after_reschedule_does_not_leave_a_duplicate_link(self):
         self.applier.apply(sample_upsert())
@@ -242,7 +244,7 @@ class TestSyncApplier(unittest.TestCase):
             links = self._links(user_id)
             self.assertEqual(len(links), 1)
             self.assertEqual(
-                links[0]["SK"], "VIDEO#2026-09-26T10:00:00.000Z#youtube-abc"
+                links[0]["SK"], "VIDEO#2026-09-26T10:00:00.000000Z#youtube-abc"
             )
 
     def test_added_user_gets_a_link_without_disturbing_others(self):

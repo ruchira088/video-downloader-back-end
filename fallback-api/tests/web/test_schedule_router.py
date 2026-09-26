@@ -46,14 +46,14 @@ class FakeSchedulingService(SchedulingService):
                     duration_ms=1000,
                     size_bytes=2000,
                     status="Queued",
-                    scheduled_at="2026-09-26T07:00:00.000Z",
+                    scheduled_at="2026-09-26T07:00:00.000000Z",
                 )
             ],
             pending=[
                 PendingRequest(
                     request_id="request-1",
                     url="https://www.youtube.com/watch?v=def",
-                    requested_at="2026-09-26T08:00:00.000Z",
+                    requested_at="2026-09-26T08:00:00.000000Z",
                     status="Pending",
                 )
             ],

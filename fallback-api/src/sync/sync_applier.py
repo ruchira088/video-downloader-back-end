@@ -24,7 +24,7 @@ from src.sync.messages import (
     ScheduledVideoRemoval,
     ScheduledVideoUpsert,
 )
-from src.sync.timestamps import iso_millis
+from src.sync.timestamps import iso_micros
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +88,7 @@ class SyncApplier:
             )
 
         new_users = frozenset(upsert.user_ids)
-        scheduled_at = iso_millis(upsert.scheduled_at)
+        scheduled_at = iso_micros(upsert.scheduled_at)
         new_keys = {
             _key_tuple(link_key(user_id, scheduled_at, upsert.video_id))
             for user_id in new_users
@@ -129,7 +129,7 @@ class SyncApplier:
         build: BuildWrites,
         extra_writes: list[Write],
     ) -> ApplyResult:
-        incoming = iso_millis(captured_at)
+        incoming = iso_micros(captured_at)
 
         for _ in range(self.MAX_ATTEMPTS):
             current = self._table.get_item(

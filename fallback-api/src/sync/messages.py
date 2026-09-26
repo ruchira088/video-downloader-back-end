@@ -1,8 +1,9 @@
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import (
     AwareDatetime,
     BaseModel,
+    BeforeValidator,
     ConfigDict,
     Field,
     PlainSerializer,
@@ -10,10 +11,19 @@ from pydantic import (
 )
 from pydantic.alias_generators import to_camel
 
-from src.sync.timestamps import iso_millis
+from src.sync.timestamps import iso_micros, require_iso_micros
+
+
+def _require_fixed_width(value: Any) -> Any:
+    # Strings (from JSON) must be in the exact shared format; datetimes built in code are
+    # accepted as they are and formatted on the way out.
+    return require_iso_micros(value) if isinstance(value, str) else value
+
 
 Timestamp = Annotated[
-    AwareDatetime, PlainSerializer(iso_millis, return_type=str, when_used="json")
+    AwareDatetime,
+    BeforeValidator(_require_fixed_width),
+    PlainSerializer(iso_micros, return_type=str, when_used="json"),
 ]
 
 

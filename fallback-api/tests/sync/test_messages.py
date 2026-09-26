@@ -1,6 +1,6 @@
 import json
 import unittest
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -15,7 +15,7 @@ from src.sync.messages import (
     parse_main_to_fallback_message,
     to_json,
 )
-from src.sync.timestamps import iso_millis
+from src.sync.timestamps import iso_micros
 
 CONTRACT_DIRECTORY = Path(__file__).parent.parent.parent / "contract"
 
@@ -25,14 +25,27 @@ def _fixture(name: str) -> str:
 
 
 class TestTimestamps(unittest.TestCase):
-    def test_iso_millis_formats_utc_with_milliseconds_and_z(self):
+    def test_iso_micros_formats_utc_with_microseconds_and_z(self):
         value = datetime(2026, 9, 26, 8, 15, 30, 123456, tzinfo=UTC)
 
-        self.assertEqual(iso_millis(value), "2026-09-26T08:15:30.123Z")
+        self.assertEqual(iso_micros(value), "2026-09-26T08:15:30.123456Z")
 
-    def test_iso_millis_rejects_naive_datetimes(self):
+    def test_iso_micros_always_writes_six_fractional_digits(self):
+        self.assertEqual(
+            iso_micros(datetime(2026, 9, 26, 8, 15, 30, tzinfo=UTC)),
+            "2026-09-26T08:15:30.000000Z",
+        )
+
+    def test_iso_micros_converts_other_offsets_to_utc(self):
+        value = datetime(
+            2026, 9, 26, 18, 15, 30, 42, tzinfo=timezone(timedelta(hours=10))
+        )
+
+        self.assertEqual(iso_micros(value), "2026-09-26T08:15:30.000042Z")
+
+    def test_iso_micros_rejects_naive_datetimes(self):
         with self.assertRaises(ValueError):
-            iso_millis(datetime(2026, 9, 26, 8, 15, 30))
+            iso_micros(datetime(2026, 9, 26, 8, 15, 30))
 
 
 class TestMessages(unittest.TestCase):
@@ -46,7 +59,7 @@ class TestMessages(unittest.TestCase):
         self.assertEqual(message.user_ids, ["user-1", "user-2"])
         self.assertEqual(message.duration_ms, 212000)
         self.assertEqual(
-            message.captured_at, datetime(2026, 9, 26, 8, 15, 30, 123000, tzinfo=UTC)
+            message.captured_at, datetime(2026, 9, 26, 8, 15, 30, 123456, tzinfo=UTC)
         )
 
     def test_removal_fixture_parses(self):
@@ -90,7 +103,7 @@ class TestMessages(unittest.TestCase):
             request_id="4d1c7f0e-8a57-4c1e-9b0b-2f6f3b6f9a10",
             user_id="user-1",
             url="https://www.youtube.com/watch?v=abc123",
-            requested_at=datetime(2026, 9, 26, 8, 15, tzinfo=UTC),
+            requested_at=datetime(2026, 9, 26, 8, 15, 0, 654321, tzinfo=UTC),
         )
 
         self.assertEqual(
@@ -100,6 +113,28 @@ class TestMessages(unittest.TestCase):
     def test_unknown_message_type_is_rejected(self):
         with self.assertRaises(ValidationError):
             parse_main_to_fallback_message('{"type": "SomethingElse", "videoId": "v"}')
+
+    def test_timestamps_not_in_the_fixed_width_microsecond_format_are_rejected(self):
+        for captured_at in [
+            "2026-09-26T08:20:00.000Z",
+            "2026-09-26T08:20:00Z",
+            "2026-09-26T08:20:00.000000+00:00",
+            "2026-09-26T08:20:00.0000000Z",
+            "2026-09-26 08:20:00.000000Z",
+        ]:
+            body = json.loads(_fixture("scheduled-video-removal.json"))
+            body["capturedAt"] = captured_at
+
+            with self.subTest(captured_at=captured_at):
+                with self.assertRaises(ValidationError):
+                    parse_main_to_fallback_message(json.dumps(body))
+
+    def test_contract_fixtures_carry_non_zero_microseconds(self):
+        upsert = parse_main_to_fallback_message(_fixture("scheduled-video-upsert.json"))
+
+        assert isinstance(upsert, ScheduledVideoUpsert)
+        assert upsert.completed_at is not None
+        self.assertEqual(upsert.completed_at.microsecond, 500250)
 
     def test_naive_timestamp_is_rejected(self):
         body = json.loads(_fixture("scheduled-video-removal.json"))

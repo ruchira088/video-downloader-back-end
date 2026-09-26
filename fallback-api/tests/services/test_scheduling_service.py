@@ -78,7 +78,7 @@ class TestDynamoDbSchedulingService(unittest.TestCase):
                     "requestId": "request-1",
                     "userId": "user-1",
                     "url": "https://www.youtube.com/watch?v=abc",
-                    "requestedAt": "2026-09-26T08:00:00.000Z",
+                    "requestedAt": "2026-09-26T08:00:00.000000Z",
                 }
             ],
         )
