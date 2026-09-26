@@ -8,13 +8,16 @@ from moto import mock_aws
 from src.sync.items import epoch_seconds, pending_key, video_key
 from src.sync.messages import (
     RejectedOutcome,
+    to_json,
     RequestResolved,
     ScheduledOutcome,
     ScheduledVideoRemoval,
 )
+from src.sync.sqs_batch import process_sqs_batch
 from src.sync.sync_applier import (
     ApplyResult,
     ConcurrentUpdateError,
+    FutureCapturedAtError,
     SyncApplier,
     TooManyWritesError,
 )
@@ -333,3 +336,91 @@ class TestSyncApplier(unittest.TestCase):
                 )
 
         self.assertEqual(mock_transact.call_count, 1)
+
+    def test_a_captured_at_more_than_five_minutes_ahead_of_the_clock_is_rejected(self):
+        future = FIXED_NOW + timedelta(minutes=5, microseconds=1)
+
+        for message in [
+            sample_upsert(captured_at=future),
+            ScheduledVideoRemoval(video_id="youtube-abc", captured_at=future),
+        ]:
+            with self.subTest(message=type(message).__name__):
+                with self.assertRaises(FutureCapturedAtError):
+                    self.applier.apply(message)
+
+        self.assertIsNone(self._video())
+
+    def test_a_captured_at_up_to_five_minutes_ahead_of_the_clock_is_applied(self):
+        result = self.applier.apply(
+            sample_upsert(captured_at=FIXED_NOW + timedelta(minutes=5))
+        )
+
+        self.assertEqual(result, ApplyResult.APPLIED)
+
+    def test_a_future_captured_at_fails_its_record_in_the_batch(self):
+        future = sample_upsert(captured_at=FIXED_NOW + timedelta(hours=1))
+
+        response = process_sqs_batch(
+            {"Records": [{"messageId": "future", "body": to_json(future)}]},
+            self.applier,
+        )
+
+        self.assertEqual(
+            response, {"batchItemFailures": [{"itemIdentifier": "future"}]}
+        )
+
+    def test_a_stale_message_is_logged_with_both_captured_at_values(self):
+        self.applier.apply(sample_upsert(captured_at=later(5)))
+
+        with self.assertLogs("src.sync.sync_applier", level="WARNING") as logs:
+            self.applier.apply(sample_upsert(captured_at=later(1)))
+
+        self.assertEqual(len(logs.records), 1)
+        message = logs.records[0].getMessage()
+        self.assertIn("youtube-abc", message)
+        self.assertIn("2026-09-26T07:05:00.000000Z", message)
+        self.assertIn("2026-09-26T07:01:00.000000Z", message)
+
+    def test_an_unparseable_stored_captured_at_is_overwritten(self):
+        self.applier.apply(sample_upsert(captured_at=later(5)))
+        self.table.update_item(
+            Key=video_key("youtube-abc"),
+            UpdateExpression="SET capturedAt = :corrupt",
+            ExpressionAttributeValues={":corrupt": "9999-corrupted"},
+        )
+
+        result = self.applier.apply(sample_upsert(captured_at=later(1), title="Fixed"))
+
+        self.assertEqual(result, ApplyResult.APPLIED)
+        video = self._video()
+        assert video is not None
+        self.assertEqual(video["title"], "Fixed")
+        self.assertEqual(video["capturedAt"], "2026-09-26T07:01:00.000000Z")
+
+    def test_an_unparseable_stored_captured_at_still_guards_concurrent_writes(self):
+        self.applier.apply(sample_upsert(captured_at=later(5)))
+        self.table.update_item(
+            Key=video_key("youtube-abc"),
+            UpdateExpression="SET capturedAt = :corrupt",
+            ExpressionAttributeValues={":corrupt": "9999-corrupted"},
+        )
+        corrupted = self.table.get_item(Key=video_key("youtube-abc"))["Item"]
+        # Another invocation repairs the item after we read the corrupted copy.
+        self.applier.apply(sample_upsert(captured_at=later(10), title="Newest"))
+
+        with patch.object(
+            self.applier._table, "get_item", return_value={"Item": corrupted}
+        ):
+            with self.assertRaises(ConcurrentUpdateError):
+                self.applier.apply(sample_upsert(captured_at=later(1), title="Old"))
+
+        video = self._video()
+        assert video is not None
+        self.assertEqual(video["title"], "Newest")
+
+    def test_a_stored_item_without_captured_at_is_overwritten(self):
+        self.table.put_item(Item={**video_key("youtube-abc"), "videoId": "youtube-abc"})
+
+        result = self.applier.apply(sample_upsert(captured_at=later(1)))
+
+        self.assertEqual(result, ApplyResult.APPLIED)

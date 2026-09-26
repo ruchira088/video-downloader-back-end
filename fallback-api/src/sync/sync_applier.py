@@ -1,6 +1,6 @@
 import logging
 from collections.abc import Callable, Mapping
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
@@ -24,11 +24,14 @@ from src.sync.messages import (
     ScheduledVideoRemoval,
     ScheduledVideoUpsert,
 )
-from src.sync.timestamps import iso_micros
+from src.sync.timestamps import iso_micros, parse_iso_micros
 
 logger = logging.getLogger(__name__)
 
 MAX_TRANSACTION_WRITES = 100
+# How far ahead of this Lambda's clock a capturedAt may be. A message stamped further in the
+# future would win the capturedAt guard against every correct message until real time caught up.
+MAX_CLOCK_SKEW = timedelta(minutes=5)
 
 Write = dict[str, Any]
 BuildWrites = Callable[[Mapping[str, Any] | None], tuple[list[Write], dict[str, Any]]]
@@ -44,6 +47,10 @@ class TooManyWritesError(Exception):
 
 
 class ConcurrentUpdateError(Exception):
+    pass
+
+
+class FutureCapturedAtError(Exception):
     pass
 
 
@@ -129,14 +136,26 @@ class SyncApplier:
         build: BuildWrites,
         extra_writes: list[Write],
     ) -> ApplyResult:
-        incoming = iso_micros(captured_at)
+        if captured_at > self._clock() + MAX_CLOCK_SKEW:
+            # Fail the record, so it is retried and then dead-lettered, which raises the alarm.
+            raise FutureCapturedAtError(
+                f"capturedAt {iso_micros(captured_at)} of video {video_id} is more than "
+                f"{MAX_CLOCK_SKEW} ahead of this clock"
+            )
 
         for _ in range(self.MAX_ATTEMPTS):
             current = self._table.get_item(
                 Key=video_key(video_id), ConsistentRead=True
             ).get("Item")
 
-            if current is not None and current["capturedAt"] >= incoming:
+            stored_captured_at = _stored_captured_at(current)
+            if stored_captured_at is not None and stored_captured_at >= captured_at:
+                logger.warning(
+                    "Skipping stale message for video %s: stored capturedAt %s, incoming %s",
+                    video_id,
+                    iso_micros(stored_captured_at),
+                    iso_micros(captured_at),
+                )
                 # Stale message: keep the stored state, but still resolve any pending request.
                 if extra_writes:
                     self._transact(extra_writes)
@@ -146,7 +165,13 @@ class SyncApplier:
             video_put = self._put(new_video_item)
             if current is None:
                 video_put["Put"]["ConditionExpression"] = "attribute_not_exists(PK)"
+            elif "capturedAt" not in current:
+                video_put["Put"]["ConditionExpression"] = (
+                    "attribute_exists(PK) AND attribute_not_exists(capturedAt)"
+                )
             else:
+                # The raw stored value, even when unparseable: the put must still lose to any
+                # write that landed since this read.
                 video_put["Put"]["ConditionExpression"] = "capturedAt = :expected"
                 video_put["Put"]["ExpressionAttributeValues"] = {
                     ":expected": current["capturedAt"]
@@ -195,6 +220,27 @@ class SyncApplier:
 
     def _delete(self, key: dict[str, str]) -> Write:
         return {"Delete": {"TableName": self._table_name, "Key": key}}
+
+
+def _stored_captured_at(current: Mapping[str, Any] | None) -> datetime | None:
+    """The stored item's capturedAt, or None when there is none that can be compared.
+
+    An unparseable value counts as absent, so the next message repairs the item instead of every
+    message failing on it forever.
+    """
+    if current is None:
+        return None
+
+    raw = current.get("capturedAt")
+    try:
+        return parse_iso_micros(raw) if isinstance(raw, str) else None
+    except ValueError:
+        logger.warning(
+            "Stored capturedAt %r of %s is unparseable; overwriting it",
+            raw,
+            current["PK"],
+        )
+        return None
 
 
 def _condition_check_failed(error: Exception) -> bool:

@@ -100,10 +100,10 @@ def live_link_keys(
     `scheduledAt`) these are the *old* keys -- callers must diff by key, not by user id, or a
     rescheduled link is never cleaned up.
     """
-    if current is None or current.get("deleted"):
+    if current is None or current.get("deleted") or "scheduledAt" not in current:
         return []
 
     return [
         link_key(user_id, current["scheduledAt"], video_id)
-        for user_id in sorted(current["userIds"])
+        for user_id in sorted(current.get("userIds", []))
     ]
