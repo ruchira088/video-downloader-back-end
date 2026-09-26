@@ -23,6 +23,7 @@ import software.amazon.awssdk.services.sqs.model.{
 
 import java.time.Instant
 import java.util.concurrent.CompletableFuture
+import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
 
 class FallbackAwsSpec extends AnyFlatSpec with Matchers {
@@ -51,30 +52,93 @@ class FallbackAwsSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  it should "fail when SQS rejects any entry of a batch" in runIO {
-    // A stubbed client, because ElasticMQ fails the whole call for the bodies a test can produce, so it can't return
-    // the successful-but-partially-failed response this checks.
-    val partiallyFailingSqs = new SqsAsyncClient {
-      override def serviceName(): String = SqsAsyncClient.SERVICE_NAME
+  /** A stubbed client, because ElasticMQ fails the whole call for the bodies a test can produce, so it can't return
+    * the successful-but-partially-failed responses these tests need. `respond` answers each call, given its number
+    * (from 1) and the request; the client records every request it receives. */
+  private final class StubSqsClient(respond: (Int, SendMessageBatchRequest) => SendMessageBatchResponse)
+      extends SqsAsyncClient {
+    private val received = new java.util.concurrent.ConcurrentLinkedQueue[SendMessageBatchRequest]()
 
-      override def close(): Unit = ()
+    def requests: List[SendMessageBatchRequest] = received.asScala.toList
 
-      override def sendMessageBatch(request: SendMessageBatchRequest): CompletableFuture[SendMessageBatchResponse] =
-        CompletableFuture.completedFuture(
-          SendMessageBatchResponse
-            .builder()
-            .successful(SendMessageBatchResultEntry.builder().id("0").messageId("message-0").build())
-            .failed(
-              BatchResultErrorEntry.builder().id("1").code("InternalError").senderFault(false).message("boom").build()
-            )
-            .build()
-        )
+    override def serviceName(): String = SqsAsyncClient.SERVICE_NAME
+
+    override def close(): Unit = ()
+
+    override def sendMessageBatch(request: SendMessageBatchRequest): CompletableFuture[SendMessageBatchResponse] = {
+      received.add(request)
+      try CompletableFuture.completedFuture(respond(received.size(), request))
+      catch { case error: Throwable => CompletableFuture.failedFuture(error) }
+    }
+  }
+
+  private def batchResponse(request: SendMessageBatchRequest, failed: Map[String, Boolean]): SendMessageBatchResponse =
+    SendMessageBatchResponse
+      .builder()
+      .successful(
+        request.entries().asScala.filterNot(entry => failed.contains(entry.id())).map { entry =>
+          SendMessageBatchResultEntry.builder().id(entry.id()).messageId(s"message-${entry.id()}").build()
+        }.asJava
+      )
+      .failed(
+        failed.toList.map {
+          case (id, senderFault) =>
+            BatchResultErrorEntry.builder().id(id).code("SomeError").senderFault(senderFault).message("boom").build()
+        }.asJava
+      )
+      .build()
+
+  private val noDelays = List(Duration.Zero, Duration.Zero)
+
+  private def removals(count: Int): List[ScheduledVideoRemoval] =
+    (1 to count).toList.map(index => ScheduledVideoRemoval(s"video-$index", Instant.EPOCH))
+
+  private def videoIds(request: SendMessageBatchRequest): List[String] =
+    request.entries().asScala.toList.map(entry => entry.messageBody()).flatMap { body =>
+      io.circe.parser.parse(body).toOption.flatMap(_.hcursor.get[String]("videoId").toOption)
     }
 
-    val messages = List(ScheduledVideoRemoval("video-1", Instant.EPOCH), ScheduledVideoRemoval("video-2", Instant.EPOCH))
+  it should "retry a transiently failed entry, then fail naming it" in runIO {
+    val sqs = new StubSqsClient((_, request) => batchResponse(request, Map("1" -> false)))
 
-    new SqsFallbackSyncTransport[IO](partiallyFailingSqs, "queue-url").send(messages).attempt.map { result =>
-      result.left.map(_.getMessage) mustBe Left("SQS rejected 1 of 2 messages: boom")
+    new SqsFallbackSyncTransport[IO](sqs, "queue-url", noDelays).send(removals(2)).attempt.map { result =>
+      result.left.map(_.getMessage) mustBe
+        Left("SQS rejected 1 of 2 messages: ScheduledVideoRemoval for video video-2: SomeError boom")
+      // The first attempt sends both entries; each retry resends only the failed one
+      sqs.requests.map(videoIds) mustBe List(List("video-1", "video-2"), List("video-2"), List("video-2"))
+    }
+  }
+
+  it should "succeed when a transient failure clears on a retry" in runIO {
+    val sqs =
+      new StubSqsClient((call, request) => batchResponse(request, if (call == 1) Map("0" -> false) else Map.empty))
+
+    new SqsFallbackSyncTransport[IO](sqs, "queue-url", noDelays).send(removals(2)).attempt.map { result =>
+      result mustBe Right(())
+      sqs.requests.map(videoIds) mustBe List(List("video-1", "video-2"), List("video-1"))
+    }
+  }
+
+  it should "drop an entry SQS rejects as the sender's fault without retrying or failing" in runIO {
+    val sqs = new StubSqsClient((_, request) => batchResponse(request, Map("0" -> true)))
+
+    new SqsFallbackSyncTransport[IO](sqs, "queue-url", noDelays).send(removals(2)).attempt.map { result =>
+      result mustBe Right(())
+      sqs.requests.size mustBe 1
+    }
+  }
+
+  it should "send every later batch when an earlier batch's call fails, then fail" in runIO {
+    val sqs =
+      new StubSqsClient({ (_, request) =>
+        if (videoIds(request).contains("video-1")) throw new RuntimeException("connection reset")
+        else batchResponse(request, Map.empty)
+      })
+
+    new SqsFallbackSyncTransport[IO](sqs, "queue-url", noDelays).send(removals(12)).attempt.map { result =>
+      result.left.map(_.getMessage.startsWith("SQS rejected 10 of 12 messages")) mustBe Left(true)
+      sqs.requests.map(videoIds).count(_ == List("video-11", "video-12")) mustBe 1
+      sqs.requests.size mustBe 4
     }
   }
 
