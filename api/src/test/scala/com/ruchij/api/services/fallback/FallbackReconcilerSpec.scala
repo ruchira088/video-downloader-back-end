@@ -23,18 +23,28 @@ class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
     override val timestamp: IO[Instant] = IO.realTimeInstant
   }
 
+  /** An empty database whose clock follows TestControl's virtual time, like the instances recording reconciles. */
+  private val virtualClockDao: FallbackSyncDao[IO] = new FallbackSyncDao[IO] {
+    override val currentTimestamp: IO[Instant] = IO.realTimeInstant
+    override def findById(videoId: String): IO[Option[SyncedVideo]] = IO.pure(None)
+    override val findAll: IO[List[SyncedVideo]] = IO.pure(Nil)
+  }
+
   /** A reconciler whose manifest reads are counted, over an empty manifest and database. */
   private def countingReconciler(
-    coordination: FallbackSyncCoordination[IO]
+    coordination: FallbackSyncCoordination[IO],
+    transport: FallbackSyncTransport[IO] = (_: List[MainToFallbackMessage]) => IO.unit
   ): IO[(FallbackReconciler[IO, IO], Ref[IO, Int])] =
     for {
       manifestReads <- Ref.of[IO, Int](0)
       manifestReader = new FallbackManifestReader[IO] {
         override val manifest: IO[Map[String, ManifestEntry]] = manifestReads.update(_ + 1).as(Map.empty)
       }
-      dao <- StubFallbackSyncDao()
-      transport <- RecordingTransport()
-    } yield (new FallbackReconciler[IO, IO](manifestReader, dao, transport, coordination, "instance-a"), manifestReads)
+    } yield
+      (
+        new FallbackReconciler[IO, IO](manifestReader, virtualClockDao, transport, coordination, "instance-a"),
+        manifestReads
+      )
 
   private def holdLock(keyValueStore: InMemoryKeyValueStore[IO], owner: String): IO[Unit] =
     keyValueStore.put[String, String](FallbackSyncCoordination.ReconcileLockKey, owner, Some(30.minutes)).void
@@ -312,6 +322,44 @@ class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
     runIO(TestControl.executeEmbed(test).map(_ mustBe ((1, 2))))
   }
 
+  it should "back off its flagged retries while reconciles keep failing, and stop once one succeeds" in {
+    // Virtual time: flag checks every 5 minutes. Runs fail at 0 (startup), 5, 15, 35, 75 and 135 minutes, each
+    // waiting twice as many flag checks as the one before (1, 2, 4, 8), and then at most 12 (an hour).
+    val test =
+      for {
+        coordination <- IO.pure(new FallbackSyncCoordination[IO](new InMemoryKeyValueStore[IO]))
+        sqsDown <- Ref.of[IO, Boolean](true)
+        failingTransport = new FallbackSyncTransport[IO] {
+          override def send(messages: List[MainToFallbackMessage]): IO[Unit] =
+            sqsDown.get.ifM(IO.raiseError(new IllegalStateException("SQS access denied")), IO.unit)
+        }
+        (reconciler, manifestReads) <- countingReconciler(coordination, failingTransport)
+        fiber <- reconciler.run(interval = 24.hours, flagCheckInterval = 5.minutes).compile.drain.start
+        _ <- IO.sleep(2.hours + 1.minute)
+        readsAfterTwoHours <- manifestReads.get
+        _ <- IO.sleep(1.hour)
+        readsAfterThreeHours <- manifestReads.get
+        _ <- sqsDown.set(false)
+        _ <- IO.sleep(1.hour)
+        readsAfterRecovery <- manifestReads.get
+        flagged <- coordination.isReconcileNeeded
+        _ <- IO.sleep(1.hour)
+        readsLater <- manifestReads.get
+        _ <- fiber.cancel
+      } yield (readsAfterTwoHours, readsAfterThreeHours, readsAfterRecovery, flagged, readsLater)
+
+    runIO {
+      TestControl.executeEmbed(test).map {
+        case (readsAfterTwoHours, readsAfterThreeHours, readsAfterRecovery, flagged, readsLater) =>
+          readsAfterTwoHours mustBe 5 // at 0, 5, 15, 35 and 75 minutes, rather than every 5 minutes
+          readsAfterThreeHours mustBe 6 // then once an hour: at 135 minutes
+          readsAfterRecovery mustBe 7 // the retry at 195 minutes succeeds and clears the flag
+          flagged mustBe false
+          readsLater mustBe 7 // nothing left to retry
+      }
+    }
+  }
+
   it should "not flag a retry when the daily reconcile finds the lock held" in {
     val test =
       for {
@@ -451,6 +499,10 @@ class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
         sent.collect { case removal: ScheduledVideoRemoval => removal } must have size 60
         summary mustBe Some(ReconcileSummary(upserts = 0, removals = 60))
     }
+  }
+
+  "FallbackReconciler.flagChecksToSkip" should "double the wait after each failure in a row, up to an hour" in {
+    (1 to 7).map(FallbackReconciler.flagChecksToSkip) mustBe List(0, 1, 3, 7, 11, 11, 11)
   }
 
   "FallbackReconciler.maxRemovals" should "allow 50 removals, or 20% of a larger manifest" in {

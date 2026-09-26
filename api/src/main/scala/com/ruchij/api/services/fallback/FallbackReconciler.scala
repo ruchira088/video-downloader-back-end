@@ -6,7 +6,6 @@ import cats.{Monad, ~>}
 import com.ruchij.api.services.fallback.aws.{FallbackManifestReader, FallbackSyncTransport, ManifestEntry}
 import com.ruchij.api.services.fallback.models.{MainToFallbackMessage, ScheduledVideoRemoval, ScheduledVideoUpsert}
 import com.ruchij.core.logging.Logger
-import com.ruchij.core.types.Clock
 import fs2.Stream
 
 import java.time.Instant
@@ -18,7 +17,7 @@ final case class ReconcileSummary(upserts: Int, removals: Int, withheldRemovals:
 // Async[F], not just Temporal[F], because the failure path logs via `com.ruchij.core.logging.Logger`, which is
 // Sync-based; Temporal and Sync are siblings in the cats-effect hierarchy (joined only by Async), so requiring both
 // separately produces ambiguous implicits (see FallbackSyncPublisher).
-class FallbackReconciler[F[_]: Async: Clock, T[_]: Monad](
+class FallbackReconciler[F[_]: Async, T[_]: Monad](
   manifestReader: FallbackManifestReader[F],
   fallbackSyncDao: FallbackSyncDao[T],
   transport: FallbackSyncTransport[F],
@@ -61,13 +60,14 @@ class FallbackReconciler[F[_]: Async: Clock, T[_]: Monad](
           s"Fallback reconcile sent ${summary.upserts} upserts and ${summary.removals} removals" +
             (if (summary.withheldRemovals > 0) s", withholding ${summary.withheldRemovals} removals" else "")
         }
-        completedAt <- Clock[F].timestamp
+        completedAt <- databaseTime
         _ <- coordination.recordSuccessfulReconcile(completedAt)
       } yield summary
     }
 
   /** Reconciles at startup, then on every `interval` tick unless any instance completed a reconcile within
-    * `dailySkipWindow` (so the instances share one daily run), and whenever a flag check finds the flag set. */
+    * `dailySkipWindow` (so the instances share one daily run), and whenever a flag check finds the flag set. After
+    * reconciles fail in a row, flag checks are passed over for a doubling while, up to an hour, before retrying. */
   def run(
     interval: FiniteDuration = 24.hours,
     flagCheckInterval: FiniteDuration = 5.minutes,
@@ -94,15 +94,36 @@ class FallbackReconciler[F[_]: Async: Clock, T[_]: Monad](
         case None if retryWhenLocked =>
           logger.info[F] {
             "Another instance holds the fallback reconcile lock; retrying unless a reconcile completes first"
-          } *> Clock[F].timestamp.flatMap(now => retryPendingSince.update(_.orElse(Some(now))))
+          } *> databaseTime.flatMap(now => retryPendingSince.update(_.orElse(Some(now))))
 
         case None => Async[F].unit
 
-        case Some(_) => retryPendingSince.set(None)
+        case Some(_) => retryPendingSince.set(None) *> consecutiveFailures.set(0) *> skippedFlagChecks.set(0)
       }
       .handleErrorWith { error =>
-        logger.error[F]("Fallback reconcile failed; it will be retried", error) *> coordination.markReconcileNeeded
+        consecutiveFailures.updateAndGet(_ + 1).flatMap { failures =>
+          val skips = flagChecksToSkip(failures)
+
+          skippedFlagChecks.set(skips) *>
+            logger.error[F](
+              s"Fallback reconcile failed $failures times in a row; it will be retried after " +
+                s"${skips + 1} flag checks",
+              error
+            ) *>
+            coordination.markReconcileNeeded
+        }
       }
+
+  /** Each instance's own record of its reconciles failing, which backs off its flagged retries: a persistent failure
+    * (e.g. denied SQS credentials or a deleted queue) would otherwise re-run a full reconcile at every flag check
+    * until it is fixed. */
+  private val consecutiveFailures: Ref[F, Int] = Ref.unsafe[F, Int](0)
+  // Flag checks still to pass over before a flagged reconcile runs again
+  private val skippedFlagChecks: Ref[F, Int] = Ref.unsafe[F, Int](0)
+
+  /** The database's clock, shared by every instance: comparing when one instance completed a reconcile with when
+    * another found the lock held, or with the daily skip window, can't then be thrown off by skew between hosts. */
+  private val databaseTime: F[Instant] = transaction(fallbackSyncDao.currentTimestamp)
 
   // When a startup or flagged reconcile first found the lock held, while its retry is pending
   private val retryPendingSince: Ref[F, Option[Instant]] = Ref.unsafe[F, Option[Instant]](None)
@@ -127,7 +148,7 @@ class FallbackReconciler[F[_]: Async: Clock, T[_]: Monad](
           .warn[F](s"Unable to read when the last fallback reconcile completed; running the daily one anyway: $error")
           .as(Option.empty[Instant])
       }
-      .product(Clock[F].timestamp)
+      .product(databaseTime)
       .flatMap {
         case (Some(lastRun), now) if lastRun.isAfter(now.minusMillis(skipWindow.toMillis)) =>
           logger.info[F](s"Skipping the daily fallback reconcile: one completed at $lastRun")
@@ -143,8 +164,13 @@ class FallbackReconciler[F[_]: Async: Clock, T[_]: Monad](
     run.handleErrorWith(error => logger.error[F]("Fallback reconcile tick failed unexpectedly", error))
 
   private val flagCheckTick: F[Unit] =
-    (coordination.isReconcileNeeded, retryDue).tupled
-      .flatMap { case (flagged, due) => reconcileSafely(retryWhenLocked = true).whenA(flagged || due) }
+    skippedFlagChecks
+      .modify(skips => (math.max(skips - 1, 0), skips > 0))
+      .ifM(
+        Async[F].unit,
+        (coordination.isReconcileNeeded, retryDue).tupled
+          .flatMap { case (flagged, due) => reconcileSafely(retryWhenLocked = true).whenA(flagged || due) }
+      )
       .handleErrorWith(error => logger.error[F]("Fallback reconcile flag check failed unexpectedly", error))
 
   /** Refuses a mass removal, which more likely means the main side read the wrong or an empty database than that
@@ -201,6 +227,10 @@ class FallbackReconciler[F[_]: Async: Clock, T[_]: Monad](
 
 object FallbackReconciler {
   val FutureCapturedAtTolerance: FiniteDuration = 1.minute
+
+  /** How many flag checks to pass over after `failures` reconciles in a row failed, doubling the wait each time from
+    * one flag check to at most 12 (an hour at the default 5-minute interval). */
+  def flagChecksToSkip(failures: Int): Int = math.min(1 << math.min(math.max(failures - 1, 0), 4), 12) - 1
 
   /** The most removals one reconcile sends without `allowMassRemoval`: 50, or 20% of the manifest if more. */
   def maxRemovals(manifestSize: Int): Int = math.max(50, manifestSize / 5)

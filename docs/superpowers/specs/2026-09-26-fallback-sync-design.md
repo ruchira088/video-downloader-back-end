@@ -230,11 +230,13 @@ request will ever resolve.
 ### D. Reconcile (`FallbackReconciler`)
 
 Runs daily, when the API starts (which also does the initial backfill), and when the "reconcile needed" flag is set.
-The time of each completed reconcile is kept in Redis, and the daily run is skipped when any instance completed one in
-the last 20 h. A startup or flagged run that finds the lock held retries at each flag check, since the holder may
-have crashed, until a reconcile by any instance completes after it found the lock held. The retry is kept on that
-instance, not set as the shared flag, so instances starting together after a deploy don't each run one more
-reconcile once the lock's holder has finished.
+The time of each completed reconcile, read from the database clock so that instances with skewed clocks agree, is
+kept in Redis, and the daily run is skipped when any instance completed one in the last 20 h. A startup or flagged
+run that finds the lock held retries at each flag check, since the holder may have crashed, until a reconcile by any
+instance completes after it found the lock held. The retry is kept on that instance, not set as the shared flag, so
+instances starting together after a deploy don't each run one more reconcile once the lock's holder has finished.
+After reconciles fail in a row (e.g. SQS access denied), an instance waits 1, 2, 4, 8 and then 12 flag checks
+before retrying, so a persistent failure costs at most one full reconcile an hour per instance.
 
 1. Take the reconcile lock, or skip the run if another instance holds it, then clear the flag before reading
    anything, so a flag raised for a change made during the run survives it.
@@ -292,7 +294,7 @@ The following must be fixed or completed first:
 | SQS send | Entry or call rejected as the sender's fault | Log and drop it, sending a call's messages alone first |
 | SQS send | Any other failure of an entry or call, e.g. throttling | Retry twice, then raise it with the others |
 | `FallbackRequestConsumer` | Permanent or transient failure | Flow B steps 4 and 5; DLQ after 5 receives; alarm |
-| `FallbackReconciler` | Scan or send fails | Leave the flag set, log, and retry on the next trigger |
+| `FallbackReconciler` | Scan or send fails | Set the flag and log; flagged retries back off, 5 min doubling to 1 h |
 
 The "reconcile needed" flag lives in Redis. Sync never blocks main-side request handling or DB writes.
 
