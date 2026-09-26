@@ -197,6 +197,15 @@ Copy `key.pem` and `cert.pem` to `nginx/ssl/`
 | `FALLBACK_SYNC_AWS_REGION` | AWS region of the queues and table | - |
 | `FALLBACK_SYNC_AWS_ENDPOINT_URL` | AWS endpoint override (e.g. a local emulator) | - |
 
+With fallback sync enabled, the API also needs AWS credentials from the default provider chain -- normally
+`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` for the fallback stack's `MainSideSyncUser`. When enabling it:
+
+- Point each fallback stack at exactly one database. The reconcile removes every video in the table that its own
+  database doesn't have, so two databases (e.g. a dev branch and production) sharing a table remove each other's
+  videos.
+- With `PUBSUB_TYPE=Kafka`, create the `<KAFKA_PREFIX>-fallback-sync-requests` topic first if topic auto-creation is
+  off.
+
 #### Batch Service
 
 | Variable | Description | Default |
