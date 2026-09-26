@@ -20,7 +20,11 @@ class FallbackSyncSpec extends AnyFlatSpec with Matchers {
       component = Stream.eval(attempts.updateAndGet(_ + 1)).flatMap { attempt =>
         if (attempt == 1) Stream.raiseError[IO](new RuntimeException("boom")) else Stream.emit(attempt)
       }
-      values <- FallbackSync.resilient[IO, Int]("test-component", restartDelay = 10.millis)(component).take(1).compile.toList
+      values <- FallbackSync
+        .resilient[IO, Int]("test-component", restartDelay = 10.millis)(component)
+        .take(1)
+        .compile
+        .toList
       finalAttempts <- attempts.get
     } yield {
       values mustBe List(2)
@@ -34,7 +38,11 @@ class FallbackSyncSpec extends AnyFlatSpec with Matchers {
       component = Stream.eval(attempts.updateAndGet(_ + 1)).flatMap { attempt =>
         if (attempt < 3) Stream.raiseError[IO](new RuntimeException("boom")) else Stream.emit(attempt)
       }
-      values <- FallbackSync.resilient[IO, Int]("test-component", restartDelay = 10.millis)(component).take(1).compile.toList
+      values <- FallbackSync
+        .resilient[IO, Int]("test-component", restartDelay = 10.millis)(component)
+        .take(1)
+        .compile
+        .toList
     } yield values mustBe List(3)
   }
 

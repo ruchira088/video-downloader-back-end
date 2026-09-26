@@ -190,6 +190,12 @@ Copy `key.pem` and `cert.pem` to `nginx/ssl/`
 | `KAFKA_PREFIX` | Kafka topic/group prefix | `local` |
 | `SCHEMA_REGISTRY` | Avro Schema Registry URL | - |
 | `SESSION_DURATION` | Auth session timeout | - |
+| `FALLBACK_SYNC_ENABLED` | Sync videos to the AWS fallback (requires the four settings below) | `false` |
+| `FALLBACK_SYNC_MAIN_TO_FALLBACK_QUEUE_URL` | SQS queue URL for sync messages sent to the fallback | - |
+| `FALLBACK_SYNC_FALLBACK_TO_MAIN_QUEUE_URL` | SQS queue URL for requests coming back from the fallback | - |
+| `FALLBACK_SYNC_TABLE_NAME` | DynamoDB table holding the fallback's copy | - |
+| `FALLBACK_SYNC_AWS_REGION` | AWS region of the queues and table | - |
+| `FALLBACK_SYNC_AWS_ENDPOINT_URL` | AWS endpoint override (e.g. a local emulator) | - |
 
 #### Batch Service
 
