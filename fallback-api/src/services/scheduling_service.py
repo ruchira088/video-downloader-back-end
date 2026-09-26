@@ -173,16 +173,23 @@ class DynamoDbSchedulingService(SchedulingService):
     ) -> dict[str, str]:
         """Reject tokens that don't match this listing's exact DynamoDB key schema.
 
-        A wrong-shaped ExclusiveStartKey (a missing or extra attribute) makes DynamoDB itself raise
-        ValidationException -- a ClientError that would surface as a 500 -- so the key *set* is
-        checked here, not just the values of the keys we care about. This also catches tokens
-        belonging to another listing, e.g. another user's partition or the admin index.
+        A wrong-shaped ExclusiveStartKey (a missing or extra attribute, or a key value DynamoDB
+        itself would refuse -- empty, or longer than 1024 bytes) makes DynamoDB itself raise
+        ValidationException -- a ClientError that would surface as a 500 -- so both the key *set*
+        and each value are checked here, not just the values of the keys we care about. This also
+        catches tokens belonging to another listing, e.g. another user's partition or the admin
+        index.
         """
         start_key = decode_page_token(page_token)
 
         if frozenset(start_key) != expected_keys:
             raise InvalidPageTokenException(
                 "Page token does not match the listing's key schema"
+            )
+
+        if any(not 0 < len(value.encode()) <= 1024 for value in start_key.values()):
+            raise InvalidPageTokenException(
+                "Page token contains a key value DynamoDB would reject"
             )
 
         if any(start_key[name] != value for name, value in equals.items()):

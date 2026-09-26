@@ -11,7 +11,13 @@ from src.services.exceptions import (
 )
 from src.services.models.user import Role, User
 from src.services.scheduling_service import PAGE_SIZE, DynamoDbSchedulingService
-from src.sync.items import epoch_seconds, pending_key, user_partition
+from src.sync.items import (
+    ALL_VIDEOS_PARTITION,
+    VIDEO_SORT_KEY,
+    epoch_seconds,
+    pending_key,
+    user_partition,
+)
 from src.sync.messages import ScheduledVideoRemoval
 from src.sync.page_tokens import encode_page_token
 from src.sync.sync_applier import SyncApplier
@@ -215,3 +221,24 @@ class TestDynamoDbSchedulingService(unittest.TestCase):
 
         with self.assertRaises(InvalidPageTokenException):
             self.service.list_schedules(ADMIN, None, token)
+
+    def test_admin_page_token_with_an_empty_key_value_is_rejected(self):
+        token = encode_page_token(
+            {
+                "PK": "VIDEO#youtube-abc",
+                "SK": VIDEO_SORT_KEY,
+                "GSI1PK": ALL_VIDEOS_PARTITION,
+                "GSI1SK": "",
+            }
+        )
+
+        with self.assertRaises(InvalidPageTokenException):
+            self.service.list_schedules(ADMIN, None, token)
+
+    def test_user_page_token_with_an_oversized_key_value_is_rejected(self):
+        token = encode_page_token(
+            {"PK": user_partition("user-1"), "SK": "VIDEO#" + "x" * 2000}
+        )
+
+        with self.assertRaises(InvalidPageTokenException):
+            self.service.list_schedules(USER, None, token)
