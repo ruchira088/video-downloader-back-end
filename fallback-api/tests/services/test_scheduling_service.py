@@ -102,9 +102,20 @@ class TestDynamoDbSchedulingService(unittest.TestCase):
             "ftp://example.com/video",
             "https://",
             "https://a b.com",
+            # Each of these used to escape as a 500
+            "http://[::1",
+            "http://[x]/",
+            "http://example.com/\ud800",
+            "https://example.com:99999/",
         ]:
-            with self.subTest(url=url), self.assertRaises(InvalidUrlException):
+            with (
+                self.subTest(url=url),
+                self.assertRaises(InvalidUrlException) as raised,
+            ):
                 self.service.schedule(url, USER)
+
+            # The 400 response carries the message as UTF-8 JSON
+            str(raised.exception).encode("utf-8")
 
         self.assertEqual(self._queued_bodies(), [])
 

@@ -57,7 +57,14 @@ class SchedulingService(ABC):
 
 
 def is_http_url(value: str) -> bool:
-    parsed = urlparse(value)
+    try:
+        # A lone surrogate can't be sent on as UTF-8 JSON, and urlparse raises on a malformed
+        # IPv6 host such as "http://[::1"; reading .port also rejects a port out of range.
+        value.encode("utf-8")
+        parsed = urlparse(value)
+        parsed.port
+    except ValueError:
+        return False
 
     return (
         parsed.scheme in ("http", "https")
@@ -94,7 +101,9 @@ class DynamoDbSchedulingService(SchedulingService):
         if len(url) > MAX_URL_LENGTH:
             raise InvalidUrlException(f"URL is longer than {MAX_URL_LENGTH} characters")
         if not is_http_url(url):
-            raise InvalidUrlException(f'"{url}" is not an absolute http(s) URL')
+            # The URL isn't quoted back: the 400 response is UTF-8 JSON, which a lone surrogate
+            # in it would turn into a 500.
+            raise InvalidUrlException("The URL is not an absolute http(s) URL")
 
         request = ScheduleRequest(
             request_id=self._request_id_generator(),

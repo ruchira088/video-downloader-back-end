@@ -82,7 +82,9 @@ class TestScheduleRouter(unittest.TestCase):
         )
 
     def test_invalid_url_returns_400(self):
-        self.service.error = InvalidUrlException('"x" is not an absolute http(s) URL')
+        self.service.error = InvalidUrlException(
+            "The URL is not an absolute http(s) URL"
+        )
 
         response = self.client.post("/schedule", json={"url": "x"})
 
