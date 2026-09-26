@@ -322,6 +322,56 @@ class FallbackSyncRequesterSpec extends AnyFlatSpec with Matchers {
     }
   }
 
+  it should "time each id's publish separately, so a long but healthy requestAll never opens the breaker" in {
+    val test =
+      for {
+        attempts <- Ref.of[IO, Int](0)
+        flags <- Ref.of[IO, Int](0)
+        subject = requester(
+          publisherOf(_ => IO.sleep(1.second) *> attempts.update(_ + 1)),
+          onDropped = flags.update(_ + 1),
+          publishTimeout = 5.seconds
+        )
+        // 20 publishes of 1 s each: the whole requestAll outlasts publishTimeout, but no single publish does
+        _ <- subject.requestAll((1 to 20).map(index => s"video-$index"))
+        _ <- IO.sleep(25.seconds)
+        // Not degraded, so this waits out the grace period for its 1 s publish rather than returning at once
+        (duration, _) <- subject.request("video-21").timed
+        _ <- IO.sleep(2.seconds)
+        attempted <- attempts.get
+        flagged <- flags.get
+      } yield (duration, attempted, flagged)
+
+    runIO(TestControl.executeEmbed(test).map(_ mustBe ((500.millis, 21, 0))))
+  }
+
+  it should "open the breaker and drop the remaining ids once one id's publish outlives publishTimeout" in {
+    val test =
+      for {
+        attempted <- Ref.of[IO, List[String]](Nil)
+        flags <- Ref.of[IO, Int](0)
+        subject = requester(
+          publisherOf(input => attempted.update(_ :+ input.videoId) *> IO.never.whenA(input.videoId == "b")),
+          onDropped = flags.update(_ + 1),
+          publishTimeout = 1.second
+        )
+        _ <- subject.requestAll(Seq("a", "b", "c"))
+        _ <- IO.sleep(5.seconds)
+        (duration, _) <- subject.request("d").timed
+        ids <- attempted.get
+        flagged <- flags.get
+      } yield (duration, ids, flagged)
+
+    runIO {
+      TestControl.executeEmbed(test).map {
+        case (duration, ids, flagged) =>
+          duration mustBe Duration.Zero
+          ids mustBe List("a", "b")
+          flagged must be >= 1
+      }
+    }
+  }
+
   it should "return from the whole fan-out within one grace period, not N times it" in {
     val test =
       requester(uncancelableHangingPublisher(1.minute))

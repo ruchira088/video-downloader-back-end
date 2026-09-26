@@ -272,7 +272,7 @@ The following must be fixed or completed first:
 | `POST /schedule` | SQS send fails | 503, nothing written |
 | `SyncFunction` | One message fails | Partial batch failure; DLQ after 5 receives; alarm |
 | `FallbackSyncPublisher` | SQS unreachable | 3 retries with backoff, then set the "reconcile needed" flag |
-| Sync request publish | Kafka publish fails or times out | Set the flag; after a timeout, skip publishes for 60 s |
+| Sync request publish | Kafka publish fails or times out | Set the flag; skip for 60 s once an id's publish times out |
 | SQS send | Entry rejected as the sender's fault | Log an error and drop it; retry other failures, then raise |
 | `FallbackRequestConsumer` | Permanent or transient failure | Flow B steps 4 and 5; DLQ after 5 receives; alarm |
 | `FallbackReconciler` | Scan or send fails | Leave the flag set, log, and retry on the next trigger |
