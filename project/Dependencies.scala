@@ -99,9 +99,12 @@ object Dependencies
 
   private val AwsSdkVersion = "2.55.6"
 
-  lazy val awsSqs = "software.amazon.awssdk" % "sqs" % AwsSdkVersion
+  // The fallback sync clients use the async Netty HTTP client, so the SDK's default synchronous client is left out.
+  private val awsApache5Client = ExclusionRule("software.amazon.awssdk", "apache5-client")
 
-  lazy val awsDynamoDb = "software.amazon.awssdk" % "dynamodb" % AwsSdkVersion
+  lazy val awsSqs = ("software.amazon.awssdk" % "sqs" % AwsSdkVersion).excludeAll(awsApache5Client)
+
+  lazy val awsDynamoDb = ("software.amazon.awssdk" % "dynamodb" % AwsSdkVersion).excludeAll(awsApache5Client)
 
   // The AWS SDK's netty-nio-client and lettuce (under redis4cats) each pull in Netty at a different 4.1.x version,
   // and eviction alone would leave the DNS resolver modules that only lettuce uses on the older one. Pinning every
