@@ -1,7 +1,7 @@
 package com.ruchij.api.services.fallback.models
 
 import io.circe.parser.decode
-import io.circe.{Decoder, DecodingFailure, Encoder, Json}
+import io.circe.{Decoder, DecodingFailure, Encoder, HCursor, Json}
 
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
@@ -89,12 +89,7 @@ object SyncJson {
   implicit val scheduleRequestDecoder: Decoder[ScheduleRequest] =
     Decoder.instance { cursor =>
       for {
-        messageType <- cursor.get[String]("type")
-        _ <- Either.cond(
-          messageType == "ScheduleRequest",
-          (),
-          DecodingFailure(s"Unexpected message type: $messageType", cursor.history)
-        )
+        _ <- messageType(cursor, "ScheduleRequest")
         requestId <- cursor.get[String]("requestId")
         userId <- cursor.get[String]("userId")
         url <- cursor.get[String]("url")
@@ -102,7 +97,67 @@ object SyncJson {
       } yield ScheduleRequest(requestId, userId, url, requestedAt)
     }
 
+  private def messageType(cursor: HCursor, expected: String): Decoder.Result[Unit] =
+    cursor.get[String]("type").flatMap { actual =>
+      Either.cond(actual == expected, (), DecodingFailure(s"Unexpected message type: $actual", cursor.history))
+    }
+
+  private val upsertDecoder: Decoder[ScheduledVideoUpsert] =
+    Decoder.instance { cursor =>
+      for {
+        _ <- messageType(cursor, "ScheduledVideoUpsert")
+        videoId <- cursor.get[String]("videoId")
+        capturedAt <- cursor.get[Instant]("capturedAt")(timestampDecoder)
+        hash <- cursor.get[String]("hash")
+        userIds <- cursor.get[List[String]]("userIds")
+        url <- cursor.get[String]("url")
+        videoSite <- cursor.get[String]("videoSite")
+        title <- cursor.get[String]("title")
+        durationMs <- cursor.get[Long]("durationMs")
+        sizeBytes <- cursor.get[Long]("sizeBytes")
+        status <- cursor.get[String]("status")
+        scheduledAt <- cursor.get[Instant]("scheduledAt")(timestampDecoder)
+        completedAt <- cursor.get[Option[Instant]]("completedAt")(Decoder.decodeOption(timestampDecoder))
+      } yield
+        ScheduledVideoUpsert(
+          videoId,
+          capturedAt,
+          hash,
+          userIds,
+          url,
+          videoSite,
+          title,
+          durationMs,
+          sizeBytes,
+          status,
+          scheduledAt,
+          completedAt
+        )
+    }
+
+  /** The main side only decodes the replies it stored itself (see FallbackRequestConsumer). */
+  implicit val requestResolvedDecoder: Decoder[RequestResolved] =
+    Decoder.instance { cursor =>
+      val outcome = cursor.downField("outcome")
+
+      for {
+        _ <- messageType(cursor, "RequestResolved")
+        requestId <- cursor.get[String]("requestId")
+        userId <- cursor.get[String]("userId")
+        result <- outcome.get[String]("result")
+        resolution <- result match {
+          case "Scheduled" =>
+            outcome.get[ScheduledVideoUpsert]("upsert")(upsertDecoder).map(ResolutionOutcome.Scheduled)
+          case "Rejected" => outcome.get[String]("reason").map(ResolutionOutcome.Rejected)
+          case other => Left(DecodingFailure(s"Unexpected outcome: $other", outcome.history))
+        }
+      } yield RequestResolved(requestId, userId, resolution)
+    }
+
   def encode(message: MainToFallbackMessage): String = mainToFallbackMessageEncoder(message).noSpaces
+
+  def decodeRequestResolved(body: String): Either[io.circe.Error, RequestResolved] =
+    decode[RequestResolved](body)(requestResolvedDecoder)
 
   def decodeScheduleRequest(body: String): Either[io.circe.Error, ScheduleRequest] =
     decode[ScheduleRequest](body)(scheduleRequestDecoder)

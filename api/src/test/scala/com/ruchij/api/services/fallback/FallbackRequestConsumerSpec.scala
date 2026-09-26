@@ -3,6 +3,7 @@ package com.ruchij.api.services.fallback
 import cats.data.NonEmptyList
 import cats.effect.IO
 import cats.effect.kernel.Ref
+import cats.implicits._
 import com.ruchij.api.daos.user.UserDao
 import com.ruchij.api.daos.user.models.{Email, Role, User}
 import com.ruchij.api.services.fallback.FallbackSyncStubs._
@@ -15,6 +16,8 @@ import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownloa
 import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.exceptions.{ExternalServiceException, ValidationException}
+import com.ruchij.core.kv.codecs.{KVDecoder, KVEncoder}
+import com.ruchij.core.kv.{InMemoryKeyValueStore, KeySpacedKeyValueStore, KeyValueStore}
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.test.IOSupport.runIO
 import org.http4s.Uri
@@ -53,9 +56,17 @@ class FallbackRequestConsumerSpec extends AnyFlatSpec with Matchers {
         }
     }
 
-  private def schedulingService(outcome: IO[ScheduledVideoResult]): ApiSchedulingService[IO] =
+  private def resolvedRequests(
+    keyValueStore: KeyValueStore[IO] = new InMemoryKeyValueStore[IO]
+  ): KeySpacedKeyValueStore[IO, ResolvedRequestKey, String] =
+    new KeySpacedKeyValueStore(ResolvedRequestKey.ResolvedRequestKeySpace, keyValueStore)
+
+  private def schedulingService(
+    outcome: IO[ScheduledVideoResult],
+    scheduled: Uri => IO[Unit] = _ => IO.unit
+  ): ApiSchedulingService[IO] =
     new ApiSchedulingService[IO] {
-      override def schedule(uri: Uri, userId: String): IO[ScheduledVideoResult] = outcome
+      override def schedule(uri: Uri, userId: String): IO[ScheduledVideoResult] = scheduled(uri) *> outcome
 
       override def search(
         term: Option[String],
@@ -103,8 +114,14 @@ class FallbackRequestConsumerSpec extends AnyFlatSpec with Matchers {
       dao <- StubFallbackSyncDao(SyncedVideo(scheduledVideoDownload("video-1"), List("user-1")))
       transport <- RecordingTransport()
       queue <- Ref.of[IO, List[String]](Nil).map(new StubQueue(_))
-      consumer =
-        new FallbackRequestConsumer[IO, IO](queue, schedulingService(schedule), userDao(userExists), dao, transport)
+      consumer = new FallbackRequestConsumer[IO, IO](
+        queue,
+        schedulingService(schedule),
+        userDao(userExists),
+        dao,
+        transport,
+        resolvedRequests()
+      )
       _ <- consumer.handle(received)
       sent <- transport.messages
       deleted <- queue.deletedHandles
@@ -125,7 +142,14 @@ class FallbackRequestConsumerSpec extends AnyFlatSpec with Matchers {
   ): IO[List[String]] =
     for {
       queue <- Ref.of[IO, List[String]](Nil).map(new StubQueue(_))
-      consumer = new FallbackRequestConsumer[IO, IO](queue, schedulingService(schedule), userDao, dao, transport)
+      consumer = new FallbackRequestConsumer[IO, IO](
+        queue,
+        schedulingService(schedule),
+        userDao,
+        dao,
+        transport,
+        resolvedRequests()
+      )
       _ <- consumer.handle(received).attempt
       deleted <- queue.deletedHandles
     } yield deleted
@@ -155,7 +179,14 @@ class FallbackRequestConsumerSpec extends AnyFlatSpec with Matchers {
   it should "reject an unknown user without scheduling" in runIO {
     run(IO.raiseError(new AssertionError("must not schedule")), userExists = false, message(body(request))).map {
       case (sent, deleted) =>
-        sent mustBe List(RequestResolved("request-1", "user-1", ResolutionOutcome.Rejected("Unknown user: user-1")))
+        // Generic, so the reply doesn't reveal which user ids exist
+        sent mustBe List(
+          RequestResolved(
+            "request-1",
+            "user-1",
+            ResolutionOutcome.Rejected("Unable to schedule videos for this account")
+          )
+        )
         deleted mustBe List("receipt-1")
     }
   }
@@ -274,8 +305,14 @@ class FallbackRequestConsumerSpec extends AnyFlatSpec with Matchers {
         responses <- Ref.of[IO, List[List[ReceivedMessage]]](List(List(firstMessage, secondMessage), Nil))
         deletedRef <- Ref.of[IO, List[String]](Nil)
         queue = new ScriptedQueue(responses, deletedRef)
-        consumer =
-          new FallbackRequestConsumer[IO, IO](queue, schedulingService(scheduled), userDao(exists = true), dao, flaky)
+        consumer = new FallbackRequestConsumer[IO, IO](
+          queue,
+          schedulingService(scheduled),
+          userDao(exists = true),
+          dao,
+          flaky,
+          resolvedRequests()
+        )
         _ <- consumer.drain
         remainingResponses <- responses.get
         deleted <- queue.deletedHandles
@@ -286,4 +323,122 @@ class FallbackRequestConsumerSpec extends AnyFlatSpec with Matchers {
         sent.collect { case RequestResolved(requestId, _, _) => requestId } mustBe List("request-2")
       }
     }
+
+  /** Handles each message in turn with one consumer, so they share its key-value store. */
+  private def handleAll(
+    schedulingService: ApiSchedulingService[IO],
+    transport: FallbackSyncTransport[IO],
+    keyValueStore: KeyValueStore[IO],
+    messages: List[ReceivedMessage]
+  ): IO[List[String]] =
+    for {
+      dao <- StubFallbackSyncDao(SyncedVideo(scheduledVideoDownload("video-1"), List("user-1")))
+      queue <- Ref.of[IO, List[String]](Nil).map(new StubQueue(_))
+      consumer = new FallbackRequestConsumer[IO, IO](
+        queue,
+        schedulingService,
+        userDao(exists = true),
+        dao,
+        transport,
+        resolvedRequests(keyValueStore)
+      )
+      _ <- messages.traverse_(message => consumer.handle(message).attempt)
+      deleted <- queue.deletedHandles
+    } yield deleted
+
+  it should "schedule the URL without its fragment, like the main API's own schedule route" in runIO {
+    for {
+      uris <- Ref.of[IO, List[Uri]](Nil)
+      transport <- RecordingTransport()
+      withFragment = request.copy(url = "https://example.com/video?id=1#t=30")
+      _ <- handleAll(
+        schedulingService(scheduled, uri => uris.update(_ :+ uri)),
+        transport,
+        new InMemoryKeyValueStore[IO],
+        List(message(body(withFragment)))
+      )
+      scheduledUris <- uris.get
+    } yield scheduledUris.map(_.renderString) mustBe List("https://example.com/video?id=1")
+  }
+
+  it should "reject a URL longer than 2048 characters without scheduling" in runIO {
+    val longUrl = request.copy(url = "https://example.com/" + "a" * 2029)
+
+    run(IO.raiseError(new AssertionError("must not schedule")), userExists = true, message(body(longUrl))).map {
+      case (sent, deleted) =>
+        sent.collect { case RequestResolved(_, _, ResolutionOutcome.Rejected(reason)) => reason } mustBe
+          List("URLs longer than 2048 characters are not supported")
+        deleted mustBe List("receipt-1")
+    }
+  }
+
+  it should "re-send the stored reply to a redelivered request instead of scheduling it again" in runIO {
+    for {
+      schedules <- Ref.of[IO, Int](0)
+      transport <- RecordingTransport()
+      deleted <- handleAll(
+        schedulingService(scheduled, _ => schedules.update(_ + 1)),
+        transport,
+        new InMemoryKeyValueStore[IO],
+        List(message(body(request)), message(body(request), receiveCount = 2))
+      )
+      scheduleCount <- schedules.get
+      sent <- transport.messages
+    } yield {
+      scheduleCount mustBe 1
+      sent.size mustBe 2
+      sent(1) mustBe sent.head
+      deleted mustBe List("receipt-1", "receipt-1")
+    }
+  }
+
+  it should "only re-send the reply once a request is resolved, even if sending that reply failed" in runIO {
+    for {
+      schedules <- Ref.of[IO, Int](0)
+      flaky <- FlakyTransport(1)
+      deleted <- handleAll(
+        schedulingService(scheduled, _ => schedules.update(_ + 1)),
+        flaky,
+        new InMemoryKeyValueStore[IO],
+        List(message(body(request)), message(body(request), receiveCount = 2))
+      )
+      scheduleCount <- schedules.get
+      sent <- flaky.recording.messages
+    } yield {
+      scheduleCount mustBe 1
+      sent.collect { case RequestResolved(requestId, _, _: ResolutionOutcome.Scheduled) => requestId } mustBe
+        List("request-1")
+      deleted mustBe List("receipt-1")
+    }
+  }
+
+  it should "still resolve requests when the key-value store is unavailable" in runIO {
+    val unavailable =
+      new KeyValueStore[IO] {
+        override type InsertionResult = Boolean
+        override type DeletionResult = Boolean
+
+        private def down[A]: IO[A] = IO.raiseError(new RuntimeException("Key-value store unavailable"))
+
+        override def get[K: KVEncoder[IO, *], V: KVDecoder[IO, *]](key: K): IO[Option[V]] = down
+
+        override def put[K: KVEncoder[IO, *], V: KVEncoder[IO, *]](
+          key: K,
+          value: V,
+          maybeTtl: Option[FiniteDuration]
+        ): IO[Boolean] = down
+
+        override def remove[K: KVEncoder[IO, *]](key: K): IO[Boolean] = down
+      }
+
+    for {
+      transport <- RecordingTransport()
+      deleted <- handleAll(schedulingService(scheduled), transport, unavailable, List(message(body(request))))
+      sent <- transport.messages
+    } yield {
+      sent.collect { case RequestResolved(requestId, _, _: ResolutionOutcome.Scheduled) => requestId } mustBe
+        List("request-1")
+      deleted mustBe List("receipt-1")
+    }
+  }
 }

@@ -5,9 +5,16 @@ import cats.implicits._
 import cats.{Monad, ~>}
 import com.ruchij.api.daos.user.UserDao
 import com.ruchij.api.services.fallback.aws.{FallbackRequestQueue, FallbackSyncTransport, ReceivedMessage}
-import com.ruchij.api.services.fallback.models.{RequestResolved, ResolutionOutcome, ScheduleRequest, SyncJson}
+import com.ruchij.api.services.fallback.models.{
+  RequestResolved,
+  ResolutionOutcome,
+  ResolvedRequestKey,
+  ScheduleRequest,
+  SyncJson
+}
 import com.ruchij.api.services.scheduling.ApiSchedulingService
 import com.ruchij.core.exceptions.{ResourceNotFoundException, UnsupportedVideoUrlException, ValidationException}
+import com.ruchij.core.kv.KeySpacedKeyValueStore
 import com.ruchij.core.logging.Logger
 import fs2.Stream
 import org.http4s.Uri
@@ -23,6 +30,7 @@ class FallbackRequestConsumer[F[_]: Async, T[_]: Monad](
   userDao: UserDao[T],
   fallbackSyncDao: FallbackSyncDao[T],
   transport: FallbackSyncTransport[F],
+  resolvedRequests: KeySpacedKeyValueStore[F, ResolvedRequestKey, String],
   pollInterval: FiniteDuration = 60.seconds,
   maxReceiveCount: Int = 5
 )(implicit transaction: T ~> F) {
@@ -50,13 +58,51 @@ class FallbackRequestConsumer[F[_]: Async, T[_]: Monad](
         }
 
       case Right(request) =>
-        resolve(request, message.receiveCount).flatMap {
-          case Some(outcome) =>
-            transport.send(List(RequestResolved(request.requestId, request.userId, outcome))) *>
+        storedReply(request.requestId).flatMap {
+          case Some(reply) =>
+            // Already handled, e.g. the delete below failed: scheduling again could bring back a video the user
+            // has deleted since, so only the reply is repeated
+            logger.info[F](s"Re-sending the stored reply to fallback schedule request ${request.requestId}") *>
+              transport.send(List(reply)) *>
               requestQueue.delete(message.receiptHandle)
 
-          case None => Async[F].unit
+          case None =>
+            resolve(request, message.receiveCount).flatMap {
+              case Some(outcome) =>
+                val reply = RequestResolved(request.requestId, request.userId, outcome)
+
+                // Stored before sending, so a reply that fails to send is also only re-sent, never re-resolved
+                storeReply(reply) *> transport.send(List(reply)) *> requestQueue.delete(message.receiptHandle)
+
+              case None => Async[F].unit
+            }
         }
+    }
+
+  /** Best effort: if the key-value store is down, requests are resolved as if never seen, as before this existed. */
+  private def storedReply(requestId: String): F[Option[RequestResolved]] =
+    resolvedRequests
+      .get(ResolvedRequestKey(requestId))
+      .flatMap {
+        _.flatTraverse { stored =>
+          SyncJson.decodeRequestResolved(stored) match {
+            case Right(reply) => Async[F].pure(Option(reply))
+            case Left(error) =>
+              logger
+                .warn[F](s"Ignoring the unreadable stored reply to request $requestId: $error")
+                .as(Option.empty[RequestResolved])
+          }
+        }
+      }
+      .handleErrorWith { error =>
+        logger
+          .warn[F](s"Unable to look up a stored reply to request $requestId: $error")
+          .as(Option.empty[RequestResolved])
+      }
+
+  private def storeReply(reply: RequestResolved): F[Unit] =
+    resolvedRequests.put(ResolvedRequestKey(reply.requestId), SyncJson.encode(reply)).handleErrorWith { error =>
+      logger.warn[F](s"Unable to store the reply to request ${reply.requestId}: $error")
     }
 
   /** Classifies every failure that can occur while resolving a request -- user lookup, URL parsing, scheduling
@@ -89,10 +135,19 @@ class FallbackRequestConsumer[F[_]: Async, T[_]: Monad](
   private def resolution(request: ScheduleRequest): F[ResolutionOutcome] =
     transaction(userDao.findById(request.userId)).flatMap {
       case None =>
-        Async[F].pure[ResolutionOutcome](ResolutionOutcome.Rejected(s"Unknown user: ${request.userId}"))
+        // The reply is shown to whoever sent the request, so it doesn't say which user ids exist
+        logger
+          .warn[F](s"Rejecting fallback schedule request ${request.requestId} for unknown user ${request.userId}")
+          .as(ResolutionOutcome.Rejected("Unable to schedule videos for this account"))
+
+      case Some(_) if request.url.length > MaxUrlLength =>
+        Async[F].pure[ResolutionOutcome] {
+          ResolutionOutcome.Rejected(s"URLs longer than $MaxUrlLength characters are not supported")
+        }
 
       case Some(_) =>
-        Uri.fromString(request.url) match {
+        // Like the main API's own schedule route, which drops the fragment too
+        Uri.fromString(request.url).map(_.withoutFragment) match {
           case Left(_) =>
             Async[F].pure[ResolutionOutcome](ResolutionOutcome.Rejected(s"Invalid URL: ${request.url}"))
 
@@ -113,6 +168,8 @@ class FallbackRequestConsumer[F[_]: Async, T[_]: Monad](
 
       case (_, None) => Async[F].raiseError(new IllegalStateException(s"Scheduled video $videoId was not found"))
     }
+
+  private val MaxUrlLength = 2048
 
   private def rejected(reason: String): F[Option[ResolutionOutcome]] =
     Async[F].pure(Option(ResolutionOutcome.Rejected(reason)))

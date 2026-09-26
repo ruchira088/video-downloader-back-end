@@ -46,7 +46,7 @@ class FallbackAwsSpec extends AnyFlatSpec with Matchers {
         url <- queueUrl(aws, "main-to-fallback")
         messages = (1 to 12).toList.map(index => ScheduledVideoRemoval(s"video-$index", Instant.EPOCH))
         _ <- new SqsFallbackSyncTransport[IO](aws.sqs, url).send(messages)
-        queue = new SqsFallbackRequestQueue[IO](aws.sqs, url, waitTimeSeconds = 1)
+        queue = new SqsFallbackRequestQueue[IO](aws.sqs, url, waitTimeSeconds = 1, maxNumberOfMessages = 10)
         received <- queue.receive.flatMap(first => queue.receive.map(first ++ _))
       } yield received.map(_.body).toSet mustBe messages.map(SyncJson.encode).toSet
     }
@@ -153,9 +153,17 @@ class FallbackAwsSpec extends AnyFlatSpec with Matchers {
         received <- queue.receive
         _ <- received.traverse_(message => queue.delete(message.receiptHandle))
         afterDelete <- queue.receive
+        // One message per receive by default
+        _ <- List("first", "second").traverse_ { body =>
+          IO.fromCompletableFuture(
+            IO(aws.sqs.sendMessage(SendMessageRequest.builder().queueUrl(url).messageBody(body).build()))
+          )
+        }
+        oneAtATime <- queue.receive
       } yield {
         received.map(message => (message.body, message.receiveCount)) mustBe List(("hello", 1))
         afterDelete mustBe empty
+        oneAtATime.size mustBe 1
       }
     }
   }

@@ -19,15 +19,21 @@ trait FallbackRequestQueue[F[_]] {
   def delete(receiptHandle: String): F[Unit]
 }
 
-class SqsFallbackRequestQueue[F[_]: Async](sqsClient: SqsAsyncClient, queueUrl: String, waitTimeSeconds: Int = 20)
-    extends FallbackRequestQueue[F] {
+/** Receives one message at a time by default: each can take a while to schedule (the video's metadata is fetched),
+  * and a batch whose last message is handled after the queue's 300 s visibility timeout gets redelivered. */
+class SqsFallbackRequestQueue[F[_]: Async](
+  sqsClient: SqsAsyncClient,
+  queueUrl: String,
+  waitTimeSeconds: Int = 20,
+  maxNumberOfMessages: Int = 1
+) extends FallbackRequestQueue[F] {
 
   override def receive: F[List[ReceivedMessage]] = {
     val request =
       ReceiveMessageRequest
         .builder()
         .queueUrl(queueUrl)
-        .maxNumberOfMessages(10)
+        .maxNumberOfMessages(maxNumberOfMessages)
         .waitTimeSeconds(waitTimeSeconds)
         .messageSystemAttributeNames(MessageSystemAttributeName.APPROXIMATE_RECEIVE_COUNT)
         .build()

@@ -5,12 +5,12 @@ import cats.~>
 import com.ruchij.api.config.FallbackSyncSettings
 import com.ruchij.api.daos.user.DoobieUserDao
 import com.ruchij.api.services.fallback.aws._
-import com.ruchij.api.services.fallback.models.FallbackSyncRequest
+import com.ruchij.api.services.fallback.models.{FallbackSyncRequest, ResolvedRequestKey}
 import com.ruchij.api.services.scheduling.ApiSchedulingService
 import com.ruchij.core.daos.permission.DoobieVideoPermissionDao
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
-import com.ruchij.core.kv.KeyValueStore
+import com.ruchij.core.kv.{KeySpacedKeyValueStore, KeyValueStore}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.{PubSub, Subscriber}
 import com.ruchij.core.types.Clock
@@ -65,7 +65,8 @@ object FallbackSync {
         schedulingService,
         DoobieUserDao,
         fallbackSyncDao,
-        transport
+        transport,
+        new KeySpacedKeyValueStore(ResolvedRequestKey.ResolvedRequestKeySpace, keyValueStore)
       )
 
     Stream(

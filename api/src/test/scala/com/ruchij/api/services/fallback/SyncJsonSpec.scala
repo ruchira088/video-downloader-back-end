@@ -78,4 +78,13 @@ class SyncJsonSpec extends AnyFlatSpec with Matchers {
       SyncJson.decodeScheduleRequest(body).isLeft mustBe true
     }
   }
+
+  it should "decode both RequestResolved contract fixtures back into what they encode" in {
+    List("request-resolved-scheduled.json", "request-resolved-rejected.json").foreach { fixture =>
+      val decoded = SyncJson.decodeRequestResolved(read(fixture))
+
+      decoded.map(reply => canonical(parse(SyncJson.encode(reply)).fold(throw _, identity))) mustBe
+        Right(canonical(json(fixture)))
+    }
+  }
 }
