@@ -663,3 +663,88 @@ class TestSyncApplier(unittest.TestCase):
         video = self._video()
         assert video is not None
         self.assertEqual(video["lockId"], "dead-invocation")
+
+    def test_a_conflict_on_the_final_put_retries_it_while_still_holding_the_lock(self):
+        user_ids = [f"user-{index:03d}" for index in range(120)]
+        real_transact = self.applier._client.transact_write_items
+        outcomes: list = [self._cancellation("TransactionConflict")]
+
+        def transact(**kwargs):
+            if outcomes:
+                raise outcomes.pop()
+            return real_transact(**kwargs)
+
+        with patch.object(
+            self.applier._client, "transact_write_items", side_effect=transact
+        ) as mock_transact:
+            result = self.applier.apply(sample_upsert(user_ids=user_ids))
+
+        self.assertEqual(result, ApplyResult.APPLIED)
+        self.assertEqual(mock_transact.call_count, 2)
+        self.assertEqual(len(self.sleeps), 1)
+        self.assertTrue(0 <= self.sleeps[0] <= SyncApplier.MAX_RETRY_JITTER_SECONDS)
+        video = self._video()
+        assert video is not None
+        self.assertFalse(video["deleted"])
+        self._assert_links_match("youtube-abc", user_ids, [])
+        self._assert_unlocked()
+
+    def test_persistent_conflicts_on_the_final_put_raise_after_bounded_retries(self):
+        user_ids = [f"user-{index:03d}" for index in range(120)]
+
+        with patch.object(
+            self.applier._client,
+            "transact_write_items",
+            side_effect=self._cancellation("TransactionConflict"),
+        ) as mock_transact:
+            with self.assertRaises(ConcurrentUpdateError):
+                self.applier.apply(sample_upsert(user_ids=user_ids))
+
+        self.assertEqual(mock_transact.call_count, SyncApplier.MAX_ATTEMPTS)
+
+    def test_a_final_put_that_lost_its_lock_to_a_takeover_is_not_retried(self):
+        user_ids = [f"user-{index:03d}" for index in range(120)]
+        real_transact = self.applier._client.transact_write_items
+
+        def taken_over(**kwargs):
+            self.table.update_item(
+                Key=video_key("youtube-abc"),
+                UpdateExpression="SET lockId = :id, lockedUntil = :until",
+                ExpressionAttributeValues={
+                    ":id": "another-invocation",
+                    ":until": epoch_seconds(FIXED_NOW + timedelta(minutes=1)),
+                },
+            )
+            return real_transact(**kwargs)
+
+        with patch.object(
+            self.applier._client, "transact_write_items", side_effect=taken_over
+        ) as mock_transact:
+            with self.assertRaises(ConcurrentUpdateError):
+                self.applier.apply(sample_upsert(user_ids=user_ids))
+
+        self.assertEqual(mock_transact.call_count, 1)
+        video = self._video()
+        assert video is not None
+        self.assertEqual(video["lockId"], "another-invocation")
+
+    def test_a_transaction_conflict_while_taking_the_lock_is_retried(self):
+        user_ids = [f"user-{index:03d}" for index in range(120)]
+        real_update = self.applier._table.update_item
+        conflict = self.applier._client.exceptions.TransactionConflictException(
+            {"Error": {"Code": "TransactionConflictException", "Message": "x"}},
+            "UpdateItem",
+        )
+        outcomes: list = [conflict]
+
+        def update(**kwargs):
+            if outcomes:
+                raise outcomes.pop()
+            return real_update(**kwargs)
+
+        with patch.object(self.applier._table, "update_item", side_effect=update):
+            result = self.applier.apply(sample_upsert(user_ids=user_ids))
+
+        self.assertEqual(result, ApplyResult.APPLIED)
+        self._assert_links_match("youtube-abc", user_ids, [])
+        self._assert_unlocked()

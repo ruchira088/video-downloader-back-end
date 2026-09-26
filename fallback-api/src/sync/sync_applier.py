@@ -278,7 +278,11 @@ class SyncApplier:
                     ":deleted": True,
                 },
             )
-        except self._client.exceptions.ConditionalCheckFailedException:
+        except (
+            self._client.exceptions.ConditionalCheckFailedException,
+            # Another invocation's transaction was writing the video item at that moment.
+            self._client.exceptions.TransactionConflictException,
+        ):
             return False
 
         self._batch_write(writes)
@@ -287,17 +291,41 @@ class SyncApplier:
         video_put["Put"]["ConditionExpression"] = f"{LOCK_ID} = :lockId"
         video_put["Put"]["ExpressionAttributeValues"] = {":lockId": lock_id}
 
-        try:
-            self._transact([video_put, *extra_writes])
-            return True
-        except self._client.exceptions.TransactionCanceledException as error:
-            if not _lost_a_race(error):
-                raise
-            # Our lock expired and was taken over (the new holder deletes any of our links it
-            # doesn't want, since they are in its pendingLinkKeys), or the extra writes met a
-            # conflict. Either way, retry; our own lock blocks that until it expires, after
-            # which an SQS redelivery takes it over.
-            return False
+        return self._put_holding_lock(
+            new_video_item["videoId"], lock_id, [video_put, *extra_writes]
+        )
+
+    def _put_holding_lock(
+        self, video_id: str, lock_id: str, writes: list[Write]
+    ) -> bool:
+        """Run the final transaction of a large apply, which drops our lock.
+
+        While the video item still holds our lock, only this transaction is retried: retrying
+        the whole apply would find the item locked -- by us -- and fail until the lock expired,
+        leaving a placeholder's links visible meanwhile.
+        """
+        for attempt in range(self.MAX_ATTEMPTS):
+            if attempt > 0:
+                self._sleep(random.uniform(0, self.MAX_RETRY_JITTER_SECONDS))
+
+            try:
+                self._transact(writes)
+                return True
+            except self._client.exceptions.TransactionCanceledException as error:
+                if not _lost_a_race(error):
+                    raise
+
+            current = self._table.get_item(
+                Key=video_key(video_id), ConsistentRead=True
+            ).get("Item")
+            if (current or {}).get(LOCK_ID) != lock_id:
+                # Our lock expired and was taken over; the new holder deletes any of our links
+                # it doesn't want, since they are in its pendingLinkKeys. Re-read and retry.
+                return False
+
+        # Still holding the lock, but every attempt met a conflict. An SQS redelivery takes the
+        # lock over once it expires.
+        raise ConcurrentUpdateError(video_id)
 
     def _unchanged_and_unlocked(
         self, current: Mapping[str, Any] | None
