@@ -6,7 +6,7 @@ import cats.~>
 import com.ruchij.api.services.detection.ApiDuplicateDetectionService
 import com.ruchij.api.services.fallback.FallbackSyncStubs.{FailingPublisher, RecordingPublisher}
 import com.ruchij.api.services.fallback.models.FallbackSyncRequest
-import com.ruchij.api.services.fallback.{FallbackSyncRequester, NoOpPublisher}
+import com.ruchij.api.services.fallback.{NoOpPublisher, PublishingFallbackSyncRequester}
 import com.ruchij.core.commands.ScanVideosCommand
 import com.ruchij.core.daos.duplicate.models.DuplicateVideo
 import com.ruchij.core.daos.permission.VideoPermissionDao
@@ -216,7 +216,8 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
       videoService,
       duplicateDetectionService,
       videoScanPublisher,
-      new FallbackSyncRequester[IO](fallbackSyncRequestPublisher),
+      // A long grace period, so a publish always completes before the call returns and the tests can check it
+      new PublishingFallbackSyncRequester[IO](fallbackSyncRequestPublisher, IO.unit, gracePeriod = 1.minute),
       sharedConfigService,
       videoDao,
       videoMetadataDao,

@@ -13,7 +13,7 @@ import com.ruchij.api.exceptions.{AuthorizationException, ResourceConflictExcept
 import com.ruchij.api.services.authentication.AuthenticationService.Password
 import com.ruchij.api.services.fallback.FallbackSyncStubs.{FailingPublisher, RecordingPublisher}
 import com.ruchij.api.services.fallback.models.FallbackSyncRequest
-import com.ruchij.api.services.fallback.{FallbackSyncRequester, NoOpPublisher}
+import com.ruchij.api.services.fallback.{NoOpPublisher, PublishingFallbackSyncRequester}
 import com.ruchij.api.services.hashing.PasswordHashingService
 import com.ruchij.core.daos.permission.VideoPermissionDao
 import com.ruchij.core.daos.permission.models.VideoPermission
@@ -28,6 +28,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import java.util.UUID
+import scala.concurrent.duration._
 
 class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
 
@@ -77,7 +78,8 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
       credentialsResetTokenDao,
       videoTitleDao,
       videoPermissionDao,
-      new FallbackSyncRequester[IO](fallbackSyncRequestPublisher)
+      // A long grace period, so a publish always completes before the call returns and the tests can check it
+      new PublishingFallbackSyncRequester[IO](fallbackSyncRequestPublisher, IO.unit, gracePeriod = 1.minute)
     )
   }
 

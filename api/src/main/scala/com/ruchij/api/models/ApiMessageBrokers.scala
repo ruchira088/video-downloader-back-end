@@ -1,6 +1,5 @@
 package com.ruchij.api.models
 
-import com.ruchij.api.services.fallback.models.FallbackSyncRequest
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.core.commands.ScanVideosCommand
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
@@ -15,6 +14,5 @@ final case class ApiMessageBrokers[F[_]](
   workerStatusUpdatesPublisher: Publisher[F, WorkerStatusUpdate],
   scanVideosCommandPublisher: Publisher[F, ScanVideosCommand],
   httpMetricsPublisher: Publisher[F, HttpMetric],
-  videoWatchMetricsPublisher: Publisher[F, VideoWatchMetric],
-  fallbackSyncRequestPublisher: Publisher[F, FallbackSyncRequest]
+  videoWatchMetricsPublisher: Publisher[F, VideoWatchMetric]
 )

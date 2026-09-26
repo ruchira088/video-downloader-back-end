@@ -4,7 +4,7 @@ import cats.data.NonEmptyList
 import cats.effect.IO
 import cats.~>
 import com.ruchij.api.services.config.models.ApiConfigKey
-import com.ruchij.api.services.fallback.FallbackSyncRequester
+import com.ruchij.api.services.fallback.PublishingFallbackSyncRequester
 import com.ruchij.api.services.fallback.models.FallbackSyncRequest
 import com.ruchij.api.services.scheduling.models.ScheduledVideoResult
 import com.ruchij.core.daos.permission.VideoPermissionDao
@@ -183,7 +183,8 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
       videoAnalysisService,
       scheduledVideoDownloadPublisher,
       workerStatusPublisher,
-      new FallbackSyncRequester[IO](fallbackSyncRequestPublisher),
+      // A long grace period, so a publish always completes before the call returns and the tests can check it
+      new PublishingFallbackSyncRequester[IO](fallbackSyncRequestPublisher, IO.unit, gracePeriod = 1.minute),
       configurationService,
       schedulingDao,
       videoTitleDao,

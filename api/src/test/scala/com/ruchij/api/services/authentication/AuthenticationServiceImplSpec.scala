@@ -10,8 +10,7 @@ import com.ruchij.api.external.containers.ContainerApiResourcesProvider
 import com.ruchij.api.services.authentication.AuthenticationService.{Password, Secret}
 import com.ruchij.api.services.authentication.models.AuthenticationToken
 import com.ruchij.api.services.authentication.models.AuthenticationToken.{AuthenticationKeySpace, AuthenticationTokenKey}
-import com.ruchij.api.services.fallback.models.FallbackSyncRequest
-import com.ruchij.api.services.fallback.{FallbackSyncRequester, NoOpPublisher}
+import com.ruchij.api.services.fallback.FallbackSyncRequester
 import com.ruchij.api.services.hashing.BCryptPasswordHashingService
 import com.ruchij.api.services.user.{UserService, UserServiceImpl}
 import com.ruchij.api.test.matchers.haveInstant
@@ -70,7 +69,7 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
                 DoobieCredentialsResetTokenDao,
                 DoobieVideoTitleDao,
                 DoobieVideoPermissionDao,
-                new FallbackSyncRequester[IO](new NoOpPublisher[IO, FallbackSyncRequest])
+                FallbackSyncRequester.noOp[IO]
               )
 
             testCase(randomGenerator, clock, userService, authenticationService)

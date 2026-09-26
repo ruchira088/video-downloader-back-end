@@ -23,7 +23,13 @@ import com.ruchij.api.services.config.models.ApiConfigKey.ApiConfigKeySpace
 import com.ruchij.api.services.detection.ApiDuplicateDetectionServiceImpl
 import com.ruchij.api.services.fallback.aws.FallbackSyncAwsClients
 import com.ruchij.api.services.fallback.models.FallbackSyncRequest
-import com.ruchij.api.services.fallback.{FallbackSync, FallbackSyncRequester, FallbackSyncResources, NoOpPublisher}
+import com.ruchij.api.services.fallback.{
+  FallbackSync,
+  FallbackSyncCoordination,
+  FallbackSyncRequester,
+  FallbackSyncResources,
+  PublishingFallbackSyncRequester
+}
 import com.ruchij.api.services.hashing.BCryptPasswordHashingService
 import com.ruchij.api.services.health.HealthServiceImpl
 import com.ruchij.api.services.health.models.kv.HealthCheckKey
@@ -51,7 +57,7 @@ import com.ruchij.core.kv.codecs.KVDecoder._
 import com.ruchij.core.kv.codecs.KVEncoder._
 import com.ruchij.core.kv.{KeySpacedKeyValueStore, KeyValueStore, RedisKeyValueStore}
 import com.ruchij.core.logging.Logger
-import com.ruchij.core.messaging.{PubSub, Publisher}
+import com.ruchij.core.messaging.PubSub
 import com.ruchij.core.messaging.models.{HttpMetric, VideoWatchMetric}
 import com.ruchij.core.monitoring.Sentry
 import com.ruchij.core.services.cli.CliCommandRunnerImpl
@@ -146,10 +152,7 @@ object ApiApp extends IOApp {
         workerStatusUpdatePublisher,
         scanVideoCommandPublisher,
         httpMetricsPublisher,
-        videoWatchMetricsPublisher,
-        fallbackSyncResources.fold[Publisher[F, FallbackSyncRequest]](new NoOpPublisher[F, FallbackSyncRequest])(
-          _.fallbackSyncRequestPubSub
-        )
+        videoWatchMetricsPublisher
       )
 
       httpApp <- Resource.eval {
@@ -249,7 +252,14 @@ object ApiApp extends IOApp {
     val apiDuplicateDetectionService =
       new ApiDuplicateDetectionServiceImpl[F, ConnectionIO](DoobieDuplicateVideoDao, DoobieVideoPerceptualHashDao)
 
-    val fallbackSyncRequester = new FallbackSyncRequester[F](messageBrokers.fallbackSyncRequestPublisher)
+    // Sync disabled: a requester that does nothing, so the services behave exactly as they did before fallback sync
+    val fallbackSyncRequester: FallbackSyncRequester[F] =
+      fallbackSyncResources.fold(FallbackSyncRequester.noOp[F]) { resources =>
+        new PublishingFallbackSyncRequester[F](
+          resources.fallbackSyncRequestPubSub,
+          new FallbackSyncCoordination[F](keyValueStore).markReconcileNeeded
+        )
+      }
 
     val apiVideoService = new ApiVideoServiceImpl[F, ConnectionIO](
       videoService,
