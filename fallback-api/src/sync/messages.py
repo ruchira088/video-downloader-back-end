@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated, Any, Literal
 
 from pydantic import (
@@ -16,8 +17,13 @@ from src.sync.timestamps import iso_micros, require_iso_micros
 
 def _require_fixed_width(value: Any) -> Any:
     # Strings (from JSON) must be in the exact shared format; datetimes built in code are
-    # accepted as they are and formatted on the way out.
-    return require_iso_micros(value) if isinstance(value, str) else value
+    # accepted as they are and formatted on the way out. Anything else, such as a JSON number
+    # that pydantic would read as a Unix time, is rejected.
+    if isinstance(value, str):
+        return require_iso_micros(value)
+    if isinstance(value, datetime):
+        return value
+    raise ValueError(f"Timestamp {value!r} is not a yyyy-MM-ddTHH:mm:ss.SSSSSSZ string")
 
 
 Timestamp = Annotated[

@@ -139,6 +139,16 @@ class TestMessages(unittest.TestCase):
                 with self.assertRaises(ValidationError):
                     parse_main_to_fallback_message(json.dumps(body))
 
+    def test_timestamps_that_are_not_strings_are_rejected(self):
+        # pydantic would otherwise read a number as a Unix time
+        for captured_at in [1790000000, 1790000000.5, None, True]:
+            body = json.loads(_fixture("scheduled-video-removal.json"))
+            body["capturedAt"] = captured_at
+
+            with self.subTest(captured_at=captured_at):
+                with self.assertRaises(ValidationError):
+                    parse_main_to_fallback_message(json.dumps(body))
+
     def test_contract_fixtures_carry_non_zero_microseconds(self):
         upsert = parse_main_to_fallback_message(_fixture("scheduled-video-upsert.json"))
 
