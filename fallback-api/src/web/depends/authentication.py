@@ -1,23 +1,26 @@
-from fastapi import Header, HTTPException
+from collections.abc import Callable
 
-from src.services.authentication_service import (
-    AuthenticationService,
-    get_authentication_service,
-)
+from fastapi import Depends, Header, HTTPException
+
+from src.services.authentication_service import AuthenticationService
 from src.services.models.user import User
 
-authentication_service: AuthenticationService = get_authentication_service()
 
+def bearer_token(authorization: str = Header(...)) -> str:
+    scheme, _, token = authorization.partition(" ")
 
-def get_authenticated_user(authorization: str = Header(...)) -> User:
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Authorization header not found")
-
-    try:
-        token = authorization.split(" ")[1]
-    except IndexError:
+    if scheme.lower() != "bearer" or not token:
         raise HTTPException(
             status_code=401, detail="Invalid Authorization header format"
         )
 
-    return authentication_service.authenticate(token)
+    return token
+
+
+def authenticated_user_dependency(
+    authentication_service: AuthenticationService,
+) -> Callable[..., User]:
+    def get_authenticated_user(token: str = Depends(bearer_token)) -> User:
+        return authentication_service.authenticate(token)
+
+    return get_authenticated_user

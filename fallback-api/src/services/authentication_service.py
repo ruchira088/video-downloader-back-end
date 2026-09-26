@@ -104,7 +104,3 @@ class CognitoAuthenticationService(AuthenticationService):
             raise InvalidAuthenticationTokenException()
 
         return user
-
-
-def get_authentication_service() -> AuthenticationService:
-    pass
