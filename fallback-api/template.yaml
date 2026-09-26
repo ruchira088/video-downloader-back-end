@@ -238,9 +238,10 @@ Resources:
                   - sqs:ReceiveMessage
                   - sqs:DeleteMessage
                 Resource: !GetAtt FallbackToMainQueue.Arn
+              # The main side's reconcile scans only the sparse GSI1, which holds the live videos.
               - Effect: Allow
                 Action: dynamodb:Scan
-                Resource: !GetAtt ScheduledVideosTable.Arn
+                Resource: !Sub "${ScheduledVideosTable.Arn}/index/GSI1"
 
   UserPool:
     Type: AWS::Cognito::UserPool
