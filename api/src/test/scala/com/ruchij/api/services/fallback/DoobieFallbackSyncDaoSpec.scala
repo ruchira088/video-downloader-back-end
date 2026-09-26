@@ -15,7 +15,7 @@ import com.ruchij.core.external.containers.ContainerCoreResourcesProvider
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.types.Clock
-import doobie.ConnectionIO
+import doobie.{ConnectionIO, Fragment}
 import doobie.free.{connection => FC}
 import doobie.implicits._
 import org.http4s.Uri
@@ -80,27 +80,51 @@ class DoobieFallbackSyncDaoSpec extends AnyFlatSpec with Matchers {
 
   private val dao = new DoobieFallbackSyncDao(DoobieSchedulingDao, DoobieVideoPermissionDao)
 
-  private def checkCurrentTimestamp(transaction: ConnectionIO ~> IO): IO[Unit] =
+  /** The database's own seconds since the epoch at the transaction's start, which no time zone can shift. */
+  private val epochSeconds: ConnectionIO[BigDecimal] =
+    sql"SELECT EXTRACT(EPOCH FROM CURRENT_TIMESTAMP)".query[BigDecimal].unique
+
+  // Far from UTC, and from any zone a JVM or CI machine is likely to run in, at +12:45 or +13:45
+  private val SessionTimeZone = "Pacific/Chatham"
+
+  /** `setSessionTimeZone` moves the session away from UTC before reading, so a decoding that shifts the timestamp by
+    * the session's or the JVM's offset is caught even on a machine running in UTC, where both offsets are zero and
+    * comparing with the JVM clock alone could not tell. */
+  private def checkCurrentTimestamp(setSessionTimeZone: ConnectionIO[Unit])(transaction: ConnectionIO ~> IO)
+    : IO[Unit] =
     for {
       before <- IO.realTimeInstant
-      (first, second) <- transaction {
-        dao.currentTimestamp.flatMap(first => FC.delay(Thread.sleep(20)) *> dao.currentTimestamp.map(first -> _))
+      (first, second, epoch) <- transaction {
+        for {
+          _ <- setSessionTimeZone
+          first <- dao.currentTimestamp
+          _ <- FC.delay(Thread.sleep(20))
+          second <- dao.currentTimestamp
+          epoch <- epochSeconds
+        } yield (first, second, epoch)
       }
       after <- IO.realTimeInstant
       later <- transaction(dao.currentTimestamp)
     } yield {
       first.isBefore(before.minusSeconds(60)) mustBe false
       first.isAfter(after.plusSeconds(60)) mustBe false
+      // The same instant as the database's zone-free epoch seconds, to well within any whole-minute offset
+      (BigDecimal(first.getEpochSecond) + BigDecimal(first.getNano) / 1000000000 - epoch).abs must be <
+        BigDecimal("0.001")
       // The transaction's start time, stable within one transaction
       second mustBe first
       later.isAfter(first) mustBe true
     }
 
   "DoobieFallbackSyncDao.currentTimestamp" should "read the database clock on H2" in runIO {
-    new EmbeddedCoreResourcesProvider[IO].transactor.use(checkCurrentTimestamp)
+    new EmbeddedCoreResourcesProvider[IO].transactor.use {
+      checkCurrentTimestamp(Fragment.const(s"SET TIME ZONE '$SessionTimeZone'").update.run.void)
+    }
   }
 
   it should "read the database clock on Postgres" in runIO {
-    new ContainerCoreResourcesProvider[IO].transactor.use(checkCurrentTimestamp)
+    new ContainerCoreResourcesProvider[IO].transactor.use {
+      checkCurrentTimestamp(Fragment.const(s"SET LOCAL TIME ZONE '$SessionTimeZone'").update.run.void)
+    }
   }
 }
