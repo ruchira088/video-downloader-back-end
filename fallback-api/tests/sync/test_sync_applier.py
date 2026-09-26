@@ -1,5 +1,5 @@
 import unittest
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 from boto3.dynamodb.conditions import Key
 from moto import mock_aws
@@ -206,6 +206,48 @@ class TestSyncApplier(unittest.TestCase):
         self.assertNotIn(
             "Item", self.table.get_item(Key=pending_key("user-1", "missing"))
         )
+
+    def test_rescheduled_video_replaces_the_users_old_link(self):
+        self.applier.apply(sample_upsert())
+        new_scheduled_at = datetime(2026, 9, 26, 10, 0, tzinfo=UTC)
+
+        self.applier.apply(
+            sample_upsert(captured_at=later(1), scheduled_at=new_scheduled_at)
+        )
+
+        links = self._links("user-1")
+        self.assertEqual(len(links), 1)
+        self.assertEqual(links[0]["SK"], "VIDEO#2026-09-26T10:00:00.000Z#youtube-abc")
+
+    def test_stale_removal_after_reschedule_does_not_leave_a_duplicate_link(self):
+        self.applier.apply(sample_upsert())
+        new_scheduled_at = datetime(2026, 9, 26, 10, 0, tzinfo=UTC)
+
+        applied = self.applier.apply(
+            sample_upsert(captured_at=later(5), scheduled_at=new_scheduled_at)
+        )
+        skipped = self.applier.apply(
+            ScheduledVideoRemoval(video_id="youtube-abc", captured_at=later(1))
+        )
+
+        self.assertEqual(applied, ApplyResult.APPLIED)
+        self.assertEqual(skipped, ApplyResult.SKIPPED)
+        for user_id in ["user-1", "user-2"]:
+            links = self._links(user_id)
+            self.assertEqual(len(links), 1)
+            self.assertEqual(
+                links[0]["SK"], "VIDEO#2026-09-26T10:00:00.000Z#youtube-abc"
+            )
+
+    def test_added_user_gets_a_link_without_disturbing_others(self):
+        self.applier.apply(sample_upsert(user_ids=["user-1"]))
+
+        self.applier.apply(
+            sample_upsert(captured_at=later(1), user_ids=["user-1", "user-2"])
+        )
+
+        self.assertEqual(len(self._links("user-1")), 1)
+        self.assertEqual(len(self._links("user-2")), 1)
 
     def test_more_writes_than_a_transaction_allows_raises(self):
         user_ids = [f"user-{index}" for index in range(100)]

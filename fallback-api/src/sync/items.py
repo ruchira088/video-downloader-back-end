@@ -90,14 +90,17 @@ def tombstone_item(
 def live_link_keys(
     current: Mapping[str, Any] | None,
     video_id: str,
-    keep: frozenset[str] = frozenset(),
 ) -> list[dict[str, str]]:
-    """Keys of the user links a stored video item currently has, except those in `keep`."""
+    """Keys of every user link a stored video item currently has.
+
+    Uses the video's own `scheduledAt`, so if a video was rescheduled (same `videoId`, new
+    `scheduledAt`) these are the *old* keys -- callers must diff by key, not by user id, or a
+    rescheduled link is never cleaned up.
+    """
     if current is None or current.get("deleted"):
         return []
 
     return [
         link_key(user_id, current["scheduledAt"], video_id)
         for user_id in sorted(current["userIds"])
-        if user_id not in keep
     ]

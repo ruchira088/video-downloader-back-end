@@ -9,6 +9,7 @@ from src.sync.items import (
     REJECTED_TTL,
     epoch_seconds,
     link_item,
+    link_key,
     live_link_keys,
     pending_key,
     tombstone_item,
@@ -87,6 +88,11 @@ class SyncApplier:
             )
 
         new_users = frozenset(upsert.user_ids)
+        scheduled_at = iso_millis(upsert.scheduled_at)
+        new_keys = {
+            _key_tuple(link_key(user_id, scheduled_at, upsert.video_id))
+            for user_id in new_users
+        }
 
         def build(
             current: Mapping[str, Any] | None,
@@ -96,7 +102,8 @@ class SyncApplier:
             ]
             writes += [
                 self._delete(key)
-                for key in live_link_keys(current, upsert.video_id, keep=new_users)
+                for key in live_link_keys(current, upsert.video_id)
+                if _key_tuple(key) not in new_keys
             ]
             return writes, video_item(upsert)
 
@@ -193,3 +200,7 @@ class SyncApplier:
 def _condition_check_failed(error: Exception) -> bool:
     reasons = getattr(error, "response", {}).get("CancellationReasons", [])
     return any(reason.get("Code") == "ConditionalCheckFailed" for reason in reasons)
+
+
+def _key_tuple(key: dict[str, str]) -> tuple[str, str]:
+    return key["PK"], key["SK"]
