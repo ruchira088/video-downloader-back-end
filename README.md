@@ -196,16 +196,34 @@ Copy `key.pem` and `cert.pem` to `nginx/ssl/`
 | `FALLBACK_SYNC_FALLBACK_TO_MAIN_QUEUE_URL` | SQS queue URL for requests coming back from the fallback | - |
 | `FALLBACK_SYNC_TABLE_NAME` | DynamoDB table holding the fallback's copy | - |
 | `FALLBACK_SYNC_AWS_REGION` | AWS region of the queues and table | - |
-| `FALLBACK_SYNC_AWS_ENDPOINT_URL` | AWS endpoint override (e.g. a local emulator) | - |
+| `FALLBACK_SYNC_AWS_ENDPOINT_URL` | Endpoint override for both SQS and DynamoDB (e.g. a local emulator) | - |
+| `FALLBACK_SYNC_RECONCILE_ALLOW_MASS_REMOVAL` | Let the reconcile send a mass removal (see below) | `false` |
 
-With fallback sync enabled, the API also needs AWS credentials from the default provider chain -- normally
-`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` for the fallback stack's `MainSideSyncUser`. When enabling it:
+The queue URLs and table name are outputs of the fallback's SAM stack (`fallback-api/`): `MainToFallbackQueueUrl`,
+`FallbackToMainQueueUrl` and `ScheduledVideosTableName`. `FALLBACK_SYNC_AWS_ENDPOINT_URL` applies to both clients;
+to point just one of them elsewhere, leave it unset and use the SDK's own `AWS_ENDPOINT_URL_SQS` or
+`AWS_ENDPOINT_URL_DYNAMODB` instead.
+
+With fallback sync enabled, the API also needs AWS credentials from the default provider chain for the stack's
+`MainSideSyncUser`. The stack creates the user but never its access keys: create them by hand (IAM console or
+`aws iam create-access-key --user-name <MainSideSyncUserName output>`) and pass them as `AWS_ACCESS_KEY_ID` and
+`AWS_SECRET_ACCESS_KEY`, or as a static profile in `~/.aws/credentials`. SSO and web-identity credentials are not
+supported: the API ships without the SDK's `sso`, `ssooidc` and `sts` modules they need. When enabling it:
 
 - Point each fallback stack at exactly one database. The reconcile removes every video in the table that its own
   database doesn't have, so two databases (e.g. a dev branch and production) sharing a table remove each other's
   videos.
-- With `PUBSUB_TYPE=Kafka`, create the `<KAFKA_PREFIX>-fallback-sync-requests` topic first if topic auto-creation is
-  off.
+- With `PUBSUB_TYPE=Kafka`, **always** create the `<KAFKA_PREFIX>-fallback-sync-requests` topic before enabling
+  sync, even when topic auto-creation is on: its consumer starts from the latest offset, so an auto-created topic
+  loses the message that created it. While the topic is missing, publishes block for up to a minute, and the API
+  pauses sync requests and flags reconciles instead.
+- A reconcile withholds its removals (logging an error, still sending upserts) when the database returns no
+  videos while the fallback holds some, or when it would remove more than 50 videos or 20% of the fallback's,
+  whichever is more. If such a removal is intended, set `FALLBACK_SYNC_RECONCILE_ALLOW_MASS_REMOVAL=true` for one
+  run (a restart runs a reconcile), then unset it.
+- To be e-mailed when a sync message lands in a dead-letter queue, deploy the stack with its `AlarmEmail`
+  parameter, then confirm the SNS subscription from the e-mail AWS sends to that address; until then no alarm is
+  delivered.
 
 #### Batch Service
 
