@@ -231,7 +231,6 @@ Resources:
                 Action:
                   - sqs:ReceiveMessage
                   - sqs:DeleteMessage
-                  - sqs:ChangeMessageVisibility
                 Resource: !GetAtt FallbackToMainQueue.Arn
               - Effect: Allow
                 Action: dynamodb:Scan

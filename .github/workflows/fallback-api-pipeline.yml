@@ -43,6 +43,9 @@ jobs:
       - name: Type check
         run: mypy src
 
+      - name: Lint SAM template
+        run: cfn-lint template.yaml
+
       - name: Execute test suite
         run: pytest -v .
 
