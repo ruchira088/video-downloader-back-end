@@ -15,6 +15,7 @@ scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-Xfatal-warning
 Compile / scalacOptions += "-Wnonunit-statement"
 Test / scalacOptions -= "-Wnonunit-statement"
 resolvers ++= Seq("Confluent" at "https://packages.confluent.io/maven/", "jitpack" at "https://jitpack.io")
+dependencyOverrides ++= nettyOverrides
 addCompilerPlugin(kindProjector)
 addCompilerPlugin(betterMonadicFor)
 Test / parallelExecution := true

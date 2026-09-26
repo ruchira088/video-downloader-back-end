@@ -103,6 +103,27 @@ object Dependencies
 
   lazy val awsDynamoDb = "software.amazon.awssdk" % "dynamodb" % AwsSdkVersion
 
+  // The AWS SDK's netty-nio-client and lettuce (under redis4cats) each pull in Netty at a different 4.1.x version,
+  // and eviction alone would leave the DNS resolver modules that only lettuce uses on the older one. Pinning every
+  // Netty module keeps them on a single version.
+  private val NettyVersion = "4.1.138.Final"
+
+  lazy val nettyOverrides: Seq[ModuleID] =
+    Seq(
+      "netty-buffer",
+      "netty-codec",
+      "netty-codec-dns",
+      "netty-codec-http",
+      "netty-codec-http2",
+      "netty-common",
+      "netty-handler",
+      "netty-resolver",
+      "netty-resolver-dns",
+      "netty-transport",
+      "netty-transport-classes-epoll",
+      "netty-transport-native-unix-common"
+    ).map(module => "io.netty" % module % NettyVersion)
+
   lazy val logging: Seq[ModuleID] = Seq(scalaLogging, logbackClassic, logstashLogbackEncoder)
 
   lazy val circe: Seq[ModuleID] = Seq(circeGeneric, circeParser)
