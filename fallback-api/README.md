@@ -46,7 +46,8 @@ host's keys signed.
 Bearer tokens are verified locally before they are used: the signature against the user pool's JWKS
 (`https://cognito-idp.<region>.amazonaws.com/<userPoolId>/.well-known/jwks.json`, cached), then the issuer, the
 `client_id` and `token_use = access` claims, and the expiry. Cognito's GetUser is still called afterwards, so a revoked
-token is rejected too.
+token is rejected too. A JWKS that can't be fetched or read, or a Cognito internal error, is answered with a 503, and
+Cognito throttling with a 429, rather than a 401.
 
 ## Deployment
 

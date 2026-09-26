@@ -150,10 +150,24 @@ class TestJwksSigningKeyResolver(unittest.TestCase):
 
         with patch("urllib.request.build_opener", return_value=opener):
             resolve = jwks_signing_key_resolver(JWKS_URL)
-            with self.assertRaises(jwt.PyJWKClientConnectionError):
+            with self.assertRaises(ServiceUnavailableException):
                 resolve(_token(headers={"kid": "key-1"}))
 
         self.assertEqual(opener.open.call_args.kwargs["timeout"], 5)
+
+    def test_a_jwks_endpoint_returning_a_broken_body_is_reported_as_unavailable(self):
+        for body in [b"<html>Bad gateway</html>", b"[]", b'{"keys": []}']:
+            opener = MagicMock()
+            opener.open.side_effect = lambda *args, body=body, **kwargs: io.BytesIO(
+                body
+            )
+
+            with (
+                self.subTest(body=body),
+                patch("urllib.request.build_opener", return_value=opener),
+                self.assertRaises(ServiceUnavailableException),
+            ):
+                jwks_signing_key_resolver(JWKS_URL)(_token(headers={"kid": "key-1"}))
 
     def test_an_unknown_kid_refetches_the_jwks_at_most_once_a_minute(self):
         jwks = {"keys": [{**_public_jwk(), "kid": "key-1", "use": "sig"}]}

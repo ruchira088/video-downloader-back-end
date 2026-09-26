@@ -35,7 +35,26 @@ def jwks_signing_key_resolver(jwks_url: str) -> SigningKeyResolver:
         cooldown_duration=UNKNOWN_KID_REFETCH_COOLDOWN_SECONDS,
     )
 
-    return lambda token: jwks_client.get_signing_key_from_jwt(token).key
+    def resolve(token: str) -> Any:
+        # Load the key set (or reuse the cached one) before looking the kid up, so a broken
+        # endpoint, e.g. one answering 200 with an HTML page or with no keys, is a 503 rather than
+        # being mistaken for a token whose kid isn't in the set.
+        try:
+            jwks_client.get_signing_keys()
+        except (jwt.PyJWTError, ValueError) as error:
+            raise ServiceUnavailableException(
+                "Unable to load the user pool's signing keys"
+            ) from error
+
+        try:
+            return jwks_client.get_signing_key_from_jwt(token).key
+        except (jwt.PyJWKSetError, ValueError) as error:
+            # The refetch for an unknown kid got a broken key set
+            raise ServiceUnavailableException(
+                "Unable to load the user pool's signing keys"
+            ) from error
+
+    return resolve
 
 
 class CognitoAccessTokenVerifier:
