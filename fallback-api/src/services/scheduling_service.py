@@ -62,7 +62,7 @@ def is_http_url(value: str) -> bool:
         # IPv6 host such as "http://[::1"; reading .port also rejects a port out of range.
         value.encode("utf-8")
         parsed = urlparse(value)
-        parsed.port
+        _ = parsed.port
     except ValueError:
         return False
 

@@ -14,10 +14,10 @@ from src.sync.items import (
 )
 from src.sync.messages import (
     RejectedOutcome,
-    to_json,
     RequestResolved,
     ScheduledOutcome,
     ScheduledVideoRemoval,
+    to_json,
 )
 from src.sync.sqs_batch import process_sqs_batch
 from src.sync.sync_applier import (
@@ -422,13 +422,15 @@ class TestSyncApplier(unittest.TestCase):
         )
 
         # The crashed invocation writes its links, then dies before its final put.
-        with patch.object(
-            applier._client,
-            "transact_write_items",
-            side_effect=RuntimeError("Lambda timed out"),
+        with (
+            patch.object(
+                applier._client,
+                "transact_write_items",
+                side_effect=RuntimeError("Lambda timed out"),
+            ),
+            self.assertRaises(RuntimeError),
         ):
-            with self.assertRaises(RuntimeError):
-                applier.apply(sample_upsert(user_ids=crashed, captured_at=later(1)))
+            applier.apply(sample_upsert(user_ids=crashed, captured_at=later(1)))
 
         clock["now"] = FIXED_NOW + timedelta(hours=1)
         applier.apply(sample_upsert(user_ids=["user-000"], captured_at=later(2)))
@@ -474,13 +476,15 @@ class TestSyncApplier(unittest.TestCase):
         # Advance the real stored state so the patched-in stale read never matches it.
         self.applier.apply(sample_upsert(captured_at=later(1), title="Real"))
 
-        with patch.object(
-            self.applier._table, "get_item", return_value={"Item": stale_current}
-        ) as mock_get_item:
-            with self.assertRaises(ConcurrentUpdateError):
-                self.applier.apply(
-                    sample_upsert(captured_at=later(5), title="Never applied")
-                )
+        with (
+            patch.object(
+                self.applier._table, "get_item", return_value={"Item": stale_current}
+            ) as mock_get_item,
+            self.assertRaises(ConcurrentUpdateError),
+        ):
+            self.applier.apply(
+                sample_upsert(captured_at=later(5), title="Never applied")
+            )
 
         self.assertEqual(mock_get_item.call_count, SyncApplier.MAX_ATTEMPTS)
 
@@ -499,13 +503,15 @@ class TestSyncApplier(unittest.TestCase):
             "TransactWriteItems",
         )
 
-        with patch.object(
-            self.applier._client, "transact_write_items", side_effect=error
-        ) as mock_transact:
-            with self.assertRaises(exception_type):
-                self.applier.apply(
-                    sample_upsert(captured_at=later(1), title="Never applied")
-                )
+        with (
+            patch.object(
+                self.applier._client, "transact_write_items", side_effect=error
+            ) as mock_transact,
+            self.assertRaises(exception_type),
+        ):
+            self.applier.apply(
+                sample_upsert(captured_at=later(1), title="Never applied")
+            )
 
         self.assertEqual(mock_transact.call_count, 1)
 
@@ -516,9 +522,11 @@ class TestSyncApplier(unittest.TestCase):
             sample_upsert(captured_at=future),
             ScheduledVideoRemoval(video_id="youtube-abc", captured_at=future),
         ]:
-            with self.subTest(message=type(message).__name__):
-                with self.assertRaises(FutureCapturedAtError):
-                    self.applier.apply(message)
+            with (
+                self.subTest(message=type(message).__name__),
+                self.assertRaises(FutureCapturedAtError),
+            ):
+                self.applier.apply(message)
 
         self.assertIsNone(self._video())
 
@@ -580,11 +588,13 @@ class TestSyncApplier(unittest.TestCase):
         # Another invocation repairs the item after we read the corrupted copy.
         self.applier.apply(sample_upsert(captured_at=later(10), title="Newest"))
 
-        with patch.object(
-            self.applier._table, "get_item", return_value={"Item": corrupted}
+        with (
+            patch.object(
+                self.applier._table, "get_item", return_value={"Item": corrupted}
+            ),
+            self.assertRaises(ConcurrentUpdateError),
         ):
-            with self.assertRaises(ConcurrentUpdateError):
-                self.applier.apply(sample_upsert(captured_at=later(1), title="Old"))
+            self.applier.apply(sample_upsert(captured_at=later(1), title="Old"))
 
         video = self._video()
         assert video is not None
@@ -666,13 +676,15 @@ class TestSyncApplier(unittest.TestCase):
     def test_persistent_transaction_conflicts_raise_concurrent_update_error(self):
         self.applier.apply(sample_upsert(captured_at=T0))
 
-        with patch.object(
-            self.applier._client,
-            "transact_write_items",
-            side_effect=self._cancellation("TransactionConflict"),
-        ) as mock_transact:
-            with self.assertRaises(ConcurrentUpdateError):
-                self.applier.apply(sample_upsert(captured_at=later(1)))
+        with (
+            patch.object(
+                self.applier._client,
+                "transact_write_items",
+                side_effect=self._cancellation("TransactionConflict"),
+            ) as mock_transact,
+            self.assertRaises(ConcurrentUpdateError),
+        ):
+            self.applier.apply(sample_upsert(captured_at=later(1)))
 
         self.assertEqual(mock_transact.call_count, SyncApplier.MAX_ATTEMPTS)
         self.assertEqual(len(self.sleeps), SyncApplier.MAX_ATTEMPTS - 1)
@@ -691,11 +703,13 @@ class TestSyncApplier(unittest.TestCase):
             },
         )
 
-        with patch.object(
-            self.applier._table, "get_item", return_value={"Item": unlocked_read}
+        with (
+            patch.object(
+                self.applier._table, "get_item", return_value={"Item": unlocked_read}
+            ),
+            self.assertRaises(ConcurrentUpdateError),
         ):
-            with self.assertRaises(ConcurrentUpdateError):
-                self.applier.apply(sample_upsert(captured_at=later(1)))
+            self.applier.apply(sample_upsert(captured_at=later(1)))
 
         video = self._video()
         assert video is not None
@@ -729,13 +743,15 @@ class TestSyncApplier(unittest.TestCase):
     def test_persistent_conflicts_on_the_final_put_raise_after_bounded_retries(self):
         user_ids = [f"user-{index:03d}" for index in range(120)]
 
-        with patch.object(
-            self.applier._client,
-            "transact_write_items",
-            side_effect=self._cancellation("TransactionConflict"),
-        ) as mock_transact:
-            with self.assertRaises(ConcurrentUpdateError):
-                self.applier.apply(sample_upsert(user_ids=user_ids))
+        with (
+            patch.object(
+                self.applier._client,
+                "transact_write_items",
+                side_effect=self._cancellation("TransactionConflict"),
+            ) as mock_transact,
+            self.assertRaises(ConcurrentUpdateError),
+        ):
+            self.applier.apply(sample_upsert(user_ids=user_ids))
 
         self.assertEqual(mock_transact.call_count, SyncApplier.MAX_ATTEMPTS)
 
@@ -754,11 +770,13 @@ class TestSyncApplier(unittest.TestCase):
             )
             return real_transact(**kwargs)
 
-        with patch.object(
-            self.applier._client, "transact_write_items", side_effect=taken_over
-        ) as mock_transact:
-            with self.assertRaises(ConcurrentUpdateError):
-                self.applier.apply(sample_upsert(user_ids=user_ids))
+        with (
+            patch.object(
+                self.applier._client, "transact_write_items", side_effect=taken_over
+            ) as mock_transact,
+            self.assertRaises(ConcurrentUpdateError),
+        ):
+            self.applier.apply(sample_upsert(user_ids=user_ids))
 
         self.assertEqual(mock_transact.call_count, 1)
         video = self._video()
@@ -772,15 +790,15 @@ class TestSyncApplier(unittest.TestCase):
         user_ids = [f"user-{index:03d}" for index in range(120)]
 
         # The invocation dies after writing its links, before its final put.
-        with patch.object(
-            self.applier._client,
-            "transact_write_items",
-            side_effect=RuntimeError("Lambda timed out"),
+        with (
+            patch.object(
+                self.applier._client,
+                "transact_write_items",
+                side_effect=RuntimeError("Lambda timed out"),
+            ),
+            self.assertRaises(RuntimeError),
         ):
-            with self.assertRaises(RuntimeError):
-                self.applier.apply(
-                    sample_upsert(user_ids=user_ids, captured_at=later(1))
-                )
+            self.applier.apply(sample_upsert(user_ids=user_ids, captured_at=later(1)))
 
         locked = self._video()
         assert locked is not None

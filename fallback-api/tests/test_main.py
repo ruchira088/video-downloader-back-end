@@ -34,7 +34,8 @@ class TestCreateHttpApp(unittest.TestCase):
             )
         )
 
-        paths = {route.path for route in app.routes}
+        # The OpenAPI schema lists every route, however its router was included
+        paths = set(app.openapi()["paths"])
         self.assertTrue(
             {
                 "/user",

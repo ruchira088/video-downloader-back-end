@@ -72,7 +72,7 @@ def moto_access_token_verifier(
         user_pool_id=cognito_details.user_pool_id,
         client_id=cognito_details.user_pool_client_id,
     )
-    moto_jwks = load_resource("moto.cognitoidp.models", "resources/jwks-public.json")
+    moto_jwks = load_resource("cognitoidp/resources/jwks-public.json")
     signing_key = PyJWKSet.from_dict(moto_jwks).keys[0].key
 
     return CognitoAccessTokenVerifier(

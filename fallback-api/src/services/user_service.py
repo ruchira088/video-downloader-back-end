@@ -14,7 +14,6 @@ from src.services.user_validation_service import (
     VideoDownloaderUserValidationService,
 )
 
-
 logger = logging.getLogger(__name__)
 
 

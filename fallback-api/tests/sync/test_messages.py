@@ -45,7 +45,7 @@ class TestTimestamps(unittest.TestCase):
 
     def test_iso_micros_rejects_naive_datetimes(self):
         with self.assertRaises(ValueError):
-            iso_micros(datetime(2026, 9, 26, 8, 15, 30))
+            iso_micros(datetime(2026, 9, 26, 8, 15, 30))  # noqa: DTZ001 - naive on purpose
 
     def test_require_iso_micros_rejects_non_ascii_digits(self):
         # Arabic-Indic and fullwidth digits, which a Unicode \d would match.
@@ -53,9 +53,8 @@ class TestTimestamps(unittest.TestCase):
             "٢026-09-26T08:20:00.000000Z",
             "2026-09-26T08:20:00.00000０Z",
         ]:
-            with self.subTest(value=value):
-                with self.assertRaises(ValueError):
-                    require_iso_micros(value)
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                require_iso_micros(value)
 
 
 class TestMessages(unittest.TestCase):
@@ -135,9 +134,11 @@ class TestMessages(unittest.TestCase):
             body = json.loads(_fixture("scheduled-video-removal.json"))
             body["capturedAt"] = captured_at
 
-            with self.subTest(captured_at=captured_at):
-                with self.assertRaises(ValidationError):
-                    parse_main_to_fallback_message(json.dumps(body))
+            with (
+                self.subTest(captured_at=captured_at),
+                self.assertRaises(ValidationError),
+            ):
+                parse_main_to_fallback_message(json.dumps(body))
 
     def test_timestamps_that_are_not_strings_are_rejected(self):
         # pydantic would otherwise read a number as a Unix time
@@ -145,9 +146,11 @@ class TestMessages(unittest.TestCase):
             body = json.loads(_fixture("scheduled-video-removal.json"))
             body["capturedAt"] = captured_at
 
-            with self.subTest(captured_at=captured_at):
-                with self.assertRaises(ValidationError):
-                    parse_main_to_fallback_message(json.dumps(body))
+            with (
+                self.subTest(captured_at=captured_at),
+                self.assertRaises(ValidationError),
+            ):
+                parse_main_to_fallback_message(json.dumps(body))
 
     def test_contract_fixtures_carry_non_zero_microseconds(self):
         upsert = parse_main_to_fallback_message(_fixture("scheduled-video-upsert.json"))
