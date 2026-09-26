@@ -1,0 +1,9 @@
+{
+  "type": "RequestResolved",
+  "requestId": "9a0e2b3c-1d4f-4e5a-8b6c-7d8e9f0a1b2c",
+  "userId": "user-1",
+  "outcome": {
+    "result": "Rejected",
+    "reason": "Unsupported video site: example.com"
+  }
+}

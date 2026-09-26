@@ -1,0 +1,22 @@
+{
+  "type": "RequestResolved",
+  "requestId": "4d1c7f0e-8a57-4c1e-9b0b-2f6f3b6f9a10",
+  "userId": "user-1",
+  "outcome": {
+    "result": "Scheduled",
+    "upsert": {
+      "type": "ScheduledVideoUpsert",
+      "videoId": "youtube-1a2b3c4d5e6f",
+      "capturedAt": "2026-09-26T08:15:30.123Z",
+      "hash": "0f1e2d3c4b5a6978",
+      "userIds": ["user-1"],
+      "url": "https://www.youtube.com/watch?v=abc123",
+      "videoSite": "YouTube",
+      "title": "Sample video",
+      "durationMs": 212000,
+      "sizeBytes": 48234567,
+      "status": "Queued",
+      "scheduledAt": "2026-09-26T08:15:29.000Z"
+    }
+  }
+}
