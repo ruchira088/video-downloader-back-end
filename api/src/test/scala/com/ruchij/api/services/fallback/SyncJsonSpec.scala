@@ -19,7 +19,7 @@ class SyncJsonSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "encode a removal exactly like the contract fixture" in {
-    val removal = ScheduledVideoRemoval("youtube-1a2b3c4d5e6f", Instant.parse("2026-09-26T08:20:00Z"))
+    val removal = ScheduledVideoRemoval("youtube-1a2b3c4d5e6f", Instant.parse("2026-09-26T08:20:00.000042Z"))
 
     encoded(removal) mustBe canonical(json("scheduled-video-removal.json"))
   }
@@ -55,7 +55,7 @@ class SyncJsonSpec extends AnyFlatSpec with Matchers {
         "4d1c7f0e-8a57-4c1e-9b0b-2f6f3b6f9a10",
         "user-1",
         "https://www.youtube.com/watch?v=abc123",
-        Instant.parse("2026-09-26T08:15:00Z")
+        Instant.parse("2026-09-26T08:15:00.654321Z")
       )
     )
   }
@@ -64,7 +64,18 @@ class SyncJsonSpec extends AnyFlatSpec with Matchers {
     SyncJson.decodeScheduleRequest(read("scheduled-video-removal.json")).isLeft mustBe true
   }
 
-  it should "always write milliseconds, even when they are zero" in {
-    SyncJson.formatTimestamp(Instant.parse("2026-09-26T08:20:00Z")) mustBe "2026-09-26T08:20:00.000Z"
+  it should "always write exactly six fractional digits, padding zeros and truncating nanoseconds" in {
+    SyncJson.formatTimestamp(Instant.parse("2026-09-26T08:20:00Z")) mustBe "2026-09-26T08:20:00.000000Z"
+    SyncJson.formatTimestamp(Instant.parse("2026-09-26T08:20:00.123456789Z")) mustBe "2026-09-26T08:20:00.123456Z"
+  }
+
+  it should "reject request timestamps in any other shape" in {
+    val requestJson = json("schedule-request.json")
+
+    List("2026-09-26T08:15:00Z", "2026-09-26T08:15:00.654Z", "2026-09-26T08:15:00.654321+00:00").foreach { value =>
+      val body = requestJson.mapObject(_.add("requestedAt", io.circe.Json.fromString(value))).noSpaces
+
+      SyncJson.decodeScheduleRequest(body).isLeft mustBe true
+    }
   }
 }

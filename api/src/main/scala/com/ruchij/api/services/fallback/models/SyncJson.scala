@@ -4,19 +4,28 @@ import io.circe.parser.decode
 import io.circe.{Decoder, DecodingFailure, Encoder, Json}
 
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.time.{Instant, ZoneOffset}
 import scala.util.Try
 
 object SyncJson {
+  // Fixed width, so the fallback can compare capturedAt values as strings. Anything finer than microseconds is
+  // truncated: both databases (Postgres and DynamoDB, via the Python side) keep at most microseconds.
   private val TimestampFormatter: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").withZone(ZoneOffset.UTC)
+    DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'").withZone(ZoneOffset.UTC)
 
-  def formatTimestamp(instant: Instant): String = TimestampFormatter.format(instant)
+  private val TimestampPattern = "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z".r
+
+  def formatTimestamp(instant: Instant): String = TimestampFormatter.format(instant.truncatedTo(ChronoUnit.MICROS))
+
+  def parseTimestamp(value: String): Either[String, Instant] =
+    if (TimestampPattern.matches(value))
+      Try(Instant.parse(value)).toEither.left.map(error => s"Invalid timestamp $value: ${error.getMessage}")
+    else Left(s"Timestamp $value is not in the yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z' format")
 
   private def timestamp(instant: Instant): Json = Json.fromString(formatTimestamp(instant))
 
-  private val timestampDecoder: Decoder[Instant] =
-    Decoder.decodeString.emapTry(value => Try(Instant.parse(value)))
+  private val timestampDecoder: Decoder[Instant] = Decoder.decodeString.emap(parseTimestamp)
 
   private def upsertJson(upsert: ScheduledVideoUpsert): Json =
     Json

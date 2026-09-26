@@ -17,7 +17,7 @@ object FallbackSyncTestData {
   val fixtureUpsert: ScheduledVideoUpsert =
     ScheduledVideoUpsert(
       videoId = "youtube-1a2b3c4d5e6f",
-      capturedAt = Instant.parse("2026-09-26T08:15:30.123Z"),
+      capturedAt = Instant.parse("2026-09-26T08:15:30.123456Z"),
       hash = "0f1e2d3c4b5a6978",
       userIds = List("user-1", "user-2"),
       url = "https://www.youtube.com/watch?v=abc123",
@@ -26,8 +26,8 @@ object FallbackSyncTestData {
       durationMs = 212000,
       sizeBytes = 48234567,
       status = "Completed",
-      scheduledAt = Instant.parse("2026-09-25T21:04:11.000Z"),
-      completedAt = Some(Instant.parse("2026-09-25T21:09:42.500Z"))
+      scheduledAt = Instant.parse("2026-09-25T21:04:11Z"),
+      completedAt = Some(Instant.parse("2026-09-25T21:09:42.500250Z"))
     )
 
   def scheduledVideoDownload(videoId: String, status: SchedulingStatus = SchedulingStatus.Queued)

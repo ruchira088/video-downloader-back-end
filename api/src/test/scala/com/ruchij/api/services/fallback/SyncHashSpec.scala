@@ -32,6 +32,8 @@ class SyncHashSpec extends AnyFlatSpec with Matchers {
       fixtureUpsert.copy(scheduledAt = Instant.parse("2026-09-25T21:04:12.000Z")),
       fixtureUpsert.copy(completedAt = None),
       fixtureUpsert.copy(completedAt = Some(Instant.parse("2026-09-25T21:09:43.500Z"))),
+      // Timestamps enter the hash at microsecond precision, like the messages
+      fixtureUpsert.copy(completedAt = Some(Instant.parse("2026-09-25T21:09:42.500251Z"))),
       fixtureUpsert.copy(userIds = List("user-1"))
     )
 
