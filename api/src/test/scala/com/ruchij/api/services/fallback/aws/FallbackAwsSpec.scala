@@ -11,9 +11,18 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
 import software.amazon.awssdk.services.dynamodb.model._
-import software.amazon.awssdk.services.sqs.model.{CreateQueueRequest, SendMessageRequest}
+import software.amazon.awssdk.services.sqs.SqsAsyncClient
+import software.amazon.awssdk.services.sqs.model.{
+  BatchResultErrorEntry,
+  CreateQueueRequest,
+  SendMessageBatchRequest,
+  SendMessageBatchResponse,
+  SendMessageBatchResultEntry,
+  SendMessageRequest
+}
 
 import java.time.Instant
+import java.util.concurrent.CompletableFuture
 import scala.jdk.CollectionConverters._
 
 class FallbackAwsSpec extends AnyFlatSpec with Matchers {
@@ -43,13 +52,29 @@ class FallbackAwsSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "fail when SQS rejects any entry of a batch" in runIO {
-    (ElasticMqContainer.create[IO].flatMap(clients)).use { aws =>
-      for {
-        url <- queueUrl(aws, "main-to-fallback")
-        // A body over the SQS limit is rejected per entry while the batch call itself succeeds.
-        oversized = ScheduledVideoRemoval("x" * (1024 * 1024 + 1), Instant.EPOCH)
-        result <- new SqsFallbackSyncTransport[IO](aws.sqs, url).send(List(oversized)).attempt
-      } yield result.isLeft mustBe true
+    // A stubbed client, because ElasticMQ fails the whole call for the bodies a test can produce, so it can't return
+    // the successful-but-partially-failed response this checks.
+    val partiallyFailingSqs = new SqsAsyncClient {
+      override def serviceName(): String = SqsAsyncClient.SERVICE_NAME
+
+      override def close(): Unit = ()
+
+      override def sendMessageBatch(request: SendMessageBatchRequest): CompletableFuture[SendMessageBatchResponse] =
+        CompletableFuture.completedFuture(
+          SendMessageBatchResponse
+            .builder()
+            .successful(SendMessageBatchResultEntry.builder().id("0").messageId("message-0").build())
+            .failed(
+              BatchResultErrorEntry.builder().id("1").code("InternalError").senderFault(false).message("boom").build()
+            )
+            .build()
+        )
+    }
+
+    val messages = List(ScheduledVideoRemoval("video-1", Instant.EPOCH), ScheduledVideoRemoval("video-2", Instant.EPOCH))
+
+    new SqsFallbackSyncTransport[IO](partiallyFailingSqs, "queue-url").send(messages).attempt.map { result =>
+      result.left.map(_.getMessage) mustBe Left("SQS rejected 1 of 2 messages: boom")
     }
   }
 
