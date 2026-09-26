@@ -155,8 +155,7 @@ object ApiApp extends IOApp {
         videoWatchMetricsPublisher
       )
 
-      httpApp <- Resource.eval {
-        program[F](
+      httpApp <- program[F](
           hikariTransactor,
           proxiedHttpClient,
           httpClient,
@@ -166,7 +165,6 @@ object ApiApp extends IOApp {
           apiServiceConfiguration,
           fallbackSyncResources
         )
-      }
     } yield httpApp
 
   def program[F[_]: Async: Clock: Files: Compression](
@@ -178,7 +176,7 @@ object ApiApp extends IOApp {
     dispatcher: Dispatcher[F],
     apiServiceConfiguration: ApiServiceConfiguration,
     fallbackSyncResources: Option[FallbackSyncResources[F]]
-  ): F[HttpApp[F]] = {
+  ): Resource[F, HttpApp[F]] = {
     implicit val transactor: ConnectionIO ~> F = hikariTransactor.trans
 
     val healthCheckKeyStore: KeySpacedKeyValueStore[F, HealthCheckKey, Instant] =
@@ -319,15 +317,17 @@ object ApiApp extends IOApp {
       new VideoWatchHistoryServiceImpl[F, ConnectionIO](DoobieVideoWatchHistoryDao)
 
     for {
-      instanceId <- RandomGenerator[F, UUID].generate.map(_.toString)
+      instanceId <- Resource.eval(RandomGenerator[F, UUID].generate.map(_.toString))
 
-      backgroundService <- BackgroundServiceImpl.create[F](
-        schedulingService,
-        messageBrokers.downloadProgressSubscriber,
-        messageBrokers.healthCheckPubSub,
-        messageBrokers.scheduledVideoDownloadPubSub,
-        s"background-$instanceId"
-      )
+      backgroundService <- Resource.eval {
+        BackgroundServiceImpl.create[F](
+          schedulingService,
+          messageBrokers.downloadProgressSubscriber,
+          messageBrokers.healthCheckPubSub,
+          messageBrokers.scheduledVideoDownloadPubSub,
+          s"background-$instanceId"
+        )
+      }
 
       healthService = new HealthServiceImpl[F](
         repositoryService,
@@ -341,10 +341,11 @@ object ApiApp extends IOApp {
         apiServiceConfiguration.spaSiteRendererConfiguration
       )
 
-      _ <- backgroundService.run
+      _ <- Resource.eval(backgroundService.run)
 
+      // Part of the app's resource, so releasing it stops fallback sync before the AWS clients it uses are closed
       _ <- fallbackSyncResources.traverse_ { resources =>
-        Concurrent[F].start {
+        Spawn[F].background {
           FallbackSync
             .stream[F](resources, keyValueStore, schedulingService, instanceId)
             .compile

@@ -85,8 +85,8 @@ object FallbackSync {
     ).parJoinUnbounded
   }
 
-  /** `stream(...)` is started in a fiber that nobody joins (see `ApiApp.program`), so a component stream that fails
-    * would silently stop syncing forever with nothing to notice. Restarting just the failed component after a
+  /** `stream(...)` runs in a background fiber that nobody joins until the app is released (see `ApiApp.program`), so
+    * a component stream that fails would silently stop syncing forever with nothing to notice. Restarting just the failed component after a
     * delay, instead of letting the failure propagate out of the `parJoinUnbounded` stream and end every other
     * component too, keeps the rest of fallback sync alive. Only errors trigger a restart: every component is an
     * infinite stream. */
