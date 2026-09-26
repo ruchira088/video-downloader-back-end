@@ -108,7 +108,7 @@ class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: MonadThrow: Clock, G[_]
             .map(user => user -> permissions.map(_.scheduledVideoDownloadId).distinct)
         }
       }.flatMap { case (user, videoIds) =>
-        videoIds.traverse_(fallbackSyncRequester.request).as(user)
+        fallbackSyncRequester.requestAll(videoIds).as(user)
       }
     else ApplicativeError[F, Throwable].raiseError {
       AuthorizationException(s"User does NOT have permission to delete user: $userId")
