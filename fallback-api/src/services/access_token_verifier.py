@@ -19,6 +19,10 @@ JWKS_TIMEOUT_SECONDS = 5
 # Tolerates Cognito's clock running a little ahead of (or behind) this Lambda's when checking a
 # token's iat and exp.
 CLOCK_LEEWAY_SECONDS = 30
+# A token whose kid isn't in the cached JWKS triggers a refetch, in case the pool rotated its
+# keys, but at most once in this long, so a flood of tokens with made-up kids can't make every
+# request fetch the JWKS. Within it, an unknown kid is simply rejected.
+UNKNOWN_KID_REFETCH_COOLDOWN_SECONDS = 60
 
 
 def jwks_signing_key_resolver(jwks_url: str) -> SigningKeyResolver:
@@ -28,6 +32,7 @@ def jwks_signing_key_resolver(jwks_url: str) -> SigningKeyResolver:
         cache_keys=True,
         lifespan=JWKS_CACHE_SECONDS,
         timeout=JWKS_TIMEOUT_SECONDS,
+        cooldown_duration=UNKNOWN_KID_REFETCH_COOLDOWN_SECONDS,
     )
 
     return lambda token: jwks_client.get_signing_key_from_jwt(token).key

@@ -1,3 +1,5 @@
+import io
+import json
 import time
 import unittest
 from typing import Any
@@ -22,6 +24,10 @@ JWKS_URL = f"{ISSUER}/.well-known/jwks.json"
 
 _signing_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 _other_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+
+def _public_jwk() -> dict[str, Any]:
+    return json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(_signing_key.public_key()))
 
 
 def _claims(**overrides: Any) -> dict[str, Any]:
@@ -148,3 +154,33 @@ class TestJwksSigningKeyResolver(unittest.TestCase):
                 resolve(_token(headers={"kid": "key-1"}))
 
         self.assertEqual(opener.open.call_args.kwargs["timeout"], 5)
+
+    def test_an_unknown_kid_refetches_the_jwks_at_most_once_a_minute(self):
+        jwks = {"keys": [{**_public_jwk(), "kid": "key-1", "use": "sig"}]}
+        opener = MagicMock()
+        opener.open.side_effect = lambda *args, **kwargs: io.BytesIO(
+            json.dumps(jwks).encode()
+        )
+        clock = {"now": 1000.0}
+
+        with (
+            patch("urllib.request.build_opener", return_value=opener),
+            patch("jwt.jwks_client.time.monotonic", side_effect=lambda: clock["now"]),
+        ):
+            resolve = jwks_signing_key_resolver(JWKS_URL)
+            resolve(_token(headers={"kid": "key-1"}))
+            self.assertEqual(opener.open.call_count, 1)
+
+            # Within the cooldown, unknown kids are rejected without fetching.
+            clock["now"] += 59
+            for kid in ["unknown-1", "unknown-2", "unknown-3"]:
+                with self.assertRaises(jwt.PyJWKClientError):
+                    resolve(_token(headers={"kid": kid}))
+            self.assertEqual(opener.open.call_count, 1)
+
+            # After it, one unknown kid refetches, and starts the cooldown again.
+            clock["now"] += 2
+            for kid in ["unknown-4", "unknown-5"]:
+                with self.assertRaises(jwt.PyJWKClientError):
+                    resolve(_token(headers={"kid": kid}))
+            self.assertEqual(opener.open.call_count, 2)
