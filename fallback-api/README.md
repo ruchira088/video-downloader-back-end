@@ -30,13 +30,18 @@ python3.14 -m venv .venv
 |---|---|
 | `AWS_COGNITO_USER_POOL_ID` | User pool that issues access tokens. Its region is taken from the id's prefix. |
 | `AWS_COGNITO_CLIENT_ID` | App client that access tokens must have been issued to |
-| `AWS_COGNITO_URL` | Cognito endpoint override, for a local emulator. The JWKS is then fetched from it. |
-| `AWS_COGNITO_ISSUER` | Expected token issuer, for a local emulator. Defaults to the user pool's AWS issuer. |
+| `AWS_COGNITO_URL` | Cognito endpoint override, for a local emulator only. The JWKS is then fetched from it. |
+| `AWS_COGNITO_ISSUER` | Expected token issuer, for a local emulator only. Defaults to the user pool's AWS issuer. |
 | `VIDEO_DOWNLOADER_API_URL` | Main API, which sign-up checks credentials against |
 | `SCHEDULED_VIDEOS_TABLE_NAME` | DynamoDB table holding the scheduled video copy |
 | `FALLBACK_TO_MAIN_QUEUE_URL` | SQS queue that schedule requests are sent to |
 
-`template.yaml` sets all of these for the deployed functions.
+`template.yaml` sets all of these for the deployed functions, except the two emulator overrides.
+
+`AWS_COGNITO_URL` and `AWS_COGNITO_ISSUER` must never be set in AWS. Each also changes where the token signing keys
+are fetched from (`<AWS_COGNITO_URL>/<userPoolId>/.well-known/jwks.json`, or else
+`<AWS_COGNITO_ISSUER>/.well-known/jwks.json`), so pointing either at another host makes the API trust any token that
+host's keys signed.
 
 Bearer tokens are verified locally before they are used: the signature against the user pool's JWKS
 (`https://cognito-idp.<region>.amazonaws.com/<userPoolId>/.well-known/jwks.json`, cached), then the issuer, the
