@@ -109,6 +109,9 @@ object Dependencies
   // The AWS SDK's netty-nio-client and lettuce (under redis4cats) each pull in Netty at a different 4.1.x version,
   // and eviction alone would leave the DNS resolver modules that only lettuce uses on the older one. Pinning every
   // Netty module keeps them on a single version.
+  // Keep this equal to the `netty.version` property in the aws-sdk-java-pom of AwsSdkVersion (4.1.138.Final for
+  // 2.55.6), and check it on every SDK bump: these overrides win over whatever the SDK asks for, so leaving this
+  // behind would silently downgrade netty-nio-client's Netty to a version the SDK was never built or tested against.
   private val NettyVersion = "4.1.138.Final"
 
   lazy val nettyOverrides: Seq[ModuleID] =
