@@ -205,12 +205,16 @@ to point just one of them elsewhere, leave it unset and use the SDK's own `AWS_E
 `AWS_ENDPOINT_URL_DYNAMODB` instead.
 
 With fallback sync enabled, the API also needs AWS credentials from the default provider chain for the stack's
-`MainSideSyncUser`. The stack creates the user but never its access keys: `terraform/fallback-sync.tf` creates them
-for both stages and stores them in Secrets Manager as
-`video-downloader/<staging|prod>/fallback-sync/aws-credentials`, a JSON object with `AWS_ACCESS_KEY_ID` and
-`AWS_SECRET_ACCESS_KEY`. Apply it once both stacks are deployed, and pass the keys to the API under those names, or
-as a static profile in `~/.aws/credentials`. SSO and web-identity credentials are not
-supported: the API ships without the SDK's `sso`, `ssooidc` and `sts` modules they need. When enabling it:
+`MainSideSyncUser`, passed as `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` or as a static profile in
+`~/.aws/credentials`. SSO and web-identity credentials are not supported: the API ships without the SDK's `sso`,
+`ssooidc` and `sts` modules they need.
+
+The stack creates the user but never its access keys. `terraform/fallback-sync.tf` creates them for both stages and
+stores them in Secrets Manager as `video-downloader/<staging|prod>/fallback-sync`, together with the stack's queue URLs
+and table name, as a JSON object keyed by the environment variables above. Apply it once both stacks are deployed.
+The staging and production deploy playbooks then set all of these on the API for a stage whose `fallback_sync`
+entry in `playbooks/tasks/configs-and-secrets.yml` is enabled. Both are off until you enable them; dev-branch deploys
+never sync. When enabling it:
 
 - Point each fallback stack at exactly one database. The reconcile removes every video in the table that its own
   database doesn't have, so two databases (e.g. a dev branch and production) sharing a table remove each other's

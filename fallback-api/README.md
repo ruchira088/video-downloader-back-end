@@ -61,8 +61,8 @@ sam deploy --config-env prod        # production
   both staging and prod. AWS e-mails that address to confirm the SNS subscription once a deploy creates it; no
   dead-letter alarm is delivered until the link in that e-mail is followed, once per stage.
 - **Main-side access.** `terraform/fallback-sync.tf` creates access keys for each stage's `MainSideSyncUser` and
-  stores them in Secrets Manager; apply it after both stacks are deployed (see the repository README's fallback sync
-  settings).
+  stores them, with the stack's queue URLs and table name, in Secrets Manager for the deploy playbooks; apply it
+  after both stacks are deployed (see the repository README's fallback sync settings).
 - **The user pool is retained.** It has deletion protection, and CloudFormation keeps it if the stack is deleted or
   the pool would be replaced.
 
