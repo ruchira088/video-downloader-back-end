@@ -39,12 +39,19 @@ class FallbackSyncRequesterSpec extends AnyFlatSpec with Matchers {
   ): PublishingFallbackSyncRequester[IO] =
     new PublishingFallbackSyncRequester[IO](publisher, onDropped, gracePeriod, publishTimeout, maxInFlight)
 
+  // Tests that read what was published after a call returns run under TestControl, whose virtual clock only moves
+  // once every fiber is blocked, so the background publish always finishes within the call's grace wait; on the
+  // real runtime a loaded CI machine could let the 500 ms grace period elapse first.
+
   "PublishingFallbackSyncRequester" should "publish a sync request for the video" in runIO {
-    for {
-      publisher <- RecordingPublisher[FallbackSyncRequest]
-      _ <- requester(publisher).request("video-1")
-      published <- publisher.messages
-    } yield published mustBe List(FallbackSyncRequest("video-1"))
+    val test =
+      for {
+        publisher <- RecordingPublisher[FallbackSyncRequest]
+        _ <- requester(publisher).request("video-1")
+        published <- publisher.messages
+      } yield published
+
+    TestControl.executeEmbed(test).map(published => published mustBe List(FallbackSyncRequest("video-1")))
   }
 
   it should "not fail when the publisher fails" in runIO {
@@ -54,11 +61,9 @@ class FallbackSyncRequesterSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "give up instead of blocking when the publisher hangs" in runIO {
-    requester(cancelableHangingPublisher, gracePeriod = 50.millis)
-      .request("video-1")
-      .timeout(5.seconds)
-      .attempt
-      .map(result => result mustBe Right(()))
+    TestControl
+      .executeEmbed(requester(cancelableHangingPublisher, gracePeriod = 50.millis).request("video-1").timed)
+      .map { case (duration, _) => duration mustBe 50.millis }
   }
 
   it should "return within the grace period when the publisher's send is uncancelable and stuck" in {
@@ -281,12 +286,15 @@ class FallbackSyncRequesterSpec extends AnyFlatSpec with Matchers {
     runIO(TestControl.executeEmbed(test).map(_ mustBe ((Duration.Zero, 1))))
   }
 
-  it should "publish every id in requestAll, one overall timeout regardless of count" in runIO {
-    for {
-      publisher <- RecordingPublisher[FallbackSyncRequest]
-      _ <- requester(publisher).requestAll(Seq("video-1", "video-2", "video-3"))
-      published <- publisher.messages
-    } yield {
+  it should "publish every id in requestAll" in runIO {
+    val test =
+      for {
+        publisher <- RecordingPublisher[FallbackSyncRequest]
+        _ <- requester(publisher).requestAll(Seq("video-1", "video-2", "video-3"))
+        published <- publisher.messages
+      } yield published
+
+    TestControl.executeEmbed(test).map { published =>
       published mustBe List(
         FallbackSyncRequest("video-1"),
         FallbackSyncRequest("video-2"),
@@ -296,17 +304,21 @@ class FallbackSyncRequesterSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "publish the remaining ids in requestAll even when one id's publish raises" in runIO {
-    for {
-      recorded <- Ref.of[IO, List[String]](Nil)
-      publisher = publisherOf { input =>
-        if (input.videoId == "a") IO.raiseError(new RuntimeException("boom for video a"))
-        else recorded.update(_ :+ input.videoId)
-      }
-      result <- requester(publisher).requestAll(Seq("a", "b", "c")).attempt
-      published <- recorded.get
-    } yield {
-      result mustBe Right(())
-      published mustBe List("b", "c")
+    val test =
+      for {
+        recorded <- Ref.of[IO, List[String]](Nil)
+        publisher = publisherOf { input =>
+          if (input.videoId == "a") IO.raiseError(new RuntimeException("boom for video a"))
+          else recorded.update(_ :+ input.videoId)
+        }
+        result <- requester(publisher).requestAll(Seq("a", "b", "c")).attempt
+        published <- recorded.get
+      } yield (result, published)
+
+    TestControl.executeEmbed(test).map {
+      case (result, published) =>
+        result mustBe Right(())
+        published mustBe List("b", "c")
     }
   }
 
