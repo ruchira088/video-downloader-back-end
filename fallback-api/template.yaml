@@ -16,6 +16,13 @@ Parameters:
   VideoDownloaderApiUrl:
     Type: String
     Description: URL of the video downloader API
+  AlarmEmail:
+    Type: String
+    Description: Optional e-mail address notified when a sync dead-letter queue receives messages
+    Default: ""
+
+Conditions:
+  HasAlarmEmail: !Not [!Equals [!Ref AlarmEmail, ""]]
 
 Globals:
   Function:
@@ -23,6 +30,11 @@ Globals:
     Runtime: python3.14
     Architectures:
       - x86_64
+    Environment:
+      Variables:
+        STAGE: !Ref Stage
+        SCHEDULED_VIDEOS_TABLE_NAME: !Ref ScheduledVideosTable
+        FALLBACK_TO_MAIN_QUEUE_URL: !Ref FallbackToMainQueue
 
 Resources:
   ApiFunction:
@@ -32,12 +44,26 @@ Resources:
       Handler: handler.handler
       CodeUri: .
       MemorySize: 256
+      LoggingConfig:
+        LogGroup: !Ref ApiFunctionLogGroup
       Environment:
         Variables:
-          STAGE: !Ref Stage
           AWS_COGNITO_USER_POOL_ID: !Ref UserPool
           AWS_COGNITO_CLIENT_ID: !Ref UserPoolClient
           VIDEO_DOWNLOADER_API_URL: !Ref VideoDownloaderApiUrl
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ScheduledVideosTable
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt FallbackToMainQueue.QueueName
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:AdminCreateUser
+                - cognito-idp:AdminSetUserPassword
+                - cognito-idp:AdminDeleteUser
+                - cognito-idp:DescribeUserPoolClient
+              Resource: !GetAtt UserPool.Arn
       Events:
         RootPath:
           Type: Api
@@ -50,6 +76,167 @@ Resources:
             Path: /{proxy+}
             Method: ANY
 
+  SyncFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${Stage}-fallback-api-sync"
+      Handler: sync_handler.handler
+      CodeUri: .
+      MemorySize: 256
+      LoggingConfig:
+        LogGroup: !Ref SyncFunctionLogGroup
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ScheduledVideosTable
+      Events:
+        MainToFallback:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt MainToFallbackQueue.Arn
+            BatchSize: 10
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+
+  ApiFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/fallback-api/${Stage}/api"
+      RetentionInDays: 14
+
+  SyncFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/fallback-api/${Stage}/sync"
+      RetentionInDays: 14
+
+  ScheduledVideosTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${Stage}-fallback-scheduled-videos"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  MainToFallbackDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+
+  MainToFallbackQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+      VisibilityTimeout: 180
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt MainToFallbackDeadLetterQueue.Arn
+        maxReceiveCount: 5
+
+  FallbackToMainDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+
+  FallbackToMainQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+      VisibilityTimeout: 300
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt FallbackToMainDeadLetterQueue.Arn
+        maxReceiveCount: 5
+
+  SyncAlarmTopic:
+    Type: AWS::SNS::Topic
+
+  SyncAlarmEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasAlarmEmail
+    Properties:
+      TopicArn: !Ref SyncAlarmTopic
+      Protocol: email
+      Endpoint: !Ref AlarmEmail
+
+  MainToFallbackDeadLetterAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Messages from the main API could not be applied to DynamoDB
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt MainToFallbackDeadLetterQueue.QueueName
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref SyncAlarmTopic
+
+  FallbackToMainDeadLetterAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Schedule requests could not be processed by the main API
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt FallbackToMainDeadLetterQueue.QueueName
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref SyncAlarmTopic
+
+  MainSideSyncUser:
+    Type: AWS::IAM::User
+    Properties:
+      Policies:
+        - PolicyName: fallback-sync
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: sqs:SendMessage
+                Resource: !GetAtt MainToFallbackQueue.Arn
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:ChangeMessageVisibility
+                Resource: !GetAtt FallbackToMainQueue.Arn
+              - Effect: Allow
+                Action: dynamodb:Scan
+                Resource: !GetAtt ScheduledVideosTable.Arn
+
   UserPool:
     Type: AWS::Cognito::UserPool
     Properties:
@@ -58,6 +245,9 @@ Resources:
         - AttributeDataType: String
           Mutable: false
           Name: user_id
+        - AttributeDataType: String
+          Mutable: true
+          Name: role
 
   UserPoolClient:
     Type: AWS::Cognito::UserPoolClient
@@ -65,6 +255,13 @@ Resources:
       UserPoolId: !Ref UserPool
       ClientName: !Sub "${Stage}-fallback-api-client"
       GenerateSecret: true
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      WriteAttributes:
+        - email
+        - given_name
+        - family_name
 
   Certificate:
     Type: AWS::CertificateManager::Certificate
@@ -112,3 +309,15 @@ Outputs:
   CustomDomainUrl:
     Description: Custom domain URL
     Value: !Sub "https://${DomainName}/"
+  ScheduledVideosTableName:
+    Description: DynamoDB table holding the scheduled video copy (FALLBACK_SYNC_TABLE_NAME on the main side)
+    Value: !Ref ScheduledVideosTable
+  MainToFallbackQueueUrl:
+    Description: Queue the main API sends sync messages to (FALLBACK_SYNC_MAIN_TO_FALLBACK_QUEUE_URL)
+    Value: !Ref MainToFallbackQueue
+  FallbackToMainQueueUrl:
+    Description: Queue the main API polls for schedule requests (FALLBACK_SYNC_FALLBACK_TO_MAIN_QUEUE_URL)
+    Value: !Ref FallbackToMainQueue
+  MainSideSyncUserName:
+    Description: IAM user for the main API; create its access keys by hand
+    Value: !Ref MainSideSyncUser
