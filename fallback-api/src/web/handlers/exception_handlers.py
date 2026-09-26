@@ -8,8 +8,10 @@ from src.services.exceptions import (
     InvalidPageTokenException,
     InvalidPasswordException,
     InvalidUrlException,
+    PasswordResetRequiredException,
     ResourceConflictException,
     ServiceUnavailableException,
+    TooManyRequestsException,
 )
 
 
@@ -26,6 +28,25 @@ def register_exception_handlers(app: FastAPI):
     ):
         return JSONResponse(
             status_code=401, content={"detail": "Incorrect credentials"}
+        )
+
+    @app.exception_handler(PasswordResetRequiredException)
+    async def handle_password_reset_required(
+        request: Request, exc: PasswordResetRequiredException
+    ):
+        return JSONResponse(
+            status_code=403,
+            content={
+                "detail": "This account needs a password reset, which the fallback API "
+                "can't do; try again once the main API is back"
+            },
+        )
+
+    @app.exception_handler(TooManyRequestsException)
+    async def handle_too_many_requests(request: Request, exc: TooManyRequestsException):
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Too many requests; try again later"},
         )
 
     @app.exception_handler(InvalidAuthenticationTokenException)

@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
@@ -22,6 +22,7 @@ from tests.services.test_service_helpers import (
 class TestAuthenticationRouter(unittest.TestCase):
     def setUp(self):
         cognito_details = setup_cognito(__name__)
+        self.cognito_client = cognito_details.cognito_client
         user_validation_service = MagicMock()
         user_validation_service.get_user.return_value = sample_user
         CognitoUserService(
@@ -73,6 +74,42 @@ class TestAuthenticationRouter(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 401)
+
+    def test_missing_authorization_header_returns_401(self):
+        self.assertEqual(self.client.get("/whoami").status_code, 401)
+        self.assertEqual(self.client.delete("/authentication/logout").status_code, 401)
+
+    def test_login_of_an_unknown_user_returns_401(self):
+        response = self.client.post(
+            "/authentication/login",
+            json={"email": "nobody@ruchij.com", "password": sample_password},
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json(), {"detail": "Incorrect credentials"})
+
+    def _login_failing_with(self, exception_name: str):
+        cognito_client = self.cognito_client
+        error = getattr(cognito_client.exceptions, exception_name)(
+            {"Error": {"Code": exception_name, "Message": "x"}}, "InitiateAuth"
+        )
+
+        with patch.object(cognito_client, "initiate_auth", side_effect=error):
+            return self.client.post(
+                "/authentication/login",
+                json={"email": sample_user.email, "password": sample_password},
+            )
+
+    def test_login_requiring_a_password_reset_returns_403(self):
+        response = self._login_failing_with("PasswordResetRequiredException")
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("password reset", response.json()["detail"])
+
+    def test_throttled_login_returns_429(self):
+        response = self._login_failing_with("TooManyRequestsException")
+
+        self.assertEqual(response.status_code, 429)
 
     def test_non_bearer_authorization_header_returns_401(self):
         response = self.client.get("/whoami", headers={"Authorization": "Basic abc"})

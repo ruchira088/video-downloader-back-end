@@ -6,7 +6,10 @@ from src.services.authentication_service import AuthenticationService
 from src.services.models.user import User
 
 
-def bearer_token(authorization: str = Header(...)) -> str:
+def bearer_token(authorization: str | None = Header(None)) -> str:
+    if authorization is None:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+
     scheme, _, token = authorization.partition(" ")
 
     if scheme.lower() != "bearer" or not token:

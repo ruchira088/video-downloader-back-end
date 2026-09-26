@@ -269,6 +269,9 @@ Resources:
       UserPoolId: !Ref UserPool
       ClientName: !Sub "${Stage}-fallback-api-client"
       GenerateSecret: true
+      # Answer a login for an unknown email like a wrong password, so logins can't probe which
+      # emails have signed up.
+      PreventUserExistenceErrors: ENABLED
       ExplicitAuthFlows:
         - ALLOW_USER_PASSWORD_AUTH
         - ALLOW_REFRESH_TOKEN_AUTH

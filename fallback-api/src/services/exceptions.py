@@ -24,3 +24,11 @@ class InvalidPasswordException(Exception):
 
 class ServiceUnavailableException(Exception):
     pass
+
+
+class PasswordResetRequiredException(Exception):
+    pass
+
+
+class TooManyRequestsException(Exception):
+    pass

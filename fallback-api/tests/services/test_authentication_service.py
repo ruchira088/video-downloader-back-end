@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from moto import mock_aws
 
@@ -10,6 +10,8 @@ from src.services.authentication_service import (
 from src.services.exceptions import (
     IncorrectCredentialsException,
     InvalidAuthenticationTokenException,
+    PasswordResetRequiredException,
+    TooManyRequestsException,
 )
 from src.services.models.user import Role, User
 from src.services.user_service import CognitoUserService, UserService
@@ -62,6 +64,31 @@ class TestCognitoAuthenticationService(unittest.TestCase):
             self.cognito_authentication_service.login(
                 sample_user.email, "invalid-password"
             )
+
+    def test_login_of_an_unknown_user_is_incorrect_credentials(self):
+        with self.assertRaises(IncorrectCredentialsException):
+            self.cognito_authentication_service.login(
+                "nobody@ruchij.com", sample_password
+            )
+
+    def _login_failing_with(self, exception_name: str) -> None:
+        cognito_client = self.cognito_details.cognito_client
+        error = getattr(cognito_client.exceptions, exception_name)(
+            {"Error": {"Code": exception_name, "Message": "x"}}, "InitiateAuth"
+        )
+
+        with patch.object(cognito_client, "initiate_auth", side_effect=error):
+            self.cognito_authentication_service.login(
+                sample_user.email, sample_password
+            )
+
+    def test_login_requiring_a_password_reset_raises_password_reset_required(self):
+        with self.assertRaises(PasswordResetRequiredException):
+            self._login_failing_with("PasswordResetRequiredException")
+
+    def test_login_when_throttled_raises_too_many_requests(self):
+        with self.assertRaises(TooManyRequestsException):
+            self._login_failing_with("TooManyRequestsException")
 
     def test_authenticate_user_with_valid_access_token(self):
         auth_token: AuthenticationToken = self.cognito_authentication_service.login(

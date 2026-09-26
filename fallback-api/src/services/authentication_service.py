@@ -7,6 +7,8 @@ from src.services.cognito_helpers import secret_hash
 from src.services.exceptions import (
     IncorrectCredentialsException,
     InvalidAuthenticationTokenException,
+    PasswordResetRequiredException,
+    TooManyRequestsException,
 )
 from src.services.models.user import User, parse_role
 
@@ -79,8 +81,16 @@ class CognitoAuthenticationService(AuthenticationService):
             )
 
             return authentication_token
-        except self._cognito_idp_client.exceptions.NotAuthorizedException:
+        except (
+            self._cognito_idp_client.exceptions.NotAuthorizedException,
+            # Same response as a wrong password, so logins can't probe which emails exist.
+            self._cognito_idp_client.exceptions.UserNotFoundException,
+        ):
             raise IncorrectCredentialsException()
+        except self._cognito_idp_client.exceptions.PasswordResetRequiredException:
+            raise PasswordResetRequiredException()
+        except self._cognito_idp_client.exceptions.TooManyRequestsException:
+            raise TooManyRequestsException()
 
     def authenticate(self, token: str) -> User:
         # GetUser takes no user pool id, so it accepts tokens from any pool: verify first that
