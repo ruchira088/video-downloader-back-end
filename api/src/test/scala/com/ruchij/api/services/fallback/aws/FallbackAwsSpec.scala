@@ -16,6 +16,7 @@ import software.amazon.awssdk.awscore.exception.AwsErrorDetails
 import software.amazon.awssdk.services.dynamodb.model._
 import software.amazon.awssdk.services.sqs.SqsAsyncClient
 import software.amazon.awssdk.services.sqs.model.{
+  BatchRequestTooLongException,
   BatchResultErrorEntry,
   CreateQueueRequest,
   SendMessageBatchRequest,
@@ -170,8 +171,27 @@ class FallbackAwsSpec extends AnyFlatSpec with Matchers {
       }
     }
 
-  it should "retry, rather than drop, a call SQS throttles or denies" in runIO {
-    List(sqsError(400, "RequestThrottled"), sqsError(403, "AccessDenied"), sqsError(400, "ExpiredToken"))
+  it should "send each message alone when SQS reports the call too long with its own exception type" in runIO {
+    val tooLong = BatchRequestTooLongException.builder().statusCode(400).message("boom").build()
+    val sqs =
+      new StubSqsClient({ (_, request) =>
+        if (request.entries().size > 1) throw tooLong else batchResponse(request, Map.empty)
+      })
+
+    new SqsFallbackSyncTransport[IO](sqs, "queue-url", noDelays).send(removals(2)).map { _ =>
+      sqs.requests.map(videoIds) mustBe List(List("video-1", "video-2"), List("video-1"), List("video-2"))
+    }
+  }
+
+  it should "retry, rather than drop, a call SQS throttles or denies, or rejects for any unlisted reason" in runIO {
+    List(
+      sqsError(400, "RequestThrottled"),
+      sqsError(403, "AccessDenied"),
+      sqsError(400, "ExpiredToken"),
+      // e.g. a misconfigured queue URL: not known to be about the messages, so they must not all be dropped
+      sqsError(400, "InvalidParameterValue"),
+      sqsError(400, "AWS.SimpleQueueService.NonExistentQueue")
+    )
       .traverse { error =>
         val sqs = new StubSqsClient((_, _) => throw error)
 

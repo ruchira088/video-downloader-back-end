@@ -85,7 +85,9 @@ The whole feature is off unless `FALLBACK_SYNC_ENABLED=true`.
     changing its status) can't turn the removal into an upsert of a row about to disappear.
   - Sends with `SendMessageBatch`, at most 10 messages and 240 KiB of bodies per call, a margin under the 256 KiB
     limit. A message SQS rejects as the sender's fault, for its entry or for a whole call (e.g.
-    `BatchRequestTooLong`, after which each message of the call is sent alone), is logged and dropped.
+    `BatchRequestTooLong`, after which each message of the call is sent alone), is logged and dropped. For a whole
+    call, only the errors known to be about the messages count (`BatchRequestTooLong`, `InvalidMessageContents` and
+    the malformed-batch errors); any other error is retried, so a misconfiguration can't drop every message.
 - **New `FallbackSyncRequest` publishes** in `ApiSchedulingServiceImpl`, at the two write paths that publish nothing
   today:
   - `schedule` of a URL that already exists, which adds a permission row

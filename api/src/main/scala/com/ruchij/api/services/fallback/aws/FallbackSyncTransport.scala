@@ -13,23 +13,15 @@ import com.ruchij.api.services.fallback.models.{
 import com.ruchij.core.logging.Logger
 import software.amazon.awssdk.services.sqs.SqsAsyncClient
 import software.amazon.awssdk.services.sqs.model.{
-  InvalidAddressException,
-  InvalidSecurityException,
-  KmsAccessDeniedException,
-  KmsDisabledException,
-  KmsInvalidKeyUsageException,
-  KmsInvalidStateException,
-  KmsNotFoundException,
-  KmsOptInRequiredException,
-  KmsThrottledException,
-  OverLimitException,
-  QueueDeletedRecentlyException,
-  QueueDoesNotExistException,
-  RequestThrottledException,
+  BatchEntryIdsNotDistinctException,
+  BatchRequestTooLongException,
+  EmptyBatchRequestException,
+  InvalidBatchEntryIdException,
+  InvalidMessageContentsException,
   SendMessageBatchRequest,
   SendMessageBatchRequestEntry,
   SqsException,
-  UnsupportedOperationException => SqsUnsupportedOperationException
+  TooManyEntriesInBatchRequestException
 }
 
 import java.nio.charset.StandardCharsets
@@ -49,9 +41,11 @@ trait FallbackSyncTransport[F[_]] {
   * rather than failing the send, which would only flag a reconcile that sends it again, forever. SQS reports this
   * either for an entry, inside a successful response, or for the whole call (e.g. BatchRequestTooLong). A call it
   * rejects as the sender's fault is split and each of its messages sent alone, so only a message that still fails
-  * alone is dropped. Every other failure, of an entry or of a whole call, is transient, including throttling,
-  * denied or expired credentials and a missing queue or KMS key: it is retried after each of `retryDelays`, and
-  * those still failing are raised together once every batch has been attempted. */
+  * alone is dropped. Only the call errors known to be about the messages count as the sender's fault; every other
+  * failure, of an entry or of a whole call, is transient, including throttling, denied or expired credentials, a
+  * missing queue or KMS key and any client error not known to be about the messages (so a misconfiguration can't
+  * make every message be dropped): it is retried after each of `retryDelays`, and those still failing are raised
+  * together once every batch has been attempted. */
 class SqsFallbackSyncTransport[F[_]: Async](
   sqsClient: SqsAsyncClient,
   queueUrl: String,
@@ -177,43 +171,33 @@ object SqsFallbackSyncTransport {
       .map { case (batch, _) => batch.reverse }
       .reverse
 
-  /** Codes of client errors caused by the credentials rather than by the messages sent, so sending the same
-    * messages again, once the credentials are fixed or refreshed, can succeed. */
-  private val CredentialErrorCodes: Set[String] =
+  /** Codes of the call errors caused by the messages sent, as either protocol reports them, e.g.
+    * "BatchRequestTooLong" or "AWS.SimpleQueueService.BatchRequestTooLong". */
+  private val SenderFaultErrorCodes: Set[String] =
     Set(
-      "AccessDenied",
-      "AccessDeniedException",
-      "AuthFailure",
-      "ExpiredToken",
-      "ExpiredTokenException",
-      "IncompleteSignature",
-      "InvalidClientTokenId",
-      "InvalidSignatureException",
-      "MissingAuthenticationToken",
-      "RequestExpired",
-      "SignatureDoesNotMatch",
-      "UnrecognizedClientException"
+      "BatchEntryIdsNotDistinct",
+      "BatchRequestTooLong",
+      "EmptyBatchRequest",
+      "InvalidBatchEntryId",
+      "InvalidMessageContents",
+      "TooManyEntriesInBatchRequest"
     )
 
-  /** Whether SQS rejected a whole call because of the messages in it, e.g. BatchRequestTooLong or
-    * InvalidMessageContents: any client error except throttling, a denied, expired or skewed signature, and a
-    * missing, deleted or misconfigured queue or KMS key, which sending the same messages later can get past. */
+  /** Whether SQS rejected a whole call because of the messages in it, e.g. BatchRequestTooLong (a single message too
+    * large for the queue included) or InvalidMessageContents. An allowlist: any other error, such as a generic 400
+    * from a misconfigured queue URL, is left transient, since treating it as the messages' fault would drop them all. */
   def isSenderFault(error: Throwable): Boolean =
     error match {
-      case _: RequestThrottledException | _: OverLimitException | _: QueueDoesNotExistException |
-          _: QueueDeletedRecentlyException | _: InvalidSecurityException | _: InvalidAddressException |
-          _: SqsUnsupportedOperationException | _: KmsAccessDeniedException | _: KmsDisabledException |
-          _: KmsInvalidKeyUsageException | _: KmsInvalidStateException | _: KmsNotFoundException |
-          _: KmsOptInRequiredException | _: KmsThrottledException =>
-        false
+      case _: BatchRequestTooLongException | _: InvalidMessageContentsException |
+          _: BatchEntryIdsNotDistinctException | _: EmptyBatchRequestException | _: InvalidBatchEntryIdException |
+          _: TooManyEntriesInBatchRequestException =>
+        true
 
       case sqsException: SqsException =>
-        val statusCode = sqsException.statusCode()
-        val errorCode = Option(sqsException.awsErrorDetails()).flatMap(details => Option(details.errorCode()))
-
-        statusCode >= 400 && statusCode < 500 && statusCode != 401 && statusCode != 403 &&
-        !sqsException.isThrottlingException && !sqsException.isClockSkewException &&
-        !errorCode.exists(CredentialErrorCodes.contains)
+        Option(sqsException.awsErrorDetails())
+          .flatMap(details => Option(details.errorCode()))
+          .map(_.stripPrefix("AWS.SimpleQueueService."))
+          .exists(SenderFaultErrorCodes.contains)
 
       case _ => false
     }
