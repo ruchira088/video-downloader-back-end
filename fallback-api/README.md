@@ -60,8 +60,9 @@ sam deploy --config-env prod        # production
 - **Alarm e-mail.** The `AlarmEmail` parameter in `samconfig.toml`'s `parameter_overrides` sets the address, for
   both staging and prod. AWS e-mails that address to confirm the SNS subscription once a deploy creates it; no
   dead-letter alarm is delivered until the link in that e-mail is followed, once per stage.
-- **Main-side access.** Create access keys for the `MainSideSyncUser` output by hand, and give them to the main API
-  (see the repository README's fallback sync settings).
+- **Main-side access.** `terraform/fallback-sync.tf` creates access keys for each stage's `MainSideSyncUser` and
+  stores them in Secrets Manager; apply it after both stacks are deployed (see the repository README's fallback sync
+  settings).
 - **The user pool is retained.** It has deletion protection, and CloudFormation keeps it if the stack is deleted or
   the pool would be replaced.
 

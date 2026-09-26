@@ -205,9 +205,11 @@ to point just one of them elsewhere, leave it unset and use the SDK's own `AWS_E
 `AWS_ENDPOINT_URL_DYNAMODB` instead.
 
 With fallback sync enabled, the API also needs AWS credentials from the default provider chain for the stack's
-`MainSideSyncUser`. The stack creates the user but never its access keys: create them by hand (IAM console or
-`aws iam create-access-key --user-name <MainSideSyncUserName output>`) and pass them as `AWS_ACCESS_KEY_ID` and
-`AWS_SECRET_ACCESS_KEY`, or as a static profile in `~/.aws/credentials`. SSO and web-identity credentials are not
+`MainSideSyncUser`. The stack creates the user but never its access keys: `terraform/fallback-sync.tf` creates them
+for both stages and stores them in Secrets Manager as
+`video-downloader/<staging|prod>/fallback-sync/aws-credentials`, a JSON object with `AWS_ACCESS_KEY_ID` and
+`AWS_SECRET_ACCESS_KEY`. Apply it once both stacks are deployed, and pass the keys to the API under those names, or
+as a static profile in `~/.aws/credentials`. SSO and web-identity credentials are not
 supported: the API ships without the SDK's `sso`, `ssooidc` and `sts` modules they need. When enabling it:
 
 - Point each fallback stack at exactly one database. The reconcile removes every video in the table that its own
