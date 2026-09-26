@@ -3,7 +3,9 @@ import unittest
 from base64 import urlsafe_b64encode
 from datetime import timedelta
 from typing import Any
+from unittest.mock import patch
 
+from botocore.exceptions import ClientError
 from moto import mock_aws
 
 from src.services.exceptions import (
@@ -14,6 +16,7 @@ from src.services.exceptions import (
 from src.services.models.user import Role, User
 from src.services.scheduling_service import (
     MAX_PENDING_REQUESTS,
+    MAX_URL_LENGTH,
     PAGE_SIZE,
     DynamoDbSchedulingService,
 )
@@ -122,6 +125,38 @@ class TestDynamoDbSchedulingService(unittest.TestCase):
         self.assertNotIn(
             "Item", self.table.get_item(Key=pending_key("user-1", "request-1"))
         )
+
+    def test_schedule_still_succeeds_when_the_pending_write_fails_after_queueing(self):
+        error = ClientError(
+            {"Error": {"Code": "ProvisionedThroughputExceededException"}}, "PutItem"
+        )
+
+        with (
+            patch.object(self.table, "put_item", side_effect=error),
+            self.assertLogs("src.services.scheduling_service", "ERROR") as logs,
+        ):
+            request_id = self.service.schedule(
+                "https://www.youtube.com/watch?v=abc", USER
+            )
+
+        self.assertEqual(request_id, "request-1")
+        self.assertEqual(len(self._queued_bodies()), 1)
+        self.assertIn("request-1", logs.output[0])
+
+    def test_schedule_accepts_a_url_of_up_to_2048_characters(self):
+        prefix = "https://www.youtube.com/watch?v="
+        url = prefix + "a" * (MAX_URL_LENGTH - len(prefix))
+
+        self.assertEqual(self.service.schedule(url, USER), "request-1")
+
+    def test_schedule_rejects_a_url_longer_than_2048_characters(self):
+        prefix = "https://www.youtube.com/watch?v="
+        url = prefix + "a" * (MAX_URL_LENGTH + 1 - len(prefix))
+
+        with self.assertRaises(InvalidUrlException):
+            self.service.schedule(url, USER)
+
+        self.assertEqual(self._queued_bodies(), [])
 
     def test_new_user_gets_an_empty_listing(self):
         listing = self.service.list_schedules(USER, None, None)

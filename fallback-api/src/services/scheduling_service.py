@@ -1,3 +1,4 @@
+import logging
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
@@ -34,7 +35,11 @@ from src.sync.messages import ScheduleRequest, to_json
 from src.sync.page_tokens import decode_page_token, encode_page_token
 from src.sync.timestamps import iso_micros
 
+logger = logging.getLogger(__name__)
+
 PAGE_SIZE = 25
+# The longest URL POST /schedule accepts.
+MAX_URL_LENGTH = 2048
 # GET /schedule returns at most this many pending requests, newest first.
 MAX_PENDING_REQUESTS = 100
 
@@ -86,6 +91,8 @@ class DynamoDbSchedulingService(SchedulingService):
 
     def schedule(self, url: str, user: User) -> str:
         url = url.strip()
+        if len(url) > MAX_URL_LENGTH:
+            raise InvalidUrlException(f"URL is longer than {MAX_URL_LENGTH} characters")
         if not is_http_url(url):
             raise InvalidUrlException(f'"{url}" is not an absolute http(s) URL')
 
@@ -107,6 +114,19 @@ class DynamoDbSchedulingService(SchedulingService):
                 "Unable to queue the schedule request"
             ) from error
 
+        try:
+            self._put_pending(request, user, url)
+        except (BotoCoreError, ClientError):
+            # The request is already queued and will be processed, so this is still a success;
+            # the user just won't see it as pending, nor see its reason if it is rejected.
+            logger.exception(
+                "Queued schedule request %s but failed to store its pending item",
+                request.request_id,
+            )
+
+        return request.request_id
+
+    def _put_pending(self, request: ScheduleRequest, user: User, url: str) -> None:
         self._table.put_item(
             Item={
                 **pending_key(user.id, request.request_id),
@@ -120,8 +140,6 @@ class DynamoDbSchedulingService(SchedulingService):
                 "ttl": epoch_seconds(request.requested_at + PENDING_TTL),
             }
         )
-
-        return request.request_id
 
     def list_schedules(
         self, user: User, status: str | None, page_token: str | None
