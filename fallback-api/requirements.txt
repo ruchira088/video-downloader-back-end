@@ -6,5 +6,6 @@ mangum==0.21.0
 pydantic==2.12.5
 pyhocon==0.3.63
 pyparsing==3.3.2
+PyJWT[crypto]==2.15.0
 requests==2.33.0
 uvicorn[standard]==0.42.0

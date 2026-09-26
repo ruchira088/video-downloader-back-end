@@ -12,7 +12,10 @@ from src.web.depends.authentication import authenticated_user_dependency
 from src.web.handlers.exception_handlers import register_exception_handlers
 from src.web.routers.authentication_router import authentication_router
 from tests.services.test_data_helpers import sample_password, sample_user
-from tests.services.test_service_helpers import setup_cognito
+from tests.services.test_service_helpers import (
+    moto_access_token_verifier,
+    setup_cognito,
+)
 
 
 @mock_aws
@@ -31,6 +34,7 @@ class TestAuthenticationRouter(unittest.TestCase):
             cognito_idp_client=cognito_details.cognito_client,
             cognito_user_pool_client_id=cognito_details.user_pool_client_id,
             client_secret_key=cognito_details.user_pool_client_secret,
+            access_token_verifier=moto_access_token_verifier(cognito_details),
         )
         authenticated_user = authenticated_user_dependency(authentication_service)
 

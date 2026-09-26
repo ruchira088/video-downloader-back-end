@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 from pydantic import BaseModel, EmailStr
 
+from src.services.access_token_verifier import CognitoAccessTokenVerifier
 from src.services.cognito_helpers import secret_hash
 from src.services.exceptions import (
     IncorrectCredentialsException,
@@ -38,10 +39,12 @@ class CognitoAuthenticationService(AuthenticationService):
         cognito_idp_client,
         cognito_user_pool_client_id: str,
         client_secret_key: str,
+        access_token_verifier: CognitoAccessTokenVerifier,
     ):
         self._cognito_idp_client = cognito_idp_client
         self._cognito_user_pool_client_id = cognito_user_pool_client_id
         self._client_secret_key = client_secret_key
+        self._access_token_verifier = access_token_verifier
 
     def login(self, email: EmailStr, password: str) -> AuthenticationToken:
         try:
@@ -80,9 +83,17 @@ class CognitoAuthenticationService(AuthenticationService):
             raise IncorrectCredentialsException()
 
     def authenticate(self, token: str) -> User:
+        # GetUser takes no user pool id, so it accepts tokens from any pool: verify first that
+        # this pool issued the token for this client.
+        claims = self._access_token_verifier.verify(token)
+
+        # Still call GetUser, which rejects revoked tokens (e.g. after a global sign-out).
         try:
             response = self._cognito_idp_client.get_user(AccessToken=token)
         except self._cognito_idp_client.exceptions.NotAuthorizedException:
+            raise InvalidAuthenticationTokenException()
+
+        if response["Username"] != claims["username"]:
             raise InvalidAuthenticationTokenException()
 
         attributes = {a["Name"]: a["Value"] for a in response["UserAttributes"]}

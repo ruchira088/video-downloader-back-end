@@ -46,4 +46,6 @@ class CognitoContainer(DockerContainer):
             user_pool_id=user_pool_id,
             client_id=user_pool_client_id,
             endpoint_url=self.url(),
+            # cognito-local names its in-container address as the issuer, not the mapped port.
+            issuer=f"http://0.0.0.0:{CognitoContainer.PORT}/{user_pool_id}",
         )

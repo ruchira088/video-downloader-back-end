@@ -1,7 +1,12 @@
 from typing import Any
 
 import boto3
+from jwt import PyJWKSet
+from moto.utilities.utils import load_resource
 from pydantic import BaseModel
+
+from src.config.aws_cognito_configuration import AwsCognitoConfiguration
+from src.services.access_token_verifier import CognitoAccessTokenVerifier
 
 
 class CognitoDetails(BaseModel):
@@ -57,6 +62,24 @@ def setup_cognito(prefix: str) -> CognitoDetails:
     )
 
     return cognito_details
+
+
+def moto_access_token_verifier(
+    cognito_details: CognitoDetails,
+) -> CognitoAccessTokenVerifier:
+    """Verifies the access tokens moto issues, which it signs with its own bundled key."""
+    configuration = AwsCognitoConfiguration(
+        user_pool_id=cognito_details.user_pool_id,
+        client_id=cognito_details.user_pool_client_id,
+    )
+    moto_jwks = load_resource("moto.cognitoidp.models", "resources/jwks-public.json")
+    signing_key = PyJWKSet.from_dict(moto_jwks).keys[0].key
+
+    return CognitoAccessTokenVerifier(
+        issuer=configuration.token_issuer(),
+        client_id=configuration.client_id,
+        signing_key_resolver=lambda token: signing_key,
+    )
 
 
 def setup_sqs(queue_name: str) -> tuple[Any, str]:

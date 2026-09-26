@@ -15,7 +15,10 @@ from src.services.models.user import Role, User
 from src.services.user_service import CognitoUserService, UserService
 from src.services.user_validation_service import UserValidationService
 from tests.services.test_data_helpers import sample_password, sample_user
-from tests.services.test_service_helpers import setup_cognito
+from tests.services.test_service_helpers import (
+    moto_access_token_verifier,
+    setup_cognito,
+)
 
 
 @mock_aws
@@ -39,6 +42,7 @@ class TestCognitoAuthenticationService(unittest.TestCase):
                 cognito_idp_client=cognito_details.cognito_client,
                 cognito_user_pool_client_id=cognito_details.user_pool_client_id,
                 client_secret_key=cognito_details.user_pool_client_secret,
+                access_token_verifier=moto_access_token_verifier(cognito_details),
             )
         )
 
@@ -168,3 +172,64 @@ class TestCognitoAuthenticationService(unittest.TestCase):
 
         assert user.id == "legacy-id"
         assert user.role == Role.USER
+
+    def test_authenticate_rejects_an_access_token_from_another_user_pool(self):
+        # An attacker controls their own pool, so its users can carry any custom:user_id and
+        # custom:role. GetUser alone would accept their token, since it takes no pool id.
+        attacker_pool = setup_cognito("attacker")
+        attacker_client = attacker_pool.cognito_client
+        attacker_client.admin_create_user(
+            UserPoolId=attacker_pool.user_pool_id,
+            Username=sample_user.email,
+            MessageAction="SUPPRESS",
+            UserAttributes=[
+                {"Name": "email", "Value": sample_user.email},
+                {"Name": "given_name", "Value": "Evil"},
+                {"Name": "family_name", "Value": "Twin"},
+                {"Name": "custom:user_id", "Value": sample_user.id},
+                {"Name": "custom:role", "Value": "Admin"},
+            ],
+        )
+        attacker_client.admin_set_user_password(
+            UserPoolId=attacker_pool.user_pool_id,
+            Username=sample_user.email,
+            Password=sample_password,
+            Permanent=True,
+        )
+        attacker_token = CognitoAuthenticationService(
+            cognito_idp_client=attacker_client,
+            cognito_user_pool_client_id=attacker_pool.user_pool_client_id,
+            client_secret_key=attacker_pool.user_pool_client_secret,
+            access_token_verifier=moto_access_token_verifier(attacker_pool),
+        ).login(sample_user.email, sample_password)
+
+        with self.assertRaises(InvalidAuthenticationTokenException):
+            self.cognito_authentication_service.authenticate(
+                attacker_token.access_token
+            )
+
+    def test_authenticate_rejects_a_token_whose_username_does_not_match_get_user(
+        self,
+    ):
+        auth_token = self.cognito_authentication_service.login(
+            sample_user.email, sample_password
+        )
+        cognito_client = MagicMock()
+        cognito_client.get_user.return_value = {
+            "Username": "someone-else@ruchij.com",
+            "UserAttributes": [
+                {"Name": "email", "Value": "someone-else@ruchij.com"},
+                {"Name": "given_name", "Value": "Someone"},
+                {"Name": "family_name", "Value": "Else"},
+                {"Name": "custom:user_id", "Value": "someone-else"},
+            ],
+        }
+        service = CognitoAuthenticationService(
+            cognito_idp_client=cognito_client,
+            cognito_user_pool_client_id=self.cognito_details.user_pool_client_id,
+            client_secret_key=self.cognito_details.user_pool_client_secret,
+            access_token_verifier=moto_access_token_verifier(self.cognito_details),
+        )
+
+        with self.assertRaises(InvalidAuthenticationTokenException):
+            service.authenticate(auth_token.access_token)
