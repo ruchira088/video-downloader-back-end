@@ -5,7 +5,7 @@ import cats.effect.Async
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
 import com.ruchij.api.services.config.models.ApiConfigKey
-import com.ruchij.api.services.fallback.models.FallbackSyncRequest
+import com.ruchij.api.services.fallback.FallbackSyncRequester
 import com.ruchij.api.services.scheduling.models.ScheduledVideoResult
 import com.ruchij.core.daos.permission.VideoPermissionDao
 import com.ruchij.core.daos.permission.models.VideoPermission
@@ -34,7 +34,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
   videoAnalysisService: VideoAnalysisService[F],
   scheduledVideoDownloadPublisher: Publisher[F, ScheduledVideoDownload],
   workerStatusPublisher: Publisher[F, WorkerStatusUpdate],
-  fallbackSyncRequestPublisher: Publisher[F, FallbackSyncRequest],
+  fallbackSyncRequester: FallbackSyncRequester[F],
   configurationService: ConfigurationService[F, ApiConfigKey],
   schedulingDao: SchedulingDao[T],
   videoTitleDao: VideoTitleDao[T],
@@ -43,13 +43,6 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
     extends ApiSchedulingService[F] {
 
   private val logger = Logger[ApiSchedulingServiceImpl[F, T]]
-
-  private def requestFallbackSync(videoId: String): F[Unit] =
-    fallbackSyncRequestPublisher
-      .publishOne(FallbackSyncRequest(videoId))
-      .handleErrorWith { error =>
-        logger.warn[F](s"Unable to request a fallback sync for video $videoId: ${error.getMessage}")
-      }
 
   override def schedule(uri: Uri, userId: String): F[ScheduledVideoResult] =
     VideoSite
@@ -76,7 +69,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
             case scheduledVideoDownload :: _ =>
               existingScheduledVideoDownload(scheduledVideoDownload.videoMetadata, userId)
                 .flatTap { created =>
-                  requestFallbackSync(scheduledVideoDownload.videoMetadata.id).whenA(created)
+                  fallbackSyncRequester.request(scheduledVideoDownload.videoMetadata.id).whenA(created)
                 }
                 .map { created =>
                   if (created) ScheduledVideoResult.NewlyScheduled(scheduledVideoDownload)
@@ -150,7 +143,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
           .flatMap { existing =>
             existingScheduledVideoDownload(existing.videoMetadata, userId)
               .flatTap { created =>
-                requestFallbackSync(existing.videoMetadata.id).whenA(created)
+                fallbackSyncRequester.request(existing.videoMetadata.id).whenA(created)
               }
               .map { created =>
                 if (created) ScheduledVideoResult.NewlyScheduled(existing)
@@ -260,6 +253,6 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
           scheduledVideoDownloadPublisher.publishOne(deleted).as(deleted)
         }
       } else
-        requestFallbackSync(scheduledVideoDownload.videoMetadata.id).as(scheduledVideoDownload)
+        fallbackSyncRequester.request(scheduledVideoDownload.videoMetadata.id).as(scheduledVideoDownload)
     }
 }

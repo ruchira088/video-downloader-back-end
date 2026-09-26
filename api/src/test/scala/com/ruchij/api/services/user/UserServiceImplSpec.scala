@@ -11,10 +11,15 @@ import com.ruchij.api.daos.user.UserDao
 import com.ruchij.api.daos.user.models.{Email, Role, User}
 import com.ruchij.api.exceptions.{AuthorizationException, ResourceConflictException}
 import com.ruchij.api.services.authentication.AuthenticationService.Password
+import com.ruchij.api.services.fallback.FallbackSyncStubs.{FailingPublisher, RecordingPublisher}
+import com.ruchij.api.services.fallback.models.FallbackSyncRequest
+import com.ruchij.api.services.fallback.{FallbackSyncRequester, NoOpPublisher}
 import com.ruchij.api.services.hashing.PasswordHashingService
 import com.ruchij.core.daos.permission.VideoPermissionDao
+import com.ruchij.core.daos.permission.models.VideoPermission
 import com.ruchij.core.daos.title.VideoTitleDao
 import com.ruchij.core.exceptions.ResourceNotFoundException
+import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import com.ruchij.core.test.Providers
 import com.ruchij.core.types.{Clock, RandomGenerator, TimeUtils}
@@ -58,7 +63,8 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     credentialsDao: CredentialsDao[IO],
     credentialsResetTokenDao: CredentialsResetTokenDao[IO],
     videoTitleDao: VideoTitleDao[IO],
-    videoPermissionDao: VideoPermissionDao[IO]
+    videoPermissionDao: VideoPermissionDao[IO],
+    fallbackSyncRequestPublisher: Publisher[IO, FallbackSyncRequest] = new NoOpPublisher[IO, FallbackSyncRequest]
   )(implicit clock: Clock[IO], uuidGenerator: RandomGenerator[IO, UUID]): UserServiceImpl[IO, IO] = {
     implicit val transaction: IO ~> IO = new (IO ~> IO) {
       override def apply[A](fa: IO[A]): IO[A] = fa
@@ -70,7 +76,8 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
       credentialsDao,
       credentialsResetTokenDao,
       videoTitleDao,
-      videoPermissionDao
+      videoPermissionDao,
+      new FallbackSyncRequester[IO](fallbackSyncRequestPublisher)
     )
   }
 
@@ -378,6 +385,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     val videoTitleDao = mock[VideoTitleDao[IO]]
     val videoPermissionDao = mock[VideoPermissionDao[IO]]
 
+    (videoPermissionDao.find _).expects(Some(userId), None).returning(IO.pure(Seq.empty))
     (videoTitleDao.delete _).expects(None, Some(userId)).returning(IO.pure(2))
     (videoPermissionDao.delete _).expects(Some(userId), None).returning(IO.pure(3))
     (credentialsDao.deleteByUserId _).expects(userId).returning(IO.pure(1))
@@ -387,6 +395,69 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     val userService = createService(
       passwordHashingService, userDao, credentialsDao,
       credentialsResetTokenDao, videoTitleDao, videoPermissionDao
+    )
+
+    userService.delete(userId, adminUser).map { user =>
+      user mustBe sampleUser
+    }
+  }
+
+  it should "request a fallback sync for each of the user's videos after the delete" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val uuidGenerator: RandomGenerator[IO, UUID] = mock[RandomGenerator[IO, UUID]]
+
+    val userDao = mock[UserDao[IO]]
+    val credentialsDao = mock[CredentialsDao[IO]]
+    val videoTitleDao = mock[VideoTitleDao[IO]]
+    val videoPermissionDao = mock[VideoPermissionDao[IO]]
+
+    (videoPermissionDao.find _)
+      .expects(Some(userId), None)
+      .returning {
+        IO.pure(Seq(VideoPermission(timestamp, "video-1", userId), VideoPermission(timestamp, "video-2", userId)))
+      }
+    (videoTitleDao.delete _).expects(None, Some(userId)).returning(IO.pure(2))
+    (videoPermissionDao.delete _).expects(Some(userId), None).returning(IO.pure(2))
+    (credentialsDao.deleteByUserId _).expects(userId).returning(IO.pure(1))
+    (userDao.findById _).expects(userId).returning(IO.pure(Some(sampleUser)))
+    (userDao.deleteById _).expects(userId).returning(IO.pure(1))
+
+    for {
+      publisher <- RecordingPublisher[FallbackSyncRequest]
+      userService = createService(
+        mock[PasswordHashingService[IO]], userDao, credentialsDao,
+        mock[CredentialsResetTokenDao[IO]], videoTitleDao, videoPermissionDao, publisher
+      )
+      user <- userService.delete(userId, adminUser)
+      published <- publisher.messages
+    } yield {
+      user mustBe sampleUser
+      published mustBe List(FallbackSyncRequest("video-1"), FallbackSyncRequest("video-2"))
+    }
+  }
+
+  it should "not fail the delete when the fallback sync request publisher fails" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val uuidGenerator: RandomGenerator[IO, UUID] = mock[RandomGenerator[IO, UUID]]
+
+    val userDao = mock[UserDao[IO]]
+    val credentialsDao = mock[CredentialsDao[IO]]
+    val videoTitleDao = mock[VideoTitleDao[IO]]
+    val videoPermissionDao = mock[VideoPermissionDao[IO]]
+
+    (videoPermissionDao.find _)
+      .expects(Some(userId), None)
+      .returning(IO.pure(Seq(VideoPermission(timestamp, "video-1", userId))))
+    (videoTitleDao.delete _).expects(None, Some(userId)).returning(IO.pure(1))
+    (videoPermissionDao.delete _).expects(Some(userId), None).returning(IO.pure(1))
+    (credentialsDao.deleteByUserId _).expects(userId).returning(IO.pure(1))
+    (userDao.findById _).expects(userId).returning(IO.pure(Some(sampleUser)))
+    (userDao.deleteById _).expects(userId).returning(IO.pure(1))
+
+    val userService = createService(
+      mock[PasswordHashingService[IO]], userDao, credentialsDao,
+      mock[CredentialsResetTokenDao[IO]], videoTitleDao, videoPermissionDao,
+      new FailingPublisher[FallbackSyncRequest]
     )
 
     userService.delete(userId, adminUser).map { user =>
@@ -429,6 +500,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     val videoTitleDao = mock[VideoTitleDao[IO]]
     val videoPermissionDao = mock[VideoPermissionDao[IO]]
 
+    (videoPermissionDao.find _).expects(Some("non-existent"), None).returning(IO.pure(Seq.empty))
     (videoTitleDao.delete _).expects(None, Some("non-existent")).returning(IO.pure(0))
     (videoPermissionDao.delete _).expects(Some("non-existent"), None).returning(IO.pure(0))
     (credentialsDao.deleteByUserId _).expects("non-existent").returning(IO.pure(0))
@@ -547,6 +619,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
       Role.User
     )
 
+    (videoPermissionDao.find _).expects(Some(targetUserId), None).returning(IO.pure(Seq.empty))
     (videoTitleDao.delete _).expects(None, Some(targetUserId)).returning(IO.pure(5))
     (videoPermissionDao.delete _).expects(Some(targetUserId), None).returning(IO.pure(10))
     (credentialsDao.deleteByUserId _).expects(targetUserId).returning(IO.pure(1))

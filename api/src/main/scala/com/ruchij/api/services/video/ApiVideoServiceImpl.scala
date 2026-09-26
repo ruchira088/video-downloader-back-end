@@ -4,6 +4,7 @@ import cats.data.NonEmptyList
 import cats.implicits._
 import cats.{Applicative, MonadThrow, ~>}
 import com.ruchij.api.services.detection.ApiDuplicateDetectionService
+import com.ruchij.api.services.fallback.FallbackSyncRequester
 import com.ruchij.core.commands.ScanVideosCommand
 import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
 import com.ruchij.core.daos.permission.VideoPermissionDao
@@ -33,6 +34,7 @@ class ApiVideoServiceImpl[F[_]: MonadThrow: Clock, G[_]: MonadThrow](
   videoService: VideoService[F, G],
   apiDuplicateDetectionService: ApiDuplicateDetectionService[F],
   videoScanPublisher: Publisher[F, ScanVideosCommand],
+  fallbackSyncRequester: FallbackSyncRequester[F],
   sharedConfigurationService: ConfigurationService[F, SharedConfigKey],
   videoDao: VideoDao[G],
   videoMetadataDao: VideoMetadataDao[G],
@@ -61,6 +63,8 @@ class ApiVideoServiceImpl[F[_]: MonadThrow: Clock, G[_]: MonadThrow](
         }
         .productR(videoService.findVideoById(videoId, maybeUserId))
     }
+      // Only the shared title is part of what the fallback holds; a user's own title is not synced
+      .flatTap(_ => fallbackSyncRequester.request(videoId).whenA(maybeUserId.isEmpty))
 
   override def deleteById(videoId: String, maybeUserId: Option[String], deleteVideoFile: Boolean): F[Video] =
     maybeUserId match {
@@ -70,11 +74,12 @@ class ApiVideoServiceImpl[F[_]: MonadThrow: Clock, G[_]: MonadThrow](
             .findVideoById(videoId, Some(userId))
             .productL(videoTitleDao.delete(Some(videoId), Some(userId)))
             .productL(videoPermissionDao.delete(Some(userId), Some(videoId)))
-        }
+        }.flatTap(_ => fallbackSyncRequester.request(videoId))
 
       case None =>
         apiDuplicateDetectionService.deleteVideo(videoId)
           .productR(videoService.deleteById(videoId, deleteVideoFile))
+          .flatTap(_ => fallbackSyncRequester.request(videoId))
     }
 
   override def search(

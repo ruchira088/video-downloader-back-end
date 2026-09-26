@@ -4,6 +4,7 @@ import cats.data.NonEmptyList
 import cats.effect.IO
 import cats.~>
 import com.ruchij.api.services.config.models.ApiConfigKey
+import com.ruchij.api.services.fallback.FallbackSyncRequester
 import com.ruchij.api.services.fallback.models.FallbackSyncRequest
 import com.ruchij.api.services.scheduling.models.ScheduledVideoResult
 import com.ruchij.core.daos.permission.VideoPermissionDao
@@ -182,7 +183,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
       videoAnalysisService,
       scheduledVideoDownloadPublisher,
       workerStatusPublisher,
-      fallbackSyncRequestPublisher,
+      new FallbackSyncRequester[IO](fallbackSyncRequestPublisher),
       configurationService,
       schedulingDao,
       videoTitleDao,

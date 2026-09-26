@@ -25,6 +25,8 @@ final case class FallbackSyncResources[F[_]](
   fallbackSyncRequestPubSub: PubSub[F, FallbackSyncRequest]
 )
 
+/** Syncs on scheduled-video events and on the `FallbackSyncRequest`s the API publishes after user-visible writes.
+  * Batch-side changes that publish neither (local-file sync inserts, resets to Queued) are left to the reconcile. */
 object FallbackSync {
   // Shared by every API instance, so each message is handled by one of them.
   val SubscriberGroupId = "fallback-sync"

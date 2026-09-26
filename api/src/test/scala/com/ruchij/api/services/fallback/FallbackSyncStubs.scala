@@ -6,6 +6,8 @@ import cats.implicits._
 import cats.~>
 import com.ruchij.api.services.fallback.aws.FallbackSyncTransport
 import com.ruchij.api.services.fallback.models.MainToFallbackMessage
+import com.ruchij.core.messaging.Publisher
+import fs2.Pipe
 
 object FallbackSyncStubs {
   implicit val identityTransaction: IO ~> IO = new (IO ~> IO) {
@@ -51,5 +53,23 @@ object FallbackSyncStubs {
   object FlakyTransport {
     def apply(failures: Int): IO[FlakyTransport] =
       (Ref.of[IO, Int](failures), RecordingTransport()).mapN(new FlakyTransport(_, _))
+  }
+
+  final class RecordingPublisher[A](published: Ref[IO, List[A]]) extends Publisher[IO, A] {
+    override val publish: Pipe[IO, A, Unit] = _.evalMap(publishOne)
+
+    override def publishOne(input: A): IO[Unit] = published.update(_ :+ input)
+
+    val messages: IO[List[A]] = published.get
+  }
+
+  object RecordingPublisher {
+    def apply[A]: IO[RecordingPublisher[A]] = Ref.of[IO, List[A]](Nil).map(new RecordingPublisher[A](_))
+  }
+
+  final class FailingPublisher[A] extends Publisher[IO, A] {
+    override val publish: Pipe[IO, A, Unit] = _.evalMap(publishOne)
+
+    override def publishOne(input: A): IO[Unit] = IO.raiseError(new RuntimeException("Publish failed"))
   }
 }

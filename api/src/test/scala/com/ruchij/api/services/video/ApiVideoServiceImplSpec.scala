@@ -4,6 +4,9 @@ import cats.data.NonEmptyList
 import cats.effect.IO
 import cats.~>
 import com.ruchij.api.services.detection.ApiDuplicateDetectionService
+import com.ruchij.api.services.fallback.FallbackSyncStubs.{FailingPublisher, RecordingPublisher}
+import com.ruchij.api.services.fallback.models.FallbackSyncRequest
+import com.ruchij.api.services.fallback.{FallbackSyncRequester, NoOpPublisher}
 import com.ruchij.core.commands.ScanVideosCommand
 import com.ruchij.core.daos.duplicate.models.DuplicateVideo
 import com.ruchij.core.daos.permission.VideoPermissionDao
@@ -202,7 +205,8 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     snapshotDao: SnapshotDao[IO],
     videoTitleDao: VideoTitleDao[IO],
     videoPermissionDao: VideoPermissionDao[IO],
-    duplicateDetectionService: ApiDuplicateDetectionService[IO] = stubDuplicateDetectionService
+    duplicateDetectionService: ApiDuplicateDetectionService[IO] = stubDuplicateDetectionService,
+    fallbackSyncRequestPublisher: Publisher[IO, FallbackSyncRequest] = new NoOpPublisher[IO, FallbackSyncRequest]
   )(implicit clock: Clock[IO]): ApiVideoServiceImpl[IO, IO] = {
     implicit val transaction: IO ~> IO = new (IO ~> IO) {
       override def apply[A](fa: IO[A]): IO[A] = fa
@@ -212,6 +216,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
       videoService,
       duplicateDetectionService,
       videoScanPublisher,
+      new FallbackSyncRequester[IO](fallbackSyncRequestPublisher),
       sharedConfigService,
       videoDao,
       videoMetadataDao,
@@ -464,6 +469,132 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     apiVideoService.deleteById("video-1", None, deleteVideoFile = false).map { video =>
       video mustBe sampleVideo
     }
+  }
+
+  "update" should "request a fallback sync when an admin changes the title" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    val (sharedConfigService, _) = createStubConfigService()
+
+    for {
+      publisher <- RecordingPublisher[FallbackSyncRequest]
+      apiVideoService = createService(
+        createStubVideoService(findVideoByIdResult = (_, _) => IO.pure(sampleVideo)),
+        createStubPublisher(),
+        sharedConfigService,
+        createStubVideoDao(),
+        createStubVideoMetadataDao(),
+        createStubSnapshotDao(),
+        createStubVideoTitleDao(),
+        createStubVideoPermissionDao(),
+        fallbackSyncRequestPublisher = publisher
+      )
+      _ <- apiVideoService.update("video-1", "Updated Title", None)
+      published <- publisher.messages
+    } yield published mustBe List(FallbackSyncRequest("video-1"))
+  }
+
+  it should "not request a fallback sync when a user changes only their own title" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    val (sharedConfigService, _) = createStubConfigService()
+
+    for {
+      publisher <- RecordingPublisher[FallbackSyncRequest]
+      apiVideoService = createService(
+        createStubVideoService(findVideoByIdResult = (_, _) => IO.pure(sampleVideo)),
+        createStubPublisher(),
+        sharedConfigService,
+        createStubVideoDao(),
+        createStubVideoMetadataDao(),
+        createStubSnapshotDao(),
+        createStubVideoTitleDao(),
+        createStubVideoPermissionDao(),
+        fallbackSyncRequestPublisher = publisher
+      )
+      _ <- apiVideoService.update("video-1", "My Title", Some("user-1"))
+      published <- publisher.messages
+    } yield published mustBe empty
+  }
+
+  it should "not fail when the fallback sync request publisher fails" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    val (sharedConfigService, _) = createStubConfigService()
+
+    val apiVideoService = createService(
+      createStubVideoService(findVideoByIdResult = (_, _) => IO.pure(sampleVideo)),
+      createStubPublisher(),
+      sharedConfigService,
+      createStubVideoDao(),
+      createStubVideoMetadataDao(),
+      createStubSnapshotDao(),
+      createStubVideoTitleDao(),
+      createStubVideoPermissionDao(),
+      fallbackSyncRequestPublisher = new FailingPublisher[FallbackSyncRequest]
+    )
+
+    apiVideoService.update("video-1", "Updated Title", None).map(video => video mustBe sampleVideo)
+  }
+
+  "deleteById" should "request a fallback sync when an admin deletes a video" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    val (sharedConfigService, _) = createStubConfigService()
+
+    for {
+      publisher <- RecordingPublisher[FallbackSyncRequest]
+      apiVideoService = createService(
+        createStubVideoService(deleteByIdResult = (_, _) => IO.pure(sampleVideo)),
+        createStubPublisher(),
+        sharedConfigService,
+        createStubVideoDao(),
+        createStubVideoMetadataDao(),
+        createStubSnapshotDao(),
+        createStubVideoTitleDao(),
+        createStubVideoPermissionDao(),
+        fallbackSyncRequestPublisher = publisher
+      )
+      _ <- apiVideoService.deleteById("video-1", None, deleteVideoFile = true)
+      published <- publisher.messages
+    } yield published mustBe List(FallbackSyncRequest("video-1"))
+  }
+
+  it should "request a fallback sync when a user removes a video from their list" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    val (sharedConfigService, _) = createStubConfigService()
+
+    for {
+      publisher <- RecordingPublisher[FallbackSyncRequest]
+      apiVideoService = createService(
+        createStubVideoService(findVideoByIdResult = (_, _) => IO.pure(sampleVideo)),
+        createStubPublisher(),
+        sharedConfigService,
+        createStubVideoDao(),
+        createStubVideoMetadataDao(),
+        createStubSnapshotDao(),
+        createStubVideoTitleDao(),
+        createStubVideoPermissionDao(),
+        fallbackSyncRequestPublisher = publisher
+      )
+      _ <- apiVideoService.deleteById("video-1", Some("user-1"), deleteVideoFile = false)
+      published <- publisher.messages
+    } yield published mustBe List(FallbackSyncRequest("video-1"))
+  }
+
+  it should "not fail the delete when the fallback sync request publisher fails" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    val (sharedConfigService, _) = createStubConfigService()
+
+    val apiVideoService = createService(
+      createStubVideoService(deleteByIdResult = (_, _) => IO.pure(sampleVideo)),
+      createStubPublisher(),
+      sharedConfigService,
+      createStubVideoDao(),
+      createStubVideoMetadataDao(),
+      createStubSnapshotDao(),
+      createStubVideoTitleDao(),
+      createStubVideoPermissionDao(),
+      fallbackSyncRequestPublisher = new FailingPublisher[FallbackSyncRequest]
+    )
+
+    apiVideoService.deleteById("video-1", None, deleteVideoFile = true).map(video => video mustBe sampleVideo)
   }
 
   "search" should "search videos without video URLs" in runIO {

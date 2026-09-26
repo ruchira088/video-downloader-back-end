@@ -11,6 +11,7 @@ import com.ruchij.api.daos.user.UserDao
 import com.ruchij.api.daos.user.models.{Email, Role, User}
 import com.ruchij.api.exceptions.{AuthorizationException, ResourceConflictException}
 import com.ruchij.api.services.authentication.AuthenticationService.Password
+import com.ruchij.api.services.fallback.FallbackSyncRequester
 import com.ruchij.api.services.hashing.PasswordHashingService
 import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
 import com.ruchij.core.daos.permission.VideoPermissionDao
@@ -26,7 +27,8 @@ class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: MonadThrow: Clock, G[_]
   credentialsDao: CredentialsDao[G],
   credentialsResetTokenDao: CredentialsResetTokenDao[G],
   videoTitleDao: VideoTitleDao[G],
-  videoPermissionDao: VideoPermissionDao[G]
+  videoPermissionDao: VideoPermissionDao[G],
+  fallbackSyncRequester: FallbackSyncRequester[F]
 )(implicit transaction: G ~> F)
     extends UserService[F] {
 
@@ -96,11 +98,17 @@ class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: MonadThrow: Clock, G[_]
   override def delete(userId: String, adminUser: User): F[User] =
     if (adminUser.role == Role.Admin)
       transaction {
-        videoTitleDao.delete(None, Some(userId))
-          .productR(videoPermissionDao.delete(Some(userId), None))
-          .productR(credentialsDao.deleteByUserId(userId))
-          .productR(fetchUserById(userId))
-          .productL(userDao.deleteById(userId).one)
+        // The user's videos are collected before their permissions are deleted, so each can be re-synced after
+        videoPermissionDao.find(Some(userId), None).flatMap { permissions =>
+          videoTitleDao.delete(None, Some(userId))
+            .productR(videoPermissionDao.delete(Some(userId), None))
+            .productR(credentialsDao.deleteByUserId(userId))
+            .productR(fetchUserById(userId))
+            .productL(userDao.deleteById(userId).one)
+            .map(user => user -> permissions.map(_.scheduledVideoDownloadId).distinct)
+        }
+      }.flatMap { case (user, videoIds) =>
+        videoIds.traverse_(fallbackSyncRequester.request).as(user)
       }
     else ApplicativeError[F, Throwable].raiseError {
       AuthorizationException(s"User does NOT have permission to delete user: $userId")

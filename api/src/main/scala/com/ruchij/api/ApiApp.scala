@@ -23,7 +23,7 @@ import com.ruchij.api.services.config.models.ApiConfigKey.ApiConfigKeySpace
 import com.ruchij.api.services.detection.ApiDuplicateDetectionServiceImpl
 import com.ruchij.api.services.fallback.aws.FallbackSyncAwsClients
 import com.ruchij.api.services.fallback.models.FallbackSyncRequest
-import com.ruchij.api.services.fallback.{FallbackSync, FallbackSyncResources, NoOpPublisher}
+import com.ruchij.api.services.fallback.{FallbackSync, FallbackSyncRequester, FallbackSyncResources, NoOpPublisher}
 import com.ruchij.api.services.hashing.BCryptPasswordHashingService
 import com.ruchij.api.services.health.HealthServiceImpl
 import com.ruchij.api.services.health.models.kv.HealthCheckKey
@@ -247,10 +247,13 @@ object ApiApp extends IOApp {
     val apiDuplicateDetectionService =
       new ApiDuplicateDetectionServiceImpl[F, ConnectionIO](DoobieDuplicateVideoDao, DoobieVideoPerceptualHashDao)
 
+    val fallbackSyncRequester = new FallbackSyncRequester[F](messageBrokers.fallbackSyncRequestPublisher)
+
     val apiVideoService = new ApiVideoServiceImpl[F, ConnectionIO](
       videoService,
       apiDuplicateDetectionService,
       messageBrokers.scanVideosCommandPublisher,
+      fallbackSyncRequester,
       sharedConfigurationService,
       DoobieVideoDao,
       DoobieVideoMetadataDao,
@@ -283,7 +286,7 @@ object ApiApp extends IOApp {
       videoAnalysisService,
       messageBrokers.scheduledVideoDownloadPubSub,
       messageBrokers.workerStatusUpdatesPublisher,
-      messageBrokers.fallbackSyncRequestPublisher,
+      fallbackSyncRequester,
       apiConfigurationService,
       DoobieSchedulingDao,
       DoobieVideoTitleDao,
@@ -296,7 +299,8 @@ object ApiApp extends IOApp {
       DoobieCredentialsDao,
       DoobieCredentialsResetTokenDao,
       DoobieVideoTitleDao,
-      DoobieVideoPermissionDao
+      DoobieVideoPermissionDao,
+      fallbackSyncRequester
     )
 
     val videoWatchHistoryService =
