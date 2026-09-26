@@ -1,3 +1,4 @@
+import logging
 from abc import ABC, abstractmethod
 
 from pydantic import EmailStr
@@ -12,6 +13,9 @@ from src.services.user_validation_service import (
     UserValidationService,
     VideoDownloaderUserValidationService,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 class UserService(ABC):
@@ -62,10 +66,17 @@ class CognitoUserService(UserService):
             )
         except Exception as error:
             # Without a password the user could never log in, and a retry would hit
-            # UsernameExistsException, so undo the creation.
-            self._cognito_idp_client.admin_delete_user(
-                UserPoolId=self._cognito_user_pool_id, Username=email
-            )
+            # UsernameExistsException, so undo the creation. A failed undo is only logged, so the
+            # caller still sees why sign-up failed rather than the rollback's error.
+            try:
+                self._cognito_idp_client.admin_delete_user(
+                    UserPoolId=self._cognito_user_pool_id, Username=email
+                )
+            except Exception:
+                logger.exception(
+                    "Unable to delete user %s after setting their password failed",
+                    user.id,
+                )
 
             # In tests, cognito_idp_client can be a MagicMock, whose .exceptions.* attributes
             # are themselves MagicMocks rather than exception classes; isinstance() would raise

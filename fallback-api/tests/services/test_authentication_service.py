@@ -107,6 +107,40 @@ class TestCognitoAuthenticationService(unittest.TestCase):
 
         assert user.role == Role.USER
 
+    def _login_as_user_with_role(self, email: str, role: str) -> User:
+        cognito_client = self.cognito_details.cognito_client
+        cognito_client.admin_create_user(
+            UserPoolId=self.cognito_details.user_pool_id,
+            Username=email,
+            MessageAction="SUPPRESS",
+            UserAttributes=[
+                {"Name": "email", "Value": email},
+                {"Name": "given_name", "Value": "Role"},
+                {"Name": "family_name", "Value": "Holder"},
+                {"Name": "custom:user_id", "Value": f"{role}-id"},
+                {"Name": "custom:role", "Value": role},
+            ],
+        )
+        cognito_client.admin_set_user_password(
+            UserPoolId=self.cognito_details.user_pool_id,
+            Username=email,
+            Password=sample_password,
+            Permanent=True,
+        )
+
+        auth_token = self.cognito_authentication_service.login(email, sample_password)
+        return self.cognito_authentication_service.authenticate(auth_token.access_token)
+
+    def test_authenticate_returns_the_admin_role_for_an_admin(self):
+        user = self._login_as_user_with_role("admin@ruchij.com", "Admin")
+
+        assert user.role == Role.ADMIN
+
+    def test_authenticate_treats_a_role_that_is_not_exactly_admin_as_user(self):
+        user = self._login_as_user_with_role("almost-admin@ruchij.com", "admin")
+
+        assert user.role == Role.USER
+
     def test_authenticate_defaults_to_user_role_when_the_attribute_is_missing(self):
         cognito_client = self.cognito_details.cognito_client
         cognito_client.admin_create_user(

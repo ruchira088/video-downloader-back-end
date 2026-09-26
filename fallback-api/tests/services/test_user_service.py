@@ -114,3 +114,21 @@ class TestCognitoUserServicePasswordFailure(unittest.TestCase):
         cognito_client.admin_delete_user.assert_called_once_with(
             UserPoolId="pool-id", Username=sample_user.email
         )
+
+    def test_the_original_error_is_raised_when_the_rollback_delete_also_fails(self):
+        user_validation_service = MagicMock()
+        user_validation_service.get_user.return_value = sample_user
+        cognito_client = MagicMock()
+        cognito_client.admin_set_user_password.side_effect = RuntimeError(
+            "weak password"
+        )
+        cognito_client.admin_delete_user.side_effect = RuntimeError("throttled")
+
+        user_service = CognitoUserService(
+            user_validation_service=user_validation_service,
+            cognito_idp_client=cognito_client,
+            cognito_user_pool_id="pool-id",
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "weak password"):
+            user_service.create_user(email=sample_user.email, password="weak")
