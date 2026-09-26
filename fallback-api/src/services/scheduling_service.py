@@ -35,6 +35,8 @@ from src.sync.page_tokens import decode_page_token, encode_page_token
 from src.sync.timestamps import iso_micros
 
 PAGE_SIZE = 25
+# GET /schedule returns at most this many pending requests, newest first.
+MAX_PENDING_REQUESTS = 100
 
 
 class SchedulingService(ABC):
@@ -209,7 +211,10 @@ class DynamoDbSchedulingService(SchedulingService):
     def _pending_requests(self, user_id: str) -> list[PendingRequest]:
         query: dict[str, Any] = {
             "KeyConditionExpression": Key("PK").eq(user_partition(user_id))
-            & Key("SK").begins_with("PENDING#")
+            & Key("SK").begins_with("PENDING#"),
+            # DynamoDB deletes expired items lazily, up to days after their ttl.
+            "FilterExpression": Attr("ttl").not_exists()
+            | Attr("ttl").gt(epoch_seconds(self._clock())),
         }
         items: list[Mapping[str, Any]] = []
 
@@ -221,7 +226,10 @@ class DynamoDbSchedulingService(SchedulingService):
             query["ExclusiveStartKey"] = response["LastEvaluatedKey"]
 
         pending = [PendingRequest.from_item(item) for item in items]
-        return sorted(pending, key=lambda request: request.requested_at, reverse=True)
+        newest_first = sorted(
+            pending, key=lambda request: request.requested_at, reverse=True
+        )
+        return newest_first[:MAX_PENDING_REQUESTS]
 
 
 def get_scheduling_service(app_configuration: AppConfiguration) -> SchedulingService:

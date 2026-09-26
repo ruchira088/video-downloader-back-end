@@ -1,7 +1,8 @@
 import json
-from base64 import urlsafe_b64encode
 import unittest
+from base64 import urlsafe_b64encode
 from datetime import timedelta
+from typing import Any
 
 from moto import mock_aws
 
@@ -11,7 +12,11 @@ from src.services.exceptions import (
     ServiceUnavailableException,
 )
 from src.services.models.user import Role, User
-from src.services.scheduling_service import PAGE_SIZE, DynamoDbSchedulingService
+from src.services.scheduling_service import (
+    MAX_PENDING_REQUESTS,
+    PAGE_SIZE,
+    DynamoDbSchedulingService,
+)
 from src.sync.items import (
     ALL_VIDEOS_PARTITION,
     VIDEO_SORT_KEY,
@@ -22,6 +27,7 @@ from src.sync.items import (
 from src.sync.messages import ScheduledVideoRemoval
 from src.sync.page_tokens import encode_page_token
 from src.sync.sync_applier import SyncApplier
+from src.sync.timestamps import iso_micros
 from tests.services.test_service_helpers import setup_dynamodb, setup_sqs
 from tests.sync.sync_test_data import FIXED_NOW, T0, sample_upsert
 
@@ -148,6 +154,41 @@ class TestDynamoDbSchedulingService(unittest.TestCase):
 
         self.assertEqual([v.video_id for v in listing.videos], ["b", "a"])
         self.assertEqual(listing.pending, [])
+
+    def _put_pending(self, request_id: str, minutes: int, ttl: int | None) -> None:
+        item: dict[str, Any] = {
+            **pending_key("user-1", request_id),
+            "requestId": request_id,
+            "url": "https://www.youtube.com/watch?v=abc",
+            "requestedAt": iso_micros(T0 + timedelta(minutes=minutes)),
+            "status": "Rejected",
+        }
+        if ttl is not None:
+            item["ttl"] = ttl
+        self.table.put_item(Item=item)
+
+    def test_pending_items_past_their_ttl_are_not_listed(self):
+        now = epoch_seconds(FIXED_NOW)
+        self._put_pending("expired", minutes=1, ttl=now - 1)
+        self._put_pending("expiring-now", minutes=2, ttl=now)
+        self._put_pending("live", minutes=3, ttl=now + 1)
+        self._put_pending("no-ttl", minutes=4, ttl=None)
+
+        listing = self.service.list_schedules(USER, None, None)
+
+        self.assertEqual([p.request_id for p in listing.pending], ["no-ttl", "live"])
+
+    def test_only_the_newest_pending_requests_are_listed(self):
+        for index in range(MAX_PENDING_REQUESTS + 5):
+            self._put_pending(f"request-{index:03d}", minutes=index, ttl=None)
+
+        listing = self.service.list_schedules(USER, None, None)
+
+        self.assertEqual(len(listing.pending), MAX_PENDING_REQUESTS)
+        self.assertEqual(
+            listing.pending[0].request_id, f"request-{MAX_PENDING_REQUESTS + 4:03d}"
+        )
+        self.assertEqual(listing.pending[-1].request_id, "request-005")
 
     def test_status_filter(self):
         self._video("queued", ["user-1"], minutes=1)
