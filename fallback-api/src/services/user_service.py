@@ -3,7 +3,10 @@ from abc import ABC, abstractmethod
 from pydantic import EmailStr
 
 from src.config.configuration import AppConfiguration
-from src.services.exceptions import ResourceConflictException
+from src.services.exceptions import (
+    InvalidPasswordException,
+    ResourceConflictException,
+)
 from src.services.models.user import User
 from src.services.user_validation_service import (
     UserValidationService,
@@ -57,12 +60,26 @@ class CognitoUserService(UserService):
                 Password=password,
                 Permanent=True,
             )
-        except Exception:
+        except Exception as error:
             # Without a password the user could never log in, and a retry would hit
             # UsernameExistsException, so undo the creation.
             self._cognito_idp_client.admin_delete_user(
                 UserPoolId=self._cognito_user_pool_id, Username=email
             )
+
+            # In tests, cognito_idp_client can be a MagicMock, whose .exceptions.* attributes
+            # are themselves MagicMocks rather than exception classes; isinstance() would raise
+            # TypeError against those, so only compare once we know it's a real exception type.
+            invalid_password_exception_type = (
+                self._cognito_idp_client.exceptions.InvalidPasswordException
+            )
+            if isinstance(invalid_password_exception_type, type) and isinstance(
+                error, invalid_password_exception_type
+            ):
+                raise InvalidPasswordException(
+                    f"Password does not meet the fallback password policy: {error}"
+                ) from error
+
             raise
 
         return user

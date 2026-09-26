@@ -6,6 +6,7 @@ from src.services.exceptions import (
     IncorrectCredentialsException,
     InvalidAuthenticationTokenException,
     InvalidPageTokenException,
+    InvalidPasswordException,
     InvalidUrlException,
     ResourceConflictException,
     ServiceUnavailableException,
@@ -43,6 +44,10 @@ def register_exception_handlers(app: FastAPI):
     async def handle_invalid_page_token(
         request: Request, exc: InvalidPageTokenException
     ):
+        return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+    @app.exception_handler(InvalidPasswordException)
+    async def handle_invalid_password(request: Request, exc: InvalidPasswordException):
         return JSONResponse(status_code=400, content={"detail": str(exc)})
 
     @app.exception_handler(ServiceUnavailableException)

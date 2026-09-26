@@ -18,5 +18,9 @@ class InvalidPageTokenException(Exception):
     pass
 
 
+class InvalidPasswordException(Exception):
+    pass
+
+
 class ServiceUnavailableException(Exception):
     pass

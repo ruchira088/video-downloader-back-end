@@ -3,7 +3,10 @@ from unittest.mock import MagicMock
 
 from moto import mock_aws
 
-from src.services.exceptions import ResourceConflictException
+from src.services.exceptions import (
+    InvalidPasswordException,
+    ResourceConflictException,
+)
 from src.services.models.user import User
 from src.services.user_service import CognitoUserService, UserService
 from src.services.user_validation_service import UserValidationService
@@ -72,6 +75,21 @@ class TestCognitoUserService(unittest.TestCase):
         with self.assertRaises(ResourceConflictException):
             self.user_service.create_user(
                 email=sample_user.email, password=sample_password
+            )
+
+    def test_weak_password_rolls_back_the_user_and_raises_invalid_password_exception(
+        self,
+    ):
+        self.user_validation_service.get_user.return_value = sample_user
+
+        with self.assertRaises(InvalidPasswordException):
+            self.user_service.create_user(email=sample_user.email, password="weak")
+
+        cognito_client = self.cognito_details.cognito_client
+        with self.assertRaises(cognito_client.exceptions.UserNotFoundException):
+            cognito_client.admin_get_user(
+                UserPoolId=self.cognito_details.user_pool_id,
+                Username=sample_user.email,
             )
 
 

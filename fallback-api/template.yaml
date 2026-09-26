@@ -248,6 +248,21 @@ Resources:
         - AttributeDataType: String
           Mutable: true
           Name: role
+      # The main API enforces no password rules of its own, so this pool's policy must accept
+      # whatever password a user already has there -- Cognito's stricter defaults would reject
+      # many existing passwords and surface as a 500 from AdminSetUserPassword.
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 6
+          RequireUppercase: false
+          RequireLowercase: false
+          RequireNumbers: false
+          RequireSymbols: false
+          TemporaryPasswordValidityDays: 7
+      # Sign-up only happens through the fallback API's admin calls (AdminCreateUser), never the
+      # public SignUp API.
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
 
   UserPoolClient:
     Type: AWS::Cognito::UserPoolClient
