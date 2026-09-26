@@ -26,6 +26,8 @@ Conditions:
 
 Globals:
   Function:
+    # SyncApplier's LOCK_DURATION (2 minutes) must outlive this, so a lock only expires once its
+    # holder can no longer be writing.
     Timeout: 30
     Runtime: python3.14
     Architectures:
@@ -149,7 +151,10 @@ Resources:
   MainToFallbackQueue:
     Type: AWS::SQS::Queue
     Properties:
-      MessageRetentionPeriod: 1209600
+      # 4 days. A dead-lettered message keeps its original enqueue time, so the DLQ's 14-day
+      # retention still leaves it at least 10 days there. The whole 14 days bounds how long any
+      # message can be redriven, which the 15-day tombstone TTL (src/sync/items.py) outlives.
+      MessageRetentionPeriod: 345600
       VisibilityTimeout: 180
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt MainToFallbackDeadLetterQueue.Arn
@@ -163,6 +168,7 @@ Resources:
   FallbackToMainQueue:
     Type: AWS::SQS::Queue
     Properties:
+      # 14 days, which the pending items' 14-day ttl (PENDING_TTL) is tied to.
       MessageRetentionPeriod: 1209600
       VisibilityTimeout: 300
       RedrivePolicy:
@@ -238,8 +244,12 @@ Resources:
 
   UserPool:
     Type: AWS::Cognito::UserPool
+    # Losing the pool would make every user sign up again, so never delete or replace it.
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       UserPoolName: !Sub "${Stage}-fallback-api"
+      DeletionProtection: ACTIVE
       Schema:
         - AttributeDataType: String
           Mutable: false

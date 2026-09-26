@@ -9,8 +9,9 @@ VIDEO_SORT_KEY = "VIDEO"
 ALL_VIDEOS_PARTITION = "VIDEO"
 GSI1_NAME = "GSI1"
 DELETED_STATUS = "Deleted"
-# Outlives the 14-day queue retention, so a stale upsert redriven from a DLQ still
-# finds the tombstone and is skipped instead of bringing the video back.
+# A main-to-fallback message lives at most 14 days: 4 in MainToFallbackQueue, then the DLQ's 14,
+# which SQS counts from the original enqueue. Outliving that, a stale upsert redriven from the DLQ
+# still finds the tombstone and is skipped instead of bringing the video back.
 TOMBSTONE_TTL = timedelta(days=15)
 REJECTED_TTL = timedelta(days=7)
 PENDING_TTL = timedelta(days=14)

@@ -135,8 +135,9 @@ class DynamoDbSchedulingService(SchedulingService):
                 "requestedAt": iso_micros(request.requested_at),
                 "status": "Pending",
                 # Flow A sends to SQS before this write, so a fast RequestResolved could land
-                # before this put and leave a "Pending" item forever. 14 days matches SQS
-                # retention. Rejection (SyncApplier) overwrites this with a 7-day ttl.
+                # before this put and leave a "Pending" item forever. 14 days matches
+                # FallbackToMainQueue's retention, so the request itself is gone by then.
+                # Rejection (SyncApplier) overwrites this with a 7-day ttl.
                 "ttl": epoch_seconds(request.requested_at + PENDING_TTL),
             }
         )
