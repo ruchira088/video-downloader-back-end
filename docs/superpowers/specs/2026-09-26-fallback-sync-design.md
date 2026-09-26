@@ -293,6 +293,13 @@ The following must be fixed or completed first:
 
 The "reconcile needed" flag lives in Redis. Sync never blocks main-side request handling or DB writes.
 
+**A long Kafka outage.** The sync request breaker cycles for as long as Kafka stays down: it skips publishes for
+60 s, lets the next request publish again, and reopens once that publish has been stuck for 30 s, when its
+watchdog fires. Every cycle drops requests and flags a reconcile, so each 5-minute flag check finds the flag set
+and runs a full reconcile: one full scan of `GSI1` every 5 minutes for the length of the outage, costing about
+1k read units each for a few MB of table. The requests made just after each resume, before the breaker reopens,
+can each wait up to the 500 ms grace period for their publish.
+
 ## Cost profile
 
 - **SQS:** event traffic, plus one consumer polling every 60 s (about 45k requests a month), plus the idle polling of
