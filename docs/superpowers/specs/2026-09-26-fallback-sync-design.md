@@ -20,7 +20,8 @@ fallback's DynamoDB table keeps a full copy of the scheduled videos, synced both
 - Running cost must be as close to zero as possible.
 - Main → fallback is event-driven and goes through SQS. A periodic reconcile compares hashes to repair drift.
 - The reconcile reads the fallback's DynamoDB table directly, with read-only access.
-- A user's role is captured when they sign up to the fallback and is not refreshed afterwards (accepted staleness).
+- A user's role is captured when they sign up to the fallback, and refreshed each time `POST /user` is called again,
+  which a client does after every main-API login.
 
 ### Out of scope
 
@@ -358,5 +359,5 @@ One spec, implemented in two phases:
 - **Consumer-group behaviour for the Redis and Doobie pub/sub backends** must deliver each `scheduled-video-downloads`
   message to one `fallback-sync` consumer. Duplicates would be harmless because of the guard, but they would cost
   extra SQS sends.
-- **Stale role:** if a user's role changes on the main side, their fallback role stays as it was at sign-up. This
-  was accepted for now.
+- **Stale role:** if a user's role changes on the main side, their fallback role stays as it was at their last
+  `POST /user`, which refreshes it along with their name and password.

@@ -29,7 +29,7 @@ class TestAuthenticationRouter(unittest.TestCase):
             user_validation_service=user_validation_service,
             cognito_idp_client=cognito_details.cognito_client,
             cognito_user_pool_id=cognito_details.user_pool_id,
-        ).create_user(email=sample_user.email, password=sample_password)
+        ).upsert_user(email=sample_user.email, password=sample_password)
 
         authentication_service = CognitoAuthenticationService(
             cognito_idp_client=cognito_details.cognito_client,

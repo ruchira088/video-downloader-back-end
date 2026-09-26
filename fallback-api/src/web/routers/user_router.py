@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 from pydantic import BaseModel, EmailStr
 
 from src.services.user_service import User, UserService
@@ -28,11 +28,15 @@ class UserResponse(BaseModel):
 def user_router(user_service: UserService) -> APIRouter:
     router = APIRouter(prefix="/user")
 
+    # Signs a user up, or refreshes an existing user's name, role and password from the main
+    # API: 201 when the user was created, 200 when refreshed. Safe to call on every login.
     @router.post("", status_code=201, response_model=UserResponse)
-    def sign_up(user_signup_request: UserSignupRequest):
-        user: User = user_service.create_user(
+    def sign_up(user_signup_request: UserSignupRequest, response: Response):
+        upsert = user_service.upsert_user(
             user_signup_request.email, user_signup_request.password
         )
-        return UserResponse.from_user(user)
+        if not upsert.created:
+            response.status_code = 200
+        return UserResponse.from_user(upsert.user)
 
     return router

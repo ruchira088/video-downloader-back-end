@@ -9,19 +9,12 @@ from src.services.exceptions import (
     InvalidPasswordException,
     InvalidUrlException,
     PasswordResetRequiredException,
-    ResourceConflictException,
     ServiceUnavailableException,
     TooManyRequestsException,
 )
 
 
 def register_exception_handlers(app: FastAPI):
-    @app.exception_handler(ResourceConflictException)
-    async def handle_resource_conflict(
-        request: Request, exc: ResourceConflictException
-    ):
-        return JSONResponse(status_code=409, content={"detail": str(exc)})
-
     @app.exception_handler(IncorrectCredentialsException)
     async def handle_incorrect_credentials(
         request: Request, exc: IncorrectCredentialsException

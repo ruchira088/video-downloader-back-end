@@ -1,7 +1,12 @@
 # Fallback API
 
 An AWS SAM stack that serves users while the main video-downloader API is unavailable. Users sign up with their
-main-API credentials, list their scheduled videos, and schedule new ones. Its DynamoDB table holds a copy of the
+main-API credentials, list their scheduled videos, and schedule new ones.
+
+`POST /user` is an upsert, and needs the main API to be up: it checks the email and password against the main API,
+then creates the user (201) or refreshes an existing user's name, role and password (200). Since a user can only sign
+up while the main API is reachable, a client should call it after every successful main-API login, so every user
+already has an up-to-date fallback account when the main API goes down. Its DynamoDB table holds a copy of the
 scheduled videos, kept in sync with the main API's database over two SQS queues (see
 `docs/superpowers/specs/2026-09-26-fallback-sync-design.md`).
 
@@ -71,5 +76,6 @@ sam deploy --config-env prod        # production
 - **Passwords shorter than 6 characters can't sign up.** Cognito's minimum password length is 6, and sign-up copies
   the user's main-API password into the user pool. A user with a shorter password must change it on the main API
   first.
-- A user's role is copied at sign-up and not refreshed afterwards.
+- A user's name, role and password are copied from the main API only when `POST /user` is called, so they stay as
+  they were at the last call until the next one.
 - `GET /schedule` lists at most the 100 newest pending requests.

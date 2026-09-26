@@ -38,7 +38,7 @@ class TestCognitoAuthenticationService(unittest.TestCase):
             cognito_user_pool_id=cognito_details.user_pool_id,
         )
 
-        user_service.create_user(email=sample_user.email, password=sample_password)
+        user_service.upsert_user(email=sample_user.email, password=sample_password)
 
         self.cognito_authentication_service: CognitoAuthenticationService = (
             CognitoAuthenticationService(

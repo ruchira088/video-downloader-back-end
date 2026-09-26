@@ -31,6 +31,17 @@ class TestUserRouter(unittest.TestCase):
         register_exception_handlers(app)
         self.client = TestClient(app, raise_server_exceptions=False)
 
+    def test_sign_up_returns_201_then_200_once_the_user_exists(self):
+        request = {"email": sample_user.email, "password": "Str0ng!Password"}
+
+        created = self.client.post("/user", json=request)
+        refreshed = self.client.post("/user", json=request)
+
+        self.assertEqual(created.status_code, 201)
+        self.assertEqual(refreshed.status_code, 200)
+        self.assertEqual(refreshed.json(), created.json())
+        self.assertEqual(created.json()["id"], sample_user.id)
+
     def test_sign_up_with_a_weak_password_returns_400(self):
         response = self.client.post(
             "/user", json={"email": sample_user.email, "password": "weak"}
