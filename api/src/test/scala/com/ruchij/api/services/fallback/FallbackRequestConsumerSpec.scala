@@ -7,7 +7,7 @@ import com.ruchij.api.daos.user.UserDao
 import com.ruchij.api.daos.user.models.{Email, Role, User}
 import com.ruchij.api.services.fallback.FallbackSyncStubs._
 import com.ruchij.api.services.fallback.FallbackSyncTestData.{capturedAt, scheduledVideoDownload}
-import com.ruchij.api.services.fallback.aws.{FallbackRequestQueue, ReceivedMessage}
+import com.ruchij.api.services.fallback.aws.{FallbackRequestQueue, FallbackSyncTransport, ReceivedMessage}
 import com.ruchij.api.services.fallback.models._
 import com.ruchij.api.services.scheduling.ApiSchedulingService
 import com.ruchij.api.services.scheduling.models.ScheduledVideoResult
@@ -116,6 +116,32 @@ class FallbackRequestConsumerSpec extends AnyFlatSpec with Matchers {
 
   private val scheduled = IO.pure(ScheduledVideoResult.NewlyScheduled(scheduledVideoDownload("video-1")))
 
+  /** Lower-level runner for scenarios that need a bespoke `UserDao`/`FallbackSyncDao`/`FallbackSyncTransport`
+    * (e.g. one that fails), where the caller already holds the transport/dao it wants to inspect afterwards.
+    * Errors from `handle` are swallowed (via `.attempt`) so the assertion can inspect the resulting state
+    * (what was deleted, what if anything was sent) instead of the test itself failing. */
+  private def runConsumer(
+    schedule: IO[ScheduledVideoResult],
+    userDao: UserDao[IO],
+    dao: FallbackSyncDao[IO],
+    transport: FallbackSyncTransport[IO],
+    received: ReceivedMessage
+  ): IO[List[String]] =
+    for {
+      queue <- Ref.of[IO, List[String]](Nil).map(new StubQueue(_))
+      consumer = new FallbackRequestConsumer[IO, IO](queue, schedulingService(schedule), userDao, dao, transport)
+      _ <- consumer.handle(received).attempt
+      deleted <- queue.deletedHandles
+    } yield deleted
+
+  private def failingUserDao(error: Throwable): UserDao[IO] =
+    new UserDao[IO] {
+      override def insert(user: User): IO[Int] = notUsed
+      override def findByEmail(email: Email): IO[Option[User]] = notUsed
+      override def deleteById(userId: String): IO[Int] = notUsed
+      override def findById(userId: String): IO[Option[User]] = IO.raiseError(error)
+    }
+
   "FallbackRequestConsumer" should "reply Scheduled with the video's state and delete the message" in runIO {
     run(scheduled, userExists = true, message(body(request))).map {
       case (sent, deleted) =>
@@ -173,4 +199,93 @@ class FallbackRequestConsumerSpec extends AnyFlatSpec with Matchers {
   it should "leave an undecodable message for the dead-letter queue" in runIO {
     run(scheduled, userExists = true, message("{not json")).map { _ mustBe ((Nil, Nil)) }
   }
+
+  it should "leave a persistent user-lookup failure on the queue until the final attempt, then reject" in runIO {
+    val dbUnavailable = new RuntimeException("User DB unavailable")
+
+    for {
+      dao <- StubFallbackSyncDao(SyncedVideo(scheduledVideoDownload("video-1"), List("user-1")))
+
+      earlyTransport <- RecordingTransport()
+      earlyDeleted <-
+        runConsumer(scheduled, failingUserDao(dbUnavailable), dao, earlyTransport, message(body(request), 2))
+      earlySent <- earlyTransport.messages
+
+      finalTransport <- RecordingTransport()
+      finalDeleted <-
+        runConsumer(scheduled, failingUserDao(dbUnavailable), dao, finalTransport, message(body(request), 5))
+      finalSent <- finalTransport.messages
+    } yield {
+      earlySent mustBe Nil
+      earlyDeleted mustBe Nil
+
+      finalSent.collect { case RequestResolved(_, _, ResolutionOutcome.Rejected(reason)) => reason }.head must
+        include("after 5 attempts")
+      finalDeleted mustBe List("receipt-1")
+    }
+  }
+
+  it should "reject once retries are exhausted when the scheduled video can't be found for the reply" in runIO {
+    for {
+      emptyDao <- StubFallbackSyncDao()
+      transport <- RecordingTransport()
+      deleted <- runConsumer(scheduled, userDao(exists = true), emptyDao, transport, message(body(request), 5))
+      sent <- transport.messages
+    } yield {
+      sent.collect { case RequestResolved(_, _, ResolutionOutcome.Rejected(reason)) => reason }.head must
+        include("after 5 attempts")
+      deleted mustBe List("receipt-1")
+    }
+  }
+
+  it should "not delete the message when sending the reply fails" in runIO {
+    val failingTransport =
+      new FallbackSyncTransport[IO] {
+        override def send(messages: List[MainToFallbackMessage]): IO[Unit] =
+          IO.raiseError(new RuntimeException("SQS unavailable"))
+      }
+
+    for {
+      dao <- StubFallbackSyncDao(SyncedVideo(scheduledVideoDownload("video-1"), List("user-1")))
+      deleted <- runConsumer(scheduled, userDao(exists = true), dao, failingTransport, message(body(request)))
+    } yield deleted mustBe Nil
+  }
+
+  it should "drain a batch and stop once the queue is empty, without one message's failure blocking the rest" in
+    runIO {
+      val secondRequest = request.copy(requestId = "request-2")
+      val firstMessage = ReceivedMessage(body(request), "receipt-1", 1)
+      val secondMessage = ReceivedMessage(body(secondRequest), "receipt-2", 1)
+
+      final class ScriptedQueue(responses: Ref[IO, List[List[ReceivedMessage]]], deleted: Ref[IO, List[String]])
+          extends FallbackRequestQueue[IO] {
+        override val receive: IO[List[ReceivedMessage]] =
+          responses.modify {
+            case Nil => (Nil, Nil)
+            case head :: tail => (tail, head)
+          }
+        override def delete(receiptHandle: String): IO[Unit] = deleted.update(_ :+ receiptHandle)
+        val deletedHandles: IO[List[String]] = deleted.get
+      }
+
+      for {
+        dao <- StubFallbackSyncDao(SyncedVideo(scheduledVideoDownload("video-1"), List("user-1")))
+        // Fails sending the first message's reply (so its handling fails and it stays on the queue), then
+        // succeeds for the second, proving one message's failure doesn't stop the batch or the drain loop.
+        flaky <- FlakyTransport(1)
+        responses <- Ref.of[IO, List[List[ReceivedMessage]]](List(List(firstMessage, secondMessage), Nil))
+        deletedRef <- Ref.of[IO, List[String]](Nil)
+        queue = new ScriptedQueue(responses, deletedRef)
+        consumer =
+          new FallbackRequestConsumer[IO, IO](queue, schedulingService(scheduled), userDao(exists = true), dao, flaky)
+        _ <- consumer.drain
+        remainingResponses <- responses.get
+        deleted <- queue.deletedHandles
+        sent <- flaky.recording.messages
+      } yield {
+        remainingResponses mustBe Nil
+        deleted mustBe List("receipt-2")
+        sent.collect { case RequestResolved(requestId, _, _) => requestId } mustBe List("request-2")
+      }
+    }
 }

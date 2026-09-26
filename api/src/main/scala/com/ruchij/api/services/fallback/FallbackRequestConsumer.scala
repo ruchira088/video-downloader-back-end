@@ -60,29 +60,46 @@ class FallbackRequestConsumer[F[_]: Async: Clock, T[_]](
         }
     }
 
-  /** None means "transient, leave it on the queue for SQS to redeliver". */
+  /** Classifies every failure that can occur while resolving a request -- user lookup, URL parsing, scheduling
+    * and the post-schedule state read -- so a persistent failure anywhere in that path still gets a reply once
+    * `maxReceiveCount` is reached, instead of the message being silently dead-lettered by SQS with no reply ever
+    * sent (the plan reserves that dead-letter path for undecodable messages and failed replies only).
+    * None means "transient, leave it on the queue for SQS to redeliver". */
   private def resolve(request: ScheduleRequest, receiveCount: Int): F[Option[ResolutionOutcome]] =
+    resolution(request).attempt.flatMap {
+      case Right(outcome) => Async[F].pure(Option(outcome))
+
+      case Left(error) if isPermanent(error) => rejected(errorMessage(error))
+
+      case Left(error) if receiveCount >= maxReceiveCount =>
+        logger.error[F](s"Giving up on request ${request.requestId} after $receiveCount attempts", error) *>
+          rejected(
+            s"Unable to schedule the video right now (gave up after $receiveCount attempts); please try again later"
+          )
+
+      case Left(error) =>
+        logger
+          .warn[F](s"Transient failure resolving request ${request.requestId}: ${errorMessage(error)}")
+          .as(Option.empty[ResolutionOutcome])
+    }
+
+  /** Unknown user / an unparseable URL resolve immediately, regardless of receive count -- they are ordinary
+    * outcomes, not thrown failures, so they pass straight through the `attempt` above as `Right`. Everything
+    * past the URL parse can genuinely fail (DB errors, the scheduling call, the post-schedule state read), and
+    * those failures are what `resolve` classifies as permanent, exhausted or transient. */
+  private def resolution(request: ScheduleRequest): F[ResolutionOutcome] =
     transaction(userDao.findById(request.userId)).flatMap {
-      case None => rejected(s"Unknown user: ${request.userId}")
+      case None =>
+        Async[F].pure[ResolutionOutcome](ResolutionOutcome.Rejected(s"Unknown user: ${request.userId}"))
 
       case Some(_) =>
         Uri.fromString(request.url) match {
-          case Left(_) => rejected(s"Invalid URL: ${request.url}")
+          case Left(_) =>
+            Async[F].pure[ResolutionOutcome](ResolutionOutcome.Rejected(s"Invalid URL: ${request.url}"))
 
           case Right(uri) =>
-            schedulingService.schedule(uri, request.userId).attempt.flatMap {
-              case Right(result) =>
-                scheduledOutcome(result.scheduledVideoDownload.videoMetadata.id).map(Option(_))
-
-              case Left(error) if isPermanent(error) => rejected(errorMessage(error))
-
-              case Left(error) if receiveCount >= maxReceiveCount =>
-                rejected(s"Unable to schedule the video after $receiveCount attempts: ${errorMessage(error)}")
-
-              case Left(error) =>
-                logger
-                  .warn[F](s"Transient failure scheduling request ${request.requestId}: ${errorMessage(error)}")
-                  .as(Option.empty[ResolutionOutcome])
+            schedulingService.schedule(uri, request.userId).flatMap { result =>
+              scheduledOutcome(result.scheduledVideoDownload.videoMetadata.id)
             }
         }
     }
