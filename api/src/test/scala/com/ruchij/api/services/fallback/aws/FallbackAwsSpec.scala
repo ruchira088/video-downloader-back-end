@@ -12,6 +12,7 @@ import io.circe.Json
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
+import software.amazon.awssdk.awscore.exception.AwsErrorDetails
 import software.amazon.awssdk.services.dynamodb.model._
 import software.amazon.awssdk.services.sqs.SqsAsyncClient
 import software.amazon.awssdk.services.sqs.model.{
@@ -20,9 +21,11 @@ import software.amazon.awssdk.services.sqs.model.{
   SendMessageBatchRequest,
   SendMessageBatchResponse,
   SendMessageBatchResultEntry,
-  SendMessageRequest
+  SendMessageRequest,
+  SqsException
 }
 
+import java.nio.charset.StandardCharsets
 import java.time.Instant
 import java.util.concurrent.CompletableFuture
 import scala.concurrent.duration._
@@ -142,6 +145,71 @@ class FallbackAwsSpec extends AnyFlatSpec with Matchers {
       sqs.requests.map(videoIds).count(_ == List("video-11", "video-12")) mustBe 1
       sqs.requests.size mustBe 4
     }
+  }
+
+  private def sqsError(statusCode: Int, errorCode: String): SqsException =
+    SqsException
+      .builder()
+      .statusCode(statusCode)
+      .awsErrorDetails(AwsErrorDetails.builder().errorCode(errorCode).errorMessage("boom").build())
+      .build()
+      .asInstanceOf[SqsException]
+
+  it should "send each message of a call SQS rejects as the sender's fault alone, dropping one that still fails" in
+    runIO {
+      val sqs =
+        new StubSqsClient({ (_, request) =>
+          if (videoIds(request).contains("video-2")) throw sqsError(400, "AWS.SimpleQueueService.BatchRequestTooLong")
+          else batchResponse(request, Map.empty)
+        })
+
+      new SqsFallbackSyncTransport[IO](sqs, "queue-url", noDelays).send(removals(3)).attempt.map { result =>
+        result mustBe Right(())
+        sqs.requests.map(videoIds) mustBe
+          List(List("video-1", "video-2", "video-3"), List("video-1"), List("video-2"), List("video-3"))
+      }
+    }
+
+  it should "retry, rather than drop, a call SQS throttles or denies" in runIO {
+    List(sqsError(400, "RequestThrottled"), sqsError(403, "AccessDenied"), sqsError(400, "ExpiredToken"))
+      .traverse { error =>
+        val sqs = new StubSqsClient((_, _) => throw error)
+
+        new SqsFallbackSyncTransport[IO](sqs, "queue-url", noDelays).send(removals(2)).attempt.map { result =>
+          result.left.map(_.getMessage.startsWith("SQS rejected 2 of 2 messages")) mustBe Left(true)
+          // Never split: each attempt resends the whole batch
+          sqs.requests.map(videoIds) mustBe List.fill(3)(List("video-1", "video-2"))
+        }
+      }
+      .void
+  }
+
+  it should "split messages into batches of at most ten whose bodies fit in a batch's size limit" in runIO {
+    // Each upsert's body is about 120,000 bytes, so only two fit under the limit
+    val upserts =
+      (1 to 5).toList.map { index =>
+        fixtureUpsert.copy(videoId = s"video-$index", userIds = List.fill(10000)("user-1234"))
+      }
+    val sqs = new StubSqsClient((_, request) => batchResponse(request, Map.empty))
+
+    new SqsFallbackSyncTransport[IO](sqs, "queue-url", noDelays).send(upserts ++ removals(12)).map { _ =>
+      sqs.requests.map(videoIds) mustBe
+        List(
+          List("video-1", "video-2"),
+          List("video-3", "video-4"),
+          List("video-5") ++ (1 to 9).map(index => s"video-$index"),
+          List("video-10", "video-11", "video-12")
+        )
+      sqs.requests.foreach { request =>
+        request.entries().asScala.map(_.messageBody().getBytes(StandardCharsets.UTF_8).length.toLong).sum must be <=
+          SqsFallbackSyncTransport.MaxBatchBytes
+      }
+    }
+  }
+
+  "SqsFallbackSyncTransport.batches" should "start a new batch when the next item would pass either limit" in {
+    SqsFallbackSyncTransport.batches(List(4, 4, 3, 1, 1, 1, 9, 12, 1), maxEntries = 3, maxBytes = 10)(_.toLong) mustBe
+      List(List(4, 4), List(3, 1, 1), List(1, 9), List(12), List(1))
   }
 
   "SqsFallbackRequestQueue" should "report the receive count and delete handled messages" in runIO {

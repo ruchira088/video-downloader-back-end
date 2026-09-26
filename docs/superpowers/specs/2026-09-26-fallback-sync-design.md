@@ -78,7 +78,9 @@ The whole feature is off unless `FALLBACK_SYNC_ENABLED=true`.
   - A `Deleted` event (an admin delete, published before batch hard-deletes the row) becomes a removal unless the
     row read at send time was scheduled after the event's timestamp, i.e. the URL was scheduled again. A replayed
     `Deleted` event therefore can't tombstone a live video.
-  - Sends with `SendMessageBatch`, 10 messages per call.
+  - Sends with `SendMessageBatch`, at most 10 messages and 240 KiB of bodies per call, a margin under the 256 KiB
+    limit. A message SQS rejects as the sender's fault, for its entry or for a whole call (e.g.
+    `BatchRequestTooLong`, after which each message of the call is sent alone), is logged and dropped.
 - **New `FallbackSyncRequest` publishes** in `ApiSchedulingServiceImpl`, at the two write paths that publish nothing
   today:
   - `schedule` of a URL that already exists, which adds a permission row
