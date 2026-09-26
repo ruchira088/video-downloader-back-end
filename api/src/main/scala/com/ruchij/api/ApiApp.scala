@@ -134,7 +134,9 @@ object ApiApp extends IOApp {
         for {
           awsClients <- FallbackSyncAwsClients.create[F](settings)
           fallbackSyncRequestPubSub <- pubSubProvider.pubSub[FallbackSyncRequest]
-        } yield FallbackSyncResources(settings, awsClients, fallbackSyncRequestPubSub)
+          scheduledVideoDownloadSubscriber <- pubSubProvider.pubSub[ScheduledVideoDownload]
+        } yield
+          FallbackSyncResources(settings, awsClients, fallbackSyncRequestPubSub, scheduledVideoDownloadSubscriber)
       }
 
       messageBrokers = ApiMessageBrokers(
@@ -334,13 +336,7 @@ object ApiApp extends IOApp {
       _ <- fallbackSyncResources.traverse_ { resources =>
         Concurrent[F].start {
           FallbackSync
-            .stream[F](
-              resources,
-              keyValueStore,
-              schedulingService,
-              messageBrokers.scheduledVideoDownloadPubSub,
-              instanceId
-            )
+            .stream[F](resources, keyValueStore, schedulingService, instanceId)
             .compile
             .drain
         }

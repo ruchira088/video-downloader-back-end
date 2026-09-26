@@ -22,14 +22,19 @@ import scala.concurrent.duration._
 final case class FallbackSyncResources[F[_]](
   settings: FallbackSyncSettings,
   awsClients: FallbackSyncAwsClients,
-  fallbackSyncRequestPubSub: PubSub[F, FallbackSyncRequest]
+  fallbackSyncRequestPubSub: PubSub[F, FallbackSyncRequest],
+  // Its own subscriber rather than the one BackgroundServiceImpl reads: with Redis, a shared subscriber would share
+  // one blocking-read connection
+  scheduledVideoDownloadSubscriber: Subscriber[F, ScheduledVideoDownload]
 )
 
 /** Syncs on scheduled-video events and on the `FallbackSyncRequest`s the API publishes after user-visible writes.
   * Batch-side changes that publish neither (local-file sync inserts, resets to Queued) are left to the reconcile. */
 object FallbackSync {
-  // Shared by every API instance, so each message is handled by one of them.
-  val SubscriberGroupId = "fallback-sync"
+  // Shared by every API instance. Only Kafka splits a group's messages across instances; Redis and Doobie deliver
+  // every message to every instance, which is harmless because sync messages are idempotent.
+  val ScheduledVideosGroupId = "fallback-sync-scheduled-videos"
+  val SyncRequestsGroupId = "fallback-sync-requests"
 
   private val logger = Logger[FallbackSync.type]
 
@@ -37,7 +42,6 @@ object FallbackSync {
     resources: FallbackSyncResources[F],
     keyValueStore: KeyValueStore[F],
     schedulingService: ApiSchedulingService[F],
-    scheduledVideoDownloadSubscriber: Subscriber[F, ScheduledVideoDownload],
     instanceId: String
   )(implicit transaction: ConnectionIO ~> F): Stream[F, Unit] = {
     val settings = resources.settings
@@ -65,23 +69,24 @@ object FallbackSync {
 
     Stream(
       resilient("scheduled-video-download publisher pipeline") {
-        publisher.pipeline(scheduledVideoDownloadSubscriber, SubscriberGroupId)(
+        publisher.pipeline(resources.scheduledVideoDownloadSubscriber, ScheduledVideosGroupId)(
           _.videoMetadata.id,
           _.status == SchedulingStatus.Deleted
         )
       },
       resilient("fallback-sync-request publisher pipeline") {
-        publisher.pipeline(resources.fallbackSyncRequestPubSub, SubscriberGroupId)(_.videoId)
+        publisher.pipeline(resources.fallbackSyncRequestPubSub, SyncRequestsGroupId)(_.videoId)
       },
       resilient("reconciler")(reconciler.run()),
       resilient("request consumer")(consumer.run)
     ).parJoinUnbounded
   }
 
-  /** `stream(...)` is started in a fiber that nobody joins (see `ApiApp.program`), so a component stream that ends
-    * -- successfully or by raising -- would silently stop syncing forever with nothing to notice. Restarting just
-    * the failed component after a delay, instead of letting the failure propagate out of the `parJoinUnbounded`
-    * stream and end every other component too, keeps the rest of fallback sync alive. */
+  /** `stream(...)` is started in a fiber that nobody joins (see `ApiApp.program`), so a component stream that fails
+    * would silently stop syncing forever with nothing to notice. Restarting just the failed component after a
+    * delay, instead of letting the failure propagate out of the `parJoinUnbounded` stream and end every other
+    * component too, keeps the rest of fallback sync alive. Only errors trigger a restart: every component is an
+    * infinite stream. */
   private[fallback] def resilient[F[_]: Async, A](name: String, restartDelay: FiniteDuration = 30.seconds)(
     stream: Stream[F, A]
   ): Stream[F, A] =
