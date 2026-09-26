@@ -1,4 +1,5 @@
 import json
+from base64 import urlsafe_b64encode
 import unittest
 from datetime import timedelta
 
@@ -234,6 +235,23 @@ class TestDynamoDbSchedulingService(unittest.TestCase):
 
         with self.assertRaises(InvalidPageTokenException):
             self.service.list_schedules(ADMIN, None, token)
+
+    def test_page_token_with_a_lone_surrogate_is_rejected(self):
+        tokens = [
+            (USER, b'{"PK":"USER#user-1","SK":"VIDEO#\\ud800"}'),
+            (
+                ADMIN,
+                b'{"PK":"VIDEO#\\ud800","SK":"VIDEO","GSI1PK":"VIDEO","GSI1SK":"x"}',
+            ),
+        ]
+
+        for user, raw_token in tokens:
+            token = urlsafe_b64encode(raw_token).decode()
+            with (
+                self.subTest(user=user.id),
+                self.assertRaises(InvalidPageTokenException),
+            ):
+                self.service.list_schedules(user, None, token)
 
     def test_user_page_token_with_an_oversized_key_value_is_rejected(self):
         token = encode_page_token(

@@ -22,4 +22,12 @@ def decode_page_token(token: str) -> dict[str, str]:
     ):
         raise InvalidPageTokenException("Malformed page token")
 
+    # JSON "\ud800" escapes decode to lone surrogates, which are not valid UTF-8 and would
+    # fail later, outside this validation, as a 500.
+    try:
+        for value in decoded.values():
+            value.encode()
+    except UnicodeEncodeError as error:
+        raise InvalidPageTokenException("Malformed page token") from error
+
     return decoded
