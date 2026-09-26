@@ -20,12 +20,19 @@ class SyncHashSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "change when any synced field changes" in {
+    // One change per field SyncHash.of covers, so leaving any of them out of the hash fails this test.
     val changes = List(
+      fixtureUpsert.copy(videoId = "youtube-other"),
+      fixtureUpsert.copy(url = "https://www.youtube.com/watch?v=other"),
+      fixtureUpsert.copy(videoSite = "Vimeo"),
       fixtureUpsert.copy(title = "Other title"),
+      fixtureUpsert.copy(durationMs = 1),
+      fixtureUpsert.copy(sizeBytes = 1),
       fixtureUpsert.copy(status = "Queued"),
-      fixtureUpsert.copy(userIds = List("user-1")),
+      fixtureUpsert.copy(scheduledAt = Instant.parse("2026-09-25T21:04:12.000Z")),
       fixtureUpsert.copy(completedAt = None),
-      fixtureUpsert.copy(sizeBytes = 1)
+      fixtureUpsert.copy(completedAt = Some(Instant.parse("2026-09-25T21:09:43.500Z"))),
+      fixtureUpsert.copy(userIds = List("user-1"))
     )
 
     changes.map(SyncHash.of).distinct.size mustBe changes.size
