@@ -82,6 +82,18 @@ class TestCognitoAccessTokenVerifier(unittest.TestCase):
     def test_an_expired_token_is_rejected(self):
         self._assert_rejected(_token(exp=int(time.time()) - 60))
 
+    def test_a_token_issued_slightly_in_the_future_is_accepted(self):
+        # Cognito's clock may run a little ahead of this Lambda's.
+        claims = self.verifier.verify(_token(iat=int(time.time()) + 20))
+
+        self.assertEqual(claims["username"], "me@ruchij.com")
+
+    def test_a_token_issued_well_in_the_future_is_rejected(self):
+        self._assert_rejected(_token(iat=int(time.time()) + 120))
+
+    def test_a_token_expired_well_beyond_the_leeway_is_rejected(self):
+        self._assert_rejected(_token(exp=int(time.time()) - 120))
+
     def test_a_token_without_an_expiry_is_rejected(self):
         self._assert_rejected(_token(exp=None))
 

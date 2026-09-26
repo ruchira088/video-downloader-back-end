@@ -16,6 +16,9 @@ JWKS_CACHE_SECONDS = 3600
 # Well under API Gateway's 29 s integration timeout, so an unreachable JWKS endpoint fails the
 # request with a 503 instead of hanging it until the gateway gives up.
 JWKS_TIMEOUT_SECONDS = 5
+# Tolerates Cognito's clock running a little ahead of (or behind) this Lambda's when checking a
+# token's iat and exp.
+CLOCK_LEEWAY_SECONDS = 30
 
 
 def jwks_signing_key_resolver(jwks_url: str) -> SigningKeyResolver:
@@ -52,6 +55,7 @@ class CognitoAccessTokenVerifier:
                 self._signing_key_resolver(token),
                 algorithms=["RS256"],
                 issuer=self._issuer,
+                leeway=CLOCK_LEEWAY_SECONDS,
                 options={
                     "require": ["exp", "iss", "client_id", "token_use", "username"]
                 },
