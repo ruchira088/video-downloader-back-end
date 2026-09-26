@@ -84,6 +84,25 @@ def register_exception_handlers(app: FastAPI):
                 status_code=502, content={"detail": "Upstream request failed"}
             )
 
-        return JSONResponse(
-            status_code=exc.response.status_code, content=exc.response.json()
-        )
+        status_code = exc.response.status_code
+        try:
+            content = exc.response.json()
+        except ValueError:
+            # Not the main API's own JSON error, e.g. nginx's HTML page while it is down.
+            if 500 <= status_code < 600:
+                return JSONResponse(
+                    status_code=503,
+                    content={"detail": "The main video downloader API is unavailable"},
+                )
+            if 400 <= status_code < 500:
+                return JSONResponse(
+                    status_code=status_code,
+                    content={
+                        "detail": "The main video downloader API rejected the request"
+                    },
+                )
+            return JSONResponse(
+                status_code=502, content={"detail": "Upstream request failed"}
+            )
+
+        return JSONResponse(status_code=status_code, content=content)
