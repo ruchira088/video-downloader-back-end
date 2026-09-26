@@ -9,8 +9,11 @@ from requests.exceptions import Timeout
 from src.services.exceptions import ServiceUnavailableException
 from src.services.models.user import User, parse_role
 
-# Well inside the Lambda's 30 s timeout, even for the two calls a sign-up makes.
-MAIN_API_TIMEOUT_SECONDS = 10
+# (connect, read) timeouts. The read timeout bounds each wait for data, not the whole response,
+# so an unreachable or unresponsive main API fails a call in at most about 13 s, and the two calls
+# a sign-up makes in about 26 s: just under API Gateway's 29 s and the Lambda's 30 s timeouts. A
+# main API trickling out a response slower still could run past them.
+MAIN_API_TIMEOUT_SECONDS = (3, 10)
 
 
 class UserValidationService(ABC):

@@ -66,9 +66,9 @@ class TestVideoDownloaderUserValidationService(unittest.TestCase):
                 "https://api.example.com"  # type: ignore[arg-type]
             ).get_user(email="me@ruchij.com", password="secret")
 
-        self.assertEqual(MAIN_API_TIMEOUT_SECONDS, 10)
-        self.assertEqual(requests.post.call_args.kwargs["timeout"], 10)
-        self.assertEqual(requests.delete.call_args.kwargs["timeout"], 10)
+        self.assertEqual(MAIN_API_TIMEOUT_SECONDS, (3, 10))
+        self.assertEqual(requests.post.call_args.kwargs["timeout"], (3, 10))
+        self.assertEqual(requests.delete.call_args.kwargs["timeout"], (3, 10))
 
     def test_an_unreachable_main_api_is_reported_as_unavailable(self):
         for error in [
