@@ -31,11 +31,20 @@ class FallbackSyncRequester[F[_]: Async](
 
   /** Publishes a sync request for each video id, one after another, all bounded by a single overall `timeout`
     * instead of one timeout per id -- so a stuck publisher adds at most one `timeout` to the caller, not
-    * `videoIds.size * timeout`. Any failure or timeout is logged (warn) and swallowed. */
+    * `videoIds.size * timeout`. Each id's publish is isolated: an error publishing one id (as opposed to the whole
+    * batch timing out) is logged and skipped so later ids are still attempted. Any leftover failure or the overall
+    * timeout is logged (warn) and swallowed. */
   def requestAll(videoIds: Seq[String]): F[Unit] =
     Async[F]
-      .timeoutAndForget(videoIds.toList.traverse_(id => publisher.publishOne(FallbackSyncRequest(id))), timeout)
+      .timeoutAndForget(
+        videoIds.toList.traverse_ { id =>
+          publisher.publishOne(FallbackSyncRequest(id)).handleErrorWith { error =>
+            logger.warn[F](s"Unable to request a fallback sync for video $id: $error")
+          }
+        },
+        timeout
+      )
       .handleErrorWith { error =>
-        logger.warn[F](s"Unable to request a fallback sync for videos ${videoIds.mkString(", ")}: $error")
+        logger.warn[F](s"Fallback sync request batch for videos ${videoIds.mkString(", ")} timed out or failed: $error")
       }
 }

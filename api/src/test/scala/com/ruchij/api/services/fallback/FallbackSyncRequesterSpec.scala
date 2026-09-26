@@ -1,6 +1,7 @@
 package com.ruchij.api.services.fallback
 
 import cats.effect.IO
+import cats.effect.kernel.Ref
 import cats.effect.testkit.TestControl
 import com.ruchij.api.services.fallback.FallbackSyncStubs.{FailingPublisher, RecordingPublisher}
 import com.ruchij.api.services.fallback.models.FallbackSyncRequest
@@ -75,6 +76,24 @@ class FallbackSyncRequesterSpec extends AnyFlatSpec with Matchers {
         FallbackSyncRequest("video-2"),
         FallbackSyncRequest("video-3")
       )
+    }
+  }
+
+  it should "publish the remaining ids in requestAll even when one id's publish raises" in runIO {
+    for {
+      recorded <- Ref.of[IO, List[String]](Nil)
+      publisher = new Publisher[IO, FallbackSyncRequest] {
+        override val publish: Pipe[IO, FallbackSyncRequest, Unit] = _.evalMap(publishOne)
+
+        override def publishOne(input: FallbackSyncRequest): IO[Unit] =
+          if (input.videoId == "a") IO.raiseError(new RuntimeException("boom for video a"))
+          else recorded.update(_ :+ input.videoId)
+      }
+      result <- new FallbackSyncRequester[IO](publisher).requestAll(Seq("a", "b", "c")).attempt
+      published <- recorded.get
+    } yield {
+      result mustBe Right(())
+      published mustBe List("b", "c")
     }
   }
 
