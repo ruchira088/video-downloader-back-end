@@ -10,6 +10,7 @@ import com.ruchij.api.services.fallback.models.{MainToFallbackMessage, Scheduled
 import com.ruchij.core.kv.{InMemoryKeyValueStore, KeyValueStore}
 import com.ruchij.core.kv.codecs.{KVDecoder, KVEncoder}
 import com.ruchij.core.test.IOSupport._
+import com.ruchij.core.types.Clock
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
@@ -17,6 +18,29 @@ import java.time.Instant
 import scala.concurrent.duration._
 
 class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
+  // Follows TestControl's virtual time, unlike the default Clock[IO]
+  implicit val clock: Clock[IO] = new Clock[IO] {
+    override val timestamp: IO[Instant] = IO.realTimeInstant
+  }
+
+  /** A reconciler whose manifest reads are counted, over an empty manifest and database. */
+  private def countingReconciler(
+    coordination: FallbackSyncCoordination[IO]
+  ): IO[(FallbackReconciler[IO, IO], Ref[IO, Int])] =
+    for {
+      manifestReads <- Ref.of[IO, Int](0)
+      manifestReader = new FallbackManifestReader[IO] {
+        override val manifest: IO[Map[String, ManifestEntry]] = manifestReads.update(_ + 1).as(Map.empty)
+      }
+      dao <- StubFallbackSyncDao()
+      transport <- RecordingTransport()
+    } yield (new FallbackReconciler[IO, IO](manifestReader, dao, transport, coordination, "instance-a"), manifestReads)
+
+  private def holdLock(keyValueStore: InMemoryKeyValueStore[IO], owner: String): IO[Unit] =
+    keyValueStore.put[String, String](FallbackSyncCoordination.ReconcileLockKey, owner, Some(30.minutes)).void
+
+  private def releaseLock(keyValueStore: InMemoryKeyValueStore[IO]): IO[Unit] =
+    keyValueStore.remove[String](FallbackSyncCoordination.ReconcileLockKey).void
   private def manifestOf(entries: (String, ManifestEntry)*): FallbackManifestReader[IO] =
     new FallbackManifestReader[IO] {
       override val manifest: IO[Map[String, ManifestEntry]] = IO.pure(entries.toMap)
@@ -121,7 +145,8 @@ class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
       sent <- transport.messages
     } yield {
       sent.collect { case upsert: ScheduledVideoUpsert => upsert.capturedAt } mustBe List(listedAt)
-      sent.collect { case removal: ScheduledVideoRemoval => removal } mustBe List(ScheduledVideoRemoval("gone", recheckedAt))
+      sent.collect { case removal: ScheduledVideoRemoval => removal } mustBe
+        List(ScheduledVideoRemoval("gone", recheckedAt))
     }
   }
 
@@ -208,5 +233,76 @@ class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
       }
 
     runIO(TestControl.executeEmbed(test))
+  }
+
+  it should "flag a retry when the startup reconcile finds the lock held, and run once the lock is free" in {
+    // A crashed instance's lock outlives it, and it already cleared the flag when it took the lock
+    val test =
+      for {
+        keyValueStore <- IO.pure(new InMemoryKeyValueStore[IO])
+        coordination = new FallbackSyncCoordination[IO](keyValueStore)
+        (reconciler, manifestReads) <- countingReconciler(coordination)
+        _ <- holdLock(keyValueStore, "crashed-instance")
+        fiber <- reconciler.run(flagCheckInterval = 5.minutes).compile.drain.start
+        _ <- IO.sleep(1.minute)
+        flaggedAtStartup <- coordination.isReconcileNeeded
+        _ <- IO.sleep(5.minutes)
+        // Still locked at the first flag check, which flags the retry again
+        flaggedWhileLocked <- coordination.isReconcileNeeded
+        readsWhileLocked <- manifestReads.get
+        _ <- releaseLock(keyValueStore)
+        _ <- IO.sleep(5.minutes)
+        readsAfterRelease <- manifestReads.get
+        flaggedAfterRelease <- coordination.isReconcileNeeded
+        _ <- fiber.cancel
+      } yield (flaggedAtStartup, flaggedWhileLocked, readsWhileLocked, readsAfterRelease, flaggedAfterRelease)
+
+    runIO(TestControl.executeEmbed(test).map(_ mustBe ((true, true, 0, 1, false))))
+  }
+
+  it should "not flag a retry when the daily reconcile finds the lock held" in {
+    val test =
+      for {
+        keyValueStore <- IO.pure(new InMemoryKeyValueStore[IO])
+        coordination = new FallbackSyncCoordination[IO](keyValueStore)
+        (reconciler, manifestReads) <- countingReconciler(coordination)
+        fiber <- reconciler.run(interval = 24.hours, flagCheckInterval = 5.minutes).compile.drain.start
+        _ <- IO.sleep(1.hour)
+        _ <- holdLock(keyValueStore, "instance-b")
+        _ <- IO.sleep(23.hours + 1.minute)
+        flagged <- coordination.isReconcileNeeded
+        reads <- manifestReads.get
+        _ <- fiber.cancel
+      } yield (flagged, reads)
+
+    runIO(TestControl.executeEmbed(test).map(_ mustBe ((false, 1))))
+  }
+
+  it should "skip the daily reconcile when any instance completed one within the last 20 hours" in {
+    val test =
+      for {
+        coordination <- IO.pure(new FallbackSyncCoordination[IO](new InMemoryKeyValueStore[IO]))
+        (reconciler, manifestReads) <- countingReconciler(coordination)
+        fiber <- reconciler.run(interval = 24.hours, flagCheckInterval = 5.minutes).compile.drain.start
+        _ <- IO.sleep(23.hours)
+        // Another instance's startup reconcile
+        otherInstanceRun <- IO.realTimeInstant
+        _ <- coordination.recordSuccessfulReconcile(otherInstanceRun)
+        _ <- IO.sleep(1.hour + 1.minute)
+        afterSkippedDailyRun <- manifestReads.get
+        _ <- IO.sleep(24.hours)
+        afterNextDailyRun <- manifestReads.get
+        lastRun <- coordination.lastSuccessfulReconcile
+        _ <- fiber.cancel
+      } yield (afterSkippedDailyRun, afterNextDailyRun, lastRun)
+
+    runIO {
+      TestControl.executeEmbed(test).map {
+        case (afterSkippedDailyRun, afterNextDailyRun, lastRun) =>
+          afterSkippedDailyRun mustBe 1 // only the startup reconcile
+          afterNextDailyRun mustBe 2 // 25 hours after the other instance's run
+          lastRun mustBe Some(Instant.EPOCH.plusSeconds(48.hours.toSeconds))
+      }
+    }
   }
 }

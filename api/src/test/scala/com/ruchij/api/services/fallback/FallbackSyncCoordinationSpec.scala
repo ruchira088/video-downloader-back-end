@@ -45,4 +45,15 @@ class FallbackSyncCoordinationSpec extends AnyFlatSpec with Matchers {
       next mustBe Some(1)
     }
   }
+
+  it should "record when a reconcile last completed" in runIO {
+    val coordination = new FallbackSyncCoordination[IO](new InMemoryKeyValueStore[IO])
+    val completedAt = java.time.Instant.parse("2026-09-26T08:15:30.123456Z")
+
+    for {
+      before <- coordination.lastSuccessfulReconcile
+      _ <- coordination.recordSuccessfulReconcile(completedAt)
+      after <- coordination.lastSuccessfulReconcile
+    } yield (before, after) mustBe ((None, Some(completedAt)))
+  }
 }
