@@ -1,0 +1,19 @@
+{
+  "PK": "VIDEO#youtube-1a2b3c4d5e6f",
+  "SK": "VIDEO",
+  "videoId": "youtube-1a2b3c4d5e6f",
+  "url": "https://www.youtube.com/watch?v=abc123",
+  "videoSite": "YouTube",
+  "title": "Sample video",
+  "durationMs": 212000,
+  "sizeBytes": 48234567,
+  "status": "Completed",
+  "scheduledAt": "2026-09-25T21:04:11.000000Z",
+  "completedAt": "2026-09-25T21:09:42.500250Z",
+  "userIds": ["user-1", "user-2"],
+  "capturedAt": "2026-09-26T08:15:30.123456Z",
+  "hash": "0f1e2d3c4b5a6978",
+  "deleted": false,
+  "GSI1PK": "VIDEO",
+  "GSI1SK": "2026-09-25T21:04:11.000000Z#youtube-1a2b3c4d5e6f"
+}
