@@ -258,6 +258,9 @@ class SyncApplier:
         previous_keys = [
             list(key) for key in (current or {}).get(PENDING_LINK_KEYS, [])
         ]
+        # Bounded by DynamoDB's 400 KB item size: at roughly 150-200 bytes a key, a video
+        # scheduled by more than about 2,000 users can't be locked (nor, with its userIds, stored
+        # at all). Its update_item raises a ValidationException, so the message fails into the DLQ.
         pending_keys = sorted({tuple(key) for key in [*previous_keys, *put_keys]})
         condition = self._unchanged_and_unlocked(current)
 
