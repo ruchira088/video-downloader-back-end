@@ -225,6 +225,21 @@ class TestDynamoDbSchedulingService(unittest.TestCase):
         )
         self.assertEqual(listing.pending[-1].request_id, "request-005")
 
+    def test_the_newest_pending_requests_are_chosen_by_requested_at_not_sort_key(self):
+        # Request ids are random UUIDs, so PENDING#<requestId> sort keys aren't in time order:
+        # here the newest requests have the smallest sort keys.
+        count = MAX_PENDING_REQUESTS + 5
+        for index in range(count):
+            self._put_pending(f"request-{count - index:03d}", minutes=index, ttl=None)
+
+        listing = self.service.list_schedules(USER, None, None)
+
+        self.assertEqual(len(listing.pending), MAX_PENDING_REQUESTS)
+        self.assertEqual(listing.pending[0].request_id, "request-001")
+        self.assertEqual(
+            listing.pending[-1].request_id, f"request-{MAX_PENDING_REQUESTS:03d}"
+        )
+
     def test_status_filter(self):
         self._video("queued", ["user-1"], minutes=1)
         self._video("done", ["user-1"], minutes=2, status="Completed")

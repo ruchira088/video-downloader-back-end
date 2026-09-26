@@ -228,6 +228,14 @@ class DynamoDbSchedulingService(SchedulingService):
         return start_key
 
     def _pending_requests(self, user_id: str) -> list[PendingRequest]:
+        """The user's newest live pending requests, by requestedAt.
+
+        Every pending item is read and then sorted, rather than querying newest-first with a
+        Limit: the sort key is PENDING#<requestId>, and request ids are random UUIDs, so the sort
+        key order says nothing about age. Keying by time instead would need requestedAt in
+        RequestResolved, which only carries the request id. The read is bounded by the requests
+        the user made within PENDING_TTL, less those already resolved and removed.
+        """
         query: dict[str, Any] = {
             "KeyConditionExpression": Key("PK").eq(user_partition(user_id))
             & Key("SK").begins_with("PENDING#"),
