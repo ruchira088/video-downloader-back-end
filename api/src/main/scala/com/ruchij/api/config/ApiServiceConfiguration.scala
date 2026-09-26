@@ -18,7 +18,8 @@ final case class ApiServiceConfiguration(
   pubsubConfiguration: PubsubConfiguration,
   spaSiteRendererConfiguration: SpaSiteRendererConfiguration,
   sentryConfiguration: SentryConfiguration,
-  httpProxyConfiguration: Option[HttpProxyConfiguration]
+  httpProxyConfiguration: Option[HttpProxyConfiguration],
+  fallbackSyncConfiguration: FallbackSyncConfiguration = FallbackSyncConfiguration.Disabled
 )
 
 object ApiServiceConfiguration {

@@ -2,7 +2,12 @@ package com.ruchij.api
 
 import cats.effect.{IO, Resource}
 import com.comcast.ip4s.IpLiteralSyntax
-import com.ruchij.api.config.{ApiServiceConfiguration, AuthenticationConfiguration, HttpConfiguration}
+import com.ruchij.api.config.{
+  ApiServiceConfiguration,
+  AuthenticationConfiguration,
+  FallbackSyncConfiguration,
+  HttpConfiguration
+}
 import com.ruchij.api.test.matchers._
 import com.ruchij.api.test.utils.JsonUtils
 import com.ruchij.core.config._
@@ -51,7 +56,8 @@ class ApiAppSpec extends AnyFlatSpec with Matchers {
         PubsubConfiguration(PubsubType.Doobie, None, None, Some(databaseConfiguration)),
         SpaSiteRendererConfiguration(uri"http://localhost:1"),
         SentryConfiguration(None, "test", 1.0),
-        None
+        None,
+        FallbackSyncConfiguration.Disabled
       )
 
       httpApp <- ApiApp.create[IO](apiServiceConfiguration)

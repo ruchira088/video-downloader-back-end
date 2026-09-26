@@ -96,7 +96,7 @@ lazy val api =
     .settings(
       Test / fork := true,
       libraryDependencies ++=
-        Seq(http4sEmberServer, postgresql, pureconfig, jbcrypt, logbackClassic) ++ circe ++
+        Seq(http4sEmberServer, postgresql, pureconfig, jbcrypt, logbackClassic, awsSqs, awsDynamoDb) ++ circe ++
           Seq(circeLiteral, pegdown).map(_ % Test)
     )
     .dependsOn(core % "compile->compile;test->test")

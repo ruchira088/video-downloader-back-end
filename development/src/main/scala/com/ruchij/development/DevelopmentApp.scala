@@ -83,7 +83,8 @@ object DevelopmentApp extends IOApp {
       ),
       spaSiteRendererConfiguration,
       SentryConfig,
-      Some(HttpProxyConfig)
+      Some(HttpProxyConfig),
+      FallbackSyncConfiguration.Disabled
     )
 
   private def batchConfig(

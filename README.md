@@ -32,6 +32,7 @@ API for video management, metadata handling, user authentication, and batch proc
 | Messaging | Apache Kafka 8.3.2-ccs / Redis Streams / PostgreSQL (Doobie) |
 | Caching | Redis 8 |
 | Configuration | PureConfig 0.17.10 |
+| AWS | AWS SDK for Java 2.55.6 (SQS, DynamoDB — fallback sync) |
 | Testing | ScalaTest 3.2.20, ScalaMock 7.6.0 |
 
 ## Prerequisites

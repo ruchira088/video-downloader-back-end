@@ -93,6 +93,12 @@ object Dependencies
 
   lazy val perceptualHash = "dev.brachtendorf" % "JImageHash" % "1.0.0"
 
+  private val AwsSdkVersion = "2.55.6"
+
+  lazy val awsSqs = "software.amazon.awssdk" % "sqs" % AwsSdkVersion
+
+  lazy val awsDynamoDb = "software.amazon.awssdk" % "dynamodb" % AwsSdkVersion
+
   lazy val logging: Seq[ModuleID] = Seq(scalaLogging, logbackClassic, logstashLogbackEncoder)
 
   lazy val circe: Seq[ModuleID] = Seq(circeGeneric, circeParser)
