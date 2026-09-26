@@ -1,15 +1,13 @@
-import hmac
 from abc import ABC, abstractmethod
-from base64 import b64encode
-from hashlib import sha256
 
 from pydantic import BaseModel, EmailStr
 
+from src.services.cognito_helpers import secret_hash
 from src.services.exceptions import (
     IncorrectCredentialsException,
     InvalidAuthenticationTokenException,
 )
-from src.services.models.user import User
+from src.services.models.user import User, parse_role
 
 
 class AuthenticationToken(BaseModel):
@@ -53,7 +51,11 @@ class CognitoAuthenticationService(AuthenticationService):
                 AuthParameters={
                     "USERNAME": email,
                     "PASSWORD": password,
-                    "SECRET_HASH": self._secret_hash(email),
+                    "SECRET_HASH": secret_hash(
+                        email,
+                        self._cognito_user_pool_client_id,
+                        self._client_secret_key,
+                    ),
                 },
             )
 
@@ -77,43 +79,21 @@ class CognitoAuthenticationService(AuthenticationService):
         except self._cognito_idp_client.exceptions.NotAuthorizedException:
             raise IncorrectCredentialsException()
 
-    def _secret_hash(self, email: EmailStr) -> str:
-        message = bytes(email + self._cognito_user_pool_client_id, encoding="utf-8")
-        key = bytes(self._client_secret_key, encoding="utf-8")
-
-        secret_hash = b64encode(
-            hmac.new(key, message, digestmod=sha256).digest()
-        ).decode()
-
-        return secret_hash
-
     def authenticate(self, token: str) -> User:
         try:
             response = self._cognito_idp_client.get_user(AccessToken=token)
-            user_attributes = response["UserAttributes"]
-
-            def _get_attribute(name: str) -> str:
-                for attribute in user_attributes:
-                    if attribute["Name"] == name:
-                        return attribute["Value"]
-
-                raise ValueError(f'Attribute "{name}" not found')
-
-            user_id: str = _get_attribute("custom:user_id")
-            email: EmailStr = _get_attribute("email")
-            first_name: str = _get_attribute("given_name")
-            last_name: str = _get_attribute("family_name")
-
-            user = User(
-                id=user_id,
-                email=email,
-                first_name=first_name,
-                last_name=last_name,
-            )
-
-            return user
         except self._cognito_idp_client.exceptions.NotAuthorizedException:
             raise InvalidAuthenticationTokenException()
+
+        attributes = {a["Name"]: a["Value"] for a in response["UserAttributes"]}
+
+        return User(
+            id=attributes["custom:user_id"],
+            email=attributes["email"],
+            first_name=attributes["given_name"],
+            last_name=attributes["family_name"],
+            role=parse_role(attributes.get("custom:role")),
+        )
 
     def logout(self, token: str) -> User:
         user = self.authenticate(token)

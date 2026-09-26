@@ -24,7 +24,12 @@ def setup_cognito(prefix: str) -> CognitoDetails:
                 "Name": "user_id",
                 "AttributeDataType": "String",
                 "Mutable": False,
-            }
+            },
+            {
+                "Name": "role",
+                "AttributeDataType": "String",
+                "Mutable": True,
+            },
         ],
     )
     user_pool_id = user_pool_creation_response["UserPool"]["Id"]

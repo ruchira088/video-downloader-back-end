@@ -4,7 +4,7 @@ from urllib.parse import urljoin
 import requests
 from pydantic import EmailStr, HttpUrl
 
-from src.services.models.user import User
+from src.services.models.user import User, parse_role
 
 
 class UserValidationService(ABC):
@@ -52,4 +52,5 @@ class VideoDownloaderUserValidationService(UserValidationService):
             email=email,
             first_name=first_name,
             last_name=last_name,
+            role=parse_role(response_body.get("role")),
         )

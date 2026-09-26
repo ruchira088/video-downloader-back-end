@@ -11,7 +11,7 @@ from src.services.exceptions import (
     IncorrectCredentialsException,
     InvalidAuthenticationTokenException,
 )
-from src.services.models.user import User
+from src.services.models.user import Role, User
 from src.services.user_service import CognitoUserService, UserService
 from src.services.user_validation_service import UserValidationService
 from tests.services.test_data_helpers import sample_password, sample_user
@@ -21,7 +21,8 @@ from tests.services.test_service_helpers import setup_cognito
 @mock_aws
 class TestCognitoAuthenticationService(unittest.TestCase):
     def setUp(self):
-        cognito_details = setup_cognito(__name__)
+        self.cognito_details = setup_cognito(__name__)
+        cognito_details = self.cognito_details
         user_validation_service: UserValidationService | MagicMock = MagicMock()
         user_validation_service.get_user.return_value = sample_user
 
@@ -29,7 +30,6 @@ class TestCognitoAuthenticationService(unittest.TestCase):
             user_validation_service=user_validation_service,
             cognito_idp_client=cognito_details.cognito_client,
             cognito_user_pool_id=cognito_details.user_pool_id,
-            cognito_user_pool_client_id=cognito_details.user_pool_client_id,
         )
 
         user_service.create_user(email=sample_user.email, password=sample_password)
@@ -95,3 +95,42 @@ class TestCognitoAuthenticationService(unittest.TestCase):
     def test_logout_user_with_invalid_access_token(self):
         with self.assertRaises(InvalidAuthenticationTokenException):
             self.cognito_authentication_service.logout("invalid-token")
+
+    def test_authenticate_returns_the_user_role(self):
+        auth_token: AuthenticationToken = self.cognito_authentication_service.login(
+            sample_user.email, sample_password
+        )
+
+        user: User = self.cognito_authentication_service.authenticate(
+            auth_token.access_token
+        )
+
+        assert user.role == Role.USER
+
+    def test_authenticate_defaults_to_user_role_when_the_attribute_is_missing(self):
+        cognito_client = self.cognito_details.cognito_client
+        cognito_client.admin_create_user(
+            UserPoolId=self.cognito_details.user_pool_id,
+            Username="legacy@ruchij.com",
+            MessageAction="SUPPRESS",
+            UserAttributes=[
+                {"Name": "email", "Value": "legacy@ruchij.com"},
+                {"Name": "given_name", "Value": "Legacy"},
+                {"Name": "family_name", "Value": "User"},
+                {"Name": "custom:user_id", "Value": "legacy-id"},
+            ],
+        )
+        cognito_client.admin_set_user_password(
+            UserPoolId=self.cognito_details.user_pool_id,
+            Username="legacy@ruchij.com",
+            Password=sample_password,
+            Permanent=True,
+        )
+
+        auth_token = self.cognito_authentication_service.login(
+            "legacy@ruchij.com", sample_password
+        )
+        user = self.cognito_authentication_service.authenticate(auth_token.access_token)
+
+        assert user.id == "legacy-id"
+        assert user.role == Role.USER

@@ -1,8 +1,5 @@
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
-from typing import Any
 
-import boto3
 from pydantic import EmailStr
 
 from src.config.configuration import AppConfiguration
@@ -26,63 +23,60 @@ class CognitoUserService(UserService):
         user_validation_service: UserValidationService,
         cognito_idp_client,
         cognito_user_pool_id: str,
-        cognito_user_pool_client_id: str,
     ):
         self._user_validation_service = user_validation_service
         self._cognito_idp_client = cognito_idp_client
         self._cognito_user_pool_id = cognito_user_pool_id
-        self._cognito_user_pool_client_id = cognito_user_pool_client_id
 
     def create_user(self, email: EmailStr, password: str) -> User:
         user = self._user_validation_service.get_user(email=email, password=password)
 
+        # Admin APIs are not limited by the app client's WriteAttributes, so the client can
+        # deny users write access to custom:user_id and custom:role.
         try:
-            self._cognito_idp_client.sign_up(
-                ClientId=self._cognito_user_pool_client_id,
+            self._cognito_idp_client.admin_create_user(
+                UserPoolId=self._cognito_user_pool_id,
                 Username=email,
-                Password=password,
+                MessageAction="SUPPRESS",
                 UserAttributes=[
-                    {
-                        "Name": "email",
-                        "Value": email,
-                    },
-                    {
-                        "Name": "given_name",
-                        "Value": user.first_name,
-                    },
-                    {"Name": "family_name", "Value": user.last_name},
+                    {"Name": "email", "Value": email},
                     {"Name": "email_verified", "Value": "true"},
+                    {"Name": "given_name", "Value": user.first_name},
+                    {"Name": "family_name", "Value": user.last_name},
                     {"Name": "custom:user_id", "Value": user.id},
+                    {"Name": "custom:role", "Value": user.role.value},
                 ],
             )
         except self._cognito_idp_client.exceptions.UsernameExistsException:
             raise ResourceConflictException(f'User with email "{email}" already exists')
 
-        self._cognito_idp_client.admin_confirm_sign_up(
-            UserPoolId=self._cognito_user_pool_id, Username=email
-        )
+        try:
+            self._cognito_idp_client.admin_set_user_password(
+                UserPoolId=self._cognito_user_pool_id,
+                Username=email,
+                Password=password,
+                Permanent=True,
+            )
+        except Exception:
+            # Without a password the user could never log in, and a retry would hit
+            # UsernameExistsException, so undo the creation.
+            self._cognito_idp_client.admin_delete_user(
+                UserPoolId=self._cognito_user_pool_id, Username=email
+            )
+            raise
 
         return user
 
 
-def get_user_service(app_configuration: AppConfiguration) -> UserService:
+def get_user_service(
+    app_configuration: AppConfiguration, cognito_idp_client
+) -> UserService:
     user_validation_service = VideoDownloaderUserValidationService(
         app_configuration.video_downloader.url
     )
 
-    client_args: Mapping[str, Any] = (
-        {}
-        if app_configuration.cognito.endpoint_url is None
-        else {"endpoint_url": str(app_configuration.cognito.endpoint_url)}
-    )
-
-    cognito_client = boto3.client("cognito-idp", **client_args)
-
-    user_service = CognitoUserService(
+    return CognitoUserService(
         user_validation_service,
-        cognito_client,
+        cognito_idp_client,
         cognito_user_pool_id=app_configuration.cognito.user_pool_id,
-        cognito_user_pool_client_id=app_configuration.cognito.client_id,
     )
-
-    return user_service

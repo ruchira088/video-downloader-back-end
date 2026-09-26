@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from src.config.configuration import AppConfiguration
+from src.services.cognito_helpers import create_cognito_client
 from src.services.system_service import SystemService, SystemServiceImpl
 from src.services.user_service import UserService, get_user_service
 from src.web.handlers.exception_handlers import register_exception_handlers
@@ -13,7 +14,9 @@ from src.web.routers.video_router import video_router
 def create_http_app(app_configuration: AppConfiguration) -> FastAPI:
     app = FastAPI()
 
-    user_service: UserService = get_user_service(app_configuration)
+    user_service: UserService = get_user_service(
+        app_configuration, create_cognito_client(app_configuration.cognito)
+    )
     system_service: SystemService = SystemServiceImpl(app_configuration)
 
     app.include_router(user_router(user_service))
