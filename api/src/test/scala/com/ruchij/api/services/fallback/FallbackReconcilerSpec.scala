@@ -4,16 +4,18 @@ import cats.effect.IO
 import cats.effect.kernel.Ref
 import com.ruchij.api.services.fallback.FallbackSyncStubs._
 import com.ruchij.api.services.fallback.FallbackSyncTestData.{capturedAt, scheduledVideoDownload}
-import com.ruchij.api.services.fallback.aws.{FallbackManifestReader, ManifestEntry}
-import com.ruchij.api.services.fallback.models.{ScheduledVideoRemoval, ScheduledVideoUpsert}
-import com.ruchij.core.kv.InMemoryKeyValueStore
-import com.ruchij.core.test.IOSupport.runIO
+import com.ruchij.api.services.fallback.aws.{FallbackManifestReader, FallbackSyncTransport, ManifestEntry}
+import com.ruchij.api.services.fallback.models.{MainToFallbackMessage, ScheduledVideoRemoval, ScheduledVideoUpsert}
+import com.ruchij.core.kv.{InMemoryKeyValueStore, KeyValueStore}
+import com.ruchij.core.kv.codecs.{KVDecoder, KVEncoder}
+import com.ruchij.core.test.IOSupport._
 import com.ruchij.core.test.Providers
 import com.ruchij.core.types.Clock
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import java.time.Instant
+import scala.concurrent.duration._
 
 class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
   implicit val clock: Clock[IO] = Providers.stubClock[IO](capturedAt)
@@ -22,6 +24,30 @@ class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
     new FallbackManifestReader[IO] {
       override val manifest: IO[Map[String, ManifestEntry]] = IO.pure(entries.toMap)
     }
+
+  /** Fails the first `failures` reads of the reconcile flag, then delegates. Simulates the key-value store (e.g.
+    * Redis) being unreachable for the flag check specifically (the scenario the fix addresses) while everything
+    * else, including the reconcile lock, keeps working normally. */
+  private final class FlakyKeyValueStore(delegate: InMemoryKeyValueStore[IO], remainingFailures: Ref[IO, Int])
+      extends KeyValueStore[IO] {
+    override type InsertionResult = Boolean
+    override type DeletionResult = Boolean
+
+    override def get[K: KVEncoder[IO, *], V: KVDecoder[IO, *]](key: K): IO[Option[V]] =
+      if (key != FallbackSyncCoordination.ReconcileNeededKey) delegate.get(key)
+      else
+        remainingFailures.modify(n => (math.max(n - 1, 0), n)).flatMap { n =>
+          if (n > 0) IO.raiseError(new RuntimeException("Key-value store unavailable")) else delegate.get(key)
+        }
+
+    override def put[K: KVEncoder[IO, *], V: KVEncoder[IO, *]](
+      key: K,
+      value: V,
+      maybeTtl: Option[FiniteDuration]
+    ): IO[Boolean] = delegate.put(key, value, maybeTtl)
+
+    override def remove[K: KVEncoder[IO, *]](key: K): IO[Boolean] = delegate.remove(key)
+  }
 
   "FallbackReconciler" should "send upserts for drift and removals for videos gone from the DB" in runIO {
     val video1 = SyncedVideo(scheduledVideoDownload("video-1"), List("user-1"))
@@ -47,6 +73,7 @@ class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
       summary mustBe Some(ReconcileSummary(upserts = 1, removals = 1))
       sent.collect { case upsert: ScheduledVideoUpsert => upsert.videoId } mustBe List("video-2")
       sent.collect { case removal: ScheduledVideoRemoval => removal.videoId } mustBe List("gone")
+      sent.collect { case removal: ScheduledVideoRemoval => removal.capturedAt } mustBe List(capturedAt)
       flagged mustBe false
     }
   }
@@ -100,5 +127,58 @@ class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
       reconciler = new FallbackReconciler[IO, IO](manifestOf(), dao, transport, coordination, "instance-a")
       result <- coordination.withReconcileLock("instance-b")(reconciler.reconcile)
     } yield result mustBe Some(None)
+  }
+
+  it should "keep a flag raised mid-run instead of wiping it out when the run finishes" in runIO {
+    // The flag is cleared right after the lock is acquired, before any read, precisely so that a flag raised for
+    // a change made *during* this run (simulated here via the transport, standing in for the publisher) survives:
+    // clearing it again at the end would wipe out that later, still-unsynced change.
+    for {
+      dao <- StubFallbackSyncDao()
+      coordination = new FallbackSyncCoordination[IO](new InMemoryKeyValueStore[IO])
+      transport = new FallbackSyncTransport[IO] {
+        override def send(messages: List[MainToFallbackMessage]): IO[Unit] = coordination.markReconcileNeeded
+      }
+      reconciler = new FallbackReconciler[IO, IO](manifestOf(), dao, transport, coordination, "instance-a")
+      _ <- reconciler.reconcile
+      flagged <- coordination.isReconcileNeeded
+    } yield flagged mustBe true
+  }
+
+  it should "keep the schedule alive through key-value-store failures, run at startup, and react to a later flag" in {
+    val test =
+      for {
+        remainingFailures <- Ref.of[IO, Int](3)
+        coordination = new FallbackSyncCoordination[IO](new FlakyKeyValueStore(new InMemoryKeyValueStore[IO], remainingFailures))
+        manifestReads <- Ref.of[IO, Int](0)
+        manifestReader = new FallbackManifestReader[IO] {
+          override val manifest: IO[Map[String, ManifestEntry]] = manifestReads.update(_ + 1).as(Map.empty)
+        }
+        dao = new FallbackSyncDao[IO] {
+          override def findById(videoId: String): IO[Option[SyncedVideo]] = IO.pure(None)
+          override val findAll: IO[List[SyncedVideo]] = IO.pure(Nil)
+        }
+        transport <- RecordingTransport()
+        reconciler = new FallbackReconciler[IO, IO](manifestReader, dao, transport, coordination, "instance-a")
+        fiber <- reconciler.run(interval = 1.hour, flagCheckInterval = 30.millis).compile.drain.start
+        _ <- IO.sleep(50.millis)
+        afterStartup <- manifestReads.get
+        // Several flag-check ticks land on the store while it is still failing (and while it recovers); the
+        // schedule (both loops, merged) must survive every one of them without dying.
+        _ <- IO.sleep(250.millis)
+        beforeManualFlag <- manifestReads.get
+        // Simulates the publisher raising the flag once the store is healthy again.
+        _ <- coordination.markReconcileNeeded
+        _ <- IO.sleep(150.millis)
+        afterManualFlag <- manifestReads.get
+        _ <- fiber.cancel
+      } yield {
+        afterStartup must be >= 1 // the startup reconcile ran immediately, at t=0
+        // If the schedule had died while the store was failing, this count could not move at all: proves both
+        // that it survived the failures and that the later, manually-raised flag triggered a further reconcile.
+        afterManualFlag must be > beforeManualFlag
+      }
+
+    runIO(test.withTimeout(5.seconds))
   }
 }
