@@ -267,9 +267,12 @@ class SyncApplier:
         try:
             self._table.update_item(
                 Key=video_key(new_video_item["videoId"]),
+                # A tombstone's ttl is removed, so DynamoDB can't delete the item, and with it
+                # pendingLinkKeys, while it is locked. The final put sets the new item's ttl.
                 UpdateExpression=f"SET {LOCK_ID} = :lockId, {LOCKED_UNTIL} = :lockedUntil, "
-                f"{PENDING_LINK_KEYS} = :pendingLinkKeys{placeholder}",
+                f"{PENDING_LINK_KEYS} = :pendingLinkKeys{placeholder} REMOVE #ttl",
                 ConditionExpression=condition["ConditionExpression"],
+                ExpressionAttributeNames={"#ttl": "ttl"},
                 ExpressionAttributeValues={
                     **condition["ExpressionAttributeValues"],
                     ":lockId": lock_id,

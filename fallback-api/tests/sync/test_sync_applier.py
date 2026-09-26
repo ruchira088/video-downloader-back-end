@@ -5,7 +5,13 @@ from unittest.mock import patch
 from boto3.dynamodb.conditions import Key
 from moto import mock_aws
 
-from src.sync.items import epoch_seconds, link_item, pending_key, video_key
+from src.sync.items import (
+    TOMBSTONE_TTL,
+    epoch_seconds,
+    link_item,
+    pending_key,
+    video_key,
+)
 from src.sync.messages import (
     RejectedOutcome,
     to_json,
@@ -727,6 +733,41 @@ class TestSyncApplier(unittest.TestCase):
         video = self._video()
         assert video is not None
         self.assertEqual(video["lockId"], "another-invocation")
+
+    def test_taking_the_lock_removes_a_tombstones_ttl_until_the_final_put(self):
+        self.applier.apply(
+            ScheduledVideoRemoval(video_id="youtube-abc", captured_at=T0)
+        )
+        user_ids = [f"user-{index:03d}" for index in range(120)]
+
+        # The invocation dies after writing its links, before its final put.
+        with patch.object(
+            self.applier._client,
+            "transact_write_items",
+            side_effect=RuntimeError("Lambda timed out"),
+        ):
+            with self.assertRaises(RuntimeError):
+                self.applier.apply(
+                    sample_upsert(user_ids=user_ids, captured_at=later(1))
+                )
+
+        locked = self._video()
+        assert locked is not None
+        self.assertIn("pendingLinkKeys", locked)
+        self.assertNotIn("ttl", locked)
+
+    def test_a_large_removal_restores_the_tombstone_ttl_in_its_final_put(self):
+        user_ids = [f"user-{index:03d}" for index in range(120)]
+        self.applier.apply(sample_upsert(user_ids=user_ids, captured_at=T0))
+
+        self.applier.apply(
+            ScheduledVideoRemoval(video_id="youtube-abc", captured_at=later(1))
+        )
+
+        video = self._video()
+        assert video is not None
+        self.assertEqual(video["ttl"], epoch_seconds(FIXED_NOW + TOMBSTONE_TTL))
+        self._assert_unlocked()
 
     def test_a_transaction_conflict_while_taking_the_lock_is_retried(self):
         user_ids = [f"user-{index:03d}" for index in range(120)]
