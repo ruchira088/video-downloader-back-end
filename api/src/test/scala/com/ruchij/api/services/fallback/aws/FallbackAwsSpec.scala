@@ -4,9 +4,11 @@ import cats.effect.{IO, Resource}
 import cats.implicits._
 import com.ruchij.api.config.FallbackSyncSettings
 import com.ruchij.api.external.containers.{DynamoDbLocalContainer, ElasticMqContainer}
+import com.ruchij.api.services.fallback.ContractFixtures
 import com.ruchij.api.services.fallback.FallbackSyncTestData.fixtureUpsert
 import com.ruchij.api.services.fallback.models.{ScheduledVideoRemoval, SyncJson}
 import com.ruchij.core.test.IOSupport.runIO
+import io.circe.Json
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
@@ -263,6 +265,36 @@ class FallbackAwsSpec extends AnyFlatSpec with Matchers {
         }
       }
     }
+
+  /** Converts contract JSON to the attribute values the fallback's boto3 resource layer writes. */
+  private def attributeValue(json: Json): AttributeValue =
+    json.fold(
+      AttributeValue.builder().nul(true).build(),
+      bool,
+      number => AttributeValue.builder().n(number.toString).build(),
+      s,
+      values => AttributeValue.builder().l(values.map(attributeValue).asJava).build(),
+      fields => AttributeValue.builder().m(fields.toMap.view.mapValues(attributeValue).toMap.asJava).build()
+    )
+
+  it should "read the fallback's stored item for the upsert contract fixture" in runIO {
+    // The exact item the fallback's applier stores for scheduled-video-upsert.json, so renaming an attribute the
+    // manifest reads, on either side, fails this test
+    val item =
+      ContractFixtures
+        .json("dynamodb-video-item.json")
+        .asObject
+        .map(_.toMap.view.mapValues(attributeValue).toMap)
+        .getOrElse(fail("The DynamoDB item fixture is not a JSON object"))
+
+    (DynamoDbLocalContainer.create[IO].flatMap(clients)).use { aws =>
+      for {
+        _ <- createVideosTable(aws)
+        _ <- put(aws, item)
+        manifest <- new DynamoDbFallbackManifestReader[IO](aws.dynamoDb, "videos").manifest
+      } yield manifest mustBe Map(fixtureUpsert.videoId -> ManifestEntry(fixtureUpsert.hash, fixtureUpsert.capturedAt))
+    }
+  }
 
   "The contract fixture" should "fit in one SQS message" in {
     SyncJson.encode(fixtureUpsert).length must be < 1024 * 1024
