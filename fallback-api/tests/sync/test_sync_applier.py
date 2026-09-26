@@ -5,7 +5,7 @@ from unittest.mock import patch
 from boto3.dynamodb.conditions import Key
 from moto import mock_aws
 
-from src.sync.items import epoch_seconds, pending_key, video_key
+from src.sync.items import epoch_seconds, link_item, pending_key, video_key
 from src.sync.messages import (
     RejectedOutcome,
     to_json,
@@ -19,7 +19,6 @@ from src.sync.sync_applier import (
     ConcurrentUpdateError,
     FutureCapturedAtError,
     SyncApplier,
-    TooManyWritesError,
 )
 from tests.services.test_service_helpers import setup_dynamodb
 from tests.sync.sync_test_data import FIXED_NOW, T0, later, sample_upsert
@@ -263,11 +262,175 @@ class TestSyncApplier(unittest.TestCase):
         self.assertEqual(len(self._links("user-1")), 1)
         self.assertEqual(len(self._links("user-2")), 1)
 
-    def test_more_writes_than_a_transaction_allows_raises(self):
-        user_ids = [f"user-{index}" for index in range(100)]
+    def _assert_links_match(
+        self, video_id: str, user_ids: list[str], absent: list[str]
+    ):
+        for user_id in user_ids:
+            self.assertEqual(
+                [link["videoId"] for link in self._links(user_id)], [video_id], user_id
+            )
+        for user_id in absent:
+            self.assertEqual(self._links(user_id), [], user_id)
 
-        with self.assertRaises(TooManyWritesError):
+    def _assert_unlocked(self, video_id: str = "youtube-abc") -> None:
+        video = self._video(video_id)
+        assert video is not None
+        for attribute in ["lockId", "lockedUntil", "pendingLinkKeys"]:
+            self.assertNotIn(attribute, video)
+
+    def test_a_new_video_with_more_links_than_a_transaction_allows_is_applied(self):
+        user_ids = [f"user-{index:03d}" for index in range(120)]
+
+        result = self.applier.apply(sample_upsert(user_ids=user_ids, captured_at=T0))
+
+        self.assertEqual(result, ApplyResult.APPLIED)
+        video = self._video()
+        assert video is not None
+        self.assertEqual(len(video["userIds"]), 120)
+        self.assertFalse(video["deleted"])
+        self._assert_links_match("youtube-abc", user_ids, [])
+        self._assert_unlocked()
+
+    def test_adding_and_removing_more_links_than_a_transaction_allows(self):
+        first = [f"user-{index:03d}" for index in range(120)]
+        second = [f"user-{index:03d}" for index in range(60, 180)]
+        self.applier.apply(sample_upsert(user_ids=first, captured_at=T0))
+
+        result = self.applier.apply(
+            sample_upsert(user_ids=second, captured_at=later(1), title="Second")
+        )
+
+        self.assertEqual(result, ApplyResult.APPLIED)
+        video = self._video()
+        assert video is not None
+        self.assertEqual(video["title"], "Second")
+        self._assert_links_match("youtube-abc", second, first[:60])
+        self.assertEqual(self._links("user-100")[0]["title"], "Second")
+        self._assert_unlocked()
+
+    def test_removing_a_video_with_more_links_than_a_transaction_allows(self):
+        user_ids = [f"user-{index:03d}" for index in range(120)]
+        self.applier.apply(sample_upsert(user_ids=user_ids, captured_at=T0))
+
+        self.applier.apply(
+            ScheduledVideoRemoval(video_id="youtube-abc", captured_at=later(1))
+        )
+
+        video = self._video()
+        assert video is not None
+        self.assertTrue(video["deleted"])
+        self._assert_links_match("youtube-abc", [], user_ids)
+        self._assert_unlocked()
+
+    def test_resolving_a_request_for_a_video_with_many_links_deletes_the_pending_item(
+        self,
+    ):
+        user_ids = [f"user-{index:03d}" for index in range(120)]
+        self._put_pending("user-001", "request-1")
+
+        self.applier.apply(
+            RequestResolved(
+                request_id="request-1",
+                user_id="user-001",
+                outcome=ScheduledOutcome(upsert=sample_upsert(user_ids=user_ids)),
+            )
+        )
+
+        self.assertNotIn(
+            "Item", self.table.get_item(Key=pending_key("user-001", "request-1"))
+        )
+        self._assert_links_match("youtube-abc", user_ids, [])
+
+    def test_unprocessed_batch_items_are_retried(self):
+        user_ids = [f"user-{index:03d}" for index in range(120)]
+        real_batch_write = self.applier._client.batch_write_item
+        calls = {"count": 0}
+
+        def batch_write(**kwargs):
+            calls["count"] += 1
+            if calls["count"] == 1:
+                return {"UnprocessedItems": kwargs["RequestItems"]}
+            return real_batch_write(**kwargs)
+
+        with patch.object(
+            self.applier._client, "batch_write_item", side_effect=batch_write
+        ):
             self.applier.apply(sample_upsert(user_ids=user_ids, captured_at=T0))
+
+        self._assert_links_match("youtube-abc", user_ids, [])
+        self.assertGreaterEqual(len(self.sleeps), 1)
+
+    def test_a_video_locked_by_another_invocation_is_left_alone(self):
+        self.applier.apply(sample_upsert(captured_at=T0))
+        self.table.update_item(
+            Key=video_key("youtube-abc"),
+            UpdateExpression="SET lockId = :id, lockedUntil = :until",
+            ExpressionAttributeValues={
+                ":id": "another-invocation",
+                ":until": epoch_seconds(FIXED_NOW + timedelta(minutes=1)),
+            },
+        )
+
+        with self.assertRaises(ConcurrentUpdateError):
+            self.applier.apply(sample_upsert(captured_at=later(1), user_ids=["user-1"]))
+
+        video = self._video()
+        assert video is not None
+        self.assertEqual(video["capturedAt"], "2026-09-26T07:00:00.000000Z")
+        self.assertEqual(len(self._links("user-2")), 1)
+
+    def test_an_expired_lock_is_taken_over_and_its_pending_links_are_cleaned_up(self):
+        # An invocation locked the video, wrote a link for user-3, then died before
+        # putting the video item.
+        self.applier.apply(sample_upsert(captured_at=T0))
+        stray_link = sample_upsert(captured_at=later(1), user_ids=["user-3"])
+        self.table.put_item(Item=link_item("user-3", stray_link))
+        self.table.update_item(
+            Key=video_key("youtube-abc"),
+            UpdateExpression="SET lockId = :id, lockedUntil = :until, "
+            "pendingLinkKeys = :pending",
+            ExpressionAttributeValues={
+                ":id": "dead-invocation",
+                ":until": epoch_seconds(FIXED_NOW - timedelta(seconds=1)),
+                ":pending": [
+                    [
+                        "USER#user-3",
+                        "VIDEO#2026-09-25T21:04:11.000000Z#youtube-abc",
+                    ]
+                ],
+            },
+        )
+
+        self.applier.apply(sample_upsert(captured_at=later(2), user_ids=["user-1"]))
+
+        self._assert_links_match("youtube-abc", ["user-1"], ["user-2", "user-3"])
+        self._assert_unlocked()
+
+    def test_a_newer_message_cleans_up_links_left_by_a_crashed_large_apply(self):
+        first = [f"user-{index:03d}" for index in range(120)]
+        crashed = [f"user-{index:03d}" for index in range(60, 180)]
+        self.applier.apply(sample_upsert(user_ids=first, captured_at=T0))
+        clock = {"now": FIXED_NOW}
+        applier = SyncApplier(
+            self.table, clock=lambda: clock["now"], sleep=self.sleeps.append
+        )
+
+        # The crashed invocation writes its links, then dies before its final put.
+        with patch.object(
+            applier._client,
+            "transact_write_items",
+            side_effect=RuntimeError("Lambda timed out"),
+        ):
+            with self.assertRaises(RuntimeError):
+                applier.apply(sample_upsert(user_ids=crashed, captured_at=later(1)))
+
+        clock["now"] = FIXED_NOW + timedelta(hours=1)
+        applier.apply(sample_upsert(user_ids=["user-000"], captured_at=later(2)))
+
+        self._assert_links_match(
+            "youtube-abc", ["user-000"], [*first[1:], *crashed[60:]]
+        )
+        self._assert_unlocked()
 
     def test_retries_and_succeeds_after_a_concurrent_write_is_detected(self):
         self.applier.apply(sample_upsert(captured_at=T0))
@@ -476,3 +639,27 @@ class TestSyncApplier(unittest.TestCase):
 
         self.assertEqual(mock_transact.call_count, SyncApplier.MAX_ATTEMPTS)
         self.assertEqual(len(self.sleeps), SyncApplier.MAX_ATTEMPTS - 1)
+
+    def test_a_lock_taken_since_the_read_blocks_the_put_even_once_expired(self):
+        self.applier.apply(sample_upsert(captured_at=T0))
+        unlocked_read = self.table.get_item(Key=video_key("youtube-abc"))["Item"]
+        self.table.update_item(
+            Key=video_key("youtube-abc"),
+            UpdateExpression="SET lockId = :id, lockedUntil = :until, "
+            "pendingLinkKeys = :pending",
+            ExpressionAttributeValues={
+                ":id": "dead-invocation",
+                ":until": epoch_seconds(FIXED_NOW - timedelta(seconds=1)),
+                ":pending": [["USER#user-3", "VIDEO#x#youtube-abc"]],
+            },
+        )
+
+        with patch.object(
+            self.applier._table, "get_item", return_value={"Item": unlocked_read}
+        ):
+            with self.assertRaises(ConcurrentUpdateError):
+                self.applier.apply(sample_upsert(captured_at=later(1)))
+
+        video = self._video()
+        assert video is not None
+        self.assertEqual(video["lockId"], "dead-invocation")

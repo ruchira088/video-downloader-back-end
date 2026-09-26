@@ -5,9 +5,13 @@ from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
+from uuid import uuid4
 
 from src.sync.items import (
     DELETED_STATUS,
+    LOCK_ID,
+    LOCKED_UNTIL,
+    PENDING_LINK_KEYS,
     REJECTED_TTL,
     epoch_seconds,
     link_item,
@@ -31,6 +35,11 @@ from src.sync.timestamps import iso_micros, parse_iso_micros
 logger = logging.getLogger(__name__)
 
 MAX_TRANSACTION_WRITES = 100
+MAX_BATCH_WRITES = 25
+MAX_BATCH_ATTEMPTS = 5
+# Must outlive the SyncFunction's 30 s timeout (template.yaml), so a lock only expires once its
+# holder can no longer be writing.
+LOCK_DURATION = timedelta(minutes=2)
 # How far ahead of this Lambda's clock a capturedAt may be. A message stamped further in the
 # future would win the capturedAt guard against every correct message until real time caught up.
 MAX_CLOCK_SKEW = timedelta(minutes=5)
@@ -53,6 +62,10 @@ class ConcurrentUpdateError(Exception):
 
 
 class FutureCapturedAtError(Exception):
+    pass
+
+
+class UnprocessedWritesError(Exception):
     pass
 
 
@@ -175,31 +188,171 @@ class SyncApplier:
                 return ApplyResult.SKIPPED
 
             writes, new_video_item = build(current)
-            video_put = self._put(new_video_item)
-            if current is None:
-                video_put["Put"]["ConditionExpression"] = "attribute_not_exists(PK)"
-            elif "capturedAt" not in current:
-                video_put["Put"]["ConditionExpression"] = (
-                    "attribute_exists(PK) AND attribute_not_exists(capturedAt)"
+
+            if 1 + len(writes) + len(extra_writes) <= MAX_TRANSACTION_WRITES:
+                applied = self._apply_in_transaction(
+                    current, new_video_item, writes, extra_writes
                 )
+            else:
+                applied = self._apply_in_batches(
+                    current, new_video_item, writes, extra_writes
+                )
+
+            if applied:
+                return ApplyResult.APPLIED
+            # Another invocation changed or locked the video since we read it, or was writing
+            # one of the same items at the same moment: re-read and retry.
+
+        raise ConcurrentUpdateError(video_id)
+
+    def _apply_in_transaction(
+        self,
+        current: Mapping[str, Any] | None,
+        new_video_item: dict[str, Any],
+        writes: list[Write],
+        extra_writes: list[Write],
+    ) -> bool:
+        video_put = self._put(new_video_item)
+        video_put["Put"].update(self._unchanged_and_unlocked(current))
+
+        try:
+            self._transact([video_put, *writes, *extra_writes])
+            return True
+        except self._client.exceptions.TransactionCanceledException as error:
+            if not _lost_a_race(error):
+                raise
+            return False
+
+    def _apply_in_batches(
+        self,
+        current: Mapping[str, Any] | None,
+        new_video_item: dict[str, Any],
+        writes: list[Write],
+        extra_writes: list[Write],
+    ) -> bool:
+        """Apply a change with more link writes than one transaction can hold.
+
+        Without a transaction, the link writes and the video put can interleave with another
+        invocation's, and a newer message only cleans up the links recorded on the video item it
+        reads -- so an older message's links, written after that read, would be left behind, or a
+        newer message's links deleted. Instead:
+
+        1. Lock the video item, conditional on it being unchanged since the read and not locked,
+           and record every link key this apply may put in `pendingLinkKeys`. Every write to the
+           video, in either path, is conditional on it being unlocked, so no other change can
+           interleave.
+        2. Write the links in idempotent batches.
+        3. Put the video item, which drops the lock, in a transaction with any extra writes,
+           conditional on still holding the lock.
+
+        If this invocation dies part-way, its lock expires after LOCK_DURATION. Whoever applies
+        the next change then treats `pendingLinkKeys` as live links, so any link no longer wanted
+        is deleted.
+        """
+        lock_id = str(uuid4())
+        put_keys = [
+            [write["Put"]["Item"]["PK"], write["Put"]["Item"]["SK"]]
+            for write in writes
+            if "Put" in write
+        ]
+        previous_keys = [
+            list(key) for key in (current or {}).get(PENDING_LINK_KEYS, [])
+        ]
+        pending_keys = sorted({tuple(key) for key in [*previous_keys, *put_keys]})
+        condition = self._unchanged_and_unlocked(current)
+
+        # A new video gets a placeholder item that holds the lock; it is marked deleted so the
+        # listings and the main side's reconcile ignore it.
+        placeholder = ", deleted = if_not_exists(deleted, :deleted)"
+        try:
+            self._table.update_item(
+                Key=video_key(new_video_item["videoId"]),
+                UpdateExpression=f"SET {LOCK_ID} = :lockId, {LOCKED_UNTIL} = :lockedUntil, "
+                f"{PENDING_LINK_KEYS} = :pendingLinkKeys{placeholder}",
+                ConditionExpression=condition["ConditionExpression"],
+                ExpressionAttributeValues={
+                    **condition["ExpressionAttributeValues"],
+                    ":lockId": lock_id,
+                    ":lockedUntil": epoch_seconds(self._clock() + LOCK_DURATION),
+                    ":pendingLinkKeys": [list(key) for key in pending_keys],
+                    ":deleted": True,
+                },
+            )
+        except self._client.exceptions.ConditionalCheckFailedException:
+            return False
+
+        self._batch_write(writes)
+
+        video_put = self._put(new_video_item)
+        video_put["Put"]["ConditionExpression"] = f"{LOCK_ID} = :lockId"
+        video_put["Put"]["ExpressionAttributeValues"] = {":lockId": lock_id}
+
+        try:
+            self._transact([video_put, *extra_writes])
+            return True
+        except self._client.exceptions.TransactionCanceledException as error:
+            if not _lost_a_race(error):
+                raise
+            # Our lock expired and was taken over (the new holder deletes any of our links it
+            # doesn't want, since they are in its pendingLinkKeys), or the extra writes met a
+            # conflict. Either way, retry; our own lock blocks that until it expires, after
+            # which an SQS redelivery takes it over.
+            return False
+
+    def _unchanged_and_unlocked(
+        self, current: Mapping[str, Any] | None
+    ) -> dict[str, Any]:
+        """A condition that the video item is as it was read, and not locked by anyone."""
+        now = epoch_seconds(self._clock())
+        unlocked = f"(attribute_not_exists({LOCKED_UNTIL}) OR {LOCKED_UNTIL} < :now)"
+        values: dict[str, Any] = {":now": now}
+
+        if current is None:
+            unchanged = "attribute_not_exists(PK)"
+        else:
+            if "capturedAt" not in current:
+                unchanged = "attribute_exists(PK) AND attribute_not_exists(capturedAt)"
             else:
                 # The raw stored value, even when unparseable: the put must still lose to any
                 # write that landed since this read.
-                video_put["Put"]["ConditionExpression"] = "capturedAt = :expected"
-                video_put["Put"]["ExpressionAttributeValues"] = {
-                    ":expected": current["capturedAt"]
-                }
+                unchanged = "capturedAt = :expected"
+                values[":expected"] = current["capturedAt"]
 
-            try:
-                self._transact([video_put, *writes, *extra_writes])
-                return ApplyResult.APPLIED
-            except self._client.exceptions.TransactionCanceledException as error:
-                if not _lost_a_race(error):
-                    raise
-                # Another invocation changed the video since we read it, or was writing one of
-                # the same items at the same moment: re-read and retry.
+            # A lock taken (and even expired) since the read may have written links that only
+            # its pendingLinkKeys records, so the lock must also be the one that was read.
+            if LOCK_ID in current:
+                unchanged += f" AND {LOCK_ID} = :expectedLockId"
+                values[":expectedLockId"] = current[LOCK_ID]
+            else:
+                unchanged += f" AND attribute_not_exists({LOCK_ID})"
 
-        raise ConcurrentUpdateError(video_id)
+        return {
+            "ConditionExpression": f"{unchanged} AND {unlocked}",
+            "ExpressionAttributeValues": values,
+        }
+
+    def _batch_write(self, writes: list[Write]) -> None:
+        requests = [_batch_request(write) for write in writes]
+
+        for start in range(0, len(requests), MAX_BATCH_WRITES):
+            pending = requests[start : start + MAX_BATCH_WRITES]
+
+            for attempt in range(MAX_BATCH_ATTEMPTS):
+                if attempt > 0:
+                    self._sleep(
+                        random.uniform(0, self.MAX_RETRY_JITTER_SECONDS * 2**attempt)
+                    )
+                response = self._client.batch_write_item(
+                    RequestItems={self._table_name: pending}
+                )
+                pending = response.get("UnprocessedItems", {}).get(self._table_name, [])
+                if not pending:
+                    break
+            else:
+                raise UnprocessedWritesError(
+                    f"{len(pending)} link writes were still unprocessed after "
+                    f"{MAX_BATCH_ATTEMPTS} attempts"
+                )
 
     def _reject_pending(self, user_id: str, request_id: str, reason: str) -> None:
         try:
@@ -255,6 +408,13 @@ def _stored_captured_at(current: Mapping[str, Any] | None) -> datetime | None:
             current["PK"],
         )
         return None
+
+
+def _batch_request(write: Write) -> dict[str, Any]:
+    if "Put" in write:
+        return {"PutRequest": {"Item": write["Put"]["Item"]}}
+
+    return {"DeleteRequest": {"Key": write["Delete"]["Key"]}}
 
 
 _RACE_CANCELLATION_CODES = frozenset({"ConditionalCheckFailed", "TransactionConflict"})

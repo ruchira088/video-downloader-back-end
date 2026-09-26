@@ -15,6 +15,11 @@ TOMBSTONE_TTL = timedelta(days=15)
 REJECTED_TTL = timedelta(days=7)
 PENDING_TTL = timedelta(days=14)
 
+# Set on a video item while an apply too large for one transaction is writing its links.
+LOCK_ID = "lockId"
+LOCKED_UNTIL = "lockedUntil"
+PENDING_LINK_KEYS = "pendingLinkKeys"
+
 
 def video_key(video_id: str) -> dict[str, str]:
     return {"PK": f"VIDEO#{video_id}", "SK": VIDEO_SORT_KEY}
@@ -100,10 +105,20 @@ def live_link_keys(
     `scheduledAt`) these are the *old* keys -- callers must diff by key, not by user id, or a
     rescheduled link is never cleaned up.
     """
-    if current is None or current.get("deleted") or "scheduledAt" not in current:
+    if current is None:
         return []
 
-    return [
-        link_key(user_id, current["scheduledAt"], video_id)
-        for user_id in sorted(current.get("userIds", []))
+    keys: list[dict[str, str]] = []
+    if not current.get("deleted") and "scheduledAt" in current:
+        keys += [
+            link_key(user_id, current["scheduledAt"], video_id)
+            for user_id in sorted(current.get("userIds", []))
+        ]
+
+    # Links an interrupted large apply may have written (see SyncApplier._apply_in_batches).
+    keys += [
+        {"PK": partition, "SK": sort_key}
+        for partition, sort_key in current.get(PENDING_LINK_KEYS, [])
     ]
+
+    return list({(key["PK"], key["SK"]): key for key in keys}.values())
