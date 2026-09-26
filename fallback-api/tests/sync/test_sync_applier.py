@@ -1,5 +1,6 @@
 import unittest
 from datetime import UTC, datetime, timedelta
+from unittest.mock import patch
 
 from boto3.dynamodb.conditions import Key
 from moto import mock_aws
@@ -11,7 +12,12 @@ from src.sync.messages import (
     ScheduledOutcome,
     ScheduledVideoRemoval,
 )
-from src.sync.sync_applier import ApplyResult, SyncApplier, TooManyWritesError
+from src.sync.sync_applier import (
+    ApplyResult,
+    ConcurrentUpdateError,
+    SyncApplier,
+    TooManyWritesError,
+)
 from tests.services.test_service_helpers import setup_dynamodb
 from tests.sync.sync_test_data import FIXED_NOW, T0, later, sample_upsert
 
@@ -254,3 +260,74 @@ class TestSyncApplier(unittest.TestCase):
 
         with self.assertRaises(TooManyWritesError):
             self.applier.apply(sample_upsert(user_ids=user_ids, captured_at=T0))
+
+    def test_retries_and_succeeds_after_a_concurrent_write_is_detected(self):
+        self.applier.apply(sample_upsert(captured_at=T0))
+        stale_current = self.table.get_item(Key=video_key("youtube-abc")).get("Item")
+
+        # A second invocation applies a newer message while we're mid-retry.
+        self.applier.apply(sample_upsert(captured_at=later(5), title="Concurrent"))
+
+        real_get_item = self.applier._table.get_item
+        calls = {"count": 0}
+
+        def get_item_side_effect(**kwargs):
+            calls["count"] += 1
+            if calls["count"] == 1:
+                return {"Item": stale_current}
+            return real_get_item(**kwargs)
+
+        with patch.object(
+            self.applier._table, "get_item", side_effect=get_item_side_effect
+        ) as mock_get_item:
+            result = self.applier.apply(
+                sample_upsert(captured_at=later(10), title="Final")
+            )
+
+        self.assertEqual(mock_get_item.call_count, 2)
+        self.assertEqual(result, ApplyResult.APPLIED)
+        video = self._video()
+        assert video is not None
+        self.assertEqual(video["title"], "Final")
+
+    def test_always_stale_reads_raise_concurrent_update_error(self):
+        self.applier.apply(sample_upsert(captured_at=T0))
+        stale_current = self.table.get_item(Key=video_key("youtube-abc")).get("Item")
+
+        # Advance the real stored state so the patched-in stale read never matches it.
+        self.applier.apply(sample_upsert(captured_at=later(1), title="Real"))
+
+        with patch.object(
+            self.applier._table, "get_item", return_value={"Item": stale_current}
+        ) as mock_get_item:
+            with self.assertRaises(ConcurrentUpdateError):
+                self.applier.apply(
+                    sample_upsert(captured_at=later(5), title="Never applied")
+                )
+
+        self.assertEqual(mock_get_item.call_count, SyncApplier.MAX_ATTEMPTS)
+
+    def test_cancellation_for_a_reason_other_than_condition_check_is_reraised(self):
+        self.applier.apply(sample_upsert(captured_at=T0))
+
+        exception_type = self.applier._client.exceptions.TransactionCanceledException
+        error = exception_type(
+            {
+                "Error": {
+                    "Code": "TransactionCanceledException",
+                    "Message": "Cancelled",
+                },
+                "CancellationReasons": [{"Code": "ThrottlingError"}],
+            },
+            "TransactWriteItems",
+        )
+
+        with patch.object(
+            self.applier._client, "transact_write_items", side_effect=error
+        ) as mock_transact:
+            with self.assertRaises(exception_type):
+                self.applier.apply(
+                    sample_upsert(captured_at=later(1), title="Never applied")
+                )
+
+        self.assertEqual(mock_transact.call_count, 1)
