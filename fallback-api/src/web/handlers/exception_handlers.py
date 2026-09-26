@@ -5,7 +5,10 @@ from requests import HTTPError
 from src.services.exceptions import (
     IncorrectCredentialsException,
     InvalidAuthenticationTokenException,
+    InvalidPageTokenException,
+    InvalidUrlException,
     ResourceConflictException,
+    ServiceUnavailableException,
 )
 
 
@@ -31,6 +34,22 @@ def register_exception_handlers(app: FastAPI):
         return JSONResponse(
             status_code=401, content={"detail": "Invalid authentication token"}
         )
+
+    @app.exception_handler(InvalidUrlException)
+    async def handle_invalid_url(request: Request, exc: InvalidUrlException):
+        return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+    @app.exception_handler(InvalidPageTokenException)
+    async def handle_invalid_page_token(
+        request: Request, exc: InvalidPageTokenException
+    ):
+        return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+    @app.exception_handler(ServiceUnavailableException)
+    async def handle_service_unavailable(
+        request: Request, exc: ServiceUnavailableException
+    ):
+        return JSONResponse(status_code=503, content={"detail": str(exc)})
 
     @app.exception_handler(HTTPError)
     async def handle_http_error(request: Request, exc: HTTPError):

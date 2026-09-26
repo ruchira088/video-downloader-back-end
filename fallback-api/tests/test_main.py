@@ -40,6 +40,7 @@ class TestCreateHttpApp(unittest.TestCase):
                 "/user",
                 "/authentication/login",
                 "/authentication/logout",
+                "/schedule",
                 "/service/info",
             }
             <= paths

@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from src.config.configuration import AppConfiguration
 from src.services.authentication_service import CognitoAuthenticationService
 from src.services.cognito_helpers import create_cognito_client, get_client_secret
+from src.services.scheduling_service import get_scheduling_service
 from src.services.system_service import SystemService, SystemServiceImpl
 from src.services.user_service import UserService, get_user_service
 from src.web.depends.authentication import authenticated_user_dependency
@@ -31,10 +32,11 @@ def create_http_app(app_configuration: AppConfiguration) -> FastAPI:
     )
     authenticated_user = authenticated_user_dependency(authentication_service)
     system_service: SystemService = SystemServiceImpl(app_configuration)
+    scheduling_service = get_scheduling_service(app_configuration)
 
     app.include_router(user_router(user_service))
     app.include_router(authentication_router(authentication_service))
-    app.include_router(schedule_router(authenticated_user))
+    app.include_router(schedule_router(scheduling_service, authenticated_user))
     app.include_router(video_router())
     app.include_router(service_router(system_service))
 
