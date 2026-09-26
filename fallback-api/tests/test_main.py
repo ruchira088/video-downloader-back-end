@@ -1,5 +1,6 @@
 import unittest
 
+from fastapi.testclient import TestClient
 from moto import mock_aws
 
 from src.config.aws_cognito_configuration import AwsCognitoConfiguration
@@ -46,3 +47,47 @@ class TestCreateHttpApp(unittest.TestCase):
             }
             <= paths
         )
+
+    def test_the_web_app_origins_may_call_the_api_from_a_browser(self):
+        cognito_details = setup_cognito(__name__)
+        client = TestClient(
+            create_http_app(
+                app_configuration_for_tests(
+                    cognito_details.user_pool_id, cognito_details.user_pool_client_id
+                )
+            )
+        )
+
+        def preflight(origin: str):
+            return client.options(
+                "/user",
+                headers={
+                    "Origin": origin,
+                    "Access-Control-Request-Method": "POST",
+                    "Access-Control-Request-Headers": "content-type",
+                },
+            )
+
+        for origin in [
+            "https://videos.ruchij.com",
+            "https://staging.videos.ruchij.com",
+            "https://my-branch.videos.ruchij.com",
+            "http://localhost:5173",
+            "http://192.168.1.20:5173",
+        ]:
+            with self.subTest(origin=origin):
+                response = preflight(origin)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    response.headers["access-control-allow-origin"], origin
+                )
+
+        for origin in [
+            "https://evil.com",
+            "https://evilruchij.com",
+            "https://videos.ruchij.com.evil.com",
+        ]:
+            with self.subTest(origin=origin):
+                response = preflight(origin)
+                self.assertEqual(response.status_code, 400)
+                self.assertNotIn("access-control-allow-origin", response.headers)

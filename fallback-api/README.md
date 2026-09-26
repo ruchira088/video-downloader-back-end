@@ -6,7 +6,10 @@ main-API credentials, list their scheduled videos, and schedule new ones.
 `POST /user` is an upsert, and needs the main API to be up: it checks the email and password against the main API,
 then creates the user (201) or refreshes an existing user's name, role and password (200). Since a user can only sign
 up while the main API is reachable, a client should call it after every successful main-API login, so every user
-already has an up-to-date fallback account when the main API goes down. Its DynamoDB table holds a copy of the
+already has an up-to-date fallback account when the main API goes down.
+
+Browsers may call the API from the same origins the main API allows: any `ruchij.com` host, `localhost` and private
+network addresses (`ALLOWED_ORIGIN_REGEX` in `src/main.py`). Its DynamoDB table holds a copy of the
 scheduled videos, kept in sync with the main API's database over two SQS queues (see
 `docs/superpowers/specs/2026-09-26-fallback-sync-design.md`).
 

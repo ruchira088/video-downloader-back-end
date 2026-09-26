@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from src.config.configuration import AppConfiguration
 from src.services.access_token_verifier import (
@@ -18,9 +19,27 @@ from src.web.routers.service_router import service_router
 from src.web.routers.user_router import user_router
 from src.web.routers.video_router import video_router
 
+# The origins the main API allows (its HTTP_ALLOWED_ORIGINS default): the web app on any ruchij.com
+# host, and local development on localhost or a private network address. The web app calls
+# POST /user after each main-API login, so every user already has a fallback account.
+ALLOWED_ORIGIN_REGEX = (
+    r"https?://("
+    r"([a-z0-9-]+\.)*ruchij\.com"
+    r"|([a-z0-9-]+\.)*localhost"
+    r"|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.\d+\.\d+\.\d+"
+    r")(:\d+)?"
+)
+
 
 def create_http_app(app_configuration: AppConfiguration) -> FastAPI:
     app = FastAPI()
+    # Bearer tokens, not cookies, so no credentialed requests are needed
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=ALLOWED_ORIGIN_REGEX,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     cognito_configuration = app_configuration.cognito
     cognito_idp_client = create_cognito_client(cognito_configuration)
