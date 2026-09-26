@@ -3,6 +3,7 @@ import uvicorn
 from src.config.aws_cognito_configuration import AwsCognitoConfiguration
 from src.config.configuration import AppConfiguration, get_config_tree
 from src.config.http_configuration import HttpConfiguration
+from src.config.sync_configuration import SyncConfiguration
 from src.config.video_downloader_configuration import VideoDownloaderConfiguration
 from src.dev.containers.cognito_container import CognitoContainer
 from src.main import create_http_app
@@ -17,11 +18,13 @@ def main():
         config_tree = get_config_tree()
         http_configuration = HttpConfiguration.parse(config_tree)
         video_downloader_configuration = VideoDownloaderConfiguration.parse(config_tree)
+        sync_configuration = SyncConfiguration.parse(config_tree)
 
         app_configuration: AppConfiguration = AppConfiguration(
             cognito=aws_cognito_configuration,
             http=http_configuration,
             video_downloader=video_downloader_configuration,
+            sync=sync_configuration,
         )
 
         http_app = create_http_app(app_configuration)

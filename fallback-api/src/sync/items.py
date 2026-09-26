@@ -11,6 +11,7 @@ GSI1_NAME = "GSI1"
 DELETED_STATUS = "Deleted"
 TOMBSTONE_TTL = timedelta(days=1)
 REJECTED_TTL = timedelta(days=7)
+PENDING_TTL = timedelta(days=14)
 
 
 def video_key(video_id: str) -> dict[str, str]:

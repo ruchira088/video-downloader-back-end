@@ -6,6 +6,7 @@ from pyhocon import ConfigFactory, ConfigTree
 
 from src.config.aws_cognito_configuration import AwsCognitoConfiguration
 from src.config.http_configuration import HttpConfiguration
+from src.config.sync_configuration import SyncConfiguration
 from src.config.video_downloader_configuration import VideoDownloaderConfiguration
 
 
@@ -13,17 +14,20 @@ class AppConfiguration(BaseModel):
     cognito: AwsCognitoConfiguration
     http: HttpConfiguration
     video_downloader: VideoDownloaderConfiguration
+    sync: SyncConfiguration
 
     @classmethod
     def parse(cls, config_tree: ConfigTree) -> "AppConfiguration":
         cognito_configuration = AwsCognitoConfiguration.parse(config_tree)
         http_configuration = HttpConfiguration.parse(config_tree)
         video_downloader_configuration = VideoDownloaderConfiguration.parse(config_tree)
+        sync_configuration = SyncConfiguration.parse(config_tree)
 
         app_configuration = AppConfiguration(
             cognito=cognito_configuration,
             http=http_configuration,
             video_downloader=video_downloader_configuration,
+            sync=sync_configuration,
         )
 
         return app_configuration

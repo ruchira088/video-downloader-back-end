@@ -59,6 +59,13 @@ def setup_cognito(prefix: str) -> CognitoDetails:
     return cognito_details
 
 
+def setup_sqs(queue_name: str) -> tuple[Any, str]:
+    sqs_client = boto3.client("sqs", region_name="ap-southeast-2")
+    queue_url = sqs_client.create_queue(QueueName=queue_name)["QueueUrl"]
+
+    return sqs_client, queue_url
+
+
 def setup_dynamodb(table_name: str):
     dynamodb = boto3.resource("dynamodb", region_name="ap-southeast-2")
 
