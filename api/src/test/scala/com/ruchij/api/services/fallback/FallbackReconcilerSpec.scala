@@ -2,6 +2,7 @@ package com.ruchij.api.services.fallback
 
 import cats.effect.IO
 import cats.effect.kernel.Ref
+import cats.effect.testkit.TestControl
 import com.ruchij.api.services.fallback.FallbackSyncStubs._
 import com.ruchij.api.services.fallback.FallbackSyncTestData.{capturedAt, scheduledVideoDownload}
 import com.ruchij.api.services.fallback.aws.{FallbackManifestReader, FallbackSyncTransport, ManifestEntry}
@@ -146,10 +147,13 @@ class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "keep the schedule alive through key-value-store failures, run at startup, and react to a later flag" in {
+    // Virtual time: flag checks land at 5, 10, 15, 20, 25 minutes. The first three hit the failing store.
     val test =
       for {
         remainingFailures <- Ref.of[IO, Int](3)
-        coordination = new FallbackSyncCoordination[IO](new FlakyKeyValueStore(new InMemoryKeyValueStore[IO], remainingFailures))
+        coordination = new FallbackSyncCoordination[IO](
+          new FlakyKeyValueStore(new InMemoryKeyValueStore[IO], remainingFailures)
+        )
         manifestReads <- Ref.of[IO, Int](0)
         manifestReader = new FallbackManifestReader[IO] {
           override val manifest: IO[Map[String, ManifestEntry]] = manifestReads.update(_ + 1).as(Map.empty)
@@ -160,25 +164,25 @@ class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
         }
         transport <- RecordingTransport()
         reconciler = new FallbackReconciler[IO, IO](manifestReader, dao, transport, coordination, "instance-a")
-        fiber <- reconciler.run(interval = 1.hour, flagCheckInterval = 30.millis).compile.drain.start
-        _ <- IO.sleep(50.millis)
+        fiber <- reconciler.run(interval = 24.hours, flagCheckInterval = 5.minutes).compile.drain.start
+        _ <- IO.sleep(1.minute)
         afterStartup <- manifestReads.get
-        // Several flag-check ticks land on the store while it is still failing (and while it recovers); the
-        // schedule (both loops, merged) must survive every one of them without dying.
-        _ <- IO.sleep(250.millis)
+        _ <- IO.sleep(20.minutes)
+        failuresLeft <- remainingFailures.get
         beforeManualFlag <- manifestReads.get
         // Simulates the publisher raising the flag once the store is healthy again.
         _ <- coordination.markReconcileNeeded
-        _ <- IO.sleep(150.millis)
+        _ <- IO.sleep(5.minutes)
         afterManualFlag <- manifestReads.get
         _ <- fiber.cancel
       } yield {
-        afterStartup must be >= 1 // the startup reconcile ran immediately, at t=0
-        // If the schedule had died while the store was failing, this count could not move at all: proves both
-        // that it survived the failures and that the later, manually-raised flag triggered a further reconcile.
-        afterManualFlag must be > beforeManualFlag
+        afterStartup mustBe 1 // the startup reconcile ran immediately, at t=0
+        failuresLeft mustBe 0 // every failing flag check happened
+        beforeManualFlag mustBe 1
+        // Had the schedule died on a failing flag check, the flag raised afterwards could not trigger a reconcile
+        afterManualFlag mustBe 2
       }
 
-    runIO(test.withTimeout(5.seconds))
+    runIO(TestControl.executeEmbed(test))
   }
 }
