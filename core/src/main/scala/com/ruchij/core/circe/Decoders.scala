@@ -15,8 +15,16 @@ object Decoders {
   implicit val instantDecoder: Decoder[Instant] =
     Decoder.decodeString.emapTry(instantString => Try(Instant.parse(instantString)))
 
+  // Accepts an ISO-8601 duration string, and the {"length", "unit"} object that Encoders.finiteDurationEncoder
+  // produces, so that JSON encoded with Encoders (e.g. pub-sub messages) decodes back.
   implicit val finiteDurationDecoder: Decoder[FiniteDuration] =
-    Decoder.decodeDuration.map { duration => FiniteDuration(duration.toMillis, TimeUnit.MILLISECONDS) }
+    Decoder.decodeDuration
+      .map { duration => FiniteDuration(duration.toMillis, TimeUnit.MILLISECONDS) }
+      .or {
+        Decoder.forProduct2[(Long, String), Long, String]("length", "unit")((_, _)).emapTry {
+          case (length, unit) => Try(FiniteDuration(length, TimeUnit.valueOf(unit)))
+        }
+      }
 
   implicit val videoSiteDecoder: Decoder[VideoSite] =
     Decoder.decodeString.map(VideoSite.from)

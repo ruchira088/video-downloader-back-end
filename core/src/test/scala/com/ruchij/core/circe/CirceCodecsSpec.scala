@@ -127,6 +127,20 @@ class CirceCodecsSpec extends AnyFlatSpec with Matchers with OptionValues {
     result.toOption.get.toMinutes mustBe 150L
   }
 
+  it should "decode the {length, unit} object that finiteDurationEncoder produces" in {
+    decode[FiniteDuration]("""{"length":212000,"unit":"MILLISECONDS"}""") mustBe
+      Right(FiniteDuration(212000, TimeUnit.MILLISECONDS))
+  }
+
+  it should "reject an object with an unknown unit" in {
+    decode[FiniteDuration]("""{"length":5,"unit":"FORTNIGHTS"}""").isLeft mustBe true
+  }
+
+  it should "round-trip what finiteDurationEncoder produces" in {
+    val duration = FiniteDuration(5, TimeUnit.MINUTES)
+    duration.asJson.as[FiniteDuration] mustBe Right(duration)
+  }
+
   "videoSiteEncoder" should "encode video site to lowercase name" in {
     val site: VideoSite = CustomVideoSite.SpankBang
     val json = site.asJson
