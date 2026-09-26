@@ -169,7 +169,7 @@ class FallbackSyncRequesterSpec extends AnyFlatSpec with Matchers {
     runIO(TestControl.executeEmbed(test).map(_ mustBe ((1, 0))))
   }
 
-  it should "flag a reconcile for a failed publish, a timed-out publish, a skip at capacity and a partial requestAll" in {
+  it should "flag a reconcile for a failed or timed-out publish, a skip at capacity and a partial requestAll" in {
     def flagsFor(
       run: PublishingFallbackSyncRequester[IO] => IO[Unit],
       publisher: Publisher[IO, FallbackSyncRequest],
@@ -177,7 +177,8 @@ class FallbackSyncRequesterSpec extends AnyFlatSpec with Matchers {
     ): IO[Int] =
       for {
         flags <- Ref.of[IO, Int](0)
-        subject = requester(publisher, onDropped = flags.update(_ + 1), publishTimeout = publishTimeout, maxInFlight = 1)
+        subject =
+          requester(publisher, onDropped = flags.update(_ + 1), publishTimeout = publishTimeout, maxInFlight = 1)
         _ <- run(subject)
         _ <- IO.sleep(5.seconds)
         flagged <- flags.get

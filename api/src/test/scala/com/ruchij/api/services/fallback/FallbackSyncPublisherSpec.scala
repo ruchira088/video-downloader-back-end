@@ -70,7 +70,8 @@ class FallbackSyncPublisherSpec extends AnyFlatSpec with Matchers {
       messages <- publisher.messagesFor(List("video-1", "missing"))
     } yield {
       messages.collect { case upsert: ScheduledVideoUpsert => upsert.capturedAt } mustBe List(first)
-      messages.collect { case removal: ScheduledVideoRemoval => removal } mustBe List(ScheduledVideoRemoval("missing", second))
+      messages.collect { case removal: ScheduledVideoRemoval => removal } mustBe
+        List(ScheduledVideoRemoval("missing", second))
     }
   }
 
