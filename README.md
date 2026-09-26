@@ -197,7 +197,7 @@ Copy `key.pem` and `cert.pem` to `nginx/ssl/`
 | `FALLBACK_SYNC_TABLE_NAME` | DynamoDB table holding the fallback's copy | - |
 | `FALLBACK_SYNC_AWS_REGION` | AWS region of the queues and table | - |
 | `FALLBACK_SYNC_AWS_ENDPOINT_URL` | Endpoint override for both SQS and DynamoDB (e.g. a local emulator) | - |
-| `FALLBACK_SYNC_RECONCILE_ALLOW_MASS_REMOVAL` | Let the reconcile send a mass removal (see below) | `false` |
+| `FALLBACK_SYNC_RECONCILE_ALLOW_MASS_REMOVAL` | Let every reconcile send a mass removal (see below) | `false` |
 
 The queue URLs and table name are outputs of the fallback's SAM stack (`fallback-api/`): `MainToFallbackQueueUrl`,
 `FallbackToMainQueueUrl` and `ScheduledVideosTableName`. `FALLBACK_SYNC_AWS_ENDPOINT_URL` applies to both clients;
@@ -219,8 +219,9 @@ supported: the API ships without the SDK's `sso`, `ssooidc` and `sts` modules th
   pauses sync requests and flags reconciles instead.
 - A reconcile withholds its removals (logging an error, still sending upserts) when the database returns no
   videos while the fallback holds some, or when it would remove more than 50 videos or 20% of the fallback's,
-  whichever is more. If such a removal is intended, set `FALLBACK_SYNC_RECONCILE_ALLOW_MASS_REMOVAL=true` for one
-  run (a restart runs a reconcile), then unset it.
+  whichever is more. If such a removal is intended, set `FALLBACK_SYNC_RECONCILE_ALLOW_MASS_REMOVAL=true` and
+  restart the API, which runs a reconcile. It is read at startup and applies to every reconcile until the API is
+  restarted without it, so unset it and restart again afterwards.
 - To be e-mailed when a sync message lands in a dead-letter queue, deploy the stack with its `AlarmEmail`
   parameter, then confirm the SNS subscription from the e-mail AWS sends to that address; until then no alarm is
   delivered.

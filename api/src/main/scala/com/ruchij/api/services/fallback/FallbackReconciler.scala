@@ -163,8 +163,9 @@ class FallbackReconciler[F[_]: Async: Clock, T[_]: Monad](
         .error[F](
           "Withholding every fallback reconcile removal; upserts are still sent",
           new IllegalStateException(
-            s"Refusing a mass removal: $reason. Set FALLBACK_SYNC_RECONCILE_ALLOW_MASS_REMOVAL=true for one run " +
-              "if this is intended."
+            s"Refusing a mass removal: $reason. If this is intended, set " +
+              "FALLBACK_SYNC_RECONCILE_ALLOW_MASS_REMOVAL=true and restart, which runs a reconcile; it is read at " +
+              "startup and applies to every reconcile, so unset it and restart again afterwards."
           )
         )
         .as(false)
