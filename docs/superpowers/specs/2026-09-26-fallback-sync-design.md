@@ -47,7 +47,8 @@ other users' pending requests.
 
 - **`ScheduledVideosTable`**: DynamoDB table, `PAY_PER_REQUEST`, TTL on attribute `ttl`, sparse GSI `GSI1`.
   No point-in-time recovery.
-- **`MainToFallbackQueue` + DLQ**: standard queue, 14-day retention, visibility 180 s, `maxReceiveCount` 5.
+- **`MainToFallbackQueue` + DLQ**: standard queue, 4-day retention (so a dead-lettered message still gets 10 of
+  the DLQ's 14 days), visibility 180 s, `maxReceiveCount` 5.
 - **`FallbackToMainQueue` + DLQ**: standard queue, 14-day retention, visibility 300 s, `maxReceiveCount` 5.
 - **`SyncFunction`**: new Lambda (`handler.sync_handler`). SQS event source on `MainToFallbackQueue`, batch size 10,
   `ReportBatchItemFailures`.
@@ -55,7 +56,7 @@ other users' pending requests.
 - **`MainSideSyncUser`**: IAM user and policy allowing
   - `sqs:SendMessage` on `MainToFallbackQueue`
   - `sqs:ReceiveMessage`, `sqs:DeleteMessage`, `sqs:ChangeMessageVisibility` on `FallbackToMainQueue`
-  - `dynamodb:Scan` on the table
+  - `dynamodb:Scan` on the table's `GSI1` index (the reconcile scans the index, not the table)
 
   Access keys are created by hand, never output by the stack.
 - **DLQ alarms**: one CloudWatch alarm per DLQ (`ApproximateNumberOfMessagesVisible > 0`) → SNS topic → email.
@@ -71,9 +72,12 @@ The whole feature is off unless `FALLBACK_SYNC_ENABLED=true`.
   - Subscribes to `scheduled-video-downloads` (group id `fallback-sync`) and to a new internal topic,
     `fallback-sync-requests`, whose message is `FallbackSyncRequest(videoId: String)`. It gets a `MessagingTopic`
     instance with Avro and JSON codecs, like every other topic.
-  - Collects video ids in 30 s windows and removes duplicates. It then reads each video's current row and
-    `permission` user ids in one query, and sends a `ScheduledVideoUpsert` for each row found and a
-    `ScheduledVideoRemoval` for each id with no row.
+  - Collects video ids in 30 s windows and removes duplicates; per id, the latest event in the window wins. It then
+    reads each video's current row and `permission` user ids, and sends a `ScheduledVideoUpsert` for each row found
+    and a `ScheduledVideoRemoval` for each id with no row.
+  - A `Deleted` event (an admin delete, published before batch hard-deletes the row) becomes a removal unless the
+    row read at send time was scheduled after the event's timestamp, i.e. the URL was scheduled again. A replayed
+    `Deleted` event therefore can't tombstone a live video.
   - Sends with `SendMessageBatch`, 10 messages per call.
 - **New `FallbackSyncRequest` publishes** in `ApiSchedulingServiceImpl`, at the two write paths that publish nothing
   today:
@@ -94,7 +98,9 @@ The whole feature is off unless `FALLBACK_SYNC_ENABLED=true`.
 
 ## Messages
 
-All messages are JSON with a `type` discriminator. Timestamps are ISO-8601 UTC with millisecond precision.
+All messages are JSON with a `type` discriminator. Timestamps are fixed-width ISO-8601 UTC with exactly six
+fractional digits (`2026-09-26T08:15:30.123456Z`), so the fallback can compare them as strings; any other shape is
+rejected.
 
 ### main → fallback (`MainToFallbackQueue`)
 
@@ -105,8 +111,10 @@ All messages are JSON with a `type` discriminator. Timestamps are ISO-8601 UTC w
   - `{"result": "Scheduled", "upsert": <ScheduledVideoUpsert>}`
   - `{"result": "Rejected", "reason": "..."}`
 
-- `capturedAt` is when the main side read the row from its DB. It is the version used for ordering. `lastUpdatedAt`
-  can't be used, because permission changes don't update it.
+- `capturedAt` is the database's `CURRENT_TIMESTAMP`, read in the same transaction as the row it versions (in
+  Postgres, the transaction's start, so never after the read). Using the DB clock keeps every API instance on one
+  clock. It is the version used for ordering. `lastUpdatedAt` can't be used, because permission changes don't
+  update it.
 - `status` is the main side's `SchedulingStatus` name, passed through unchanged.
 
 ### fallback → main (`FallbackToMainQueue`)
@@ -141,8 +149,12 @@ A single table with string keys `PK` and `SK`:
 | User link | `USER#<userId>` | `VIDEO#<scheduledAt>#<videoId>` |
 | Pending | `USER#<userId>` | `PENDING#<requestId>` |
 
-- **Video** attributes: `userIds` (string set), `capturedAt`, `hash`, `deleted`, and the display fields. Live videos
-  also have `GSI1PK = "VIDEO"` and `GSI1SK = <scheduledAt>#<videoId>`.
+- **Video** attributes: `userIds` (a list), `capturedAt`, `hash`, `deleted`, and the display fields. Live videos
+  also have `GSI1PK = "VIDEO"` and `GSI1SK = <scheduledAt>#<videoId>`. `fallback-api/contract/dynamodb-video-item.json`
+  is the exact item stored for the upsert fixture.
+- **Large applies:** a change needing more than 100 writes locks the video item (`lockId`, `lockedUntil`, 2 min, and
+  `pendingLinkKeys`), writes the links in batches, then puts the video item and drops the lock. A new video's lock
+  sits on a placeholder marked `deleted`, which listings and the reconcile ignore.
 - **User link** keys put `scheduledAt` in the sort key so a user's list comes back newest first, like the admin list.
   A video's `scheduledAt` never changes, so the key of a link to delete can be built from the stored video item.
 - **User link** attributes: a copy of the display fields, which are `url`, `videoSite`, `title`, `durationMs`,
@@ -170,13 +182,15 @@ request will ever resolve.
 
 ### B. The main side consuming requests (`FallbackRequestConsumer`)
 
-1. The lease holder polls every 60 s (`ReceiveMessage`, 10 messages at a time) and drains the queue while messages
-   keep arriving.
-2. For each `ScheduleRequest`, call `ApiSchedulingService.schedule(url, userId)`. A redelivered request is safe:
-   scheduling a URL again returns `AlreadyScheduled`.
+1. The lease holder polls every 60 s (`ReceiveMessage`, one message at a time, so a slow schedule can't push a batch
+   past the visibility timeout) and drains the queue while messages keep arriving.
+2. For each `ScheduleRequest`, call `ApiSchedulingService.schedule(url, userId)`, with the URL's fragment dropped as
+   the main API's own route does. URLs over 2048 characters are rejected.
+   The consumer is idempotent: each reply is stored in Redis for 14 days, keyed by `requestId`, before it is sent,
+   and a redelivered request only re-sends its stored reply, so it can't re-schedule a video deleted since.
 3. **Success:** read the video's current state, send `RequestResolved{Scheduled, upsert}`, then delete the message.
 4. **Permanent failure** (invalid or unsupported URL, unknown user): send `RequestResolved{Rejected, reason}`, then
-   delete the message.
+   delete the message. An unknown user gets a generic reason, so replies don't reveal which user ids exist.
 5. **Transient failure** (DB unavailable, metadata fetch timeout): leave the message. It becomes visible again after
    300 s, and after 5 receives it moves to the DLQ.
 
@@ -201,16 +215,22 @@ request will ever resolve.
 ### D. Reconcile (`FallbackReconciler`)
 
 Runs daily, when the API starts (which also does the initial backfill), and when the "reconcile needed" flag is set.
+The time of each completed reconcile is kept in Redis, and the daily run is skipped when any instance completed one in
+the last 20 h. A startup or flagged run that finds the lock held flags a retry, since the holder may have crashed.
 
 1. Acquire the lease.
-2. **Scan the manifest first.** Scan the table with `ProjectionExpression` `PK, hash, capturedAt` and
-   `FilterExpression` `SK = "VIDEO" AND deleted <> true`, paginating until the scan completes.
+2. **Scan the manifest first.** Scan the sparse `GSI1` (projection `ALL`, so it holds exactly the live videos) with
+   `ProjectionExpression` `PK, hash, capturedAt`, paginating until the scan completes. An item with a missing or
+   unparseable hash or `capturedAt` stays in the manifest under a hash that never matches, so it is always repaired.
 3. **Then read the DB:** every scheduled video with its `permission` user ids, computing each hash.
 4. **Diff:**
    - in the DB but not in the manifest → upsert
    - in both, with a different hash → upsert
    - in the manifest but not in the DB → removal
-5. Send the fixes to `MainToFallbackQueue`, clear the flag, and release the lease.
+5. **Mass-removal guard:** if the DB returned no videos while the manifest has some, or removals exceed 50 or 20% of
+   the manifest (whichever is more), log an error and send only the upserts, unless
+   `FALLBACK_SYNC_RECONCILE_ALLOW_MASS_REMOVAL` is set.
+6. Send the fixes to `MainToFallbackQueue`, clear the flag, and release the lease.
 
 The order matters. A video synced between the two reads appears in the DB read and is harmlessly upserted again.
 Reading the DB first would show such a video as manifest-only, and it would be wrongly removed. Removals carry
@@ -248,6 +268,8 @@ The following must be fixed or completed first:
 | `POST /schedule` | SQS send fails | 503, nothing written |
 | `SyncFunction` | One message fails | Partial batch failure; DLQ after 5 receives; alarm |
 | `FallbackSyncPublisher` | SQS unreachable | 3 retries with backoff, then set the "reconcile needed" flag |
+| Sync request publish | Kafka publish fails or times out | Set the flag; after a timeout, skip publishes for 60 s |
+| SQS send | Entry rejected as the sender's fault | Log an error and drop it; retry other failures, then raise |
 | `FallbackRequestConsumer` | Permanent or transient failure | Flow B steps 4 and 5; DLQ after 5 receives; alarm |
 | `FallbackReconciler` | Scan or send fails | Leave the flag set, log, and retry on the next trigger |
 
