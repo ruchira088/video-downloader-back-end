@@ -2,7 +2,9 @@ import re
 from datetime import UTC, datetime
 
 # yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z' -- shared with the main API, which writes the same format.
-_TIMESTAMP_FORMAT = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z")
+_TIMESTAMP_FORMAT = re.compile(
+    r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6}Z"
+)
 
 
 def iso_micros(value: datetime) -> str:

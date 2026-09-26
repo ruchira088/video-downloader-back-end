@@ -15,7 +15,7 @@ from src.sync.messages import (
     parse_main_to_fallback_message,
     to_json,
 )
-from src.sync.timestamps import iso_micros
+from src.sync.timestamps import iso_micros, require_iso_micros
 
 CONTRACT_DIRECTORY = Path(__file__).parent.parent.parent / "contract"
 
@@ -46,6 +46,16 @@ class TestTimestamps(unittest.TestCase):
     def test_iso_micros_rejects_naive_datetimes(self):
         with self.assertRaises(ValueError):
             iso_micros(datetime(2026, 9, 26, 8, 15, 30))
+
+    def test_require_iso_micros_rejects_non_ascii_digits(self):
+        # Arabic-Indic and fullwidth digits, which a Unicode \d would match.
+        for value in [
+            "٢026-09-26T08:20:00.000000Z",
+            "2026-09-26T08:20:00.00000０Z",
+        ]:
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    require_iso_micros(value)
 
 
 class TestMessages(unittest.TestCase):
