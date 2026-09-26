@@ -110,7 +110,7 @@ class TestSyncApplier(unittest.TestCase):
         self.assertTrue(video["deleted"])
         self.assertNotIn("GSI1PK", video)
         self.assertEqual(
-            int(video["ttl"]), epoch_seconds(FIXED_NOW + timedelta(days=1))
+            int(video["ttl"]), epoch_seconds(FIXED_NOW + timedelta(days=15))
         )
         self.assertEqual(self._links("user-1"), [])
 

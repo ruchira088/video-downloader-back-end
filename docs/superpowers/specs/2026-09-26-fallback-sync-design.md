@@ -153,7 +153,7 @@ A single table with string keys `PK` and `SK`:
   is what the admin list reads.
 - `ttl` is set on:
   - rejected pending items, to 7 days after rejection
-  - tombstoned video items, to 1 day after removal
+  - tombstoned video items, to 15 days after removal (longer than the 14-day queue retention)
 
 ## Flows
 
@@ -190,7 +190,7 @@ request will ever resolve.
      users, and put the video item with its `GSI1` attributes. An empty `userIds` removes every link but keeps the
      video item.
    - **Removal, or an upsert with status `Deleted`.** Delete all links and write the video item as a tombstone:
-     `deleted = true`, no `GSI1` attributes, `ttl` = 1 day. Treating `Deleted` as a removal covers the case where
+     `deleted = true`, no `GSI1` attributes, `ttl` = 15 days. Treating `Deleted` as a removal covers the case where
      batch hasn't hard-deleted the row yet.
    - **`RequestResolved`.**
      - `Scheduled`: apply the embedded upsert (with the guard) and delete `PENDING#<requestId>`, in the same
