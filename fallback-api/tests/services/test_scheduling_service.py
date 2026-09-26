@@ -11,7 +11,7 @@ from src.services.exceptions import (
 )
 from src.services.models.user import Role, User
 from src.services.scheduling_service import PAGE_SIZE, DynamoDbSchedulingService
-from src.sync.items import epoch_seconds, pending_key
+from src.sync.items import epoch_seconds, pending_key, user_partition
 from src.sync.messages import ScheduledVideoRemoval
 from src.sync.page_tokens import encode_page_token
 from src.sync.sync_applier import SyncApplier
@@ -163,6 +163,19 @@ class TestDynamoDbSchedulingService(unittest.TestCase):
         self.assertIsNone(second.next_page_token)
         self.assertEqual(second.videos[-1].video_id, "video-00")
 
+    def test_admin_pagination_round_trip(self):
+        for index in range(PAGE_SIZE + 5):
+            self._video(f"video-{index:02d}", ["user-1"], minutes=index)
+
+        first = self.service.list_schedules(ADMIN, None, None)
+        assert first.next_page_token is not None
+        second = self.service.list_schedules(ADMIN, None, first.next_page_token)
+
+        self.assertEqual(len(first.videos), PAGE_SIZE)
+        self.assertEqual(len(second.videos), 5)
+        self.assertIsNone(second.next_page_token)
+        self.assertEqual(second.videos[-1].video_id, "video-00")
+
     def test_malformed_page_token_is_rejected(self):
         for token in ["!!!", "bm90LWpzb24=", encode_page_token({"PK": 1})]:
             with (
@@ -179,6 +192,26 @@ class TestDynamoDbSchedulingService(unittest.TestCase):
 
     def test_user_page_token_is_rejected_for_the_admin_index(self):
         token = encode_page_token({"PK": "USER#admin-1", "SK": "VIDEO#2026#v"})
+
+        with self.assertRaises(InvalidPageTokenException):
+            self.service.list_schedules(ADMIN, None, token)
+
+    def test_user_page_token_with_an_extra_key_is_rejected(self):
+        token = encode_page_token(
+            {"PK": user_partition("user-1"), "SK": "VIDEO#x", "extra": "y"}
+        )
+
+        with self.assertRaises(InvalidPageTokenException):
+            self.service.list_schedules(USER, None, token)
+
+    def test_user_page_token_with_a_pending_sort_key_is_rejected(self):
+        token = encode_page_token({"PK": user_partition("user-1"), "SK": "PENDING#abc"})
+
+        with self.assertRaises(InvalidPageTokenException):
+            self.service.list_schedules(USER, None, token)
+
+    def test_admin_page_token_missing_keys_is_rejected(self):
+        token = encode_page_token({"GSI1PK": "VIDEO"})
 
         with self.assertRaises(InvalidPageTokenException):
             self.service.list_schedules(ADMIN, None, token)

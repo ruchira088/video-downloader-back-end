@@ -25,6 +25,7 @@ from src.sync.items import (
     ALL_VIDEOS_PARTITION,
     GSI1_NAME,
     PENDING_TTL,
+    VIDEO_SORT_KEY,
     epoch_seconds,
     pending_key,
     user_partition,
@@ -128,22 +129,26 @@ class DynamoDbSchedulingService(SchedulingService):
         if user.role == Role.ADMIN:
             query["IndexName"] = GSI1_NAME
             query["KeyConditionExpression"] = Key("GSI1PK").eq(ALL_VIDEOS_PARTITION)
-            required: Mapping[str, str] = {"GSI1PK": ALL_VIDEOS_PARTITION}
-            sort_key_prefix: str | None = None
+            # A GSI query's LastEvaluatedKey carries both the index key and the table's own
+            # primary key, so a real page token here has all four attributes.
+            expected_keys = frozenset({"PK", "SK", "GSI1PK", "GSI1SK"})
+            equals = {"GSI1PK": ALL_VIDEOS_PARTITION, "SK": VIDEO_SORT_KEY}
+            prefixes = {"PK": "VIDEO#"}
         else:
             partition = user_partition(user.id)
             query["KeyConditionExpression"] = Key("PK").eq(partition) & Key(
                 "SK"
             ).begins_with("VIDEO#")
-            required = {"PK": partition}
-            sort_key_prefix = "VIDEO#"
+            expected_keys = frozenset({"PK", "SK"})
+            equals = {"PK": partition}
+            prefixes = {"SK": "VIDEO#"}
 
         if status is not None:
             query["FilterExpression"] = Attr("status").eq(status)
 
         if page_token is not None:
             query["ExclusiveStartKey"] = self._start_key(
-                page_token, required, sort_key_prefix
+                page_token, expected_keys, equals, prefixes
             )
 
         response = self._table.query(**query)
@@ -161,18 +166,32 @@ class DynamoDbSchedulingService(SchedulingService):
 
     @staticmethod
     def _start_key(
-        page_token: str, required: Mapping[str, str], sort_key_prefix: str | None
+        page_token: str,
+        expected_keys: frozenset[str],
+        equals: Mapping[str, str],
+        prefixes: Mapping[str, str],
     ) -> dict[str, str]:
-        """Reject tokens that point outside the caller's own query, e.g. another user's partition."""
+        """Reject tokens that don't match this listing's exact DynamoDB key schema.
+
+        A wrong-shaped ExclusiveStartKey (a missing or extra attribute) makes DynamoDB itself raise
+        ValidationException -- a ClientError that would surface as a 500 -- so the key *set* is
+        checked here, not just the values of the keys we care about. This also catches tokens
+        belonging to another listing, e.g. another user's partition or the admin index.
+        """
         start_key = decode_page_token(page_token)
 
-        if any(start_key.get(name) != value for name, value in required.items()):
+        if frozenset(start_key) != expected_keys:
+            raise InvalidPageTokenException(
+                "Page token does not match the listing's key schema"
+            )
+
+        if any(start_key[name] != value for name, value in equals.items()):
             raise InvalidPageTokenException(
                 "Page token does not belong to this listing"
             )
 
-        if sort_key_prefix is not None and not start_key.get("SK", "").startswith(
-            sort_key_prefix
+        if any(
+            not start_key[name].startswith(prefix) for name, prefix in prefixes.items()
         ):
             raise InvalidPageTokenException(
                 "Page token does not belong to this listing"
