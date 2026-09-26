@@ -183,9 +183,10 @@ class SyncApplier:
                     iso_micros(captured_at),
                 )
                 # Stale message: keep the stored state, but still resolve any pending request.
-                if extra_writes:
-                    self._transact(extra_writes)
-                return ApplyResult.SKIPPED
+                if not extra_writes or self._transact_unless_raced(extra_writes):
+                    return ApplyResult.SKIPPED
+                # Raced another write to the pending item: re-read and retry, like any apply.
+                continue
 
             writes, new_video_item = build(current)
 
@@ -215,8 +216,12 @@ class SyncApplier:
         video_put = self._put(new_video_item)
         video_put["Put"].update(self._unchanged_and_unlocked(current))
 
+        return self._transact_unless_raced([video_put, *writes, *extra_writes])
+
+    def _transact_unless_raced(self, writes: list[Write]) -> bool:
+        """False when the transaction lost a race (a TransactionConflict or a failed condition)."""
         try:
-            self._transact([video_put, *writes, *extra_writes])
+            self._transact(writes)
             return True
         except self._client.exceptions.TransactionCanceledException as error:
             if not _lost_a_race(error):

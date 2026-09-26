@@ -632,6 +632,37 @@ class TestSyncApplier(unittest.TestCase):
         assert video is not None
         self.assertEqual(video["title"], "After conflict")
 
+    def test_a_conflict_deleting_the_pending_item_of_a_stale_upsert_is_retried(self):
+        self.applier.apply(sample_upsert(captured_at=later(10)))
+        self._put_pending("user-1", "request-1")
+        real_transact = self.applier._client.transact_write_items
+        outcomes: list = [self._cancellation("TransactionConflict")]
+
+        def transact(**kwargs):
+            if outcomes:
+                raise outcomes.pop()
+            return real_transact(**kwargs)
+
+        with patch.object(
+            self.applier._client, "transact_write_items", side_effect=transact
+        ) as mock_transact:
+            result = self.applier.apply(
+                RequestResolved(
+                    request_id="request-1",
+                    user_id="user-1",
+                    outcome=ScheduledOutcome(
+                        upsert=sample_upsert(captured_at=later(1))
+                    ),
+                )
+            )
+
+        self.assertEqual(result, ApplyResult.SKIPPED)
+        self.assertEqual(mock_transact.call_count, 2)
+        self.assertEqual(len(self.sleeps), 1)
+        self.assertNotIn(
+            "Item", self.table.get_item(Key=pending_key("user-1", "request-1"))
+        )
+
     def test_persistent_transaction_conflicts_raise_concurrent_update_error(self):
         self.applier.apply(sample_upsert(captured_at=T0))
 
