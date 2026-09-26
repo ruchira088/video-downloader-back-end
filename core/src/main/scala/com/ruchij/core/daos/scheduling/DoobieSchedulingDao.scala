@@ -171,6 +171,9 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       ++ fr"ORDER BY"
       ++ schedulingSortByFieldName(sortBy)
       ++ ordering(order)
+      // A tiebreaker on the unique video_metadata_id keeps paging (LIMIT/OFFSET) stable when the sort column
+      // has duplicate values across rows; without it, rows can be skipped or duplicated across pages.
+      ++ fr", scheduled_video.video_metadata_id ASC"
       ++ fr"LIMIT $pageSize OFFSET ${pageNumber * pageSize}")
       .query[ScheduledVideoDownload]
       .to[Seq]

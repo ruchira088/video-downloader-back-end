@@ -39,12 +39,14 @@ class DoobieFallbackSyncDaoSpec extends AnyFlatSpec with Matchers {
     new EmbeddedCoreResourcesProvider[IO].transactor.use { transaction =>
       val dao = new DoobieFallbackSyncDao(DoobieSchedulingDao, DoobieVideoPermissionDao, pageSize = 2)
 
-      // `scheduledVideoDownload` fixes the URL, thumbnail path (both unique columns) and scheduledAt; give each of
-      // the five videos its own, so they can all be inserted and paging by date has a stable order.
+      // `scheduledVideoDownload` fixes the URL and thumbnail path, both unique columns; give each of the five
+      // videos its own so they can all be inserted. Deliberately keep the same scheduledAt across all five
+      // (as happens for e.g. local-file sync inserts) so that findAll's LIMIT/OFFSET paging, ordered by that
+      // tied column, must rely on DoobieSchedulingDao.search's video_metadata_id tiebreaker to avoid skipping
+      // or duplicating rows across pages.
       val videos = (1 to 5).toList.map { index =>
         val video = scheduledVideoDownload(s"video-$index")
         video.copy(
-          scheduledAt = video.scheduledAt.plusSeconds(index.toLong),
           videoMetadata = video.videoMetadata.copy(
             url = Uri.unsafeFromString(s"https://example.com/video-$index"),
             thumbnail = video.videoMetadata.thumbnail.copy(path = s"/opt/thumbnail-$index.jpg")
@@ -66,6 +68,7 @@ class DoobieFallbackSyncDaoSpec extends AnyFlatSpec with Matchers {
       } yield {
         one.map(_.userIds.sorted) mustBe Some(List("user-1", "user-2"))
         missing mustBe None
+        all.size mustBe 5
         all.map(_.scheduledVideoDownload.videoMetadata.id).sorted mustBe videos.map(_.videoMetadata.id).sorted
         all.find(_.scheduledVideoDownload.videoMetadata.id == "video-2").map(_.userIds) mustBe Some(Nil)
       }
