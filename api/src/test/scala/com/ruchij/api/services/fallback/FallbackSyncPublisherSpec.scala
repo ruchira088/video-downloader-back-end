@@ -37,7 +37,10 @@ class FallbackSyncPublisherSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  it should "turn removed ids into removals without reading the database, even for rows that still exist" in runIO {
+  it should "turn a deletion into a removal while its row still awaits the hard delete" in runIO {
+    // scheduledVideoDownload is scheduled at 2026-09-25T21:04, before this admin delete
+    val deletedAt = Instant.parse("2026-09-26T08:00:00Z")
+
     for {
       dao <- StubFallbackSyncDao(
         SyncedVideo(scheduledVideoDownload("video-1"), List("user-1")),
@@ -46,7 +49,7 @@ class FallbackSyncPublisherSpec extends AnyFlatSpec with Matchers {
       transport <- RecordingTransport()
       coordination = new FallbackSyncCoordination[IO](new InMemoryKeyValueStore[IO])
       publisher = new FallbackSyncPublisher[IO, IO](dao, transport, coordination, retryDelays = noDelays)
-      messages <- publisher.messagesFor(List("video-1", "video-2", "video-1"), removedVideoIds = Set("video-1"))
+      messages <- publisher.messagesFor(List("video-1", "video-2", "video-1"), Map("video-1" -> deletedAt))
     } yield {
       messages.size mustBe 2
       messages.head mustBe ScheduledVideoRemoval("video-1", capturedAt)
@@ -112,6 +115,58 @@ class FallbackSyncPublisherSpec extends AnyFlatSpec with Matchers {
     override def extractValue(ca: A): A = ca
   }
 
+  /** Runs the pipeline over one window holding exactly `events`, returning what was sent and the send/commit log. */
+  private def runPipeline(
+    dao: StubFallbackSyncDao,
+    events: List[ScheduledVideoDownload]
+  ): IO[(List[MainToFallbackMessage], List[String])] = {
+    val test =
+      for {
+        eventLog <- Ref.of[IO, List[String]](Nil)
+        recording <- RecordingTransport()
+        transport = new FallbackSyncTransport[IO] {
+          override def send(messages: List[MainToFallbackMessage]): IO[Unit] =
+            eventLog.update(_ :+ "send") *> recording.send(messages)
+        }
+        topic <- Topic[IO, ScheduledVideoDownload]
+        subscriber = new CommitRecordingSubscriber(new Fs2PubSub[IO, ScheduledVideoDownload](topic), eventLog)
+        coordination = new FallbackSyncCoordination[IO](new InMemoryKeyValueStore[IO])
+        // The batch fills up with the events, so the window never has to elapse
+        publisher = new FallbackSyncPublisher[IO, IO](
+          dao,
+          transport,
+          coordination,
+          window = 1.second,
+          maxBatchSize = events.size,
+          retryDelays = noDelays
+        )
+        pipeline <- publisher
+          .pipeline(subscriber, "test-group")(
+            _.videoMetadata.id,
+            event => Option.when(event.status == SchedulingStatus.Deleted)(event.lastUpdatedAt)
+          )
+          .take(1)
+          .compile
+          .drain
+          .start
+        _ <- topic.subscribers.find(_ > 0).compile.drain
+        _ <- Stream.emits(events).through(topic.publish).compile.drain
+        _ <- pipeline.joinWithNever
+        sent <- recording.messages
+        log <- eventLog.get
+      } yield (sent, log)
+
+    test.withTimeout(10.seconds)
+  }
+
+  private def deleted(videoId: String, at: Instant): ScheduledVideoDownload =
+    scheduledVideoDownload(videoId, SchedulingStatus.Deleted).copy(lastUpdatedAt = at)
+
+  private def scheduledAt(videoId: String, at: Instant): SyncedVideo = {
+    val video = scheduledVideoDownload(videoId)
+    SyncedVideo(video.copy(scheduledAt = at, lastUpdatedAt = at), List("user-1"))
+  }
+
   "FallbackSyncPublisher.pipeline" should "send one message per distinct video in a window and commit after sending" in
     runIO {
       val events =
@@ -122,49 +177,47 @@ class FallbackSyncPublisherSpec extends AnyFlatSpec with Matchers {
           scheduledVideoDownload("video-2", SchedulingStatus.Deleted)
         )
 
-      val test =
-        for {
-          dao <- StubFallbackSyncDao(
-            SyncedVideo(scheduledVideoDownload("video-1"), List("user-1")),
-            SyncedVideo(scheduledVideoDownload("video-2"), List("user-1"))
-          )
-          eventLog <- Ref.of[IO, List[String]](Nil)
-          recording <- RecordingTransport()
-          transport = new FallbackSyncTransport[IO] {
-            override def send(messages: List[MainToFallbackMessage]): IO[Unit] =
-              eventLog.update(_ :+ "send") *> recording.send(messages)
-          }
-          topic <- Topic[IO, ScheduledVideoDownload]
-          subscriber = new CommitRecordingSubscriber(new Fs2PubSub[IO, ScheduledVideoDownload](topic), eventLog)
-          coordination = new FallbackSyncCoordination[IO](new InMemoryKeyValueStore[IO])
-          // The batch fills up with the four events, so the window never has to elapse
-          publisher = new FallbackSyncPublisher[IO, IO](
-            dao,
-            transport,
-            coordination,
-            window = 1.second,
-            maxBatchSize = events.size,
-            retryDelays = noDelays
-          )
-          pipeline <- publisher
-            .pipeline(subscriber, "test-group")(_.videoMetadata.id, _.status == SchedulingStatus.Deleted)
-            .take(1)
-            .compile
-            .drain
-            .start
-          _ <- topic.subscribers.find(_ > 0).compile.drain
-          _ <- Stream.emits(events).through(topic.publish).compile.drain
-          _ <- pipeline.joinWithNever
-          sent <- recording.messages
-          log <- eventLog.get
-        } yield {
-          sent.size mustBe 3
-          sent.collect { case upsert: ScheduledVideoUpsert => upsert.videoId } mustBe List("video-1")
-          sent(1) mustBe ScheduledVideoRemoval("missing", capturedAt)
-          sent(2) mustBe ScheduledVideoRemoval("video-2", capturedAt)
-          log mustBe List("send", "commit")
-        }
-
-      test.withTimeout(10.seconds)
+      for {
+        dao <- StubFallbackSyncDao(
+          SyncedVideo(scheduledVideoDownload("video-1"), List("user-1")),
+          SyncedVideo(scheduledVideoDownload("video-2"), List("user-1"))
+        )
+        (sent, log) <- runPipeline(dao, events)
+      } yield {
+        sent.size mustBe 3
+        sent.collect { case upsert: ScheduledVideoUpsert => upsert.videoId } mustBe List("video-1")
+        sent(1) mustBe ScheduledVideoRemoval("missing", capturedAt)
+        sent(2) mustBe ScheduledVideoRemoval("video-2", capturedAt)
+        log mustBe List("send", "commit")
+      }
     }
+
+  it should "send a removal for an admin delete whose row still awaits batch's hard delete" in runIO {
+    val scheduled = Instant.parse("2026-09-26T08:00:00Z")
+
+    for {
+      dao <- StubFallbackSyncDao(scheduledAt("video-1", scheduled))
+      (sent, _) <- runPipeline(dao, List(deleted("video-1", scheduled.plusSeconds(60))))
+    } yield sent mustBe List(ScheduledVideoRemoval("video-1", capturedAt))
+  }
+
+  it should "upsert a video whose Deleted event is replayed after its URL was scheduled again" in runIO {
+    val deletedAt = Instant.parse("2026-09-26T08:00:00Z")
+
+    for {
+      // The row was hard-deleted and the (deterministic) id scheduled again, after the original delete
+      dao <- StubFallbackSyncDao(scheduledAt("video-1", deletedAt.plusSeconds(3600)))
+      (sent, _) <- runPipeline(dao, List(deleted("video-1", deletedAt)))
+    } yield sent.collect { case upsert: ScheduledVideoUpsert => upsert.videoId } mustBe List("video-1")
+  }
+
+  it should "let a later event win over a Deleted event for the same video in one window" in runIO {
+    val deletedAt = Instant.parse("2026-09-26T08:00:00Z")
+    val rescheduled = scheduledAt("video-1", deletedAt.plusSeconds(10))
+
+    for {
+      dao <- StubFallbackSyncDao(rescheduled)
+      (sent, _) <- runPipeline(dao, List(deleted("video-1", deletedAt), rescheduled.scheduledVideoDownload))
+    } yield sent.collect { case upsert: ScheduledVideoUpsert => upsert.videoId } mustBe List("video-1")
+  }
 }

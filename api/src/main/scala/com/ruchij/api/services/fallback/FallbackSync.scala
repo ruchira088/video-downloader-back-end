@@ -71,7 +71,8 @@ object FallbackSync {
       resilient("scheduled-video-download publisher pipeline") {
         publisher.pipeline(resources.scheduledVideoDownloadSubscriber, ScheduledVideosGroupId)(
           _.videoMetadata.id,
-          _.status == SchedulingStatus.Deleted
+          // ApiSchedulingServiceImpl.deleteById stamps the Deleted event's lastUpdatedAt with the deletion time
+          event => Option.when(event.status == SchedulingStatus.Deleted)(event.lastUpdatedAt)
         )
       },
       resilient("fallback-sync-request publisher pipeline") {

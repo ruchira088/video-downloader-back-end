@@ -25,19 +25,23 @@ class FallbackSyncPublisher[F[_]: Async, T[_]: Monad](
 )(implicit transaction: T ~> F) {
   private val logger = Logger[FallbackSyncPublisher[Any, Any]]
 
-  /** Reads the current state at send time, so a late duplicate still carries fresh data. Ids in `removedVideoIds`
-    * become removals without a read (and win over any other event for the same id): an admin delete publishes a
-    * `Deleted` event before the row is gone, so a read would still find it and send a stale upsert. */
+  /** Reads the current state at send time, so a late duplicate still carries fresh data. `deletions` maps each id
+    * whose latest event was a `Deleted` event to that event's timestamp. An admin delete publishes `Deleted` before
+    * batch hard-deletes the row, so a row that is still there only becomes an upsert when it was scheduled after the
+    * deletion, i.e. its URL was scheduled again (a replayed `Deleted` event must not tombstone that live video);
+    * otherwise the row is awaiting its hard delete and the id becomes a removal. */
   def messagesFor(
     videoIds: List[String],
-    removedVideoIds: Set[String] = Set.empty
+    deletions: Map[String, Instant] = Map.empty
   ): F[List[MainToFallbackMessage]] =
-    (videoIds ++ removedVideoIds).distinct.traverse { videoId =>
+    (videoIds ++ deletions.keys.toList.sorted).distinct.traverse { videoId =>
       // capturedAt comes from the database clock, in the same transaction as the read it stamps
       readWithTimestamp(videoId).map[MainToFallbackMessage] {
-        case (capturedAt, _) if removedVideoIds.contains(videoId) => ScheduledVideoRemoval(videoId, capturedAt)
-        case (capturedAt, Some(syncedVideo)) => ScheduledVideoUpserts.from(syncedVideo, capturedAt)
-        case (capturedAt, None) => ScheduledVideoRemoval(videoId, capturedAt)
+        case (capturedAt, Some(syncedVideo))
+            if deletions.get(videoId).forall(syncedVideo.scheduledVideoDownload.scheduledAt.isAfter) =>
+          ScheduledVideoUpserts.from(syncedVideo, capturedAt)
+
+        case (capturedAt, _) => ScheduledVideoRemoval(videoId, capturedAt)
       }
     }
 
@@ -45,26 +49,32 @@ class FallbackSyncPublisher[F[_]: Async, T[_]: Monad](
     transaction(fallbackSyncDao.currentTimestamp.product(fallbackSyncDao.findById(videoId)))
 
   /** Never fails: if the fallback stays unreachable, a reconcile is flagged to repair it later. */
-  def publish(videoIds: List[String], removedVideoIds: Set[String] = Set.empty): F[Unit] =
-    messagesFor(videoIds, removedVideoIds)
+  def publish(videoIds: List[String], deletions: Map[String, Instant] = Map.empty): F[Unit] =
+    messagesFor(videoIds, deletions)
       .flatMap(sendWithRetries)
       .handleErrorWith { error =>
         logger.error[F](s"Fallback sync of ${videoIds.size} videos failed; flagging a reconcile", error) *>
           coordination.markReconcileNeeded
       }
 
-  /** `isRemoval` marks events that must reach the fallback as removals whatever the database currently holds. */
+  /** `deletedAt` gives the timestamp of an event that deletes its video. Within a window only the latest event for
+    * each id counts, so a `Deleted` event followed by the URL being scheduled again syncs the new row. */
   def pipeline[A](subscriber: Subscriber[F, A], groupId: String)(
     videoId: A => String,
-    isRemoval: A => Boolean = (_: A) => false
+    deletedAt: A => Option[Instant] = (_: A) => None
   ): Stream[F, Unit] =
     subscriber
       .subscribe(groupId)
       .groupWithin(maxBatchSize, window)
       .evalMap { chunk =>
         val values = chunk.toList.map(subscriber.extractValue)
+        // toMap keeps the last value for a repeated key, so each id maps to its latest event's deletion
+        val deletions =
+          values.map(value => videoId(value) -> deletedAt(value)).toMap.collect {
+            case (id, Some(timestamp)) => id -> timestamp
+          }
 
-        publish(values.map(videoId), values.filter(isRemoval).map(videoId).toSet) *> subscriber.commit(chunk)
+        publish(values.map(videoId), deletions) *> subscriber.commit(chunk)
       }
 
   private def sendWithRetries(messages: List[MainToFallbackMessage]): F[Unit] =
