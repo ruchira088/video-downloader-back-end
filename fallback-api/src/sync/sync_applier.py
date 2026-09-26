@@ -1,4 +1,6 @@
 import logging
+import random
+import time
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
@@ -60,12 +62,19 @@ def _utc_now() -> datetime:
 
 class SyncApplier:
     MAX_ATTEMPTS = 3
+    MAX_RETRY_JITTER_SECONDS = 0.1
 
-    def __init__(self, table: Any, clock: Callable[[], datetime] = _utc_now):
+    def __init__(
+        self,
+        table: Any,
+        clock: Callable[[], datetime] = _utc_now,
+        sleep: Callable[[float], None] = time.sleep,
+    ):
         self._table = table
         self._table_name: str = table.name
         self._client = table.meta.client
         self._clock = clock
+        self._sleep = sleep
 
     def apply(self, message: MainToFallbackMessage) -> ApplyResult:
         match message:
@@ -143,7 +152,11 @@ class SyncApplier:
                 f"{MAX_CLOCK_SKEW} ahead of this clock"
             )
 
-        for _ in range(self.MAX_ATTEMPTS):
+        for attempt in range(self.MAX_ATTEMPTS):
+            if attempt > 0:
+                # Spread out retries, so invocations racing on one video don't collide again.
+                self._sleep(random.uniform(0, self.MAX_RETRY_JITTER_SECONDS))
+
             current = self._table.get_item(
                 Key=video_key(video_id), ConsistentRead=True
             ).get("Item")
@@ -181,9 +194,10 @@ class SyncApplier:
                 self._transact([video_put, *writes, *extra_writes])
                 return ApplyResult.APPLIED
             except self._client.exceptions.TransactionCanceledException as error:
-                if not _condition_check_failed(error):
+                if not _lost_a_race(error):
                     raise
-                # Another invocation changed the video since we read it: re-read and retry.
+                # Another invocation changed the video since we read it, or was writing one of
+                # the same items at the same moment: re-read and retry.
 
         raise ConcurrentUpdateError(video_id)
 
@@ -243,9 +257,12 @@ def _stored_captured_at(current: Mapping[str, Any] | None) -> datetime | None:
         return None
 
 
-def _condition_check_failed(error: Exception) -> bool:
+_RACE_CANCELLATION_CODES = frozenset({"ConditionalCheckFailed", "TransactionConflict"})
+
+
+def _lost_a_race(error: Exception) -> bool:
     reasons = getattr(error, "response", {}).get("CancellationReasons", [])
-    return any(reason.get("Code") == "ConditionalCheckFailed" for reason in reasons)
+    return any(reason.get("Code") in _RACE_CANCELLATION_CODES for reason in reasons)
 
 
 def _key_tuple(key: dict[str, str]) -> tuple[str, str]:

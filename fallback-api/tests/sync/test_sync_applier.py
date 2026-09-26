@@ -31,7 +31,10 @@ SCHEDULED_AT = "2026-09-25T21:04:11.000000Z"
 class TestSyncApplier(unittest.TestCase):
     def setUp(self):
         self.table = setup_dynamodb("scheduled-videos")
-        self.applier = SyncApplier(self.table, clock=lambda: FIXED_NOW)
+        self.sleeps: list[float] = []
+        self.applier = SyncApplier(
+            self.table, clock=lambda: FIXED_NOW, sleep=self.sleeps.append
+        )
 
     def _video(self, video_id: str = "youtube-abc") -> dict | None:
         return self.table.get_item(Key=video_key(video_id)).get("Item")
@@ -424,3 +427,52 @@ class TestSyncApplier(unittest.TestCase):
         result = self.applier.apply(sample_upsert(captured_at=later(1)))
 
         self.assertEqual(result, ApplyResult.APPLIED)
+
+    def _cancellation(self, *codes: str) -> Exception:
+        exception_type = self.applier._client.exceptions.TransactionCanceledException
+        return exception_type(
+            {
+                "Error": {"Code": "TransactionCanceledException", "Message": "x"},
+                "CancellationReasons": [{"Code": code} for code in codes],
+            },
+            "TransactWriteItems",
+        )
+
+    def test_a_transaction_conflict_is_retried_after_a_jittered_sleep(self):
+        self.applier.apply(sample_upsert(captured_at=T0))
+        real_transact = self.applier._client.transact_write_items
+        outcomes: list = [self._cancellation("None", "TransactionConflict")]
+
+        def transact(**kwargs):
+            if outcomes:
+                raise outcomes.pop()
+            return real_transact(**kwargs)
+
+        with patch.object(
+            self.applier._client, "transact_write_items", side_effect=transact
+        ) as mock_transact:
+            result = self.applier.apply(
+                sample_upsert(captured_at=later(1), title="After conflict")
+            )
+
+        self.assertEqual(result, ApplyResult.APPLIED)
+        self.assertEqual(mock_transact.call_count, 2)
+        self.assertEqual(len(self.sleeps), 1)
+        self.assertTrue(0 <= self.sleeps[0] <= SyncApplier.MAX_RETRY_JITTER_SECONDS)
+        video = self._video()
+        assert video is not None
+        self.assertEqual(video["title"], "After conflict")
+
+    def test_persistent_transaction_conflicts_raise_concurrent_update_error(self):
+        self.applier.apply(sample_upsert(captured_at=T0))
+
+        with patch.object(
+            self.applier._client,
+            "transact_write_items",
+            side_effect=self._cancellation("TransactionConflict"),
+        ) as mock_transact:
+            with self.assertRaises(ConcurrentUpdateError):
+                self.applier.apply(sample_upsert(captured_at=later(1)))
+
+        self.assertEqual(mock_transact.call_count, SyncApplier.MAX_ATTEMPTS)
+        self.assertEqual(len(self.sleeps), SyncApplier.MAX_ATTEMPTS - 1)
