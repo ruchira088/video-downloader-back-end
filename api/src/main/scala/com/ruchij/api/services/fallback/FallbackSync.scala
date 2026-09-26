@@ -56,7 +56,8 @@ object FallbackSync {
         fallbackSyncDao,
         transport,
         coordination,
-        instanceId
+        instanceId,
+        settings.reconcileAllowMassRemoval
       )
     val consumer =
       new FallbackRequestConsumer[F, ConnectionIO](

@@ -119,9 +119,13 @@ class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
         coordination,
         "instance-a"
       )
-      _ <- reconciler.reconcile
+      summary <- reconciler.reconcile
       sent <- transport.messages
-    } yield sent.collect { case removal: ScheduledVideoRemoval => removal } mustBe empty
+    } yield {
+      sent.collect { case removal: ScheduledVideoRemoval => removal } mustBe empty
+      // The re-check's upsert counts
+      summary mustBe Some(ReconcileSummary(upserts = 1, removals = 0))
+    }
   }
 
   it should "stamp messages with the database clock, taking a fresh timestamp for each removal re-check" in runIO {
@@ -304,5 +308,96 @@ class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
           lastRun mustBe Some(Instant.EPOCH.plusSeconds(48.hours.toSeconds))
       }
     }
+  }
+
+  private def massRemovalRun(
+    databaseVideos: List[SyncedVideo],
+    manifestEntries: Map[String, ManifestEntry],
+    allowMassRemoval: Boolean = false
+  ): IO[(Option[ReconcileSummary], List[MainToFallbackMessage])] =
+    for {
+      dao <- StubFallbackSyncDao(databaseVideos: _*)
+      transport <- RecordingTransport()
+      coordination = new FallbackSyncCoordination[IO](new InMemoryKeyValueStore[IO])
+      reconciler = new FallbackReconciler[IO, IO](
+        new FallbackManifestReader[IO] {
+          override val manifest: IO[Map[String, ManifestEntry]] = IO.pure(manifestEntries)
+        },
+        dao,
+        transport,
+        coordination,
+        "instance-a",
+        allowMassRemoval
+      )
+      summary <- reconciler.reconcile
+      sent <- transport.messages
+    } yield (summary, sent)
+
+  private def goneEntries(count: Int): Map[String, ManifestEntry] =
+    (1 to count).map(index => s"gone-$index" -> ManifestEntry("h", Instant.EPOCH)).toMap
+
+  it should "withhold every removal when the database returns no videos but the manifest isn't empty" in runIO {
+    massRemovalRun(Nil, goneEntries(3)).map {
+      case (summary, sent) =>
+        sent mustBe empty
+        summary mustBe Some(ReconcileSummary(upserts = 0, removals = 0, withheldRemovals = 3))
+    }
+  }
+
+  it should "withhold removals beyond max(50, 20% of the manifest) but still send upserts" in runIO {
+    val video = SyncedVideo(scheduledVideoDownload("video-1"), List("user-1"))
+
+    for {
+      (withheldSummary, withheldSent) <- massRemovalRun(List(video), goneEntries(51))
+      (allowedSummary, allowedSent) <- massRemovalRun(List(video), goneEntries(50))
+      // Past 50, the limit is 20% of the manifest: 190 of 950, then 210 of 1,050
+      (largeAllowed, _) <- massRemovalRun(manyVideos(800), manifestEntriesOf(manyVideos(800)) ++ goneEntries(150))
+      (largeWithheld, _) <- massRemovalRun(manyVideos(800), manifestEntriesOf(manyVideos(800)) ++ goneEntries(250))
+    } yield {
+      withheldSent.collect { case upsert: ScheduledVideoUpsert => upsert.videoId } mustBe List("video-1")
+      withheldSent.collect { case removal: ScheduledVideoRemoval => removal } mustBe empty
+      withheldSummary mustBe Some(ReconcileSummary(upserts = 1, removals = 0, withheldRemovals = 51))
+
+      allowedSent.collect { case removal: ScheduledVideoRemoval => removal } must have size 50
+      allowedSummary mustBe Some(ReconcileSummary(upserts = 1, removals = 50))
+
+      largeAllowed.map(_.removals) mustBe Some(150)
+      largeWithheld.map(_.withheldRemovals) mustBe Some(250)
+    }
+  }
+
+  private def manyVideos(count: Int): List[SyncedVideo] =
+    (1 to count).toList.map(index => SyncedVideo(scheduledVideoDownload(s"video-$index"), List("user-1")))
+
+  private def manifestEntriesOf(videos: List[SyncedVideo]): Map[String, ManifestEntry] =
+    videos.map { video =>
+      val upsert = ScheduledVideoUpserts.from(video, capturedAt)
+      upsert.videoId -> ManifestEntry(upsert.hash, capturedAt)
+    }.toMap
+
+  it should "send a mass removal when explicitly allowed" in runIO {
+    massRemovalRun(Nil, goneEntries(60), allowMassRemoval = true).map {
+      case (summary, sent) =>
+        sent.collect { case removal: ScheduledVideoRemoval => removal } must have size 60
+        summary mustBe Some(ReconcileSummary(upserts = 0, removals = 60))
+    }
+  }
+
+  "FallbackReconciler.maxRemovals" should "allow 50 removals, or 20% of a larger manifest" in {
+    FallbackReconciler.maxRemovals(0) mustBe 50
+    FallbackReconciler.maxRemovals(250) mustBe 50
+    FallbackReconciler.maxRemovals(1000) mustBe 200
+  }
+
+  "FallbackReconciler.entriesAhead" should "list manifest entries stamped more than a minute ahead of the database" in {
+    val databaseTime = Instant.parse("2026-09-26T08:00:00Z")
+    val manifest =
+      Map(
+        "behind" -> ManifestEntry("h", databaseTime.minusSeconds(3600)),
+        "slightly-ahead" -> ManifestEntry("h", databaseTime.plusSeconds(60)),
+        "ahead" -> ManifestEntry("h", databaseTime.plusSeconds(61))
+      )
+
+    FallbackReconciler.entriesAhead(manifest, databaseTime) mustBe List("ahead")
   }
 }

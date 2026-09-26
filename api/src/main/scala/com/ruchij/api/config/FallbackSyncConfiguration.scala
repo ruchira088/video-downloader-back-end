@@ -5,7 +5,8 @@ final case class FallbackSyncSettings(
   fallbackToMainQueueUrl: String,
   tableName: String,
   awsRegion: String,
-  awsEndpointUrl: Option[String]
+  awsEndpointUrl: Option[String],
+  reconcileAllowMassRemoval: Boolean = false
 )
 
 final case class FallbackSyncConfiguration(
@@ -14,14 +15,26 @@ final case class FallbackSyncConfiguration(
   fallbackToMainQueueUrl: Option[String],
   tableName: Option[String],
   awsRegion: Option[String],
-  awsEndpointUrl: Option[String]
+  awsEndpointUrl: Option[String],
+  reconcileAllowMassRemoval: Boolean = false
 ) {
   val settings: Either[IllegalArgumentException, Option[FallbackSyncSettings]] =
     if (!enabled) Right(None)
     else
       (mainToFallbackQueueUrl, fallbackToMainQueueUrl, tableName, awsRegion) match {
         case (Some(mainToFallback), Some(fallbackToMain), Some(table), Some(region)) =>
-          Right(Some(FallbackSyncSettings(mainToFallback, fallbackToMain, table, region, awsEndpointUrl)))
+          Right {
+            Some {
+              FallbackSyncSettings(
+                mainToFallback,
+                fallbackToMain,
+                table,
+                region,
+                awsEndpointUrl,
+                reconcileAllowMassRemoval
+              )
+            }
+          }
 
         case _ =>
           Left {

@@ -3,15 +3,17 @@ package com.ruchij.api.services.fallback
 import cats.effect.Async
 import cats.implicits._
 import cats.{Monad, ~>}
-import com.ruchij.api.services.fallback.aws.{FallbackManifestReader, FallbackSyncTransport}
-import com.ruchij.api.services.fallback.models.{MainToFallbackMessage, ScheduledVideoRemoval}
+import com.ruchij.api.services.fallback.aws.{FallbackManifestReader, FallbackSyncTransport, ManifestEntry}
+import com.ruchij.api.services.fallback.models.{MainToFallbackMessage, ScheduledVideoRemoval, ScheduledVideoUpsert}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.types.Clock
 import fs2.Stream
 
+import java.time.Instant
 import scala.concurrent.duration._
 
-final case class ReconcileSummary(upserts: Int, removals: Int)
+/** `withheldRemovals` counts removals the mass-removal guard refused to send. */
+final case class ReconcileSummary(upserts: Int, removals: Int, withheldRemovals: Int = 0)
 
 // Async[F], not just Temporal[F], because the failure path logs via `com.ruchij.core.logging.Logger`, which is
 // Sync-based; Temporal and Sync are siblings in the cats-effect hierarchy (joined only by Async), so requiring both
@@ -21,8 +23,11 @@ class FallbackReconciler[F[_]: Async: Clock, T[_]: Monad](
   fallbackSyncDao: FallbackSyncDao[T],
   transport: FallbackSyncTransport[F],
   coordination: FallbackSyncCoordination[F],
-  instanceId: String
+  instanceId: String,
+  allowMassRemoval: Boolean = false
 )(implicit transaction: T ~> F) {
+  import FallbackReconciler._
+
   private val logger = Logger[FallbackReconciler[Any, Any]]
 
   /** None when another instance holds the reconcile lock. */
@@ -39,11 +44,23 @@ class FallbackReconciler[F[_]: Async: Clock, T[_]: Monad](
         manifest <- manifestReader.manifest
         // capturedAt comes from the database clock, in the same transaction as the read it stamps
         (capturedAt, videos) <- transaction(fallbackSyncDao.currentTimestamp.product(fallbackSyncDao.findAll))
+        _ <- warnAboutFutureCapturedAt(manifest, capturedAt)
         diff = ReconcileDiff.compute(manifest, videos.map(ScheduledVideoUpserts.from(_, capturedAt)))
-        removals <- confirmedRemovals(diff.removedVideoIds)
-        _ <- transport.send(diff.upserts ++ removals)
-        summary = ReconcileSummary(diff.upserts.size, removals.count(_.isInstanceOf[ScheduledVideoRemoval]))
-        _ <- logger.info[F](s"Fallback reconcile sent ${summary.upserts} upserts and ${summary.removals} removals")
+        rechecked <- confirmedRemovals(diff.removedVideoIds)
+        recheckedUpserts = rechecked.collect { case upsert: ScheduledVideoUpsert => upsert }
+        removals = rechecked.collect { case removal: ScheduledVideoRemoval => removal }
+        sendRemovals <- removalsAllowed(manifest.size, videos.isEmpty, removals.size)
+        upserts = diff.upserts ++ recheckedUpserts
+        _ <- transport.send(upserts ++ (if (sendRemovals) removals else Nil))
+        summary = ReconcileSummary(
+          upserts.size,
+          if (sendRemovals) removals.size else 0,
+          if (sendRemovals) 0 else removals.size
+        )
+        _ <- logger.info[F] {
+          s"Fallback reconcile sent ${summary.upserts} upserts and ${summary.removals} removals" +
+            (if (summary.withheldRemovals > 0) s", withholding ${summary.withheldRemovals} removals" else "")
+        }
         completedAt <- Clock[F].timestamp
         _ <- coordination.recordSuccessfulReconcile(completedAt)
       } yield summary
@@ -101,6 +118,44 @@ class FallbackReconciler[F[_]: Async: Clock, T[_]: Monad](
       .ifM(reconcileSafely(retryWhenLocked = true), Async[F].unit)
       .handleErrorWith(error => logger.error[F]("Fallback reconcile flag check failed unexpectedly", error))
 
+  /** Refuses a mass removal, which more likely means the main side read the wrong or an empty database than that
+    * most videos were really deleted: the fallback would then lose its copy exactly when it may be needed. */
+  private def removalsAllowed(manifestSize: Int, databaseEmpty: Boolean, removalCount: Int): F[Boolean] = {
+    val refusal =
+      if (removalCount == 0 || allowMassRemoval) None
+      else if (databaseEmpty)
+        Some(s"the database returned no videos while the fallback holds $manifestSize")
+      else if (removalCount > maxRemovals(manifestSize))
+        Some(s"$removalCount of the fallback's $manifestSize videos would be removed")
+      else None
+
+    refusal.fold(Async[F].pure(true)) { reason =>
+      logger
+        .error[F](
+          "Withholding every fallback reconcile removal; upserts are still sent",
+          new IllegalStateException(
+            s"Refusing a mass removal: $reason. Set FALLBACK_SYNC_RECONCILE_ALLOW_MASS_REMOVAL=true for one run " +
+              "if this is intended."
+          )
+        )
+        .as(false)
+    }
+  }
+
+  /** The fallback skips any change whose capturedAt is not newer than the stored one, so an item stamped ahead of
+    * the database clock (e.g. by a clock that has since been corrected) ignores changes until the clock catches up. */
+  private def warnAboutFutureCapturedAt(manifest: Map[String, ManifestEntry], databaseTime: Instant): F[Unit] = {
+    val ahead = entriesAhead(manifest, databaseTime)
+
+    logger
+      .warn[F] {
+        s"${ahead.size} fallback videos carry a capturedAt more than $FutureCapturedAtTolerance ahead of the " +
+          s"database clock ($databaseTime), so the fallback ignores their changes until then: " +
+          ahead.take(10).mkString(", ")
+      }
+      .whenA(ahead.nonEmpty)
+  }
+
   /** Re-checks each candidate: paging through the DB while rows change can miss a video that still exists. Each
     * re-check takes a fresh timestamp in its own read's transaction: reusing the listing's older timestamp would let
     * a removal lose to, or be stamped before, a change made between the listing and the re-check. */
@@ -112,4 +167,17 @@ class FallbackReconciler[F[_]: Async: Clock, T[_]: Monad](
           case (capturedAt, None) => ScheduledVideoRemoval(videoId, capturedAt)
         }
     }
+}
+
+object FallbackReconciler {
+  val FutureCapturedAtTolerance: FiniteDuration = 1.minute
+
+  /** The most removals one reconcile sends without `allowMassRemoval`: 50, or 20% of the manifest if more. */
+  def maxRemovals(manifestSize: Int): Int = math.max(50, manifestSize / 5)
+
+  def entriesAhead(manifest: Map[String, ManifestEntry], databaseTime: Instant): List[String] =
+    manifest.toList.collect {
+      case (videoId, entry) if entry.capturedAt.isAfter(databaseTime.plusMillis(FutureCapturedAtTolerance.toMillis)) =>
+        videoId
+    }.sorted
 }
