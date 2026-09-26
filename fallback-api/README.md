@@ -57,9 +57,9 @@ sam deploy                          # staging
 sam deploy --config-env prod        # production
 ```
 
-- **Alarm e-mail.** Set the `AlarmEmail` parameter in `samconfig.toml`, by adding `AlarmEmail=you@example.com` to
-  `parameter_overrides`. AWS then e-mails that address to confirm the SNS subscription; no dead-letter alarm is
-  delivered until the link in that e-mail is followed.
+- **Alarm e-mail.** The `AlarmEmail` parameter in `samconfig.toml`'s `parameter_overrides` sets the address, for
+  both staging and prod. AWS e-mails that address to confirm the SNS subscription once a deploy creates it; no
+  dead-letter alarm is delivered until the link in that e-mail is followed, once per stage.
 - **Main-side access.** Create access keys for the `MainSideSyncUser` output by hand, and give them to the main API
   (see the repository README's fallback sync settings).
 - **The user pool is retained.** It has deletion protection, and CloudFormation keeps it if the stack is deleted or
