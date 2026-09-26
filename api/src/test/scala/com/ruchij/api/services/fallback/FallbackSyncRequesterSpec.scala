@@ -45,23 +45,72 @@ class FallbackSyncRequesterSpec extends AnyFlatSpec with Matchers {
       override def publishOne(input: FallbackSyncRequest): IO[Unit] = IO.never
     }
 
-    new FallbackSyncRequester[IO](hangingPublisher, timeout = 50.millis)
+    new FallbackSyncRequester[IO](hangingPublisher, gracePeriod = 50.millis)
       .request("video-1")
       .timeout(5.seconds)
       .attempt
       .map(result => result mustBe Right(()))
   }
 
-  it should "return promptly when the publisher's send is uncancelable and stuck, instead of waiting on it" in {
+  it should "return within the grace period when the publisher's send is uncancelable and stuck" in {
     val test =
-      new FallbackSyncRequester[IO](uncancelableHangingPublisher(1.minute), timeout = 5.seconds)
+      new FallbackSyncRequester[IO](uncancelableHangingPublisher(1.minute), gracePeriod = 500.millis)
         .request("video-1")
         .timed
 
     runIO {
       TestControl.executeEmbed(test).map {
-        case (duration, _) => duration must be < 6.seconds
+        case (duration, _) => duration mustBe 500.millis
       }
+    }
+  }
+
+  it should "skip without waiting once every in-flight slot is held by a stuck publish" in {
+    val test =
+      for {
+        attempts <- Ref.of[IO, Int](0)
+        publisher = new Publisher[IO, FallbackSyncRequest] {
+          override val publish: Pipe[IO, FallbackSyncRequest, Unit] = _.evalMap(publishOne)
+
+          override def publishOne(input: FallbackSyncRequest): IO[Unit] =
+            attempts.update(_ + 1) *> IO.uncancelable(_ => IO.sleep(1.minute))
+        }
+        requester = new FallbackSyncRequester[IO](publisher, gracePeriod = 500.millis, maxInFlight = 2)
+        _ <- requester.request("video-1")
+        _ <- requester.request("video-2")
+        (duration, _) <- requester.request("video-3").timed
+        attempted <- attempts.get
+      } yield (duration, attempted)
+
+    runIO {
+      TestControl.executeEmbed(test).map {
+        case (duration, attempted) =>
+          duration mustBe Duration.Zero
+          attempted mustBe 2
+      }
+    }
+  }
+
+  it should "free an in-flight slot once a stuck publish finally completes" in {
+    val test =
+      for {
+        recorder <- RecordingPublisher[FallbackSyncRequest]
+        stuckOnce <- Ref.of[IO, Boolean](true)
+        publisher = new Publisher[IO, FallbackSyncRequest] {
+          override val publish: Pipe[IO, FallbackSyncRequest, Unit] = _.evalMap(publishOne)
+
+          override def publishOne(input: FallbackSyncRequest): IO[Unit] =
+            stuckOnce.getAndSet(false).ifM(IO.uncancelable(_ => IO.sleep(10.seconds)), recorder.publishOne(input))
+        }
+        requester = new FallbackSyncRequester[IO](publisher, gracePeriod = 500.millis, maxInFlight = 1)
+        _ <- requester.request("stuck")
+        _ <- IO.sleep(20.seconds)
+        _ <- requester.request("video-2")
+        published <- recorder.messages
+      } yield published
+
+    runIO {
+      TestControl.executeEmbed(test).map(published => published mustBe List(FallbackSyncRequest("video-2")))
     }
   }
 
@@ -97,15 +146,15 @@ class FallbackSyncRequesterSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  it should "give up on the whole fan-out within about one timeout, not N times the timeout" in {
+  it should "return from the whole fan-out within one grace period, not N times it" in {
     val test =
-      new FallbackSyncRequester[IO](uncancelableHangingPublisher(1.minute), timeout = 5.seconds)
+      new FallbackSyncRequester[IO](uncancelableHangingPublisher(1.minute), gracePeriod = 500.millis)
         .requestAll(Seq("video-1", "video-2", "video-3", "video-4"))
         .timed
 
     runIO {
       TestControl.executeEmbed(test).map {
-        case (duration, _) => duration must be < 6.seconds
+        case (duration, _) => duration mustBe 500.millis
       }
     }
   }
