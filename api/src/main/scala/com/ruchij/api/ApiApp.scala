@@ -21,8 +21,9 @@ import com.ruchij.api.services.background.BackgroundServiceImpl
 import com.ruchij.api.services.config.models.ApiConfigKey
 import com.ruchij.api.services.config.models.ApiConfigKey.ApiConfigKeySpace
 import com.ruchij.api.services.detection.ApiDuplicateDetectionServiceImpl
-import com.ruchij.api.services.fallback.NoOpPublisher
+import com.ruchij.api.services.fallback.aws.FallbackSyncAwsClients
 import com.ruchij.api.services.fallback.models.FallbackSyncRequest
+import com.ruchij.api.services.fallback.{FallbackSync, FallbackSyncResources, NoOpPublisher}
 import com.ruchij.api.services.hashing.BCryptPasswordHashingService
 import com.ruchij.api.services.health.HealthServiceImpl
 import com.ruchij.api.services.health.models.kv.HealthCheckKey
@@ -50,7 +51,7 @@ import com.ruchij.core.kv.codecs.KVDecoder._
 import com.ruchij.core.kv.codecs.KVEncoder._
 import com.ruchij.core.kv.{KeySpacedKeyValueStore, KeyValueStore, RedisKeyValueStore}
 import com.ruchij.core.logging.Logger
-import com.ruchij.core.messaging.PubSub
+import com.ruchij.core.messaging.{PubSub, Publisher}
 import com.ruchij.core.messaging.models.{HttpMetric, VideoWatchMetric}
 import com.ruchij.core.monitoring.Sentry
 import com.ruchij.core.services.cli.CliCommandRunnerImpl
@@ -128,6 +129,14 @@ object ApiApp extends IOApp {
       scanVideoCommandPublisher <- pubSubProvider.pubSub[ScanVideosCommand]
       dispatcher <- Dispatcher.parallel[F]
 
+      fallbackSyncSettings <- Resource.eval(apiServiceConfiguration.fallbackSyncConfiguration.settings.liftTo[F])
+      fallbackSyncResources <- fallbackSyncSettings.traverse { settings =>
+        for {
+          awsClients <- FallbackSyncAwsClients.create[F](settings)
+          fallbackSyncRequestPubSub <- pubSubProvider.pubSub[FallbackSyncRequest]
+        } yield FallbackSyncResources(settings, awsClients, fallbackSyncRequestPubSub)
+      }
+
       messageBrokers = ApiMessageBrokers(
         downloadProgressPubSub,
         scheduledVideoDownloadPubSub,
@@ -135,7 +144,10 @@ object ApiApp extends IOApp {
         workerStatusUpdatePublisher,
         scanVideoCommandPublisher,
         httpMetricsPublisher,
-        videoWatchMetricsPublisher
+        videoWatchMetricsPublisher,
+        fallbackSyncResources.fold[Publisher[F, FallbackSyncRequest]](new NoOpPublisher[F, FallbackSyncRequest])(
+          _.fallbackSyncRequestPubSub
+        )
       )
 
       httpApp <- Resource.eval {
@@ -146,7 +158,8 @@ object ApiApp extends IOApp {
           redisKeyValueStore,
           messageBrokers,
           dispatcher,
-          apiServiceConfiguration
+          apiServiceConfiguration,
+          fallbackSyncResources
         )
       }
     } yield httpApp
@@ -158,7 +171,8 @@ object ApiApp extends IOApp {
     keyValueStore: KeyValueStore[F],
     messageBrokers: ApiMessageBrokers[F],
     dispatcher: Dispatcher[F],
-    apiServiceConfiguration: ApiServiceConfiguration
+    apiServiceConfiguration: ApiServiceConfiguration,
+    fallbackSyncResources: Option[FallbackSyncResources[F]]
   ): F[HttpApp[F]] = {
     implicit val transactor: ConnectionIO ~> F = hikariTransactor.trans
 
@@ -269,7 +283,7 @@ object ApiApp extends IOApp {
       videoAnalysisService,
       messageBrokers.scheduledVideoDownloadPubSub,
       messageBrokers.workerStatusUpdatesPublisher,
-      new NoOpPublisher[F, FallbackSyncRequest],
+      messageBrokers.fallbackSyncRequestPublisher,
       apiConfigurationService,
       DoobieSchedulingDao,
       DoobieVideoTitleDao,
@@ -312,6 +326,21 @@ object ApiApp extends IOApp {
       )
 
       _ <- backgroundService.run
+
+      _ <- fallbackSyncResources.traverse_ { resources =>
+        Concurrent[F].start {
+          FallbackSync
+            .stream[F](
+              resources,
+              keyValueStore,
+              schedulingService,
+              messageBrokers.scheduledVideoDownloadPubSub,
+              instanceId
+            )
+            .compile
+            .drain
+        }
+      }
 
     } yield
       Routes(
