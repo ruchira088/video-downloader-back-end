@@ -30,8 +30,9 @@ Globals:
     # holder can no longer be writing.
     Timeout: 30
     Runtime: python3.14
+    # Graviton: about 20% cheaper than x86_64 per GB-second
     Architectures:
-      - x86_64
+      - arm64
     Environment:
       Variables:
         STAGE: !Ref Stage
