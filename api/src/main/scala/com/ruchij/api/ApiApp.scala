@@ -21,6 +21,8 @@ import com.ruchij.api.services.background.BackgroundServiceImpl
 import com.ruchij.api.services.config.models.ApiConfigKey
 import com.ruchij.api.services.config.models.ApiConfigKey.ApiConfigKeySpace
 import com.ruchij.api.services.detection.ApiDuplicateDetectionServiceImpl
+import com.ruchij.api.services.fallback.NoOpPublisher
+import com.ruchij.api.services.fallback.models.FallbackSyncRequest
 import com.ruchij.api.services.hashing.BCryptPasswordHashingService
 import com.ruchij.api.services.health.HealthServiceImpl
 import com.ruchij.api.services.health.models.kv.HealthCheckKey
@@ -267,6 +269,7 @@ object ApiApp extends IOApp {
       videoAnalysisService,
       messageBrokers.scheduledVideoDownloadPubSub,
       messageBrokers.workerStatusUpdatesPublisher,
+      new NoOpPublisher[F, FallbackSyncRequest],
       apiConfigurationService,
       DoobieSchedulingDao,
       DoobieVideoTitleDao,

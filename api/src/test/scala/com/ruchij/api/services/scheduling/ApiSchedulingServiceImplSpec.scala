@@ -4,6 +4,7 @@ import cats.data.NonEmptyList
 import cats.effect.IO
 import cats.~>
 import com.ruchij.api.services.config.models.ApiConfigKey
+import com.ruchij.api.services.fallback.models.FallbackSyncRequest
 import com.ruchij.api.services.scheduling.models.ScheduledVideoResult
 import com.ruchij.core.daos.permission.VideoPermissionDao
 import com.ruchij.core.daos.permission.models.VideoPermission
@@ -164,6 +165,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     videoAnalysisService: VideoAnalysisService[IO] = new StubVideoAnalysisService(),
     scheduledVideoDownloadPublisher: StubPublisher[ScheduledVideoDownload] = new StubPublisher[ScheduledVideoDownload](),
     workerStatusPublisher: StubPublisher[WorkerStatusUpdate] = new StubPublisher[WorkerStatusUpdate](),
+    fallbackSyncRequestPublisher: StubPublisher[FallbackSyncRequest] = new StubPublisher[FallbackSyncRequest](),
     configurationService: ConfigurationService[IO, ApiConfigKey] = new StubConfigurationService(),
     schedulingDao: SchedulingDao[IO] = new StubSchedulingDao(),
     videoTitleDao: VideoTitleDao[IO] = new StubVideoTitleDao(),
@@ -173,6 +175,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
       videoAnalysisService,
       scheduledVideoDownloadPublisher,
       workerStatusPublisher,
+      fallbackSyncRequestPublisher,
       configurationService,
       schedulingDao,
       videoTitleDao,
@@ -308,6 +311,40 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
       result.isNew mustBe true
       result.scheduledVideoDownload mustBe sampleScheduledVideoDownload
       publisher.publishedMessages mustBe empty
+    }
+  }
+
+  it should "request a fallback sync when an existing video gains a user" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    val fallbackSyncRequests = new StubPublisher[FallbackSyncRequest]()
+
+    val (service, _, _) = createService(
+      fallbackSyncRequestPublisher = fallbackSyncRequests,
+      schedulingDao = new StubSchedulingDao(searchResult = Seq(sampleScheduledVideoDownload)),
+      videoTitleDao = new StubVideoTitleDao(insertResult = 1),
+      videoPermissionDao = new StubVideoPermissionDao(insertResult = 1)
+    )
+
+    service.schedule(uri"https://youtube.com/watch?v=abc123", "user-2").map { _ =>
+      fallbackSyncRequests.publishedMessages.toList mustBe List(
+        FallbackSyncRequest(sampleScheduledVideoDownload.videoMetadata.id)
+      )
+    }
+  }
+
+  it should "not request a fallback sync when the user already had the video" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    val fallbackSyncRequests = new StubPublisher[FallbackSyncRequest]()
+
+    val (service, _, _) = createService(
+      fallbackSyncRequestPublisher = fallbackSyncRequests,
+      schedulingDao = new StubSchedulingDao(searchResult = Seq(sampleScheduledVideoDownload)),
+      videoTitleDao = new StubVideoTitleDao(insertResult = 0),
+      videoPermissionDao = new StubVideoPermissionDao(insertResult = 0)
+    )
+
+    service.schedule(uri"https://youtube.com/watch?v=abc123", "user-1").map { _ =>
+      fallbackSyncRequests.publishedMessages mustBe empty
     }
   }
 
@@ -723,6 +760,22 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
 
     service.deleteById("non-existent", None).error.map { error =>
       error mustBe a[ResourceNotFoundException]
+    }
+  }
+
+  it should "request a fallback sync when a user removes their copy" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    val fallbackSyncRequests = new StubPublisher[FallbackSyncRequest]()
+
+    val (service, _, _) = createService(
+      fallbackSyncRequestPublisher = fallbackSyncRequests,
+      schedulingDao = new StubSchedulingDao(getByIdResult = (_, _) => Some(sampleScheduledVideoDownload))
+    )
+
+    service.deleteById(sampleScheduledVideoDownload.videoMetadata.id, Some("user-1")).map { _ =>
+      fallbackSyncRequests.publishedMessages.toList mustBe List(
+        FallbackSyncRequest(sampleScheduledVideoDownload.videoMetadata.id)
+      )
     }
   }
 }
