@@ -20,7 +20,7 @@ object Sentry {
                 sentryOptions.setDsn(dsn)
                 sentryOptions.setEnvironment(sentryConfiguration.environment)
                 sentryOptions.setTracesSampleRate(sentryConfiguration.tracesSampleRate)
-                sentryOptions.setSendDefaultPii(true)
+                sentryOptions.getDataCollection.forceDataCollection()
               }
             }
             .productL {
