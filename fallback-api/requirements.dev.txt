@@ -1,6 +1,6 @@
 -r requirements.txt
 botocore-stubs==1.43.67
-cfn-lint==1.57.0
+cfn-lint==1.57.1
 httpx==0.28.1
 joserfc==1.7.5
 moto==5.2.3
