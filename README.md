@@ -25,14 +25,14 @@ API for video management, metadata handling, user authentication, and batch proc
 | Runtime | Java 25 (Eclipse Temurin) |
 | Web Framework | HTTP4s 0.23.38 |
 | Effect System | Cats Effect 3.7.1 |
-| JSON | Circe 0.14.16 |
+| JSON | Circe 0.14.17 |
 | Database Access | Doobie 1.0.0-RC12 |
 | Database | PostgreSQL 17 |
 | Migrations | Flyway 13.9.0 |
 | Messaging | Apache Kafka 8.3.2-ccs / Redis Streams / PostgreSQL (Doobie) |
 | Caching | Redis 8 |
 | Configuration | PureConfig 0.17.10 |
-| AWS | AWS SDK for Java 2.55.10 (SQS, DynamoDB — fallback sync) |
+| AWS | AWS SDK for Java 2.55.11 (SQS, DynamoDB — fallback sync) |
 | Networking | Netty 4.1.138.Final (every module pinned to one version for the AWS SDK and Redis clients) |
 | Testing | ScalaTest 3.2.20, ScalaMock 7.6.0, Cats Effect Testkit 3.7.1 |
 
