@@ -61,7 +61,12 @@ class BatchSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
       updated <- OptionT {
         transaction {
           OptionT(schedulingDao.getById(id, None)).flatMapF { current =>
-            retryPolicy.nextDelay(current.retryCount, jitter) match {
+            // Only the worker running a download may retry it. If the user paused it, or another worker took it
+            // over after a timeout, a late failure must not put it back in the queue.
+            val maybeDelay =
+              if (OwnedStatuses.contains(current.status)) retryPolicy.nextDelay(current.retryCount, jitter) else None
+
+            maybeDelay match {
               case Some(delay) =>
                 schedulingDao.scheduleRetry(id, throwable, timestamp.plusMillis(delay.toMillis), timestamp)
 
@@ -73,6 +78,8 @@ class BatchSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
       _ <- logFailure(updated, throwable)
       _ <- scheduledVideoDownloadPubSub.publishOne(updated)
     } yield updated
+
+  private val OwnedStatuses: Set[SchedulingStatus] = Set(SchedulingStatus.Acquired, SchedulingStatus.Active)
 
   private def logFailure(scheduledVideoDownload: ScheduledVideoDownload, throwable: Throwable): F[Unit] =
     if (scheduledVideoDownload.status == SchedulingStatus.Queued)

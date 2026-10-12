@@ -202,7 +202,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
       val expectedDelay = RetryPolicy(retryConfiguration).nextDelay(0, 0.5).value
 
       for {
-        scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
+        generated <- DataGenerators.scheduledVideoDownload[IO].generate
+        // Downloads fail while a worker is running them
+        scheduledVideo = generated.copy(status = SchedulingStatus.Active)
         _ <- transactor(insertScheduledVideo(scheduledVideo))
 
         _ = (fixture.scheduledVideoDownloadPubSub.publishOne _)
@@ -221,6 +223,31 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     }
   }
 
+  it should "set Error instead of retrying when the worker no longer owns the download" in runIO {
+    val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
+    val retryConfiguration = RetryConfiguration(maxAttempts = 5, baseDelay = 1.minute, maxDelay = 30.minutes)
+
+    batchServiceProvider.transactor.use { implicit transactor =>
+      val fixture = createTestFixture(retryConfiguration)
+
+      for {
+        generated <- DataGenerators.scheduledVideoDownload[IO].generate
+        // The user paused the download while its worker was failing
+        scheduledVideo = generated.copy(status = SchedulingStatus.Paused)
+        _ <- transactor(insertScheduledVideo(scheduledVideo))
+
+        _ = (fixture.scheduledVideoDownloadPubSub.publishOne _).expects(*).returning(IO.unit)
+
+        updated <-
+          fixture.batchSchedulingService.recordFailure(scheduledVideo.videoMetadata.id, new RuntimeException("late"))
+        _ <- IO.delay {
+          updated.status mustBe SchedulingStatus.Error
+          updated.retryCount mustBe 0
+        }
+      } yield ()
+    }
+  }
+
   it should "set Error once the attempt limit is used up" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
     val retryConfiguration = RetryConfiguration(maxAttempts = 1, baseDelay = 1.minute, maxDelay = 30.minutes)
@@ -229,7 +256,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
       val fixture = createTestFixture(retryConfiguration)
 
       for {
-        scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
+        generated <- DataGenerators.scheduledVideoDownload[IO].generate
+        // Downloads fail while a worker is running them
+        scheduledVideo = generated.copy(status = SchedulingStatus.Active)
         _ <- transactor(insertScheduledVideo(scheduledVideo))
 
         _ = (fixture.scheduledVideoDownloadPubSub.publishOne _).expects(*).returning(IO.unit).twice()
@@ -238,6 +267,10 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         first <- fixture.batchSchedulingService.recordFailure(id, new RuntimeException("one"))
         // Error-row IDs are {id}-{epochMillis}, so the second failure needs a later millisecond
         _ <- IO.sleep(5.millis)
+        // A worker picks the retry up again before it fails a second time
+        _ <- transactor {
+          DoobieSchedulingDao.updateSchedulingStatusById(id, SchedulingStatus.Active, first.lastUpdatedAt)
+        }
         second <- fixture.batchSchedulingService.recordFailure(id, new RuntimeException("two"))
         _ <- IO.delay {
           first.status mustBe SchedulingStatus.Queued

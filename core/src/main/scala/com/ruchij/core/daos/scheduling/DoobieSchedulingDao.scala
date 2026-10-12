@@ -98,6 +98,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
             status = $status,
             last_updated_at = $timestamp,
             error_id = NULL,
+            retry_count = CASE WHEN status = ${SchedulingStatus.Error} THEN 0 ELSE retry_count END,
             retry_after = NULL
           WHERE video_metadata_id = $id
        """.update.run.singleUpdate

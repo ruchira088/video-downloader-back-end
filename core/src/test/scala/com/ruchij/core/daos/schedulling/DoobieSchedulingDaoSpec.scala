@@ -764,6 +764,24 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
       } yield (): Unit
   }
 
+  it should "reset the retry count when an errored download is queued again directly" in runTest {
+    (scheduledVideoDownload, transaction) =>
+      val id = scheduledVideoDownload.videoMetadata.id
+
+      for {
+        timestamp <- Clock[IO].timestamp
+        _ <- transaction(DoobieSchedulingDao.scheduleRetry(id, new Exception("blip"), timestamp, timestamp))
+        _ <- transaction(DoobieSchedulingDao.setErrorById(id, new Exception("final"), timestamp.plusMillis(1)))
+        requeued <- transaction {
+          DoobieSchedulingDao.updateSchedulingStatusById(id, SchedulingStatus.Queued, timestamp.plusMillis(2))
+        }
+        _ <- IO.delay {
+          requeued.value.status mustBe SchedulingStatus.Queued
+          requeued.value.retryCount mustBe 0
+        }
+      } yield (): Unit
+  }
+
   it should "keep retry state across a bulk WorkersPaused round trip" in runTest {
     (scheduledVideoDownload, transaction) =>
       val id = scheduledVideoDownload.videoMetadata.id
