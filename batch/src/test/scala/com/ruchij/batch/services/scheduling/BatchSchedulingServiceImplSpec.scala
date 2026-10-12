@@ -3,6 +3,7 @@ package com.ruchij.batch.services.scheduling
 import cats.effect.IO
 import cats.implicits._
 import cats.~>
+import com.ruchij.batch.config.RetryConfiguration
 import com.ruchij.batch.daos.workers.DoobieWorkerDao
 import com.ruchij.batch.external.BatchResourcesProvider
 import com.ruchij.batch.external.containers.ContainerBatchResourcesProvider
@@ -22,7 +23,7 @@ import com.ruchij.core.services.repository.FileRepositoryService
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.data.DataGenerators
-import com.ruchij.core.types.Clock
+import com.ruchij.core.types.{Clock, RandomGenerator}
 import doobie.free.connection.ConnectionIO
 import fs2.Stream
 import org.scalamock.scalatest.MockFactory
@@ -42,7 +43,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     scheduledVideoDownloadPubSub: PubSub[IO, ScheduledVideoDownload]
   )
 
-  def createTestFixture(implicit transactor: ConnectionIO ~> IO): TestFixture = {
+  def createTestFixture(
+    retryConfiguration: RetryConfiguration = RetryConfiguration.Disabled
+  )(implicit transactor: ConnectionIO ~> IO): TestFixture = {
     val downloadProgressPublisher = mock[Publisher[IO, DownloadProgress]]
     val repositoryService = mock[FileRepositoryService[IO]]
     val workerStatusSubscriber = mock[Subscriber[IO, WorkerStatusUpdate]]
@@ -57,7 +60,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
       DoobieSchedulingDao,
       new DoobieWorkerDao(DoobieSchedulingDao),
       DoobieVideoMetadataDao,
-      storageConfiguration
+      storageConfiguration,
+      RetryPolicy(retryConfiguration),
+      RandomGenerator.eval(IO.pure(0.5))
     )
 
     TestFixture(batchSchedulingService, DoobieSchedulingDao, downloadProgressPublisher, scheduledVideoDownloadPubSub)
@@ -94,7 +99,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
           DoobieSchedulingDao,
           new DoobieWorkerDao(DoobieSchedulingDao),
           DoobieVideoMetadataDao,
-          storageConfiguration
+          storageConfiguration,
+          RetryPolicy(RetryConfiguration.Disabled),
+          RandomGenerator.eval(IO.pure(0.5))
         )
 
       Stream
@@ -151,7 +158,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
     batchServiceProvider.transactor.use { implicit transactor =>
-      val fixture = createTestFixture
+      val fixture = createTestFixture()
 
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
@@ -172,7 +179,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
     batchServiceProvider.transactor.use { implicit transactor =>
-      val fixture = createTestFixture
+      val fixture = createTestFixture()
 
       fixture.batchSchedulingService.updateSchedulingStatusById("non-existent-id", SchedulingStatus.Downloaded)
         .attempt
@@ -185,11 +192,67 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     }
   }
 
-  "setErrorById" should "set error on a scheduled video and publish the update" in runIO {
+
+  it should "schedule a retry with backoff while attempts remain, and publish the update" in runIO {
+    val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
+    val retryConfiguration = RetryConfiguration(maxAttempts = 2, baseDelay = 1.minute, maxDelay = 30.minutes)
+
+    batchServiceProvider.transactor.use { implicit transactor =>
+      val fixture = createTestFixture(retryConfiguration)
+      val expectedDelay = RetryPolicy(retryConfiguration).nextDelay(0, 0.5).value
+
+      for {
+        scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
+        _ <- transactor(insertScheduledVideo(scheduledVideo))
+
+        _ = (fixture.scheduledVideoDownloadPubSub.publishOne _)
+          .expects(where { (update: ScheduledVideoDownload) => update.status == SchedulingStatus.Queued })
+          .returning(IO.unit)
+
+        updated <-
+          fixture.batchSchedulingService.recordFailure(scheduledVideo.videoMetadata.id, new RuntimeException("reset"))
+        _ <- IO.delay {
+          updated.status mustBe SchedulingStatus.Queued
+          updated.retryCount mustBe 1
+          updated.errorInfo.value.message must include("reset")
+          updated.retryAfter.value.toEpochMilli - updated.lastUpdatedAt.toEpochMilli mustBe expectedDelay.toMillis
+        }
+      } yield ()
+    }
+  }
+
+  it should "set Error once the attempt limit is used up" in runIO {
+    val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
+    val retryConfiguration = RetryConfiguration(maxAttempts = 1, baseDelay = 1.minute, maxDelay = 30.minutes)
+
+    batchServiceProvider.transactor.use { implicit transactor =>
+      val fixture = createTestFixture(retryConfiguration)
+
+      for {
+        scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
+        _ <- transactor(insertScheduledVideo(scheduledVideo))
+
+        _ = (fixture.scheduledVideoDownloadPubSub.publishOne _).expects(*).returning(IO.unit).twice()
+
+        id = scheduledVideo.videoMetadata.id
+        first <- fixture.batchSchedulingService.recordFailure(id, new RuntimeException("one"))
+        // Error-row IDs are {id}-{epochMillis}, so the second failure needs a later millisecond
+        _ <- IO.sleep(5.millis)
+        second <- fixture.batchSchedulingService.recordFailure(id, new RuntimeException("two"))
+        _ <- IO.delay {
+          first.status mustBe SchedulingStatus.Queued
+          second.status mustBe SchedulingStatus.Error
+          second.retryCount mustBe 1
+          second.errorInfo.value.message must include("two")
+        }
+      } yield ()
+    }
+  }
+  "recordFailure" should "set Error once retries are disabled and publish the update" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
     batchServiceProvider.transactor.use { implicit transactor =>
-      val fixture = createTestFixture
+      val fixture = createTestFixture()
       val testError = new RuntimeException("Test error message")
 
       for {
@@ -198,7 +261,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
 
         _ = (fixture.scheduledVideoDownloadPubSub.publishOne _).expects(*).returning(IO.unit)
 
-        updated <- fixture.batchSchedulingService.setErrorById(scheduledVideo.videoMetadata.id, testError)
+        updated <- fixture.batchSchedulingService.recordFailure(scheduledVideo.videoMetadata.id, testError)
         _ <- IO.delay {
           updated.status mustBe SchedulingStatus.Error
           updated.errorInfo mustBe defined
@@ -212,10 +275,10 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
     batchServiceProvider.transactor.use { implicit transactor =>
-      val fixture = createTestFixture
+      val fixture = createTestFixture()
       val testError = new RuntimeException("Test error")
 
-      fixture.batchSchedulingService.setErrorById("non-existent-id", testError)
+      fixture.batchSchedulingService.recordFailure("non-existent-id", testError)
         .attempt
         .flatMap { result =>
           IO.delay {
@@ -231,7 +294,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
     batchServiceProvider.transactor.use { implicit transactor =>
-      val fixture = createTestFixture
+      val fixture = createTestFixture()
 
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
@@ -252,7 +315,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
     batchServiceProvider.transactor.use { implicit transactor =>
-      val fixture = createTestFixture
+      val fixture = createTestFixture()
 
       (fixture.downloadProgressPublisher.publishOne _).expects(*).returning(IO.unit)
 
@@ -264,7 +327,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
     batchServiceProvider.transactor.use { implicit transactor =>
-      val fixture = createTestFixture
+      val fixture = createTestFixture()
 
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
@@ -284,7 +347,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
     batchServiceProvider.transactor.use { implicit transactor =>
-      val fixture = createTestFixture
+      val fixture = createTestFixture()
 
       fixture.batchSchedulingService.publishScheduledVideoDownload("non-existent-id")
         .attempt
@@ -301,7 +364,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
     batchServiceProvider.transactor.use { implicit transactor =>
-      val fixture = createTestFixture
+      val fixture = createTestFixture()
 
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
@@ -323,7 +386,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
     batchServiceProvider.transactor.use { implicit transactor =>
-      val fixture = createTestFixture
+      val fixture = createTestFixture()
 
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
@@ -347,7 +410,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
     batchServiceProvider.transactor.use { implicit transactor =>
-      val fixture = createTestFixture
+      val fixture = createTestFixture()
 
       fixture.batchSchedulingService.deleteById("non-existent-id")
         .attempt
@@ -379,7 +442,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         DoobieSchedulingDao,
         new DoobieWorkerDao(DoobieSchedulingDao),
         DoobieVideoMetadataDao,
-        storageConfiguration
+        storageConfiguration,
+        RetryPolicy(RetryConfiguration.Disabled),
+        RandomGenerator.eval(IO.pure(0.5))
       )
 
       for {
@@ -407,7 +472,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
     batchServiceProvider.transactor.use { implicit transactor =>
-      val fixture = createTestFixture
+      val fixture = createTestFixture()
 
       fixture.batchSchedulingService.completeScheduledVideoDownload("non-existent-id")
         .attempt
@@ -438,7 +503,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         DoobieSchedulingDao,
         new DoobieWorkerDao(DoobieSchedulingDao),
         DoobieVideoMetadataDao,
-        storageConfiguration
+        storageConfiguration,
+        RetryPolicy(RetryConfiguration.Disabled),
+        RandomGenerator.eval(IO.pure(0.5))
       )
 
       (workerStatusSubscriber.subscribe _).expects("test-group").returning(Stream.empty)
@@ -469,7 +536,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         DoobieSchedulingDao,
         new DoobieWorkerDao(DoobieSchedulingDao),
         DoobieVideoMetadataDao,
-        storageConfiguration
+        storageConfiguration,
+        RetryPolicy(RetryConfiguration.Disabled),
+        RandomGenerator.eval(IO.pure(0.5))
       )
 
       (scheduledVideoDownloadPubSub.subscribe _).expects("test-group").returning(Stream.empty)
@@ -502,7 +571,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         DoobieSchedulingDao,
         new DoobieWorkerDao(DoobieSchedulingDao),
         DoobieVideoMetadataDao,
-        storageConfiguration
+        storageConfiguration,
+        RetryPolicy(RetryConfiguration.Disabled),
+        RandomGenerator.eval(IO.pure(0.5))
       )
 
       for {
@@ -537,7 +608,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         DoobieSchedulingDao,
         new DoobieWorkerDao(DoobieSchedulingDao),
         DoobieVideoMetadataDao,
-        storageConfiguration
+        storageConfiguration,
+        RetryPolicy(RetryConfiguration.Disabled),
+        RandomGenerator.eval(IO.pure(0.5))
       )
 
       batchSchedulingService.updateSchedulingStatus(SchedulingStatus.Error, SchedulingStatus.Queued).map { updated =>
@@ -565,7 +638,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         DoobieSchedulingDao,
         new DoobieWorkerDao(DoobieSchedulingDao),
         DoobieVideoMetadataDao,
-        storageConfiguration
+        storageConfiguration,
+        RetryPolicy(RetryConfiguration.Disabled),
+        RandomGenerator.eval(IO.pure(0.5))
       )
 
       // Call with a short timeout to test the method execution

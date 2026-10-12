@@ -160,7 +160,7 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
     } {
       case (Some(scheduledVideoDownload), Errored(exception)) =>
         batchSchedulingService
-          .setErrorById(scheduledVideoDownload.videoMetadata.id, exception)
+          .recordFailure(scheduledVideoDownload.videoMetadata.id, exception)
           .productR {
             logger.error[F](
               s"Error occurred in worker executor for scheduledVideoDownload ID=${scheduledVideoDownload.videoMetadata.id}",

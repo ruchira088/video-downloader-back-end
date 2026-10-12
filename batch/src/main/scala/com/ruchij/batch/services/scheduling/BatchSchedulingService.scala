@@ -15,7 +15,8 @@ trait BatchSchedulingService[F[_]] {
 
   def updateSchedulingStatusById(id: String, status: SchedulingStatus): F[ScheduledVideoDownload]
 
-  def setErrorById(id: String, throwable: Throwable): F[ScheduledVideoDownload]
+  /** Records a failed download: schedules a retry with backoff while attempts remain, otherwise sets Error. */
+  def recordFailure(id: String, throwable: Throwable): F[ScheduledVideoDownload]
 
   def updateSchedulingStatus(from: SchedulingStatus, to: SchedulingStatus): F[Seq[ScheduledVideoDownload]]
 

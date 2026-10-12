@@ -12,7 +12,7 @@ import com.ruchij.batch.daos.workers.DoobieWorkerDao
 import com.ruchij.batch.services.detection.BatchDuplicateDetectionServiceImpl
 import com.ruchij.batch.services.enrichment.VideoEnrichmentServiceImpl
 import com.ruchij.batch.services.scheduler.{Scheduler, SchedulerImpl}
-import com.ruchij.batch.services.scheduling.BatchSchedulingServiceImpl
+import com.ruchij.batch.services.scheduling.{BatchSchedulingServiceImpl, RetryPolicy}
 import com.ruchij.batch.services.snapshots.VideoSnapshotServiceImpl
 import com.ruchij.batch.services.sync.SynchronizationServiceImpl
 import com.ruchij.batch.services.video.BatchVideoServiceImpl
@@ -55,6 +55,7 @@ import org.apache.tika.Tika
 import pureconfig.ConfigSource
 
 import java.util.UUID
+import scala.util.Random
 
 object BatchApp extends IOApp {
   private val logger = Logger[BatchApp.type]
@@ -151,7 +152,9 @@ object BatchApp extends IOApp {
             DoobieSchedulingDao,
             workerDao,
             DoobieVideoMetadataDao,
-            batchServiceConfiguration.storageConfiguration
+            batchServiceConfiguration.storageConfiguration,
+            RetryPolicy(batchServiceConfiguration.retryConfiguration),
+            RandomGenerator[F, Double](Random.nextDouble())
           )
 
           videoService = new VideoServiceImpl[F, ConnectionIO](

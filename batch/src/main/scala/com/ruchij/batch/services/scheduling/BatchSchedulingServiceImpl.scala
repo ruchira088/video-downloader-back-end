@@ -14,7 +14,7 @@ import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.{PubSub, Publisher, Subscriber}
 import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
-import com.ruchij.core.types.Clock
+import com.ruchij.core.types.{Clock, RandomGenerator}
 import fs2.Stream
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -28,7 +28,9 @@ class BatchSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
   schedulingDao: SchedulingDao[T],
   workerDao: WorkerDao[T],
   videoMetadataDao: VideoMetadataDao[T],
-  storageConfiguration: StorageConfiguration
+  storageConfiguration: StorageConfiguration,
+  retryPolicy: RetryPolicy,
+  jitterGenerator: RandomGenerator[F, Double]
 )(implicit transaction: T ~> F)
     extends BatchSchedulingService[F] {
 
@@ -52,13 +54,34 @@ class BatchSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
       }
       .flatTap(scheduledVideoDownloadPubSub.publishOne)
 
-  override def setErrorById(id: String, throwable: Throwable): F[ScheduledVideoDownload] =
-    Clock[F].timestamp
-      .flatMap { timestamp =>
-        OptionT(transaction(schedulingDao.setErrorById(id, throwable, timestamp)))
-          .getOrElseF { ApplicativeError[F, Throwable].raiseError(notFound(id)) }
+  override def recordFailure(id: String, throwable: Throwable): F[ScheduledVideoDownload] =
+    for {
+      timestamp <- Clock[F].timestamp
+      jitter <- jitterGenerator.generate
+      updated <- OptionT {
+        transaction {
+          OptionT(schedulingDao.getById(id, None)).flatMapF { current =>
+            retryPolicy.nextDelay(current.retryCount, jitter) match {
+              case Some(delay) =>
+                schedulingDao.scheduleRetry(id, throwable, timestamp.plusMillis(delay.toMillis), timestamp)
+
+              case None => schedulingDao.setErrorById(id, throwable, timestamp)
+            }
+          }.value
+        }
+      }.getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
+      _ <- logFailure(updated, throwable)
+      _ <- scheduledVideoDownloadPubSub.publishOne(updated)
+    } yield updated
+
+  private def logFailure(scheduledVideoDownload: ScheduledVideoDownload, throwable: Throwable): F[Unit] =
+    if (scheduledVideoDownload.status == SchedulingStatus.Queued)
+      logger.warn[F] {
+        s"Download failed, retrying. id=${scheduledVideoDownload.videoMetadata.id}, " +
+          s"attempt=${scheduledVideoDownload.retryCount}/${retryPolicy.configuration.maxAttempts}, " +
+          s"retryAfter=${scheduledVideoDownload.retryAfter.getOrElse("-")}, error=${throwable.getMessage}"
       }
-      .flatTap(scheduledVideoDownloadPubSub.publishOne)
+    else Applicative[F].unit
 
   override def updateSchedulingStatus(from: SchedulingStatus, to: SchedulingStatus): F[Seq[ScheduledVideoDownload]] =
     for {

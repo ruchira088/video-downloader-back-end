@@ -43,7 +43,7 @@ object BatchStubs {
     override def updateSchedulingStatusById(id: String, status: SchedulingStatus): IO[ScheduledVideoDownload] =
       statusUpdates.update(_ :+ (id, status)).as(scheduledVideoDownload.copy(status = status))
 
-    override def setErrorById(id: String, throwable: Throwable): IO[ScheduledVideoDownload] =
+    override def recordFailure(id: String, throwable: Throwable): IO[ScheduledVideoDownload] =
       statusUpdates.update(_ :+ (id, SchedulingStatus.Error)).as(scheduledVideoDownload)
 
     override def publishDownloadProgress(id: String, downloadedBytes: Long): IO[Unit] =

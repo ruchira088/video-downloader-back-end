@@ -72,7 +72,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
       IO.raiseError(new NotImplementedError("deleteById stub"))
     }
 
-    override def setErrorById(id: String, throwable: Throwable): IO[ScheduledVideoDownload] = {
+    override def recordFailure(id: String, throwable: Throwable): IO[ScheduledVideoDownload] = {
       erroredTasks = erroredTasks :+ (id, throwable)
       IO.pure(createScheduledVideoDownload(id, SchedulingStatus.Error))
     }
