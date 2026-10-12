@@ -131,6 +131,12 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     override def updateSchedulingStatusById(id: String, status: SchedulingStatus, timestamp: Instant): IO[Option[ScheduledVideoDownload]] =
       IO.pure(updateSchedulingStatusResult)
     override def setErrorById(id: String, throwable: Throwable, timestamp: Instant): IO[Option[ScheduledVideoDownload]] = IO.pure(None)
+    override def scheduleRetry(
+      id: String,
+      throwable: Throwable,
+      retryAfter: Instant,
+      timestamp: Instant
+    ): IO[Option[ScheduledVideoDownload]] = IO.pure(None)
     override def updateSchedulingStatus(from: SchedulingStatus, to: SchedulingStatus): IO[Seq[ScheduledVideoDownload]] = IO.pure(Seq.empty)
     override def updateDownloadProgress(id: String, downloadedBytes: Long, timestamp: Instant): IO[Option[ScheduledVideoDownload]] =
       IO.pure(updateDownloadProgressResult)

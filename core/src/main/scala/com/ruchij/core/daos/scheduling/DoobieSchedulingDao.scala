@@ -49,7 +49,8 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
         scheduled_video.downloaded_bytes, video_metadata.url, video_metadata.id, video_metadata.video_site,
         video_metadata.title, video_metadata.duration, video_metadata.size, file_resource.id,
         file_resource.created_at, file_resource.path, file_resource.media_type, file_resource.size,
-        scheduled_video.completed_at, scheduled_video_error.error_message, scheduled_video_error.error_details
+        scheduled_video.completed_at, scheduled_video_error.error_message, scheduled_video_error.error_details,
+        scheduled_video.retry_count, scheduled_video.retry_after
       FROM scheduled_video
       INNER JOIN video_metadata ON scheduled_video.video_metadata_id = video_metadata.id
       INNER JOIN file_resource ON video_metadata.thumbnail_id = file_resource.id
@@ -76,7 +77,9 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
             completed_at = $timestamp,
             status = ${SchedulingStatus.Completed},
             last_updated_at = $timestamp,
-            error_id = NULL
+            error_id = NULL,
+            retry_count = 0,
+            retry_after = NULL
           WHERE
             completed_at IS NULL AND
             video_metadata_id = $id
@@ -94,7 +97,8 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
           SET
             status = $status,
             last_updated_at = $timestamp,
-            error_id = NULL
+            error_id = NULL,
+            retry_after = NULL
           WHERE video_metadata_id = $id
        """.update.run.singleUpdate
       .productR(OptionT(getById(id, None)))
@@ -215,7 +219,14 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
 
           val retried =
             failedScheduledVideos.toList.map {
-              _.copy(status = SchedulingStatus.Queued, lastUpdatedAt = timestamp, completedAt = None, errorInfo = None)
+              _.copy(
+                status = SchedulingStatus.Queued,
+                lastUpdatedAt = timestamp,
+                completedAt = None,
+                errorInfo = None,
+                retryCount = 0,
+                retryAfter = None
+              )
             }
 
           (fr"""
@@ -224,7 +235,9 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
                 status = ${SchedulingStatus.Queued},
                 error_id = NULL,
                 completed_at = NULL,
-                last_updated_at = $timestamp
+                last_updated_at = $timestamp,
+                retry_count = 0,
+                retry_after = NULL
               WHERE
             """ ++ in(fr"video_metadata_id", videoMetadataIds)).update.run
             .productR {
@@ -299,6 +312,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
     sql"""
       SELECT video_metadata_id FROM scheduled_video
         WHERE status = ${SchedulingStatus.Queued}
+          AND (retry_after IS NULL OR retry_after <= $timestamp)
         ORDER BY scheduled_at ASC
         LIMIT 1
    """.query[String]
@@ -324,7 +338,39 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
     id: String,
     throwable: Throwable,
     timestamp: Instant
-  ): ConnectionIO[Option[ScheduledVideoDownload]] = {
+  ): ConnectionIO[Option[ScheduledVideoDownload]] =
+    insertError(id, throwable, timestamp)
+      .flatMap { errorId =>
+        sql"""
+          UPDATE scheduled_video
+            SET status = ${SchedulingStatus.Error}, last_updated_at = $timestamp, error_id = $errorId
+            WHERE video_metadata_id = $id
+         """.update.run.one
+      }
+      .productR(getById(id, None))
+
+  override def scheduleRetry(
+    id: String,
+    throwable: Throwable,
+    retryAfter: Instant,
+    timestamp: Instant
+  ): ConnectionIO[Option[ScheduledVideoDownload]] =
+    insertError(id, throwable, timestamp)
+      .flatMap { errorId =>
+        sql"""
+          UPDATE scheduled_video
+            SET
+              status = ${SchedulingStatus.Queued},
+              last_updated_at = $timestamp,
+              error_id = $errorId,
+              retry_count = retry_count + 1,
+              retry_after = $retryAfter
+            WHERE video_metadata_id = $id
+         """.update.run.one
+      }
+      .productR(getById(id, None))
+
+  private def insertError(id: String, throwable: Throwable, timestamp: Instant): ConnectionIO[String] = {
     val errorId = s"$id-${timestamp.toEpochMilli}"
 
     sql"""
@@ -336,15 +382,7 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
               ${rootException(throwable)},
               ${throwable.getStackTrace.map(_.toString).mkString("\n")}
             )
-     """.update.run.one
-      .productR {
-        sql"""
-        UPDATE scheduled_video
-          SET status = ${SchedulingStatus.Error}, last_updated_at = $timestamp, error_id = $errorId
-          WHERE video_metadata_id = $id
-       """.update.run.one
-      }
-      .productR(getById(id, None))
+     """.update.run.one.as(errorId)
   }
 
   private def rootException(throwable: Throwable): String =

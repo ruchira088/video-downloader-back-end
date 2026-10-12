@@ -1,0 +1,3 @@
+ALTER TABLE scheduled_video ADD COLUMN retry_count INT NOT NULL DEFAULT 0;
+
+ALTER TABLE scheduled_video ADD COLUMN retry_after TIMESTAMP WITH TIME ZONE NULL;

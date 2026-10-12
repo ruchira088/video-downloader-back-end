@@ -11,7 +11,9 @@ final case class ScheduledVideoDownload(
   downloadedBytes: Long,
   videoMetadata: VideoMetadata,
   completedAt: Option[Instant],
-  errorInfo: Option[ErrorInfo]
+  errorInfo: Option[ErrorInfo],
+  retryCount: Int = 0,
+  retryAfter: Option[Instant] = None
 )
 
 object ScheduledVideoDownload {

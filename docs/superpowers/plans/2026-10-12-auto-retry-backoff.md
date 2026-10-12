@@ -230,7 +230,7 @@ Create `migration-application/src/main/resources/db/migration/V040__scheduled_vi
 ```sql
 ALTER TABLE scheduled_video ADD COLUMN retry_count INT NOT NULL DEFAULT 0;
 
-ALTER TABLE scheduled_video ADD COLUMN retry_after TIMESTAMPTZ NULL;
+ALTER TABLE scheduled_video ADD COLUMN retry_after TIMESTAMP WITH TIME ZONE NULL;
 ```
 
 - [ ] **Step 4: Add the model fields**

@@ -26,6 +26,13 @@ trait SchedulingDao[F[_]] {
 
   def setErrorById(id: String, throwable: Throwable, timestamp: Instant): F[Option[ScheduledVideoDownload]]
 
+  def scheduleRetry(
+    id: String,
+    throwable: Throwable,
+    retryAfter: Instant,
+    timestamp: Instant
+  ): F[Option[ScheduledVideoDownload]]
+
   def updateSchedulingStatus(from: SchedulingStatus, to: SchedulingStatus): F[Seq[ScheduledVideoDownload]]
 
   def updateDownloadProgress(id: String, downloadedBytes: Long, timestamp: Instant): F[Option[ScheduledVideoDownload]]

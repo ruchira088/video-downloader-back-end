@@ -660,4 +660,145 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
       yield (): Unit
   }
 
+  it should "schedule a retry that acquireTask skips until retryAfter is due" in runTest {
+    (scheduledVideoDownload, transaction) =>
+      val id = scheduledVideoDownload.videoMetadata.id
+
+      for {
+        timestamp <- Clock[IO].timestamp
+        retryAfter = timestamp.plusSeconds(600)
+        exception = new Exception("Connection reset")
+
+        maybeRetrying <- transaction(DoobieSchedulingDao.scheduleRetry(id, exception, retryAfter, timestamp))
+
+        _ <- IO.delay {
+          maybeRetrying.value.status mustBe SchedulingStatus.Queued
+          maybeRetrying.value.retryCount mustBe 1
+          maybeRetrying.value.retryAfter.map(_.toEpochMilli) mustBe Some(retryAfter.toEpochMilli)
+          maybeRetrying.value.errorInfo.value.message mustBe "Connection reset"
+        }
+
+        beforeDue <- transaction(DoobieSchedulingDao.acquireTask(timestamp))
+        _ <- IO.delay { beforeDue mustBe None }
+
+        // A retry_after equal to the acquiring timestamp is due
+        atDue <- transaction(DoobieSchedulingDao.acquireTask(retryAfter))
+        _ <- IO.delay {
+          atDue.value.videoMetadata.id mustBe id
+          atDue.value.status mustBe SchedulingStatus.Acquired
+          atDue.value.retryCount mustBe 1
+        }
+      } yield (): Unit
+  }
+
+  it should "increment the retry count on every scheduled retry" in runTest {
+    (scheduledVideoDownload, transaction) =>
+      val id = scheduledVideoDownload.videoMetadata.id
+
+      for {
+        timestamp <- Clock[IO].timestamp
+        _ <- transaction(DoobieSchedulingDao.scheduleRetry(id, new Exception("first"), timestamp, timestamp))
+        second <- transaction {
+          DoobieSchedulingDao.scheduleRetry(id, new Exception("second"), timestamp, timestamp.plusMillis(1))
+        }
+        _ <- IO.delay {
+          second.value.retryCount mustBe 2
+          second.value.errorInfo.value.message mustBe "second"
+        }
+      } yield (): Unit
+  }
+
+  it should "reset retry state when the download completes" in runTest {
+    (scheduledVideoDownload, transaction) =>
+      val id = scheduledVideoDownload.videoMetadata.id
+
+      for {
+        timestamp <- Clock[IO].timestamp
+        _ <- transaction(DoobieSchedulingDao.scheduleRetry(id, new Exception("blip"), timestamp, timestamp))
+        completed <- transaction(DoobieSchedulingDao.markScheduledVideoDownloadAsComplete(id, timestamp.plusMillis(1)))
+        _ <- IO.delay {
+          completed.value.status mustBe SchedulingStatus.Completed
+          completed.value.retryCount mustBe 0
+          completed.value.retryAfter mustBe None
+        }
+      } yield (): Unit
+  }
+
+  it should "reset retry state when errored downloads are retried manually" in runTest {
+    (scheduledVideoDownload, transaction) =>
+      val id = scheduledVideoDownload.videoMetadata.id
+
+      for {
+        timestamp <- Clock[IO].timestamp
+        _ <- transaction(DoobieSchedulingDao.scheduleRetry(id, new Exception("blip"), timestamp, timestamp))
+        _ <- transaction(DoobieSchedulingDao.setErrorById(id, new Exception("final"), timestamp.plusMillis(1)))
+        retried <- transaction(DoobieSchedulingDao.retryErroredScheduledDownloads(None, timestamp.plusMillis(2)))
+        stored <- transaction(DoobieSchedulingDao.getById(id, None))
+        _ <- IO.delay {
+          retried.map(_.retryCount) mustBe Seq(0)
+          retried.map(_.retryAfter) mustBe Seq(None)
+          stored.value.status mustBe SchedulingStatus.Queued
+          stored.value.retryCount mustBe 0
+          stored.value.retryAfter mustBe None
+        }
+      } yield (): Unit
+  }
+
+  it should "clear retryAfter but keep retryCount when the status is set directly" in runTest {
+    (scheduledVideoDownload, transaction) =>
+      val id = scheduledVideoDownload.videoMetadata.id
+
+      for {
+        timestamp <- Clock[IO].timestamp
+        _ <- transaction {
+          DoobieSchedulingDao.scheduleRetry(id, new Exception("blip"), timestamp.plusSeconds(600), timestamp)
+        }
+        _ <- transaction(DoobieSchedulingDao.updateSchedulingStatusById(id, SchedulingStatus.Paused, timestamp))
+        resumed <- transaction(DoobieSchedulingDao.updateSchedulingStatusById(id, SchedulingStatus.Queued, timestamp))
+        acquired <- transaction(DoobieSchedulingDao.acquireTask(timestamp))
+        _ <- IO.delay {
+          resumed.value.retryCount mustBe 1
+          resumed.value.retryAfter mustBe None
+          acquired.value.videoMetadata.id mustBe id
+        }
+      } yield (): Unit
+  }
+
+  it should "keep retry state across a bulk WorkersPaused round trip" in runTest {
+    (scheduledVideoDownload, transaction) =>
+      val id = scheduledVideoDownload.videoMetadata.id
+
+      for {
+        timestamp <- Clock[IO].timestamp
+        retryAfter = timestamp.plusSeconds(600)
+        _ <- transaction(DoobieSchedulingDao.scheduleRetry(id, new Exception("blip"), retryAfter, timestamp))
+        _ <- transaction {
+          DoobieSchedulingDao.updateSchedulingStatus(SchedulingStatus.Queued, SchedulingStatus.WorkersPaused)
+        }
+        restored <- transaction {
+          DoobieSchedulingDao.updateSchedulingStatus(SchedulingStatus.WorkersPaused, SchedulingStatus.Queued)
+        }
+        _ <- IO.delay {
+          restored.map(_.retryCount) mustBe Seq(1)
+          restored.flatMap(_.retryAfter).map(_.toEpochMilli) mustBe Seq(retryAfter.toEpochMilli)
+        }
+      } yield (): Unit
+  }
+
+  it should "delete a download that is waiting to retry" in runTest {
+    (scheduledVideoDownload, transaction) =>
+      val id = scheduledVideoDownload.videoMetadata.id
+
+      for {
+        timestamp <- Clock[IO].timestamp
+        _ <- transaction(DoobieSchedulingDao.scheduleRetry(id, new Exception("blip"), timestamp, timestamp))
+        deleted <- transaction(DoobieSchedulingDao.deleteById(id))
+        stored <- transaction(DoobieSchedulingDao.getById(id, None))
+        _ <- IO.delay {
+          deleted mustBe 2 // one error row and one scheduled_video row
+          stored mustBe None
+        }
+      } yield (): Unit
+  }
+
 }

@@ -41,7 +41,7 @@ fallback-api change.
 
 ```sql
 ALTER TABLE scheduled_video ADD COLUMN retry_count INT NOT NULL DEFAULT 0;
-ALTER TABLE scheduled_video ADD COLUMN retry_after TIMESTAMPTZ NULL;
+ALTER TABLE scheduled_video ADD COLUMN retry_after TIMESTAMP WITH TIME ZONE NULL;
 ```
 
 Existing rows get `retry_count = 0` and no `retry_after`, so no backfill is needed. No index on `retry_after`:

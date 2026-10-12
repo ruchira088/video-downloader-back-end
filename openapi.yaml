@@ -1299,6 +1299,15 @@ components:
               type: string
             details:
               type: string
+        retryCount:
+          type: integer
+          format: int32
+          description: Failures retried automatically so far. Reset on completion and by POST /schedule/retry-failed.
+        retryAfter:
+          type: string
+          format: date-time
+          nullable: true
+          description: Earliest time a Queued download that is waiting to retry can be picked up.
 
     ScheduledVideoSearchResult:
       type: object

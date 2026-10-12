@@ -548,6 +548,13 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
     override def setErrorById(id: String, throwable: Throwable, timestamp: Instant): IO[Option[ScheduledVideoDownload]] =
       notImplemented
 
+    override def scheduleRetry(
+      id: String,
+      throwable: Throwable,
+      retryAfter: Instant,
+      timestamp: Instant
+    ): IO[Option[ScheduledVideoDownload]] = notImplemented
+
     override def updateSchedulingStatus(
       from: SchedulingStatus,
       to: SchedulingStatus
