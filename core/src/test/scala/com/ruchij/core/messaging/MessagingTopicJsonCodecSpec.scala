@@ -50,6 +50,35 @@ class MessagingTopicJsonCodecSpec extends AnyFlatSpec with Matchers {
     roundTrip(scheduledVideoDownload) mustBe Right(scheduledVideoDownload)
   }
 
+  it should "decode a ScheduledVideoDownload published before retries existed" in {
+    val scheduledVideoDownload =
+      ScheduledVideoDownload(
+        timestamp,
+        timestamp,
+        SchedulingStatus.Queued,
+        0,
+        VideoMetadata(
+          uri"https://spankbang.com/abc/video/title",
+          "video-id",
+          CustomVideoSite.SpankBang,
+          "Sample title",
+          FiniteDuration(212000, TimeUnit.MILLISECONDS),
+          4096,
+          FileResource("thumbnail-id", timestamp, "/opt/images/thumbnail.jpg", MediaType.image.jpeg, 256)
+        ),
+        None,
+        None,
+        retryCount = 3,
+        retryAfter = Some(timestamp)
+      )
+
+    val topic = MessagingTopic.ScheduledVideoDownloadTopic
+    val legacyJson = topic.jsonCodec(scheduledVideoDownload).mapObject(_.remove("retryCount").remove("retryAfter"))
+
+    decode[ScheduledVideoDownload](legacyJson.noSpaces)(topic.jsonCodec) mustBe
+      Right(scheduledVideoDownload.copy(retryCount = 0, retryAfter = None))
+  }
+
   "DownloadProgressTopic" should "round-trip a DownloadProgress through its JSON codec" in {
     val downloadProgress = DownloadProgress("video-id", timestamp, 2048)
 

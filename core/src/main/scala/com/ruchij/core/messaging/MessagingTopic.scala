@@ -11,7 +11,7 @@ import fs2.kafka.vulcan.{AvroSettings, SchemaRegistryClientSettings, avroDeseria
 import fs2.kafka.{ValueDeserializer, ValueSerializer}
 import io.circe.generic.auto.{exportDecoder, exportEncoder}
 import io.circe.generic.semiauto.{deriveCodec => deriveJsonCodec}
-import io.circe.{Codec => JsonCodec}
+import io.circe.{Codec => JsonCodec, Json}
 import vulcan.generic._
 import com.ruchij.core.messaging.kafka.AvroCodecs._
 import com.ruchij.core.circe.Decoders._
@@ -44,7 +44,20 @@ object MessagingTopic {
 
     override val avroCodec: AvroCodec[ScheduledVideoDownload] = AvroCodec.derive[ScheduledVideoDownload]
 
-    override val jsonCodec: JsonCodec[ScheduledVideoDownload] = deriveJsonCodec[ScheduledVideoDownload]
+    // Messages from replicas deployed before retries existed have no retryCount. Plain circe derivation ignores
+    // Scala default values, so supply the default before decoding. A missing retryAfter already decodes as None.
+    override val jsonCodec: JsonCodec[ScheduledVideoDownload] = {
+      val derived = deriveJsonCodec[ScheduledVideoDownload]
+
+      JsonCodec.from(
+        derived.prepare {
+          _.withFocus {
+            _.mapObject(json => if (json.contains("retryCount")) json else json.add("retryCount", Json.fromInt(0)))
+          }
+        },
+        derived
+      )
+    }
   }
 
   implicit case object DownloadProgressTopic extends MessagingTopic[DownloadProgress] {

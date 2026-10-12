@@ -1,8 +1,12 @@
 package com.ruchij.core.messaging.kafka
 
 import com.ruchij.core.messaging.MessagingTopic
+import org.apache.avro.{Schema, SchemaCompatibility}
+import org.apache.avro.SchemaCompatibility.SchemaCompatibilityType
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
+
+import scala.jdk.CollectionConverters._
 
 class MessagingTopicSpec extends AnyFlatSpec with Matchers {
 
@@ -12,6 +16,26 @@ class MessagingTopicSpec extends AnyFlatSpec with Matchers {
 
   it should "have a valid codec" in {
     MessagingTopic.ScheduledVideoDownloadTopic.avroCodec must not be null
+  }
+
+  it should "read records written with the schema from before retries existed" in {
+    val schema: Schema =
+      MessagingTopic.ScheduledVideoDownloadTopic.avroCodec.schema.fold(error => fail(error.message), identity)
+
+    schema.getField("retryCount") must not be null
+    schema.getField("retryAfter") must not be null
+
+    val legacyFields =
+      schema.getFields.asScala.toList
+        .filterNot(field => Set("retryCount", "retryAfter").contains(field.name()))
+        .map(field => new Schema.Field(field, field.schema()))
+
+    val legacySchema =
+      Schema.createRecord(schema.getName, schema.getDoc, schema.getNamespace, false, legacyFields.asJava)
+
+    // Schema Registry's default BACKWARD check: the new schema must be able to read data written with the old one
+    SchemaCompatibility.checkReaderWriterCompatibility(schema, legacySchema).getType mustBe
+      SchemaCompatibilityType.COMPATIBLE
   }
 
   "DownloadProgressTopic" should "have correct name" in {
