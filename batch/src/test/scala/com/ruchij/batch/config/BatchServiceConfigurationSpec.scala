@@ -10,11 +10,12 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 import pureconfig.ConfigSource
 
+import scala.concurrent.duration._
+
 class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
 
-  "BatchServiceConfiguration.parse" should "parse the ConfigObjectSource" in runIO {
-    val configSource =
-      s"""
+  private val baseConfigSource =
+    s"""
         worker-configuration {
           owner = "test-suite"
           owner = $${?HOSTNAME}
@@ -87,6 +88,9 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         }
       """
 
+  "BatchServiceConfiguration.parse" should "parse the ConfigObjectSource" in runIO {
+    val configSource = baseConfigSource
+
     val expectedBatchServiceConfiguration =
       BatchServiceConfiguration(
         StorageConfiguration("./videos", "./images", List("./video-folder-1", "./video-folder-2")),
@@ -104,6 +108,30 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
         IO.delay {
           batchServiceConfiguration mustBe expectedBatchServiceConfiguration
         }
+    }
+  }
+
+  it should "default the retry configuration when the block is absent" in runIO {
+    BatchServiceConfiguration.parse[IO](ConfigSource.string(baseConfigSource)).flatMap { configuration =>
+      IO.delay { configuration.retryConfiguration mustBe RetryConfiguration.Default }
+    }
+  }
+
+  it should "parse the retry configuration" in runIO {
+    val configSource =
+      baseConfigSource +
+        """
+          retry-configuration {
+            max-attempts = 3
+            base-delay = 30 seconds
+            max-delay = 10 minutes
+          }
+        """
+
+    BatchServiceConfiguration.parse[IO](ConfigSource.string(configSource)).flatMap { configuration =>
+      IO.delay {
+        configuration.retryConfiguration mustBe RetryConfiguration(3, 30.seconds, 10.minutes)
+      }
     }
   }
 

@@ -240,6 +240,9 @@ never sync. When enabling it:
 | `MAX_CONCURRENT_DOWNLOADS` | Parallel download limit | - |
 | `START_TIME` | Scheduling window start | - |
 | `END_TIME` | Scheduling window end | - |
+| `RETRY_MAX_ATTEMPTS` | Automatic retries of a failed download before it stays in Error (0 disables) | `5` |
+| `RETRY_BASE_DELAY` | Backoff before the first retry, doubling each attempt | `1 minute` |
+| `RETRY_MAX_DELAY` | Upper bound on the backoff between retries | `30 minutes` |
 | `INSTANCE_ID` | Unique instance identifier | - |
 | `GIT_BRANCH` | Git branch for build info | - |
 | `GIT_COMMIT` | Git commit for build info | - |
