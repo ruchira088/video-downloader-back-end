@@ -45,7 +45,7 @@ class TestTimestamps(unittest.TestCase):
 
     def test_iso_micros_rejects_naive_datetimes(self):
         with self.assertRaises(ValueError):
-            iso_micros(datetime(2026, 9, 26, 8, 15, 30))  # noqa: DTZ001 - naive on purpose
+            iso_micros(datetime(2026, 9, 26, 8, 15, 30))  # naive on purpose
 
     def test_require_iso_micros_rejects_non_ascii_digits(self):
         # Arabic-Indic and fullwidth digits, which a Unicode \d would match.
