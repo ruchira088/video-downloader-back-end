@@ -49,7 +49,8 @@ class AuthenticationServiceImpl[F[_]: Async: Clock: RandomGenerator[*[_], Secret
         secret,
         timestamp.plusMillis(authSessionDuration.toMillis),
         timestamp,
-        0
+        0,
+        credentials.lastUpdatedAt
       )
       _ <- keySpacedKeyValueStore.put(AuthenticationTokenKey(secret), authenticationToken)
 
@@ -58,7 +59,7 @@ class AuthenticationServiceImpl[F[_]: Async: Clock: RandomGenerator[*[_], Secret
   override def authenticate(secret: Secret): F[(AuthenticationToken, User)] =
     OptionT(keySpacedKeyValueStore.get(AuthenticationTokenKey(secret)))
       .semiflatMap {
-        case AuthenticationToken(userId, secret, expiresAt, issuedAt, renewals) =>
+        case AuthenticationToken(userId, secret, expiresAt, issuedAt, renewals, credentialsLastUpdatedAt) =>
           for {
             timestamp <- Clock[F].timestamp
             _ <- if (timestamp.isBefore(expiresAt)) Applicative[F].unit
@@ -75,8 +76,9 @@ class AuthenticationServiceImpl[F[_]: Async: Clock: RandomGenerator[*[_], Secret
               userDao.findById(userId).product(credentialsDao.findCredentialsByUserId(userId))
             }
 
-            // Tokens issued before the credentials were last updated (e.g. a password reset) are revoked
-            _ <- if (maybeCredentials.exists(credentials => !issuedAt.isBefore(credentials.lastUpdatedAt)))
+            // Tokens are bound to the credentials verified at login, so updating them (e.g. a password reset) revokes
+            // every token issued for the previous credentials
+            _ <- if (maybeCredentials.exists(_.lastUpdatedAt == credentialsLastUpdatedAt))
               Applicative[F].unit
             else
               keySpacedKeyValueStore
@@ -90,7 +92,8 @@ class AuthenticationServiceImpl[F[_]: Async: Clock: RandomGenerator[*[_], Secret
               secret,
               timestamp.plusMillis(authSessionDuration.toMillis),
               issuedAt,
-              renewals + 1
+              renewals + 1,
+              credentialsLastUpdatedAt
             )
             _ <- keySpacedKeyValueStore.put(AuthenticationTokenKey(secret), authenticationToken)
           } yield (authenticationToken, user)

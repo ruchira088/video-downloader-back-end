@@ -32,7 +32,8 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
     testSecret,
     expiresAt,
     testTimestamp,
-    0
+    0,
+    testTimestamp
   )
 
   "POST /user" should "create a new user successfully" in runIO {
@@ -238,7 +239,8 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
       testSecret,
       expiresAt,
       testTimestamp,
-      0
+      0,
+      testTimestamp
     )
 
     (authenticationService.authenticate _)

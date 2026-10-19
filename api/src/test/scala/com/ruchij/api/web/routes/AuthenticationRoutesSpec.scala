@@ -30,7 +30,8 @@ class AuthenticationRoutesSpec extends AnyFlatSpec with Matchers with MockedRout
     testSecret,
     expiresAt,
     testTimestamp,
-    0
+    0,
+    testTimestamp
   )
 
   "POST /authentication/login" should "return a successful response with authentication token when credentials are valid" in runIO {

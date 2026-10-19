@@ -35,14 +35,16 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
     testSecret,
     expiresAt,
     testTimestamp,
-    0
+    0,
+    testTimestamp
   )
   private val normalUserToken = AuthenticationToken(
     ApiTestData.NormalUser.id,
     testSecret,
     expiresAt,
     testTimestamp,
-    0
+    0,
+    testTimestamp
   )
 
   private val testScheduledDownload = ScheduledVideoDownload(
