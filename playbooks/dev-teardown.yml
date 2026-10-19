@@ -1,0 +1,59 @@
+---
+# Deletes the dev environment of a branch, i.e. the namespace dev-deploy.yml created for it and everything in it.
+# Usage: BRANCH=<branch name> ansible-playbook playbooks/dev-teardown.yml
+- hosts: localhost
+  connection: local
+
+  vars:
+    # Read from the environment, as lookup results are never templated, unlike extra vars
+    branch: "{{ lookup('env', 'BRANCH') }}"
+
+  tasks:
+    - name: Gather git information
+      import_tasks: tasks/git-info.yml
+
+    - name: Ensure the namespace belongs to a dev environment
+      assert:
+        that:
+          - lookup('env', 'BRANCH') | length > 0
+          - git_branch | length > 0
+          # main has no dev environment, and video-downloader-back-end-staging is the staging namespace
+          - git_branch not in ['main', 'staging']
+        fail_msg: "Refusing to tear down the environment of branch \"{{ lookup('env', 'BRANCH') }}\""
+
+    - set_fact:
+        k8s_namespace: "video-downloader-back-end-{{ git_branch }}"
+
+    - name: Install dependencies
+      import_tasks: tasks/install-dependencies.yml
+
+    - name: Delete the namespace
+      block:
+        - name: Create K8s config file
+          tempfile:
+            suffix: .kubeconfig
+          register: kubeconfig
+
+        - name: Write K8s config file
+          copy:
+            dest: "{{ kubeconfig.path }}"
+            content: "{{ lookup('aws_ssm', '/infrastructure/dev/k8s/config', region='ap-southeast-2') }}"
+            mode: "0600"
+          no_log: true
+
+        # Deleting the namespace deletes everything in it, including the Postgres and Redis volume claims, whose
+        # local-path volumes are then deleted too. Merging a pull request usually also deletes its branch, so this
+        # runs twice for most branches and the second run finds nothing.
+        - name: Delete Namespace
+          command: |
+            kubectl delete namespace {{ k8s_namespace }} \
+              --ignore-not-found \
+              --wait \
+              --timeout=10m \
+              --kubeconfig {{ kubeconfig.path }}
+      always:
+        - name: Delete K8s config file
+          file:
+            path: "{{ kubeconfig.path }}"
+            state: absent
+          when: kubeconfig.path is defined

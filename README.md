@@ -403,12 +403,14 @@ GitHub Actions workflows handle continuous integration and deployment:
 - **backend-test.yml** - Runs on all PRs/commits: compiles, tests, caches dependencies
 - **backend-pipeline.yml** - Full pipeline: build, test, Docker publish, deploy
 - **backend-daily-pipeline.yml** - Daily scheduled builds
+- **dev-teardown.yml** - Deletes a branch's dev environment (its K8s namespace) when the branch is deleted or its pull
+  request is merged
 
 ### Deployment Stages
 
 1. **Build & Test** - Compile and run test suite
 2. **Publish Docker Images** - Build and push to GHCR
-3. **Deploy to Dev** - Non-main branch deployments
+3. **Deploy to Dev** - Non-main branch deployments, each to its own `video-downloader-back-end-<branch>` namespace
 4. **Deploy to Staging** - Main branch (requires approval)
 5. **Deploy to Production** - After staging succeeds
 
