@@ -3,16 +3,17 @@
   register: git_commit_output
 
 - name: Get the git branch name
-  shell: >-
-    git rev-parse --abbrev-ref HEAD
-    | tr '[:upper:]' '[:lower:]'
-    | sed -E 's/[^a-z0-9-]/-/g'
-    | sed -E 's/-+/-/g'
-    | sed -E 's/^-//;s/-$//'
-    | cut -c1-37
-    | sed -E 's/-$//'
+  command: git rev-parse --abbrev-ref HEAD
   register: git_branch_output
 
+# `branch` overrides the checked out branch, for playbooks that act on a branch other than HEAD (e.g. a deleted one).
+# The name is normalised to a DNS label prefix: lowercase, [a-z0-9-] only, single dashes, no leading or trailing dash,
+# and at most 37 characters.
 - set_fact:
     git_commit: "{{ git_commit_output.stdout }}"
-    git_branch: "{{ git_branch_output.stdout }}"
+    git_branch: >-
+      {{ ((branch | default(git_branch_output.stdout, true)) | lower
+      | regex_replace('[^a-z0-9-]', '-')
+      | regex_replace('-+', '-')
+      | regex_replace('^-|-$', ''))[:37]
+      | regex_replace('-$', '') }}

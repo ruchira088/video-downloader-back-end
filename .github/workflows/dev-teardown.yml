@@ -1,0 +1,56 @@
+name: Dev Environment Teardown
+
+# Every branch pushed outside main gets its own dev environment (see deploy-to-dev in backend-pipeline.yml). Deleting
+# the branch, or merging its pull request, deletes that environment.
+on:
+  delete:
+  pull_request:
+    types:
+      - closed
+
+jobs:
+  tear-down-dev-environment:
+    name: Tear down dev environment
+    runs-on: ubuntu-latest
+
+    # Dependabot branches never deploy, and pull requests from forks never deploy to this cluster
+    if: >-
+      (
+        (github.event_name == 'delete' && github.event.ref_type == 'branch')
+        || (
+          github.event_name == 'pull_request'
+          && github.event.pull_request.merged
+          && github.event.pull_request.head.repo.full_name == github.repository
+        )
+      )
+      && !startsWith(github.event.ref || github.event.pull_request.head.ref, 'dependabot/')
+
+    # Shares the deploy-to-dev concurrency group, so the teardown waits for an in-flight deploy of the branch to finish
+    # instead of racing it and leaving a half-deployed environment behind
+    concurrency:
+      group: deploy-to-refs/heads/${{ github.event.ref || github.event.pull_request.head.ref }}
+      cancel-in-progress: false
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      # The deleted branch is gone, and a merged pull request's merge ref may be too, so both run the playbook from main
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-region: ap-southeast-2
+          role-session-name: video-downloader-back-end-dev-teardown
+          role-to-assume: "arn:aws:iam::365562660444:role/github_iam_role"
+
+      # The branch name is passed through the environment, never interpolated into the script
+      - name: Tear down dev environment
+        env:
+          BRANCH: ${{ github.event.ref || github.event.pull_request.head.ref }}
+        run: ansible-playbook -v playbooks/dev-teardown.yml
