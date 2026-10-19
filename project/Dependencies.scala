@@ -5,7 +5,7 @@ object Dependencies
   val ScalaVersion = "2.13.18"
   private val Http4sVersion = "0.23.38"
   private val CirceVersion = "0.14.17"
-  private val FlywayVersion = "13.10.0"
+  private val FlywayVersion = "13.10.3"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -47,7 +47,7 @@ object Dependencies
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.23.2"
 
-  lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.10"
+  lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.11"
 
   lazy val flywayCore = "org.flywaydb" % "flyway-core" % FlywayVersion
 
@@ -93,11 +93,11 @@ object Dependencies
 
   lazy val pegdown = "org.pegdown" % "pegdown" % "1.6.0"
 
-  lazy val sentry = "io.sentry" % "sentry" % "8.60.0"
+  lazy val sentry = "io.sentry" % "sentry" % "8.61.0"
 
   lazy val perceptualHash = "dev.brachtendorf" % "JImageHash" % "1.0.0"
 
-  private val AwsSdkVersion = "2.55.15"
+  private val AwsSdkVersion = "2.56.0"
 
   // The fallback sync clients use the async Netty HTTP client, so the SDK's default synchronous client is left out.
   private val awsApache5Client = ExclusionRule("software.amazon.awssdk", "apache5-client")
@@ -110,7 +110,7 @@ object Dependencies
   // and eviction alone would leave the DNS resolver modules that only lettuce uses on the older one. Pinning every
   // Netty module keeps them on a single version.
   // Keep this equal to the `netty.version` property in the aws-sdk-java-pom of AwsSdkVersion (4.1.138.Final for
-  // 2.55.15), and check it on every SDK bump: these overrides win over whatever the SDK asks for, so leaving this
+  // 2.56.0), and check it on every SDK bump: these overrides win over whatever the SDK asks for, so leaving this
   // behind would silently downgrade netty-nio-client's Netty to a version the SDK was never built or tested against.
   private val NettyVersion = "4.1.138.Final"
 
