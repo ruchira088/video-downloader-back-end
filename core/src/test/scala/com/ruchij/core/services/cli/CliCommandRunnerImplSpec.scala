@@ -13,7 +13,7 @@ class CliCommandRunnerImplSpec extends AnyFlatSpec with Matchers {
     Dispatcher.parallel[IO].use { dispatcher =>
       val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
 
-      cliCommandRunner.run("""echo "Hello World"""")
+      cliCommandRunner.run(List("echo", "Hello World"))
         .compile
         .string
         .flatMap { output => IO.delay(output mustBe "Hello World")}
@@ -24,17 +24,29 @@ class CliCommandRunnerImplSpec extends AnyFlatSpec with Matchers {
     Dispatcher.parallel[IO].use { dispatcher =>
       val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
 
-      cliCommandRunner.run("invalid-program")
+      cliCommandRunner.run(List("invalid-program"))
         .compile
         .drain
         .error
         .flatMap { exception =>
           IO.delay {
             exception mustBe a [CliCommandException]
-            exception.getMessage contains "invalid-program: command not found"
+            exception.getMessage must include("invalid-program")
           }
         }
 
+    }
+  }
+
+  it should "pass arguments to the program verbatim without shell expansion" in runIO {
+    Dispatcher.parallel[IO].use { dispatcher =>
+      val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
+      val argument = "$(echo injected) `echo injected` ${HOME} ; echo injected | cat && echo 'quoted' > /dev/null"
+
+      cliCommandRunner.run(List("echo", argument))
+        .compile
+        .string
+        .flatMap { output => IO.delay(output mustBe argument) }
     }
   }
 
@@ -42,7 +54,7 @@ class CliCommandRunnerImplSpec extends AnyFlatSpec with Matchers {
     Dispatcher.parallel[IO].use { dispatcher =>
       val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
 
-      cliCommandRunner.run("exit 1")
+      cliCommandRunner.run(List("false"))
         .compile
         .drain
         .error
@@ -59,7 +71,7 @@ class CliCommandRunnerImplSpec extends AnyFlatSpec with Matchers {
     Dispatcher.parallel[IO].use { dispatcher =>
       val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
 
-      cliCommandRunner.run("""echo -e "Line1\nLine2\nLine3"""")
+      cliCommandRunner.run(List("printf", "Line1\nLine2\nLine3\n"))
         .compile
         .toList
         .flatMap { lines =>
@@ -77,7 +89,7 @@ class CliCommandRunnerImplSpec extends AnyFlatSpec with Matchers {
     Dispatcher.parallel[IO].use { dispatcher =>
       val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
 
-      cliCommandRunner.run("sleep 10")
+      cliCommandRunner.run(List("sleep", "10"))
         .take(0)  // Take nothing, which should interrupt immediately
         .compile
         .drain

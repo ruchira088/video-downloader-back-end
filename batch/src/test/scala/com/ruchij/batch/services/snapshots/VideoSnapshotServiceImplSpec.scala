@@ -22,10 +22,10 @@ class VideoSnapshotServiceImplSpec extends AnyFlatSpec with Matchers {
   val fixedUUID: UUID = UUID.fromString("12345678-1234-1234-1234-123456789012")
 
   class StubCliCommandRunner(result: Either[Throwable, String] = Right("")) extends CliCommandRunner[IO] {
-    var executedCommands: List[String] = List.empty
+    var executedCommands: List[List[String]] = List.empty
 
-    override def run(command: String): Stream[IO, String] = {
-      executedCommands = executedCommands :+ command
+    override def run(arguments: List[String]): Stream[IO, String] = {
+      executedCommands = executedCommands :+ arguments
       result match {
         case Right(output) => Stream.emit(output)
         case Left(error) => Stream.raiseError[IO](error)
@@ -71,11 +71,23 @@ class VideoSnapshotServiceImplSpec extends AnyFlatSpec with Matchers {
       fileResource.createdAt mustBe timestamp
       fileResource.id must include("abc123-snapshot-30000")
 
-      cliCommandRunner.executedCommands must have length 1
-      cliCommandRunner.executedCommands.head must include("ffmpeg")
-      cliCommandRunner.executedCommands.head must include("-ss 30")
-      cliCommandRunner.executedCommands.head must include("-i \"/videos/test.mp4\"")
-      cliCommandRunner.executedCommands.head must include("\"/snapshots/snap.png\"")
+      cliCommandRunner.executedCommands mustBe List(
+        List(
+          "ffmpeg",
+          "-ss",
+          "30",
+          "-i",
+          "/videos/test.mp4",
+          "-frames:v",
+          "1",
+          "-q:v",
+          "2",
+          "/snapshots/snap.png",
+          "-y",
+          "-v",
+          "error"
+        )
+      )
     }
   }
 
@@ -98,9 +110,9 @@ class VideoSnapshotServiceImplSpec extends AnyFlatSpec with Matchers {
 
       _ <- IO.delay {
         cliCommandRunner.executedCommands must have length 3
-        cliCommandRunner.executedCommands(0) must include("-ss 0")
-        cliCommandRunner.executedCommands(1) must include("-ss 300")
-        cliCommandRunner.executedCommands(2) must include("-ss 3600")
+        cliCommandRunner.executedCommands(0).sliding(2).toList must contain(List("-ss", "0"))
+        cliCommandRunner.executedCommands(1).sliding(2).toList must contain(List("-ss", "300"))
+        cliCommandRunner.executedCommands(2).sliding(2).toList must contain(List("-ss", "3600"))
       }
     } yield ()
   }
@@ -217,11 +229,17 @@ class VideoSnapshotServiceImplSpec extends AnyFlatSpec with Matchers {
     val service = new VideoSnapshotServiceImpl[IO](cliCommandRunner, repositoryService, hashingService)
 
     service.takeSnapshot("/videos/my video.mp4", 45.seconds, "/snapshots/output.png").map { _ =>
-      val command = cliCommandRunner.executedCommands.head
-      command must include("-frames:v 1")  // Take only 1 frame
-      command must include("-q:v 2")        // Quality setting
-      command must include("-y")            // Overwrite output
-      command must include("-v error")      // Only show errors
+      val arguments = cliCommandRunner.executedCommands.head
+      val adjacentArguments = arguments.sliding(2).toList
+
+      adjacentArguments must contain(List("-frames:v", "1")) // Take only 1 frame
+      adjacentArguments must contain(List("-q:v", "2"))      // Quality setting
+      arguments must contain("-y")                           // Overwrite output
+      adjacentArguments must contain(List("-v", "error"))    // Only show errors
+
+      // Paths with spaces are passed as a single, unquoted argument since no shell is involved
+      adjacentArguments must contain(List("-i", "/videos/my video.mp4"))
+      arguments must contain("/snapshots/output.png")
     }
   }
 }
