@@ -216,7 +216,7 @@ class VideoAnalysisServiceImpl[F[_]: Async: Clock, T[_]: Monad](
 
   override def videoDurationFromPath(videoPath: String): F[FiniteDuration] =
     cliCommandRunner
-      .run(s"""ffprobe -i "$videoPath" -show_entries format=duration -v quiet -print_format csv="p=0"""")
+      .run(List("ffprobe", "-i", videoPath, "-show_entries", "format=duration", "-v", "quiet", "-print_format", "csv=p=0"))
       .compile
       .string
       .flatMap { output =>

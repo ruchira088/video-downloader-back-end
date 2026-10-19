@@ -8,6 +8,7 @@ import com.ruchij.core.exceptions.CliCommandException
 import com.ruchij.core.logging.Logger
 import fs2.Stream
 
+import java.io.IOException
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
 import scala.sys.process._
@@ -16,7 +17,9 @@ class CliCommandRunnerImpl[F[_]: Async](dispatcher: Dispatcher[F]) extends CliCo
 
   private val logger = Logger[CliCommandRunnerImpl[F]]
 
-  override def run(command: String): Stream[F, String] =
+  override def run(arguments: List[String]): Stream[F, String] = {
+    val command = arguments.mkString(" ")
+
     for {
       _ <- Stream.eval(logger.info[F](s"Executing CLI command: $command"))
       queue <- Stream.eval(Queue.unbounded[F, String])
@@ -24,7 +27,7 @@ class CliCommandRunnerImpl[F[_]: Async](dispatcher: Dispatcher[F]) extends CliCo
 
       process <- Stream.eval {
         Sync[F].blocking {
-          Process(List("bash", "-c", command)).run {
+          Process(arguments).run {
             new ProcessLogger {
               override def out(output: => String): Unit =
                 dispatcher.unsafeRunAndForget(queue.offer(output))
@@ -39,6 +42,9 @@ class CliCommandRunnerImpl[F[_]: Async](dispatcher: Dispatcher[F]) extends CliCo
               override def buffer[T](f: => T): T = f
             }
           }
+        }.adaptError {
+          // Without a shell in between, a missing program surfaces as an IOException rather than a non-zero exit code
+          case ioException: IOException => CliCommandException(ioException.getMessage)
         }
       }
 
@@ -89,5 +95,6 @@ class CliCommandRunnerImpl[F[_]: Async](dispatcher: Dispatcher[F]) extends CliCo
             }
         }
     } yield line
+  }
 
 }
