@@ -30,7 +30,8 @@ class AuthenticationRoutesSpec extends AnyFlatSpec with Matchers with MockedRout
     testSecret,
     expiresAt,
     testTimestamp,
-    0
+    0,
+    testTimestamp
   )
 
   "POST /authentication/login" should "return a successful response with authentication token when credentials are valid" in runIO {
@@ -207,6 +208,33 @@ class AuthenticationRoutesSpec extends AnyFlatSpec with Matchers with MockedRout
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.Unauthorized)
+          }
+        }
+  }
+
+  it should "return Unauthorized and clear the cookie when the session was revoked by a password reset" in runIO {
+    (authenticationService.authenticate _)
+      .expects(testSecret)
+      .returns(IO.raiseError(AuthenticationException.RevokedAuthenticationToken))
+
+    ignoreHttpMetrics() *>
+      createRoutes()
+        .run(
+          Request[IO](
+            method = GET,
+            uri = uri"/authentication/user",
+            headers = org.http4s.Headers(
+              Cookie(org.http4s.RequestCookie("authentication", testSecret.value))
+            )
+          )
+        )
+        .flatMap { response =>
+          IO.delay {
+            response must haveStatus(Status.Unauthorized)
+            response must haveJson {
+              json"""{ "errorMessages": [ "Authentication token has been revoked" ] }"""
+            }
+            response.cookies.find(_.name == "authentication").map(_.content) mustBe Some("")
           }
         }
   }

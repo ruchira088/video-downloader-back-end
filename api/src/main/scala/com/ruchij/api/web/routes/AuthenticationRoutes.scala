@@ -12,6 +12,7 @@ import io.circe.generic.auto._
 import com.ruchij.core.circe.Decoders._
 import com.ruchij.core.circe.Encoders._
 import com.ruchij.api.web.middleware.Authenticator
+import com.ruchij.api.web.responses.AuthenticationTokenResponse
 import org.http4s.{AuthedRoutes, ContextRoutes, Response}
 import org.http4s.dsl.Http4sDsl
 
@@ -27,7 +28,8 @@ object AuthenticationRoutes {
           for {
             LoginRequest(email, password) <- contextRequest.to[LoginRequest]
             authenticationToken <- authenticationService.login(email, password)
-            response <- Created(authenticationToken).flatMap(Authenticator.addCookie[F](authenticationToken, _))
+            response <- Created(AuthenticationTokenResponse.from(authenticationToken))
+              .flatMap(Authenticator.addCookie[F](authenticationToken, _))
           } yield response
 
         case contextRequest @ DELETE -> Root / "logout" as _ =>

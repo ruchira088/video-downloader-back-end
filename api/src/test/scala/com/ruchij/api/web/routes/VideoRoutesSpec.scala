@@ -36,14 +36,16 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
     testSecret,
     expiresAt,
     testTimestamp,
-    0
+    0,
+    testTimestamp
   )
   private val adminToken = AuthenticationToken(
     ApiTestData.AdminUser.id,
     testSecret,
     expiresAt,
     testTimestamp,
-    0
+    0,
+    testTimestamp
   )
 
   private def authHeaders = org.http4s.Headers(

@@ -96,7 +96,8 @@ class AuthenticatorSpec extends AnyFlatSpec with Matchers {
       secret = Secret("test-token"),
       expiresAt = TimeUtils.instantOf(2024, 5, 15, 11, 0),
       issuedAt = TimeUtils.instantOf(2024, 5, 15, 10, 0),
-      renewals = 0L
+      renewals = 0L,
+      credentialsLastUpdatedAt = TimeUtils.instantOf(2024, 5, 15, 10, 0)
     )
     val response = Response[IO](Status.Ok)
 
@@ -119,7 +120,8 @@ class AuthenticatorSpec extends AnyFlatSpec with Matchers {
       secret = Secret("test-token"),
       expiresAt = expiryTime,
       issuedAt = TimeUtils.instantOf(2024, 5, 15, 10, 0),
-      renewals = 1L
+      renewals = 1L,
+      credentialsLastUpdatedAt = TimeUtils.instantOf(2024, 5, 15, 10, 0)
     )
     val response = Response[IO](Status.Ok)
 

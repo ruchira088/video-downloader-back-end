@@ -31,7 +31,8 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
     testSecret,
     expiresAt,
     testTimestamp,
-    0
+    0,
+    testTimestamp
   )
 
   private val testThumbnail = FileResource(
