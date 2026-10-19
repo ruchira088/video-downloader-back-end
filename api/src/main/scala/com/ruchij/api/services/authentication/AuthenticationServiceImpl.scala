@@ -71,6 +71,20 @@ class AuthenticationServiceImpl[F[_]: Async: Clock: RandomGenerator[*[_], Secret
                   }
                 }
 
+            (maybeUser, maybeCredentials) <- transaction {
+              userDao.findById(userId).product(credentialsDao.findCredentialsByUserId(userId))
+            }
+
+            // Tokens issued before the credentials were last updated (e.g. a password reset) are revoked
+            _ <- if (maybeCredentials.exists(credentials => !issuedAt.isBefore(credentials.lastUpdatedAt)))
+              Applicative[F].unit
+            else
+              keySpacedKeyValueStore
+                .remove(AuthenticationTokenKey(secret))
+                .productR(MonadThrow[F].raiseError(AuthenticationException.RevokedAuthenticationToken))
+
+            user <- OptionT.fromOption[F](maybeUser).getOrRaise(ResourceNotFoundException(s"User not found id=$userId"))
+
             authenticationToken = AuthenticationToken(
               userId,
               secret,
@@ -79,8 +93,6 @@ class AuthenticationServiceImpl[F[_]: Async: Clock: RandomGenerator[*[_], Secret
               renewals + 1
             )
             _ <- keySpacedKeyValueStore.put(AuthenticationTokenKey(secret), authenticationToken)
-
-            user <- getUserById(authenticationToken.userId)
           } yield (authenticationToken, user)
       }
       .getOrElseF[(AuthenticationToken, User)] {
