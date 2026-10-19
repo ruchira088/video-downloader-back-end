@@ -26,7 +26,23 @@ class VideoSnapshotServiceImpl[F[_]: Async: Clock: RandomGenerator[*[_], UUID]](
     snapshotDestination: String
   ): F[FileResource] =
     cliCommandRunner
-      .run(s"""ffmpeg -ss ${videoTimestamp.toSeconds} -i "$videoFileKey" -frames:v 1 -q:v 2 "$snapshotDestination" -y -v error""")
+      .run {
+        List(
+          "ffmpeg",
+          "-ss",
+          videoTimestamp.toSeconds.toString,
+          "-i",
+          videoFileKey,
+          "-frames:v",
+          "1",
+          "-q:v",
+          "2",
+          snapshotDestination,
+          "-y",
+          "-v",
+          "error"
+        )
+      }
       .compile
       .drain
       .productR {

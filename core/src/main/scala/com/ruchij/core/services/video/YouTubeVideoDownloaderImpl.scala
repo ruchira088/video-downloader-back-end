@@ -35,18 +35,15 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](
 
   private val logger = Logger[YouTubeVideoDownloaderImpl[F]]
 
-  private def ytDlp: String = {
-    val commands = List("yt-dlp", "--no-warnings") ++
+  private def ytDlp: List[String] =
+    List("yt-dlp", "--no-warnings") ++
       maybeHttpProxyConfiguration.fold[List[String]](List.empty) {
         httpProxy => List("--proxy", httpProxy.proxyUrl.renderString)
       }
 
-    commands.mkString(" ")
-  }
-
   override def videoInformation(uri: Uri): F[VideoAnalysisResult] =
     cliCommandRunner
-      .run(s"""$ytDlp "${uri.renderString}" -j""")
+      .run(ytDlp ++ List(uri.renderString, "-j"))
       .compile
       .string
       .recoverWith {
@@ -113,19 +110,19 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](
   override val supportedSites: F[Seq[String]] =
     Sync[F].defer {
       cliCommandRunner
-        .run(s"$ytDlp --list-extractors")
+        .run(ytDlp :+ "--list-extractors")
         .compile
         .toVector
         .widen[Seq[String]]
     }
 
   override val version: F[String] =
-    Sync[F].defer { cliCommandRunner.run(s"$ytDlp --version").compile.string }
+    Sync[F].defer { cliCommandRunner.run(ytDlp :+ "--version").compile.string }
 
   override def downloadVideo(uri: Uri, pathWithoutExtension: String): Stream[F, YTDownloaderProgress] =
     Stream.eval(Ref.of[F, Boolean](false)).flatMap { ref =>
       cliCommandRunner
-        .run(s"""$ytDlp -o "$pathWithoutExtension.%(ext)s" "${uri.renderString}"""")
+        .run(ytDlp ++ List("-o", s"$pathWithoutExtension.%(ext)s", uri.renderString))
         .interruptWhen {
           Timers
             .createResettableTimer(30 seconds, ref)
