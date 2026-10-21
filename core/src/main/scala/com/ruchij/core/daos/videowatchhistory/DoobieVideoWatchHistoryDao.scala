@@ -62,7 +62,7 @@ object DoobieVideoWatchHistoryDao extends VideoWatchHistoryDao[ConnectionIO] {
     (SelectQuery ++
       whereAnd(whereFragments.head, whereFragments.tail: _*) ++
       fr"""
-          ORDER BY video_watch_history.last_updated_at DESC
+          ORDER BY video_watch_history.last_updated_at DESC, video_watch_history.id DESC
             LIMIT $pageSize OFFSET ${pageNumber * pageSize}
       """)
       .query[DetailedVideoWatchHistory]
@@ -91,6 +91,7 @@ object DoobieVideoWatchHistoryDao extends VideoWatchHistoryDao[ConnectionIO] {
     sql"""
       SELECT id, user_id, video_id, created_at, last_updated_at, duration_in_ms
         FROM video_watch_history WHERE user_id = $userId AND video_id = $videoId AND last_updated_at > $timestamp
+        ORDER BY last_updated_at DESC, id DESC
         LIMIT 1
     """
       .query[VideoWatchHistory]
