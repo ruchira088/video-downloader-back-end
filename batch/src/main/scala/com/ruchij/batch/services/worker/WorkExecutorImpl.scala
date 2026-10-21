@@ -3,7 +3,7 @@ package com.ruchij.batch.services.worker
 import cats.data.OptionT
 import cats.effect.kernel.Deferred
 import cats.effect.kernel.Resource.ExitCase
-import cats.effect.{Async, Resource}
+import cats.effect.{Async, Ref, Resource, Temporal}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, ~>}
 import com.ruchij.batch.daos.workers.WorkerDao
@@ -12,6 +12,7 @@ import com.ruchij.batch.services.enrichment.VideoEnrichmentService
 import com.ruchij.batch.services.scheduler.Scheduler.PausedVideoDownload
 import com.ruchij.batch.services.scheduling.BatchSchedulingService
 import com.ruchij.batch.services.video.BatchVideoService
+import com.ruchij.batch.services.worker.WorkExecutorImpl.HeartBeatPeriod
 import com.ruchij.batch.utils.Constants
 import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.resource.FileResourceDao
@@ -27,10 +28,10 @@ import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.services.video.models.YTDownloaderProgress
 import com.ruchij.core.services.video.{VideoAnalysisService, YouTubeVideoDownloader}
 import com.ruchij.core.types.Clock
-import fs2.Stream
 import fs2.concurrent.{SignallingRef, Topic}
+import fs2.{Pipe, Stream}
 
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.language.postfixOps
 
 class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
@@ -112,7 +113,7 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
                       }
                       .concurrently {
                         progressStream
-                          .debounce(10 seconds)
+                          .through(WorkExecutorImpl.sampleLatest(10 seconds, repeatUnchanged = false))
                           .evalMap { progress =>
                             transaction {
                               videoMetadataDao.update(
@@ -232,16 +233,11 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
     download(scheduledVideoDownload)
       .use {
         case (data, fileResourceF) =>
+          // The published progress is what refreshes last_updated_at, and a download that is not refreshed for 2
+          // minutes is marked as stale. The latest progress is therefore republished even while the downloader is
+          // quiet, such as while yt-dlp merges the downloaded formats.
           data
-            .concurrently {
-              Stream.fixedRate[F](30 seconds).evalMap { _ =>
-                Clock[F].timestamp.flatMap { timestamp =>
-                  transaction(workerDao.updateHeartBeat(workerId, timestamp))
-                    .productR(Applicative[F].unit)
-                }
-              }
-            }
-            .debounce(3 seconds)
+            .through(WorkExecutorImpl.sampleLatest(3 seconds, repeatUnchanged = true))
             .evalTap { byteCount =>
               batchSchedulingService.publishDownloadProgress(scheduledVideoDownload.videoMetadata.id, byteCount)
             }
@@ -268,7 +264,40 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
             .productR(fileResourceF)
       }
 
+  /**
+    * Keeps the worker alive for as long as it is in use. A failed heartbeat is logged and tried again on the next
+    * tick, rather than silently ending the heartbeats.
+    */
+  private def heartBeats(worker: Worker): Stream[F, Unit] =
+    worker.owner.fold[Stream[F, Unit]](Stream.exec(logger.warn[F](s"Worker ${worker.id} has no owner"))) { owner =>
+      Stream.fixedRate[F](HeartBeatPeriod).evalMap { _ =>
+        Clock[F].timestamp
+          .flatMap { timestamp =>
+            transaction(workerDao.updateHeartBeat(worker.id, owner, timestamp))
+          }
+          .flatMap {
+            case None => logger.warn[F](s"Worker ${worker.id} is no longer owned by $owner, its heartbeat was ignored")
+            case Some(_) => Applicative[F].unit
+          }
+          .handleErrorWith { throwable =>
+            logger.error[F](s"Unable to update the heartbeat of worker ${worker.id}", throwable)
+          }
+      }
+    }
+
+  // The heartbeat runs for the whole execution, including the probing and snapshots after the download, so that the
+  // worker is not freed as stale and claimed by another instance while it is still in use
   override def execute(
+    scheduledVideoDownload: ScheduledVideoDownload,
+    worker: Worker,
+    interrupt: Stream[F, Boolean],
+    retries: Int
+  ): F[Video] =
+    Async[F].background(heartBeats(worker).compile.drain).surround {
+      executeTask(scheduledVideoDownload, worker, interrupt, retries)
+    }
+
+  private def executeTask(
     scheduledVideoDownload: ScheduledVideoDownload,
     worker: Worker,
     interrupt: Stream[F, Boolean],
@@ -291,7 +320,7 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
                 .warn[F](
                   s"Worker ${worker.id} invalidly deemed as complete: ${scheduledVideoDownload.videoMetadata.url}"
                 )
-                .productR(execute(scheduledVideoDownload, worker, interrupt, retries - 1))
+                .productR(executeTask(scheduledVideoDownload, worker, interrupt, retries - 1))
             else
               batchSchedulingService
                 .updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Downloaded)
@@ -344,4 +373,37 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
                 }
           }
       }
+}
+
+object WorkExecutorImpl {
+  private val HeartBeatPeriod: FiniteDuration = 30 seconds
+
+  /**
+    * Emits the latest value of the stream once every `period`, and the last value when the stream ends.
+    *
+    * With `repeatUnchanged`, the latest value is emitted on every tick even if the stream has not emitted since the
+    * previous tick, so that a quiet stream still produces a value at least once every `period`.
+    */
+  private[worker] def sampleLatest[F[_]: Temporal, A](period: FiniteDuration, repeatUnchanged: Boolean): Pipe[F, A, A] =
+    source =>
+      for {
+        // The latest value and whether it has changed since it was last emitted
+        latest <- Stream.eval(Ref.of[F, (Option[A], Boolean)]((None, false)))
+        sourceCompleted <- Stream.eval(SignallingRef[F, Boolean](false))
+
+        takeLatest = (emitUnchanged: Boolean) =>
+          latest.modify {
+            case (value, changed) => ((value, false), if (changed || emitUnchanged) value else None)
+          }
+
+        value <- Stream
+          .fixedRate[F](period)
+          .evalMap(_ => takeLatest(repeatUnchanged))
+          .unNone
+          .interruptWhen(sourceCompleted)
+          .append(Stream.eval(takeLatest(false)).unNone)
+          .concurrently {
+            source.foreach(value => latest.set((Some(value), true))) ++ Stream.exec(sourceCompleted.set(true))
+          }
+      } yield value
 }

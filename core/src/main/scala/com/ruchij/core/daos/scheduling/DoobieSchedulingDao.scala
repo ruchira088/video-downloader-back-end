@@ -111,19 +111,30 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
   ): ConnectionIO[Seq[ScheduledVideoDownload]] =
     sql"SELECT video_metadata_id FROM scheduled_video WHERE status = $from"
       .query[String]
-      .to[Seq]
-      .flatMap { ids =>
-        ids.headOption.fold[ConnectionIO[Seq[ScheduledVideoDownload]]](Applicative[ConnectionIO].pure(Seq.empty)) {
-          head =>
-            val nonEmptyListIds = NonEmptyList(head, ids.tail.toList)
+      .to[List]
+      .flatMap(ids => transitionSchedulingStatus(ids, from, to))
 
-            (fr"UPDATE scheduled_video SET status = $to" ++ fr"WHERE" ++ in(fr"video_metadata_id", nonEmptyListIds)).update.run
-              .productR {
-                (SelectQuery ++ fr"WHERE" ++ in(fr"scheduled_video.video_metadata_id", nonEmptyListIds))
-                  .query[ScheduledVideoDownload]
-                  .to[Seq]
-              }
-        }
+  private[daos] def transitionSchedulingStatus(
+    ids: List[String],
+    from: SchedulingStatus,
+    to: SchedulingStatus
+  ): ConnectionIO[Seq[ScheduledVideoDownload]] =
+    // The status is checked again, as the row can change between the SELECT and the UPDATE. Updating the rows one
+    // by one tells which of them actually changed, so only those are returned.
+    ids
+      .filterA { id =>
+        sql"UPDATE scheduled_video SET status = $to WHERE video_metadata_id = $id AND status = $from".update.run
+          .map(_ == 1)
+      }
+      .flatMap(findByIds)
+
+  private def findByIds(ids: List[String]): ConnectionIO[Seq[ScheduledVideoDownload]] =
+    NonEmptyList
+      .fromList(ids)
+      .fold[ConnectionIO[Seq[ScheduledVideoDownload]]](Applicative[ConnectionIO].pure(Seq.empty)) { nonEmptyIds =>
+        (SelectQuery ++ fr"WHERE" ++ in(fr"scheduled_video.video_metadata_id", nonEmptyIds))
+          .query[ScheduledVideoDownload]
+          .to[Seq]
       }
 
   override def updateDownloadProgress(
@@ -280,34 +291,37 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
     timeout: FiniteDuration,
     timestamp: Instant
   ): ConnectionIO[Seq[ScheduledVideoDownload]] =
-    sql"""
-        SELECT video_metadata_id FROM scheduled_video
-          WHERE completed_at IS NULL
-            AND status IN (${SchedulingStatus.Active}, ${SchedulingStatus.Acquired})
-            AND last_updated_at < ${timestamp.minusMillis(timeout.toMillis)}
-            ORDER BY scheduled_at ASC
-      """
+    (fr"SELECT video_metadata_id FROM scheduled_video WHERE" ++ timedOutCondition(timeout, timestamp) ++
+      fr"ORDER BY scheduled_at ASC")
       .query[String]
       .to[List]
-      .map(NonEmptyList.fromList)
-      .flatMap {
-        case None => Applicative[ConnectionIO].pure(Seq.empty)
+      .flatMap(ids => markTimedOutTasksAsStale(ids, timeout, timestamp))
 
-        case Some(videoMetadataIds) =>
-          (fr"""
-              UPDATE scheduled_video
-                SET
-                  status = ${SchedulingStatus.Stale},
-                  last_updated_at = $timestamp,
-                  error_id = NULL
-                WHERE
-            """ ++ in(fr"video_metadata_id", videoMetadataIds)).update.run
-            .productR {
-              (SelectQuery ++ fr"WHERE" ++ in(fr"scheduled_video.video_metadata_id", videoMetadataIds))
-                .query[ScheduledVideoDownload]
-                .to[Seq]
-            }
+  private def timedOutCondition(timeout: FiniteDuration, timestamp: Instant): Fragment =
+    fr"""
+      completed_at IS NULL
+        AND status IN (${SchedulingStatus.Active}, ${SchedulingStatus.Acquired})
+        AND last_updated_at < ${timestamp.minusMillis(timeout.toMillis)}
+    """
+
+  // The timed out condition is checked again, as a download can complete or make progress between the SELECT and the
+  // UPDATE. Updating the rows one by one tells which of them actually changed, so only those are returned.
+  private[daos] def markTimedOutTasksAsStale(
+    ids: List[String],
+    timeout: FiniteDuration,
+    timestamp: Instant
+  ): ConnectionIO[Seq[ScheduledVideoDownload]] =
+    ids
+      .filterA { id =>
+        (fr"""
+            UPDATE scheduled_video
+              SET
+                status = ${SchedulingStatus.Stale},
+                last_updated_at = $timestamp,
+                error_id = NULL
+              WHERE video_metadata_id = $id AND""" ++ timedOutCondition(timeout, timestamp)).update.run.map(_ == 1)
       }
+      .flatMap(findByIds)
 
   override def acquireTask(timestamp: Instant): ConnectionIO[Option[ScheduledVideoDownload]] =
     sql"""

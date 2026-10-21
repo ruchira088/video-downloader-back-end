@@ -222,7 +222,7 @@ class DoobieWorkerDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
     for {
       _ <- fixture.transaction(fixture.workerDao.insert(worker))
 
-      maybeReleasedWorker <- fixture.transaction(fixture.workerDao.releaseWorker("worker-01"))
+      maybeReleasedWorker <- fixture.transaction(fixture.workerDao.releaseWorker("worker-01", "owner-1"))
       _ <- IO.delay {
         maybeReleasedWorker mustBe defined
         maybeReleasedWorker.value.status mustBe WorkerStatus.Available
@@ -234,14 +234,37 @@ class DoobieWorkerDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
     } yield ()
   }
 
+  it should "not release a worker that has been claimed by another owner" in runTest { fixture =>
+    for {
+      _ <- fixture.transaction(insertScheduledVideo("video-1", fixture.timestamp))
+      _ <- fixture.transaction(fixture.workerDao.insert(Worker("worker-01", WorkerStatus.Available, None, None, None, None)))
+
+      // The worker was freed as stale while owner-1 was still using it, and owner-2 claimed it
+      _ <- fixture.transaction(fixture.workerDao.reserveWorker("worker-01", "owner-2", fixture.timestamp))
+      _ <- fixture.transaction(fixture.workerDao.assignTask("worker-01", "video-1", "owner-2", fixture.timestamp))
+
+      maybeReleasedWorker <- fixture.transaction(fixture.workerDao.releaseWorker("worker-01", "owner-1"))
+      maybeWorker <- fixture.transaction(fixture.workerDao.getById("worker-01"))
+
+      _ <- IO.delay {
+        maybeReleasedWorker mustBe None
+
+        maybeWorker.value.status mustBe WorkerStatus.Active
+        maybeWorker.value.owner mustBe Some("owner-2")
+        maybeWorker.value.scheduledVideoDownload.map(_.videoMetadata.id) mustBe Some("video-1")
+      }
+    } yield ()
+  }
+
   "updateHeartBeat" should "update worker heartbeat timestamp" in runTest { fixture =>
-    val worker = Worker("worker-01", WorkerStatus.Active, Some(fixture.timestamp), Some(fixture.timestamp), None, None)
+    val worker =
+      Worker("worker-01", WorkerStatus.Active, Some(fixture.timestamp), Some(fixture.timestamp), None, Some("owner-1"))
 
     for {
       _ <- fixture.transaction(fixture.workerDao.insert(worker))
 
       newTimestamp = fixture.timestamp.plusMillis(java.time.Duration.ofMinutes(1).toMillis)
-      maybeUpdatedWorker <- fixture.transaction(fixture.workerDao.updateHeartBeat("worker-01", newTimestamp))
+      maybeUpdatedWorker <- fixture.transaction(fixture.workerDao.updateHeartBeat("worker-01", "owner-1", newTimestamp))
       _ <- IO.delay {
         maybeUpdatedWorker mustBe defined
         // Note: heartBeatAt and taskAssignedAt are swapped in getById due to parameter order in Worker constructor
@@ -253,8 +276,28 @@ class DoobieWorkerDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
 
   it should "return None for non-existent worker" in runTest { fixture =>
     for {
-      maybeUpdatedWorker <- fixture.transaction(fixture.workerDao.updateHeartBeat("non-existent", fixture.timestamp))
+      maybeUpdatedWorker <-
+        fixture.transaction(fixture.workerDao.updateHeartBeat("non-existent", "owner-1", fixture.timestamp))
       _ <- IO.delay { maybeUpdatedWorker mustBe None }
+    } yield ()
+  }
+
+  it should "not update the heartbeat of a worker that is not owned by the owner" in runTest { fixture =>
+    // The workers were paused by an admin, which removes the owner while the download is still winding down
+    val pausedWorker = Worker("worker-01", WorkerStatus.Paused, None, None, None, None)
+
+    for {
+      _ <- fixture.transaction(fixture.workerDao.insert(pausedWorker))
+
+      maybeUpdatedWorker <- fixture.transaction(fixture.workerDao.updateHeartBeat("worker-01", "owner-1", fixture.timestamp))
+      heartBeatAt <- fixture.transaction(sql"SELECT heart_beat_at FROM worker WHERE id = 'worker-01'".query[Option[Instant]].unique)
+
+      _ <- IO.delay {
+        maybeUpdatedWorker mustBe None
+
+        // A heartbeat on a paused worker would let the stale worker clean up turn it back into an available worker
+        heartBeatAt mustBe None
+      }
     } yield ()
   }
 
@@ -294,6 +337,24 @@ class DoobieWorkerDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
     } yield ()
   }
 
+  it should "not bring a deleted worker back" in runTest { fixture =>
+    val staleTimestamp = fixture.timestamp.minus(java.time.Duration.ofHours(1))
+    val deletedWorker = Worker("worker-01", WorkerStatus.Deleted, Some(staleTimestamp), Some(staleTimestamp), None, None)
+
+    for {
+      _ <- fixture.transaction(fixture.workerDao.insert(deletedWorker))
+
+      staleWorkers <-
+        fixture.transaction(fixture.workerDao.cleanUpStaleWorkers(fixture.timestamp.minus(java.time.Duration.ofMinutes(5))))
+      maybeWorker <- fixture.transaction(fixture.workerDao.getById("worker-01"))
+
+      _ <- IO.delay {
+        staleWorkers mustBe empty
+        maybeWorker.value.status mustBe WorkerStatus.Deleted
+      }
+    } yield ()
+  }
+
   it should "return empty sequence when no stale workers" in runTest { fixture =>
     val activeWorker = Worker("worker-01", WorkerStatus.Active, Some(fixture.timestamp), Some(fixture.timestamp), None, None)
 
@@ -319,6 +380,50 @@ class DoobieWorkerDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
         updatedWorkers.forall(_.status == WorkerStatus.Paused) mustBe true
         updatedWorkers.forall(_.owner.isEmpty) mustBe true
         updatedWorkers.forall(_.taskAssignedAt.isEmpty) mustBe true
+      }
+    } yield ()
+  }
+
+  it should "not bring a deleted worker back when pausing and resuming the workers" in runTest { fixture =>
+    for {
+      _ <- fixture.transaction(fixture.workerDao.insert(Worker("worker-01", WorkerStatus.Available, None, None, None, None)))
+      _ <- fixture.transaction(fixture.workerDao.insert(Worker("worker-02", WorkerStatus.Deleted, None, None, None, None)))
+
+      pausedWorkers <- fixture.transaction(fixture.workerDao.updateWorkerStatuses(WorkerStatus.Paused))
+      _ <- IO.delay {
+        pausedWorkers.map(worker => worker.id -> worker.status).toMap mustBe
+          Map("worker-01" -> WorkerStatus.Paused, "worker-02" -> WorkerStatus.Deleted)
+      }
+
+      resumedWorkers <- fixture.transaction(fixture.workerDao.updateWorkerStatuses(WorkerStatus.Available))
+      _ <- IO.delay {
+        resumedWorkers.map(worker => worker.id -> worker.status).toMap mustBe
+          Map("worker-01" -> WorkerStatus.Available, "worker-02" -> WorkerStatus.Deleted)
+      }
+    } yield ()
+  }
+
+  it should "only resume paused workers, leaving the workers claimed since then alone" in runTest { fixture =>
+    for {
+      _ <- fixture.transaction(insertScheduledVideo("video-1", fixture.timestamp))
+      _ <- fixture.transaction(fixture.workerDao.insert(Worker("worker-01", WorkerStatus.Available, None, None, None, None)))
+      _ <- fixture.transaction(fixture.workerDao.insert(Worker("worker-02", WorkerStatus.Available, None, None, None, None)))
+
+      // Each instance applies the resume message, so a late instance applies it after another one claimed a worker
+      _ <- fixture.transaction(fixture.workerDao.updateWorkerStatuses(WorkerStatus.Paused))
+      _ <- fixture.transaction(fixture.workerDao.updateWorkerStatuses(WorkerStatus.Available))
+      _ <- fixture.transaction(fixture.workerDao.reserveWorker("worker-01", "owner-1", fixture.timestamp))
+      _ <- fixture.transaction(fixture.workerDao.assignTask("worker-01", "video-1", "owner-1", fixture.timestamp))
+
+      resumedWorkers <- fixture.transaction(fixture.workerDao.updateWorkerStatuses(WorkerStatus.Available))
+      workersById = resumedWorkers.map(worker => worker.id -> worker).toMap
+
+      _ <- IO.delay {
+        workersById("worker-01").status mustBe WorkerStatus.Active
+        workersById("worker-01").owner mustBe Some("owner-1")
+        workersById("worker-01").scheduledVideoDownload.map(_.videoMetadata.id) mustBe Some("video-1")
+
+        workersById("worker-02").status mustBe WorkerStatus.Available
       }
     } yield ()
   }

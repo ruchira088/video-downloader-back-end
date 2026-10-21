@@ -19,9 +19,9 @@ trait WorkerDao[F[_]] {
 
   def assignTask(workerId: String, scheduledVideoId: String, owner: String, timestamp: Instant): F[Option[Worker]]
 
-  def releaseWorker(workerId: String): F[Option[Worker]]
+  def releaseWorker(workerId: String, owner: String): F[Option[Worker]]
 
-  def updateHeartBeat(workerId: String, timestamp: Instant): F[Option[Worker]]
+  def updateHeartBeat(workerId: String, owner: String, timestamp: Instant): F[Option[Worker]]
 
   def cleanUpStaleWorkers(heartBeatBefore: Instant): F[Seq[Worker]]
 

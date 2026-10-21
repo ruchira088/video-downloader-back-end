@@ -1,16 +1,19 @@
 package com.ruchij.batch.services.worker
 
 import cats.arrow.FunctionK
+import cats.effect.testkit.TestControl
 import cats.effect.{IO, Ref}
 import cats.~>
 import com.ruchij.batch.daos.workers.WorkerDao
 import com.ruchij.batch.daos.workers.models.Worker
+import com.ruchij.batch.services.enrichment.VideoEnrichmentService
 import com.ruchij.batch.services.scheduler.Scheduler.PausedVideoDownload
 import com.ruchij.batch.test.stubs.BatchStubs._
 import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.models.SchedulingStatus
+import com.ruchij.core.daos.snapshot.models.Snapshot
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata}
@@ -57,13 +60,13 @@ class WorkExecutorImplSpec extends AnyFlatSpec with Matchers {
   private val video =
     Video(videoMetadata, FileResource("spankbang-abc", timestamp, "/videos/abc.mp4", MediaType.video.mp4, 5_000), timestamp, 0.seconds)
 
-  private val worker = Worker("worker-00", WorkerStatus.Active, None, None, None, None)
+  private val worker = Worker("worker-00", WorkerStatus.Active, None, None, None, Some("test-owner"))
 
   private implicit val identityTransaction: IO ~> IO = FunctionK.id[IO]
 
   private implicit val clock: Clock[IO] = com.ruchij.core.test.Providers.stubClock[IO](timestamp)
 
-  private class RecordingWorkerDao(val heartBeats: Ref[IO, List[Instant]]) extends WorkerDao[IO] {
+  private class RecordingWorkerDao(val heartBeats: Ref[IO, List[(String, Instant)]]) extends WorkerDao[IO] {
     private def notImplemented[A]: IO[A] = IO.raiseError(new NotImplementedError("Not used by WorkExecutorImpl"))
 
     override val idleWorker: IO[Option[Worker]] = notImplemented
@@ -74,9 +77,9 @@ class WorkExecutorImplSpec extends AnyFlatSpec with Matchers {
     override def reserveWorker(workerId: String, owner: String, timestamp: Instant): IO[Option[Worker]] = notImplemented
     override def assignTask(workerId: String, scheduledVideoId: String, owner: String, timestamp: Instant): IO[Option[Worker]] =
       notImplemented
-    override def releaseWorker(workerId: String): IO[Option[Worker]] = notImplemented
-    override def updateHeartBeat(workerId: String, timestamp: Instant): IO[Option[Worker]] =
-      heartBeats.update(_ :+ timestamp).as(Some(worker))
+    override def releaseWorker(workerId: String, owner: String): IO[Option[Worker]] = notImplemented
+    override def updateHeartBeat(workerId: String, owner: String, timestamp: Instant): IO[Option[Worker]] =
+      heartBeats.update(_ :+ (owner -> timestamp)).as(Some(worker))
     override def cleanUpStaleWorkers(heartBeatBefore: Instant): IO[Seq[Worker]] = notImplemented
     override def updateWorkerStatuses(workerStatus: WorkerStatus): IO[Seq[Worker]] = notImplemented
     override def clearScheduledVideoDownload(scheduledVideoDownloadId: String): IO[Int] = notImplemented
@@ -103,7 +106,8 @@ class WorkExecutorImplSpec extends AnyFlatSpec with Matchers {
   private def createWorkExecutor(
     downloadData: Stream[IO, Long],
     batchSchedulingService: StubBatchSchedulingService,
-    workerDao: WorkerDao[IO]
+    workerDao: WorkerDao[IO],
+    videoEnrichmentService: VideoEnrichmentService[IO] = new StubVideoEnrichmentService(timestamp)
   ): WorkExecutorImpl[IO, IO] =
     new WorkExecutorImpl[IO, IO](
       new NoOpFileResourceDao,
@@ -123,14 +127,14 @@ class WorkExecutorImplSpec extends AnyFlatSpec with Matchers {
         )
       ),
       new StubYouTubeVideoDownloader(),
-      new StubVideoEnrichmentService(timestamp),
+      videoEnrichmentService,
       StorageConfiguration("/videos", "/images", List.empty)
     )
 
   "execute" should "fail with PausedVideoDownload and leave the download incomplete when the interrupt fires" in runIO {
     for {
       batchSchedulingService <- StubBatchSchedulingService.create(scheduledVideoDownload)
-      heartBeats <- Ref.of[IO, List[Instant]](List.empty)
+      heartBeats <- Ref.of[IO, List[(String, Instant)]](List.empty)
 
       // A download that would run forever if it were not interrupted
       neverEndingDownload = Stream.awakeEvery[IO](50.millis).zipWithIndex.map { case (_, index) => index + 1 }
@@ -152,7 +156,7 @@ class WorkExecutorImplSpec extends AnyFlatSpec with Matchers {
   it should "mark the download as downloaded and complete it when the data stream finishes" in runIO {
     for {
       batchSchedulingService <- StubBatchSchedulingService.create(scheduledVideoDownload)
-      heartBeats <- Ref.of[IO, List[Instant]](List.empty)
+      heartBeats <- Ref.of[IO, List[(String, Instant)]](List.empty)
 
       workExecutor =
         createWorkExecutor(Stream.emits[IO, Long](List(1_000, 2_500, 5_000)), batchSchedulingService, new RecordingWorkerDao(heartBeats))
@@ -166,6 +170,121 @@ class WorkExecutorImplSpec extends AnyFlatSpec with Matchers {
       statusUpdates mustBe List(videoMetadata.id -> SchedulingStatus.Downloaded)
       completedIds mustBe List(videoMetadata.id)
       progressUpdates.map(_.bytes) must contain(5_000L)
+    }
+  }
+
+  /** Runs a download under TestControl and returns when, since the start, each download progress was published. */
+  private def publishedProgress(downloadData: Stream[IO, Long]): IO[List[(FiniteDuration, Long)]] = {
+    val test =
+      for {
+        timedProgressUpdates <- Ref.of[IO, List[(FiniteDuration, Long)]](List.empty)
+        heartBeats <- Ref.of[IO, List[(String, Instant)]](List.empty)
+        stubBatchSchedulingService <- StubBatchSchedulingService.create(scheduledVideoDownload)
+
+        batchSchedulingService = new StubBatchSchedulingService(
+          scheduledVideoDownload,
+          stubBatchSchedulingService.statusUpdates,
+          stubBatchSchedulingService.completedIds,
+          stubBatchSchedulingService.progressUpdates
+        ) {
+          override def publishDownloadProgress(id: String, downloadedBytes: Long): IO[Unit] =
+            IO.monotonic.flatMap(time => timedProgressUpdates.update(_ :+ (time -> downloadedBytes)))
+        }
+
+        workExecutor = createWorkExecutor(downloadData, batchSchedulingService, new RecordingWorkerDao(heartBeats))
+
+        start <- IO.monotonic
+        // fs2 interrupts the download when the interrupt stream ends, so it never ends, as the scheduler's does not
+        _ <- workExecutor.execute(scheduledVideoDownload, worker, Stream.never[IO], retries = 0)
+        published <- timedProgressUpdates.get
+      } yield published.map { case (time, bytes) => (time - start) -> bytes }
+
+    TestControl.executeEmbed(test)
+  }
+
+  private def largestGap(published: List[(FiniteDuration, Long)]): FiniteDuration = {
+    val times = Duration.Zero :: published.map { case (time, _) => time }
+    times.zip(times.drop(1)).map { case (previous, next) => next - previous }.max
+  }
+
+  it should "publish the download progress regularly while the downloader reports progress continuously" in runIO {
+    // The HTTP download emits on every chunk and yt-dlp on every progress line, far more often than every 3 seconds
+    val continuousDownload = Stream.awakeEvery[IO](200.millis).take(300).zipWithIndex.map { case (_, index) => (index + 1) * 10 }
+
+    publishedProgress(continuousDownload).map { published =>
+      // The first progress arrives 200 milliseconds in, so allow for that on top of the 3 second period
+      largestGap(published) must be < 4.seconds
+      published.map { case (_, bytes) => bytes }.last mustBe 5_000L
+    }
+  }
+
+  it should "keep publishing the download progress while the downloader is quiet" in runIO {
+    // yt-dlp goes quiet while it merges the downloaded formats, and a download can stall for a while. The published
+    // progress refreshes last_updated_at, so without it a healthy download would be marked as stale after 2 minutes.
+    val quietDownload = Stream.emit(1_000L) ++ Stream.sleep_[IO](3.minutes) ++ Stream.emit(5_000L)
+
+    publishedProgress(quietDownload).map { published =>
+      largestGap(published) must be <= 3.seconds
+      published.map { case (_, bytes) => bytes }.distinct mustBe List(1_000L, 5_000L)
+    }
+  }
+
+  "sampleLatest" should "emit the latest value on every tick and the last value when the stream ends" in runIO {
+    val source = Stream.emits[IO, Int](List(1, 2)) ++ Stream.sleep_[IO](7.seconds) ++ Stream.emit(3)
+
+    TestControl
+      .executeEmbed(source.through(WorkExecutorImpl.sampleLatest(2.seconds, repeatUnchanged = true)).compile.toList)
+      .map { _ mustBe List(2, 2, 2, 3) }
+  }
+
+  it should "only emit changed values when the unchanged values are not repeated" in runIO {
+    val source = Stream.emits[IO, Int](List(1, 2)) ++ Stream.sleep_[IO](7.seconds) ++ Stream.emit(3)
+
+    TestControl
+      .executeEmbed(source.through(WorkExecutorImpl.sampleLatest(2.seconds, repeatUnchanged = false)).compile.toList)
+      .map { _ mustBe List(2, 3) }
+  }
+
+  it should "fail when the stream fails" in runIO {
+    val failure = new RuntimeException("Download failed")
+    val source = Stream.emit[IO, Int](1) ++ Stream.sleep_[IO](5.seconds) ++ Stream.raiseError[IO](failure)
+
+    TestControl
+      .executeEmbed(source.through(WorkExecutorImpl.sampleLatest(2.seconds, repeatUnchanged = true)).compile.toList.attempt)
+      .map { _ mustBe Left(failure) }
+  }
+
+  "execute" should "keep the worker heartbeat going after the download, while the snapshots are taken" in runIO {
+    // Taking the snapshots of a large video takes minutes, long after the data stream has finished
+    val slowVideoEnrichmentService =
+      new StubVideoEnrichmentService(timestamp) {
+        override def videoSnapshots(video: Video): IO[List[Snapshot]] = IO.sleep(3.minutes).as(List.empty)
+      }
+
+    val test =
+      for {
+        batchSchedulingService <- StubBatchSchedulingService.create(scheduledVideoDownload)
+        heartBeats <- Ref.of[IO, List[(String, Instant)]](List.empty)
+
+        workExecutor =
+          createWorkExecutor(
+            Stream.emits[IO, Long](List(1_000, 5_000)),
+            batchSchedulingService,
+            new RecordingWorkerDao(heartBeats),
+            slowVideoEnrichmentService
+          )
+
+        result <- workExecutor.execute(scheduledVideoDownload, worker, Stream.empty, retries = 0)
+        recordedHeartBeats <- heartBeats.get
+      } yield (result, recordedHeartBeats)
+
+    TestControl.executeEmbed(test).map {
+      case (result, recordedHeartBeats) =>
+        result mustBe video
+
+        // A heartbeat every 30 seconds keeps the worker from being freed as stale by another instance
+        recordedHeartBeats.size must be >= 5
+        recordedHeartBeats.map { case (owner, _) => owner }.distinct mustBe List("test-owner")
     }
   }
 }

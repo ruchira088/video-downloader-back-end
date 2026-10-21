@@ -3,6 +3,7 @@ package com.ruchij.batch.services.scheduler
 import cats.arrow.FunctionK
 import cats.data.OptionT
 import cats.effect.IO
+import cats.effect.testkit.TestControl
 import cats.{Foldable, Functor, ~>}
 import com.ruchij.batch.config.WorkerConfiguration
 import com.ruchij.batch.daos.workers.WorkerDao
@@ -21,6 +22,7 @@ import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
 import com.ruchij.core.daos.videowatchhistory.models.DetailedVideoWatchHistory
 import com.ruchij.core.daos.workers.models.WorkerStatus
+import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.messaging.Subscriber
 import com.ruchij.core.messaging.models.VideoWatchMetric
 import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
@@ -189,6 +191,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     var workers: List[Worker] = List.empty
     var reservedWorkers: List[String] = List.empty
     var releasedWorkers: List[String] = List.empty
+    var releasedByOwners: List[String] = List.empty
     var assignedTasks: List[(String, String)] = List.empty
     var statusUpdates: List[(String, WorkerStatus)] = List.empty
     var allStatusUpdates: List[WorkerStatus] = List.empty
@@ -211,8 +214,9 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
       IO.pure(workers.find(_.id == workerId))
     }
 
-    override def releaseWorker(workerId: String): IO[Option[Worker]] = {
+    override def releaseWorker(workerId: String, owner: String): IO[Option[Worker]] = {
       releasedWorkers = releasedWorkers :+ workerId
+      releasedByOwners = releasedByOwners :+ owner
       IO.pure(workers.find(_.id == workerId))
     }
 
@@ -239,7 +243,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
       IO.pure(cleanedUpWorkers)
     }
 
-    override def updateHeartBeat(workerId: String, timestamp: Instant): IO[Option[Worker]] = {
+    override def updateHeartBeat(workerId: String, owner: String, timestamp: Instant): IO[Option[Worker]] = {
       heartbeatUpdates = heartbeatUpdates :+ (workerId, timestamp)
       IO.pure(workers.find(_.id == workerId))
     }
@@ -476,17 +480,21 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     workerConfiguration: WorkerConfiguration = createWorkerConfiguration(),
     maybeMessageTransaction: Option[IO ~> IO] = None,
     batchSchedulingService: StubBatchSchedulingService = new StubBatchSchedulingService(),
-    workExecutor: StubWorkExecutor = new StubWorkExecutor()
+    workExecutor: StubWorkExecutor = new StubWorkExecutor(),
+    synchronizationService: SynchronizationService[IO] = new StubSynchronizationService,
+    batchVideoService: BatchVideoService[IO] = new StubBatchVideoService,
+    videoWatchMetricsSubscriber: Subscriber[IO, VideoWatchMetric] = new StubVideoWatchMetricsSubscriber,
+    scanForVideosCommandSubscriber: Subscriber[IO, ScanVideosCommand] = new StubScanForVideosCommandSubscriber
   )(implicit clock: Clock[IO]): SchedulerImpl[IO, IO] = {
     new SchedulerImpl[IO, IO](
       batchSchedulingService = batchSchedulingService,
-      synchronizationService = new StubSynchronizationService,
-      batchVideoService = new StubBatchVideoService,
+      synchronizationService = synchronizationService,
+      batchVideoService = batchVideoService,
       videoWatchHistoryService = new StubVideoWatchHistoryService,
       workExecutor = workExecutor,
       duplicateDetectionService = new StubBatchDuplicateDetectionService,
-      videoWatchMetricsSubscriber = new StubVideoWatchMetricsSubscriber,
-      scanForVideosCommandSubscriber = new StubScanForVideosCommandSubscriber,
+      videoWatchMetricsSubscriber = videoWatchMetricsSubscriber,
+      scanForVideosCommandSubscriber = scanForVideosCommandSubscriber,
       workerDao = workerDao,
       messageDao = new StubMessageDao,
       maybeMessageTransaction = maybeMessageTransaction,
@@ -714,6 +722,8 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
       workerDao.reservedWorkers must contain("worker-00")
       workerDao.assignedTasks must contain(("worker-00", task.videoMetadata.id))
       workerDao.releasedWorkers must contain("worker-00")
+      // The worker is only released if this instance still owns it
+      workerDao.releasedByOwners.distinct mustBe List("test-owner")
       batchSchedulingService.publishedIds must contain(task.videoMetadata.id)
       workExecutor.executedTasks mustBe List(task)
     }
@@ -780,6 +790,190 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
       batchSchedulingService.bulkStatusUpdates must contain((SchedulingStatus.Active, SchedulingStatus.WorkersPaused))
       workerDao.allStatusUpdates must contain(WorkerStatus.Paused)
       workerDao.releasedWorkers must contain("worker-00")
+    }
+  }
+
+  it should "still emit the downloaded video when another instance has taken over the worker" in runIO {
+    implicit val clock: Clock[IO] = defaultClock
+
+    val task = createScheduledVideoDownload("taken-over-task")
+    val video = createTestVideo("taken-over-task")
+
+    // The worker was freed as stale and claimed by another instance, so it is no longer released by this instance
+    val workerDao = new StubWorkerDao {
+      override def releaseWorker(workerId: String, owner: String): IO[Option[Worker]] =
+        super.releaseWorker(workerId, owner).as(None)
+    }
+    workerDao.workers = List(availableWorker())
+
+    val batchSchedulingService = new StubBatchSchedulingService()
+    batchSchedulingService.acquiredTasks = List(task)
+
+    val scheduler =
+      createScheduler(
+        workerDao,
+        createWorkerConfiguration(maxConcurrentDownloads = 1),
+        batchSchedulingService = batchSchedulingService,
+        workExecutor = new StubWorkExecutor((_, _) => IO.pure(video))
+      )
+
+    TestControl.executeEmbed(scheduler.run.head.interruptAfter(30.seconds).compile.toList).map { downloaded =>
+      downloaded mustBe List(video)
+    }
+  }
+
+  private val transientFailure = new RuntimeException("Connection to the database was lost")
+
+  /** Fails the first `failures` evaluations of `success`, then succeeds. */
+  private class FlakyCall(failures: Int) {
+    @volatile var calls: Int = 0
+
+    def apply[A](success: => IO[A]): IO[A] =
+      IO.defer {
+        calls += 1
+        if (calls <= failures) IO.raiseError(transientFailure) else success
+      }
+  }
+
+  "SchedulerImpl.run" should "keep cleaning up stale workers and timed out downloads after a failure" in runIO {
+    implicit val clock: Clock[IO] = defaultClock
+
+    val flakyCleanUp = new FlakyCall(failures = 1)
+    val flakyTimedOutTasks = new FlakyCall(failures = 1)
+
+    val workerDao = new StubWorkerDao {
+      override def cleanUpStaleWorkers(threshold: Instant): IO[Seq[Worker]] =
+        flakyCleanUp(super.cleanUpStaleWorkers(threshold))
+    }
+
+    val batchSchedulingService = new StubBatchSchedulingService() {
+      override def updateTimedOutTasks(timeout: FiniteDuration): IO[Seq[ScheduledVideoDownload]] =
+        flakyTimedOutTasks(super.updateTimedOutTasks(timeout))
+    }
+
+    val scheduler = createScheduler(workerDao, batchSchedulingService = batchSchedulingService)
+
+    TestControl.executeEmbed(scheduler.run.interruptAfter(3.minutes).compile.drain.attempt).map { result =>
+      result mustBe Right((): Unit)
+
+      // Both tasks run every 30 seconds, so they keep running on the following ticks after the first one fails
+      flakyCleanUp.calls must be >= 5
+      flakyTimedOutTasks.calls must be >= 5
+    }
+  }
+
+  it should "keep handling scan commands and worker status updates after they fail" in runIO {
+    implicit val clock: Clock[IO] = defaultClock
+
+    val flakySync = new FlakyCall(failures = 1)
+    val flakyWorkerStatuses = new FlakyCall(failures = 1)
+
+    val synchronizationService = new StubSynchronizationService {
+      override val sync: IO[SynchronizationResult] = flakySync(IO.pure(SynchronizationResult.Zero))
+    }
+
+    val workerDao = new StubWorkerDao {
+      override def updateWorkerStatuses(status: WorkerStatus): IO[Seq[Worker]] =
+        flakyWorkerStatuses(super.updateWorkerStatuses(status))
+    }
+
+    val scanCommands = Stream.awakeEvery[IO](10.seconds).take(2).as(ScanVideosCommand(testTimestamp))
+
+    val batchSchedulingService =
+      new StubBatchSchedulingService(
+        workerStatusUpdates = Stream.awakeEvery[IO](10.seconds).take(2).as(WorkerStatusUpdate(WorkerStatus.Available))
+      )
+
+    val scheduler =
+      createScheduler(
+        workerDao,
+        batchSchedulingService = batchSchedulingService,
+        synchronizationService = synchronizationService,
+        scanForVideosCommandSubscriber = new StubScanForVideosCommandSubscriber {
+          override def subscribe(groupId: String): Stream[IO, ScanVideosCommand] = scanCommands
+        }
+      )
+
+    TestControl.executeEmbed(scheduler.run.interruptAfter(1.minute).compile.drain.attempt).map { result =>
+      result mustBe Right((): Unit)
+      flakySync.calls mustBe 2
+      flakyWorkerStatuses.calls mustBe 2
+    }
+  }
+
+  private def videoWatchMetric(videoFileResourceId: String): VideoWatchMetric =
+    VideoWatchMetric("user-id", videoFileResourceId, 0, 512, testTimestamp)
+
+  private class RecordingVideoWatchMetricsSubscriber(records: List[VideoWatchMetric])
+      extends StubVideoWatchMetricsSubscriber {
+    @volatile var committed: List[VideoWatchMetric] = List.empty
+
+    override def subscribe(groupId: String): Stream[IO, VideoWatchMetric] = Stream.emits(records) ++ Stream.never[IO]
+
+    override def commit[H[_]: Foldable: Functor](records: H[VideoWatchMetric]): IO[Unit] =
+      IO.delay { committed = committed ++ Foldable[H].toList(records) }
+  }
+
+  private class RecordingBatchVideoService(fetch: String => IO[Video]) extends StubBatchVideoService {
+    @volatile var fetchAttempts: Map[String, Int] = Map.empty
+    @volatile var watchTimeIncrements: List[String] = List.empty
+
+    override def fetchByVideoFileResourceId(fileResourceId: String): IO[Video] =
+      IO.delay {
+          fetchAttempts = fetchAttempts.updated(fileResourceId, fetchAttempts.getOrElse(fileResourceId, 0) + 1)
+        }
+        .productR(fetch(fileResourceId))
+
+    override def incrementWatchTime(videoId: String, duration: FiniteDuration): IO[FiniteDuration] =
+      IO.delay { watchTimeIncrements = watchTimeIncrements :+ videoId }.as(duration)
+  }
+
+  it should "retry a video watch metric that fails transiently before committing it" in runIO {
+    implicit val clock: Clock[IO] = defaultClock
+
+    val video = createTestVideo("watched-video")
+    val fetchVideo = new FlakyCall(failures = 2)
+
+    val batchVideoService = new RecordingBatchVideoService(_ => fetchVideo(IO.pure(video)))
+
+    val metric = videoWatchMetric(video.fileResource.id)
+    val subscriber = new RecordingVideoWatchMetricsSubscriber(List(metric))
+
+    val scheduler =
+      createScheduler(new StubWorkerDao, batchVideoService = batchVideoService, videoWatchMetricsSubscriber = subscriber)
+
+    TestControl.executeEmbed(scheduler.run.interruptAfter(2.minutes).compile.drain).map { _ =>
+      fetchVideo.calls mustBe 3
+      batchVideoService.watchTimeIncrements mustBe List(video.videoMetadata.id)
+      subscriber.committed mustBe List(metric)
+    }
+  }
+
+  it should "skip a video watch metric that keeps failing so that the later metrics are still processed" in runIO {
+    implicit val clock: Clock[IO] = defaultClock
+
+    val video = createTestVideo("watched-video")
+
+    val batchVideoService =
+      new RecordingBatchVideoService({
+        case "poison-file" => IO.raiseError(new IllegalStateException("Unable to process the metric"))
+        case "deleted-file" => IO.raiseError(ResourceNotFoundException("Video file not found"))
+        case _ => IO.pure(video)
+      })
+
+    val metrics = List(videoWatchMetric("poison-file"), videoWatchMetric("deleted-file"), videoWatchMetric("ok-file"))
+    val subscriber = new RecordingVideoWatchMetricsSubscriber(metrics)
+
+    val scheduler =
+      createScheduler(new StubWorkerDao, batchVideoService = batchVideoService, videoWatchMetricsSubscriber = subscriber)
+
+    TestControl.executeEmbed(scheduler.run.interruptAfter(2.minutes).compile.drain.attempt).map { result =>
+      result mustBe Right((): Unit)
+
+      // A failure that may be transient is retried a bounded number of times, a missing video is not retried
+      batchVideoService.fetchAttempts mustBe Map("poison-file" -> 4, "deleted-file" -> 1, "ok-file" -> 1)
+      batchVideoService.watchTimeIncrements mustBe List(video.videoMetadata.id)
+      subscriber.committed mustBe metrics
     }
   }
 }

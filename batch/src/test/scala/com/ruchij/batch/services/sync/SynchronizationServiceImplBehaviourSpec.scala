@@ -63,6 +63,9 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
   private val StorageConfig =
     StorageConfiguration(videoFolder = "/videos", imageFolder = "/images", otherVideoFolders = List("/other-videos"))
 
+  // A mounted video folder is never empty, so the deletion pass needs a file in every configured folder
+  private val PlaceholderFiles = List("/videos/placeholder.txt", "/other-videos/placeholder.txt")
+
   "sync" should "add a video file that the database does not know about" in runIO {
     val videoPath = "/videos/spankbang-abc123.mp4"
 
@@ -164,7 +167,7 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
 
   it should "delete videos whose video file no longer exists" in runIO {
     for {
-      fixture <- TestFixture.create(files = List.empty)
+      fixture <- TestFixture.create(files = PlaceholderFiles)
       _ <- fixture.insertVideo(videoId = "deleted-video", videoPath = "/videos/gone.mp4", snapshotCount = 12)
 
       result <- fixture.synchronizationService.sync
@@ -244,7 +247,7 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
     val videoPaths = (1 to 120).map(index => s"/videos/video-$index.mp4").toList
 
     for {
-      fixture <- TestFixture.create(files = List.empty)
+      fixture <- TestFixture.create(files = PlaceholderFiles)
       _ <- videoPaths.zipWithIndex.traverse {
         case (videoPath, index) =>
           fixture.insertVideo(videoId = s"video-$index", videoPath = videoPath, snapshotCount = 12)
@@ -254,6 +257,114 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
 
       // Every video is missing its file, so paging has to reach all 120 of them
       _ <- IO.delay { result.missingVideoFiles mustBe 120 }
+    } yield (): Unit
+  }
+
+  it should "not mark a file as synced when importing it fails, so that the next scan retries it" in runIO {
+    val videoPath = "/videos/flaky.mp4"
+
+    for {
+      fixture <- TestFixture.create(files = List(videoPath))
+      _ <- fixture.videoDurationError.set(Some(new RuntimeException("ffprobe failed")))
+
+      failedResult <- fixture.synchronizationService.sync
+      fileSyncs <- fixture.fileSyncs.get
+
+      _ <- IO.delay {
+        failedResult.syncErrors mustBe 1
+
+        // The lock row is removed rather than completed, otherwise the file would be treated as synced forever
+        fileSyncs.get(videoPath) mustBe None
+      }
+
+      _ <- fixture.videoDurationError.set(None)
+      retriedResult <- fixture.synchronizationService.sync
+
+      _ <- IO.delay {
+        retriedResult.syncedVideos mustBe 1
+        retriedResult.existingVideoFiles mustBe 0
+      }
+
+      completedFileSyncs <- fixture.fileSyncs.get
+      _ <- IO.delay { completedFileSyncs(videoPath).syncedAt mustBe defined }
+    } yield (): Unit
+  }
+
+  it should "skip a video whose snapshots cannot be created and carry on with the rest of the scan" in runIO {
+    for {
+      fixture <- TestFixture.create(files = List("/videos/a-broken.mp4", "/videos/b-healthy.mp4"))
+      _ <- fixture.insertVideo(videoId = "a-broken", videoPath = "/videos/a-broken.mp4", snapshotCount = 3)
+      _ <- fixture.insertVideo(videoId = "b-healthy", videoPath = "/videos/b-healthy.mp4", snapshotCount = 3)
+      _ <- fixture.failingSnapshotVideoIds.set(Set("a-broken"))
+
+      result <- fixture.synchronizationService.sync
+
+      _ <- IO.delay {
+        result.videoCountOfSnapshotsUpdated mustBe 1
+        result.syncErrors mustBe 1
+      }
+
+      enrichedVideoIds <- fixture.enrichedVideoIds.get
+      scanStatuses <- fixture.scanStatuses.get
+      _ <- IO.delay {
+        enrichedVideoIds mustBe List("b-healthy")
+        scanStatuses mustBe List(ScanStatus.InProgress, ScanStatus.Idle)
+      }
+    } yield (): Unit
+  }
+
+  it should "skip a missing video that cannot be deleted and carry on with the rest of the scan" in runIO {
+    for {
+      fixture <- TestFixture.create(files = PlaceholderFiles)
+      _ <- fixture.insertVideo(videoId = "a-undeletable", videoPath = "/videos/a-gone.mp4", snapshotCount = 12)
+      _ <- fixture.insertVideo(videoId = "b-deletable", videoPath = "/videos/b-gone.mp4", snapshotCount = 12)
+      _ <- fixture.failingDeletionVideoIds.set(Set("a-undeletable"))
+
+      result <- fixture.synchronizationService.sync.withTimeout(10.seconds)
+
+      _ <- IO.delay {
+        result.missingVideoFiles mustBe 1
+        result.syncErrors mustBe 1
+      }
+
+      videos <- fixture.videos.get
+      _ <- IO.delay { videos.keySet mustBe Set("a-undeletable") }
+    } yield (): Unit
+  }
+
+  it should "not delete any video when a configured video folder does not exist" in runIO {
+    for {
+      // The main video folder is not mounted, the other video folder is
+      fixture <- TestFixture.create(
+        files = List("/other-videos/placeholder.txt"),
+        mountedFolders = Set("/other-videos")
+      )
+      _ <- fixture.insertVideo(videoId = "unmounted-video", videoPath = "/videos/unmounted.mp4", snapshotCount = 12)
+
+      result <- fixture.synchronizationService.sync
+
+      videos <- fixture.videos.get
+      deletedVideoIds <- fixture.deletedVideoIds.get
+      _ <- IO.delay {
+        result.missingVideoFiles mustBe 0
+        videos.keySet mustBe Set("unmounted-video")
+        deletedVideoIds mustBe empty
+      }
+    } yield (): Unit
+  }
+
+  it should "not delete any video when a configured video folder is empty, like an unmounted mount point" in runIO {
+    for {
+      fixture <- TestFixture.create(files = List("/other-videos/placeholder.txt"))
+      _ <- fixture.insertVideo(videoId = "unmounted-video", videoPath = "/videos/unmounted.mp4", snapshotCount = 12)
+
+      result <- fixture.synchronizationService.sync
+
+      videos <- fixture.videos.get
+      _ <- IO.delay {
+        result.missingVideoFiles mustBe 0
+        videos.keySet mustBe Set("unmounted-video")
+      }
     } yield (): Unit
   }
 
@@ -348,7 +459,9 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
     val enrichedVideoIds: Ref[IO, List[String]],
     val scanStatuses: Ref[IO, List[ScanStatus]],
     val videoDurationError: Ref[IO, Option[Throwable]],
-    val fileTypeDetectorError: Ref[IO, Option[Throwable]]
+    val fileTypeDetectorError: Ref[IO, Option[Throwable]],
+    val failingSnapshotVideoIds: Ref[IO, Set[String]],
+    val failingDeletionVideoIds: Ref[IO, Set[String]]
   ) {
     def insertVideo(videoId: String, videoPath: String, snapshotCount: Int): IO[Unit] = {
       val thumbnail = FileResource(s"$videoId-thumbnail", Timestamp, s"/images/$videoId.jpg", MediaType.image.jpeg, 10L)
@@ -385,7 +498,8 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
     def create(
       files: List[String],
       detectedMediaType: MediaType = MediaType.video.mp4,
-      listError: Option[Throwable] = None
+      listError: Option[Throwable] = None,
+      mountedFolders: Set[String] = (StorageConfig.videoFolder :: StorageConfig.otherVideoFolders).toSet
     ): IO[TestFixture] =
       for {
         fileResources <- Ref.of[IO, Map[String, FileResource]](Map.empty)
@@ -399,8 +513,10 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
         scanStatuses <- Ref.of[IO, List[ScanStatus]](List.empty)
         videoDurationError <- Ref.of[IO, Option[Throwable]](None)
         fileTypeDetectorError <- Ref.of[IO, Option[Throwable]](None)
+        failingSnapshotVideoIds <- Ref.of[IO, Set[String]](Set.empty)
+        failingDeletionVideoIds <- Ref.of[IO, Set[String]](Set.empty)
 
-        fileRepositoryService <- fileRepository(files, listError)
+        fileRepositoryService <- fileRepository(files, listError, mountedFolders)
       } yield {
         implicit val clock: Clock[IO] = Providers.stubClock[IO](Timestamp)
         implicit val transaction: IO ~> IO = FunctionK.id[IO]
@@ -416,8 +532,8 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
             new StubFileSyncDao(fileSyncs),
             new StubVideoDao(videos),
             new StubSnapshotDao(snapshots),
-            new StubBatchVideoService(videos, videoMetadata, fileResources, deletedVideoIds),
-            new StubVideoEnrichmentService(enrichedVideoIds),
+            new StubBatchVideoService(videos, videoMetadata, fileResources, deletedVideoIds, failingDeletionVideoIds),
+            new StubVideoEnrichmentService(enrichedVideoIds, failingSnapshotVideoIds),
             new StubHashingService,
             new StubVideoAnalysisService(videoDurationError),
             sharedConfigurationService,
@@ -438,11 +554,17 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
           enrichedVideoIds,
           scanStatuses,
           videoDurationError,
-          fileTypeDetectorError
+          fileTypeDetectorError,
+          failingSnapshotVideoIds,
+          failingDeletionVideoIds
         )
       }
 
-    private def fileRepository(files: List[String], listError: Option[Throwable]): IO[FileRepository[IO, String]] =
+    private def fileRepository(
+      files: List[String],
+      listError: Option[Throwable],
+      mountedFolders: Set[String]
+    ): IO[FileRepository[IO, String]] =
       IO.delay {
         val concurrentHashMap = new ConcurrentHashMap[String, List[Byte]]()
         files.foreach(file => concurrentHashMap.put(file, List.fill(1024)(0: Byte)))
@@ -450,6 +572,10 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
         new InMemoryRepositoryService[IO](concurrentHashMap) {
           override def list(key: Key): Stream[IO, Key] =
             listError.fold(super.list(key))(throwable => Stream.raiseError[IO](throwable))
+
+          // The in-memory repository only stores files, so the folders that are mounted are reported separately
+          override def exists(key: Key): IO[Boolean] =
+            if (mountedFolders.contains(key)) IO.pure(true) else super.exists(key)
         }
       }
 
@@ -688,7 +814,8 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
     videos: Ref[IO, Map[String, Video]],
     videoMetadata: Ref[IO, Map[String, VideoMetadata]],
     fileResources: Ref[IO, Map[String, FileResource]],
-    deletedVideoIds: Ref[IO, List[(String, Boolean)]]
+    deletedVideoIds: Ref[IO, List[(String, Boolean)]],
+    failingDeletionVideoIds: Ref[IO, Set[String]]
   ) extends BatchVideoService[IO] {
     override def insert(videoMetadataKey: String, fileResourceKey: String): IO[Video] =
       for {
@@ -705,8 +832,12 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
       } yield video
 
     override def deleteById(videoId: String, deleteVideoFile: Boolean): IO[Video] =
-      deletedVideoIds
-        .update(_ :+ (videoId -> deleteVideoFile))
+      failingDeletionVideoIds.get
+        .flatMap { failingIds =>
+          if (failingIds.contains(videoId)) IO.raiseError(new RuntimeException(s"Unable to delete $videoId"))
+          else IO.unit
+        }
+        .productR(deletedVideoIds.update(_ :+ (videoId -> deleteVideoFile)))
         .productR {
           videos.modify(values => (values - videoId, values.get(videoId)))
         }
@@ -723,12 +854,18 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
     override def update(videoId: String, size: Long): IO[Video] = notImplemented
   }
 
-  private class StubVideoEnrichmentService(enrichedVideoIds: Ref[IO, List[String]])
-      extends VideoEnrichmentService[IO] {
+  private class StubVideoEnrichmentService(
+    enrichedVideoIds: Ref[IO, List[String]],
+    failingSnapshotVideoIds: Ref[IO, Set[String]]
+  ) extends VideoEnrichmentService[IO] {
     override val snapshotMediaType: MediaType = MediaType.image.jpeg
 
     override def videoSnapshots(video: Video): IO[List[Snapshot]] =
-      enrichedVideoIds.update(_ :+ video.videoMetadata.id).as(List.empty)
+      failingSnapshotVideoIds.get.flatMap { failingIds =>
+        if (failingIds.contains(video.videoMetadata.id))
+          IO.raiseError(new RuntimeException(s"ffmpeg failed for ${video.videoMetadata.id}"))
+        else enrichedVideoIds.update(_ :+ video.videoMetadata.id).as(List.empty[Snapshot])
+      }
 
     override def snapshotFileResource(
       videoPath: String,
