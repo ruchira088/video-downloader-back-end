@@ -169,7 +169,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
   ): F[Seq[ScheduledVideoDownload]] =
     if (sortBy == SortBy.WatchTime)
       ApplicativeError[F, Throwable].raiseError {
-        new IllegalArgumentException("Searching for scheduled videos by watch_time is not valid")
+        ValidationException("Searching for scheduled videos by watch_time is not valid")
       } else
       maybeVideoUrls
         .traverse(_.traverse(videoUrl => VideoSite.processUri[F](videoUrl)))

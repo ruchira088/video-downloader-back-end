@@ -491,7 +491,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
       None,
       None
     ).error.map { error =>
-      error mustBe an[IllegalArgumentException]
+      error mustBe a[ValidationException]
       error.getMessage must include("watch_time")
     }
   }

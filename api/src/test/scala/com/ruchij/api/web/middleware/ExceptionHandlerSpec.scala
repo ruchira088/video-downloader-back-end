@@ -233,13 +233,56 @@ class ExceptionHandlerSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "not return a null message for a mapped exception without a message" in runIO {
-    val handler = createHandler(new IllegalArgumentException())
+    val handler = createHandler(ValidationException(""))
 
     handler.run(contextRequest).flatMap { response =>
       errorMessages(response).map { messages =>
         response.status mustBe Status.BadRequest
         messages mustBe List(Status.BadRequest.reason)
       }
+    }
+  }
+
+  private def messagesFor(error: Throwable): IO[(Status, List[String])] =
+    createHandler(error).run(contextRequest).flatMap(response => errorMessages(response).map(response.status -> _))
+
+  it should "not expose the message of an ExternalServiceException" in runIO {
+    messagesFor(ExternalServiceException("Failed 403 Forbidden response for HEAD https://cdn.internal:8443/v.mp4"))
+      .map { result =>
+        result mustBe (Status.BadGateway -> List(ExceptionHandler.BadGatewayMessage))
+      }
+  }
+
+  it should "not expose the page content in a JSoupException" in runIO {
+    import org.jsoup.Jsoup
+    val element = Jsoup.parse("<html><body><div data-token='secret'></div></body></html>").body()
+
+    messagesFor(JSoupException.TextNotFoundInElementException(element)).map { result =>
+      result mustBe (Status.BadGateway -> List(ExceptionHandler.BadGatewayMessage))
+    }
+  }
+
+  it should "not expose the message of an IllegalArgumentException" in runIO {
+    messagesFor(new IllegalArgumentException("Key contains extra terms: auth-token-abc")).map { result =>
+      result mustBe (Status.BadRequest -> List(ExceptionHandler.BadRequestMessage))
+    }
+  }
+
+  it should "not expose the details of a message body failure" in runIO {
+    messagesFor(InvalidMessageBodyFailure("Could not decode JSON: { 'upstream': 'internal' }")).map { result =>
+      result mustBe (Status.BadRequest -> List(ExceptionHandler.BadRequestMessage))
+    }
+  }
+
+  it should "return the sanitized message of a ParseFailure" in runIO {
+    messagesFor(ParseFailure("X-Request-ID header value is empty", "internal details")).map { result =>
+      result mustBe (Status.BadRequest -> List("X-Request-ID header value is empty"))
+    }
+  }
+
+  it should "keep the message of a ValidationException" in runIO {
+    messagesFor(ValidationException("Invalid status value: Active")).map { result =>
+      result mustBe (Status.BadRequest -> List("Invalid status value: Active"))
     }
   }
 

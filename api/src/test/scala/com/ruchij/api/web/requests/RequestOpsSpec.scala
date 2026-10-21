@@ -1,11 +1,14 @@
 package com.ruchij.api.web.requests
 
 import cats.effect.IO
+import com.ruchij.core.exceptions.ValidationException
 import com.ruchij.core.test.IOSupport.runIO
+import io.circe.Json
 import io.circe.generic.auto._
 import org.http4s.circe.CirceEntityCodec._
 import org.http4s.implicits._
-import org.http4s.{ContextRequest, Method, Request}
+import org.http4s.headers.`Content-Type`
+import org.http4s.{ContextRequest, MediaType, Method, Request}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
@@ -20,6 +23,24 @@ class RequestOpsSpec extends AnyFlatSpec with Matchers {
     RequestOps.to[IO, TestEntity](request).map { result =>
       result.name mustBe "test"
       result.value mustBe 42
+    }
+  }
+
+  it should "fail with a ValidationException that describes a request body that cannot be decoded" in runIO {
+    val request = Request[IO](Method.POST, uri"/test").withEntity(Json.obj("name" -> Json.fromString("test")))
+
+    RequestOps.to[IO, TestEntity](request).attempt.map { result =>
+      result.left.map(_.getClass) mustBe Left(classOf[ValidationException])
+      result.left.map(_.getMessage).left.getOrElse("") must include("value")
+    }
+  }
+
+  it should "fail with a ValidationException for a malformed JSON body" in runIO {
+    val request =
+      Request[IO](Method.POST, uri"/test").withEntity("{ not json").withContentType(`Content-Type`(MediaType.application.json))
+
+    RequestOps.to[IO, TestEntity](request).attempt.map { result =>
+      result.left.map(_.getClass) mustBe Left(classOf[ValidationException])
     }
   }
 
