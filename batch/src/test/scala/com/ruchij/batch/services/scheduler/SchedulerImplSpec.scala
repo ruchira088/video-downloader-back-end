@@ -191,6 +191,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     var workers: List[Worker] = List.empty
     var reservedWorkers: List[String] = List.empty
     var releasedWorkers: List[String] = List.empty
+    var releasedByOwners: List[String] = List.empty
     var assignedTasks: List[(String, String)] = List.empty
     var statusUpdates: List[(String, WorkerStatus)] = List.empty
     var allStatusUpdates: List[WorkerStatus] = List.empty
@@ -213,8 +214,9 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
       IO.pure(workers.find(_.id == workerId))
     }
 
-    override def releaseWorker(workerId: String): IO[Option[Worker]] = {
+    override def releaseWorker(workerId: String, owner: String): IO[Option[Worker]] = {
       releasedWorkers = releasedWorkers :+ workerId
+      releasedByOwners = releasedByOwners :+ owner
       IO.pure(workers.find(_.id == workerId))
     }
 
@@ -241,7 +243,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
       IO.pure(cleanedUpWorkers)
     }
 
-    override def updateHeartBeat(workerId: String, timestamp: Instant): IO[Option[Worker]] = {
+    override def updateHeartBeat(workerId: String, owner: String, timestamp: Instant): IO[Option[Worker]] = {
       heartbeatUpdates = heartbeatUpdates :+ (workerId, timestamp)
       IO.pure(workers.find(_.id == workerId))
     }
@@ -720,6 +722,8 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
       workerDao.reservedWorkers must contain("worker-00")
       workerDao.assignedTasks must contain(("worker-00", task.videoMetadata.id))
       workerDao.releasedWorkers must contain("worker-00")
+      // The worker is only released if this instance still owns it
+      workerDao.releasedByOwners.distinct mustBe List("test-owner")
       batchSchedulingService.publishedIds must contain(task.videoMetadata.id)
       workExecutor.executedTasks mustBe List(task)
     }
@@ -786,6 +790,35 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
       batchSchedulingService.bulkStatusUpdates must contain((SchedulingStatus.Active, SchedulingStatus.WorkersPaused))
       workerDao.allStatusUpdates must contain(WorkerStatus.Paused)
       workerDao.releasedWorkers must contain("worker-00")
+    }
+  }
+
+  it should "still emit the downloaded video when another instance has taken over the worker" in runIO {
+    implicit val clock: Clock[IO] = defaultClock
+
+    val task = createScheduledVideoDownload("taken-over-task")
+    val video = createTestVideo("taken-over-task")
+
+    // The worker was freed as stale and claimed by another instance, so it is no longer released by this instance
+    val workerDao = new StubWorkerDao {
+      override def releaseWorker(workerId: String, owner: String): IO[Option[Worker]] =
+        super.releaseWorker(workerId, owner).as(None)
+    }
+    workerDao.workers = List(availableWorker())
+
+    val batchSchedulingService = new StubBatchSchedulingService()
+    batchSchedulingService.acquiredTasks = List(task)
+
+    val scheduler =
+      createScheduler(
+        workerDao,
+        createWorkerConfiguration(maxConcurrentDownloads = 1),
+        batchSchedulingService = batchSchedulingService,
+        workExecutor = new StubWorkExecutor((_, _) => IO.pure(video))
+      )
+
+    TestControl.executeEmbed(scheduler.run.head.interruptAfter(30.seconds).compile.toList).map { downloaded =>
+      downloaded mustBe List(video)
     }
   }
 

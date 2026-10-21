@@ -124,7 +124,7 @@ class SchedulerIntegrationSpec extends AnyFlatSpec with Matchers with OptionValu
         }
 
         // Release the worker
-        released <- transactor(workerDao.releaseWorker(idleWorker.get.id))
+        released <- transactor(workerDao.releaseWorker(idleWorker.get.id, "test-owner"))
         _ <- IO.delay {
           released mustBe defined
           released.get.status mustBe WorkerStatus.Available
@@ -180,13 +180,13 @@ class SchedulerIntegrationSpec extends AnyFlatSpec with Matchers with OptionValu
       for {
         timestamp <- Clock[IO].timestamp
         // Insert with Active status and existing timestamps (matching DoobieWorkerDaoSpec pattern)
-        worker = Worker(workerId, WorkerStatus.Active, Some(timestamp), Some(timestamp), None, None)
+        worker = Worker(workerId, WorkerStatus.Active, Some(timestamp), Some(timestamp), None, Some("test-owner"))
 
         _ <- transactor(workerDao.insert(worker))
 
         // Update heartbeat
         newTimestamp = timestamp.plusMillis(java.time.Duration.ofMinutes(1).toMillis)
-        heartbeatUpdated <- transactor(workerDao.updateHeartBeat(workerId, newTimestamp))
+        heartbeatUpdated <- transactor(workerDao.updateHeartBeat(workerId, "test-owner", newTimestamp))
 
         _ <- IO.delay {
           heartbeatUpdated mustBe defined
@@ -214,7 +214,7 @@ class SchedulerIntegrationSpec extends AnyFlatSpec with Matchers with OptionValu
         idleWorker <- transactor(workerDao.idleWorker)
         oldTimestamp <- Clock[IO].timestamp.map(_.minus(java.time.Duration.ofMinutes(10)))
         _ <- transactor(workerDao.reserveWorker(idleWorker.get.id, "test-owner", oldTimestamp))
-        _ <- transactor(workerDao.updateHeartBeat(idleWorker.get.id, oldTimestamp))
+        _ <- transactor(workerDao.updateHeartBeat(idleWorker.get.id, "test-owner", oldTimestamp))
 
         // Clean up stale workers (those with heartbeat older than 5 minutes)
         currentTimestamp <- Clock[IO].timestamp

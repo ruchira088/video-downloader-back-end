@@ -185,13 +185,14 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
     }
 
   private def releaseWorker(worker: Worker): F[Unit] =
-    OptionT(transaction(workerDao.releaseWorker(worker.id)))
-      .getOrElseF {
-        ApplicativeError[F, Throwable].raiseError {
-          ResourceNotFoundException(s"Worker not found. ID = ${worker.id}")
-        }
-      }
-      .productR(Applicative[F].unit)
+    transaction(workerDao.releaseWorker(worker.id, workerConfiguration.owner)).flatMap {
+      case Some(_) => Applicative[F].unit
+
+      // The worker was freed as stale, or paused, while this instance was using it and may have been claimed by
+      // another instance since. It is no longer this instance's to release.
+      case None =>
+        logger.warn[F](s"Worker is no longer owned by ${workerConfiguration.owner}, not releasing it. ID = ${worker.id}")
+    }
 
   override val run: Stream[F, Video] =
     for {
