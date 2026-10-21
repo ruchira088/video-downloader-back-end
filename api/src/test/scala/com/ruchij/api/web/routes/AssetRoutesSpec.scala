@@ -1,7 +1,9 @@
 package com.ruchij.api.web.routes
 
 import cats.effect.IO
+import com.ruchij.api.exceptions.RangeNotSatisfiableException
 import com.ruchij.api.services.asset.AssetService.FileByteRange
+import com.ruchij.api.services.asset.AssetService.FileByteRange.{ByteRange, SuffixRange}
 import com.ruchij.api.services.asset.models.{Asset, AssetType}
 import com.ruchij.api.services.asset.models.Asset.FileRange
 import com.ruchij.api.services.authentication.AuthenticationService.Secret
@@ -17,6 +19,7 @@ import org.http4s.headers.{Authorization, Range}
 import org.http4s.{AuthScheme, Credentials, MediaType, RangeUnit, Request, Status}
 import org.http4s.dsl.io._
 import org.http4s.implicits.http4sLiteralsSyntax
+import org.typelevel.ci.CIStringSyntax
 import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -210,7 +213,7 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
     )
 
     (assetService.videoFile _)
-      .expects("video-123", ApiTestData.NormalUser, Some(FileByteRange(0, Some(999999L))), Some(5000000L))
+      .expects("video-123", ApiTestData.NormalUser, Some(ByteRange(0, Some(999999L))), Some(5000000L))
       .returns(IO.pure(rangeAsset))
 
     ignoreHttpMetrics() *>
@@ -228,6 +231,68 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
             response.contentType.map(_.mediaType) mustBe Some(MediaType.video.mp4)
           }
         }
+  }
+
+  private def videoRangeRequest(
+    rangeHeader: String,
+    expectedFileByteRange: Option[FileByteRange],
+    result: IO[Asset[IO, AssetType.Video.type]]
+  ): IO[org.http4s.Response[IO]] = {
+    (authenticationService.authenticate _)
+      .expects(testSecret)
+      .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
+
+    (assetService.videoFile _)
+      .expects("video-123", ApiTestData.NormalUser, expectedFileByteRange, Some(5000000L))
+      .returns(result)
+
+    ignoreHttpMetrics() *>
+      createRoutes().run(
+        Request[IO](method = GET, uri = uri"/assets/video/id/video-123", headers = authHeaders)
+          .putHeaders("Range" -> rangeHeader)
+      )
+  }
+
+  private def videoAsset(start: Long, end: Long): IO[Asset[IO, AssetType.Video.type]] =
+    IO.pure(Asset[IO, AssetType.Video.type](testVideoFile, Stream.emits[IO, Byte]("test data".getBytes.toSeq), FileRange(start, end)))
+
+  it should "pass a suffix range to the asset service" in runIO {
+    videoRangeRequest("bytes=-500", Some(SuffixRange(500L)), videoAsset(4999500L, 5000000L)).flatMap { response =>
+      IO.delay {
+        response must haveStatus(Status.PartialContent)
+        response.headers.get(ci"Content-Range").map(_.head.value) mustBe Some("bytes 4999500-4999999/5000000")
+        response.headers.get(ci"Content-Length").map(_.head.value) mustBe Some("500")
+      }
+    }
+  }
+
+  it should "pass an open ended range to the asset service" in runIO {
+    videoRangeRequest("bytes=100-", Some(ByteRange(100L, None)), videoAsset(100L, 600L)).flatMap { response =>
+      IO.delay {
+        response must haveStatus(Status.PartialContent)
+        response.headers.get(ci"Content-Range").map(_.head.value) mustBe Some("bytes 100-599/5000000")
+        response.headers.get(ci"Content-Length").map(_.head.value) mustBe Some("500")
+      }
+    }
+  }
+
+  it should "ignore a syntactically invalid range where the last byte position precedes the first" in runIO {
+    videoRangeRequest("bytes=500-100", None, videoAsset(0L, 5000000L)).flatMap { response =>
+      IO.delay(response must haveStatus(Status.Ok))
+    }
+  }
+
+  it should "return 416 with the size of the file when the range is not satisfiable" in runIO {
+    videoRangeRequest(
+      "bytes=6000000-",
+      Some(ByteRange(6000000L, None)),
+      IO.raiseError(RangeNotSatisfiableException(5000000L))
+    ).flatMap { response =>
+      IO.delay {
+        response must haveStatus(Status.RangeNotSatisfiable)
+        response.headers.get(ci"Content-Range").map(_.head.value) mustBe Some("bytes */5000000")
+      }
+    }
   }
 
   it should "return unauthorized when not authenticated" in runIO {

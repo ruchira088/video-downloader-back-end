@@ -5,6 +5,7 @@ import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
 import com.ruchij.api.daos.playlist.PlaylistDao
 import com.ruchij.api.daos.user.models.User
+import com.ruchij.api.exceptions.RangeNotSatisfiableException
 import com.ruchij.api.services.asset.AssetService.FileByteRange
 import com.ruchij.api.services.asset.models.Asset.FileRange
 import com.ruchij.api.services.asset.models.AssetType.{AlbumArt, Snapshot, Thumbnail, Video}
@@ -125,23 +126,9 @@ class AssetServiceImpl[F[_]: MonadThrow: Clock, T[_]: MonadThrow](
         }
       }
     }.flatMap { fileResource =>
-        {
-          val end =
-            Math.min(
-              maybeFileByteRange.flatMap(_.end).getOrElse(fileResource.size),
-              maybeFileByteRange
-                .map(_.start)
-                .flatMap(start => maybeMaxStreamSize.map(max => start + max))
-                .orElse(maybeMaxStreamSize)
-                .getOrElse(fileResource.size)
-            )
-
-          OptionT(repositoryService.read(fileResource.path, maybeFileByteRange.map(_.start), Some(end))).map { stream =>
-            Asset[F, A](
-              fileResource,
-              stream.limit(maybeMaxStreamSize.getOrElse(fileResource.size)),
-              FileRange(maybeFileByteRange.map(_.start).getOrElse(0), end)
-            )
+        OptionT.liftF(resolveRange(fileResource.size, maybeFileByteRange, maybeMaxStreamSize)).flatMap { fileRange =>
+          OptionT(repositoryService.read(fileResource.path, Some(fileRange.start), Some(fileRange.end))).map { stream =>
+            Asset[F, A](fileResource, stream.limit(fileRange.end - fileRange.start), fileRange)
           }
         }
       }
@@ -149,4 +136,33 @@ class AssetServiceImpl[F[_]: MonadThrow: Clock, T[_]: MonadThrow](
         ApplicativeError[F, Throwable].raiseError(ResourceNotFoundException("Asset not found"))
       }
 
+  /**
+    * Resolves the requested range against the size of the file following RFC 7233: the last byte position is
+    * clamped to the end of the file, a suffix range selects the last bytes of the file, and a range that does not
+    * overlap the file is not satisfiable. The returned FileRange has an exclusive end.
+    */
+  private def resolveRange(
+    fileSize: Long,
+    maybeFileByteRange: Option[FileByteRange],
+    maybeMaxStreamSize: Option[Long]
+  ): F[FileRange] = {
+    val maybeInclusiveRange: Option[(Long, Long)] =
+      maybeFileByteRange match {
+        case None => Some(0L -> (fileSize - 1))
+
+        case Some(FileByteRange.ByteRange(first, maybeLast)) =>
+          if (first < fileSize) Some(first -> Math.min(maybeLast.getOrElse(fileSize - 1), fileSize - 1)) else None
+
+        case Some(FileByteRange.SuffixRange(length)) =>
+          if (length > 0 && fileSize > 0) Some(Math.max(fileSize - length, 0) -> (fileSize - 1)) else None
+      }
+
+    maybeInclusiveRange match {
+      case Some((start, inclusiveEnd)) =>
+        val end = maybeMaxStreamSize.fold(inclusiveEnd + 1)(maxSize => Math.min(inclusiveEnd + 1, start + maxSize))
+        Applicative[F].pure(FileRange(start, end))
+
+      case None => ApplicativeError[F, Throwable].raiseError(RangeNotSatisfiableException(fileSize))
+    }
+  }
 }

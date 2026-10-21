@@ -2,7 +2,7 @@ package com.ruchij.api.web.middleware
 
 import cats.data.{Kleisli, NonEmptyList}
 import cats.effect.IO
-import com.ruchij.api.exceptions.{AuthenticationException, AuthorizationException, ResourceConflictException}
+import com.ruchij.api.exceptions.{AuthenticationException, AuthorizationException, RangeNotSatisfiableException, ResourceConflictException}
 import com.ruchij.api.services.models.Context
 import com.ruchij.core.exceptions._
 import com.ruchij.core.test.IOSupport.runIO
@@ -248,6 +248,15 @@ class ExceptionHandlerSpec extends AnyFlatSpec with Matchers {
         response.status mustBe Status.BadRequest
         messages mustBe List("Invalid page size", ExceptionHandler.InternalServerErrorMessage)
       }
+    }
+  }
+
+  it should "return RangeNotSatisfiable with the size of the resource for RangeNotSatisfiableException" in runIO {
+    val handler = createHandler(RangeNotSatisfiableException(1024))
+
+    handler.run(contextRequest).map { response =>
+      response.status mustBe Status.RangeNotSatisfiable
+      response.headers.get(org.typelevel.ci.CIString("Content-Range")).map(_.head.value) mustBe Some("bytes */1024")
     }
   }
 }

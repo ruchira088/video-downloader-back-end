@@ -21,5 +21,16 @@ trait AssetService[F[_]] {
 }
 
 object AssetService {
-  final case class FileByteRange(start: Long, end: Option[Long])
+
+  /** A single byte range of a Range request (RFC 7233), before it is resolved against the size of the file */
+  sealed trait FileByteRange
+
+  object FileByteRange {
+
+    /** bytes=first-last or bytes=first- where both positions are inclusive */
+    final case class ByteRange(first: Long, last: Option[Long]) extends FileByteRange
+
+    /** bytes=-length, the last length bytes of the file */
+    final case class SuffixRange(length: Long) extends FileByteRange
+  }
 }

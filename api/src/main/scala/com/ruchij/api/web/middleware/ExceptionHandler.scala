@@ -5,7 +5,7 @@ import cats.arrow.FunctionK
 import cats.data.{Kleisli, NonEmptyList}
 import cats.effect.Sync
 import cats.implicits._
-import com.ruchij.api.exceptions.{AuthenticationException, AuthorizationException, ResourceConflictException}
+import com.ruchij.api.exceptions.{AuthenticationException, AuthorizationException, RangeNotSatisfiableException, ResourceConflictException}
 import com.ruchij.api.web.responses.ErrorResponse
 import com.ruchij.core.exceptions._
 import com.ruchij.core.logging.Logger
@@ -13,7 +13,8 @@ import io.circe.DecodingFailure
 import io.circe.generic.auto.exportEncoder
 import org.http4s.circe.CirceEntityEncoder.circeEntityEncoder
 import org.http4s.dsl.impl.EntityResponseGenerator
-import org.http4s.{ContextRequest, MessageFailure, Request, Response, Status}
+import org.http4s.{ContextRequest, Header, MessageFailure, Request, Response, Status}
+import org.typelevel.ci.CIStringSyntax
 
 object ExceptionHandler {
   private val logger = Logger[ExceptionHandler.type]
@@ -54,6 +55,8 @@ object ExceptionHandler {
 
     case _: ResourceConflictException => Status.Conflict
 
+    case _: RangeNotSatisfiableException => Status.RangeNotSatisfiable
+
     case AggregatedException(NonEmptyList(exception, _)) => throwableStatusMapper(exception)
 
     case _ => Status.InternalServerError
@@ -90,6 +93,9 @@ object ExceptionHandler {
   private def errorResponseMapper[F[_]](throwable: Throwable)(response: Response[F]): Response[F] =
     throwable match {
       case _: AuthenticationException => response.removeCookie(Authenticator.CookieName)
+
+      case RangeNotSatisfiableException(fileSize) =>
+        response.putHeaders(Header.Raw(ci"Content-Range", s"bytes */$fileSize"))
 
       case _ => response
     }
