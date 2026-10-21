@@ -19,6 +19,7 @@ import com.ruchij.core.daos.title.VideoTitleDao
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.types.{Clock, RandomGenerator}
 
+import java.sql.SQLException
 import java.util.UUID
 
 class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: MonadThrow: Clock, G[_]: MonadThrow](
@@ -31,14 +32,13 @@ class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: MonadThrow: Clock, G[_]
   fallbackSyncRequester: FallbackSyncRequester[F]
 )(implicit transaction: G ~> F)
     extends UserService[F] {
+  import UserServiceImpl.UniqueViolationSqlState
 
   override def create(firstName: String, lastName: String, email: Email, password: Password): F[User] =
     for {
       maybeUser <- transaction(userDao.findByEmail(email))
       _ <- maybeUser.fold[F[Unit]](Applicative[F].unit) { _ =>
-        ApplicativeError[F, Throwable].raiseError(
-          ResourceConflictException(s"User with email ${email.value} already exists")
-        )
+        ApplicativeError[F, Throwable].raiseError(emailConflict(email))
       }
 
       hashedPassword <- passwordHashingService.hashPassword(password)
@@ -52,6 +52,9 @@ class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: MonadThrow: Clock, G[_]
         transaction {
           userDao.insert(user).one
             .productL(credentialsDao.insert(credentials).one)
+        }.adaptError {
+          // A concurrent sign-up with the same email can pass the check above, leaving the unique index to catch it
+          case sqlException: SQLException if sqlException.getSQLState == UniqueViolationSqlState => emailConflict(email)
         }
 
     } yield user
@@ -84,9 +87,13 @@ class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: MonadThrow: Clock, G[_]
             .filter { resetToken =>
               resetToken.createdAt.plusMillis(UserService.ResetTokenValidity.toMillis).isAfter(timestamp)
             }
+            // The token is consumed before the password changes, and only the transaction that deletes it may go on,
+            // so concurrent resets with the same token cannot both succeed
+            .flatMapF { _ =>
+              credentialsResetTokenDao.delete(userId, resetToken).map(deleted => (deleted == 1).guard[Option])
+            }
             .semiflatMap(_ => credentialsDao.update(Credentials(userId, timestamp, hashedPassword)).one)
-            .semiflatMap(_ => credentialsResetTokenDao.delete(userId, resetToken))
-            .productR(OptionT(userDao.findById(userId)))
+            .flatMapF(_ => userDao.findById(userId))
             .getOrElseF {
               ApplicativeError[G, Throwable].raiseError {
                 ResourceNotFoundException("Reset password token in not valid")
@@ -114,6 +121,9 @@ class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: MonadThrow: Clock, G[_]
       AuthorizationException(s"User does NOT have permission to delete user: $userId")
     }
 
+  private def emailConflict(email: Email): ResourceConflictException =
+    ResourceConflictException(s"User with email ${email.value} already exists")
+
   private def fetchUserByEmail(email: Email): G[User] =
     OptionT(userDao.findByEmail(email))
       .getOrRaise(ResourceNotFoundException(s"User not found email=${email.value}"))
@@ -125,4 +135,9 @@ class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: MonadThrow: Clock, G[_]
           ResourceNotFoundException(s"User id=$userId does NOT exist")
         }
       }
+}
+
+object UserServiceImpl {
+  /** The SQLSTATE that both PostgreSQL and H2 report for a unique constraint violation */
+  val UniqueViolationSqlState = "23505"
 }
