@@ -54,6 +54,8 @@ lazy val core =
     .settings(
       Test / fork := true,
       Test / parallelExecution := false,
+      // Stream the forked tests' output as it happens, so the log shows where a hung run stopped
+      Test / logBuffered := false,
       libraryDependencies ++=
         Seq(
           catsEffect,
