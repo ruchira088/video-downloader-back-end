@@ -17,6 +17,12 @@ trait AssetService[F[_]] {
 
   def albumArt(id: String, user: User): F[Asset[F, AlbumArt.type]]
 
+  /**
+    * Unlike the other assets, a thumbnail is not checked against the user's permissions. It belongs to the video's
+    * metadata, which POST /videos/metadata creates or returns for any video URL before the video is scheduled, and
+    * the front-end shows it in the schedule page's preview, when the user has no permission for the video yet. Since
+    * anyone with the video's URL can get the metadata, and so the thumbnail, a permission check would protect nothing.
+    */
   def thumbnail(id: String): F[Asset[F, Thumbnail.type]]
 }
 

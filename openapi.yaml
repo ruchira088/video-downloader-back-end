@@ -920,7 +920,9 @@ paths:
       tags:
         - Assets
       summary: Get video thumbnail
-      description: Retrieve a video thumbnail image
+      description: >
+        Retrieve a video thumbnail image. Unlike the other assets, thumbnails are served to any authenticated user,
+        since the schedule page previews a video's metadata, thumbnail included, before the user has scheduled it.
       security:
         - cookieAuth: []
       parameters:
