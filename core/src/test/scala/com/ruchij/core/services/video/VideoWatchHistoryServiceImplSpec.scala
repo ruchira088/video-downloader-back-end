@@ -53,6 +53,14 @@ class VideoWatchHistoryServiceImplSpec extends AnyFlatSpec with Matchers {
         toRemove.foreach(store.remove)
         toRemove.size
       }
+
+    override def deleteBy(userId: String, videoId: String): IO[Int] =
+      IO.delay {
+        val toRemove =
+          store.values.filter(history => history.userId == userId && history.videoId == videoId).map(_.id).toList
+        toRemove.foreach(store.remove)
+        toRemove.size
+      }
   }
 
   implicit val transaction: IO ~> IO = new (IO ~> IO) {

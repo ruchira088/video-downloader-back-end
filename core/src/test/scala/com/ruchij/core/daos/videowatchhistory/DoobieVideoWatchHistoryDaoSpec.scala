@@ -5,6 +5,7 @@ import cats.implicits._
 import cats.~>
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
+import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata}
@@ -27,7 +28,7 @@ import scala.language.postfixOps
 
 class DoobieVideoWatchHistoryDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
 
-  import com.ruchij.core.daos.doobie.DoobieCustomMappings.instantPut
+  import com.ruchij.core.daos.doobie.DoobieCustomMappings.{instantPut, enumPut}
 
   case class TestFixture(
     videoWatchHistory: VideoWatchHistory,
@@ -388,5 +389,94 @@ class DoobieVideoWatchHistoryDaoSpec extends AnyFlatSpec with Matchers with Opti
           fixture.transaction(DoobieVideoWatchHistoryDao.findBy(fixture.userId, 2, pageNumber))
         }
       } yield pages.flatten.map(_.id) mustBe List("history-5", "history-4", "history-3", "history-2", "history-1")
+  }
+
+  it should "show the title of the user whose watch history it is" in runTest { fixture =>
+    val otherUserId = "other-user-id"
+
+    for {
+      timestamp <- Clock[IO].timestamp
+      _ <- fixture.transaction {
+        sql"""
+          INSERT INTO api_user (id, created_at, first_name, last_name, email, role)
+            VALUES ($otherUserId, $timestamp, 'Other', 'User', 'other@example.com', 'User')
+        """.update.run
+      }
+      _ <- fixture.transaction {
+        sql"""
+          INSERT INTO scheduled_video
+              (scheduled_at, last_updated_at, status, downloaded_bytes, video_metadata_id, completed_at)
+            VALUES ($timestamp, $timestamp, ${SchedulingStatus.Completed: SchedulingStatus}, 0, ${fixture.videoId}, $timestamp)
+        """.update.run
+      }
+      _ <- fixture.transaction {
+        sql"""
+          INSERT INTO video_title (video_id, user_id, title)
+            VALUES (${fixture.videoId}, ${fixture.userId}, 'My Own Title')
+        """.update.run
+      }
+
+      _ <- fixture.transaction(DoobieVideoWatchHistoryDao.insert(fixture.videoWatchHistory))
+      _ <- fixture.transaction {
+        DoobieVideoWatchHistoryDao.insert(fixture.videoWatchHistory.copy(id = "other-history", userId = otherUserId))
+      }
+
+      userHistory <- fixture.transaction(DoobieVideoWatchHistoryDao.findBy(fixture.userId, 10, 0))
+      userVideoHistory <- fixture.transaction(DoobieVideoWatchHistoryDao.findBy(fixture.userId, fixture.videoId, 10, 0))
+      otherUserHistory <- fixture.transaction(DoobieVideoWatchHistoryDao.findBy(otherUserId, 10, 0))
+    } yield {
+      userHistory.map(_.video.videoMetadata.title) mustBe List("My Own Title")
+      userVideoHistory.map(_.video.videoMetadata.title) mustBe List("My Own Title")
+      // A user without their own title sees the metadata title
+      otherUserHistory.map(_.video.videoMetadata.title) mustBe List("Test Video Title")
+    }
+  }
+
+  it should "delete only the given user's watch history for a video" in runTest { fixture =>
+    val otherUserId = "other-user-id"
+    val otherVideoId = "other-video-id"
+
+    for {
+      timestamp <- Clock[IO].timestamp
+      _ <- fixture.transaction {
+        sql"""
+          INSERT INTO api_user (id, created_at, first_name, last_name, email, role)
+            VALUES ($otherUserId, $timestamp, 'Other', 'User', 'other@example.com', 'User')
+        """.update.run
+      }
+
+      otherVideoFileResource =
+        FileResource("other-video-file-id", timestamp, "/opt/video/other-video.mp4", MediaType.video.mp4, 1000)
+      _ <- fixture.transaction {
+        DoobieVideoMetadataDao
+          .findById(fixture.videoId)
+          .flatMap { maybeVideoMetadata =>
+            DoobieVideoMetadataDao.insert {
+              maybeVideoMetadata.value.copy(url = uri"https://example.com/other-video", id = otherVideoId)
+            }
+          }
+          .productR(DoobieFileResourceDao.insert(otherVideoFileResource))
+          .productR(DoobieVideoDao.insert(otherVideoId, otherVideoFileResource.id, timestamp, 0 seconds))
+      }
+
+      _ <- fixture.transaction(DoobieVideoWatchHistoryDao.insert(fixture.videoWatchHistory))
+      _ <- fixture.transaction {
+        DoobieVideoWatchHistoryDao
+          .insert(fixture.videoWatchHistory.copy(id = "same-user-other-video", videoId = otherVideoId))
+      }
+      _ <- fixture.transaction {
+        DoobieVideoWatchHistoryDao
+          .insert(fixture.videoWatchHistory.copy(id = "other-user-same-video", userId = otherUserId))
+      }
+
+      deleteCount <- fixture.transaction(DoobieVideoWatchHistoryDao.deleteBy(fixture.userId, fixture.videoId))
+
+      userHistory <- fixture.transaction(DoobieVideoWatchHistoryDao.findBy(fixture.userId, 10, 0))
+      otherUserHistory <- fixture.transaction(DoobieVideoWatchHistoryDao.findBy(otherUserId, 10, 0))
+    } yield {
+      deleteCount mustBe 1
+      userHistory.map(_.id) mustBe List("same-user-other-video")
+      otherUserHistory.map(_.id) mustBe List("other-user-same-video")
+    }
   }
 }

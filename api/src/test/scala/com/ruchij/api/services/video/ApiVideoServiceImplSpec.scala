@@ -21,6 +21,8 @@ import com.ruchij.core.daos.video.VideoDao
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata, VideoSite}
+import com.ruchij.core.daos.videowatchhistory.VideoWatchHistoryDao
+import com.ruchij.core.daos.videowatchhistory.models.{DetailedVideoWatchHistory, VideoWatchHistory}
 import com.ruchij.core.daos.workers.models.VideoScan
 import com.ruchij.core.daos.workers.models.VideoScan.ScanStatus
 import com.ruchij.core.kv.codecs.{KVCodec, KVDecoder}
@@ -206,6 +208,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     videoTitleDao: VideoTitleDao[IO],
     videoPermissionDao: VideoPermissionDao[IO],
     duplicateDetectionService: ApiDuplicateDetectionService[IO] = stubDuplicateDetectionService,
+    videoWatchHistoryDao: VideoWatchHistoryDao[IO] = new RecordingVideoWatchHistoryDao,
     fallbackSyncRequestPublisher: Publisher[IO, FallbackSyncRequest] = new NoOpPublisher[IO, FallbackSyncRequest]
   )(implicit clock: Clock[IO]): ApiVideoServiceImpl[IO, IO] = {
     implicit val transaction: IO ~> IO = new (IO ~> IO) {
@@ -223,8 +226,33 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
       videoMetadataDao,
       snapshotDao,
       videoTitleDao,
-      videoPermissionDao
+      videoPermissionDao,
+      videoWatchHistoryDao
     )
+  }
+
+  /** Records the user and video of every per-user watch history deletion. */
+  private class RecordingVideoWatchHistoryDao extends VideoWatchHistoryDao[IO] {
+    val userDeletions = new AtomicReference[List[(String, String)]](Nil)
+
+    override def insert(videoWatchHistory: VideoWatchHistory): IO[Unit] = IO.unit
+    override def findBy(userId: String, pageSize: Int, pageNumber: Int): IO[List[DetailedVideoWatchHistory]] =
+      IO.pure(Nil)
+    override def findBy(
+      userId: String,
+      videoId: String,
+      pageSize: Int,
+      pageNumber: Int
+    ): IO[List[DetailedVideoWatchHistory]] = IO.pure(Nil)
+    override def findLastUpdatedAfter(
+      userId: String,
+      videoId: String,
+      timestamp: Instant
+    ): IO[Option[VideoWatchHistory]] = IO.pure(None)
+    override def update(updatedVideoWatchHistory: VideoWatchHistory): IO[Unit] = IO.unit
+    override def deleteBy(videoId: String): IO[Int] = IO.pure(0)
+    override def deleteBy(userId: String, videoId: String): IO[Int] =
+      IO.delay(userDeletions.getAndUpdate(_ :+ (userId -> videoId))).as(1)
   }
 
   "fetchById" should "fetch video by ID without user ID" in runIO {
@@ -442,6 +470,50 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
 
     apiVideoService.deleteById("video-1", Some("user-1"), deleteVideoFile = false).map { video =>
       video mustBe sampleVideo
+    }
+  }
+
+  it should "delete the user's watch history of the video when user ID provided" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    val (sharedConfigService, _) = createStubConfigService()
+    val videoWatchHistoryDao = new RecordingVideoWatchHistoryDao
+
+    val apiVideoService = createService(
+      createStubVideoService(findVideoByIdResult = (_, _) => IO.pure(sampleVideo)),
+      createStubPublisher(),
+      sharedConfigService,
+      createStubVideoDao(),
+      createStubVideoMetadataDao(),
+      createStubSnapshotDao(),
+      createStubVideoTitleDao(),
+      createStubVideoPermissionDao(),
+      videoWatchHistoryDao = videoWatchHistoryDao
+    )
+
+    apiVideoService.deleteById("video-1", Some("user-1"), deleteVideoFile = false).map { _ =>
+      videoWatchHistoryDao.userDeletions.get() mustBe List("user-1" -> "video-1")
+    }
+  }
+
+  it should "leave watch history to the video service when an admin deletes a video" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    val (sharedConfigService, _) = createStubConfigService()
+    val videoWatchHistoryDao = new RecordingVideoWatchHistoryDao
+
+    val apiVideoService = createService(
+      createStubVideoService(deleteByIdResult = (_, _) => IO.pure(sampleVideo)),
+      createStubPublisher(),
+      sharedConfigService,
+      createStubVideoDao(),
+      createStubVideoMetadataDao(),
+      createStubSnapshotDao(),
+      createStubVideoTitleDao(),
+      createStubVideoPermissionDao(),
+      videoWatchHistoryDao = videoWatchHistoryDao
+    )
+
+    apiVideoService.deleteById("video-1", None, deleteVideoFile = true).map { _ =>
+      videoWatchHistoryDao.userDeletions.get() mustBe empty
     }
   }
 

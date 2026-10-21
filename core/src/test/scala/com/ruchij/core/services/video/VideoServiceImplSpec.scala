@@ -227,6 +227,7 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
     ): IO[Option[VideoWatchHistory]] = IO.pure(None)
     override def update(updatedVideoWatchHistory: VideoWatchHistory): IO[Unit] = IO.unit
     override def deleteBy(videoId: String): IO[Int] = IO.pure(1)
+    override def deleteBy(userId: String, videoId: String): IO[Int] = IO.pure(1)
   }
 
   class StubRepositoryService(deleteResult: Boolean = true) extends RepositoryService[IO] {
