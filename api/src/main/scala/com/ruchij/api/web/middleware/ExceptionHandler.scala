@@ -18,6 +18,8 @@ import org.http4s.{ContextRequest, MessageFailure, Request, Response, Status}
 object ExceptionHandler {
   private val logger = Logger[ExceptionHandler.type]
 
+  val InternalServerErrorMessage = "An unexpected error occurred"
+
   def apply[F[_]: Sync, A](
     contextHttpApp: Kleisli[F, ContextRequest[F, A], Response[F]]
   ): Kleisli[F, ContextRequest[F, A], Response[F]] =
@@ -57,6 +59,10 @@ object ExceptionHandler {
     case _ => Status.InternalServerError
   }
 
+  /**
+    * Only the messages of the known, mapped exception types are returned to the client. The details of an unexpected
+    * error (status 500) may expose internals (e.g. SQL, file paths or host names), so they are only logged.
+    */
   private val throwableResponseBody: Throwable => ErrorResponse = {
     case AggregatedException(exceptions) =>
       ErrorResponse {
@@ -71,7 +77,14 @@ object ExceptionHandler {
       }
 
     case throwable =>
-      Option(throwable.getCause).fold(ErrorResponse(NonEmptyList.one(throwable.getMessage)))(throwableResponseBody)
+      val status = throwableStatusMapper(throwable)
+
+      ErrorResponse {
+        NonEmptyList.one {
+          if (status == Status.InternalServerError) InternalServerErrorMessage
+          else Option(throwable.getMessage).filter(_.trim.nonEmpty).getOrElse(status.reason)
+        }
+      }
   }
 
   private def errorResponseMapper[F[_]](throwable: Throwable)(response: Response[F]): Response[F] =
