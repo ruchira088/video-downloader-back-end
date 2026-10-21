@@ -54,7 +54,8 @@ class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
         maybeFetchedPlaylistWithUser <- transactor {
           doobiePlaylistDao.findById("my-playlist-id", Some(ApiTestData.AdminUser.id))
         }
-        _ <- IO.delay { maybeFetchedPlaylistWithUser mustBe Some(playlist) }
+        // A user-scoped read only returns the videos that user has permission for, and none have been granted here
+        _ <- IO.delay { maybeFetchedPlaylistWithUser mustBe Some(playlist.copy(videos = List.empty)) }
 
         maybeFetchedPlaylistWithWrongUser <- transactor {
           doobiePlaylistDao.findById("my-playlist-id", Some(ApiTestData.NormalUser.id))

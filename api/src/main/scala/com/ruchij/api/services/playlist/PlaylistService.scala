@@ -39,3 +39,12 @@ trait PlaylistService[F[_]] {
 
   def deletePlaylist(playlistId: String, maybeUserId: Option[String]): F[Playlist]
 }
+
+object PlaylistService {
+  /** The largest album art image accepted, in bytes */
+  val MaxAlbumArtSize: Long = 10 * 1024 * 1024
+
+  /** Raster image types accepted as album art. SVG is excluded, since it can carry scripts. */
+  val AlbumArtMediaTypes: List[MediaType] =
+    List(MediaType.image.jpeg, MediaType.image.png, MediaType.image.gif, MediaType.image.webp)
+}
