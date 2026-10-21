@@ -38,12 +38,12 @@ trait PublisherSubscriberSpec { self: AnyFlatSpec with Matchers =>
         subscriber.commit(List(record)) *> sink.update(_ :+ subscriber.extractValue(record))
       }
 
-  private def waitUntil(condition: IO[Boolean]): IO[Unit] =
+  protected def waitUntil(condition: IO[Boolean]): IO[Unit] =
     condition.flatMap { satisfied =>
       if (satisfied) IO.unit else IO.sleep(100 milliseconds) *> waitUntil(condition)
     }
 
-  private def publishAll(publisher: Publisher[IO, TestMessage], prefix: String, indices: Seq[Int]): IO[Unit] =
+  protected def publishAll(publisher: Publisher[IO, TestMessage], prefix: String, indices: Seq[Int]): IO[Unit] =
     indices.toList.traverse_(index => publisher.publishOne(TestMessage(s"$prefix-$index", index)))
 
   "Publisher and Subscriber" should "publish a single message and receive it" in runIO {

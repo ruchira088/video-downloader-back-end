@@ -2,6 +2,7 @@ package com.ruchij.core.daos.messaging
 
 import cats.data.NonEmptyList
 import cats.free.Free
+import cats.implicits._
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 import doobie.free.connection.ConnectionIO
 import doobie.implicits.toSqlInterpolator
@@ -14,14 +15,72 @@ object DoobieMessageConsumerGroupDao extends MessageConsumerGroupDao[ConnectionI
 
   override def createGroup(channel: String, groupId: String, createdAt: Instant): ConnectionIO[Int] =
     sql"""
-      INSERT INTO message_queue_consumer_group (channel, group_id, start_id, created_at)
-        SELECT $channel, $groupId, COALESCE(MAX(id), 0), $createdAt FROM message_queue WHERE channel = $channel
+      INSERT INTO message_queue_consumer_group (channel, group_id, start_id, created_at, last_polled_at)
+        SELECT $channel, $groupId, COALESCE(MAX(id), 0), $createdAt, $createdAt
+          FROM message_queue WHERE channel = $channel
     """.update.run
 
   override def lockGroup(channel: String, groupId: String): ConnectionIO[Option[Long]] =
     sql"""
       SELECT start_id FROM message_queue_consumer_group WHERE channel = $channel AND group_id = $groupId FOR UPDATE
     """.query[Long].option
+
+  override def markPolled(
+    channel: String,
+    groupId: String,
+    polledAt: Instant,
+    staleBefore: Instant
+  ): ConnectionIO[Int] =
+    sql"""
+      UPDATE message_queue_consumer_group SET last_polled_at = $polledAt
+        WHERE channel = $channel AND group_id = $groupId AND last_polled_at < $staleBefore
+    """.update.run
+
+  override def advanceStartId(
+    channel: String,
+    groupId: String,
+    startId: Long,
+    createdBefore: Instant
+  ): ConnectionIO[Option[Long]] =
+    // A single statement, so that both scans see the same snapshot
+    sql"""
+      SELECT MAX(message_queue.id) FROM message_queue
+        WHERE message_queue.channel = $channel AND message_queue.id > $startId
+          AND message_queue.created_at < $createdBefore
+          AND message_queue.id < COALESCE(
+            (
+              SELECT MIN(pending.id) FROM message_queue pending
+                WHERE pending.channel = $channel AND pending.id > $startId
+                  AND NOT EXISTS (
+                    SELECT 1 FROM message_queue_delivery
+                      WHERE message_queue_delivery.group_id = $groupId
+                        AND message_queue_delivery.message_id = pending.id
+                        AND message_queue_delivery.acknowledged = TRUE
+                  )
+            ),
+            ${Long.MaxValue}
+          )
+    """
+      .query[Option[Long]]
+      .unique
+      .flatMap {
+        _.filter(_ > startId).traverse { newStartId =>
+          for {
+            _ <- sql"""
+              UPDATE message_queue_consumer_group SET start_id = $newStartId
+                WHERE channel = $channel AND group_id = $groupId
+            """.update.run
+            // Every message up to the start id is acknowledged, so their claims are no longer needed
+            _ <- sql"""
+              DELETE FROM message_queue_delivery
+                WHERE group_id = $groupId
+                  AND message_id IN (
+                    SELECT id FROM message_queue WHERE channel = $channel AND id > $startId AND id <= $newStartId
+                  )
+            """.update.run
+          } yield newStartId
+        }
+      }
 
   override def findUnclaimed(
     channel: String,
@@ -58,15 +117,29 @@ object DoobieMessageConsumerGroupDao extends MessageConsumerGroupDao[ConnectionI
         LIMIT $limit
     """.query[(Long, String)].to[List]
 
-  override def insertClaims(groupId: String, messageIds: List[Long], claimedAt: Instant): ConnectionIO[Int] =
-    Update[(String, Long, Instant)](
-      "INSERT INTO message_queue_delivery (group_id, message_id, delivered_at, acknowledged) VALUES (?, ?, ?, FALSE)"
-    ).updateMany(messageIds.map(messageId => (groupId, messageId, claimedAt)))
+  override def insertClaims(
+    groupId: String,
+    consumerId: String,
+    messageIds: List[Long],
+    claimedAt: Instant
+  ): ConnectionIO[Int] =
+    Update[(String, Long, String, Instant)](
+      """
+        INSERT INTO message_queue_delivery (group_id, message_id, consumer_id, delivered_at, acknowledged)
+          VALUES (?, ?, ?, ?, FALSE)
+      """
+    ).updateMany(messageIds.map(messageId => (groupId, messageId, consumerId, claimedAt)))
 
-  override def renewClaims(groupId: String, messageIds: List[Long], claimedAt: Instant): ConnectionIO[Int] =
+  override def renewClaims(
+    groupId: String,
+    consumerId: String,
+    messageIds: List[Long],
+    claimedAt: Instant
+  ): ConnectionIO[Int] =
     NonEmptyList.fromList(messageIds).fold[ConnectionIO[Int]](Free.pure(0)) { ids =>
-      (sql"UPDATE message_queue_delivery SET delivered_at = $claimedAt WHERE group_id = $groupId AND " ++
-        in(fr"message_id", ids)).update.run
+      (sql"""
+        UPDATE message_queue_delivery SET delivered_at = $claimedAt, consumer_id = $consumerId
+          WHERE group_id = $groupId AND """ ++ in(fr"message_id", ids)).update.run
     }
 
   override def acknowledge(groupId: String, messageIds: List[Long]): ConnectionIO[Int] =
@@ -74,4 +147,10 @@ object DoobieMessageConsumerGroupDao extends MessageConsumerGroupDao[ConnectionI
       (sql"UPDATE message_queue_delivery SET acknowledged = TRUE WHERE group_id = $groupId AND " ++
         in(fr"message_id", ids)).update.run
     }
+
+  override def releaseClaims(groupId: String, consumerId: String): ConnectionIO[Int] =
+    sql"""
+      DELETE FROM message_queue_delivery
+        WHERE group_id = $groupId AND consumer_id = $consumerId AND acknowledged = FALSE
+    """.update.run
 }
