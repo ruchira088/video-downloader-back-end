@@ -75,6 +75,18 @@ class TestAuthenticationRouter(unittest.TestCase):
 
         self.assertEqual(response.status_code, 401)
 
+    def test_login_answered_with_a_challenge_returns_403(self):
+        challenge = {"ChallengeName": "NEW_PASSWORD_REQUIRED", "Session": "s"}
+
+        with patch.object(self.cognito_client, "initiate_auth", return_value=challenge):
+            response = self.client.post(
+                "/authentication/login",
+                json={"email": sample_user.email, "password": sample_password},
+            )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("POST /user", response.json()["detail"])
+
     def test_missing_authorization_header_returns_401(self):
         self.assertEqual(self.client.get("/whoami").status_code, 401)
         self.assertEqual(self.client.delete("/authentication/logout").status_code, 401)

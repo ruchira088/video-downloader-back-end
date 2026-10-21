@@ -76,9 +76,12 @@ sam deploy --config-env prod        # production
 
 ## Limitations
 
-- **Passwords shorter than 6 characters can't sign up.** Cognito's minimum password length is 6, and sign-up copies
-  the user's main-API password into the user pool. A user with a shorter password must change it on the main API
+- **Passwords shorter than 6 characters, or with leading or trailing whitespace, can't sign up.** Sign-up copies the
+  user's main-API password into the user pool, and Cognito rejects these whatever the pool's policy (6 is its lowest
+  minimum length). `POST /user` answers them with a 400; such a user must change their password on the main API
   first.
+- **A sign-up that stopped part-way** (e.g. a Lambda timeout between creating the user and setting their password)
+  leaves an account whose login is answered with a 403. The next `POST /user` repairs it.
 - A user's name, role and password are copied from the main API only when `POST /user` is called, so they stay as
   they were at the last call until the next one.
 - `GET /schedule` lists at most the 100 newest pending requests.

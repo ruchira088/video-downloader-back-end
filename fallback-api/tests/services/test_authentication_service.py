@@ -8,6 +8,7 @@ from src.services.authentication_service import (
     CognitoAuthenticationService,
 )
 from src.services.exceptions import (
+    IncompleteSignUpException,
     IncorrectCredentialsException,
     InvalidAuthenticationTokenException,
     PasswordResetRequiredException,
@@ -303,3 +304,63 @@ class TestCognitoAuthenticationService(unittest.TestCase):
 
         with self.assertRaises(InvalidAuthenticationTokenException):
             service.authenticate(auth_token.access_token)
+
+
+@mock_aws
+class TestCognitoAuthenticationServiceIncompleteSignUp(unittest.TestCase):
+    """Cognito answers some logins with a challenge or an error that the fallback can't act on,
+    which must surface as an authentication error rather than a 500."""
+
+    def setUp(self):
+        self.cognito_details = setup_cognito(__name__)
+        self.cognito_client = self.cognito_details.cognito_client
+        self.service = CognitoAuthenticationService(
+            cognito_idp_client=self.cognito_client,
+            cognito_user_pool_client_id=self.cognito_details.user_pool_client_id,
+            client_secret_key=self.cognito_details.user_pool_client_secret,
+            access_token_verifier=moto_access_token_verifier(self.cognito_details),
+        )
+
+    def test_a_login_answered_with_a_challenge_is_an_incomplete_sign_up(self):
+        # A sign-up that stopped between AdminCreateUser and AdminSetUserPassword leaves the
+        # user in FORCE_CHANGE_PASSWORD, whose login Cognito answers with a challenge.
+        self.cognito_client.admin_create_user(
+            UserPoolId=self.cognito_details.user_pool_id,
+            Username=sample_user.email,
+            TemporaryPassword=sample_password,
+            MessageAction="SUPPRESS",
+            UserAttributes=[
+                {"Name": "email", "Value": sample_user.email},
+                {"Name": "custom:user_id", "Value": sample_user.id},
+            ],
+        )
+
+        with self.assertRaises(IncompleteSignUpException):
+            self.service.login(sample_user.email, sample_password)
+
+    def test_any_challenge_is_an_incomplete_sign_up(self):
+        with (
+            patch.object(
+                self.cognito_client,
+                "initiate_auth",
+                return_value={"ChallengeName": "SMS_MFA", "Session": "s"},
+            ),
+            self.assertRaises(IncompleteSignUpException),
+        ):
+            self.service.login(sample_user.email, sample_password)
+
+    def _login_failing_with(self, exception_name: str) -> None:
+        error = getattr(self.cognito_client.exceptions, exception_name)(
+            {"Error": {"Code": exception_name, "Message": "x"}}, "InitiateAuth"
+        )
+        with patch.object(self.cognito_client, "initiate_auth", side_effect=error):
+            self.service.login(sample_user.email, sample_password)
+
+    def test_an_unconfirmed_user_is_an_incomplete_sign_up(self):
+        with self.assertRaises(IncompleteSignUpException):
+            self._login_failing_with("UserNotConfirmedException")
+
+    def test_an_invalid_parameter_is_incorrect_credentials(self):
+        # e.g. a password with leading or trailing whitespace, which no fallback user can have
+        with self.assertRaises(IncorrectCredentialsException):
+            self._login_failing_with("InvalidParameterException")

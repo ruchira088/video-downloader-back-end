@@ -137,6 +137,50 @@ class TestCognitoUserService(unittest.TestCase):
         self.assertFalse(upsert.created)
         self._login(sample_user.email, NEW_PASSWORD)
 
+    def test_a_half_created_user_is_repaired_by_the_next_upsert(self):
+        # A sign-up that stopped (e.g. the Lambda timed out) between AdminCreateUser and
+        # AdminSetUserPassword, so its rollback never ran: the user is left in
+        # FORCE_CHANGE_PASSWORD with a password nobody knows.
+        self.cognito_client.admin_create_user(
+            UserPoolId=self.cognito_details.user_pool_id,
+            Username=sample_user.email,
+            MessageAction="SUPPRESS",
+            UserAttributes=[
+                {"Name": "email", "Value": sample_user.email},
+                {"Name": "custom:user_id", "Value": sample_user.id},
+                {"Name": "custom:role", "Value": "User"},
+            ],
+        )
+
+        upsert = self._upsert(sample_user)
+
+        self.assertFalse(upsert.created)
+        response = self.cognito_client.admin_get_user(
+            UserPoolId=self.cognito_details.user_pool_id, Username=sample_user.email
+        )
+        self.assertEqual(response["UserStatus"], "CONFIRMED")
+        self._login(sample_user.email, sample_password)
+
+    def _upsert_with_password_rejected_as(self, exception_name: str) -> None:
+        error = getattr(self.cognito_client.exceptions, exception_name)(
+            {"Error": {"Code": exception_name, "Message": "x"}}, "AdminSetUserPassword"
+        )
+        with patch.object(
+            self.cognito_client, "admin_set_user_password", side_effect=error
+        ):
+            self._upsert(sample_user, password=" leading-whitespace")
+
+    def test_a_password_cognito_rejects_as_an_invalid_parameter_is_an_invalid_password(
+        self,
+    ):
+        # Cognito rejects a password with leading or trailing whitespace this way, rather than
+        # with an InvalidPasswordException.
+        with self.assertRaises(InvalidPasswordException):
+            self._upsert_with_password_rejected_as("InvalidParameterException")
+
+        with self.assertRaises(self.cognito_client.exceptions.UserNotFoundException):
+            self._attributes(sample_user.email)
+
     def test_a_weak_password_rolls_back_a_new_user(self):
         with self.assertRaises(InvalidPasswordException):
             self._upsert(sample_user, password="weak")

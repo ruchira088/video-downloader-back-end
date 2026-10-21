@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import requests
 from fastapi import FastAPI
@@ -17,6 +17,7 @@ from tests.services.test_service_helpers import setup_cognito
 class TestUserRouter(unittest.TestCase):
     def setUp(self):
         cognito_details = setup_cognito(__name__)
+        self.cognito_client = cognito_details.cognito_client
         self.user_validation_service = MagicMock()
         self.user_validation_service.get_user.return_value = sample_user
 
@@ -46,6 +47,27 @@ class TestUserRouter(unittest.TestCase):
         response = self.client.post(
             "/user", json={"email": sample_user.email, "password": "weak"}
         )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(
+            "Password does not meet the fallback password policy",
+            response.json()["detail"],
+        )
+
+    def test_sign_up_with_a_password_cognito_rejects_as_an_invalid_parameter_returns_400(
+        self,
+    ):
+        cognito_client = self.cognito_client
+        error = cognito_client.exceptions.InvalidParameterException(
+            {"Error": {"Code": "InvalidParameterException", "Message": "x"}},
+            "AdminSetUserPassword",
+        )
+
+        with patch.object(cognito_client, "admin_set_user_password", side_effect=error):
+            response = self.client.post(
+                "/user",
+                json={"email": sample_user.email, "password": "Str0ng!Password "},
+            )
 
         self.assertEqual(response.status_code, 400)
         self.assertIn(

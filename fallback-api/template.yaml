@@ -263,7 +263,9 @@ Resources:
           Name: role
       # The main API enforces no password rules of its own, so this pool's policy must accept
       # whatever password a user already has there -- Cognito's stricter defaults would reject
-      # many existing passwords and surface as a 500 from AdminSetUserPassword.
+      # many existing passwords. This is already as loose as Cognito allows: 6 is its lowest
+      # MinimumLength, and it always rejects a password with leading or trailing whitespace,
+      # whatever the policy. Sign-up answers either rejection with a 400 (user_service.py).
       Policies:
         PasswordPolicy:
           MinimumLength: 6

@@ -141,13 +141,21 @@ class CognitoUserService(UserService):
 
             # In tests, cognito_idp_client can be a MagicMock, whose .exceptions.* attributes
             # are themselves MagicMocks rather than exception classes; isinstance() would raise
-            # TypeError against those, so only compare once we know it's a real exception type.
-            invalid_password_exception_type = (
-                self._cognito_idp_client.exceptions.InvalidPasswordException
+            # TypeError against those, so only compare against real exception types.
+            # Cognito rejects a password that breaks the pool's policy with an
+            # InvalidPasswordException, but one with leading or trailing whitespace with an
+            # InvalidParameterException; the password is the only parameter here that comes
+            # from the request (the email has already been accepted by the main API).
+            exceptions = self._cognito_idp_client.exceptions
+            password_policy_exception_types = tuple(
+                exception_type
+                for exception_type in (
+                    exceptions.InvalidPasswordException,
+                    exceptions.InvalidParameterException,
+                )
+                if isinstance(exception_type, type)
             )
-            if isinstance(invalid_password_exception_type, type) and isinstance(
-                error, invalid_password_exception_type
-            ):
+            if isinstance(error, password_policy_exception_types):
                 raise InvalidPasswordException(
                     f"Password does not meet the fallback password policy: {error}"
                 ) from error
