@@ -18,6 +18,9 @@ from src.services.user_validation_service import (
 
 logger = logging.getLogger(__name__)
 
+# The main API's answers to a login that prove the credentials are no longer valid
+CREDENTIAL_REFUSALS = frozenset({401, 403})
+
 
 @dataclass(frozen=True)
 class UserUpsert:
@@ -88,11 +91,12 @@ class CognitoUserService(UserService):
                 email=email, password=password
             )
         except HTTPError as error:
-            # Only a refusal proves the credentials changed. If the main API is merely
-            # unreachable the account is kept, since deleting it would take the fallback away
-            # just as it is needed; the caller still sees the error.
+            # Only a credential refusal (401 or 403) proves the credentials changed. On any
+            # other error -- the main API unreachable, failing or answering oddly -- the account
+            # is kept, since deleting it would take the fallback away just as it is needed; the
+            # caller still sees the error.
             response = error.response
-            if response is not None and 400 <= response.status_code < 500:
+            if response is not None and response.status_code in CREDENTIAL_REFUSALS:
                 self._remove_after_failed_recheck(email, user)
             raise
 
@@ -101,14 +105,27 @@ class CognitoUserService(UserService):
             raise IncorrectCredentialsException()
 
     def _remove_after_failed_recheck(self, email: str, user: User) -> None:
+        # A concurrent sign-up may have replaced the account for the email's new main-side
+        # owner since this one wrote it; that account is theirs, and stays.
+        if self._existing_user_id(email) != user.id:
+            logger.warning(
+                "The main API refused the credentials of user %s after they were written to "
+                "Cognito, but the fallback account no longer is theirs; keeping it",
+                user.id,
+            )
+            return
+
         logger.warning(
             "The main API refused the credentials of user %s after they were written to "
             "Cognito; deleting the fallback account",
             user.id,
         )
-        self._cognito_idp_client.admin_delete_user(
-            UserPoolId=self._cognito_user_pool_id, Username=email
-        )
+        try:
+            self._cognito_idp_client.admin_delete_user(
+                UserPoolId=self._cognito_user_pool_id, Username=email
+            )
+        except self._cognito_idp_client.exceptions.UserNotFoundException:
+            pass
 
     def _existing_user_id(self, email: str) -> str | None:
         try:

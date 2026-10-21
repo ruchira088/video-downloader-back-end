@@ -193,6 +193,70 @@ class TestCognitoUserService(unittest.TestCase):
 
         self._login(sample_user.email, sample_password)
 
+    def test_the_sign_up_is_kept_when_the_re_check_is_not_a_credential_refusal(self):
+        # A 5xx, or any 4xx but 401 and 403, says nothing about the password.
+        for status_code in [500, 502, 400, 404, 429]:
+            with self.subTest(status_code=status_code):
+                self.user_validation_service.get_user.side_effect = [
+                    sample_user,
+                    self._main_api_rejection(status_code),
+                ]
+
+                with self.assertRaises(requests.HTTPError):
+                    self.user_service.upsert_user(
+                        email=sample_user.email, password=sample_password
+                    )
+
+                self._login(sample_user.email, sample_password)
+
+    def test_a_forbidden_re_check_also_removes_the_account(self):
+        self.user_validation_service.get_user.side_effect = [
+            sample_user,
+            self._main_api_rejection(403),
+        ]
+
+        with self.assertRaises(requests.HTTPError):
+            self.user_service.upsert_user(
+                email=sample_user.email, password=sample_password
+            )
+
+        with self.assertRaises(self.cognito_client.exceptions.UserNotFoundException):
+            self._attributes(sample_user.email)
+
+    def test_an_account_replaced_concurrently_is_not_removed_by_a_failed_re_check(
+        self,
+    ):
+        # Between this sign-up's write and its re-check, a concurrent sign-up replaced the
+        # account for the email's new main-side owner, whose account must stay.
+        successor = sample_user.model_copy(update={"id": "successor-id"})
+        successor_service = CognitoUserService(
+            user_validation_service=MagicMock(
+                get_user=MagicMock(return_value=successor)
+            ),
+            cognito_idp_client=self.cognito_client,
+            cognito_user_pool_id=self.cognito_details.user_pool_id,
+        )
+
+        checks = iter(["first", "re-check"])
+
+        def validate(email: str, password: str) -> User:
+            if next(checks) == "first":
+                return sample_user
+            successor_service.upsert_user(email=email, password=NEW_PASSWORD)
+            raise self._main_api_rejection(401)
+
+        self.user_validation_service.get_user.side_effect = validate
+
+        with self.assertRaises(requests.HTTPError):
+            self.user_service.upsert_user(
+                email=sample_user.email, password=sample_password
+            )
+
+        self.assertEqual(
+            self._attributes(sample_user.email)["custom:user_id"], "successor-id"
+        )
+        self._login(sample_user.email, NEW_PASSWORD)
+
     def test_the_password_is_checked_with_the_main_api_again_after_the_write(self):
         self._upsert(sample_user)
 
