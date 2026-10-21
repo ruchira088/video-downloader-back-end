@@ -8,6 +8,7 @@ import cats.implicits._
 import com.eed3si9n.ruchij.batch.BuildInfo
 import com.ruchij.batch.config.BatchServiceConfiguration
 import com.ruchij.batch.daos.filesync.DoobieFileSyncDao
+import com.ruchij.batch.daos.scheduling.DoobieBatchSchedulingDao
 import com.ruchij.batch.daos.workers.DoobieWorkerDao
 import com.ruchij.batch.services.detection.BatchDuplicateDetectionServiceImpl
 import com.ruchij.batch.services.enrichment.VideoEnrichmentServiceImpl
@@ -150,6 +151,7 @@ object BatchApp extends IOApp {
             scheduledVideoDownloadPubSub,
             repositoryService,
             DoobieSchedulingDao,
+            DoobieBatchSchedulingDao,
             workerDao,
             DoobieVideoMetadataDao,
             batchServiceConfiguration.storageConfiguration,

@@ -80,7 +80,8 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
           }
 
       case _ =>
-        val videoFilePath = s"${storageConfiguration.videoFolder}/${scheduledVideoDownload.videoMetadata.id}"
+        val videoId = scheduledVideoDownload.videoMetadata.id
+        val videoFilePath = s"${storageConfiguration.videoFolder}/$videoId"
 
         Resource.pure[F, (Stream[F, Long], F[FileResource])] {
           (
@@ -115,19 +116,22 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
                         progressStream
                           .through(WorkExecutorImpl.sampleLatest(10 seconds, repeatUnchanged = false))
                           .evalMap { progress =>
-                            transaction {
-                              videoMetadataDao.update(
-                                scheduledVideoDownload.videoMetadata.id,
-                                None,
-                                Some(
-                                  math.min(
-                                    math.round(progress.totalSize.bytes),
-                                    scheduledVideoDownload.videoMetadata.size
-                                  )
-                                ),
-                                None
-                              )
-                            }.void
+                            // Saving the size is bookkeeping, a failure to save it must not abort the download
+                            logSideEffectFailure(s"Unable to save the size of $videoId") {
+                              transaction {
+                                videoMetadataDao.update(
+                                  videoId,
+                                  None,
+                                  Some(
+                                    math.min(
+                                      math.round(progress.totalSize.bytes),
+                                      scheduledVideoDownload.videoMetadata.size
+                                    )
+                                  ),
+                                  None
+                                )
+                              }.void
+                            }
                           }
                       }
                       .interruptWhen(deferred)
@@ -238,8 +242,10 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
           // quiet, such as while yt-dlp merges the downloaded formats.
           data
             .through(WorkExecutorImpl.sampleLatest(3 seconds, repeatUnchanged = true))
+            // A failure to publish the progress, such as the message broker being briefly unavailable, must not abort
+            // a download that may have been running for hours. The progress is published again on the next tick.
             .evalTap { byteCount =>
-              batchSchedulingService.publishDownloadProgress(scheduledVideoDownload.videoMetadata.id, byteCount)
+              publishDownloadProgress(scheduledVideoDownload.videoMetadata.id, byteCount)
             }
             // fs2 halts the stream gracefully on `true`, which would look like a finished download, so turn the
             // signal into an error that the scheduler recognises as a pause
@@ -263,6 +269,14 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
             }
             .productR(fileResourceF)
       }
+
+  private def publishDownloadProgress(videoId: String, byteCount: Long): F[Unit] =
+    logSideEffectFailure(s"Unable to publish the download progress of $videoId") {
+      batchSchedulingService.publishDownloadProgress(videoId, byteCount)
+    }
+
+  private def logSideEffectFailure(description: String)(sideEffect: F[Unit]): F[Unit] =
+    sideEffect.handleErrorWith(throwable => logger.warn[F](s"$description. error=$throwable"))
 
   /**
     * Keeps the worker alive for as long as it is in use. A failed heartbeat is logged and tried again on the next
@@ -342,10 +356,7 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
                       .void
                   else Applicative[F].unit
                 }
-                .productL {
-                  batchSchedulingService
-                    .publishDownloadProgress(scheduledVideoDownload.videoMetadata.id, fileResource.size)
-                }
+                .productL(publishDownloadProgress(scheduledVideoDownload.videoMetadata.id, fileResource.size))
                 .productL(transaction(fileResourceDao.insert(fileResource)))
                 .productR(batchVideoService.insert(scheduledVideoDownload.videoMetadata.id, fileResource.id))
                 .productL {

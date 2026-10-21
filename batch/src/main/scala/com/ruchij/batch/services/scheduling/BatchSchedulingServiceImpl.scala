@@ -4,6 +4,7 @@ import cats.data.OptionT
 import cats.effect.Async
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
+import com.ruchij.batch.daos.scheduling.BatchSchedulingDao
 import com.ruchij.batch.daos.workers.WorkerDao
 import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.scheduling.SchedulingDao
@@ -26,6 +27,7 @@ class BatchSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
   scheduledVideoDownloadPubSub: PubSub[F, ScheduledVideoDownload],
   repositoryService: RepositoryService[F],
   schedulingDao: SchedulingDao[T],
+  batchSchedulingDao: BatchSchedulingDao[T],
   workerDao: WorkerDao[T],
   videoMetadataDao: VideoMetadataDao[T],
   storageConfiguration: StorageConfiguration,
@@ -54,32 +56,55 @@ class BatchSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
       }
       .flatTap(scheduledVideoDownloadPubSub.publishOne)
 
-  override def recordFailure(id: String, throwable: Throwable): F[ScheduledVideoDownload] =
+  override def transitionSchedulingStatusById(
+    id: String,
+    from: Set[SchedulingStatus],
+    to: SchedulingStatus
+  ): F[Option[ScheduledVideoDownload]] =
+    Clock[F].timestamp
+      .flatMap { timestamp =>
+        transaction {
+          OptionT(batchSchedulingDao.lockStatusById(id))
+            .filter(from.contains)
+            .flatMapF(_ => schedulingDao.updateSchedulingStatusById(id, to, timestamp))
+            .value
+        }
+      }
+      .flatTap(_.traverse_(scheduledVideoDownloadPubSub.publishOne))
+
+  override def recordFailure(id: String, throwable: Throwable): F[Option[ScheduledVideoDownload]] =
     for {
       timestamp <- Clock[F].timestamp
       jitter <- jitterGenerator.generate
-      updated <- OptionT {
-        transaction {
-          OptionT(schedulingDao.getById(id, None)).flatMapF { current =>
-            // Only the worker running a download may retry it. If the user paused it, or another worker took it
-            // over after a timeout, a late failure must not put it back in the queue.
-            val maybeDelay =
-              if (OwnedStatuses.contains(current.status)) retryPolicy.nextDelay(current.retryCount, jitter) else None
+      maybeUpdated <- transaction {
+        // The row stays locked until the end of the transaction, so the status cannot change before it is written
+        OptionT(batchSchedulingDao.lockStatusById(id))
+          // Only the worker running a download may record its failure. If the user paused it, the workers were
+          // paused, or it was completed or deleted in the meantime, a late failure must neither put it back in the
+          // queue nor overwrite its status with Error.
+          .filter(OwnedStatuses.contains)
+          .flatMapF { _ =>
+            OptionT(schedulingDao.getById(id, None)).flatMapF { current =>
+              retryPolicy.nextDelay(current.retryCount, jitter) match {
+                case Some(delay) =>
+                  schedulingDao.scheduleRetry(id, throwable, timestamp.plusMillis(delay.toMillis), timestamp)
 
-            maybeDelay match {
-              case Some(delay) =>
-                schedulingDao.scheduleRetry(id, throwable, timestamp.plusMillis(delay.toMillis), timestamp)
+                case None => schedulingDao.setErrorById(id, throwable, timestamp)
+              }
+            }.value
+          }
+          .value
+      }
+      _ <- maybeUpdated.fold(
+        logger.warn[F](s"Not recording the failure of id=$id, as its worker no longer owns it. error=$throwable")
+      ) { updated =>
+        logFailure(updated, throwable).productR(scheduledVideoDownloadPubSub.publishOne(updated))
+      }
+    } yield maybeUpdated
 
-              case None => schedulingDao.setErrorById(id, throwable, timestamp)
-            }
-          }.value
-        }
-      }.getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
-      _ <- logFailure(updated, throwable)
-      _ <- scheduledVideoDownloadPubSub.publishOne(updated)
-    } yield updated
-
-  private val OwnedStatuses: Set[SchedulingStatus] = Set(SchedulingStatus.Acquired, SchedulingStatus.Active)
+  // Downloaded is set before the file is probed and the video is saved, which can fail transiently too
+  private val OwnedStatuses: Set[SchedulingStatus] =
+    Set(SchedulingStatus.Acquired, SchedulingStatus.Active, SchedulingStatus.Downloaded)
 
   private def logFailure(scheduledVideoDownload: ScheduledVideoDownload, throwable: Throwable): F[Unit] =
     if (scheduledVideoDownload.status == SchedulingStatus.Queued)
@@ -123,24 +148,30 @@ class BatchSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
     workerStatusSubscriber
       .subscribe(groupId)
       .evalMap { committableRecord =>
-        workerStatusSubscriber
-          .commit(List(committableRecord))
-          .product {
-            logger.debug[F](s"DownloadProgressSubscriber(groupId=$groupId) committed 1 message")
-          }
-          .as(workerStatusSubscriber.extractValue(committableRecord))
+        commitOrLog("WorkerStatusSubscriber", groupId) {
+          workerStatusSubscriber.commit(List(committableRecord))
+        }.as(workerStatusSubscriber.extractValue(committableRecord))
       }
 
   override def subscribeToScheduledVideoDownloadUpdates(groupId: String): Stream[F, ScheduledVideoDownload] =
     scheduledVideoDownloadPubSub
       .subscribe(groupId)
       .evalMap { committableRecord =>
-        scheduledVideoDownloadPubSub
-          .commit(List(committableRecord))
-          .product {
-            logger.debug[F](s"ScheduledVideoDownloadPubSub(groupId=$groupId) committed 1 message")
-          }
-          .as(scheduledVideoDownloadPubSub.extractValue(committableRecord))
+        commitOrLog("ScheduledVideoDownloadPubSub", groupId) {
+          scheduledVideoDownloadPubSub.commit(List(committableRecord))
+        }.as(scheduledVideoDownloadPubSub.extractValue(committableRecord))
+      }
+
+  /**
+    * A failed commit, such as one interrupted by a consumer group rebalance, is logged rather than failing the
+    * subscription. Committing a later message covers this one too, while restarting the subscription would leave a
+    * gap in which the messages for this instance could be missed.
+    */
+  private def commitOrLog(subscriber: String, groupId: String)(commit: F[Unit]): F[Unit] =
+    commit
+      .productR(logger.debug[F](s"$subscriber(groupId=$groupId) committed 1 message"))
+      .handleErrorWith { throwable =>
+        logger.warn[F](s"$subscriber(groupId=$groupId) was unable to commit a message. error=$throwable")
       }
 
   override def publishScheduledVideoDownload(id: String): F[ScheduledVideoDownload] =

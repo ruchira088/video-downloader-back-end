@@ -15,8 +15,22 @@ trait BatchSchedulingService[F[_]] {
 
   def updateSchedulingStatusById(id: String, status: SchedulingStatus): F[ScheduledVideoDownload]
 
-  /** Records a failed download: schedules a retry with backoff while attempts remain, otherwise sets Error. */
-  def recordFailure(id: String, throwable: Throwable): F[ScheduledVideoDownload]
+  /**
+    * Changes the status only if the current status is one of `from`, and publishes the change. Returns None, without
+    * writing anything, if the status is something else or the scheduled video download does not exist.
+    */
+  def transitionSchedulingStatusById(
+    id: String,
+    from: Set[SchedulingStatus],
+    to: SchedulingStatus
+  ): F[Option[ScheduledVideoDownload]]
+
+  /**
+    * Records a failed download: schedules a retry with backoff while attempts remain, otherwise sets Error. Only a
+    * download that a worker is running can fail, so nothing is written, and None is returned, if the download is
+    * not Acquired, Active or Downloaded, such as when it has been completed, paused or deleted since.
+    */
+  def recordFailure(id: String, throwable: Throwable): F[Option[ScheduledVideoDownload]]
 
   def updateSchedulingStatus(from: SchedulingStatus, to: SchedulingStatus): F[Seq[ScheduledVideoDownload]]
 

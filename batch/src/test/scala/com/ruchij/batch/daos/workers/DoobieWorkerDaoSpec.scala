@@ -176,8 +176,8 @@ class DoobieWorkerDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
         maybeReservedWorker mustBe defined
         maybeReservedWorker.value.status mustBe WorkerStatus.Reserved
         maybeReservedWorker.value.owner mustBe Some("owner-1")
-        // Note: heartBeatAt and taskAssignedAt are swapped in getById due to parameter order
-        maybeReservedWorker.value.taskAssignedAt mustBe defined
+        maybeReservedWorker.value.heartBeatAt mustBe Some(fixture.timestamp)
+        maybeReservedWorker.value.taskAssignedAt mustBe None
       }
     } yield ()
   }
@@ -211,7 +211,7 @@ class DoobieWorkerDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
         maybeAssignedWorker.value.status mustBe WorkerStatus.Active
         maybeAssignedWorker.value.scheduledVideoDownload mustBe defined
         maybeAssignedWorker.value.scheduledVideoDownload.value.videoMetadata.id mustBe "video-1"
-        maybeAssignedWorker.value.taskAssignedAt mustBe defined
+        maybeAssignedWorker.value.taskAssignedAt mustBe Some(fixture.timestamp.plusMillis(1000))
       }
     } yield ()
   }
@@ -267,9 +267,8 @@ class DoobieWorkerDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
       maybeUpdatedWorker <- fixture.transaction(fixture.workerDao.updateHeartBeat("worker-01", "owner-1", newTimestamp))
       _ <- IO.delay {
         maybeUpdatedWorker mustBe defined
-        // Note: heartBeatAt and taskAssignedAt are swapped in getById due to parameter order in Worker constructor
-        // The update modifies heart_beat_at column, which maps to taskAssignedAt in the returned Worker
-        maybeUpdatedWorker.value.taskAssignedAt mustBe Some(newTimestamp)
+        maybeUpdatedWorker.value.heartBeatAt mustBe Some(newTimestamp)
+        maybeUpdatedWorker.value.taskAssignedAt mustBe Some(fixture.timestamp)
       }
     } yield ()
   }

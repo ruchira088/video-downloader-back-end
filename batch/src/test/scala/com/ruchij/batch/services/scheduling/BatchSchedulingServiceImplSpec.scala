@@ -2,8 +2,9 @@ package com.ruchij.batch.services.scheduling
 
 import cats.effect.IO
 import cats.implicits._
-import cats.~>
+import cats.{Foldable, Functor, ~>}
 import com.ruchij.batch.config.RetryConfiguration
+import com.ruchij.batch.daos.scheduling.DoobieBatchSchedulingDao
 import com.ruchij.batch.daos.workers.DoobieWorkerDao
 import com.ruchij.batch.external.BatchResourcesProvider
 import com.ruchij.batch.external.containers.ContainerBatchResourcesProvider
@@ -17,6 +18,7 @@ import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
+import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.messaging.{PubSub, Publisher, Subscriber}
 import com.ruchij.core.services.repository.FileRepositoryService
@@ -58,6 +60,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
       scheduledVideoDownloadPubSub,
       repositoryService,
       DoobieSchedulingDao,
+      DoobieBatchSchedulingDao,
       new DoobieWorkerDao(DoobieSchedulingDao),
       DoobieVideoMetadataDao,
       storageConfiguration,
@@ -97,6 +100,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
           scheduledVideoDownloadPubSub,
           repositoryService,
           DoobieSchedulingDao,
+          DoobieBatchSchedulingDao,
           new DoobieWorkerDao(DoobieSchedulingDao),
           DoobieVideoMetadataDao,
           storageConfiguration,
@@ -193,7 +197,71 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
   }
 
 
-  it should "schedule a retry with backoff while attempts remain, and publish the update" in runIO {
+  "transitionSchedulingStatusById" should "change the status from one of the given statuses and publish it" in runIO {
+    val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
+
+    batchServiceProvider.transactor.use { implicit transactor =>
+      val fixture = createTestFixture()
+
+      for {
+        generated <- DataGenerators.scheduledVideoDownload[IO].generate
+        scheduledVideo = generated.copy(status = SchedulingStatus.Active)
+        _ <- transactor(insertScheduledVideo(scheduledVideo))
+
+        _ = (fixture.scheduledVideoDownloadPubSub.publishOne _)
+          .expects(where { (update: ScheduledVideoDownload) => update.status == SchedulingStatus.Queued })
+          .returning(IO.unit)
+
+        updated <- fixture.batchSchedulingService.transitionSchedulingStatusById(
+          scheduledVideo.videoMetadata.id,
+          Set(SchedulingStatus.Acquired, SchedulingStatus.Active),
+          SchedulingStatus.Queued
+        )
+        _ <- IO.delay { updated.value.status mustBe SchedulingStatus.Queued }
+      } yield ()
+    }
+  }
+
+  it should "leave any other status alone, and publish nothing" in runIO {
+    val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
+
+    batchServiceProvider.transactor.use { implicit transactor =>
+      val fixture = createTestFixture()
+
+      for {
+        generated <- DataGenerators.scheduledVideoDownload[IO].generate
+        scheduledVideo = generated.copy(status = SchedulingStatus.Completed)
+        _ <- transactor(insertScheduledVideo(scheduledVideo))
+
+        _ = (fixture.scheduledVideoDownloadPubSub.publishOne _).expects(*).never()
+
+        updated <- fixture.batchSchedulingService.transitionSchedulingStatusById(
+          scheduledVideo.videoMetadata.id,
+          Set(SchedulingStatus.Acquired, SchedulingStatus.Active),
+          SchedulingStatus.Queued
+        )
+        current <- transactor(DoobieSchedulingDao.getById(scheduledVideo.videoMetadata.id, None))
+        _ <- IO.delay {
+          updated mustBe None
+          current.value.status mustBe SchedulingStatus.Completed
+        }
+      } yield ()
+    }
+  }
+
+  it should "return None for a non-existent video" in runIO {
+    val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
+
+    batchServiceProvider.transactor.use { implicit transactor =>
+      val fixture = createTestFixture()
+
+      fixture.batchSchedulingService
+        .transitionSchedulingStatusById("non-existent-id", Set(SchedulingStatus.Active), SchedulingStatus.Queued)
+        .flatMap(updated => IO.delay(updated mustBe None))
+    }
+  }
+
+  "recordFailure" should "schedule a retry with backoff while attempts remain, and publish the update" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
     val retryConfiguration = RetryConfiguration(maxAttempts = 2, baseDelay = 1.minute, maxDelay = 30.minutes)
 
@@ -211,8 +279,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
           .expects(where { (update: ScheduledVideoDownload) => update.status == SchedulingStatus.Queued })
           .returning(IO.unit)
 
-        updated <-
+        maybeUpdated <-
           fixture.batchSchedulingService.recordFailure(scheduledVideo.videoMetadata.id, new RuntimeException("reset"))
+        updated = maybeUpdated.value
         _ <- IO.delay {
           updated.status mustBe SchedulingStatus.Queued
           updated.retryCount mustBe 1
@@ -223,28 +292,64 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     }
   }
 
-  it should "set Error instead of retrying when the worker no longer owns the download" in runIO {
+  it should "retry a download that failed after its file was downloaded" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
-    val retryConfiguration = RetryConfiguration(maxAttempts = 5, baseDelay = 1.minute, maxDelay = 30.minutes)
+    val retryConfiguration = RetryConfiguration(maxAttempts = 2, baseDelay = 1.minute, maxDelay = 30.minutes)
 
     batchServiceProvider.transactor.use { implicit transactor =>
       val fixture = createTestFixture(retryConfiguration)
 
       for {
         generated <- DataGenerators.scheduledVideoDownload[IO].generate
-        // The user paused the download while its worker was failing
-        scheduledVideo = generated.copy(status = SchedulingStatus.Paused)
+        // The worker sets Downloaded before probing the file and saving the video, which can fail transiently
+        scheduledVideo = generated.copy(status = SchedulingStatus.Downloaded)
         _ <- transactor(insertScheduledVideo(scheduledVideo))
 
-        _ = (fixture.scheduledVideoDownloadPubSub.publishOne _).expects(*).returning(IO.unit)
+        _ = (fixture.scheduledVideoDownloadPubSub.publishOne _)
+          .expects(where { (update: ScheduledVideoDownload) => update.status == SchedulingStatus.Queued })
+          .returning(IO.unit)
 
         updated <-
-          fixture.batchSchedulingService.recordFailure(scheduledVideo.videoMetadata.id, new RuntimeException("late"))
+          fixture.batchSchedulingService.recordFailure(scheduledVideo.videoMetadata.id, new RuntimeException("ffprobe"))
         _ <- IO.delay {
-          updated.status mustBe SchedulingStatus.Error
-          updated.retryCount mustBe 0
+          updated.value.status mustBe SchedulingStatus.Queued
+          updated.value.retryCount mustBe 1
         }
       } yield ()
+    }
+  }
+
+  it should "write nothing when the worker no longer owns the download" in runIO {
+    val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
+    val retryConfiguration = RetryConfiguration(maxAttempts = 5, baseDelay = 1.minute, maxDelay = 30.minutes)
+
+    batchServiceProvider.transactor.use { implicit transactor =>
+      val fixture = createTestFixture(retryConfiguration)
+
+      // The user paused the download, the workers were paused, or another worker completed it, while this worker was
+      // failing. A late failure must neither retry the download nor overwrite the status with Error.
+      val notOwnedStatuses =
+        List(SchedulingStatus.Completed, SchedulingStatus.Paused, SchedulingStatus.WorkersPaused)
+
+      (fixture.scheduledVideoDownloadPubSub.publishOne _).expects(*).never()
+
+      notOwnedStatuses.traverse_ { status =>
+        for {
+          generated <- DataGenerators.scheduledVideoDownload[IO].generate
+          scheduledVideo = generated.copy(status = status)
+          _ <- transactor(insertScheduledVideo(scheduledVideo))
+
+          updated <-
+            fixture.batchSchedulingService.recordFailure(scheduledVideo.videoMetadata.id, new RuntimeException("late"))
+          current <- transactor(DoobieSchedulingDao.getById(scheduledVideo.videoMetadata.id, None))
+          _ <- IO.delay {
+            updated mustBe None
+            current.value.status mustBe status
+            current.value.errorInfo mustBe None
+            current.value.retryCount mustBe 0
+          }
+        } yield ()
+      }
     }
   }
 
@@ -264,14 +369,14 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         _ = (fixture.scheduledVideoDownloadPubSub.publishOne _).expects(*).returning(IO.unit).twice()
 
         id = scheduledVideo.videoMetadata.id
-        first <- fixture.batchSchedulingService.recordFailure(id, new RuntimeException("one"))
+        first <- fixture.batchSchedulingService.recordFailure(id, new RuntimeException("one")).map(_.value)
         // Error-row IDs are {id}-{epochMillis}, so the second failure needs a later millisecond
         _ <- IO.sleep(5.millis)
         // A worker picks the retry up again before it fails a second time
         _ <- transactor {
           DoobieSchedulingDao.updateSchedulingStatusById(id, SchedulingStatus.Active, first.lastUpdatedAt)
         }
-        second <- fixture.batchSchedulingService.recordFailure(id, new RuntimeException("two"))
+        second <- fixture.batchSchedulingService.recordFailure(id, new RuntimeException("two")).map(_.value)
         _ <- IO.delay {
           first.status mustBe SchedulingStatus.Queued
           second.status mustBe SchedulingStatus.Error
@@ -281,7 +386,8 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
       } yield ()
     }
   }
-  "recordFailure" should "set Error once retries are disabled and publish the update" in runIO {
+
+  it should "set Error once retries are disabled and publish the update" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
     batchServiceProvider.transactor.use { implicit transactor =>
@@ -289,37 +395,32 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
       val testError = new RuntimeException("Test error message")
 
       for {
-        scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
+        generated <- DataGenerators.scheduledVideoDownload[IO].generate
+        scheduledVideo = generated.copy(status = SchedulingStatus.Active)
         _ <- transactor(insertScheduledVideo(scheduledVideo))
 
         _ = (fixture.scheduledVideoDownloadPubSub.publishOne _).expects(*).returning(IO.unit)
 
         updated <- fixture.batchSchedulingService.recordFailure(scheduledVideo.videoMetadata.id, testError)
         _ <- IO.delay {
-          updated.status mustBe SchedulingStatus.Error
-          updated.errorInfo mustBe defined
-          updated.errorInfo.value.message must include("Test error message")
+          updated.value.status mustBe SchedulingStatus.Error
+          updated.value.errorInfo.value.message must include("Test error message")
         }
       } yield ()
     }
   }
 
-  it should "raise an error for non-existent video" in runIO {
+  it should "write nothing, and return None, for a non-existent video" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
     batchServiceProvider.transactor.use { implicit transactor =>
       val fixture = createTestFixture()
-      val testError = new RuntimeException("Test error")
 
-      fixture.batchSchedulingService.recordFailure("non-existent-id", testError)
-        .attempt
-        .flatMap { result =>
-          IO.delay {
-            // When the video doesn't exist, the database operation may fail with a constraint error
-            // or return ResourceNotFoundException depending on implementation
-            result.isLeft mustBe true
-          }
-        }
+      (fixture.scheduledVideoDownloadPubSub.publishOne _).expects(*).never()
+
+      fixture.batchSchedulingService
+        .recordFailure("non-existent-id", new RuntimeException("Test error"))
+        .flatMap(updated => IO.delay(updated mustBe None))
     }
   }
 
@@ -473,6 +574,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         scheduledVideoDownloadPubSub,
         repositoryService,
         DoobieSchedulingDao,
+        DoobieBatchSchedulingDao,
         new DoobieWorkerDao(DoobieSchedulingDao),
         DoobieVideoMetadataDao,
         storageConfiguration,
@@ -534,6 +636,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         scheduledVideoDownloadPubSub,
         repositoryService,
         DoobieSchedulingDao,
+        DoobieBatchSchedulingDao,
         new DoobieWorkerDao(DoobieSchedulingDao),
         DoobieVideoMetadataDao,
         storageConfiguration,
@@ -548,6 +651,53 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
       stream.compile.toList.map { result =>
         result mustBe empty
       }
+    }
+  }
+
+  it should "keep the subscription going when committing a message fails" in runIO {
+    // A message whose commit failed is still processed. The offset of the next message that is committed covers it,
+    // so restarting the subscription, and possibly missing the messages sent in the meantime, is not needed.
+    class FlakyCommitSubscriber(messages: List[WorkerStatusUpdate]) extends Subscriber[IO, WorkerStatusUpdate] {
+      override type C[X] = X
+
+      @volatile var commitAttempts: Int = 0
+
+      override def subscribe(groupId: String): Stream[IO, WorkerStatusUpdate] = Stream.emits(messages)
+
+      override def commit[H[_]: Foldable: Functor](values: H[WorkerStatusUpdate]): IO[Unit] =
+        IO.defer {
+          commitAttempts += 1
+          if (commitAttempts == 1) IO.raiseError(new RuntimeException("Commit failed due to a rebalance"))
+          else IO.unit
+        }
+
+      override def extractValue(ca: WorkerStatusUpdate): WorkerStatusUpdate = ca
+    }
+
+    val messages = List(WorkerStatusUpdate(WorkerStatus.Paused), WorkerStatusUpdate(WorkerStatus.Available))
+    val workerStatusSubscriber = new FlakyCommitSubscriber(messages)
+
+    implicit val unusedTransaction: ConnectionIO ~> IO = new (ConnectionIO ~> IO) {
+      override def apply[A](fa: ConnectionIO[A]): IO[A] = IO.raiseError(new IllegalStateException("Not used"))
+    }
+
+    val batchSchedulingService = new BatchSchedulingServiceImpl[IO, ConnectionIO](
+      mock[Publisher[IO, DownloadProgress]],
+      workerStatusSubscriber,
+      mock[PubSub[IO, ScheduledVideoDownload]],
+      mock[FileRepositoryService[IO]],
+      DoobieSchedulingDao,
+      DoobieBatchSchedulingDao,
+      new DoobieWorkerDao(DoobieSchedulingDao),
+      DoobieVideoMetadataDao,
+      StorageConfiguration("video-folder", "image-folder", List.empty),
+      RetryPolicy(RetryConfiguration.Disabled),
+      RandomGenerator.eval(IO.pure(0.5))
+    )
+
+    batchSchedulingService.subscribeToWorkerStatusUpdates("test-group").compile.toList.attempt.map { result =>
+      result mustBe Right(messages)
+      workerStatusSubscriber.commitAttempts mustBe 2
     }
   }
 
@@ -567,6 +717,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         scheduledVideoDownloadPubSub,
         repositoryService,
         DoobieSchedulingDao,
+        DoobieBatchSchedulingDao,
         new DoobieWorkerDao(DoobieSchedulingDao),
         DoobieVideoMetadataDao,
         storageConfiguration,
@@ -602,6 +753,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         scheduledVideoDownloadPubSub,
         repositoryService,
         DoobieSchedulingDao,
+        DoobieBatchSchedulingDao,
         new DoobieWorkerDao(DoobieSchedulingDao),
         DoobieVideoMetadataDao,
         storageConfiguration,
@@ -639,6 +791,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         scheduledVideoDownloadPubSub,
         repositoryService,
         DoobieSchedulingDao,
+        DoobieBatchSchedulingDao,
         new DoobieWorkerDao(DoobieSchedulingDao),
         DoobieVideoMetadataDao,
         storageConfiguration,
@@ -669,6 +822,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         scheduledVideoDownloadPubSub,
         repositoryService,
         DoobieSchedulingDao,
+        DoobieBatchSchedulingDao,
         new DoobieWorkerDao(DoobieSchedulingDao),
         DoobieVideoMetadataDao,
         storageConfiguration,

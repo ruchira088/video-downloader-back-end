@@ -46,11 +46,12 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
     """.update.run
 
   override def getById(workerId: String): ConnectionIO[Option[Worker]] =
-    sql"SELECT status, task_assigned_at, heart_beat_at, scheduled_video_id, owner FROM worker WHERE id = $workerId"
+    // The columns are in the order of the Worker constructor, which takes heartBeatAt before taskAssignedAt
+    sql"SELECT status, heart_beat_at, task_assigned_at, scheduled_video_id, owner FROM worker WHERE id = $workerId"
       .query[(WorkerStatus, Option[Instant], Option[Instant], Option[String], Option[String])]
       .option
       .flatMap {
-        case Some((status, taskAssignedAt, heartBeatAt, Some(scheduledVideoId), owner)) =>
+        case Some((status, heartBeatAt, taskAssignedAt, Some(scheduledVideoId), owner)) =>
           OptionT(schedulingDao.getById(scheduledVideoId, None))
             .getOrElseF {
               ApplicativeError[ConnectionIO, Throwable].raiseError {
@@ -58,11 +59,13 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
               }
             }
             .map { scheduledVideoDownload =>
-              Some(models.Worker(workerId, status, taskAssignedAt, heartBeatAt, Some(scheduledVideoDownload), owner))
+              Some(models.Worker(workerId, status, heartBeatAt, taskAssignedAt, Some(scheduledVideoDownload), owner))
             }
 
-        case Some((status, reservedAt, heartBeat, None, owner)) =>
-          Applicative[ConnectionIO].pure(Some(models.Worker(workerId, status, reservedAt, heartBeat, None, owner)))
+        case Some((status, heartBeatAt, taskAssignedAt, None, owner)) =>
+          Applicative[ConnectionIO].pure {
+            Some(models.Worker(workerId, status, heartBeatAt, taskAssignedAt, None, owner))
+          }
 
         case None => Applicative[ConnectionIO].pure(None)
       }

@@ -16,9 +16,10 @@ import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 import com.ruchij.core.daos.snapshot.models.Snapshot
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
-import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata}
+import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata, VideoSite}
 import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.services.download.models.DownloadResult
+import com.ruchij.core.services.video.models.{YTDataSize, YTDataUnit, YTDownloaderProgress}
 import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import com.ruchij.core.types.{Clock, TimeUtils}
 import fs2.Stream
@@ -107,12 +108,14 @@ class WorkExecutorImplSpec extends AnyFlatSpec with Matchers {
     downloadData: Stream[IO, Long],
     batchSchedulingService: StubBatchSchedulingService,
     workerDao: WorkerDao[IO],
-    videoEnrichmentService: VideoEnrichmentService[IO] = new StubVideoEnrichmentService(timestamp)
+    videoEnrichmentService: VideoEnrichmentService[IO] = new StubVideoEnrichmentService(timestamp),
+    videoMetadataDao: VideoMetadataDao[IO] = new NoOpVideoMetadataDao,
+    youTubeVideoDownloader: StubYouTubeVideoDownloader = new StubYouTubeVideoDownloader()
   ): WorkExecutorImpl[IO, IO] =
     new WorkExecutorImpl[IO, IO](
       new NoOpFileResourceDao,
       workerDao,
-      new NoOpVideoMetadataDao,
+      videoMetadataDao,
       new StubRepositoryService(fileSize = Some(5_000), fileType = Some(MediaType.video.mp4)),
       batchSchedulingService,
       new StubVideoAnalysisService(Uri.unsafeFromString("https://cdn.spankbang.com/abc.mp4"), 10.minutes),
@@ -126,7 +129,7 @@ class WorkExecutorImplSpec extends AnyFlatSpec with Matchers {
           downloadData
         )
       ),
-      new StubYouTubeVideoDownloader(),
+      youTubeVideoDownloader,
       videoEnrichmentService,
       StorageConfiguration("/videos", "/images", List.empty)
     )
@@ -285,6 +288,123 @@ class WorkExecutorImplSpec extends AnyFlatSpec with Matchers {
         // A heartbeat every 30 seconds keeps the worker from being freed as stale by another instance
         recordedHeartBeats.size must be >= 5
         recordedHeartBeats.map { case (owner, _) => owner }.distinct mustBe List("test-owner")
+    }
+  }
+
+  "execute" should "complete the download even if publishing the download progress fails" in runIO {
+    for {
+      stubBatchSchedulingService <- StubBatchSchedulingService.create(scheduledVideoDownload)
+      heartBeats <- Ref.of[IO, List[(String, Instant)]](List.empty)
+
+      // The message broker is unavailable for the whole download
+      batchSchedulingService = new StubBatchSchedulingService(
+        scheduledVideoDownload,
+        stubBatchSchedulingService.statusUpdates,
+        stubBatchSchedulingService.completedIds,
+        stubBatchSchedulingService.progressUpdates
+      ) {
+        override def publishDownloadProgress(id: String, downloadedBytes: Long): IO[Unit] =
+          IO.raiseError(new RuntimeException("Unable to send the message to Kafka"))
+      }
+
+      workExecutor =
+        createWorkExecutor(
+          Stream.emits[IO, Long](List(1_000, 2_500, 5_000)),
+          batchSchedulingService,
+          new RecordingWorkerDao(heartBeats)
+        )
+
+      result <- workExecutor.execute(scheduledVideoDownload, worker, Stream.empty, retries = 0).withTimeout(10.seconds)
+      completedIds <- batchSchedulingService.completedIds.get
+    } yield {
+      result mustBe video
+      completedIds mustBe List(videoMetadata.id)
+    }
+  }
+
+  it should "complete a yt-dlp download even if saving its progress to the database fails" in runIO {
+    val ytDlpVideoMetadata =
+      videoMetadata.copy(
+        url = Uri.unsafeFromString("https://www.youtube.com/watch?v=abc"),
+        videoSite = VideoSite.YTDownloaderSite("youtube")
+      )
+    val ytDlpScheduledVideoDownload = scheduledVideoDownload.copy(videoMetadata = ytDlpVideoMetadata)
+
+    val progress =
+      Stream
+        .awakeEvery[IO](1.second)
+        .take(30)
+        .zipWithIndex
+        .map {
+          case (_, index) =>
+            YTDownloaderProgress(
+              (index + 1) * 100.0 / 30,
+              YTDataSize(5, YTDataUnit.KiB),
+              YTDataSize(1, YTDataUnit.KiB),
+              1.second
+            )
+        }
+
+    // The database connection pool times out every time the progress is saved
+    class FailingVideoMetadataDao extends NoOpVideoMetadataDao {
+      @volatile var updateAttempts: Int = 0
+
+      override def update(
+        videoMetadataId: String,
+        title: Option[String],
+        size: Option[Long],
+        maybeDuration: Option[FiniteDuration]
+      ): IO[Int] =
+        IO.delay(updateAttempts += 1) *> IO.raiseError(new RuntimeException("Connection is not available"))
+    }
+
+    val failingVideoMetadataDao = new FailingVideoMetadataDao
+
+    val test =
+      for {
+        batchSchedulingService <- StubBatchSchedulingService.create(ytDlpScheduledVideoDownload)
+        heartBeats <- Ref.of[IO, List[(String, Instant)]](List.empty)
+
+        workExecutor =
+          createWorkExecutor(
+            Stream.empty,
+            batchSchedulingService,
+            new RecordingWorkerDao(heartBeats),
+            videoMetadataDao = failingVideoMetadataDao,
+            youTubeVideoDownloader = new StubYouTubeVideoDownloader(progress)
+          )
+
+        result <- workExecutor.execute(ytDlpScheduledVideoDownload, worker, Stream.never[IO], retries = 0).attempt
+        completedIds <- batchSchedulingService.completedIds.get
+      } yield (result, completedIds)
+
+    TestControl.executeEmbed(test).map {
+      case (result, completedIds) =>
+        result mustBe Right(video)
+        completedIds mustBe List(ytDlpVideoMetadata.id)
+        failingVideoMetadataDao.updateAttempts must be >= 2
+    }
+  }
+
+  it should "still fail when the download itself fails" in runIO {
+    val failure = new RuntimeException("Connection reset by peer")
+
+    for {
+      batchSchedulingService <- StubBatchSchedulingService.create(scheduledVideoDownload)
+      heartBeats <- Ref.of[IO, List[(String, Instant)]](List.empty)
+
+      workExecutor =
+        createWorkExecutor(
+          Stream.emit[IO, Long](1_000) ++ Stream.raiseError[IO](failure),
+          batchSchedulingService,
+          new RecordingWorkerDao(heartBeats)
+        )
+
+      result <- workExecutor.execute(scheduledVideoDownload, worker, Stream.never[IO], retries = 0).attempt
+      completedIds <- batchSchedulingService.completedIds.get
+    } yield {
+      result mustBe Left(failure)
+      completedIds mustBe empty
     }
   }
 }

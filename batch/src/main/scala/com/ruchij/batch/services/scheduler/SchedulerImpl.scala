@@ -11,6 +11,8 @@ import com.ruchij.batch.daos.workers.models.Worker
 import com.ruchij.batch.services.detection.BatchDuplicateDetectionService
 import com.ruchij.batch.services.scheduler.Scheduler.PausedVideoDownload
 import com.ruchij.batch.services.scheduler.SchedulerImpl.{
+  ClaimedStatuses,
+  OwnedStatuses,
   StreamRestartDelay,
   VideoWatchMetricMaxRetries,
   VideoWatchMetricRetryBaseDelay,
@@ -121,11 +123,14 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
             } {
               case throwable: Throwable =>
                 OptionT
-                  .liftF(
-                    logger.warn[F](
-                      s"Error assigning task to worker. workerId=${worker.id}, scheduledVideoId=${task.videoMetadata.id} error=$throwable"
-                    )
-                  )
+                  .liftF {
+                    logger
+                      .warn[F] {
+                        s"Error assigning task to worker. workerId=${worker.id}, " +
+                          s"scheduledVideoId=${task.videoMetadata.id} error=$throwable"
+                      }
+                      .productR(releaseUnassignedTask(worker, task))
+                  }
                   .productR(OptionT.none)
             }
         }
@@ -173,16 +178,40 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
             )
           }
 
+      // The batch application is shutting down. Only a download that its worker still owns is put back in the queue,
+      // since one that has been completed, paused or deleted in the meantime must stay that way.
       case (Some(scheduledVideoDownload), Canceled()) =>
-        batchSchedulingService
-          .updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Queued)
-          .productR(Applicative[F].unit)
+        val id = scheduledVideoDownload.videoMetadata.id
+
+        logFailure(s"Unable to put the cancelled download back in the queue. ID = $id") {
+          batchSchedulingService.transitionSchedulingStatusById(id, OwnedStatuses, SchedulingStatus.Queued)
+        }.flatMap {
+          case Some(None) =>
+            logger.info[F](s"Not re-queueing the cancelled download, as its worker no longer owns it. ID = $id")
+          case _ => Applicative[F].unit
+        }
 
       case (_, Errored(exception)) =>
         logger.error[F]("Error occurred without scheduledVideoDownload", exception)
 
       case (_, _) => Applicative[F].unit
     }
+
+  /**
+    * Puts back a task that was acquired, but could not be assigned to the worker or published. Otherwise it would be
+    * left Acquired without a worker until it times out. The workers may have been paused while the task was being
+    * assigned, in which case the task is set to WorkersPaused, so that resuming the workers puts it back in the queue.
+    */
+  private def releaseUnassignedTask(worker: Worker, task: ScheduledVideoDownload): F[Unit] =
+    logFailure(s"Unable to release the unassigned task. ID = ${task.videoMetadata.id}") {
+      transaction(workerDao.getById(worker.id)).flatMap { maybeWorker =>
+        val status =
+          if (maybeWorker.exists(_.status == WorkerStatus.Paused)) SchedulingStatus.WorkersPaused
+          else SchedulingStatus.Queued
+
+        batchSchedulingService.transitionSchedulingStatusById(task.videoMetadata.id, ClaimedStatuses, status)
+      }
+    }.void
 
   private def releaseWorker(worker: Worker): F[Unit] =
     transaction(workerDao.releaseWorker(worker.id, workerConfiguration.owner)).flatMap {
@@ -427,6 +456,9 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
         restartOnFailure(name)(stream).delayBy(StreamRestartDelay)
     }
 
+  // The group id is fixed for the lifetime of this instance, so when restartOnFailure runs a failed subscription
+  // again, its consumer rejoins the same group and resumes from the committed offsets. A failed commit does not fail
+  // the subscription, so it is only restarted when the consumer itself fails.
   private def publishScheduledVideoDownloadsUpdatesToTopic(topic: Topic[F, ScheduledVideoDownload]): Stream[F, Unit] =
     topic.publish {
       batchSchedulingService.subscribeToScheduledVideoDownloadUpdates(s"batch-scheduler-$instanceId")
@@ -530,6 +562,12 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
 
 object SchedulerImpl {
   val WorkerPollPeriod: FiniteDuration = 1 second
+
+  // The statuses of a task that has been acquired, but not handed to the work executor yet
+  private val ClaimedStatuses: Set[SchedulingStatus] = Set(SchedulingStatus.Acquired, SchedulingStatus.Active)
+
+  // The statuses of a download that its worker is running
+  private val OwnedStatuses: Set[SchedulingStatus] = ClaimedStatuses + SchedulingStatus.Downloaded
 
   private val StreamRestartDelay: FiniteDuration = 10 seconds
 

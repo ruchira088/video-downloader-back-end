@@ -53,6 +53,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     @volatile var publishedIds: List[String] = List.empty
     @volatile var erroredTasks: List[(String, Throwable)] = List.empty
     @volatile var statusUpdates: List[(String, SchedulingStatus)] = List.empty
+    @volatile var guardedStatusUpdates: List[(String, Set[SchedulingStatus], SchedulingStatus)] = List.empty
     @volatile var bulkStatusUpdates: List[(SchedulingStatus, SchedulingStatus)] = List.empty
     @volatile var downloadProgressUpdates: List[(String, Long)] = List.empty
 
@@ -74,9 +75,18 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
       IO.raiseError(new NotImplementedError("deleteById stub"))
     }
 
-    override def recordFailure(id: String, throwable: Throwable): IO[ScheduledVideoDownload] = {
+    override def recordFailure(id: String, throwable: Throwable): IO[Option[ScheduledVideoDownload]] = {
       erroredTasks = erroredTasks :+ (id, throwable)
-      IO.pure(createScheduledVideoDownload(id, SchedulingStatus.Error))
+      IO.pure(Some(createScheduledVideoDownload(id, SchedulingStatus.Error)))
+    }
+
+    override def transitionSchedulingStatusById(
+      id: String,
+      from: Set[SchedulingStatus],
+      to: SchedulingStatus
+    ): IO[Option[ScheduledVideoDownload]] = {
+      guardedStatusUpdates = guardedStatusUpdates :+ (id, from, to)
+      IO.pure(Some(createScheduledVideoDownload(id, to)))
     }
 
     override def updateSchedulingStatusById(id: String, schedulingStatus: SchedulingStatus): IO[ScheduledVideoDownload] = {
@@ -974,6 +984,169 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
       batchVideoService.fetchAttempts mustBe Map("poison-file" -> 4, "deleted-file" -> 1, "ok-file" -> 1)
       batchVideoService.watchTimeIncrements mustBe List(video.videoMetadata.id)
       subscriber.committed mustBe metrics
+    }
+  }
+
+  private val OwnedStatuses: Set[SchedulingStatus] =
+    Set(SchedulingStatus.Acquired, SchedulingStatus.Active, SchedulingStatus.Downloaded)
+
+  private val ClaimedStatuses: Set[SchedulingStatus] = Set(SchedulingStatus.Acquired, SchedulingStatus.Active)
+
+  "SchedulerImpl.run" should "re-queue a cancelled download only if its worker still owns it" in runIO {
+    implicit val clock: Clock[IO] = defaultClock
+
+    val task = createScheduledVideoDownload("cancelled-task")
+
+    val workerDao = new StubWorkerDao
+    workerDao.workers = List(availableWorker())
+
+    val batchSchedulingService = new StubBatchSchedulingService()
+    batchSchedulingService.acquiredTasks = List(task)
+
+    // The download is still running when the batch application shuts down
+    val scheduler =
+      createScheduler(
+        workerDao,
+        createWorkerConfiguration(maxConcurrentDownloads = 1),
+        batchSchedulingService = batchSchedulingService,
+        workExecutor = new StubWorkExecutor((_, _) => IO.never)
+      )
+
+    TestControl.executeEmbed(scheduler.run.interruptAfter(5.seconds).compile.drain).map { _ =>
+      // A download that was completed or paused in the meantime must not be put back in the queue
+      batchSchedulingService.statusUpdates mustBe empty
+      batchSchedulingService.guardedStatusUpdates mustBe
+        List((task.videoMetadata.id, OwnedStatuses, SchedulingStatus.Queued))
+      workerDao.releasedWorkers must contain("worker-00")
+    }
+  }
+
+  it should "shut down cleanly when a cancelled download has been deleted" in runIO {
+    implicit val clock: Clock[IO] = defaultClock
+
+    val task = createScheduledVideoDownload("deleted-task")
+
+    val workerDao = new StubWorkerDao
+    workerDao.workers = List(availableWorker())
+
+    val batchSchedulingService = new StubBatchSchedulingService() {
+      override def transitionSchedulingStatusById(
+        id: String,
+        from: Set[SchedulingStatus],
+        to: SchedulingStatus
+      ): IO[Option[ScheduledVideoDownload]] =
+        super.transitionSchedulingStatusById(id, from, to).as(None)
+    }
+    batchSchedulingService.acquiredTasks = List(task)
+
+    val scheduler =
+      createScheduler(
+        workerDao,
+        createWorkerConfiguration(maxConcurrentDownloads = 1),
+        batchSchedulingService = batchSchedulingService,
+        workExecutor = new StubWorkExecutor((_, _) => IO.never)
+      )
+
+    TestControl.executeEmbed(scheduler.run.interruptAfter(5.seconds).compile.drain.attempt).map { result =>
+      result mustBe Right((): Unit)
+      batchSchedulingService.guardedStatusUpdates.map(_._1) mustBe List(task.videoMetadata.id)
+      workerDao.releasedWorkers must contain("worker-00")
+    }
+  }
+
+  it should "put a task back as WorkersPaused when the workers are paused while it is being assigned" in runIO {
+    implicit val clock: Clock[IO] = defaultClock
+
+    val task = createScheduledVideoDownload("paused-during-claim")
+
+    // The workers were paused between reserving the worker and assigning the task to it, which removed its owner
+    val workerDao = new StubWorkerDao {
+      override def assignTask(workerId: String, taskId: String, owner: String, timestamp: Instant): IO[Option[Worker]] =
+        IO.delay {
+          workers = workers.map(_.copy(status = WorkerStatus.Paused, owner = None))
+        } *> IO.raiseError(new IllegalStateException("Expected a single row to be updated, but 0 rows were updated"))
+    }
+    workerDao.workers = List(availableWorker())
+
+    val batchSchedulingService = new StubBatchSchedulingService()
+    batchSchedulingService.acquiredTasks = List(task)
+
+    val workExecutor = new StubWorkExecutor((_, _) => IO.never)
+
+    val scheduler =
+      createScheduler(
+        workerDao,
+        createWorkerConfiguration(maxConcurrentDownloads = 1),
+        batchSchedulingService = batchSchedulingService,
+        workExecutor = workExecutor
+      )
+
+    TestControl.executeEmbed(scheduler.run.interruptAfter(1500.millis).compile.drain).map { _ =>
+      workExecutor.executedTasks mustBe empty
+      batchSchedulingService.guardedStatusUpdates must contain(
+        (task.videoMetadata.id, ClaimedStatuses, SchedulingStatus.WorkersPaused))
+    }
+  }
+
+  it should "put a task back in the queue when it cannot be published after it was assigned" in runIO {
+    implicit val clock: Clock[IO] = defaultClock
+
+    val task = createScheduledVideoDownload("unpublished-task")
+
+    val workerDao = new StubWorkerDao
+    workerDao.workers = List(availableWorker())
+
+    val batchSchedulingService = new StubBatchSchedulingService() {
+      override def publishScheduledVideoDownload(id: String): IO[ScheduledVideoDownload] =
+        IO.raiseError(new RuntimeException("Kafka is unavailable"))
+    }
+    batchSchedulingService.acquiredTasks = List(task)
+
+    val workExecutor = new StubWorkExecutor((_, _) => IO.never)
+
+    val scheduler =
+      createScheduler(
+        workerDao,
+        createWorkerConfiguration(maxConcurrentDownloads = 1),
+        batchSchedulingService = batchSchedulingService,
+        workExecutor = workExecutor
+      )
+
+    TestControl.executeEmbed(scheduler.run.interruptAfter(1500.millis).compile.drain).map { _ =>
+      workExecutor.executedTasks mustBe empty
+      batchSchedulingService.guardedStatusUpdates must contain(
+        (task.videoMetadata.id, ClaimedStatuses, SchedulingStatus.Queued))
+      workerDao.releasedWorkers must contain("worker-00")
+    }
+  }
+
+  it should "resubscribe to the scheduled video download and worker status updates with the same group ids" in runIO {
+    implicit val clock: Clock[IO] = defaultClock
+
+    class FailingSubscriptions extends StubBatchSchedulingService() {
+      @volatile var scheduledVideoDownloadGroupIds: List[String] = List.empty
+      @volatile var workerStatusGroupIds: List[String] = List.empty
+
+      override def subscribeToScheduledVideoDownloadUpdates(groupId: String): Stream[IO, ScheduledVideoDownload] =
+        // Records every time the subscription starts, as a restart runs the same stream again
+        Stream.exec(IO.delay { scheduledVideoDownloadGroupIds = scheduledVideoDownloadGroupIds :+ groupId }) ++
+          Stream.raiseError[IO](new RuntimeException("Consumer failed"))
+
+      override def subscribeToWorkerStatusUpdates(groupId: String): Stream[IO, WorkerStatusUpdate] =
+        // Records every time the subscription starts, as a restart runs the same stream again
+        Stream.exec(IO.delay { workerStatusGroupIds = workerStatusGroupIds :+ groupId }) ++
+          Stream.raiseError[IO](new RuntimeException("Consumer failed"))
+    }
+
+    val batchSchedulingService = new FailingSubscriptions
+    val scheduler = createScheduler(new StubWorkerDao, batchSchedulingService = batchSchedulingService)
+
+    TestControl.executeEmbed(scheduler.run.interruptAfter(25.seconds).compile.drain).map { _ =>
+      // The committed offsets of a consumer group only apply to a consumer that rejoins with the same group id
+      batchSchedulingService.scheduledVideoDownloadGroupIds.size must be >= 2
+      batchSchedulingService.scheduledVideoDownloadGroupIds.distinct mustBe List("batch-scheduler-test-instance")
+      batchSchedulingService.workerStatusGroupIds.size must be >= 2
+      batchSchedulingService.workerStatusGroupIds.distinct mustBe List("batch-scheduler-test-instance")
     }
   }
 }
