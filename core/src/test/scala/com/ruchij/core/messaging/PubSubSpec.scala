@@ -103,6 +103,7 @@ class PubSubSpec extends AnyFlatSpec with Matchers {
 
             second
               .subscribe("group")
+              .map(second.extractValue)
               .take(1)
               .concurrently(Stream.sleep[IO](200.millis) >> Stream.eval(first.publishOne(message)))
               .compile

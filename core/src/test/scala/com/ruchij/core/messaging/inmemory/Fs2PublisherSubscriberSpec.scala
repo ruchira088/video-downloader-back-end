@@ -18,4 +18,7 @@ class Fs2PublisherSubscriberSpec
     Resource.eval(Fs2PubSub[IO, TestMessage]).map(pubSub => (pubSub, pubSub))
 
   override def testTimeout: FiniteDuration = 10 seconds
+
+  // The in-memory topic broadcasts every message to every subscriber
+  override def supportsConsumerGroups: Boolean = false
 }

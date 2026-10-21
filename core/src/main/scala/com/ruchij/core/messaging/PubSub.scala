@@ -6,7 +6,7 @@ import cats.effect.{Async, MonadCancelThrow}
 import cats.{Foldable, Functor, ~>}
 import com.ruchij.core.config.PubsubConfiguration
 import com.ruchij.core.daos.doobie.DoobieTransactor
-import com.ruchij.core.daos.messaging.DoobieMessageDao
+import com.ruchij.core.daos.messaging.{DoobieMessageConsumerGroupDao, DoobieMessageDao}
 import com.ruchij.core.exceptions.ExternalServiceException
 import com.ruchij.core.messaging.db.DoobiePubSub
 import com.ruchij.core.messaging.kafka.KafkaPubSub
@@ -95,7 +95,7 @@ object PubSub {
 
                 new PubSubProvider[F] {
                   override def pubSub[A: MessagingTopic]: Resource[F, PubSub[F, A]] =
-                    Resource.pure(DoobiePubSub[F, ConnectionIO, A](DoobieMessageDao))
+                    Resource.pure(DoobiePubSub[F, ConnectionIO, A](DoobieMessageDao, DoobieMessageConsumerGroupDao))
 
                   override val messageTransaction: Option[ConnectionIO ~> F] = Some(transaction)
                 }
