@@ -191,9 +191,8 @@ class SchedulerIntegrationSpec extends AnyFlatSpec with Matchers with OptionValu
         _ <- IO.delay {
           heartbeatUpdated mustBe defined
           heartbeatUpdated.get.id mustBe workerId
-          // Note: heartBeatAt and taskAssignedAt are swapped in getById due to parameter order
-          // The update modifies heart_beat_at column, which maps to taskAssignedAt in the returned Worker
-          heartbeatUpdated.get.taskAssignedAt mustBe Some(newTimestamp)
+          heartbeatUpdated.get.heartBeatAt mustBe Some(newTimestamp)
+          heartbeatUpdated.get.taskAssignedAt mustBe Some(timestamp)
         }
       } yield ()
     }
