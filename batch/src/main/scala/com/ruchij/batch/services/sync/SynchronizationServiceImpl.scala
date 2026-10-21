@@ -95,8 +95,10 @@ class SynchronizationServiceImpl[F[_]: Async: Clock, A, T[_]: MonadThrow](
       .lastOrError
 
   /**
-    * A video folder that is missing, unreadable or empty is most likely an unmounted volume. Every video in it would
-    * then look like it has lost its file, so the deletion pass only runs when all the configured folders are usable.
+    * A video folder that is missing or unreadable is most likely an unmounted volume. Every video in it would then
+    * look like it has lost its file, so the deletion pass only runs when all the configured folders are usable. An
+    * empty folder, without a file at any depth, is just as suspicious if the database has videos stored in it, but
+    * is fine otherwise, as nothing may have been stored in it yet.
     */
   private val unavailableVideoFolders: F[List[(String, String)]] =
     (storageConfiguration.videoFolder :: storageConfiguration.otherVideoFolders).flatTraverse { folder =>
@@ -105,17 +107,46 @@ class SynchronizationServiceImpl[F[_]: Async: Clock, A, T[_]: MonadThrow](
         .flatMap { exists =>
           if (!exists) Applicative[F].pure[Option[String]](Some("does not exist"))
           else
-            fileRepositoryService
-              .list(folder)
-              .filter(path => stripTrailingDelimiter(path) != stripTrailingDelimiter(folder))
-              .take(1)
-              .compile
-              .toList
-              .map(entries => if (entries.isEmpty) Some("is empty") else None)
+            containsFile(folder).flatMap { hasFile =>
+              if (hasFile) Applicative[F].pure[Option[String]](None)
+              else
+                hasVideosStoredIn(folder).map { hasVideos =>
+                  if (hasVideos) Some("is empty, but has videos stored in it") else None
+                }
+            }
         }
         .handleError(throwable => Some(s"cannot be read: ${throwable.getMessage}"))
         .map(_.map(reason => folder -> reason).toList)
     }
+
+  // The listing is recursive, and includes the directories, which are told apart from the files by reading them
+  private def containsFile(folder: String): F[Boolean] =
+    fileRepositoryService
+      .list(folder)
+      .filter(path => stripTrailingDelimiter(path) != stripTrailingDelimiter(folder))
+      .evalFilter(isReadableFile)
+      .take(1)
+      .compile
+      .last
+      .map(_.nonEmpty)
+
+  private def isReadableFile(path: String): F[Boolean] =
+    fileRepositoryService
+      .read(path, Some(0), Some(1))
+      .flatMap(_.fold(Applicative[F].pure(false))(_.compile.drain.as(true)))
+      .handleError(_ => false)
+
+  private def hasVideosStoredIn(folder: String): F[Boolean] = {
+    val folderPath = stripTrailingDelimiter(folder)
+
+    getAllVideos(0, 50)
+      .exists { video =>
+        video.fileResource.path.startsWith(folderPath + "/") || video.fileResource.path.startsWith(folderPath + "\\")
+      }
+      .compile
+      .last
+      .map(_.getOrElse(false))
+  }
 
   private def scanForMissingVideoFiles(scanCount: Int = 0): F[SynchronizationResult] =
     unavailableVideoFolders.flatMap {

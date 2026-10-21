@@ -368,6 +368,63 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
     } yield (): Unit
   }
 
+  it should "delete missing videos when a configured video folder is empty, but no video is stored in it" in runIO {
+    for {
+      // The other video folder is mounted, but nothing has ever been stored in it
+      fixture <- TestFixture.create(files = List("/videos/placeholder.txt"))
+      _ <- fixture.insertVideo(videoId = "deleted-video", videoPath = "/videos/gone.mp4", snapshotCount = 12)
+
+      result <- fixture.synchronizationService.sync
+
+      deletedVideoIds <- fixture.deletedVideoIds.get
+      _ <- IO.delay {
+        result.missingVideoFiles mustBe 1
+        deletedVideoIds mustBe List("deleted-video" -> false)
+      }
+    } yield (): Unit
+  }
+
+  it should "not delete any video when a video folder only contains empty subdirectories" in runIO {
+    for {
+      fixture <- TestFixture.create(
+        files = List("/other-videos/placeholder.txt"),
+        directories = List("/videos/2024", "/videos/2024/05")
+      )
+      _ <- fixture.insertVideo(
+        videoId = "unmounted-video",
+        videoPath = "/videos/2024/unmounted.mp4",
+        snapshotCount = 12
+      )
+
+      result <- fixture.synchronizationService.sync
+
+      videos <- fixture.videos.get
+      _ <- IO.delay {
+        result.missingVideoFiles mustBe 0
+        videos.keySet mustBe Set("unmounted-video")
+      }
+    } yield (): Unit
+  }
+
+  it should "count the files in the subdirectories of a video folder" in runIO {
+    for {
+      fixture <- TestFixture.create(
+        files = List("/videos/2024/05/kept.mp4", "/other-videos/placeholder.txt"),
+        directories = List("/videos/2024", "/videos/2024/05")
+      )
+      _ <- fixture.insertVideo(videoId = "kept-video", videoPath = "/videos/2024/05/kept.mp4", snapshotCount = 12)
+      _ <- fixture.insertVideo(videoId = "deleted-video", videoPath = "/videos/2024/gone.mp4", snapshotCount = 12)
+
+      result <- fixture.synchronizationService.sync
+
+      videos <- fixture.videos.get
+      _ <- IO.delay {
+        result.missingVideoFiles mustBe 1
+        videos.keySet mustBe Set("kept-video")
+      }
+    } yield (): Unit
+  }
+
   "sync" should "set the scanning status to in progress and back to idle" in runIO {
     for {
       fixture <- TestFixture.create(files = List("/videos/status.mp4"))
@@ -499,7 +556,8 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
       files: List[String],
       detectedMediaType: MediaType = MediaType.video.mp4,
       listError: Option[Throwable] = None,
-      mountedFolders: Set[String] = (StorageConfig.videoFolder :: StorageConfig.otherVideoFolders).toSet
+      mountedFolders: Set[String] = (StorageConfig.videoFolder :: StorageConfig.otherVideoFolders).toSet,
+      directories: List[String] = List.empty
     ): IO[TestFixture] =
       for {
         fileResources <- Ref.of[IO, Map[String, FileResource]](Map.empty)
@@ -516,7 +574,7 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
         failingSnapshotVideoIds <- Ref.of[IO, Set[String]](Set.empty)
         failingDeletionVideoIds <- Ref.of[IO, Set[String]](Set.empty)
 
-        fileRepositoryService <- fileRepository(files, listError, mountedFolders)
+        fileRepositoryService <- fileRepository(files, listError, mountedFolders, directories)
       } yield {
         implicit val clock: Clock[IO] = Providers.stubClock[IO](Timestamp)
         implicit val transaction: IO ~> IO = FunctionK.id[IO]
@@ -563,19 +621,23 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
     private def fileRepository(
       files: List[String],
       listError: Option[Throwable],
-      mountedFolders: Set[String]
+      mountedFolders: Set[String],
+      directories: List[String]
     ): IO[FileRepository[IO, String]] =
       IO.delay {
         val concurrentHashMap = new ConcurrentHashMap[String, List[Byte]]()
         files.foreach(file => concurrentHashMap.put(file, List.fill(1024)(0: Byte)))
 
         new InMemoryRepositoryService[IO](concurrentHashMap) {
+          // Like a file system walk, the listing includes the directories, which cannot be read as files
           override def list(key: Key): Stream[IO, Key] =
-            listError.fold(super.list(key))(throwable => Stream.raiseError[IO](throwable))
+            listError.fold(Stream.emits(directories.filter(_.startsWith(key))) ++ super.list(key)) { throwable =>
+              Stream.raiseError[IO](throwable)
+            }
 
           // The in-memory repository only stores files, so the folders that are mounted are reported separately
           override def exists(key: Key): IO[Boolean] =
-            if (mountedFolders.contains(key)) IO.pure(true) else super.exists(key)
+            if (mountedFolders.contains(key) || directories.contains(key)) IO.pure(true) else super.exists(key)
         }
       }
 
