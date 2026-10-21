@@ -24,6 +24,18 @@ trait SchedulingDao[F[_]] {
     timestamp: Instant
   ): F[Option[ScheduledVideoDownload]]
 
+  /**
+    * Like updateSchedulingStatusById, but only changes a download whose status is one of `from` and, when a sole user
+    * ID is given, that no other user has permission for. Returns None when nothing was changed.
+    */
+  def transitionSchedulingStatusById(
+    id: String,
+    from: NonEmptyList[SchedulingStatus],
+    to: SchedulingStatus,
+    timestamp: Instant,
+    maybeSoleUserId: Option[String]
+  ): F[Option[ScheduledVideoDownload]]
+
   def setErrorById(id: String, throwable: Throwable, timestamp: Instant): F[Option[ScheduledVideoDownload]]
 
   def scheduleRetry(

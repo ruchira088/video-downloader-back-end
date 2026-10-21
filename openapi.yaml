@@ -647,7 +647,11 @@ paths:
       tags:
         - Scheduling
       summary: Update scheduled video status
-      description: Update the scheduling status of a video
+      description: >
+        Update the scheduling status of a video. Paused may be set on a Queued, Acquired, Active, Stale or
+        WorkersPaused download, and Queued (resume or retry) on a Paused or Error download, so a Completed or
+        Downloaded video is never downloaded again. A non-admin user may pause a download only while no other user
+        has scheduled the same video.
       security:
         - cookieAuth: []
       parameters:
@@ -669,6 +673,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ScheduledVideoDownload'
+        '400':
+          description: The status is not valid, or the download cannot change from its current status to it
+        '403':
+          description: A non-admin user tried to pause a download that other users have scheduled too
+        '404':
+          description: Scheduled video not found, or the user has not scheduled it
 
   /schedule/updates:
     get:

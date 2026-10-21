@@ -130,6 +130,14 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     override def markScheduledVideoDownloadAsComplete(id: String, timestamp: Instant): IO[Option[ScheduledVideoDownload]] = IO.pure(None)
     override def updateSchedulingStatusById(id: String, status: SchedulingStatus, timestamp: Instant): IO[Option[ScheduledVideoDownload]] =
       IO.pure(updateSchedulingStatusResult)
+    override def transitionSchedulingStatusById(
+      id: String,
+      from: NonEmptyList[SchedulingStatus],
+      to: SchedulingStatus,
+      timestamp: Instant,
+      maybeSoleUserId: Option[String]
+    ): IO[Option[ScheduledVideoDownload]] =
+      IO.pure(updateSchedulingStatusResult)
     override def setErrorById(id: String, throwable: Throwable, timestamp: Instant): IO[Option[ScheduledVideoDownload]] = IO.pure(None)
     override def scheduleRetry(
       id: String,
@@ -540,7 +548,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   "updateSchedulingStatus" should "update status and publish" in runIO {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
-    val updatedDownload = sampleScheduledVideoDownload.copy(status = SchedulingStatus.Active)
+    val updatedDownload = sampleScheduledVideoDownload.copy(status = SchedulingStatus.Queued)
     val publisher = new StubPublisher[ScheduledVideoDownload]()
     val schedulingDao = new StubSchedulingDao(updateSchedulingStatusResult = Some(updatedDownload))
 
@@ -549,7 +557,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
       schedulingDao = schedulingDao
     )
 
-    service.updateSchedulingStatus("video-1", SchedulingStatus.Active, None).map { result =>
+    service.updateSchedulingStatus("video-1", SchedulingStatus.Queued, None).map { result =>
       result mustBe updatedDownload
       publisher.publishedMessages.toList mustBe List(updatedDownload)
     }
@@ -604,7 +612,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     val schedulingDao = new StubSchedulingDao(updateSchedulingStatusResult = None)
     val (service, _, _) = createService(schedulingDao = schedulingDao)
 
-    service.updateSchedulingStatus("non-existent", SchedulingStatus.Active, None).error.map { error =>
+    service.updateSchedulingStatus("non-existent", SchedulingStatus.Queued, None).error.map { error =>
       error mustBe a[ResourceNotFoundException]
     }
   }

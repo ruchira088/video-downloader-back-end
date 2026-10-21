@@ -167,6 +167,14 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
       timestamp: Instant
     ): IO[Option[ScheduledVideoDownload]] =
       IO.pure(updateSchedulingStatusResult)
+    override def transitionSchedulingStatusById(
+      id: String,
+      from: NonEmptyList[SchedulingStatus],
+      to: SchedulingStatus,
+      timestamp: Instant,
+      maybeSoleUserId: Option[String]
+    ): IO[Option[ScheduledVideoDownload]] =
+      IO.pure(updateSchedulingStatusResult)
     override def setErrorById(
       id: String,
       throwable: Throwable,
