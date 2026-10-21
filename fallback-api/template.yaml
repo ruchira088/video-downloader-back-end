@@ -122,9 +122,20 @@ Resources:
       MemorySize: 256
       LoggingConfig:
         LogGroup: !Ref SyncFunctionLogGroup
+      Environment:
+        Variables:
+          AWS_COGNITO_USER_POOL_ID: !Ref UserPool
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ScheduledVideosTable
+        # Applies UserRevocation messages (src/sync/user_revoker.py): looks the user up, and
+        # deletes their account, so the old password and tokens stop working.
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:AdminGetUser
+                - cognito-idp:AdminDeleteUser
+              Resource: !GetAtt UserPool.Arn
       Events:
         MainToFallback:
           Type: SQS

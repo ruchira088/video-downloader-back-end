@@ -88,8 +88,19 @@ class ScheduleRequest(SyncMessage):
     requested_at: Timestamp
 
 
+class UserRevocation(SyncMessage):
+    """The main API reset the user's password, or deleted the user, at captured_at, so the
+    fallback account (whose Cognito username is the email) must stop accepting the old
+    password and tokens until the user signs up again."""
+
+    type: Literal["UserRevocation"] = "UserRevocation"
+    user_id: str
+    email: str
+    captured_at: Timestamp
+
+
 MainToFallbackMessage = Annotated[
-    ScheduledVideoUpsert | ScheduledVideoRemoval | RequestResolved,
+    ScheduledVideoUpsert | ScheduledVideoRemoval | RequestResolved | UserRevocation,
     Field(discriminator="type"),
 ]
 

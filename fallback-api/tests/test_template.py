@@ -52,6 +52,27 @@ class TestTemplate(unittest.TestCase):
                     {"Fn::GetAtt": ["ScheduledVideosTable", "Arn"]},
                 )
 
+    def test_the_sync_function_may_only_look_up_and_delete_fallback_users(self):
+        # CognitoUserRevoker applies the main API's UserRevocation messages.
+        sync_function = self.resources["SyncFunction"]
+        environment = sync_function["Properties"]["Environment"]["Variables"]
+
+        self.assertEqual(environment["AWS_COGNITO_USER_POOL_ID"], {"Ref": "UserPool"})
+
+        cognito_statements = [
+            statement
+            for statement in _statements(sync_function)
+            if any(action.startswith("cognito-idp:") for action in _actions(statement))
+        ]
+        self.assertEqual(len(cognito_statements), 1)
+        self.assertEqual(
+            _actions(cognito_statements[0]),
+            {"cognito-idp:AdminGetUser", "cognito-idp:AdminDeleteUser"},
+        )
+        self.assertEqual(
+            cognito_statements[0]["Resource"], {"Fn::GetAtt": ["UserPool", "Arn"]}
+        )
+
     def _method_settings(self) -> dict[tuple[str, str], dict[str, Any]]:
         settings = self.template["Globals"]["Api"]["MethodSettings"]
         return {
