@@ -14,7 +14,8 @@ import com.ruchij.core.exceptions.{InvalidConditionException, ResourceNotFoundEx
 import com.ruchij.core.services.models.Order
 import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.types.{Clock, RandomGenerator}
-import fs2.{Chunk, Pipe, Stream}
+import com.ruchij.api.utils.StreamUtils
+import fs2.{Pipe, Stream}
 import org.http4s.MediaType
 
 import java.time.Instant
@@ -136,17 +137,7 @@ class PlaylistServiceImpl[F[_]: Sync: Clock: RandomGenerator[*[_], UUID], G[_]: 
 
   /** Fails the stream with a ValidationException as soon as more than maxSize bytes have passed through */
   private def limitSize(maxSize: Long): Pipe[F, Byte, Byte] =
-    _.chunks
-      .evalMapAccumulate(0L) { (total, chunk) =>
-        val updatedTotal = total + chunk.size
-
-        if (updatedTotal > maxSize)
-          ApplicativeError[F, Throwable].raiseError[(Long, Chunk[Byte])] {
-            ValidationException(s"Album art exceeds the maximum size of $maxSize bytes")
-          }
-        else Applicative[F].pure(updatedTotal -> chunk)
-      }
-      .flatMap { case (_, chunk) => Stream.chunk(chunk) }
+    StreamUtils.limitSize[F](maxSize)(ValidationException(s"Album art exceeds the maximum size of $maxSize bytes"))
 
   override def removeAlbumArt(playlistId: String, maybeUserId: Option[String]): F[Playlist] =
     transaction {
