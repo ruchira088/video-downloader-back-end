@@ -3,7 +3,7 @@ package com.ruchij.batch.services.worker
 import cats.data.OptionT
 import cats.effect.kernel.Deferred
 import cats.effect.kernel.Resource.ExitCase
-import cats.effect.{Async, Resource}
+import cats.effect.{Async, Ref, Resource, Temporal}
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, ~>}
 import com.ruchij.batch.daos.workers.WorkerDao
@@ -28,8 +28,8 @@ import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.services.video.models.YTDownloaderProgress
 import com.ruchij.core.services.video.{VideoAnalysisService, YouTubeVideoDownloader}
 import com.ruchij.core.types.Clock
-import fs2.Stream
 import fs2.concurrent.{SignallingRef, Topic}
+import fs2.{Pipe, Stream}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.language.postfixOps
@@ -113,7 +113,7 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
                       }
                       .concurrently {
                         progressStream
-                          .debounce(10 seconds)
+                          .through(WorkExecutorImpl.sampleLatest(10 seconds, repeatUnchanged = false))
                           .evalMap { progress =>
                             transaction {
                               videoMetadataDao.update(
@@ -233,8 +233,11 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
     download(scheduledVideoDownload)
       .use {
         case (data, fileResourceF) =>
+          // The published progress is what refreshes last_updated_at, and a download that is not refreshed for 2
+          // minutes is marked as stale. The latest progress is therefore republished even while the downloader is
+          // quiet, such as while yt-dlp merges the downloaded formats.
           data
-            .debounce(3 seconds)
+            .through(WorkExecutorImpl.sampleLatest(3 seconds, repeatUnchanged = true))
             .evalTap { byteCount =>
               batchSchedulingService.publishDownloadProgress(scheduledVideoDownload.videoMetadata.id, byteCount)
             }
@@ -374,4 +377,33 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
 
 object WorkExecutorImpl {
   private val HeartBeatPeriod: FiniteDuration = 30 seconds
+
+  /**
+    * Emits the latest value of the stream once every `period`, and the last value when the stream ends.
+    *
+    * With `repeatUnchanged`, the latest value is emitted on every tick even if the stream has not emitted since the
+    * previous tick, so that a quiet stream still produces a value at least once every `period`.
+    */
+  private[worker] def sampleLatest[F[_]: Temporal, A](period: FiniteDuration, repeatUnchanged: Boolean): Pipe[F, A, A] =
+    source =>
+      for {
+        // The latest value and whether it has changed since it was last emitted
+        latest <- Stream.eval(Ref.of[F, (Option[A], Boolean)]((None, false)))
+        sourceCompleted <- Stream.eval(SignallingRef[F, Boolean](false))
+
+        takeLatest = (emitUnchanged: Boolean) =>
+          latest.modify {
+            case (value, changed) => ((value, false), if (changed || emitUnchanged) value else None)
+          }
+
+        value <- Stream
+          .fixedRate[F](period)
+          .evalMap(_ => takeLatest(repeatUnchanged))
+          .unNone
+          .interruptWhen(sourceCompleted)
+          .append(Stream.eval(takeLatest(false)).unNone)
+          .concurrently {
+            source.foreach(value => latest.set((Some(value), true))) ++ Stream.exec(sourceCompleted.set(true))
+          }
+      } yield value
 }

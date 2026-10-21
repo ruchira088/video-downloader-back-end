@@ -173,7 +173,88 @@ class WorkExecutorImplSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  it should "keep the worker heartbeat going after the download, while the snapshots are taken" in runIO {
+  /** Runs a download under TestControl and returns when, since the start, each download progress was published. */
+  private def publishedProgress(downloadData: Stream[IO, Long]): IO[List[(FiniteDuration, Long)]] = {
+    val test =
+      for {
+        timedProgressUpdates <- Ref.of[IO, List[(FiniteDuration, Long)]](List.empty)
+        heartBeats <- Ref.of[IO, List[(String, Instant)]](List.empty)
+        stubBatchSchedulingService <- StubBatchSchedulingService.create(scheduledVideoDownload)
+
+        batchSchedulingService = new StubBatchSchedulingService(
+          scheduledVideoDownload,
+          stubBatchSchedulingService.statusUpdates,
+          stubBatchSchedulingService.completedIds,
+          stubBatchSchedulingService.progressUpdates
+        ) {
+          override def publishDownloadProgress(id: String, downloadedBytes: Long): IO[Unit] =
+            IO.monotonic.flatMap(time => timedProgressUpdates.update(_ :+ (time -> downloadedBytes)))
+        }
+
+        workExecutor = createWorkExecutor(downloadData, batchSchedulingService, new RecordingWorkerDao(heartBeats))
+
+        start <- IO.monotonic
+        // fs2 interrupts the download when the interrupt stream ends, so it never ends, as the scheduler's does not
+        _ <- workExecutor.execute(scheduledVideoDownload, worker, Stream.never[IO], retries = 0)
+        published <- timedProgressUpdates.get
+      } yield published.map { case (time, bytes) => (time - start) -> bytes }
+
+    TestControl.executeEmbed(test)
+  }
+
+  private def largestGap(published: List[(FiniteDuration, Long)]): FiniteDuration = {
+    val times = Duration.Zero :: published.map { case (time, _) => time }
+    times.zip(times.drop(1)).map { case (previous, next) => next - previous }.max
+  }
+
+  it should "publish the download progress regularly while the downloader reports progress continuously" in runIO {
+    // The HTTP download emits on every chunk and yt-dlp on every progress line, far more often than every 3 seconds
+    val continuousDownload = Stream.awakeEvery[IO](200.millis).take(300).zipWithIndex.map { case (_, index) => (index + 1) * 10 }
+
+    publishedProgress(continuousDownload).map { published =>
+      // The first progress arrives 200 milliseconds in, so allow for that on top of the 3 second period
+      largestGap(published) must be < 4.seconds
+      published.map { case (_, bytes) => bytes }.last mustBe 5_000L
+    }
+  }
+
+  it should "keep publishing the download progress while the downloader is quiet" in runIO {
+    // yt-dlp goes quiet while it merges the downloaded formats, and a download can stall for a while. The published
+    // progress refreshes last_updated_at, so without it a healthy download would be marked as stale after 2 minutes.
+    val quietDownload = Stream.emit(1_000L) ++ Stream.sleep_[IO](3.minutes) ++ Stream.emit(5_000L)
+
+    publishedProgress(quietDownload).map { published =>
+      largestGap(published) must be <= 3.seconds
+      published.map { case (_, bytes) => bytes }.distinct mustBe List(1_000L, 5_000L)
+    }
+  }
+
+  "sampleLatest" should "emit the latest value on every tick and the last value when the stream ends" in runIO {
+    val source = Stream.emits[IO, Int](List(1, 2)) ++ Stream.sleep_[IO](7.seconds) ++ Stream.emit(3)
+
+    TestControl
+      .executeEmbed(source.through(WorkExecutorImpl.sampleLatest(2.seconds, repeatUnchanged = true)).compile.toList)
+      .map { _ mustBe List(2, 2, 2, 3) }
+  }
+
+  it should "only emit changed values when the unchanged values are not repeated" in runIO {
+    val source = Stream.emits[IO, Int](List(1, 2)) ++ Stream.sleep_[IO](7.seconds) ++ Stream.emit(3)
+
+    TestControl
+      .executeEmbed(source.through(WorkExecutorImpl.sampleLatest(2.seconds, repeatUnchanged = false)).compile.toList)
+      .map { _ mustBe List(2, 3) }
+  }
+
+  it should "fail when the stream fails" in runIO {
+    val failure = new RuntimeException("Download failed")
+    val source = Stream.emit[IO, Int](1) ++ Stream.sleep_[IO](5.seconds) ++ Stream.raiseError[IO](failure)
+
+    TestControl
+      .executeEmbed(source.through(WorkExecutorImpl.sampleLatest(2.seconds, repeatUnchanged = true)).compile.toList.attempt)
+      .map { _ mustBe Left(failure) }
+  }
+
+  "execute" should "keep the worker heartbeat going after the download, while the snapshots are taken" in runIO {
     // Taking the snapshots of a large video takes minutes, long after the data stream has finished
     val slowVideoEnrichmentService =
       new StubVideoEnrichmentService(timestamp) {
