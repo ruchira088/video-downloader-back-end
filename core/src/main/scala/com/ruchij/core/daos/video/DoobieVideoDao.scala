@@ -1,6 +1,7 @@
 package com.ruchij.core.daos.video
 
 import cats.data.NonEmptyList
+import cats.implicits._
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 import com.ruchij.core.daos.doobie.DoobieUtils.{SingleUpdateOps, ordering, sortByFieldName}
 import com.ruchij.core.daos.scheduling.models.RangeValue
@@ -19,6 +20,10 @@ import scala.concurrent.duration.FiniteDuration
 
 object DoobieVideoDao extends VideoDao[ConnectionIO] {
 
+  /** The title shown to the user, which searching and sorting by title also use. */
+  private def titleField(maybeUserId: Option[String]): Fragment =
+    if (maybeUserId.nonEmpty) fr"COALESCE(video_title.title, video_metadata.title)" else fr"video_metadata.title"
+
   /**
     * When a user ID is given, the query is restricted to videos the user has permission to view and the user's own
     * title (if any) replaces the metadata title. The title join is a LEFT JOIN so that a permission without a
@@ -30,7 +35,7 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
         video_metadata.url,
         video_metadata.id,
         video_metadata.video_site,
-    """ ++ (if (maybeUserId.nonEmpty) fr"COALESCE(video_title.title, video_metadata.title)," else fr"video_metadata.title,") ++
+    """ ++ titleField(maybeUserId) ++ fr"," ++
       fr"""
         video_metadata.duration,
         video_metadata.size,
@@ -74,6 +79,47 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
           .update
           .run.map(_ + result)
     }
+      .productL(restorePlaylistMemberships(videoMetadataId))
+
+  /**
+    * Puts a re-downloaded video back into the playlists it was in, at its old position unless that position has been
+    * taken in the meantime, in which case it goes to the end of the playlist.
+    */
+  private def restorePlaylistMemberships(videoId: String): ConnectionIO[Int] =
+    sql"""
+      SELECT id FROM playlist
+        WHERE id IN (SELECT playlist_id FROM requeued_playlist_video WHERE video_id = $videoId)
+        FOR UPDATE
+    """
+      .query[String]
+      .to[List]
+      .productR {
+        sql"""
+          INSERT INTO playlist_video (playlist_id, video_id, position_index)
+            SELECT
+              requeued_playlist_video.playlist_id,
+              requeued_playlist_video.video_id,
+              CASE
+                WHEN EXISTS(
+                  SELECT 1 FROM playlist_video
+                    WHERE
+                      playlist_video.playlist_id = requeued_playlist_video.playlist_id AND
+                      playlist_video.position_index = requeued_playlist_video.position_index
+                )
+                THEN (
+                  SELECT COALESCE(MAX(playlist_video.position_index), -1) + 1 FROM playlist_video
+                    WHERE playlist_video.playlist_id = requeued_playlist_video.playlist_id
+                )
+                ELSE requeued_playlist_video.position_index
+              END
+            FROM requeued_playlist_video
+            WHERE requeued_playlist_video.video_id = $videoId
+        """.update.run
+      }
+      .productL(deleteRequeuedPlaylistMemberships(videoId))
+
+  private def deleteRequeuedPlaylistMemberships(videoId: String): ConnectionIO[Int] =
+    sql"DELETE FROM requeued_playlist_video WHERE video_id = $videoId".update.run
 
   override def search(
     term: Option[String],
@@ -90,7 +136,7 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
     (selectQuery(maybeUserId)
       ++
         whereAndOpt(
-          term.map(searchTerm => fr"video_metadata.title ILIKE ${"%" + searchTerm + "%"}"),
+          term.map(searchTerm => titleField(maybeUserId) ++ fr"ILIKE ${"%" + searchTerm + "%"}"),
           videoUrls.map(urls => in(fr"video_metadata.url", urls)),
           durationRange.min.map(minimum => fr"video_metadata.duration >= $minimum"),
           durationRange.max.map(maximum => fr"video_metadata.duration <= $maximum"),
@@ -99,7 +145,7 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
           videoSites.map(sites => in(fr"video_metadata.video_site", sites))
         )
       ++ fr"ORDER BY"
-      ++ videoSortByFieldName(sortBy)
+      ++ videoSortByFieldName(maybeUserId)(sortBy)
       ++ ordering(order)
       ++ fr", video.video_metadata_id"
       ++ ordering(order)
@@ -115,7 +161,12 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
   override def findByIds(videoIds: NonEmptyList[String]): ConnectionIO[Seq[Video]] =
     (selectQuery(None) ++ fr"WHERE" ++ in(fr"video.video_metadata_id", videoIds)).query[Video].to[Seq]
 
-  private val videoSortByFieldName: SortBy => Fragment =
+  private def videoSortByFieldName(maybeUserId: Option[String]): SortBy => Fragment = {
+    case SortBy.Title => titleField(maybeUserId)
+    case sortBy => nonTitleSortByFieldName(sortBy)
+  }
+
+  private val nonTitleSortByFieldName: SortBy => Fragment =
     sortByFieldName.orElse {
       case SortBy.Date => fr"video.created_at"
       case SortBy.WatchTime => fr"video_watch_time.watch_time_in_ms"
@@ -138,6 +189,20 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
     }.value
 
   override def deleteById(videoId: String): ConnectionIO[Int] =
+    deleteRequeuedPlaylistMemberships(videoId).productR(deleteVideo(videoId))
+
+  override def deleteForRedownload(videoId: String): ConnectionIO[Int] =
+    deleteRequeuedPlaylistMemberships(videoId)
+      .productR {
+        sql"""
+          INSERT INTO requeued_playlist_video (playlist_id, video_id, position_index)
+            SELECT playlist_id, video_id, position_index FROM playlist_video WHERE video_id = $videoId
+        """.update.run
+      }
+      .productR(deleteVideo(videoId))
+
+  // Deleting the video row cascades to its playlist_video rows
+  private def deleteVideo(videoId: String): ConnectionIO[Int] =
     sql"DELETE FROM video_watch_time WHERE video_id = $videoId".update.run.flatMap {
       count => sql"DELETE FROM video WHERE video_metadata_id = $videoId".update.run.map(_ + count)
     }

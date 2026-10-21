@@ -51,11 +51,17 @@ class DoobiePlaylistDao(fileResourceDao: FileResourceDao[ConnectionIO], videoDao
       }
       .map(_.sum)
 
-  private def isPlaylistOwner(playlistId: String, maybeUserId: Option[String]): ConnectionIO[Boolean] =
-    (fr"SELECT EXISTS(SELECT 1 FROM playlist" ++
-      whereAndOpt(Some(fr"id = $playlistId"), maybeUserId.map(userId => fr"user_id = $userId")) ++ fr")")
-      .query[Boolean]
-      .unique
+  /**
+    * Locks the playlist row until the end of the transaction, so that concurrent updates of the same playlist, which
+    * replace all of its playlist_video rows, run one after the other instead of colliding on its unique constraints.
+    */
+  private def lockOwnedPlaylist(playlistId: String, maybeUserId: Option[String]): ConnectionIO[Boolean] =
+    (fr"SELECT id FROM playlist" ++
+      whereAndOpt(Some(fr"id = $playlistId"), maybeUserId.map(userId => fr"user_id = $userId")) ++
+      fr"FOR UPDATE")
+      .query[String]
+      .option
+      .map(_.nonEmpty)
 
   /**
     * Fails with a ResourceNotFoundException unless every video exists and, when a user ID is given, the user has
@@ -114,7 +120,7 @@ class DoobiePlaylistDao(fileResourceDao: FileResourceDao[ConnectionIO], videoDao
       }
 
     // Nothing is changed unless the playlist exists and, when a user ID is given, belongs to that user
-    isPlaylistOwner(playlistId, maybeUserId).flatMap { isOwner =>
+    lockOwnedPlaylist(playlistId, maybeUserId).flatMap { isOwner =>
       if (isOwner)
         playlistTableUpdate
           .product(playlistVideosUpdate)
@@ -145,7 +151,8 @@ class DoobiePlaylistDao(fileResourceDao: FileResourceDao[ConnectionIO], videoDao
         ),
         maybeUserId.map(userId => fr"playlist.user_id = $userId")
       ) ++
-        fr"ORDER BY playlist." ++ sortBy.fragment ++ ordering(order) ++
+        // The playlist ID breaks ties, so that paging neither repeats nor skips playlists with the same sort value
+        fr"ORDER BY playlist." ++ sortBy.fragment ++ ordering(order) ++ fr", playlist.id" ++ ordering(order) ++
         fr"LIMIT $pageSize OFFSET ${pageNumber * pageSize}",
       maybeUserId
     ).widen[Seq[Playlist]]

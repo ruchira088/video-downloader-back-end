@@ -15,4 +15,7 @@ trait VideoWatchHistoryDao[F[_]] {
   def update(updatedVideoWatchHistory: VideoWatchHistory): F[Unit]
 
   def deleteBy(videoId: String): F[Int]
+
+  /** Deletes the watch history of the given user for the given video. */
+  def deleteBy(userId: String, videoId: String): F[Int]
 }

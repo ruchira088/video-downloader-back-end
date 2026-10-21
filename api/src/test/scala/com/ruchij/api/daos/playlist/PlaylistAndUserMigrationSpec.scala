@@ -4,9 +4,9 @@ import cats.effect.{IO, Resource}
 import cats.implicits._
 import com.ruchij.api.daos.user.DoobieUserDao
 import com.ruchij.api.test.data.ApiTestData
+import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
-import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.external.CoreResourcesProvider
 import com.ruchij.core.external.containers.ContainerCoreResourcesProvider
@@ -55,7 +55,14 @@ class PlaylistAndUserMigrationSpec extends AnyFlatSpec with Matchers {
       DoobieFileResourceDao.insert(video.videoMetadata.thumbnail) *>
         DoobieVideoMetadataDao.insert(video.videoMetadata) *>
         DoobieFileResourceDao.insert(video.fileResource) *>
-        DoobieVideoDao.insert(video.videoMetadata.id, video.fileResource.id, video.createdAt, video.watchTime)
+        // Plain SQL, since the DAO targets the latest schema rather than V040
+        sql"""
+          INSERT INTO video (video_metadata_id, file_resource_id, created_at)
+            VALUES (${video.videoMetadata.id}, ${video.fileResource.id}, ${video.createdAt})
+        """.update.run *>
+        sql"""
+          INSERT INTO video_watch_time (video_id, watch_time_in_ms) VALUES (${video.videoMetadata.id}, ${video.watchTime})
+        """.update.run
     }
 
   providers.foreach {

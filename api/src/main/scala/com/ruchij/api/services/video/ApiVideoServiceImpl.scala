@@ -16,6 +16,7 @@ import com.ruchij.core.daos.video.VideoDao
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.VideoSite
+import com.ruchij.core.daos.videowatchhistory.VideoWatchHistoryDao
 import com.ruchij.core.daos.workers.models.VideoScan
 import com.ruchij.core.daos.workers.models.VideoScan.ScanStatus
 import com.ruchij.core.messaging.Publisher
@@ -41,6 +42,7 @@ class ApiVideoServiceImpl[F[_]: MonadThrow: Clock, G[_]: MonadThrow](
   snapshotDao: SnapshotDao[G],
   videoTitleDao: VideoTitleDao[G],
   videoPermissionDao: VideoPermissionDao[G],
+  videoWatchHistoryDao: VideoWatchHistoryDao[G]
 )(implicit transaction: G ~> F)
     extends ApiVideoService[F] {
 
@@ -74,6 +76,8 @@ class ApiVideoServiceImpl[F[_]: MonadThrow: Clock, G[_]: MonadThrow](
             .findVideoById(videoId, Some(userId))
             .productL(videoTitleDao.delete(Some(videoId), Some(userId)))
             .productL(videoPermissionDao.delete(Some(userId), Some(videoId)))
+            // Without permission the video is gone from the user's list, so it must not linger in their history
+            .productL(videoWatchHistoryDao.deleteBy(userId, videoId))
         }.flatTap(_ => fallbackSyncRequester.request(videoId))
 
       case None =>

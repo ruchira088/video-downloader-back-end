@@ -271,7 +271,8 @@ object ApiApp extends IOApp {
       DoobieVideoMetadataDao,
       DoobieSnapshotDao,
       DoobieVideoTitleDao,
-      DoobieVideoPermissionDao
+      DoobieVideoPermissionDao,
+      DoobieVideoWatchHistoryDao
     )
 
     val playlistDao = new DoobiePlaylistDao(DoobieFileResourceDao, DoobieVideoDao)

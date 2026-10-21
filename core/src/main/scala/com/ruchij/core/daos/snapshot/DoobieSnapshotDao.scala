@@ -28,7 +28,7 @@ object DoobieSnapshotDao extends SnapshotDao[ConnectionIO] {
       whereAndOpt(
         Some(fr"video_snapshot.video_id = $videoId"),
         maybeUserId.map(userId => fr"permission.user_id = $userId")
-      )
+      ) ++ fr"ORDER BY video_snapshot.video_timestamp, file_resource.id"
     )
       .query[Snapshot]
       .to[Seq]

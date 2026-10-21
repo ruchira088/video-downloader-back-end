@@ -11,6 +11,8 @@ import doobie.util.fragments.whereAnd
 import java.time.Instant
 
 object DoobieVideoWatchHistoryDao extends VideoWatchHistoryDao[ConnectionIO] {
+
+  /** Each watch history shows the title of the user it belongs to, falling back to the metadata title. */
   private val SelectQuery =
     fr"""
        SELECT
@@ -19,7 +21,7 @@ object DoobieVideoWatchHistoryDao extends VideoWatchHistoryDao[ConnectionIO] {
         video_metadata.url,
         video_metadata.id,
         video_metadata.video_site,
-        video_metadata.title,
+        COALESCE(video_title.title, video_metadata.title),
         video_metadata.duration,
         video_metadata.size,
         thumbnail.id, thumbnail.created_at, thumbnail.path, thumbnail.media_type, thumbnail.size,
@@ -39,6 +41,8 @@ object DoobieVideoWatchHistoryDao extends VideoWatchHistoryDao[ConnectionIO] {
         INNER JOIN file_resource AS thumbnail ON video_metadata.thumbnail_id = thumbnail.id
         INNER JOIN file_resource AS video_file ON video.file_resource_id = video_file.id
         INNER JOIN video_watch_time ON video_watch_history.video_id = video_watch_time.video_id
+        LEFT JOIN video_title
+          ON video_title.video_id = video_watch_history.video_id AND video_title.user_id = video_watch_history.user_id
     """
 
   override def insert(videoWatchHistory: VideoWatchHistory): ConnectionIO[Unit] =
@@ -111,4 +115,7 @@ object DoobieVideoWatchHistoryDao extends VideoWatchHistoryDao[ConnectionIO] {
 
   override def deleteBy(videoId: String): ConnectionIO[Int] =
     sql"DELETE FROM video_watch_history WHERE video_id = $videoId".update.run
+
+  override def deleteBy(userId: String, videoId: String): ConnectionIO[Int] =
+    sql"DELETE FROM video_watch_history WHERE user_id = $userId AND video_id = $videoId".update.run
 }
