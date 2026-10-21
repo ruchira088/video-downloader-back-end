@@ -8,7 +8,8 @@ import com.ruchij.api.services.fallback.models.{
   RequestResolved,
   ScheduledVideoRemoval,
   ScheduledVideoUpsert,
-  SyncJson
+  SyncJson,
+  UserRevocation
 }
 import com.ruchij.core.logging.Logger
 import software.amazon.awssdk.services.sqs.SqsAsyncClient
@@ -145,6 +146,7 @@ class SqsFallbackSyncTransport[F[_]: Async](
       case upsert: ScheduledVideoUpsert => s"ScheduledVideoUpsert for video ${upsert.videoId}"
       case removal: ScheduledVideoRemoval => s"ScheduledVideoRemoval for video ${removal.videoId}"
       case resolved: RequestResolved => s"RequestResolved for request ${resolved.requestId}"
+      case revocation: UserRevocation => s"UserRevocation for user ${revocation.userId}"
     }
 }
 

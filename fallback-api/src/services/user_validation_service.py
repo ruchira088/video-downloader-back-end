@@ -11,8 +11,10 @@ from src.services.models.user import User, parse_role
 
 # (connect, read) timeouts. The read timeout bounds each wait for data, not the whole response,
 # so an unreachable or unresponsive main API fails a call in at most about 13 s, and the two calls
-# a sign-up makes in about 26 s: just under API Gateway's 29 s and the Lambda's 30 s timeouts. A
-# main API trickling out a response slower still could run past them.
+# of one check in about 26 s: just under API Gateway's 29 s and the Lambda's 30 s timeouts. A
+# sign-up checks twice (CognitoUserService._recheck), so a main API that slows down after the
+# first check can run it past them; the Lambda is then stopped before its re-check finishes,
+# and the account it just wrote is kept as if the main API were unreachable.
 MAIN_API_TIMEOUT_SECONDS = (3, 10)
 
 

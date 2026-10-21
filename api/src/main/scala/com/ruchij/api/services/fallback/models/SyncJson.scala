@@ -73,6 +73,14 @@ object SyncJson {
           "userId" -> Json.fromString(userId),
           "outcome" -> outcomeJson
         )
+
+      case UserRevocation(userId, email, capturedAt) =>
+        Json.obj(
+          "type" -> Json.fromString("UserRevocation"),
+          "userId" -> Json.fromString(userId),
+          "email" -> Json.fromString(email),
+          "capturedAt" -> timestamp(capturedAt)
+        )
     }
 
   implicit val scheduleRequestEncoder: Encoder[ScheduleRequest] =

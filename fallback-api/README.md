@@ -8,13 +8,22 @@ then creates the user (201) or refreshes an existing user's name, role and passw
 up while the main API is reachable, a client should call it after every successful main-API login, so every user
 already has an up-to-date fallback account when the main API goes down.
 
+When a user's password is reset on the main API, or the user is deleted there, the main API sends a `UserRevocation`
+(`contract/user-revocation.json`) over the main-to-fallback queue, and `SyncFunction` deletes the user's fallback
+account (`src/sync/user_revoker.py`), so the old password and every token issued for it stop working. The user's next
+`POST /user` creates the account again with their current password. Only an account whose `custom:user_id` is
+another user's (the email was reused) is kept. `POST /user` checks the password with the main API a second time after
+writing it to Cognito, and deletes the account if the main API now refuses it, so a sign-up that checked the old
+password just before a reset can't outlive the reset's revocation.
+
 Browsers may call the API from the same origins the main API allows: any `ruchij.com` host, `localhost` and private
 network addresses (`ALLOWED_ORIGIN_REGEX` in `src/main.py`). Its DynamoDB table holds a copy of the
 scheduled videos, kept in sync with the main API's database over two SQS queues (see
 `docs/superpowers/specs/2026-09-26-fallback-sync-design.md`).
 
 - `ApiFunction` (`handler.py`): the FastAPI app behind API Gateway.
-- `SyncFunction` (`sync_handler.py`): applies the main API's sync messages to DynamoDB.
+- `SyncFunction` (`sync_handler.py`): applies the main API's sync messages to DynamoDB, and its `UserRevocation`
+  messages to the user pool (see below).
 - `contract/`: JSON fixtures shared with the main API's tests. Change them only together with the Scala side.
 
 ## Development
@@ -36,7 +45,7 @@ python3.14 -m venv .venv
 
 | Variable | Description |
 |---|---|
-| `AWS_COGNITO_USER_POOL_ID` | User pool that issues access tokens. Its region is taken from the id's prefix. |
+| `AWS_COGNITO_USER_POOL_ID` | User pool that issues access tokens and that revoked users are deleted from |
 | `AWS_COGNITO_CLIENT_ID` | App client that access tokens must have been issued to |
 | `AWS_COGNITO_URL` | Cognito endpoint override, for a local emulator only. The JWKS is then fetched from it. |
 | `AWS_COGNITO_ISSUER` | Expected token issuer, for a local emulator only. Defaults to the user pool's AWS issuer. |
@@ -76,9 +85,19 @@ sam deploy --config-env prod        # production
 
 ## Limitations
 
-- **Passwords shorter than 6 characters can't sign up.** Cognito's minimum password length is 6, and sign-up copies
-  the user's main-API password into the user pool. A user with a shorter password must change it on the main API
+- **Passwords shorter than 6 characters, or with leading or trailing whitespace, can't sign up.** Sign-up copies the
+  user's main-API password into the user pool, and Cognito rejects these whatever the pool's policy (6 is its lowest
+  minimum length). `POST /user` answers them with a 400; such a user must change their password on the main API
   first.
-- A user's name, role and password are copied from the main API only when `POST /user` is called, so they stay as
-  they were at the last call until the next one.
+- **A sign-up that stopped part-way** (e.g. a Lambda timeout between creating the user and setting their password)
+  leaves an account whose login is answered with a 403. The next `POST /user` repairs it.
+- A user's name and role are copied from the main API only when `POST /user` is called, so they stay as they were at
+  the last call until the next one. A password reset or deletion on the main API instead revokes the fallback account
+  within seconds, as long as the main API reaches SQS: a revocation it can't send is logged and dropped, not retried
+  by the reconcile. A `POST /user` made right after a reset, or before a revocation redriven from the dead-letter
+  queue, may be undone by that revocation; the next one then re-creates the account. A sign-up whose re-check finds
+  the main API unreachable, or runs out of time, keeps the account it wrote.
 - `GET /schedule` lists at most the 100 newest pending requests.
+- **API Gateway throttles every caller together** (`Globals.Api.MethodSettings` in `template.yaml`): `POST /user` at
+  5 requests a second (burst 10), everything else at 50 (burst 100), answering the excess with a 429. The limits are
+  not per client, so a flood of sign-ups can still crowd out other users' sign-ups, though not their logins.

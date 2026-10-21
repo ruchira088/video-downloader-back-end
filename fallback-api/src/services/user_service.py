@@ -3,9 +3,13 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from pydantic import EmailStr
+from requests import HTTPError
 
 from src.config.configuration import AppConfiguration
-from src.services.exceptions import InvalidPasswordException
+from src.services.exceptions import (
+    IncorrectCredentialsException,
+    InvalidPasswordException,
+)
 from src.services.models.user import User
 from src.services.user_validation_service import (
     UserValidationService,
@@ -13,6 +17,9 @@ from src.services.user_validation_service import (
 )
 
 logger = logging.getLogger(__name__)
+
+# The main API's answers to a login that prove the credentials are no longer valid
+CREDENTIAL_REFUSALS = frozenset({401, 403})
 
 
 @dataclass(frozen=True)
@@ -62,11 +69,63 @@ class CognitoUserService(UserService):
 
         if existing_user_id is None and self._create(email, user):
             self._set_password(email, password, user, roll_back=True)
-            return UserUpsert(user, created=True)
+            upsert = UserUpsert(user, created=True)
+        else:
+            self._refresh(email, user)
+            self._set_password(email, password, user, roll_back=False)
+            upsert = UserUpsert(user, created=False)
 
-        self._refresh(email, user)
-        self._set_password(email, password, user, roll_back=False)
-        return UserUpsert(user, created=False)
+        self._recheck(email, password, user)
+        return upsert
+
+    def _recheck(self, email: str, password: str, user: User) -> None:
+        """Check the password with the main API again, now that it is in Cognito.
+
+        A password reset (or deletion) on the main API that lands between the first check and
+        the write sends a revocation, which may reach the fallback before the write and so
+        delete nothing, leaving the old password working. Checking again after the write
+        catches it: the main API refuses the old password by then, and the account is deleted.
+        """
+        try:
+            confirmed = self._user_validation_service.get_user(
+                email=email, password=password
+            )
+        except HTTPError as error:
+            # Only a credential refusal (401 or 403) proves the credentials changed. On any
+            # other error -- the main API unreachable, failing or answering oddly -- the account
+            # is kept, since deleting it would take the fallback away just as it is needed; the
+            # caller still sees the error.
+            response = error.response
+            if response is not None and response.status_code in CREDENTIAL_REFUSALS:
+                self._remove_after_failed_recheck(email, user)
+            raise
+
+        if confirmed.id != user.id:
+            self._remove_after_failed_recheck(email, user)
+            raise IncorrectCredentialsException()
+
+    def _remove_after_failed_recheck(self, email: str, user: User) -> None:
+        # A concurrent sign-up may have replaced the account for the email's new main-side
+        # owner since this one wrote it; that account is theirs, and stays.
+        if self._existing_user_id(email) != user.id:
+            logger.warning(
+                "The main API refused the credentials of user %s after they were written to "
+                "Cognito, but the fallback account no longer is theirs; keeping it",
+                user.id,
+            )
+            return
+
+        logger.warning(
+            "The main API refused the credentials of user %s after they were written to "
+            "Cognito; deleting the fallback account",
+            user.id,
+        )
+        try:
+            self._cognito_idp_client.admin_delete_user(
+                UserPoolId=self._cognito_user_pool_id, Username=email
+            )
+        except self._cognito_idp_client.exceptions.UserNotFoundException:
+            pass
 
     def _existing_user_id(self, email: str) -> str | None:
         try:
@@ -141,13 +200,21 @@ class CognitoUserService(UserService):
 
             # In tests, cognito_idp_client can be a MagicMock, whose .exceptions.* attributes
             # are themselves MagicMocks rather than exception classes; isinstance() would raise
-            # TypeError against those, so only compare once we know it's a real exception type.
-            invalid_password_exception_type = (
-                self._cognito_idp_client.exceptions.InvalidPasswordException
+            # TypeError against those, so only compare against real exception types.
+            # Cognito rejects a password that breaks the pool's policy with an
+            # InvalidPasswordException, but one with leading or trailing whitespace with an
+            # InvalidParameterException; the password is the only parameter here that comes
+            # from the request (the email has already been accepted by the main API).
+            exceptions = self._cognito_idp_client.exceptions
+            password_policy_exception_types = tuple(
+                exception_type
+                for exception_type in (
+                    exceptions.InvalidPasswordException,
+                    exceptions.InvalidParameterException,
+                )
+                if isinstance(exception_type, type)
             )
-            if isinstance(invalid_password_exception_type, type) and isinstance(
-                error, invalid_password_exception_type
-            ):
+            if isinstance(error, password_policy_exception_types):
                 raise InvalidPasswordException(
                     f"Password does not meet the fallback password policy: {error}"
                 ) from error

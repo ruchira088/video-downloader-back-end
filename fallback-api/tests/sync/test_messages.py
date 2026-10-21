@@ -12,6 +12,7 @@ from src.sync.messages import (
     ScheduledVideoRemoval,
     ScheduledVideoUpsert,
     ScheduleRequest,
+    UserRevocation,
     parse_main_to_fallback_message,
     to_json,
 )
@@ -58,6 +59,16 @@ class TestTimestamps(unittest.TestCase):
 
 
 class TestMessages(unittest.TestCase):
+    def test_user_revocation_fixture_parses(self):
+        message = parse_main_to_fallback_message(_fixture("user-revocation.json"))
+
+        assert isinstance(message, UserRevocation)
+        self.assertEqual(message.user_id, "user-1")
+        self.assertEqual(message.email, "me@ruchij.com")
+        self.assertEqual(
+            message.captured_at, datetime(2026, 9, 26, 8, 25, 0, 42, tzinfo=UTC)
+        )
+
     def test_upsert_fixture_parses(self):
         message = parse_main_to_fallback_message(
             _fixture("scheduled-video-upsert.json")
@@ -99,6 +110,7 @@ class TestMessages(unittest.TestCase):
             "scheduled-video-removal.json",
             "request-resolved-scheduled.json",
             "request-resolved-rejected.json",
+            "user-revocation.json",
         ]:
             with self.subTest(name=name):
                 message = parse_main_to_fallback_message(_fixture(name))

@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from requests import HTTPError
 
 from src.services.exceptions import (
+    IncompleteSignUpException,
     IncorrectCredentialsException,
     InvalidAuthenticationTokenException,
     InvalidPageTokenException,
@@ -32,6 +33,18 @@ def register_exception_handlers(app: FastAPI):
             content={
                 "detail": "This account needs a password reset, which the fallback API "
                 "can't do; try again once the main API is back"
+            },
+        )
+
+    @app.exception_handler(IncompleteSignUpException)
+    async def handle_incomplete_sign_up(
+        request: Request, exc: IncompleteSignUpException
+    ):
+        return JSONResponse(
+            status_code=403,
+            content={
+                "detail": "This account's fallback sign-up is incomplete; sign up again "
+                "with POST /user once the main API is back"
             },
         )
 

@@ -1,3 +1,4 @@
+import logging
 from abc import ABC, abstractmethod
 
 from pydantic import BaseModel, EmailStr
@@ -5,6 +6,7 @@ from pydantic import BaseModel, EmailStr
 from src.services.access_token_verifier import CognitoAccessTokenVerifier
 from src.services.cognito_helpers import secret_hash
 from src.services.exceptions import (
+    IncompleteSignUpException,
     IncorrectCredentialsException,
     InvalidAuthenticationTokenException,
     PasswordResetRequiredException,
@@ -12,6 +14,8 @@ from src.services.exceptions import (
     TooManyRequestsException,
 )
 from src.services.models.user import User, parse_role
+
+logger = logging.getLogger(__name__)
 
 
 class AuthenticationToken(BaseModel):
@@ -65,7 +69,16 @@ class CognitoAuthenticationService(AuthenticationService):
                 },
             )
 
-            authentication_result = response["AuthenticationResult"]
+            authentication_result = response.get("AuthenticationResult")
+            if authentication_result is None:
+                # A challenge (e.g. NEW_PASSWORD_REQUIRED for a user a stopped sign-up left in
+                # FORCE_CHANGE_PASSWORD), which the fallback never answers: signing up again
+                # sets a permanent password and repairs the account.
+                logger.warning(
+                    "Login of a fallback user was answered with the %s challenge",
+                    response.get("ChallengeName"),
+                )
+                raise IncompleteSignUpException()
 
             access_token = authentication_result["AccessToken"]
             expires_in = int(authentication_result["ExpiresIn"])
@@ -88,6 +101,14 @@ class CognitoAuthenticationService(AuthenticationService):
             self._cognito_idp_client.exceptions.UserNotFoundException,
         ):
             raise IncorrectCredentialsException()
+        except self._cognito_idp_client.exceptions.InvalidParameterException as error:
+            # Cognito rejects some passwords outright (e.g. one with leading or trailing
+            # whitespace), and no fallback user can have such a password. Logged, since a
+            # misconfigured app client (e.g. USER_PASSWORD_AUTH disabled) fails this way too.
+            logger.warning("Cognito rejected a login's parameters: %s", error)
+            raise IncorrectCredentialsException() from error
+        except self._cognito_idp_client.exceptions.UserNotConfirmedException:
+            raise IncompleteSignUpException()
         except self._cognito_idp_client.exceptions.PasswordResetRequiredException:
             raise PasswordResetRequiredException()
         except self._cognito_idp_client.exceptions.TooManyRequestsException:
