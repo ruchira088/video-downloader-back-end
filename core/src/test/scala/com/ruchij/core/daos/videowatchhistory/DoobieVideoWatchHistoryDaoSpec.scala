@@ -1,6 +1,7 @@
 package com.ruchij.core.daos.videowatchhistory
 
 import cats.effect.IO
+import cats.implicits._
 import cats.~>
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
@@ -350,5 +351,42 @@ class DoobieVideoWatchHistoryDaoSpec extends AnyFlatSpec with Matchers with Opti
         results.head.lastUpdatedAt.toEpochMilli mustBe laterTimestamp.toEpochMilli
       }
     } yield ()
+  }
+
+  it should "return the most recently updated watch history from findLastUpdatedAfter" in runTest { fixture =>
+    for {
+      timestamp <- Clock[IO].timestamp
+
+      // The older history is inserted first, so returning rows in insertion order would pick it
+      _ <- fixture.transaction {
+        DoobieVideoWatchHistoryDao.insert(
+          fixture.videoWatchHistory.copy(id = "older", lastUpdatedAt = timestamp.minusSeconds(120))
+        )
+      }
+      _ <- fixture.transaction {
+        DoobieVideoWatchHistoryDao.insert(
+          fixture.videoWatchHistory.copy(id = "newer", lastUpdatedAt = timestamp.minusSeconds(60))
+        )
+      }
+
+      result <- fixture.transaction {
+        DoobieVideoWatchHistoryDao.findLastUpdatedAfter(fixture.userId, fixture.videoId, timestamp.minusSeconds(600))
+      }
+    } yield result.map(_.id) mustBe Some("newer")
+  }
+
+  it should "page through watch histories with the same last updated at in a deterministic order" in runTest {
+    fixture =>
+      val ids = List("history-3", "history-1", "history-5", "history-2", "history-4")
+
+      for {
+        _ <- ids.traverse { id =>
+          fixture.transaction(DoobieVideoWatchHistoryDao.insert(fixture.videoWatchHistory.copy(id = id)))
+        }
+
+        pages <- (0 to 2).toList.traverse { pageNumber =>
+          fixture.transaction(DoobieVideoWatchHistoryDao.findBy(fixture.userId, 2, pageNumber))
+        }
+      } yield pages.flatten.map(_.id) mustBe List("history-5", "history-4", "history-3", "history-2", "history-1")
   }
 }

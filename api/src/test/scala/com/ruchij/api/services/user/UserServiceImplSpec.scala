@@ -331,8 +331,8 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
 
     (passwordHashingService.hashPassword _).expects(newPassword).returning(IO.pure(newHashedPassword))
     (credentialsResetTokenDao.find _).expects(userId, "invalid-token").returning(IO.pure(None))
-    // productR causes findById to be called at "build time" even though it won't execute
-    (userDao.findById _).expects(userId).returning(IO.pure(None))
+    // The user is only looked up once the token has been consumed
+    (userDao.findById _).expects(*).never()
 
     val userService = createService(
       passwordHashingService, userDao, credentialsDao,
@@ -362,8 +362,8 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
 
     (passwordHashingService.hashPassword _).expects(newPassword).returning(IO.pure(newHashedPassword))
     (credentialsResetTokenDao.find _).expects(userId, resetToken).returning(IO.pure(Some(expiredResetToken)))
-    // productR causes findById to be called at "build time" even though it won't execute
-    (userDao.findById _).expects(userId).returning(IO.pure(None))
+    // The user is only looked up once the token has been consumed
+    (userDao.findById _).expects(*).never()
 
     val userService = createService(
       passwordHashingService, userDao, credentialsDao,
@@ -692,8 +692,8 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
 
     (passwordHashingService.hashPassword _).expects(newPassword).returning(IO.pure(newHashedPassword))
     (credentialsResetTokenDao.find _).expects(userId, resetToken).returning(IO.pure(Some(exactlyExpiredToken)))
-    // productR causes findById to be called at "build time" even though it won't execute
-    (userDao.findById _).expects(userId).returning(IO.pure(None))
+    // The user is only looked up once the token has been consumed
+    (userDao.findById _).expects(*).never()
 
     val userService = createService(
       passwordHashingService, userDao, credentialsDao,
@@ -727,6 +727,70 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     (credentialsDao.update _).expects(*).returning(IO.pure(1))
     (credentialsResetTokenDao.delete _).expects(userId, resetToken).returning(IO.pure(1))
     (userDao.findById _).expects(userId).returning(IO.pure(Some(sampleUser)))
+
+    val userService = createService(
+      passwordHashingService, userDao, credentialsDao,
+      credentialsResetTokenDao, videoTitleDao, videoPermissionDao
+    )
+
+    userService.resetPassword(userId, resetToken, newPassword).map { user =>
+      user mustBe sampleUser
+    }
+  }
+
+  "resetPassword" should "not change the password when the token was already consumed by a concurrent reset" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val uuidGenerator: RandomGenerator[IO, UUID] = mock[RandomGenerator[IO, UUID]]
+
+    val passwordHashingService = mock[PasswordHashingService[IO]]
+    val userDao = mock[UserDao[IO]]
+    val credentialsDao = mock[CredentialsDao[IO]]
+    val credentialsResetTokenDao = mock[CredentialsResetTokenDao[IO]]
+    val videoTitleDao = mock[VideoTitleDao[IO]]
+    val videoPermissionDao = mock[VideoPermissionDao[IO]]
+
+    val newPassword = Password("new-password")
+    val validResetToken = CredentialsResetToken(userId, timestamp.minus(java.time.Duration.ofHours(1)), resetToken)
+
+    (passwordHashingService.hashPassword _).expects(newPassword).returning(IO.pure(HashedPassword("hashed")))
+    (credentialsResetTokenDao.find _).expects(userId, resetToken).returning(IO.pure(Some(validResetToken)))
+    // Another reset deleted the token between the read and the delete
+    (credentialsResetTokenDao.delete _).expects(userId, resetToken).returning(IO.pure(0))
+    (credentialsDao.update _).expects(*).never()
+
+    val userService = createService(
+      passwordHashingService, userDao, credentialsDao,
+      credentialsResetTokenDao, videoTitleDao, videoPermissionDao
+    )
+
+    userService.resetPassword(userId, resetToken, newPassword).error.map { error =>
+      error mustBe a[ResourceNotFoundException]
+      error.getMessage mustBe "Reset password token in not valid"
+    }
+  }
+
+  "resetPassword" should "consume the token before updating the credentials" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    implicit val uuidGenerator: RandomGenerator[IO, UUID] = mock[RandomGenerator[IO, UUID]]
+
+    val passwordHashingService = mock[PasswordHashingService[IO]]
+    val userDao = mock[UserDao[IO]]
+    val credentialsDao = mock[CredentialsDao[IO]]
+    val credentialsResetTokenDao = mock[CredentialsResetTokenDao[IO]]
+    val videoTitleDao = mock[VideoTitleDao[IO]]
+    val videoPermissionDao = mock[VideoPermissionDao[IO]]
+
+    val newPassword = Password("new-password")
+    val validResetToken = CredentialsResetToken(userId, timestamp.minus(java.time.Duration.ofHours(1)), resetToken)
+
+    (passwordHashingService.hashPassword _).expects(newPassword).returning(IO.pure(HashedPassword("hashed")))
+
+    inSequence {
+      (credentialsResetTokenDao.find _).expects(userId, resetToken).returning(IO.pure(Some(validResetToken)))
+      (credentialsResetTokenDao.delete _).expects(userId, resetToken).returning(IO.pure(1))
+      (credentialsDao.update _).expects(*).returning(IO.pure(1))
+      (userDao.findById _).expects(userId).returning(IO.pure(Some(sampleUser)))
+    }
 
     val userService = createService(
       passwordHashingService, userDao, credentialsDao,
