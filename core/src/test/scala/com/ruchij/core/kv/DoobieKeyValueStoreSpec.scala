@@ -10,6 +10,7 @@ import com.ruchij.core.types.Clock
 import com.ruchij.migration.MigrationApp
 import com.ruchij.migration.config.{AdminConfiguration, MigrationServiceConfiguration}
 import doobie.ConnectionIO
+import doobie.implicits.toSqlInterpolator
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
@@ -139,5 +140,35 @@ class DoobieKeyValueStoreSpec extends AnyFlatSpec with Matchers {
         _ <- IO.delay { deleted mustBe 0 }
       } yield ()
     }
+  }
+
+  "DoobieKeyValueStore.create" should "purge expired entries in the background" in runIO {
+    daoResource
+      .flatMap {
+        case (keyValueDao, transaction) =>
+          implicit val tx: ConnectionIO ~> IO = transaction
+
+          DoobieKeyValueStore
+            .create[IO, ConnectionIO](keyValueDao, 200 milliseconds)
+            .map(kvStore => (kvStore, transaction))
+      }
+      .use {
+        case (kvStore, transaction) =>
+          val storedKeys: IO[List[String]] =
+            transaction(sql"SELECT store_key FROM key_value_store ORDER BY store_key".query[String].to[List])
+
+          for {
+            _ <- kvStore.put("expiring-key", "expiring-value", Some(1 millisecond))
+            _ <- kvStore.put("permanent-key", "permanent-value", None)
+            _ <- kvStore.put("long-lived-key", "long-lived-value", Some(1 hour))
+
+            _ <- IO.sleep(1 second)
+            keys <- storedKeys
+
+            _ <- IO.delay {
+              keys mustBe List("long-lived-key", "permanent-key")
+            }
+          } yield ()
+      }
   }
 }
