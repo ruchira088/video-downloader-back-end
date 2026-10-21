@@ -7,7 +7,7 @@ import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
 import com.ruchij.api.exceptions.AuthorizationException
 import com.ruchij.api.services.config.models.ApiConfigKey
 import com.ruchij.api.services.fallback.FallbackSyncRequester
-import com.ruchij.api.services.scheduling.models.ScheduledVideoResult
+import com.ruchij.api.services.scheduling.models.{ScheduledVideoDeletion, ScheduledVideoResult}
 import com.ruchij.core.daos.permission.VideoPermissionDao
 import com.ruchij.core.daos.permission.models.VideoPermission
 import com.ruchij.core.daos.scheduling.SchedulingDao
@@ -34,6 +34,7 @@ import scala.concurrent.duration.FiniteDuration
 class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
   videoAnalysisService: VideoAnalysisService[F],
   scheduledVideoDownloadPublisher: Publisher[F, ScheduledVideoDownload],
+  scheduledVideoDeletionPublisher: Publisher[F, ScheduledVideoDeletion],
   workerStatusPublisher: Publisher[F, WorkerStatusUpdate],
   fallbackSyncRequester: FallbackSyncRequester[F],
   configurationService: ConfigurationService[F, ApiConfigKey],
@@ -261,15 +262,28 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
               ValidationException("Unable to delete scheduled video downloads that are completed or downloaded")
             } else Applicative[T].unit
         }
+        // An admin's delete removes every user's permission, so the users are collected first to be told of it
+        .product {
+          OptionT.liftF {
+            maybeUserId.fold(videoPermissionDao.find(None, Some(id))) { _ =>
+              Applicative[T].pure(Seq.empty[VideoPermission])
+            }
+          }
+        }
         .productL(OptionT.liftF(videoPermissionDao.delete(maybeUserId, Some(id))))
         .productL(OptionT.liftF(videoTitleDao.delete(Some(id), maybeUserId)))
         .getOrElseF(ApplicativeError[T, Throwable].raiseError(notFound(id)))
     }
-      .flatMap { scheduledVideoDownload =>
+      .flatMap { case (scheduledVideoDownload, permissions) =>
       if (maybeUserId.isEmpty) {
         Clock[F].timestamp.flatMap { timestamp =>
           val deleted = scheduledVideoDownload.copy(lastUpdatedAt = timestamp, status = SchedulingStatus.Deleted)
-          scheduledVideoDownloadPublisher.publishOne(deleted).as(deleted)
+          val userIds = permissions.map(_.userId).distinct.sorted.toList
+
+          scheduledVideoDownloadPublisher
+            .publishOne(deleted)
+            .productR(scheduledVideoDeletionPublisher.publishOne(ScheduledVideoDeletion(deleted, userIds)))
+            .as(deleted)
         }
       } else
         fallbackSyncRequester.request(scheduledVideoDownload.videoMetadata.id).as(scheduledVideoDownload)

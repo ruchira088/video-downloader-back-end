@@ -4,6 +4,7 @@ import cats.effect.IO
 import com.ruchij.api.daos.user.models.User
 import com.ruchij.api.services.authentication.AuthenticationService.Secret
 import com.ruchij.api.services.authentication.models.AuthenticationToken
+import com.ruchij.api.services.scheduling.models.ScheduledVideoDeletion
 import com.ruchij.api.test.data.ApiTestData
 import com.ruchij.api.test.matchers._
 import com.ruchij.api.test.mixins.io.MockedRoutesIO
@@ -30,6 +31,7 @@ class SchedulingUpdatesRoutesSpec extends AnyFlatSpec with Matchers with MockedR
 
   private val OwnedVideoId = "owned-video"
   private val OtherVideoId = "other-users-video"
+  private val DeletedVideoId = "deleted-video"
 
   private def scheduledVideoDownload(videoId: String): ScheduledVideoDownload =
     ScheduledVideoDownload(
@@ -50,8 +52,19 @@ class SchedulingUpdatesRoutesSpec extends AnyFlatSpec with Matchers with MockedR
       DownloadProgress(OtherVideoId, testTimestamp, 4)
     ).covary[IO]
 
+  private def deleted(videoId: String): ScheduledVideoDownload =
+    scheduledVideoDownload(videoId).copy(status = SchedulingStatus.Deleted)
+
+  // An admin's delete of the normal user's video has removed its permissions by the time its Deleted update arrives
   override val scheduledVideoDownloadUpdatesStream: Stream[IO, ScheduledVideoDownload] =
-    Stream(scheduledVideoDownload(OwnedVideoId), scheduledVideoDownload(OtherVideoId)).covary[IO]
+    Stream(scheduledVideoDownload(OwnedVideoId), scheduledVideoDownload(OtherVideoId), deleted(DeletedVideoId))
+      .covary[IO]
+
+  override val scheduledVideoDeletionsStream: Stream[IO, ScheduledVideoDeletion] =
+    Stream(
+      ScheduledVideoDeletion(deleted(DeletedVideoId), List(ApiTestData.NormalUser.id)),
+      ScheduledVideoDeletion(deleted(OtherVideoId), List("another-user"))
+    ).covary[IO]
 
   private def authenticateAs(user: User): IO[Unit] =
     IO.delay {
@@ -65,6 +78,9 @@ class SchedulingUpdatesRoutesSpec extends AnyFlatSpec with Matchers with MockedR
         }
     }
 
+  private def statusOf(serverSentEvent: ServerSentEvent): Option[String] =
+    serverSentEvent.data.flatMap(data => parse(data).toOption).flatMap(_.hcursor.get[String]("status").toOption)
+
   private def videoIdOf(serverSentEvent: ServerSentEvent): Option[String] =
     serverSentEvent.data.flatMap(data => parse(data).toOption).flatMap { json =>
       json.hcursor
@@ -74,6 +90,9 @@ class SchedulingUpdatesRoutesSpec extends AnyFlatSpec with Matchers with MockedR
     }
 
   private def receivedEvents: IO[List[(Option[String], Option[String])]] =
+    receivedEventsWithStatus.map(_.map { case (eventType, videoId, _) => eventType -> videoId })
+
+  private def receivedEventsWithStatus: IO[List[(Option[String], Option[String], Option[String])]] =
     createRoutes()
       .run(
         Request[IO](
@@ -90,7 +109,7 @@ class SchedulingUpdatesRoutesSpec extends AnyFlatSpec with Matchers with MockedR
             .interruptAfter(2.seconds)
             .compile
             .toList
-            .map(_.map(event => event.eventType -> videoIdOf(event)))
+            .map(_.map(event => (event.eventType, videoIdOf(event), statusOf(event))))
       }
 
   "GET /schedule/updates" should "only stream events of downloads owned by a non-admin user" in runIO {
@@ -110,9 +129,9 @@ class SchedulingUpdatesRoutesSpec extends AnyFlatSpec with Matchers with MockedR
       ignoreHttpMetrics() *>
       receivedEvents.flatMap { events =>
         IO.delay {
-          events.map(_._2).distinct mustBe List(Some(OwnedVideoId))
+          events.flatMap(_._2).toSet mustBe Set(OwnedVideoId, DeletedVideoId)
           events.count(_._1.contains("active-download")) mustBe 2
-          events.count(_._1.contains("scheduled-video-download-update")) mustBe 1
+          events.count(_._1.contains("scheduled-video-download-update")) mustBe 2
         }
       }
   }
@@ -125,10 +144,25 @@ class SchedulingUpdatesRoutesSpec extends AnyFlatSpec with Matchers with MockedR
       ignoreHttpMetrics() *>
       receivedEvents.flatMap { events =>
         IO.delay {
-          events.flatMap(_._2).toSet mustBe Set(OwnedVideoId, OtherVideoId)
+          events.flatMap(_._2).toSet mustBe Set(OwnedVideoId, OtherVideoId, DeletedVideoId)
           events.count(_._1.contains("active-download")) mustBe 4
-          events.count(_._1.contains("scheduled-video-download-update")) mustBe 2
+          events.count(_._1.contains("scheduled-video-download-update")) mustBe 3
         }
       }
   }
+
+  it should "send a non-admin user the Deleted update of a video they had after its permissions are gone" in
+    runIO {
+      authenticateAs(ApiTestData.NormalUser) *>
+        IO.delay {
+          (apiSchedulingService.hasPermission _).expects(OwnedVideoId, ApiTestData.NormalUser.id).returns(IO.pure(true))
+          (apiSchedulingService.hasPermission _).expects(OtherVideoId, ApiTestData.NormalUser.id).returns(IO.pure(false))
+        } *>
+        ignoreHttpMetrics() *>
+        receivedEventsWithStatus.flatMap { events =>
+          IO.delay {
+            events.collect { case (_, videoId, Some("Deleted")) => videoId } mustBe List(Some(DeletedVideoId))
+          }
+        }
+    }
 }

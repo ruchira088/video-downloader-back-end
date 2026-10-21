@@ -10,6 +10,7 @@ import com.ruchij.api.services.config.models.ApiConfigKey
 import com.ruchij.api.services.config.models.ApiConfigKey.ApiConfigKeySpace
 import com.ruchij.api.services.fallback.FallbackSyncRequester
 import com.ruchij.api.services.fallback.FallbackSyncStubs.RecordingPublisher
+import com.ruchij.api.services.scheduling.models.ScheduledVideoDeletion
 import com.ruchij.api.test.data.ApiTestData
 import com.ruchij.core.daos.permission.DoobieVideoPermissionDao
 import com.ruchij.core.daos.permission.models.VideoPermission
@@ -85,6 +86,7 @@ class ApiSchedulingServiceIntegrationSpec extends AnyFlatSpec with Matchers with
   private case class Fixture(
     service: ApiSchedulingServiceImpl[IO, ConnectionIO],
     scheduledVideoDownloads: RecordingPublisher[ScheduledVideoDownload],
+    scheduledVideoDeletions: RecordingPublisher[ScheduledVideoDeletion],
     transaction: ConnectionIO ~> IO
   ) {
     def status(videoId: String): IO[Option[SchedulingStatus]] =
@@ -97,10 +99,12 @@ class ApiSchedulingServiceIntegrationSpec extends AnyFlatSpec with Matchers with
         for {
           _ <- transaction(setUpData)
           scheduledVideoDownloads <- RecordingPublisher[ScheduledVideoDownload]
+          scheduledVideoDeletions <- RecordingPublisher[ScheduledVideoDeletion]
           workerStatusUpdates <- RecordingPublisher[WorkerStatusUpdate]
           service = new ApiSchedulingServiceImpl[IO, ConnectionIO](
             mock[VideoAnalysisService[IO]],
             scheduledVideoDownloads,
+            scheduledVideoDeletions,
             workerStatusUpdates,
             FallbackSyncRequester.noOp[IO],
             new ConfigurationServiceImpl[IO, ApiConfigKey](
@@ -110,7 +114,7 @@ class ApiSchedulingServiceIntegrationSpec extends AnyFlatSpec with Matchers with
             DoobieVideoTitleDao,
             DoobieVideoPermissionDao
           )
-          _ <- test(Fixture(service, scheduledVideoDownloads, transaction))
+          _ <- test(Fixture(service, scheduledVideoDownloads, scheduledVideoDeletions, transaction))
         } yield ()
       }
     }
@@ -174,6 +178,34 @@ class ApiSchedulingServiceIntegrationSpec extends AnyFlatSpec with Matchers with
           error mustBe a[ValidationException]
           status mustBe Some(SchedulingStatus.Active)
         }
+      }
+
+      s"deleteById ($databaseName)" should "name the video's users in an admin's deletion" in runTest(provider) { fixture =>
+        for {
+          deleted <- fixture.service.deleteById(sharedId, None)
+          published <- fixture.scheduledVideoDownloads.messages
+          deletions <- fixture.scheduledVideoDeletions.messages
+          permissions <- fixture.transaction(DoobieVideoPermissionDao.find(None, Some(sharedId)))
+        } yield {
+          deleted.status mustBe SchedulingStatus.Deleted
+          published mustBe List(deleted)
+          deletions mustBe List(ScheduledVideoDeletion(deleted, List(ApiTestData.NormalUser.id, OtherUser.id).sorted))
+          permissions mustBe empty
+        }
+      }
+
+      it should "not publish a deletion when a user removes the video from their own downloads" in runTest(provider) {
+        fixture =>
+          for {
+            _ <- fixture.service.deleteById(sharedId, AsNormalUser)
+            published <- fixture.scheduledVideoDownloads.messages
+            deletions <- fixture.scheduledVideoDeletions.messages
+            permissions <- fixture.transaction(DoobieVideoPermissionDao.find(None, Some(sharedId)))
+          } yield {
+            published mustBe empty
+            deletions mustBe empty
+            permissions.map(_.userId) mustBe List(OtherUser.id)
+          }
       }
   }
 }

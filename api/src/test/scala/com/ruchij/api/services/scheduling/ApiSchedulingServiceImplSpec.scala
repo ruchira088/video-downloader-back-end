@@ -6,7 +6,7 @@ import cats.~>
 import com.ruchij.api.services.config.models.ApiConfigKey
 import com.ruchij.api.services.fallback.PublishingFallbackSyncRequester
 import com.ruchij.api.services.fallback.models.FallbackSyncRequest
-import com.ruchij.api.services.scheduling.models.ScheduledVideoResult
+import com.ruchij.api.services.scheduling.models.{ScheduledVideoDeletion, ScheduledVideoResult}
 import com.ruchij.core.daos.permission.VideoPermissionDao
 import com.ruchij.core.daos.permission.models.VideoPermission
 import com.ruchij.core.daos.resource.models.FileResource
@@ -196,6 +196,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     val service = new ApiSchedulingServiceImpl[IO, IO](
       videoAnalysisService,
       scheduledVideoDownloadPublisher,
+      new StubPublisher[ScheduledVideoDeletion](),
       workerStatusPublisher,
       // A long grace period, so a publish always completes before the call returns and the tests can check it
       new PublishingFallbackSyncRequester[IO](fallbackSyncRequestPublisher, IO.unit, gracePeriod = 1.minute),

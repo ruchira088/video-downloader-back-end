@@ -39,6 +39,7 @@ import com.ruchij.api.services.health.models.kv.HealthCheckKey.HealthCheckKeySpa
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.api.services.playlist.PlaylistServiceImpl
 import com.ruchij.api.services.scheduling.ApiSchedulingServiceImpl
+import com.ruchij.api.services.scheduling.models.ScheduledVideoDeletion
 import com.ruchij.api.services.user.{FallbackRevokingUserService, UserServiceImpl}
 import com.ruchij.api.services.video.ApiVideoServiceImpl
 import com.ruchij.api.web.Routes
@@ -130,6 +131,7 @@ object ApiApp extends IOApp {
       pubSubProvider <- PubSub.provider[F](apiServiceConfiguration.pubsubConfiguration)
       downloadProgressPubSub <- pubSubProvider.pubSub[DownloadProgress]
       scheduledVideoDownloadPubSub <- pubSubProvider.pubSub[ScheduledVideoDownload]
+      scheduledVideoDeletionPubSub <- pubSubProvider.pubSub[ScheduledVideoDeletion]
       healthCheckPubSub <- pubSubProvider.pubSub[HealthCheckMessage]
       httpMetricsPublisher <- pubSubProvider.pubSub[HttpMetric]
       videoWatchMetricsPublisher <- pubSubProvider.pubSub[VideoWatchMetric]
@@ -150,6 +152,7 @@ object ApiApp extends IOApp {
       messageBrokers = ApiMessageBrokers(
         downloadProgressPubSub,
         scheduledVideoDownloadPubSub,
+        scheduledVideoDeletionPubSub,
         healthCheckPubSub,
         workerStatusUpdatePublisher,
         scanVideoCommandPublisher,
@@ -297,6 +300,7 @@ object ApiApp extends IOApp {
     val schedulingService = new ApiSchedulingServiceImpl[F, ConnectionIO](
       videoAnalysisService,
       messageBrokers.scheduledVideoDownloadPubSub,
+      messageBrokers.scheduledVideoDeletionPubSub,
       messageBrokers.workerStatusUpdatesPublisher,
       fallbackSyncRequester,
       apiConfigurationService,
@@ -338,6 +342,7 @@ object ApiApp extends IOApp {
           messageBrokers.downloadProgressSubscriber,
           messageBrokers.healthCheckPubSub,
           messageBrokers.scheduledVideoDownloadPubSub,
+          messageBrokers.scheduledVideoDeletionPubSub,
           s"background-$instanceId"
         )
       }
@@ -379,6 +384,7 @@ object ApiApp extends IOApp {
         authenticationService,
         backgroundService.downloadProgress,
         backgroundService.updates,
+        backgroundService.deletions,
         messageBrokers.httpMetricsPublisher,
         apiDuplicateDetectionService,
         apiServiceConfiguration.httpConfiguration.allowedOriginHosts

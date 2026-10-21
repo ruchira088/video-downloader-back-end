@@ -5,6 +5,7 @@ import cats.effect.Async
 import cats.implicits._
 import com.ruchij.api.daos.user.models.Role
 import com.ruchij.api.services.models.Context.AuthenticatedRequestContext
+import com.ruchij.api.services.scheduling.models.ScheduledVideoDeletion
 import com.ruchij.api.services.scheduling.{ApiSchedulingService, VideoPermissionCache}
 import com.ruchij.api.web.middleware.Authorizer
 import com.ruchij.api.web.requests.RequestOps.ContextRequestOpsSyntax
@@ -15,7 +16,7 @@ import com.ruchij.api.web.responses.EventStreamEventType.{ActiveDownload, HeartB
 import com.ruchij.api.web.responses.{EventStreamHeartBeat, IterableResponse, SearchResult, WorkerStatusResponse}
 import com.ruchij.core.circe.Decoders._
 import com.ruchij.core.circe.Encoders._
-import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
+import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.models.SortBy
 import com.ruchij.core.services.scheduling.models.DownloadProgress
@@ -38,7 +39,8 @@ object SchedulingRoutes {
   def apply[F[_]: Async: Clock](
     apiSchedulingService: ApiSchedulingService[F],
     downloadProgressStream: Stream[F, DownloadProgress],
-    scheduledVideoDownloadUpdatesStream: Stream[F, ScheduledVideoDownload]
+    scheduledVideoDownloadUpdatesStream: Stream[F, ScheduledVideoDownload],
+    scheduledVideoDeletionsStream: Stream[F, ScheduledVideoDeletion]
   )(implicit dsl: Http4sDsl[F]): ContextRoutes[AuthenticatedRequestContext, F] = {
     import dsl._
 
@@ -133,6 +135,21 @@ object SchedulingRoutes {
               }
           }
           .flatMap { isVisible =>
+            // An admin's delete removes the permissions of the video's users before its Deleted update reaches the
+            // stream, so a non-admin user is sent the Deleted update from the deletion, which names its users
+            val scheduledVideoDownloadUpdates: Stream[F, ScheduledVideoDownload] =
+              user.nonAdminUserId.fold(scheduledVideoDownloadUpdatesStream) { userId =>
+                scheduledVideoDownloadUpdatesStream
+                  .filter(_.status != SchedulingStatus.Deleted)
+                  .evalFilter(scheduledVideoDownload => isVisible(scheduledVideoDownload.videoMetadata.id))
+                  .merge {
+                    scheduledVideoDeletionsStream.collect {
+                      case ScheduledVideoDeletion(scheduledVideoDownload, userIds) if userIds.contains(userId) =>
+                        scheduledVideoDownload
+                    }
+                  }
+              }
+
             Ok {
               downloadProgressStream
                 .evalFilter(downloadProgress => isVisible(downloadProgress.videoId))
@@ -140,8 +157,7 @@ object SchedulingRoutes {
                   ServerSentEvent(Some(Encoder[DownloadProgress].apply(downloadProgress).noSpaces), ActiveDownload)
                 }
                 .merge {
-                  scheduledVideoDownloadUpdatesStream
-                    .evalFilter(scheduledVideoDownload => isVisible(scheduledVideoDownload.videoMetadata.id))
+                  scheduledVideoDownloadUpdates
                     .map { scheduledVideoDownload =>
                       ServerSentEvent(
                         Some(Encoder[ScheduledVideoDownload].apply(scheduledVideoDownload).noSpaces),
