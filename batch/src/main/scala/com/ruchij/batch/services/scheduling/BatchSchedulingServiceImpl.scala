@@ -148,24 +148,30 @@ class BatchSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
     workerStatusSubscriber
       .subscribe(groupId)
       .evalMap { committableRecord =>
-        workerStatusSubscriber
-          .commit(List(committableRecord))
-          .product {
-            logger.debug[F](s"DownloadProgressSubscriber(groupId=$groupId) committed 1 message")
-          }
-          .as(workerStatusSubscriber.extractValue(committableRecord))
+        commitOrLog("WorkerStatusSubscriber", groupId) {
+          workerStatusSubscriber.commit(List(committableRecord))
+        }.as(workerStatusSubscriber.extractValue(committableRecord))
       }
 
   override def subscribeToScheduledVideoDownloadUpdates(groupId: String): Stream[F, ScheduledVideoDownload] =
     scheduledVideoDownloadPubSub
       .subscribe(groupId)
       .evalMap { committableRecord =>
-        scheduledVideoDownloadPubSub
-          .commit(List(committableRecord))
-          .product {
-            logger.debug[F](s"ScheduledVideoDownloadPubSub(groupId=$groupId) committed 1 message")
-          }
-          .as(scheduledVideoDownloadPubSub.extractValue(committableRecord))
+        commitOrLog("ScheduledVideoDownloadPubSub", groupId) {
+          scheduledVideoDownloadPubSub.commit(List(committableRecord))
+        }.as(scheduledVideoDownloadPubSub.extractValue(committableRecord))
+      }
+
+  /**
+    * A failed commit, such as one interrupted by a consumer group rebalance, is logged rather than failing the
+    * subscription. Committing a later message covers this one too, while restarting the subscription would leave a
+    * gap in which the messages for this instance could be missed.
+    */
+  private def commitOrLog(subscriber: String, groupId: String)(commit: F[Unit]): F[Unit] =
+    commit
+      .productR(logger.debug[F](s"$subscriber(groupId=$groupId) committed 1 message"))
+      .handleErrorWith { throwable =>
+        logger.warn[F](s"$subscriber(groupId=$groupId) was unable to commit a message. error=$throwable")
       }
 
   override def publishScheduledVideoDownload(id: String): F[ScheduledVideoDownload] =

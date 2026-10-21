@@ -2,7 +2,7 @@ package com.ruchij.batch.services.scheduling
 
 import cats.effect.IO
 import cats.implicits._
-import cats.~>
+import cats.{Foldable, Functor, ~>}
 import com.ruchij.batch.config.RetryConfiguration
 import com.ruchij.batch.daos.scheduling.DoobieBatchSchedulingDao
 import com.ruchij.batch.daos.workers.DoobieWorkerDao
@@ -18,6 +18,7 @@ import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
+import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.messaging.{PubSub, Publisher, Subscriber}
 import com.ruchij.core.services.repository.FileRepositoryService
@@ -650,6 +651,53 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
       stream.compile.toList.map { result =>
         result mustBe empty
       }
+    }
+  }
+
+  it should "keep the subscription going when committing a message fails" in runIO {
+    // A message whose commit failed is still processed. The offset of the next message that is committed covers it,
+    // so restarting the subscription, and possibly missing the messages sent in the meantime, is not needed.
+    class FlakyCommitSubscriber(messages: List[WorkerStatusUpdate]) extends Subscriber[IO, WorkerStatusUpdate] {
+      override type C[X] = X
+
+      @volatile var commitAttempts: Int = 0
+
+      override def subscribe(groupId: String): Stream[IO, WorkerStatusUpdate] = Stream.emits(messages)
+
+      override def commit[H[_]: Foldable: Functor](values: H[WorkerStatusUpdate]): IO[Unit] =
+        IO.defer {
+          commitAttempts += 1
+          if (commitAttempts == 1) IO.raiseError(new RuntimeException("Commit failed due to a rebalance"))
+          else IO.unit
+        }
+
+      override def extractValue(ca: WorkerStatusUpdate): WorkerStatusUpdate = ca
+    }
+
+    val messages = List(WorkerStatusUpdate(WorkerStatus.Paused), WorkerStatusUpdate(WorkerStatus.Available))
+    val workerStatusSubscriber = new FlakyCommitSubscriber(messages)
+
+    implicit val unusedTransaction: ConnectionIO ~> IO = new (ConnectionIO ~> IO) {
+      override def apply[A](fa: ConnectionIO[A]): IO[A] = IO.raiseError(new IllegalStateException("Not used"))
+    }
+
+    val batchSchedulingService = new BatchSchedulingServiceImpl[IO, ConnectionIO](
+      mock[Publisher[IO, DownloadProgress]],
+      workerStatusSubscriber,
+      mock[PubSub[IO, ScheduledVideoDownload]],
+      mock[FileRepositoryService[IO]],
+      DoobieSchedulingDao,
+      DoobieBatchSchedulingDao,
+      new DoobieWorkerDao(DoobieSchedulingDao),
+      DoobieVideoMetadataDao,
+      StorageConfiguration("video-folder", "image-folder", List.empty),
+      RetryPolicy(RetryConfiguration.Disabled),
+      RandomGenerator.eval(IO.pure(0.5))
+    )
+
+    batchSchedulingService.subscribeToWorkerStatusUpdates("test-group").compile.toList.attempt.map { result =>
+      result mustBe Right(messages)
+      workerStatusSubscriber.commitAttempts mustBe 2
     }
   }
 

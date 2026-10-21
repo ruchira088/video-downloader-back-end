@@ -456,6 +456,9 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
         restartOnFailure(name)(stream).delayBy(StreamRestartDelay)
     }
 
+  // The group id is fixed for the lifetime of this instance, so when restartOnFailure runs a failed subscription
+  // again, its consumer rejoins the same group and resumes from the committed offsets. A failed commit does not fail
+  // the subscription, so it is only restarted when the consumer itself fails.
   private def publishScheduledVideoDownloadsUpdatesToTopic(topic: Topic[F, ScheduledVideoDownload]): Stream[F, Unit] =
     topic.publish {
       batchSchedulingService.subscribeToScheduledVideoDownloadUpdates(s"batch-scheduler-$instanceId")
