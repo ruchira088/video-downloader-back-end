@@ -49,6 +49,12 @@ class SyncJsonSpec extends AnyFlatSpec with Matchers {
     encoded(rejected) mustBe canonical(json("request-resolved-rejected.json"))
   }
 
+  it should "encode a user revocation exactly like the contract fixture" in {
+    val revocation = UserRevocation("user-1", "me@ruchij.com", Instant.parse("2026-09-26T08:25:00.000042Z"))
+
+    encoded(revocation) mustBe canonical(json("user-revocation.json"))
+  }
+
   it should "decode the schedule request fixture" in {
     SyncJson.decodeScheduleRequest(read("schedule-request.json")) mustBe Right(
       ScheduleRequest(

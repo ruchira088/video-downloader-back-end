@@ -21,14 +21,16 @@ import com.ruchij.api.services.background.BackgroundServiceImpl
 import com.ruchij.api.services.config.models.ApiConfigKey
 import com.ruchij.api.services.config.models.ApiConfigKey.ApiConfigKeySpace
 import com.ruchij.api.services.detection.ApiDuplicateDetectionServiceImpl
-import com.ruchij.api.services.fallback.aws.FallbackSyncAwsClients
+import com.ruchij.api.services.fallback.aws.{FallbackSyncAwsClients, SqsFallbackSyncTransport}
 import com.ruchij.api.services.fallback.models.FallbackSyncRequest
 import com.ruchij.api.services.fallback.{
   FallbackSync,
   FallbackSyncCoordination,
   FallbackSyncRequester,
   FallbackSyncResources,
-  PublishingFallbackSyncRequester
+  FallbackUserRevoker,
+  PublishingFallbackSyncRequester,
+  TransportFallbackUserRevoker
 }
 import com.ruchij.api.services.hashing.BCryptPasswordHashingService
 import com.ruchij.api.services.health.HealthServiceImpl
@@ -37,7 +39,7 @@ import com.ruchij.api.services.health.models.kv.HealthCheckKey.HealthCheckKeySpa
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.api.services.playlist.PlaylistServiceImpl
 import com.ruchij.api.services.scheduling.ApiSchedulingServiceImpl
-import com.ruchij.api.services.user.UserServiceImpl
+import com.ruchij.api.services.user.{FallbackRevokingUserService, UserServiceImpl}
 import com.ruchij.api.services.video.ApiVideoServiceImpl
 import com.ruchij.api.web.Routes
 import com.ruchij.core.commands.ScanVideosCommand
@@ -303,14 +305,25 @@ object ApiApp extends IOApp {
       DoobieVideoPermissionDao
     )
 
-    val userService = new UserServiceImpl[F, ConnectionIO](
-      passwordHashingService,
-      DoobieUserDao,
-      DoobieCredentialsDao,
-      DoobieCredentialsResetTokenDao,
-      DoobieVideoTitleDao,
-      DoobieVideoPermissionDao,
-      fallbackSyncRequester
+    // Sync disabled: nothing to revoke, as no user can have signed up to a fallback this API syncs with
+    val fallbackUserRevoker: FallbackUserRevoker[F] =
+      fallbackSyncResources.fold(FallbackUserRevoker.noOp[F]) { resources =>
+        new TransportFallbackUserRevoker[F](
+          new SqsFallbackSyncTransport[F](resources.awsClients.sqs, resources.settings.mainToFallbackQueueUrl)
+        )
+      }
+
+    val userService = new FallbackRevokingUserService[F](
+      new UserServiceImpl[F, ConnectionIO](
+        passwordHashingService,
+        DoobieUserDao,
+        DoobieCredentialsDao,
+        DoobieCredentialsResetTokenDao,
+        DoobieVideoTitleDao,
+        DoobieVideoPermissionDao,
+        fallbackSyncRequester
+      ),
+      fallbackUserRevoker
     )
 
     val videoWatchHistoryService =
