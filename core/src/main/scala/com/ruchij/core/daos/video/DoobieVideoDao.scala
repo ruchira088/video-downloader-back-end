@@ -19,6 +19,10 @@ import scala.concurrent.duration.FiniteDuration
 
 object DoobieVideoDao extends VideoDao[ConnectionIO] {
 
+  /** The title shown to the user, which searching and sorting by title also use. */
+  private def titleField(maybeUserId: Option[String]): Fragment =
+    if (maybeUserId.nonEmpty) fr"COALESCE(video_title.title, video_metadata.title)" else fr"video_metadata.title"
+
   /**
     * When a user ID is given, the query is restricted to videos the user has permission to view and the user's own
     * title (if any) replaces the metadata title. The title join is a LEFT JOIN so that a permission without a
@@ -30,7 +34,7 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
         video_metadata.url,
         video_metadata.id,
         video_metadata.video_site,
-    """ ++ (if (maybeUserId.nonEmpty) fr"COALESCE(video_title.title, video_metadata.title)," else fr"video_metadata.title,") ++
+    """ ++ titleField(maybeUserId) ++ fr"," ++
       fr"""
         video_metadata.duration,
         video_metadata.size,
@@ -90,7 +94,7 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
     (selectQuery(maybeUserId)
       ++
         whereAndOpt(
-          term.map(searchTerm => fr"video_metadata.title ILIKE ${"%" + searchTerm + "%"}"),
+          term.map(searchTerm => titleField(maybeUserId) ++ fr"ILIKE ${"%" + searchTerm + "%"}"),
           videoUrls.map(urls => in(fr"video_metadata.url", urls)),
           durationRange.min.map(minimum => fr"video_metadata.duration >= $minimum"),
           durationRange.max.map(maximum => fr"video_metadata.duration <= $maximum"),
@@ -99,7 +103,7 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
           videoSites.map(sites => in(fr"video_metadata.video_site", sites))
         )
       ++ fr"ORDER BY"
-      ++ videoSortByFieldName(sortBy)
+      ++ videoSortByFieldName(maybeUserId)(sortBy)
       ++ ordering(order)
       ++ fr", video.video_metadata_id"
       ++ ordering(order)
@@ -115,7 +119,12 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
   override def findByIds(videoIds: NonEmptyList[String]): ConnectionIO[Seq[Video]] =
     (selectQuery(None) ++ fr"WHERE" ++ in(fr"video.video_metadata_id", videoIds)).query[Video].to[Seq]
 
-  private val videoSortByFieldName: SortBy => Fragment =
+  private def videoSortByFieldName(maybeUserId: Option[String]): SortBy => Fragment = {
+    case SortBy.Title => titleField(maybeUserId)
+    case sortBy => nonTitleSortByFieldName(sortBy)
+  }
+
+  private val nonTitleSortByFieldName: SortBy => Fragment =
     sortByFieldName.orElse {
       case SortBy.Date => fr"video.created_at"
       case SortBy.WatchTime => fr"video_watch_time.watch_time_in_ms"

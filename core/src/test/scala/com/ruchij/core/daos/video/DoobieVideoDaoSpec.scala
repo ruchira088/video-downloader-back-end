@@ -1007,4 +1007,75 @@ class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
       }
     } yield ()
   }
+
+  it should "search and sort by the title the user sees" in runTest { fixture =>
+    def searchTitles(
+      term: Option[String],
+      order: Order,
+      maybeUserId: Option[String]
+    ): ConnectionIO[Seq[(String, String)]] =
+      DoobieVideoDao
+        .search(term, None, RangeValue.all, RangeValue.all, 0, 10, SortBy.Title, order, None, maybeUserId)
+        .map(_.map(video => video.videoMetadata.id -> video.videoMetadata.title))
+
+    def grantPermission(videoId: String, userId: String, timestamp: Instant): ConnectionIO[Int] =
+      sql"""
+        INSERT INTO scheduled_video
+            (scheduled_at, last_updated_at, status, downloaded_bytes, video_metadata_id, completed_at)
+          VALUES ($timestamp, $timestamp, ${SchedulingStatus.Completed: SchedulingStatus}, 0, $videoId, $timestamp)
+      """.update.run.flatMap(_ => DoobieVideoPermissionDao.insert(VideoPermission(timestamp, videoId, userId)))
+
+    for {
+      timestamp <- Clock[IO].timestamp
+      userId = "test-user-title-search"
+      firstVideoId = fixture.video.videoMetadata.id
+      secondVideoId = "second-video-id"
+
+      secondVideoFileResource = FileResource(
+        "second-video-file-id",
+        timestamp,
+        "/opt/video/second-video.mp4",
+        MediaType.video.mp4,
+        60000
+      )
+      secondVideoMetadata = fixture.videoMetadata
+        .copy(url = uri"https://example.com/second-video", id = secondVideoId, title = "Another Video")
+      _ <- fixture.transaction(DoobieVideoMetadataDao.insert(secondVideoMetadata))
+      _ <- fixture.transaction(DoobieFileResourceDao.insert(secondVideoFileResource))
+      _ <- fixture.transaction(DoobieVideoDao.insert(secondVideoId, secondVideoFileResource.id, timestamp, 0 seconds))
+
+      _ <- fixture.transaction(insertTestUser(userId, "title-search@example.com", timestamp))
+      _ <- fixture.transaction(grantPermission(firstVideoId, userId, timestamp))
+      _ <- fixture.transaction(grantPermission(secondVideoId, userId, timestamp))
+
+      // The user sees "Aardvark" for the first video, whose metadata title is "Test Video Title"
+      _ <- fixture.transaction {
+        sql"""
+          INSERT INTO video_title (video_id, user_id, title) VALUES ($firstVideoId, $userId, 'Aardvark')
+        """.update.run
+      }
+
+      userAscending <- fixture.transaction(searchTitles(None, Order.Ascending, Some(userId)))
+      userDescending <- fixture.transaction(searchTitles(None, Order.Descending, Some(userId)))
+      userUserTitleMatch <- fixture.transaction(searchTitles(Some("aardVARK"), Order.Ascending, Some(userId)))
+      userMetadataTitleMatch <- fixture.transaction(searchTitles(Some("Test Video"), Order.Ascending, Some(userId)))
+      userFallbackTitleMatch <- fixture.transaction(searchTitles(Some("another"), Order.Ascending, Some(userId)))
+
+      adminAscending <- fixture.transaction(searchTitles(None, Order.Ascending, None))
+      adminUserTitleMatch <- fixture.transaction(searchTitles(Some("aardvark"), Order.Ascending, None))
+      adminMetadataTitleMatch <- fixture.transaction(searchTitles(Some("Test Video"), Order.Ascending, None))
+
+      _ <- IO.delay {
+        userAscending mustBe Seq(firstVideoId -> "Aardvark", secondVideoId -> "Another Video")
+        userDescending mustBe Seq(secondVideoId -> "Another Video", firstVideoId -> "Aardvark")
+        userUserTitleMatch mustBe Seq(firstVideoId -> "Aardvark")
+        userMetadataTitleMatch mustBe empty
+        userFallbackTitleMatch mustBe Seq(secondVideoId -> "Another Video")
+
+        adminAscending mustBe Seq(secondVideoId -> "Another Video", firstVideoId -> "Test Video Title")
+        adminUserTitleMatch mustBe empty
+        adminMetadataTitleMatch mustBe Seq(firstVideoId -> "Test Video Title")
+      }
+    } yield ()
+  }
 }
