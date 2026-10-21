@@ -6,7 +6,10 @@ import cats.~>
 import com.ruchij.api.daos.playlist.PlaylistDao
 import com.ruchij.api.daos.playlist.models.{Playlist, PlaylistSortBy}
 import com.ruchij.api.daos.user.models.{Email, Role, User}
+import com.ruchij.api.exceptions.RangeNotSatisfiableException
 import com.ruchij.api.services.asset.AssetService.FileByteRange
+import com.ruchij.api.services.asset.AssetService.FileByteRange.{ByteRange, SuffixRange}
+import com.ruchij.api.services.asset.models.Asset
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.snapshot.SnapshotDao
@@ -139,8 +142,10 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   ) extends RepositoryService[IO] {
     override type BackedType = String
     override def write(key: Key, data: Stream[IO, Byte]): Stream[IO, Nothing] = Stream.empty
+    var readRange: Option[(Option[Long], Option[Long])] = None
+
     override def read(key: Key, start: Option[Long], end: Option[Long]): IO[Option[Stream[IO, Byte]]] =
-      IO.pure(readResult)
+      IO.delay { readRange = Some(start -> end) }.as(readResult)
     override def size(key: Key): IO[Option[Long]] = IO.pure(Some(1024L))
     override def list(key: Key): Stream[IO, Key] = Stream.empty
     override def exists(key: Key): IO[Boolean] = IO.pure(true)
@@ -356,19 +361,77 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  it should "handle byte range requests" in runIO {
+  private def rangeRequest(
+    fileByteRange: FileByteRange,
+    maybeMaxStreamSize: Option[Long] = None
+  ): IO[(Asset.FileRange, Option[(Option[Long], Option[Long])])] = {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
-    val fileResourceDao = new StubFileResourceDao(getByIdResult = _ =>
-      Some(sampleFileResource.copy(size = 10000L))
-    )
-    val publisher = new StubPublisher()
-    val service = createService(fileResourceDao = fileResourceDao, publisher = publisher)
+    val fileResourceDao = new StubFileResourceDao(getByIdResult = _ => Some(sampleFileResource.copy(size = 10000L)))
+    val repositoryService = new StubRepositoryService()
+    val service = createService(fileResourceDao = fileResourceDao, repositoryService = repositoryService)
 
-    val byteRange = FileByteRange(100L, Some(500L))
-    service.videoFile("file-resource-1", adminUser, Some(byteRange), None).map { asset =>
-      asset.fileRange.start mustBe 100L
-      asset.fileRange.end mustBe 500L
+    service
+      .videoFile("file-resource-1", adminUser, Some(fileByteRange), maybeMaxStreamSize)
+      .map(asset => asset.fileRange -> repositoryService.readRange)
+  }
+
+  it should "serve a byte range with an inclusive last byte position" in runIO {
+    rangeRequest(ByteRange(100L, Some(499L))).map {
+      case (fileRange, readRange) =>
+        // FileRange.end is exclusive, so bytes=100-499 is 400 bytes
+        fileRange mustBe Asset.FileRange(100L, 500L)
+        readRange mustBe Some(Some(100L) -> Some(500L))
+    }
+  }
+
+  it should "serve an open ended byte range to the end of the file" in runIO {
+    rangeRequest(ByteRange(9000L, None)).map {
+      case (fileRange, _) => fileRange mustBe Asset.FileRange(9000L, 10000L)
+    }
+  }
+
+  it should "clamp the last byte position to the size of the file" in runIO {
+    rangeRequest(ByteRange(9000L, Some(20000L))).map {
+      case (fileRange, _) => fileRange mustBe Asset.FileRange(9000L, 10000L)
+    }
+  }
+
+  it should "serve a suffix range from the end of the file" in runIO {
+    rangeRequest(SuffixRange(500L)).map {
+      case (fileRange, readRange) =>
+        fileRange mustBe Asset.FileRange(9500L, 10000L)
+        readRange mustBe Some(Some(9500L) -> Some(10000L))
+    }
+  }
+
+  it should "serve the whole file for a suffix range longer than the file" in runIO {
+    rangeRequest(SuffixRange(50000L)).map {
+      case (fileRange, _) => fileRange mustBe Asset.FileRange(0L, 10000L)
+    }
+  }
+
+  it should "limit a suffix range by the max stream size" in runIO {
+    rangeRequest(SuffixRange(5000L), Some(1000L)).map {
+      case (fileRange, _) => fileRange mustBe Asset.FileRange(5000L, 6000L)
+    }
+  }
+
+  it should "limit a byte range by the max stream size" in runIO {
+    rangeRequest(ByteRange(100L, None), Some(1000L)).map {
+      case (fileRange, _) => fileRange mustBe Asset.FileRange(100L, 1100L)
+    }
+  }
+
+  it should "raise RangeNotSatisfiableException when the range starts at or after the end of the file" in runIO {
+    rangeRequest(ByteRange(10000L, None)).error.map { error =>
+      error mustBe RangeNotSatisfiableException(10000L)
+    }
+  }
+
+  it should "raise RangeNotSatisfiableException for an empty suffix range" in runIO {
+    rangeRequest(SuffixRange(0L)).error.map { error =>
+      error mustBe RangeNotSatisfiableException(10000L)
     }
   }
 

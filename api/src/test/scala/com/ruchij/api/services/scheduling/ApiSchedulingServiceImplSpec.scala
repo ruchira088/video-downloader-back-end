@@ -827,4 +827,27 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
       result mustBe sampleScheduledVideoDownload
     }
   }
+
+  "hasPermission" should "be true only when the user has a permission for the scheduled video" in runIO {
+    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+
+    val videoPermissionDao = new StubVideoPermissionDao() {
+      override def find(userId: Option[String], scheduledVideoId: Option[String]): IO[Seq[VideoPermission]] =
+        IO.pure {
+          if (userId.contains("user-1") && scheduledVideoId.contains("video-1"))
+            Seq(VideoPermission(timestamp, "video-1", "user-1"))
+          else Seq.empty
+        }
+    }
+
+    val (service, _, _) = createService(videoPermissionDao = videoPermissionDao)
+
+    for {
+      owned <- service.hasPermission("video-1", "user-1")
+      notOwned <- service.hasPermission("video-1", "user-2")
+    } yield {
+      owned mustBe true
+      notOwned mustBe false
+    }
+  }
 }

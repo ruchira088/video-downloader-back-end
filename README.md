@@ -260,7 +260,7 @@ The API provides 30+ endpoints organized into the following categories:
 
 ### Service Routes
 - `GET /service/info` - Service metadata, version, and build info
-- `GET /service/health` - Health check endpoint
+- `GET /service/health` - Health check endpoint (requires authentication)
 
 ### Authentication
 - `POST /authentication/login` - User login

@@ -48,7 +48,9 @@ paths:
       tags:
         - Service
       summary: Health check endpoint
-      description: Returns the health status of the service
+      description: Returns the health status of the service. Requires authentication; probes should use /service/info
+      security:
+        - cookieAuth: []
       responses:
         '200':
           description: Service is healthy
@@ -62,6 +64,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthCheck'
+        '401':
+          description: Not authenticated
 
   # Authentication Routes
   /authentication/login:
@@ -989,6 +993,8 @@ paths:
               schema:
                 type: string
                 format: binary
+        '416':
+          description: Range not satisfiable; the Content-Range header holds the size of the file (bytes */size)
 
 components:
   securitySchemes:

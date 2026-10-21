@@ -233,6 +233,9 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
           .productR(getById(id, None))
       }
 
+  override def hasPermission(id: String, userId: String): F[Boolean] =
+    transaction(videoPermissionDao.find(Some(userId), Some(id))).map(_.nonEmpty)
+
   override def deleteById(id: String, maybeUserId: Option[String]): F[ScheduledVideoDownload] =
     transaction {
       OptionT(schedulingDao.getById(id, maybeUserId))

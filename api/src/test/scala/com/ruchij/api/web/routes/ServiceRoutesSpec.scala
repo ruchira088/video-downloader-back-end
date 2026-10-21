@@ -8,7 +8,11 @@ import com.ruchij.api.test.matchers._
 import com.ruchij.api.test.mixins.io.MockedRoutesIO
 import com.ruchij.core.test.IOSupport.runIO
 import io.circe.literal._
-import org.http4s.Status
+import com.ruchij.api.services.authentication.AuthenticationService.Secret
+import com.ruchij.api.services.authentication.models.AuthenticationToken
+import com.ruchij.api.test.data.ApiTestData
+import org.http4s.headers.Authorization
+import org.http4s.{AuthScheme, Credentials, Status}
 import org.http4s.client.dsl.io._
 import org.http4s.dsl.io.GET
 import org.http4s.implicits.http4sLiteralsSyntax
@@ -17,6 +21,26 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
+
+  private val testTimestamp = TimeUtils.instantOf(2022, 8, 1, 10, 10)
+  private val testSecret = Secret("test-secret-uuid")
+  private val authHeader = Authorization(Credentials.Token(AuthScheme.Bearer, testSecret.value))
+
+  private def expectAuthentication(): Unit =
+    (authenticationService.authenticate _)
+      .expects(testSecret)
+      .returns {
+        IO.pure {
+          AuthenticationToken(
+            ApiTestData.NormalUser.id,
+            testSecret,
+            testTimestamp.plusSeconds(3600),
+            testTimestamp,
+            0,
+            testTimestamp
+          ) -> ApiTestData.NormalUser
+        }
+      }
 
   "GET /service/info" should "return a successful response containing service information" in runIO {
     val expectedJsonResponse =
@@ -114,6 +138,8 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
         }
       }"""
 
+    expectAuthentication()
+
     (() => healthService.healthCheck)
       .expects()
       .returns {
@@ -135,7 +161,7 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(GET(uri"/service/health"))
+        .run(GET(uri"/service/health").putHeaders(authHeader))
         .flatMap { response =>
           IO.delay {
             response must beJsonContentType
@@ -195,6 +221,8 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
         }
       }"""
 
+    expectAuthentication()
+
     (() => healthService.healthCheck)
       .expects()
       .returns {
@@ -216,12 +244,25 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(GET(uri"/service/health"))
+        .run(GET(uri"/service/health").putHeaders(authHeader))
         .flatMap { response =>
           IO.delay {
             response must beJsonContentType
             response must haveStatus(Status.ServiceUnavailable)
             response must haveJson(expectedJsonResponse)
+          }
+        }
+  }
+
+  it should "return 401 without running the health checks when the request is not authenticated" in runIO {
+    (() => healthService.healthCheck).expects().never()
+
+    ignoreHttpMetrics() *>
+      createRoutes()
+        .run(GET(uri"/service/health"))
+        .flatMap { response =>
+          IO.delay {
+            response must haveStatus(Status.Unauthorized)
           }
         }
   }

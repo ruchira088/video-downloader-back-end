@@ -2,11 +2,17 @@ package com.ruchij.api.web.middleware
 
 import cats.data.{Kleisli, NonEmptyList}
 import cats.effect.IO
-import com.ruchij.api.exceptions.{AuthenticationException, AuthorizationException, ResourceConflictException}
+import com.ruchij.api.exceptions.{
+  AuthenticationException,
+  AuthorizationException,
+  RangeNotSatisfiableException,
+  ResourceConflictException
+}
 import com.ruchij.api.services.models.Context
 import com.ruchij.core.exceptions._
 import com.ruchij.core.test.IOSupport.runIO
 import io.circe.DecodingFailure
+import io.circe.parser.parse
 import org.http4s._
 import org.http4s.implicits._
 import org.scalatest.flatspec.AnyFlatSpec
@@ -183,6 +189,80 @@ class ExceptionHandlerSpec extends AnyFlatSpec with Matchers {
         body must include("Error 1")
         body must include("Error 2")
       }
+    }
+  }
+
+  private def errorMessages(response: Response[IO]): IO[List[String]] =
+    response.as[String].map { body =>
+      parse(body).flatMap(_.hcursor.downField("errorMessages").as[List[String]]).getOrElse(List.empty)
+    }
+
+  it should "not expose the message of an unexpected exception" in runIO {
+    val handler =
+      createHandler(new RuntimeException("Connection to jdbc:postgresql://db:5432/video-downloader refused"))
+
+    handler.run(contextRequest).flatMap { response =>
+      errorMessages(response).map { messages =>
+        response.status mustBe Status.InternalServerError
+        messages mustBe List(ExceptionHandler.InternalServerErrorMessage)
+      }
+    }
+  }
+
+  it should "not expose the message of the cause of an unexpected exception" in runIO {
+    val handler =
+      createHandler(new RuntimeException("Wrapper", new IllegalStateException("/home/app/videos is not writable")))
+
+    handler.run(contextRequest).flatMap { response =>
+      errorMessages(response).map { messages =>
+        response.status mustBe Status.InternalServerError
+        messages mustBe List(ExceptionHandler.InternalServerErrorMessage)
+      }
+    }
+  }
+
+  it should "return a generic message for an unexpected exception without a message" in runIO {
+    val handler = createHandler(new NullPointerException())
+
+    handler.run(contextRequest).flatMap { response =>
+      errorMessages(response).map { messages =>
+        response.status mustBe Status.InternalServerError
+        messages mustBe List(ExceptionHandler.InternalServerErrorMessage)
+      }
+    }
+  }
+
+  it should "not return a null message for a mapped exception without a message" in runIO {
+    val handler = createHandler(new IllegalArgumentException())
+
+    handler.run(contextRequest).flatMap { response =>
+      errorMessages(response).map { messages =>
+        response.status mustBe Status.BadRequest
+        messages mustBe List(Status.BadRequest.reason)
+      }
+    }
+  }
+
+  it should "keep the messages of mapped exceptions but hide unexpected ones in an AggregatedException" in runIO {
+    val handler =
+      createHandler(
+        AggregatedException(NonEmptyList.of(ValidationException("Invalid page size"), new RuntimeException("secret")))
+      )
+
+    handler.run(contextRequest).flatMap { response =>
+      errorMessages(response).map { messages =>
+        response.status mustBe Status.BadRequest
+        messages mustBe List("Invalid page size", ExceptionHandler.InternalServerErrorMessage)
+      }
+    }
+  }
+
+  it should "return RangeNotSatisfiable with the size of the resource for RangeNotSatisfiableException" in runIO {
+    val handler = createHandler(RangeNotSatisfiableException(1024))
+
+    handler.run(contextRequest).map { response =>
+      response.status mustBe Status.RangeNotSatisfiable
+      response.headers.get(org.typelevel.ci.CIString("Content-Range")).map(_.head.value) mustBe Some("bytes */1024")
     }
   }
 }

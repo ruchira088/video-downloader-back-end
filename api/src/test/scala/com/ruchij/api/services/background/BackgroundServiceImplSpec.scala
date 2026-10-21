@@ -91,6 +91,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
 
     override def deleteById(id: String, maybeUserId: Option[String]): IO[ScheduledVideoDownload] =
       IO.pure(sampleScheduledVideoDownload)
+    override def hasPermission(id: String, userId: String): IO[Boolean] = IO.pure(true)
   }
 
   class StubSubscriber[A] extends Subscriber[IO, A] {

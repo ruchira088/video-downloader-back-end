@@ -1,10 +1,11 @@
 package com.ruchij.api.web.routes
 
+import cats.Applicative
 import cats.effect.Async
 import cats.implicits._
 import com.ruchij.api.daos.user.models.Role
 import com.ruchij.api.services.models.Context.AuthenticatedRequestContext
-import com.ruchij.api.services.scheduling.ApiSchedulingService
+import com.ruchij.api.services.scheduling.{ApiSchedulingService, VideoPermissionCache}
 import com.ruchij.api.web.middleware.Authorizer
 import com.ruchij.api.web.requests.RequestOps.ContextRequestOpsSyntax
 import com.ruchij.api.web.requests.UpdateScheduledVideoRequest.updateScheduledVideoRequestValidator
@@ -15,6 +16,7 @@ import com.ruchij.api.web.responses.{EventStreamHeartBeat, IterableResponse, Sea
 import com.ruchij.core.circe.Decoders._
 import com.ruchij.core.circe.Encoders._
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
+import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.models.SortBy
 import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.types.Clock
@@ -31,6 +33,8 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 
 object SchedulingRoutes {
+  private val logger = Logger[SchedulingRoutes.type]
+
   def apply[F[_]: Async: Clock](
     apiSchedulingService: ApiSchedulingService[F],
     downloadProgressStream: Stream[F, DownloadProgress],
@@ -114,29 +118,47 @@ object SchedulingRoutes {
           response <- Ok(updatedScheduledVideoDownload)
         } yield response
 
-      case GET -> Root / "updates" as _ =>
-        Ok {
-          downloadProgressStream
-            .map { downloadProgress =>
-              ServerSentEvent(Some(Encoder[DownloadProgress].apply(downloadProgress).noSpaces), ActiveDownload)
-            }
-            .merge {
-              scheduledVideoDownloadUpdatesStream.map { scheduledVideoDownload =>
-                ServerSentEvent(
-                  Some(Encoder[ScheduledVideoDownload].apply(scheduledVideoDownload).noSpaces),
-                  ScheduledVideoDownloadUpdate
-                )
+      case GET -> Root / "updates" as AuthenticatedRequestContext(user, _) =>
+        user.nonAdminUserId
+          .fold(Applicative[F].pure[String => F[Boolean]](_ => Applicative[F].pure(true))) { userId =>
+            VideoPermissionCache
+              .create[F](videoId => apiSchedulingService.hasPermission(videoId, userId))
+              .map { cache => (videoId: String) =>
+                cache.hasPermission(videoId).handleErrorWith { throwable =>
+                  // Fail closed: skip the event rather than leak it or terminate the event stream
+                  logger
+                    .error[F](s"Unable to check the permission of user $userId for video $videoId", throwable)
+                    .as(false)
+                }
               }
-            }
-            .merge {
-              Stream
-                .fixedRate[F](10 seconds)
-                .zipRight(Stream.eval(Clock[F].timestamp).repeat)
-                .map { timestamp =>
-                  ServerSentEvent(Some(EventStreamHeartBeat(timestamp).asJson.noSpaces), HeartBeat)
+          }
+          .flatMap { isVisible =>
+            Ok {
+              downloadProgressStream
+                .evalFilter(downloadProgress => isVisible(downloadProgress.videoId))
+                .map { downloadProgress =>
+                  ServerSentEvent(Some(Encoder[DownloadProgress].apply(downloadProgress).noSpaces), ActiveDownload)
+                }
+                .merge {
+                  scheduledVideoDownloadUpdatesStream
+                    .evalFilter(scheduledVideoDownload => isVisible(scheduledVideoDownload.videoMetadata.id))
+                    .map { scheduledVideoDownload =>
+                      ServerSentEvent(
+                        Some(Encoder[ScheduledVideoDownload].apply(scheduledVideoDownload).noSpaces),
+                        ScheduledVideoDownloadUpdate
+                      )
+                    }
+                }
+                .merge {
+                  Stream
+                    .fixedRate[F](10 seconds)
+                    .zipRight(Stream.eval(Clock[F].timestamp).repeat)
+                    .map { timestamp =>
+                      ServerSentEvent(Some(EventStreamHeartBeat(timestamp).asJson.noSpaces), HeartBeat)
+                    }
                 }
             }
-        }
+          }
 
       case GET -> Root / "worker-status" as _ =>
         apiSchedulingService.getWorkerStatus.flatMap { workerStatus =>
