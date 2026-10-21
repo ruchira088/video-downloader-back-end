@@ -5,6 +5,8 @@ import cats.~>
 import com.ruchij.api.daos.credentials.CredentialsDao
 import com.ruchij.api.daos.credentials.models.Credentials
 import com.ruchij.api.daos.credentials.models.Credentials.HashedPassword
+import com.ruchij.api.daos.playlist.PlaylistDao
+import com.ruchij.api.daos.playlist.models.{Playlist, PlaylistSortBy}
 import com.ruchij.api.daos.resettoken.CredentialsResetTokenDao
 import com.ruchij.api.daos.resettoken.models.CredentialsResetToken
 import com.ruchij.api.daos.user.UserDao
@@ -17,9 +19,12 @@ import com.ruchij.api.services.fallback.{NoOpPublisher, PublishingFallbackSyncRe
 import com.ruchij.api.services.hashing.PasswordHashingService
 import com.ruchij.core.daos.permission.VideoPermissionDao
 import com.ruchij.core.daos.permission.models.VideoPermission
+import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.title.VideoTitleDao
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.messaging.Publisher
+import com.ruchij.core.services.models.Order
+import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import com.ruchij.core.test.Providers
 import com.ruchij.core.types.{Clock, RandomGenerator, TimeUtils}
@@ -58,6 +63,33 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     Role.Admin
   )
 
+  // The users in these tests have no playlists
+  private object NoPlaylistsDao extends PlaylistDao[IO] {
+    private def notUsed[A]: IO[A] = IO.raiseError(new NotImplementedError("not used by UserServiceImpl"))
+
+    override def insert(playlist: Playlist): IO[Int] = notUsed
+    override def update(
+      playlistId: String,
+      maybeTitle: Option[String],
+      maybeDescription: Option[String],
+      maybeVideoIds: Option[Seq[String]],
+      maybeAlbumArt: Option[Either[Unit, String]],
+      maybeUserId: Option[String]
+    ): IO[Int] = notUsed
+    override def findById(playlistId: String, maybeUserId: Option[String]): IO[Option[Playlist]] = notUsed
+    override def search(
+      maybeSearchTerm: Option[String],
+      pageSize: Int,
+      pageNumber: Int,
+      order: Order,
+      sortBy: PlaylistSortBy,
+      maybeUserId: Option[String]
+    ): IO[Seq[Playlist]] = IO.pure(Seq.empty)
+    override def isAlbumArtFileResource(fileResourceId: String): IO[Boolean] = notUsed
+    override def hasAlbumArtPermission(fileResourceId: String, userId: String): IO[Boolean] = notUsed
+    override def deleteById(playlistId: String, maybeUserId: Option[String]): IO[Int] = notUsed
+  }
+
   private def createService(
     passwordHashingService: PasswordHashingService[IO],
     userDao: UserDao[IO],
@@ -78,6 +110,9 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
       credentialsResetTokenDao,
       videoTitleDao,
       videoPermissionDao,
+      NoPlaylistsDao,
+      mock[FileResourceDao[IO]],
+      mock[RepositoryService[IO]],
       // A long grace period, so a publish always completes before the call returns and the tests can check it
       new PublishingFallbackSyncRequester[IO](fallbackSyncRequestPublisher, IO.unit, gracePeriod = 1.minute)
     )
@@ -502,13 +537,8 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     val videoTitleDao = mock[VideoTitleDao[IO]]
     val videoPermissionDao = mock[VideoPermissionDao[IO]]
 
-    (videoPermissionDao.find _).expects(Some("non-existent"), None).returning(IO.pure(Seq.empty))
-    (videoTitleDao.delete _).expects(None, Some("non-existent")).returning(IO.pure(0))
-    (videoPermissionDao.delete _).expects(Some("non-existent"), None).returning(IO.pure(0))
-    (credentialsDao.deleteByUserId _).expects("non-existent").returning(IO.pure(0))
+    // Nothing is deleted when the user does not exist
     (userDao.findById _).expects("non-existent").returning(IO.pure(None))
-    // productL causes deleteById to be called at "build time" even though it won't execute
-    (userDao.deleteById _).expects("non-existent").returning(IO.pure(0))
 
     val userService = createService(
       passwordHashingService, userDao, credentialsDao,

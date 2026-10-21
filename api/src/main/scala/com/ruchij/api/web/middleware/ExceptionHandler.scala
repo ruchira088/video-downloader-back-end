@@ -18,13 +18,17 @@ import io.circe.DecodingFailure
 import io.circe.generic.auto.exportEncoder
 import org.http4s.circe.CirceEntityEncoder.circeEntityEncoder
 import org.http4s.dsl.impl.EntityResponseGenerator
-import org.http4s.{ContextRequest, Header, MessageFailure, Request, Response, Status}
+import org.http4s.{ContextRequest, Header, MessageFailure, ParseFailure, Request, Response, Status}
 import org.typelevel.ci.CIStringSyntax
 
 object ExceptionHandler {
   private val logger = Logger[ExceptionHandler.type]
 
   val InternalServerErrorMessage = "An unexpected error occurred"
+
+  val BadRequestMessage = "The request is not valid"
+
+  val BadGatewayMessage = "Unable to get a valid response from an external service"
 
   def apply[F[_]: Sync, A](
     contextHttpApp: Kleisli[F, ContextRequest[F, A], Response[F]]
@@ -68,8 +72,11 @@ object ExceptionHandler {
   }
 
   /**
-    * Only the messages of the known, mapped exception types are returned to the client. The details of an unexpected
-    * error (status 500) may expose internals (e.g. SQL, file paths or host names), so they are only logged.
+    * Only the messages that the app writes for the client (e.g. ValidationException) are returned to it. The messages
+    * of an unexpected error (status 500), of an external service or page failure (ExternalServiceException,
+    * JSoupException), of an IllegalArgumentException and of an http4s MessageFailure may expose internals or upstream
+    * content (e.g. SQL, file paths, host names or a page's HTML), so the client gets a generic message for them and
+    * the details are only logged. A ParseFailure's sanitized message is meant for clients, so it is returned.
     */
   private val throwableResponseBody: Throwable => ErrorResponse = {
     case AggregatedException(exceptions) =>
@@ -83,6 +90,12 @@ object ExceptionHandler {
           Show[DecodingFailure].show(decodingFailure)
         }
       }
+
+    case parseFailure: ParseFailure => ErrorResponse(NonEmptyList.one(parseFailure.sanitized))
+
+    case _: IllegalArgumentException | _: MessageFailure => ErrorResponse(NonEmptyList.one(BadRequestMessage))
+
+    case _: ExternalServiceException | _: JSoupException => ErrorResponse(NonEmptyList.one(BadGatewayMessage))
 
     case throwable =>
       val status = throwableStatusMapper(throwable)

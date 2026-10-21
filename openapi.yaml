@@ -200,7 +200,9 @@ paths:
       tags:
         - Users
       summary: Delete a user
-      description: Delete a user account (admin only)
+      description: >
+        Delete a user account (admin only). An admin cannot delete their own account, and the last remaining admin
+        cannot be deleted.
       security:
         - cookieAuth: []
       parameters:
@@ -217,6 +219,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+        '400':
+          description: The admin tried to delete their own account
+        '403':
+          description: The authenticated user is not an admin
+        '404':
+          description: User not found
+        '409':
+          description: The user is the last remaining admin
 
   # Video Routes
   /videos/search:
@@ -637,7 +647,11 @@ paths:
       tags:
         - Scheduling
       summary: Update scheduled video status
-      description: Update the scheduling status of a video
+      description: >
+        Update the scheduling status of a video. Paused may be set on a Queued, Acquired, Active, Stale or
+        WorkersPaused download, and Queued (resume or retry) on a Paused or Error download, so a Completed or
+        Downloaded video is never downloaded again. A non-admin user may pause a download only while no other user
+        has scheduled the same video.
       security:
         - cookieAuth: []
       parameters:
@@ -659,6 +673,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ScheduledVideoDownload'
+        '400':
+          description: The status is not valid, or the download cannot change from its current status to it
+        '403':
+          description: A non-admin user tried to pause a download that other users have scheduled too
+        '404':
+          description: Scheduled video not found, or the user has not scheduled it
 
   /schedule/updates:
     get:
@@ -900,7 +920,9 @@ paths:
       tags:
         - Assets
       summary: Get video thumbnail
-      description: Retrieve a video thumbnail image
+      description: >
+        Retrieve a video thumbnail image. Unlike the other assets, thumbnails are served to any authenticated user,
+        since the schedule page previews a video's metadata, thumbnail included, before the user has scheduled it.
       security:
         - cookieAuth: []
       parameters:

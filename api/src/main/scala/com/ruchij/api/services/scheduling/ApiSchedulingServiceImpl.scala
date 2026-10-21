@@ -4,9 +4,10 @@ import cats.data.{NonEmptyList, OptionT}
 import cats.effect.Async
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
+import com.ruchij.api.exceptions.AuthorizationException
 import com.ruchij.api.services.config.models.ApiConfigKey
 import com.ruchij.api.services.fallback.FallbackSyncRequester
-import com.ruchij.api.services.scheduling.models.ScheduledVideoResult
+import com.ruchij.api.services.scheduling.models.{ScheduledVideoDeletion, ScheduledVideoResult}
 import com.ruchij.core.daos.permission.VideoPermissionDao
 import com.ruchij.core.daos.permission.models.VideoPermission
 import com.ruchij.core.daos.scheduling.SchedulingDao
@@ -33,6 +34,7 @@ import scala.concurrent.duration.FiniteDuration
 class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
   videoAnalysisService: VideoAnalysisService[F],
   scheduledVideoDownloadPublisher: Publisher[F, ScheduledVideoDownload],
+  scheduledVideoDeletionPublisher: Publisher[F, ScheduledVideoDeletion],
   workerStatusPublisher: Publisher[F, WorkerStatusUpdate],
   fallbackSyncRequester: FallbackSyncRequester[F],
   configurationService: ConfigurationService[F, ApiConfigKey],
@@ -167,7 +169,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
   ): F[Seq[ScheduledVideoDownload]] =
     if (sortBy == SortBy.WatchTime)
       ApplicativeError[F, Throwable].raiseError {
-        new IllegalArgumentException("Searching for scheduled videos by watch_time is not valid")
+        ValidationException("Searching for scheduled videos by watch_time is not valid")
       } else
       maybeVideoUrls
         .traverse(_.traverse(videoUrl => VideoSite.processUri[F](videoUrl)))
@@ -194,15 +196,30 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
     status: SchedulingStatus,
     maybeUserId: Option[String]
   ): F[ScheduledVideoDownload] =
-    maybeUserId
-      .traverse_(userId => getById(id, Some(userId)))
-      .productR(Clock[F].timestamp)
-      .flatMap { timestamp =>
-        OptionT(transaction(schedulingDao.updateSchedulingStatusById(id, status, timestamp))).getOrElseF {
-          ApplicativeError[F, Throwable].raiseError(notFound(id))
+    for {
+      _ <- maybeUserId.traverse_(userId => getById(id, Some(userId)))
+      fromStatuses <- ApiSchedulingServiceImpl.ValidTransitions.get(status).liftTo[F] {
+        ValidationException(s"Unable to change the status of a scheduled video download to $status")
+      }
+      timestamp <- Clock[F].timestamp
+
+      // A user may pause a download only while no other user is waiting for it
+      maybeSoleUserId = if (status == SchedulingStatus.Paused) maybeUserId else None
+
+      updated <- OptionT {
+        transaction(schedulingDao.transitionSchedulingStatusById(id, fromStatuses, status, timestamp, maybeSoleUserId))
+      }.getOrElseF {
+        getById(id, maybeUserId).flatMap { current =>
+          ApplicativeError[F, Throwable].raiseError[ScheduledVideoDownload] {
+            if (maybeSoleUserId.nonEmpty && fromStatuses.toList.contains(current.status))
+              AuthorizationException("Unable to pause a scheduled video download that other users are waiting for")
+            else ValidationException(s"Unable to change the status from ${current.status} to $status")
+          }
         }
       }
-      .flatTap(scheduledVideoDownloadPublisher.publishOne)
+
+      _ <- scheduledVideoDownloadPublisher.publishOne(updated)
+    } yield updated
 
   override def getById(id: String, maybeUserId: Option[String]): F[ScheduledVideoDownload] =
     OptionT(transaction(schedulingDao.getById(id, maybeUserId)))
@@ -245,17 +262,49 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
               ValidationException("Unable to delete scheduled video downloads that are completed or downloaded")
             } else Applicative[T].unit
         }
+        // An admin's delete removes every user's permission, so the users are collected first to be told of it
+        .product {
+          OptionT.liftF {
+            maybeUserId.fold(videoPermissionDao.find(None, Some(id))) { _ =>
+              Applicative[T].pure(Seq.empty[VideoPermission])
+            }
+          }
+        }
         .productL(OptionT.liftF(videoPermissionDao.delete(maybeUserId, Some(id))))
         .productL(OptionT.liftF(videoTitleDao.delete(Some(id), maybeUserId)))
         .getOrElseF(ApplicativeError[T, Throwable].raiseError(notFound(id)))
     }
-      .flatMap { scheduledVideoDownload =>
+      .flatMap { case (scheduledVideoDownload, permissions) =>
       if (maybeUserId.isEmpty) {
         Clock[F].timestamp.flatMap { timestamp =>
           val deleted = scheduledVideoDownload.copy(lastUpdatedAt = timestamp, status = SchedulingStatus.Deleted)
-          scheduledVideoDownloadPublisher.publishOne(deleted).as(deleted)
+          val userIds = permissions.map(_.userId).distinct.sorted.toList
+
+          scheduledVideoDownloadPublisher
+            .publishOne(deleted)
+            .productR(scheduledVideoDeletionPublisher.publishOne(ScheduledVideoDeletion(deleted, userIds)))
+            .as(deleted)
         }
       } else
         fallbackSyncRequester.request(scheduledVideoDownload.videoMetadata.id).as(scheduledVideoDownload)
     }
+}
+
+object ApiSchedulingServiceImpl {
+
+  /**
+    * The statuses a scheduled video download may be changed from, by the status it is changed to. These are the
+    * changes the front-end offers. In particular a completed or downloaded video is never queued to download again.
+    */
+  val ValidTransitions: Map[SchedulingStatus, NonEmptyList[SchedulingStatus]] =
+    Map(
+      SchedulingStatus.Paused -> NonEmptyList.of(
+        SchedulingStatus.Queued,
+        SchedulingStatus.Acquired,
+        SchedulingStatus.Active,
+        SchedulingStatus.Stale,
+        SchedulingStatus.WorkersPaused
+      ),
+      SchedulingStatus.Queued -> NonEmptyList.of(SchedulingStatus.Paused, SchedulingStatus.Error)
+    )
 }

@@ -5,6 +5,7 @@ import cats.effect.{Concurrent, Fiber, Sync}
 import cats.implicits._
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.api.services.scheduling.ApiSchedulingService
+import com.ruchij.api.services.scheduling.models.ScheduledVideoDeletion
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Subscriber
@@ -24,6 +25,8 @@ class BackgroundServiceImpl[F[_]: Async](
   healthCheckTopic: Topic[F, HealthCheckMessage],
   scheduleVideoDownloadsSubscriber: Subscriber[F, ScheduledVideoDownload],
   scheduleVideoDownloadsTopic: Topic[F, ScheduledVideoDownload],
+  scheduledVideoDeletionsSubscriber: Subscriber[F, ScheduledVideoDeletion],
+  scheduledVideoDeletionsTopic: Topic[F, ScheduledVideoDeletion],
   subscriberGroupId: String
 ) extends BackgroundService[F] {
 
@@ -40,6 +43,9 @@ class BackgroundServiceImpl[F[_]: Async](
   override val updates: Stream[F, ScheduledVideoDownload] =
     scheduleVideoDownloadsTopic.subscribe(Int.MaxValue)
 
+  override val deletions: Stream[F, ScheduledVideoDeletion] =
+    scheduledVideoDeletionsTopic.subscribe(Int.MaxValue)
+
   private val publishToHealthCheckTopic: Stream[F, Unit] =
     publishToTopic(healthCheckSubscriber, healthCheckTopic)
 
@@ -48,6 +54,9 @@ class BackgroundServiceImpl[F[_]: Async](
 
   private val publishToScheduleVideoDownloadTopic: Stream[F, Unit] =
     publishToTopic(scheduleVideoDownloadsSubscriber, scheduleVideoDownloadsTopic)
+
+  private val publishToScheduledVideoDeletionsTopic: Stream[F, Unit] =
+    publishToTopic(scheduledVideoDeletionsSubscriber, scheduledVideoDeletionsTopic)
 
   private def publishToTopic[A: ClassTag](subscriber: Subscriber[F, A], topic: Topic[F, A]): Stream[F, Unit] =
     subscriber
@@ -94,6 +103,7 @@ class BackgroundServiceImpl[F[_]: Async](
       updateScheduledVideoDownloads
         .concurrently(publishToDownloadProgressTopic)
         .concurrently(publishToScheduleVideoDownloadTopic)
+        .concurrently(publishToScheduledVideoDeletionsTopic)
         .concurrently(publishToHealthCheckTopic)
         .compile
         .drain
@@ -106,12 +116,14 @@ object BackgroundServiceImpl {
     downloadProgressSubscriber: Subscriber[F, DownloadProgress],
     healthCheckSubscriber: Subscriber[F, HealthCheckMessage],
     scheduledVideoDownloadsSubscriber: Subscriber[F, ScheduledVideoDownload],
+    scheduledVideoDeletionsSubscriber: Subscriber[F, ScheduledVideoDeletion],
     subscriberGroupId: String
   ): F[BackgroundServiceImpl[F]] = {
     for {
       downloadProgressTopic <- Topic[F, DownloadProgress]
       healthCheckTopic <- Topic[F, HealthCheckMessage]
       scheduleVideoDownloadsTopic <- Topic[F, ScheduledVideoDownload]
+      scheduledVideoDeletionsTopic <- Topic[F, ScheduledVideoDeletion]
     } yield new BackgroundServiceImpl[F](
       apiSchedulingService,
       downloadProgressSubscriber,
@@ -120,6 +132,8 @@ object BackgroundServiceImpl {
       healthCheckTopic,
       scheduledVideoDownloadsSubscriber,
       scheduleVideoDownloadsTopic,
+      scheduledVideoDeletionsSubscriber,
+      scheduledVideoDeletionsTopic,
       subscriberGroupId
     )
   }

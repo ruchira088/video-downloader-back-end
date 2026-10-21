@@ -27,6 +27,7 @@ object AssetRoutes {
     import dsl._
 
     ContextRoutes.of[AuthenticatedRequestContext, F] {
+      // Deliberately served to any authenticated user, see AssetService.thumbnail
       case GET -> Root / "thumbnail" / "id" / id as _ =>
           assetService.thumbnail(id).flatMap(_.asResponse)
 

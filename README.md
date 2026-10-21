@@ -367,6 +367,11 @@ All backends implement the unified `MessagingTopic[A]` trait, which provides bot
 JSON codec (for Redis/Doobie). The `Subscriber` trait uses a type member `C[_]` to abstract over backend-specific
 wrapper types (e.g., Kafka's `CommittableRecord` for offset management vs. identity for Redis/Doobie).
 
+When an admin deletes a scheduled video, the API also publishes a `scheduled-video-deletions` message naming the
+users who had scheduled it, since their permissions are deleted with it. Every API instance uses it to send the
+`Deleted` update to those users' `/schedule/updates` streams. With `PUBSUB_TYPE=Kafka`, create the
+`<KAFKA_PREFIX>-scheduled-video-deletions` topic when deploying, unless topic auto-creation is on.
+
 ## Docker Deployment
 
 ### Services

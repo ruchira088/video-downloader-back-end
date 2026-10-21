@@ -17,20 +17,25 @@ import com.ruchij.api.test.data.ApiTestData
 import com.ruchij.core.daos.doobie.DoobieCustomMappings.instantPut
 import com.ruchij.core.daos.permission.DoobieVideoPermissionDao
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
+import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.title.DoobieVideoTitleDao
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videowatchhistory.DoobieVideoWatchHistoryDao
 import com.ruchij.core.daos.videowatchhistory.models.VideoWatchHistory
+import com.ruchij.core.exceptions.ValidationException
 import com.ruchij.core.external.CoreResourcesProvider
 import com.ruchij.core.external.containers.ContainerCoreResourcesProvider
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
+import com.ruchij.core.services.repository.InMemoryRepositoryService
 import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import com.ruchij.core.test.data.CoreTestData
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
+import org.http4s.MediaType
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
+import java.util.concurrent.ConcurrentHashMap
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
@@ -49,11 +54,13 @@ class UserServiceIntegrationSpec extends AnyFlatSpec with Matchers {
     override def findByEmail(email: Email): ConnectionIO[Option[User]] = Option.empty[User].pure[ConnectionIO]
     override def findById(userId: String): ConnectionIO[Option[User]] = DoobieUserDao.findById(userId)
     override def deleteById(userId: String): ConnectionIO[Int] = DoobieUserDao.deleteById(userId)
+    override def lockAdminIds: ConnectionIO[List[String]] = DoobieUserDao.lockAdminIds
   }
 
-  private def userService(userDao: UserDao[ConnectionIO] = DoobieUserDao)(
-    implicit transaction: ConnectionIO ~> IO
-  ): UserServiceImpl[IO, ConnectionIO] =
+  private def userService(
+    userDao: UserDao[ConnectionIO] = DoobieUserDao,
+    files: ConcurrentHashMap[String, List[Byte]] = new ConcurrentHashMap[String, List[Byte]]()
+  )(implicit transaction: ConnectionIO ~> IO): UserServiceImpl[IO, ConnectionIO] =
     new UserServiceImpl[IO, ConnectionIO](
       new BCryptPasswordHashingService[IO],
       userDao,
@@ -61,6 +68,9 @@ class UserServiceIntegrationSpec extends AnyFlatSpec with Matchers {
       DoobieCredentialsResetTokenDao,
       DoobieVideoTitleDao,
       DoobieVideoPermissionDao,
+      new DoobiePlaylistDao(DoobieFileResourceDao, DoobieVideoDao),
+      DoobieFileResourceDao,
+      new InMemoryRepositoryService[IO](files),
       FallbackSyncRequester.noOp[IO]
     )
 
@@ -70,6 +80,9 @@ class UserServiceIntegrationSpec extends AnyFlatSpec with Matchers {
         transaction(ApiTestData.setUpData).productR(test(transaction)).void
       }
     }
+
+  // The admin that the migrations create
+  private val SeededAdminId = "648f12b1-b207-4db2-9bef-1e20cd23cdf1"
 
   private def count(table: String, userId: String): ConnectionIO[Int] =
     (fr"SELECT COUNT(*) FROM" ++ doobie.Fragment.const(table) ++ fr"WHERE user_id = $userId").query[Int].unique
@@ -122,6 +135,71 @@ class UserServiceIntegrationSpec extends AnyFlatSpec with Matchers {
             remaining mustBe List(0, 0, 0)
             playlistVideos mustBe 0
             maybeUser mustBe None
+          }
+      }
+
+      it should "delete the album art of the user's playlists" in runTest(provider) { implicit transaction =>
+        val files = new ConcurrentHashMap[String, List[Byte]]()
+        val albumArt = FileResource("album-art", CoreTestData.Timestamp, "images/album-art.png", MediaType.image.png, 4)
+        val userId = ApiTestData.NormalUser.id
+
+        for {
+          _ <- IO.delay(files.put(albumArt.path, List[Byte](1, 2, 3, 4)))
+          _ <- transaction {
+            DoobieFileResourceDao.insert(albumArt) *>
+              new DoobiePlaylistDao(DoobieFileResourceDao, DoobieVideoDao)
+                .insert(Playlist("playlist", userId, CoreTestData.Timestamp, "Mine", None, Nil, Some(albumArt)))
+          }
+
+          _ <- userService(files = files).delete(userId, ApiTestData.AdminUser)
+
+          resource <- transaction(DoobieFileResourceDao.getById(albumArt.id))
+        } yield {
+          resource mustBe None
+          files.containsKey(albumArt.path) mustBe false
+        }
+      }
+
+      it should "not let an admin delete their own account" in runTest(provider) { implicit transaction =>
+        for {
+          error <- userService().delete(ApiTestData.AdminUser.id, ApiTestData.AdminUser).error
+          maybeAdmin <- transaction(DoobieUserDao.findById(ApiTestData.AdminUser.id))
+        } yield {
+          error mustBe a[ValidationException]
+          maybeAdmin mustBe Some(ApiTestData.AdminUser)
+        }
+      }
+
+      it should "not delete the last remaining admin" in runTest(provider) { implicit transaction =>
+        // An admin whose own account was deleted after they signed in
+        val formerAdmin = ApiTestData.AdminUser.copy(id = "former-admin", email = Email("former-admin@ruchij.com"))
+
+        for {
+          _ <- userService().delete(SeededAdminId, ApiTestData.AdminUser)
+          error <- userService().delete(ApiTestData.AdminUser.id, formerAdmin).error
+          maybeAdmin <- transaction(DoobieUserDao.findById(ApiTestData.AdminUser.id))
+        } yield {
+          error mustBe a[ResourceConflictException]
+          maybeAdmin mustBe Some(ApiTestData.AdminUser)
+        }
+      }
+
+      it should "keep an admin when two admins delete each other concurrently" in runTest(provider) {
+        implicit transaction =>
+          val otherAdmin = ApiTestData.AdminUser.copy(id = "other-admin", email = Email("other-admin@ruchij.com"))
+          val service = userService()
+
+          for {
+            _ <- service.delete(SeededAdminId, ApiTestData.AdminUser)
+            _ <- transaction(DoobieUserDao.insert(otherAdmin))
+            results <- List(
+              service.delete(otherAdmin.id, ApiTestData.AdminUser),
+              service.delete(ApiTestData.AdminUser.id, otherAdmin)
+            ).parTraverse(_.attempt)
+            admins <- transaction(sql"SELECT COUNT(*) FROM api_user WHERE role = 'Admin'".query[Int].unique)
+          } yield {
+            results.count(_.isRight) mustBe 1
+            admins mustBe 1
           }
       }
 

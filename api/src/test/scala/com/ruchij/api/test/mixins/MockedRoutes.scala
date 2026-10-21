@@ -7,6 +7,7 @@ import com.ruchij.api.services.detection.ApiDuplicateDetectionService
 import com.ruchij.api.services.health.HealthService
 import com.ruchij.api.services.playlist.PlaylistService
 import com.ruchij.api.services.scheduling.ApiSchedulingService
+import com.ruchij.api.services.scheduling.models.ScheduledVideoDeletion
 import com.ruchij.api.services.user.UserService
 import com.ruchij.api.services.video.ApiVideoService
 import com.ruchij.api.web.Routes
@@ -35,6 +36,7 @@ trait MockedRoutes[F[_]] extends MockFactory with OneInstancePerTest { self: Tes
   val authenticationService: AuthenticationService[F] = mock[AuthenticationService[F]]
   val downloadProgressStream: Stream[F, DownloadProgress] = Stream.empty
   val scheduledVideoDownloadUpdatesStream: Stream[F, ScheduledVideoDownload] = Stream.empty
+  val scheduledVideoDeletionsStream: Stream[F, ScheduledVideoDeletion] = Stream.empty
   val metricPublisher: Publisher[F, HttpMetric] = mock[Publisher[F, HttpMetric]]
   val duplicateDetectionService: ApiDuplicateDetectionService[F] = mock[ApiDuplicateDetectionService[F]]
 
@@ -55,6 +57,7 @@ trait MockedRoutes[F[_]] extends MockFactory with OneInstancePerTest { self: Tes
       authenticationService,
       downloadProgressStream,
       scheduledVideoDownloadUpdatesStream,
+      scheduledVideoDeletionsStream,
       metricPublisher,
       duplicateDetectionService,
       Set.empty

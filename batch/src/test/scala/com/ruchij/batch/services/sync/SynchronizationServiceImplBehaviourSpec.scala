@@ -733,6 +733,14 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
       timestamp: Instant
     ): IO[Option[ScheduledVideoDownload]] = notImplemented
 
+    override def transitionSchedulingStatusById(
+      id: String,
+      from: NonEmptyList[SchedulingStatus],
+      to: SchedulingStatus,
+      timestamp: Instant,
+      maybeSoleUserId: Option[String]
+    ): IO[Option[ScheduledVideoDownload]] = notImplemented
+
     override def setErrorById(id: String, throwable: Throwable, timestamp: Instant): IO[Option[ScheduledVideoDownload]] =
       notImplemented
 

@@ -6,7 +6,7 @@ import cats.~>
 import com.ruchij.api.services.config.models.ApiConfigKey
 import com.ruchij.api.services.fallback.PublishingFallbackSyncRequester
 import com.ruchij.api.services.fallback.models.FallbackSyncRequest
-import com.ruchij.api.services.scheduling.models.ScheduledVideoResult
+import com.ruchij.api.services.scheduling.models.{ScheduledVideoDeletion, ScheduledVideoResult}
 import com.ruchij.core.daos.permission.VideoPermissionDao
 import com.ruchij.core.daos.permission.models.VideoPermission
 import com.ruchij.core.daos.resource.models.FileResource
@@ -130,6 +130,14 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     override def markScheduledVideoDownloadAsComplete(id: String, timestamp: Instant): IO[Option[ScheduledVideoDownload]] = IO.pure(None)
     override def updateSchedulingStatusById(id: String, status: SchedulingStatus, timestamp: Instant): IO[Option[ScheduledVideoDownload]] =
       IO.pure(updateSchedulingStatusResult)
+    override def transitionSchedulingStatusById(
+      id: String,
+      from: NonEmptyList[SchedulingStatus],
+      to: SchedulingStatus,
+      timestamp: Instant,
+      maybeSoleUserId: Option[String]
+    ): IO[Option[ScheduledVideoDownload]] =
+      IO.pure(updateSchedulingStatusResult)
     override def setErrorById(id: String, throwable: Throwable, timestamp: Instant): IO[Option[ScheduledVideoDownload]] = IO.pure(None)
     override def scheduleRetry(
       id: String,
@@ -188,6 +196,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     val service = new ApiSchedulingServiceImpl[IO, IO](
       videoAnalysisService,
       scheduledVideoDownloadPublisher,
+      new StubPublisher[ScheduledVideoDeletion](),
       workerStatusPublisher,
       // A long grace period, so a publish always completes before the call returns and the tests can check it
       new PublishingFallbackSyncRequester[IO](fallbackSyncRequestPublisher, IO.unit, gracePeriod = 1.minute),
@@ -482,7 +491,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
       None,
       None
     ).error.map { error =>
-      error mustBe an[IllegalArgumentException]
+      error mustBe a[ValidationException]
       error.getMessage must include("watch_time")
     }
   }
@@ -540,7 +549,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   "updateSchedulingStatus" should "update status and publish" in runIO {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
-    val updatedDownload = sampleScheduledVideoDownload.copy(status = SchedulingStatus.Active)
+    val updatedDownload = sampleScheduledVideoDownload.copy(status = SchedulingStatus.Queued)
     val publisher = new StubPublisher[ScheduledVideoDownload]()
     val schedulingDao = new StubSchedulingDao(updateSchedulingStatusResult = Some(updatedDownload))
 
@@ -549,7 +558,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
       schedulingDao = schedulingDao
     )
 
-    service.updateSchedulingStatus("video-1", SchedulingStatus.Active, None).map { result =>
+    service.updateSchedulingStatus("video-1", SchedulingStatus.Queued, None).map { result =>
       result mustBe updatedDownload
       publisher.publishedMessages.toList mustBe List(updatedDownload)
     }
@@ -604,7 +613,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     val schedulingDao = new StubSchedulingDao(updateSchedulingStatusResult = None)
     val (service, _, _) = createService(schedulingDao = schedulingDao)
 
-    service.updateSchedulingStatus("non-existent", SchedulingStatus.Active, None).error.map { error =>
+    service.updateSchedulingStatus("non-existent", SchedulingStatus.Queued, None).error.map { error =>
       error mustBe a[ResourceNotFoundException]
     }
   }

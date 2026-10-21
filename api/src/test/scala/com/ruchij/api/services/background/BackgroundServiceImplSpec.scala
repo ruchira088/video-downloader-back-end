@@ -4,7 +4,7 @@ import cats.{Foldable, Functor}
 import cats.effect.{Deferred, IO}
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.api.services.scheduling.ApiSchedulingService
-import com.ruchij.api.services.scheduling.models.ScheduledVideoResult
+import com.ruchij.api.services.scheduling.models.{ScheduledVideoDeletion, ScheduledVideoResult}
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
@@ -120,6 +120,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
       downloadProgressSubscriber,
       healthCheckSubscriber,
       scheduledVideoDownloadsSubscriber,
+      new StubSubscriber[ScheduledVideoDeletion],
       "test-group"
     ).map { service =>
       service must not be null
@@ -131,6 +132,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
       downloadProgressTopic <- Topic[IO, DownloadProgress]
       healthCheckTopic <- Topic[IO, HealthCheckMessage]
       scheduleVideoDownloadsTopic <- Topic[IO, ScheduledVideoDownload]
+      scheduledVideoDeletionsTopic <- Topic[IO, ScheduledVideoDeletion]
 
       service = new BackgroundServiceImpl[IO](
         new StubApiSchedulingService(),
@@ -140,6 +142,8 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
         healthCheckTopic,
         new StubSubscriber[ScheduledVideoDownload],
         scheduleVideoDownloadsTopic,
+        new StubSubscriber[ScheduledVideoDeletion],
+        scheduledVideoDeletionsTopic,
         "test-group"
       )
 
@@ -167,6 +171,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
       downloadProgressTopic <- Topic[IO, DownloadProgress]
       healthCheckTopic <- Topic[IO, HealthCheckMessage]
       scheduleVideoDownloadsTopic <- Topic[IO, ScheduledVideoDownload]
+      scheduledVideoDeletionsTopic <- Topic[IO, ScheduledVideoDeletion]
 
       service = new BackgroundServiceImpl[IO](
         new StubApiSchedulingService(),
@@ -176,6 +181,8 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
         healthCheckTopic,
         new StubSubscriber[ScheduledVideoDownload],
         scheduleVideoDownloadsTopic,
+        new StubSubscriber[ScheduledVideoDeletion],
+        scheduledVideoDeletionsTopic,
         "test-group"
       )
 
@@ -202,6 +209,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
       downloadProgressTopic <- Topic[IO, DownloadProgress]
       healthCheckTopic <- Topic[IO, HealthCheckMessage]
       scheduleVideoDownloadsTopic <- Topic[IO, ScheduledVideoDownload]
+      scheduledVideoDeletionsTopic <- Topic[IO, ScheduledVideoDeletion]
 
       service = new BackgroundServiceImpl[IO](
         new StubApiSchedulingService(),
@@ -211,6 +219,8 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
         healthCheckTopic,
         new StubSubscriber[ScheduledVideoDownload],
         scheduleVideoDownloadsTopic,
+        new StubSubscriber[ScheduledVideoDeletion],
+        scheduledVideoDeletionsTopic,
         "test-group"
       )
 
@@ -235,6 +245,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
       downloadProgressTopic <- Topic[IO, DownloadProgress]
       healthCheckTopic <- Topic[IO, HealthCheckMessage]
       scheduleVideoDownloadsTopic <- Topic[IO, ScheduledVideoDownload]
+      scheduledVideoDeletionsTopic <- Topic[IO, ScheduledVideoDeletion]
 
       service = new BackgroundServiceImpl[IO](
         new StubApiSchedulingService(),
@@ -244,6 +255,8 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
         healthCheckTopic,
         new StubSubscriber[ScheduledVideoDownload],
         scheduleVideoDownloadsTopic,
+        new StubSubscriber[ScheduledVideoDeletion],
+        scheduledVideoDeletionsTopic,
         "test-group"
       )
 
@@ -267,6 +280,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
       downloadProgressTopic <- Topic[IO, DownloadProgress]
       healthCheckTopic <- Topic[IO, HealthCheckMessage]
       scheduleVideoDownloadsTopic <- Topic[IO, ScheduledVideoDownload]
+      scheduledVideoDeletionsTopic <- Topic[IO, ScheduledVideoDeletion]
 
       subscriber = new EmittingSubscriber()
 
@@ -278,6 +292,8 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
         healthCheckTopic,
         new StubSubscriber[ScheduledVideoDownload],
         scheduleVideoDownloadsTopic,
+        new StubSubscriber[ScheduledVideoDeletion],
+        scheduledVideoDeletionsTopic,
         "test-group"
       )
 
@@ -308,6 +324,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
       downloadProgressTopic <- Topic[IO, DownloadProgress]
       healthCheckTopic <- Topic[IO, HealthCheckMessage]
       scheduleVideoDownloadsTopic <- Topic[IO, ScheduledVideoDownload]
+      scheduledVideoDeletionsTopic <- Topic[IO, ScheduledVideoDeletion]
 
       service = new BackgroundServiceImpl[IO](
         apiSchedulingService,
@@ -317,6 +334,8 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
         healthCheckTopic,
         new StubSubscriber[ScheduledVideoDownload],
         scheduleVideoDownloadsTopic,
+        new StubSubscriber[ScheduledVideoDeletion],
+        scheduledVideoDeletionsTopic,
         "test-group"
       )
 
@@ -357,6 +376,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
       downloadProgressTopic <- Topic[IO, DownloadProgress]
       healthCheckTopic <- Topic[IO, HealthCheckMessage]
       scheduleVideoDownloadsTopic <- Topic[IO, ScheduledVideoDownload]
+      scheduledVideoDeletionsTopic <- Topic[IO, ScheduledVideoDeletion]
 
       subscriber = new EmittingHealthSubscriber()
 
@@ -368,6 +388,8 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
         healthCheckTopic,
         new StubSubscriber[ScheduledVideoDownload],
         scheduleVideoDownloadsTopic,
+        new StubSubscriber[ScheduledVideoDeletion],
+        scheduledVideoDeletionsTopic,
         "test-group"
       )
 
@@ -408,6 +430,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
       downloadProgressTopic <- Topic[IO, DownloadProgress]
       healthCheckTopic <- Topic[IO, HealthCheckMessage]
       scheduleVideoDownloadsTopic <- Topic[IO, ScheduledVideoDownload]
+      scheduledVideoDeletionsTopic <- Topic[IO, ScheduledVideoDeletion]
 
       service = new BackgroundServiceImpl[IO](
         new StubApiSchedulingService(),
@@ -417,6 +440,8 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
         healthCheckTopic,
         subscriber,
         scheduleVideoDownloadsTopic,
+        new StubSubscriber[ScheduledVideoDeletion],
+        scheduledVideoDeletionsTopic,
         "test-group"
       )
 

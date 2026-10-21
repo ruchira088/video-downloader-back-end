@@ -105,6 +105,33 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
       .productR(OptionT(getById(id, None)))
       .value
 
+  override def transitionSchedulingStatusById(
+    id: String,
+    from: NonEmptyList[SchedulingStatus],
+    to: SchedulingStatus,
+    timestamp: Instant,
+    maybeSoleUserId: Option[String]
+  ): ConnectionIO[Option[ScheduledVideoDownload]] =
+    // Both conditions are part of the UPDATE, so a concurrent status change cannot slip in between a check and it
+    (fr"""
+        UPDATE scheduled_video
+          SET
+            status = $to,
+            last_updated_at = $timestamp,
+            error_id = NULL,
+            retry_count = CASE WHEN status = ${SchedulingStatus.Error} THEN 0 ELSE retry_count END,
+            retry_after = NULL
+       """ ++
+      whereAndOpt(
+        Some(fr"video_metadata_id = $id"),
+        Some(in(fr"status", from)),
+        maybeSoleUserId.map { userId =>
+          fr"NOT EXISTS (SELECT 1 FROM permission WHERE permission.video_id = $id AND permission.user_id <> $userId)"
+        }
+      )).update.run.singleUpdate
+      .productR(OptionT(getById(id, None)))
+      .value
+
   override def updateSchedulingStatus(
     from: SchedulingStatus,
     to: SchedulingStatus

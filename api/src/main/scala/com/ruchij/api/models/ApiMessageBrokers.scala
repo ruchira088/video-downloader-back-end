@@ -1,6 +1,7 @@
 package com.ruchij.api.models
 
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
+import com.ruchij.api.services.scheduling.models.ScheduledVideoDeletion
 import com.ruchij.core.commands.ScanVideosCommand
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload
 import com.ruchij.core.messaging.models.{HttpMetric, VideoWatchMetric}
@@ -10,6 +11,7 @@ import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatu
 final case class ApiMessageBrokers[F[_]](
   downloadProgressSubscriber: Subscriber[F, DownloadProgress],
   scheduledVideoDownloadPubSub: PubSub[F, ScheduledVideoDownload],
+  scheduledVideoDeletionPubSub: PubSub[F, ScheduledVideoDeletion],
   healthCheckPubSub: PubSub[F, HealthCheckMessage],
   workerStatusUpdatesPublisher: Publisher[F, WorkerStatusUpdate],
   scanVideosCommandPublisher: Publisher[F, ScanVideosCommand],

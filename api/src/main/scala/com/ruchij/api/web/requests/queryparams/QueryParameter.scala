@@ -8,7 +8,7 @@ import cats.{Applicative, ApplicativeError}
 import com.ruchij.api.web.requests.queryparams.QueryParameter.QueryParameters
 import com.ruchij.core.daos.scheduling.models.RangeValue
 import com.ruchij.core.daos.videometadata.models.VideoSite
-import com.ruchij.core.exceptions.AggregatedException
+import com.ruchij.core.exceptions.{AggregatedException, ValidationException}
 import enumeratum.{Enum, EnumEntry}
 import org.http4s.{ParseFailure, QueryParamDecoder, QueryParameterValue}
 
@@ -39,7 +39,7 @@ object QueryParameter {
                   AggregatedException(
                     errors.map(
                       parseFailure =>
-                        new IllegalArgumentException(s"Query parameter parse error: $key - ${parseFailure.sanitized}")
+                        ValidationException(s"Query parameter parse error: $key - ${parseFailure.sanitized}")
                     )
                   )
               ),
