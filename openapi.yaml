@@ -200,7 +200,9 @@ paths:
       tags:
         - Users
       summary: Delete a user
-      description: Delete a user account (admin only)
+      description: >
+        Delete a user account (admin only). An admin cannot delete their own account, and the last remaining admin
+        cannot be deleted.
       security:
         - cookieAuth: []
       parameters:
@@ -217,6 +219,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+        '400':
+          description: The admin tried to delete their own account
+        '403':
+          description: The authenticated user is not an admin
+        '404':
+          description: User not found
+        '409':
+          description: The user is the last remaining admin
 
   # Video Routes
   /videos/search:

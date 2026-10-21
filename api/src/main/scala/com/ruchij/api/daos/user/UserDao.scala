@@ -10,4 +10,7 @@ trait UserDao[F[_]] {
   def findById(userId: String): F[Option[User]]
 
   def deleteById(userId: String): F[Int]
+
+  /** Returns the IDs of the admins, locking their rows until the end of the transaction */
+  def lockAdminIds: F[List[String]]
 }

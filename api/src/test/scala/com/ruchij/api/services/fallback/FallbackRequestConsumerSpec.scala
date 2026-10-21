@@ -48,6 +48,7 @@ class FallbackRequestConsumerSpec extends AnyFlatSpec with Matchers {
       override def insert(user: User): IO[Int] = notUsed
       override def findByEmail(email: Email): IO[Option[User]] = notUsed
       override def deleteById(userId: String): IO[Int] = notUsed
+      override def lockAdminIds: IO[List[String]] = notUsed
 
       override def findById(userId: String): IO[Option[User]] =
         IO.pure {
@@ -161,6 +162,7 @@ class FallbackRequestConsumerSpec extends AnyFlatSpec with Matchers {
       override def insert(user: User): IO[Int] = notUsed
       override def findByEmail(email: Email): IO[Option[User]] = notUsed
       override def deleteById(userId: String): IO[Int] = notUsed
+      override def lockAdminIds: IO[List[String]] = notUsed
       override def findById(userId: String): IO[Option[User]] = IO.raiseError(error)
     }
 

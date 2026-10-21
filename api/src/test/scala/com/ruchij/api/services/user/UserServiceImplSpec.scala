@@ -502,13 +502,8 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     val videoTitleDao = mock[VideoTitleDao[IO]]
     val videoPermissionDao = mock[VideoPermissionDao[IO]]
 
-    (videoPermissionDao.find _).expects(Some("non-existent"), None).returning(IO.pure(Seq.empty))
-    (videoTitleDao.delete _).expects(None, Some("non-existent")).returning(IO.pure(0))
-    (videoPermissionDao.delete _).expects(Some("non-existent"), None).returning(IO.pure(0))
-    (credentialsDao.deleteByUserId _).expects("non-existent").returning(IO.pure(0))
+    // Nothing is deleted when the user does not exist
     (userDao.findById _).expects("non-existent").returning(IO.pure(None))
-    // productL causes deleteById to be called at "build time" even though it won't execute
-    (userDao.deleteById _).expects("non-existent").returning(IO.pure(0))
 
     val userService = createService(
       passwordHashingService, userDao, credentialsDao,

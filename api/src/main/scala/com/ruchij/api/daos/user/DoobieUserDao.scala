@@ -1,6 +1,6 @@
 package com.ruchij.api.daos.user
 
-import com.ruchij.api.daos.user.models.{Email, User}
+import com.ruchij.api.daos.user.models.{Email, Role, User}
 import com.ruchij.core.daos.doobie.DoobieCustomMappings.{instantGet, instantPut, enumGet, enumPut}
 import doobie.free.connection.ConnectionIO
 import doobie.generic.auto._
@@ -31,4 +31,7 @@ object DoobieUserDao extends UserDao[ConnectionIO] {
 
   override def deleteById(userId: String): ConnectionIO[Int] =
     sql"DELETE FROM api_user WHERE id = $userId".update.run
+
+  override val lockAdminIds: ConnectionIO[List[String]] =
+    sql"SELECT id FROM api_user WHERE role = ${Role.Admin: Role} FOR UPDATE".query[String].to[List]
 }

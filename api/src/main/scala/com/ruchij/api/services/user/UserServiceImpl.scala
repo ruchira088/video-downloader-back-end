@@ -16,7 +16,7 @@ import com.ruchij.api.services.hashing.PasswordHashingService
 import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
 import com.ruchij.core.daos.permission.VideoPermissionDao
 import com.ruchij.core.daos.title.VideoTitleDao
-import com.ruchij.core.exceptions.ResourceNotFoundException
+import com.ruchij.core.exceptions.{ResourceNotFoundException, ValidationException}
 import com.ruchij.core.types.{Clock, RandomGenerator}
 
 import java.sql.SQLException
@@ -103,22 +103,40 @@ class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: MonadThrow: Clock, G[_]
     }
 
   override def delete(userId: String, adminUser: User): F[User] =
-    if (adminUser.role == Role.Admin)
+    if (adminUser.role != Role.Admin)
+      ApplicativeError[F, Throwable].raiseError {
+        AuthorizationException(s"User does NOT have permission to delete user: $userId")
+      }
+    else if (adminUser.id == userId)
+      ApplicativeError[F, Throwable].raiseError(ValidationException("Admins cannot delete their own account"))
+    else
       transaction {
-        // The user's videos are collected before their permissions are deleted, so each can be re-synced after
-        videoPermissionDao.find(Some(userId), None).flatMap { permissions =>
-          videoTitleDao.delete(None, Some(userId))
-            .productR(videoPermissionDao.delete(Some(userId), None))
-            .productR(credentialsDao.deleteByUserId(userId))
-            .productR(fetchUserById(userId))
-            .productL(userDao.deleteById(userId).one)
-            .map(user => user -> permissions.map(_.scheduledVideoDownloadId).distinct)
-        }
+        for {
+          user <- fetchUserById(userId)
+          _ <- if (user.role == Role.Admin) ensureAnotherAdminRemains(userId) else Applicative[G].unit
+
+          // The user's videos are collected before their permissions are deleted, so each can be re-synced after
+          permissions <- videoPermissionDao.find(Some(userId), None)
+          _ <- videoTitleDao.delete(None, Some(userId))
+          _ <- videoPermissionDao.delete(Some(userId), None)
+          _ <- credentialsDao.deleteByUserId(userId)
+          _ <- userDao.deleteById(userId).one
+        } yield user -> permissions.map(_.scheduledVideoDownloadId).distinct
       }.flatMap { case (user, videoIds) =>
         fallbackSyncRequester.requestAll(videoIds).as(user)
       }
-    else ApplicativeError[F, Throwable].raiseError {
-      AuthorizationException(s"User does NOT have permission to delete user: $userId")
+
+  /**
+    * The admin rows are locked, so concurrent deletes of different admins run one after the other and the later one
+    * sees the earlier one's delete, rather than each leaving the other as the last admin.
+    */
+  private def ensureAnotherAdminRemains(adminId: String): G[Unit] =
+    userDao.lockAdminIds.flatMap { adminIds =>
+      if (adminIds.exists(_ != adminId)) Applicative[G].unit
+      else
+        ApplicativeError[G, Throwable].raiseError {
+          ResourceConflictException("Unable to delete the last remaining admin")
+        }
     }
 
   private def emailConflict(email: Email): ResourceConflictException =
