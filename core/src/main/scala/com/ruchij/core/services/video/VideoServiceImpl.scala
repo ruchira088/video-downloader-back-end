@@ -97,7 +97,8 @@ class VideoServiceImpl[F[_]: Monad: Clock, G[_]: MonadThrow](
                     .productL(snapshotDao.deleteByVideo(video.id))
                     .flatMap(_.traverse(snapshot => fileResourceDao.deleteById(snapshot.fileResource.id).as(snapshot)))
                 }
-                .productL(videoDao.deleteById(video.id))
+                // Keeps the video's playlist memberships, so that they come back once it is downloaded again
+                .productL(videoDao.deleteForRedownload(video.id))
                 .productL(fileResourceDao.deleteById(video.fileResource.id))
                 .productL {
                   schedulingDao.updateSchedulingStatusById(video.id, Queued, timestamp)

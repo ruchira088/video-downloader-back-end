@@ -11,6 +11,8 @@ import java.time.Instant
 import scala.concurrent.duration.FiniteDuration
 
 trait VideoDao[F[_]] {
+
+  /** Inserts the video, restoring the playlist memberships it had if it was deleted for a re-download. */
   def insert(
     videoMetadataId: String,
     videoFileResourceId: String,
@@ -42,7 +44,14 @@ trait VideoDao[F[_]] {
 
   def findByVideoPath(videoPath: String): F[Option[Video]]
 
+  /** Deletes the video, which also removes it from every playlist. */
   def deleteById(videoId: String): F[Int]
+
+  /**
+    * Deletes a video that is going to be downloaded again. Its playlist memberships are kept aside and restored when
+    * the video is inserted again under the same ID.
+    */
+  def deleteForRedownload(videoId: String): F[Int] = deleteById(videoId)
 
   def hasVideoFilePermission(videoFileResourceId: String, userId: String): F[Boolean]
 
