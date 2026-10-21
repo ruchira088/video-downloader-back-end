@@ -11,9 +11,10 @@ already has an up-to-date fallback account when the main API goes down.
 When a user's password is reset on the main API, or the user is deleted there, the main API sends a `UserRevocation`
 (`contract/user-revocation.json`) over the main-to-fallback queue, and `SyncFunction` deletes the user's fallback
 account (`src/sync/user_revoker.py`), so the old password and every token issued for it stop working. The user's next
-`POST /user` creates the account again with their current password. An account whose `custom:user_id` is another
-user's (the email was reused) is kept, as is one modified more than 15 minutes after the revocation's `capturedAt`,
-which was re-enrolled since (e.g. a revocation redriven from the dead-letter queue).
+`POST /user` creates the account again with their current password. Only an account whose `custom:user_id` is
+another user's (the email was reused) is kept. `POST /user` checks the password with the main API a second time after
+writing it to Cognito, and deletes the account if the main API now refuses it, so a sign-up that checked the old
+password just before a reset can't outlive the reset's revocation.
 
 Browsers may call the API from the same origins the main API allows: any `ruchij.com` host, `localhost` and private
 network addresses (`ALLOWED_ORIGIN_REGEX` in `src/main.py`). Its DynamoDB table holds a copy of the
@@ -93,8 +94,9 @@ sam deploy --config-env prod        # production
 - A user's name and role are copied from the main API only when `POST /user` is called, so they stay as they were at
   the last call until the next one. A password reset or deletion on the main API instead revokes the fallback account
   within seconds, as long as the main API reaches SQS: a revocation it can't send is logged and dropped, not retried
-  by the reconcile. A `POST /user` made within 15 minutes after a reset may be undone by its revocation; the next one
-  then re-creates the account.
+  by the reconcile. A `POST /user` made right after a reset, or before a revocation redriven from the dead-letter
+  queue, may be undone by that revocation; the next one then re-creates the account. A sign-up whose re-check finds
+  the main API unreachable, or runs out of time, keeps the account it wrote.
 - `GET /schedule` lists at most the 100 newest pending requests.
 - **API Gateway throttles every caller together** (`Globals.Api.MethodSettings` in `template.yaml`): `POST /user` at
   5 requests a second (burst 10), everything else at 50 (burst 100), answering the excess with a 429. The limits are

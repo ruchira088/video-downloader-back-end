@@ -11,7 +11,7 @@ from src.services.exceptions import (
 )
 from src.services.user_service import CognitoUserService
 from src.sync.messages import UserRevocation
-from src.sync.user_revoker import REENROLMENT_GRACE, CognitoUserRevoker
+from src.sync.user_revoker import CognitoUserRevoker
 from tests.services.test_data_helpers import sample_password, sample_user
 from tests.services.test_service_helpers import (
     moto_access_token_verifier,
@@ -82,15 +82,20 @@ class TestCognitoUserRevoker(unittest.TestCase):
 
         self.assertFalse(self._account_exists())
 
-    def test_an_account_reenrolled_after_the_revocation_is_kept(self):
-        # e.g. a revocation redriven from the dead-letter queue long after the user signed up
-        # again with their new password.
-        captured_at = datetime.now(UTC) - REENROLMENT_GRACE - timedelta(minutes=1)
+    def test_an_account_its_user_modified_after_the_revocation_is_still_revoked(self):
+        # The app client lets users update some of their own attributes with their access
+        # token, which bumps UserLastModifiedDate without the main API re-checking anything,
+        # so nothing the account's modification time says may spare it.
+        token = self.authentication_service.login(sample_user.email, sample_password)
+        captured_at = datetime.now(UTC) - timedelta(hours=1)
+        self.cognito_client.update_user_attributes(
+            AccessToken=token.access_token,
+            UserAttributes=[{"Name": "given_name", "Value": "Still-here"}],
+        )
 
         self.revoker.revoke(_revocation(captured_at))
 
-        self.assertTrue(self._account_exists())
-        self.authentication_service.login(sample_user.email, sample_password)
+        self.assertFalse(self._account_exists())
 
     def test_an_account_of_another_main_side_user_with_the_email_is_kept(self):
         # The revoked user was deleted on the main API and the email has since been reused.

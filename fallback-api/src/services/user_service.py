@@ -3,9 +3,13 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from pydantic import EmailStr
+from requests import HTTPError
 
 from src.config.configuration import AppConfiguration
-from src.services.exceptions import InvalidPasswordException
+from src.services.exceptions import (
+    IncorrectCredentialsException,
+    InvalidPasswordException,
+)
 from src.services.models.user import User
 from src.services.user_validation_service import (
     UserValidationService,
@@ -62,11 +66,49 @@ class CognitoUserService(UserService):
 
         if existing_user_id is None and self._create(email, user):
             self._set_password(email, password, user, roll_back=True)
-            return UserUpsert(user, created=True)
+            upsert = UserUpsert(user, created=True)
+        else:
+            self._refresh(email, user)
+            self._set_password(email, password, user, roll_back=False)
+            upsert = UserUpsert(user, created=False)
 
-        self._refresh(email, user)
-        self._set_password(email, password, user, roll_back=False)
-        return UserUpsert(user, created=False)
+        self._recheck(email, password, user)
+        return upsert
+
+    def _recheck(self, email: str, password: str, user: User) -> None:
+        """Check the password with the main API again, now that it is in Cognito.
+
+        A password reset (or deletion) on the main API that lands between the first check and
+        the write sends a revocation, which may reach the fallback before the write and so
+        delete nothing, leaving the old password working. Checking again after the write
+        catches it: the main API refuses the old password by then, and the account is deleted.
+        """
+        try:
+            confirmed = self._user_validation_service.get_user(
+                email=email, password=password
+            )
+        except HTTPError as error:
+            # Only a refusal proves the credentials changed. If the main API is merely
+            # unreachable the account is kept, since deleting it would take the fallback away
+            # just as it is needed; the caller still sees the error.
+            response = error.response
+            if response is not None and 400 <= response.status_code < 500:
+                self._remove_after_failed_recheck(email, user)
+            raise
+
+        if confirmed.id != user.id:
+            self._remove_after_failed_recheck(email, user)
+            raise IncorrectCredentialsException()
+
+    def _remove_after_failed_recheck(self, email: str, user: User) -> None:
+        logger.warning(
+            "The main API refused the credentials of user %s after they were written to "
+            "Cognito; deleting the fallback account",
+            user.id,
+        )
+        self._cognito_idp_client.admin_delete_user(
+            UserPoolId=self._cognito_user_pool_id, Username=email
+        )
 
     def _existing_user_id(self, email: str) -> str | None:
         try:

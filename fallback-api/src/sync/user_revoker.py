@@ -1,5 +1,4 @@
 import logging
-from datetime import timedelta
 
 from pydantic import validate_email
 from pydantic_core import PydanticCustomError
@@ -8,19 +7,13 @@ from src.sync.messages import UserRevocation
 
 logger = logging.getLogger(__name__)
 
-# How long after a revocation's capturedAt a sign-up may still have checked the old password
-# with the main API: a sign-up makes its main-API calls (at most about 26 s, see
-# user_validation_service.py) before it writes to Cognito. Generous, to allow for clock skew
-# between the main API's host and Cognito; an account last modified later than this was
-# re-enrolled with the new password, and is kept.
-REENROLMENT_GRACE = timedelta(minutes=15)
-
 
 class CognitoUserRevoker:
     """Deletes the fallback account of a user whose main-side credentials changed or who was
     deleted, which ends their sessions too: their tokens are rejected by GetUser, which
     authenticate() always calls. Their next POST /user, which the web app makes after each
-    main-API login, creates the account again with their current password."""
+    main-API login, creates the account again with their current password. A sign-up racing
+    the revocation is undone by that sign-up's own re-check (CognitoUserService.upsert_user)."""
 
     def __init__(self, cognito_idp_client, user_pool_id: str):
         self._cognito_idp_client = cognito_idp_client
@@ -48,17 +41,10 @@ class CognitoUserRevoker:
             )
             return
 
-        last_modified = response["UserLastModifiedDate"]
-        if last_modified > revocation.captured_at + REENROLMENT_GRACE:
-            logger.info(
-                "Not revoking the fallback account of %s, re-enrolled at %s, after the "
-                "revocation captured at %s",
-                revocation.user_id,
-                last_modified.isoformat(),
-                revocation.captured_at.isoformat(),
-            )
-            return
-
+        # Deleted however recently the account was modified: users can update some of their own
+        # attributes with their access token, so the modification time can't tell a re-enrolment
+        # apart. A revocation that arrives after the user re-enrolled (e.g. redriven from the
+        # dead-letter queue) only makes them re-enrol once more.
         try:
             self._cognito_idp_client.admin_delete_user(
                 UserPoolId=self._user_pool_id, Username=username
