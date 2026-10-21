@@ -155,8 +155,13 @@ class SchedulingUpdatesRoutesSpec extends AnyFlatSpec with Matchers with MockedR
     runIO {
       authenticateAs(ApiTestData.NormalUser) *>
         IO.delay {
-          (apiSchedulingService.hasPermission _).expects(OwnedVideoId, ApiTestData.NormalUser.id).returns(IO.pure(true))
-          (apiSchedulingService.hasPermission _).expects(OtherVideoId, ApiTestData.NormalUser.id).returns(IO.pure(false))
+          (apiSchedulingService.hasPermission _)
+            .expects(OwnedVideoId, ApiTestData.NormalUser.id)
+            .returns(IO.pure(true))
+
+          (apiSchedulingService.hasPermission _)
+            .expects(OtherVideoId, ApiTestData.NormalUser.id)
+            .returns(IO.pure(false))
         } *>
         ignoreHttpMetrics() *>
         receivedEventsWithStatus.flatMap { events =>

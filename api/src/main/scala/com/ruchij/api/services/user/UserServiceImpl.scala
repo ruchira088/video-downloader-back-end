@@ -134,7 +134,8 @@ class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: Sync: Clock, G[_]: Mona
           _ <- credentialsDao.deleteByUserId(userId)
 
           // Deleting the user deletes their playlists, but not the album art the playlists refer to
-          playlists <- playlistDao.search(None, Int.MaxValue, 0, Order.Ascending, PlaylistSortBy.CreatedAt, Some(userId))
+          playlists <-
+            playlistDao.search(None, Int.MaxValue, 0, Order.Ascending, PlaylistSortBy.CreatedAt, Some(userId))
           albumArts = playlists.flatMap(_.albumArt)
           _ <- userDao.deleteById(userId).one
           _ <- albumArts.traverse_(albumArt => fileResourceDao.deleteById(albumArt.id))

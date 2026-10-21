@@ -30,11 +30,11 @@ object FileAsset {
       override def decode(media: Media[F], strict: Boolean): DecodeResult[F, FileAsset[F]] =
         if (media.contentLength.exists(_ > maxBodySize))
           EitherT.liftF(Async[F].raiseError[FileAsset[F]](bodyTooLarge(maxBodySize)))
-        else
-          multipartDecoder.decode(
-            Media[F](media.body.through(StreamUtils.limitSize[F](maxBodySize)(bodyTooLarge(maxBodySize))), media.headers),
-            strict
-          )
+        else {
+          val limitedBody = media.body.through(StreamUtils.limitSize[F](maxBodySize)(bodyTooLarge(maxBodySize)))
+
+          multipartDecoder.decode(Media[F](limitedBody, media.headers), strict)
+        }
 
       override def consumes: Set[MediaRange] = multipartDecoder.consumes
     }

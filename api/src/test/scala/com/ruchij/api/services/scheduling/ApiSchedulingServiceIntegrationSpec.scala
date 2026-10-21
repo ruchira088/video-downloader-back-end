@@ -180,18 +180,19 @@ class ApiSchedulingServiceIntegrationSpec extends AnyFlatSpec with Matchers with
         }
       }
 
-      s"deleteById ($databaseName)" should "name the video's users in an admin's deletion" in runTest(provider) { fixture =>
-        for {
-          deleted <- fixture.service.deleteById(sharedId, None)
-          published <- fixture.scheduledVideoDownloads.messages
-          deletions <- fixture.scheduledVideoDeletions.messages
-          permissions <- fixture.transaction(DoobieVideoPermissionDao.find(None, Some(sharedId)))
-        } yield {
-          deleted.status mustBe SchedulingStatus.Deleted
-          published mustBe List(deleted)
-          deletions mustBe List(ScheduledVideoDeletion(deleted, List(ApiTestData.NormalUser.id, OtherUser.id).sorted))
-          permissions mustBe empty
-        }
+      s"deleteById ($databaseName)" should "name the video's users in an admin's deletion" in runTest(provider) {
+        fixture =>
+          for {
+            deleted <- fixture.service.deleteById(sharedId, None)
+            published <- fixture.scheduledVideoDownloads.messages
+            deletions <- fixture.scheduledVideoDeletions.messages
+            permissions <- fixture.transaction(DoobieVideoPermissionDao.find(None, Some(sharedId)))
+          } yield {
+            deleted.status mustBe SchedulingStatus.Deleted
+            published mustBe List(deleted)
+            deletions mustBe List(ScheduledVideoDeletion(deleted, List(ApiTestData.NormalUser.id, OtherUser.id).sorted))
+            permissions mustBe empty
+          }
       }
 
       it should "not publish a deletion when a user removes the video from their own downloads" in runTest(provider) {

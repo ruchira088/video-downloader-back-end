@@ -176,7 +176,7 @@ class PlaylistServiceImpl[F[_]: Sync: Clock: RandomGenerator[*[_], UUID], G[_]: 
       _ <- playlist.albumArt.traverse_(albumArt => deleteFile(albumArt.path))
     } yield playlist
 
-  /** Deletes a file that is no longer referenced. A failure only leaves the file behind, so it is logged, not raised. */
+  /** Deletes a file that is no longer referenced. A failure only leaves the file behind, so it is logged. */
   private def deleteFile(fileKey: String): F[Unit] =
     repositoryService.delete(fileKey).void.handleErrorWith { throwable =>
       logger.warn[F](s"Unable to delete the album art file $fileKey: ${throwable.getMessage}")

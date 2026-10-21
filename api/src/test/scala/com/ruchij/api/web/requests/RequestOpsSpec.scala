@@ -37,7 +37,9 @@ class RequestOpsSpec extends AnyFlatSpec with Matchers {
 
   it should "fail with a ValidationException for a malformed JSON body" in runIO {
     val request =
-      Request[IO](Method.POST, uri"/test").withEntity("{ not json").withContentType(`Content-Type`(MediaType.application.json))
+      Request[IO](Method.POST, uri"/test")
+        .withEntity("{ not json")
+        .withContentType(`Content-Type`(MediaType.application.json))
 
     RequestOps.to[IO, TestEntity](request).attempt.map { result =>
       result.left.map(_.getClass) mustBe Left(classOf[ValidationException])
