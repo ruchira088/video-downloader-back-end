@@ -2,7 +2,12 @@ package com.ruchij.api.web.middleware
 
 import cats.data.{Kleisli, NonEmptyList}
 import cats.effect.IO
-import com.ruchij.api.exceptions.{AuthenticationException, AuthorizationException, RangeNotSatisfiableException, ResourceConflictException}
+import com.ruchij.api.exceptions.{
+  AuthenticationException,
+  AuthorizationException,
+  RangeNotSatisfiableException,
+  ResourceConflictException
+}
 import com.ruchij.api.services.models.Context
 import com.ruchij.core.exceptions._
 import com.ruchij.core.test.IOSupport.runIO
@@ -193,7 +198,8 @@ class ExceptionHandlerSpec extends AnyFlatSpec with Matchers {
     }
 
   it should "not expose the message of an unexpected exception" in runIO {
-    val handler = createHandler(new RuntimeException("Connection to jdbc:postgresql://db:5432/video-downloader refused"))
+    val handler =
+      createHandler(new RuntimeException("Connection to jdbc:postgresql://db:5432/video-downloader refused"))
 
     handler.run(contextRequest).flatMap { response =>
       errorMessages(response).map { messages =>

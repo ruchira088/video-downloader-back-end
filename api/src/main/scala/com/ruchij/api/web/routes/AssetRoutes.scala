@@ -39,7 +39,9 @@ object AssetRoutes {
       case authRequest @ GET -> Root / "video" / "id" / id as AuthenticatedRequestContext(user, _) =>
         for {
           maybeFileByteRange <- Applicative[F].pure {
-            authRequest.req.headers.get[Range].collect { case Range(RangeUnit.Bytes, NonEmptyList(subRange, _)) => subRange }
+            authRequest.req.headers
+              .get[Range]
+              .collect { case Range(RangeUnit.Bytes, NonEmptyList(subRange, _)) => subRange }
               .flatMap(fileByteRange)
           }
 

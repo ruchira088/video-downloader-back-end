@@ -56,7 +56,10 @@ object Authenticator {
                 case (authenticationToken, user) =>
                   httpAuthRoutes
                     .run {
-                      ContextRequest(AuthenticatedRequestContext(user, contextRequest.context.requestId), contextRequest.req)
+                      ContextRequest(
+                        AuthenticatedRequestContext(user, contextRequest.context.requestId),
+                        contextRequest.req
+                      )
                     }
                     .semiflatMap(response => addCookie[F](authenticationToken, response))
                     .map(response => response.withHeaders(response.headers.put(`X-User-ID`(user.id))))

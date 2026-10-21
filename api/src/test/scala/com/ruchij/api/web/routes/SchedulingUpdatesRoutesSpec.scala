@@ -58,9 +58,10 @@ class SchedulingUpdatesRoutesSpec extends AnyFlatSpec with Matchers with MockedR
       (authenticationService.authenticate _)
         .expects(testSecret)
         .returns {
-          IO.pure(
-            (AuthenticationToken(user.id, testSecret, testTimestamp.plusSeconds(3600), testTimestamp, 0, testTimestamp), user)
-          )
+          IO.pure {
+            AuthenticationToken(user.id, testSecret, testTimestamp.plusSeconds(3600), testTimestamp, 0, testTimestamp) ->
+              user
+          }
         }
     }
 

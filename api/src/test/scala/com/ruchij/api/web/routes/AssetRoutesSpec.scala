@@ -254,7 +254,13 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   private def videoAsset(start: Long, end: Long): IO[Asset[IO, AssetType.Video.type]] =
-    IO.pure(Asset[IO, AssetType.Video.type](testVideoFile, Stream.emits[IO, Byte]("test data".getBytes.toSeq), FileRange(start, end)))
+    IO.pure {
+      Asset[IO, AssetType.Video.type](
+        testVideoFile,
+        Stream.emits[IO, Byte]("test data".getBytes.toSeq),
+        FileRange(start, end)
+      )
+    }
 
   it should "pass a suffix range to the asset service" in runIO {
     videoRangeRequest("bytes=-500", Some(SuffixRange(500L)), videoAsset(4999500L, 5000000L)).flatMap { response =>

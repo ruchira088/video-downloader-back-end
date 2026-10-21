@@ -126,7 +126,9 @@ object SchedulingRoutes {
               .map { cache => (videoId: String) =>
                 cache.hasPermission(videoId).handleErrorWith { throwable =>
                   // Fail closed: skip the event rather than leak it or terminate the event stream
-                  logger.error[F](s"Unable to check the permission of user $userId for video $videoId", throwable).as(false)
+                  logger
+                    .error[F](s"Unable to check the permission of user $userId for video $videoId", throwable)
+                    .as(false)
                 }
               }
           }
