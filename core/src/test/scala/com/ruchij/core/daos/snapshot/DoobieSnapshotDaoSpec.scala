@@ -180,6 +180,42 @@ class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
     } yield ()
   }
 
+  it should "return the snapshots of a video ordered by their video timestamp" in runTest { fixture =>
+    for {
+      timestamp <- Clock[IO].timestamp
+
+      laterSnapshotFileResource =
+        FileResource("snapshot-file-id-2", timestamp, "/opt/snapshots/snapshot-002.jpg", MediaType.image.jpeg, 6000)
+      _ <- fixture.transaction(DoobieFileResourceDao.insert(laterSnapshotFileResource))
+
+      earlierSnapshotFileResource =
+        FileResource("snapshot-file-id-3", timestamp, "/opt/snapshots/snapshot-003.jpg", MediaType.image.jpeg, 7000)
+      _ <- fixture.transaction(DoobieFileResourceDao.insert(earlierSnapshotFileResource))
+
+      userId = "snapshot-order-user"
+      _ <- fixture.transaction(insertTestUser(userId, "snapshot-order@example.com", timestamp))
+      _ <- fixture.transaction(insertScheduledVideo(fixture.videoId, timestamp))
+      _ <- fixture.transaction(DoobieVideoPermissionDao.insert(VideoPermission(timestamp, fixture.videoId, userId)))
+
+      // Inserted out of order: 2 minutes, 30 seconds, 1 minute
+      _ <- fixture.transaction {
+        DoobieSnapshotDao.insert(Snapshot(fixture.videoId, laterSnapshotFileResource, 2.minutes))
+      }
+      _ <- fixture.transaction(DoobieSnapshotDao.insert(fixture.snapshot))
+      _ <- fixture.transaction {
+        DoobieSnapshotDao.insert(Snapshot(fixture.videoId, earlierSnapshotFileResource, 1.minute))
+      }
+
+      snapshots <- fixture.transaction(DoobieSnapshotDao.findByVideo(fixture.videoId, None))
+      userSnapshots <- fixture.transaction(DoobieSnapshotDao.findByVideo(fixture.videoId, Some(userId)))
+
+      _ <- IO.delay {
+        snapshots.map(_.videoTimestamp) mustBe Seq(30.seconds, 1.minute, 2.minutes)
+        userSnapshots.map(_.videoTimestamp) mustBe Seq(30.seconds, 1.minute, 2.minutes)
+      }
+    } yield ()
+  }
+
   it should "return empty sequence when no snapshots exist for video" in runTest { fixture =>
     for {
       snapshots <- fixture.transaction(DoobieSnapshotDao.findByVideo(fixture.videoId, None))
