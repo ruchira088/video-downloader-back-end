@@ -148,7 +148,7 @@ object RedisStreamSubscriber {
   final case class Settings(
     blockTimeout: FiniteDuration = 1 second,
     batchSize: Long = 100,
-    /** Mirrors Kafka's default max.poll.interval.ms */
+    // Mirrors Kafka's default max.poll.interval.ms
     redeliveryTimeout: FiniteDuration = 5 minutes,
     retryDelay: FiniteDuration = 1 second,
     maxRetryDelay: FiniteDuration = 30 seconds
