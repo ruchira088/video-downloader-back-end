@@ -54,7 +54,7 @@ jobs:
       - name: Run tests with coverage
         run: |
           # If the tests hang, print every JVM's threads before the job's timeout cancels it
-          (sleep 1200; for pid in $(jps -q); do echo "=== Thread dump of JVM $pid"; jstack -l "$pid"; done) &
+          (sleep 1200; for pid in $(pgrep java); do echo "=== Thread dump of JVM $pid"; jstack -l "$pid"; done) &
           sbt "coverage; testFull; coverageAggregate"
 
       - name: Upload test results
