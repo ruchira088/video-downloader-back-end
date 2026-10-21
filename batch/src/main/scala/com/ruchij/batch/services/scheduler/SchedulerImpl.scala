@@ -10,7 +10,12 @@ import com.ruchij.batch.daos.workers.WorkerDao
 import com.ruchij.batch.daos.workers.models.Worker
 import com.ruchij.batch.services.detection.BatchDuplicateDetectionService
 import com.ruchij.batch.services.scheduler.Scheduler.PausedVideoDownload
-import com.ruchij.batch.services.scheduler.SchedulerImpl.WorkerPollPeriod
+import com.ruchij.batch.services.scheduler.SchedulerImpl.{
+  StreamRestartDelay,
+  VideoWatchMetricMaxRetries,
+  VideoWatchMetricRetryBaseDelay,
+  WorkerPollPeriod
+}
 import com.ruchij.batch.services.scheduling.BatchSchedulingService
 import com.ruchij.batch.services.sync.SynchronizationService
 import com.ruchij.batch.services.video.BatchVideoService
@@ -202,20 +207,48 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
     workerStatusUpdatesTopic: Topic[F, WorkerStatusUpdate],
     scanVideosCommandTopic: Topic[F, ScanVideosCommand]
   ): Stream[F, Video] =
+    // A failure in any of the background streams would otherwise end `run` and take the batch application down with
+    // it. Each stream handles the failures of a single tick or message itself, and is restarted if it fails anyway.
     idleWorkers
-      .concurrently(publishScheduledVideoDownloadsUpdatesToTopic(scheduledVideoDownloadsTopic))
-      .concurrently(publishWorkerStatusUpdatesToTopic(workerStatusUpdatesTopic))
-      .concurrently(publishScanForVideosCommandsToTopic(scanVideosCommandTopic))
-      .concurrently(cleanUpStaleScheduledVideoDownloads)
-      .concurrently(updateVideoWatchTimes)
-      .concurrently(cleanUpStaleWorkers)
-      .concurrently(duplicateDetection)
-      .concurrently(maybeMessageTransaction.fold[Stream[F, Unit]](Stream.empty) { cleanUpDoobieStreamMessages })
-      .concurrently(performScheduledVideoDeletions(scheduledVideoDownloadsTopic.subscribe(Int.MaxValue)))
-      .concurrently(updateWorkersAndScheduledVideoDownloads(workerStatusUpdatesTopic.subscribe(Int.MaxValue)))
       .concurrently {
-        scanVideosCommandTopic.subscribe(Int.MaxValue).evalMap { _ =>
-          synchronizationService.sync
+        restartOnFailure("Scheduled video download updates subscription") {
+          publishScheduledVideoDownloadsUpdatesToTopic(scheduledVideoDownloadsTopic)
+        }
+      }
+      .concurrently {
+        restartOnFailure("Worker status updates subscription") {
+          publishWorkerStatusUpdatesToTopic(workerStatusUpdatesTopic)
+        }
+      }
+      .concurrently {
+        restartOnFailure("Scan videos commands subscription") {
+          publishScanForVideosCommandsToTopic(scanVideosCommandTopic)
+        }
+      }
+      .concurrently(restartOnFailure("Stale scheduled video downloads clean up")(cleanUpStaleScheduledVideoDownloads))
+      .concurrently(restartOnFailure("Video watch times update")(updateVideoWatchTimes))
+      .concurrently(restartOnFailure("Stale workers clean up")(cleanUpStaleWorkers))
+      .concurrently(restartOnFailure("Duplicate detection")(duplicateDetection))
+      .concurrently {
+        maybeMessageTransaction.fold[Stream[F, Unit]](Stream.empty) { messageTransaction =>
+          restartOnFailure("Doobie stream messages clean up")(cleanUpDoobieStreamMessages(messageTransaction))
+        }
+      }
+      .concurrently {
+        restartOnFailure("Scheduled video deletions") {
+          performScheduledVideoDeletions(scheduledVideoDownloadsTopic.subscribe(Int.MaxValue))
+        }
+      }
+      .concurrently {
+        restartOnFailure("Worker status updates") {
+          updateWorkersAndScheduledVideoDownloads(workerStatusUpdatesTopic.subscribe(Int.MaxValue))
+        }
+      }
+      .concurrently {
+        restartOnFailure("Video scanning") {
+          scanVideosCommandTopic.subscribe(Int.MaxValue).evalMap { _ =>
+            logFailure("Unable to synchronize the videos")(synchronizationService.sync)
+          }
         }
       }
       .parEvalMapUnordered(workerConfiguration.maxConcurrentDownloads) { idleWorker =>
@@ -281,9 +314,11 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
           case _ => Applicative[F].pure(Seq.empty[ScheduledVideoDownload])
         }
 
-      updateScheduledVideoDownloads.productR {
-        transaction(workerDao.updateWorkerStatuses(workerStatusUpdate.workerStatus))
-      }
+      logFailure(s"Unable to apply the worker status update to ${workerStatusUpdate.workerStatus}") {
+        updateScheduledVideoDownloads.productR {
+          transaction(workerDao.updateWorkerStatuses(workerStatusUpdate.workerStatus))
+        }
+      }.map(_.getOrElse(Seq.empty))
     }
 
   private def performWorkDuringWorkPeriod(
@@ -307,38 +342,17 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
           logger.error[F]("Error occurred in work scheduler", throwable).as(None)
       }
 
+  /**
+    * Records are committed once they have been processed, so a crash before the commit replays them (at-least-once).
+    * A failure is retried with a bounded exponential backoff, to ride out transient database errors without
+    * committing the record. A record that still fails after that, or refers to a video that no longer exists, is
+    * logged and skipped. Retrying it forever would block the whole partition behind a single poison message.
+    */
   private val updateVideoWatchTimes: Stream[F, Unit] =
     videoWatchMetricsSubscriber
       .subscribe("batch-scheduler")
       .evalTap { record =>
-        val videoWatchMetric = videoWatchMetricsSubscriber.extractValue(record)
-        batchVideoService
-          .fetchByVideoFileResourceId(videoWatchMetric.videoFileResourceId)
-          .flatMap { video =>
-            val watchDuration =
-              FiniteDuration(
-                math.round(
-                  (videoWatchMetric.size.toDouble / video.fileResource.size) * video.videoMetadata.duration.toMillis
-                ),
-                TimeUnit.MILLISECONDS
-              )
-
-            batchVideoService
-              .incrementWatchTime(video.videoMetadata.id, watchDuration)
-              .productR {
-                videoWatchHistoryService
-                  .addWatchHistory(
-                    videoWatchMetric.userId,
-                    video.videoMetadata.id,
-                    videoWatchMetric.timestamp,
-                    watchDuration
-                  )
-              }
-          }
-          .recoverWith {
-            case exception =>
-              logger.error[F]("Error occurred updating video watch times", exception)
-          }
+        processVideoWatchMetric(videoWatchMetricsSubscriber.extractValue(record))
       }
       .groupWithin(20, 5 seconds)
       .evalMap { chunk =>
@@ -350,6 +364,67 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
             }
           }
       }
+
+  private def processVideoWatchMetric(videoWatchMetric: VideoWatchMetric): F[Unit] =
+    retryTransientFailures(s"Fetching the video for $videoWatchMetric") {
+      batchVideoService.fetchByVideoFileResourceId(videoWatchMetric.videoFileResourceId)
+    }.flatMap { video =>
+        val watchDuration =
+          FiniteDuration(
+            math.round(
+              (videoWatchMetric.size.toDouble / video.fileResource.size) * video.videoMetadata.duration.toMillis
+            ),
+            TimeUnit.MILLISECONDS
+          )
+
+        // Each step is retried on its own, so that a failure in a later step does not repeat the earlier ones
+        retryTransientFailures(s"Incrementing the watch time for $videoWatchMetric") {
+          batchVideoService.incrementWatchTime(video.videoMetadata.id, watchDuration)
+        }.productR {
+          retryTransientFailures(s"Adding the watch history for $videoWatchMetric") {
+            videoWatchHistoryService.addWatchHistory(
+              videoWatchMetric.userId,
+              video.videoMetadata.id,
+              videoWatchMetric.timestamp,
+              watchDuration
+            )
+          }
+        }
+      }
+      .handleErrorWith { throwable =>
+        logger.error[F](s"Skipping the video watch metric $videoWatchMetric, it could not be processed", throwable)
+      }
+
+  private def retryTransientFailures[A](description: String, attempt: Int = 0)(fa: F[A]): F[A] =
+    fa.handleErrorWith {
+      // The video has been deleted, so retrying cannot succeed
+      case resourceNotFoundException: ResourceNotFoundException =>
+        ApplicativeError[F, Throwable].raiseError(resourceNotFoundException)
+
+      case throwable if attempt < VideoWatchMetricMaxRetries =>
+        val delay = VideoWatchMetricRetryBaseDelay * (1L << attempt)
+
+        logger
+          .warn[F] {
+            s"$description failed, retrying in $delay. " +
+              s"retry=${attempt + 1}/$VideoWatchMetricMaxRetries, error=${throwable.getMessage}"
+          }
+          .productR(Async[F].sleep(delay))
+          .productR(retryTransientFailures(description, attempt + 1)(fa))
+
+      case throwable => ApplicativeError[F, Throwable].raiseError(throwable)
+    }
+
+  private def logFailure[A](description: String)(fa: F[A]): F[Option[A]] =
+    fa.map(Option.apply).handleErrorWith { throwable =>
+      logger.error[F](description, throwable).as(None)
+    }
+
+  private def restartOnFailure[A](name: String)(stream: Stream[F, A]): Stream[F, A] =
+    stream.handleErrorWith { throwable =>
+      Stream.exec(logger.error[F](s"$name failed, restarting it in $StreamRestartDelay", throwable)) ++
+        restartOnFailure(name)(stream).delayBy(StreamRestartDelay)
+    }
 
   private def publishScheduledVideoDownloadsUpdatesToTopic(topic: Topic[F, ScheduledVideoDownload]): Stream[F, Unit] =
     topic.publish {
@@ -374,22 +449,28 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
     Stream
       .eval(Clock[F].timestamp)
       .evalMap { timestamp =>
-        messageTransaction {
-          messageDao.deleteBefore(timestamp.minus(30, ChronoUnit.MINUTES))
+        logFailure("Unable to delete the doobie stream messages") {
+          messageTransaction {
+            messageDao.deleteBefore(timestamp.minus(30, ChronoUnit.MINUTES))
 
-        }.flatMap { deletedMessageCount =>
+          }.flatMap { deletedMessageCount =>
             logger.info[F](s"Deleted $deletedMessageCount doobie stream messages")
           }
+        }.void
       }
       .delayBy(5 minutes)
       .repeat
 
   private val cleanUpStaleScheduledVideoDownloads: Stream[F, ScheduledVideoDownload] =
     Stream
-      .eval(batchSchedulingService.updateTimedOutTasks(2 minutes))
+      .eval {
+        logFailure("Unable to mark the timed out scheduled video downloads as stale") {
+          batchSchedulingService.updateTimedOutTasks(2 minutes)
+        }
+      }
       .repeat
       .metered(30 seconds)
-      .flatMap(Stream.emits)
+      .flatMap(staleDownloads => Stream.emits(staleDownloads.getOrElse(Seq.empty)))
 
   private val initWorkers: F[Int] =
     transaction {
@@ -429,11 +510,13 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
           .repeat
           .metered(30 seconds)
           .evalMap { timestamp =>
-            transaction {
-              workerDao.cleanUpStaleWorkers(timestamp.minus(Duration.ofMinutes(5)))
+            logFailure("Unable to clean up the stale workers") {
+              transaction {
+                workerDao.cleanUpStaleWorkers(timestamp.minus(Duration.ofMinutes(5)))
+              }
             }
           }
-          .flatMap(Stream.emits)
+          .flatMap(staleWorkers => Stream.emits(staleWorkers.getOrElse(Seq.empty)))
       }
 
   override val init: F[Unit] =
@@ -446,6 +529,11 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
 
 object SchedulerImpl {
   val WorkerPollPeriod: FiniteDuration = 1 second
+
+  private val StreamRestartDelay: FiniteDuration = 10 seconds
+
+  private val VideoWatchMetricMaxRetries = 3
+  private val VideoWatchMetricRetryBaseDelay: FiniteDuration = 1 second
 
   private def isWorkPeriod[F[_]: Clock: Applicative](start: LocalTime, end: LocalTime): F[Boolean] =
     if (start == end)
