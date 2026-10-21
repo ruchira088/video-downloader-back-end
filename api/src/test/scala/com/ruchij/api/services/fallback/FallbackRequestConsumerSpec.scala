@@ -103,6 +103,8 @@ class FallbackRequestConsumerSpec extends AnyFlatSpec with Matchers {
       ): IO[ScheduledVideoDownload] = notUsed
 
       override def deleteById(id: String, maybeUserId: Option[String]): IO[ScheduledVideoDownload] = notUsed
+
+      override def hasPermission(id: String, userId: String): IO[Boolean] = notUsed
     }
 
   private def run(

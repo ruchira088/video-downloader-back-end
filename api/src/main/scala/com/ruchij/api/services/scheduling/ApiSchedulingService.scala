@@ -42,4 +42,7 @@ trait ApiSchedulingService[F[_]] {
   def updateDownloadProgress(id: String, timestamp: Instant, downloadedBytes: Long): F[ScheduledVideoDownload]
 
   def deleteById(id: String, maybeUserId: Option[String]): F[ScheduledVideoDownload]
+
+  /** Whether the user has a permission for (i.e. owns) the scheduled video download with the given ID */
+  def hasPermission(id: String, userId: String): F[Boolean]
 }
