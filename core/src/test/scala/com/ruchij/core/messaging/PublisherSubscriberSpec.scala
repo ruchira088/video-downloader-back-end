@@ -1,6 +1,6 @@
 package com.ruchij.core.messaging
 
-import cats.effect.{IO, Resource}
+import cats.effect.{IO, Ref, Resource}
 import cats.implicits._
 import com.ruchij.core.test.IOSupport.runIO
 import fs2.Stream
@@ -20,6 +20,31 @@ trait PublisherSubscriberSpec { self: AnyFlatSpec with Matchers =>
   def resource: Resource[IO, (Publisher[IO, TestMessage], Subscriber[IO, TestMessage])]
 
   def testTimeout: FiniteDuration = 30 seconds
+
+  /** Whether the backend implements consumer-group semantics, i.e. what the Kafka backend does. */
+  def supportsConsumerGroups: Boolean = true
+
+  /** How long to wait after subscribing before publishing, so the subscriptions have joined their groups. */
+  def groupJoinDelay: FiniteDuration = 2 seconds
+
+  private def consumeInto(
+    subscriber: Subscriber[IO, TestMessage],
+    groupId: String,
+    sink: Ref[IO, List[TestMessage]]
+  ): Stream[IO, Unit] =
+    subscriber
+      .subscribe(groupId)
+      .evalMap { record =>
+        subscriber.commit(List(record)) *> sink.update(_ :+ subscriber.extractValue(record))
+      }
+
+  private def waitUntil(condition: IO[Boolean]): IO[Unit] =
+    condition.flatMap { satisfied =>
+      if (satisfied) IO.unit else IO.sleep(100 milliseconds) *> waitUntil(condition)
+    }
+
+  private def publishAll(publisher: Publisher[IO, TestMessage], prefix: String, indices: Seq[Int]): IO[Unit] =
+    indices.toList.traverse_(index => publisher.publishOne(TestMessage(s"$prefix-$index", index)))
 
   "Publisher and Subscriber" should "publish a single message and receive it" in runIO {
     resource.use {
@@ -181,6 +206,105 @@ trait PublisherSubscriberSpec { self: AnyFlatSpec with Matchers =>
             msg.index mustBe original.index
           }
         } yield ()
+    }
+  }
+
+  if (supportsConsumerGroups) {
+    it should "split messages between subscribers in the same group" in runIO {
+      resource.use {
+        case (publisher, subscriber) =>
+          val count = 20
+
+          for {
+            first <- Ref.of[IO, List[TestMessage]](Nil)
+            second <- Ref.of[IO, List[TestMessage]](Nil)
+
+            fiber <- consumeInto(subscriber, "shared-group", first)
+              .merge(consumeInto(subscriber, "shared-group", second))
+              .compile
+              .drain
+              .start
+
+            _ <- IO.sleep(groupJoinDelay)
+            _ <- publishAll(publisher, "split", 0 until count)
+
+            _ <- waitUntil((first.get, second.get).mapN(_.size + _.size >= count)).timeout(testTimeout)
+            // Give any duplicate deliveries time to surface
+            _ <- IO.sleep(3 seconds)
+            _ <- fiber.cancel
+
+            firstReceived <- first.get
+            secondReceived <- second.get
+
+            _ <- IO.delay {
+              (firstReceived ++ secondReceived).map(_.index).sorted mustBe (0 until count).toList
+            }
+          } yield ()
+      }
+    }
+
+    it should "deliver every message to each group" in runIO {
+      resource.use {
+        case (publisher, subscriber) =>
+          val count = 10
+
+          for {
+            groupA <- Ref.of[IO, List[TestMessage]](Nil)
+            groupB <- Ref.of[IO, List[TestMessage]](Nil)
+
+            fiber <- consumeInto(subscriber, "group-a", groupA)
+              .merge(consumeInto(subscriber, "group-b", groupB))
+              .compile
+              .drain
+              .start
+
+            _ <- IO.sleep(groupJoinDelay)
+            _ <- publishAll(publisher, "fan-out", 0 until count)
+
+            _ <- waitUntil((groupA.get, groupB.get).mapN(_.size >= count && _.size >= count)).timeout(testTimeout)
+            _ <- IO.sleep(2 seconds)
+            _ <- fiber.cancel
+
+            receivedA <- groupA.get
+            receivedB <- groupB.get
+
+            _ <- IO.delay {
+              receivedA.map(_.index) mustBe (0 until count).toList
+              receivedB.map(_.index) mustBe (0 until count).toList
+            }
+          } yield ()
+      }
+    }
+
+    it should "resume a group from where it left off after a restart" in runIO {
+      resource.use {
+        case (publisher, subscriber) =>
+          def consume(count: Int): IO[List[TestMessage]] =
+            subscriber
+              .subscribe("resume-group")
+              .evalMap(record => subscriber.commit(List(record)).as(subscriber.extractValue(record)))
+              .take(count.toLong)
+              .compile
+              .toList
+              .timeout(testTimeout)
+
+          for {
+            firstRunFiber <- consume(1).start
+            _ <- IO.sleep(groupJoinDelay)
+            _ <- publishAll(publisher, "before-restart", Seq(0))
+            firstRun <- firstRunFiber.joinWithNever
+
+            // Published while the group has no running subscriber
+            _ <- publishAll(publisher, "during-restart", 1 to 3)
+
+            secondRun <- consume(3)
+
+            _ <- IO.delay {
+              firstRun.map(_.index) mustBe List(0)
+              secondRun.map(_.index) mustBe List(1, 2, 3)
+            }
+          } yield ()
+      }
     }
   }
 }
