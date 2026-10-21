@@ -803,6 +803,98 @@ class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with OptionValue
       } yield (): Unit
   }
 
+  // updateTimedOutTasks and updateSchedulingStatus SELECT the matching rows and then UPDATE them. Another instance can
+  // change a row in between, so these tests run the UPDATE step on rows that no longer match the SELECT.
+
+  it should "not mark a download as stale when it completed after it was found to be timed out" in runTest {
+    (scheduledVideoDownload, transaction) =>
+      val id = scheduledVideoDownload.videoMetadata.id
+
+      for {
+        timestamp <- Clock[IO].timestamp
+        _ <- transaction(DoobieSchedulingDao.updateSchedulingStatusById(id, SchedulingStatus.Active, timestamp))
+        _ <- transaction(DoobieSchedulingDao.markScheduledVideoDownloadAsComplete(id, timestamp.plusSeconds(15)))
+
+        staleTasks <- transaction {
+          DoobieSchedulingDao.markTimedOutTasksAsStale(List(id), 10 seconds, timestamp.plusSeconds(20))
+        }
+        stored <- transaction(DoobieSchedulingDao.getById(id, None))
+
+        _ <- IO.delay {
+          staleTasks mustBe empty
+          stored.value.status mustBe SchedulingStatus.Completed
+        }
+      } yield (): Unit
+  }
+
+  it should "not mark a download as stale when it made progress after it was found to be timed out" in runTest {
+    (scheduledVideoDownload, transaction) =>
+      val id = scheduledVideoDownload.videoMetadata.id
+
+      for {
+        timestamp <- Clock[IO].timestamp
+        _ <- transaction(DoobieSchedulingDao.updateSchedulingStatusById(id, SchedulingStatus.Active, timestamp))
+        _ <- transaction(DoobieSchedulingDao.updateDownloadProgress(id, 1_000, timestamp.plusSeconds(15)))
+
+        staleTasks <- transaction {
+          DoobieSchedulingDao.markTimedOutTasksAsStale(List(id), 10 seconds, timestamp.plusSeconds(20))
+        }
+        stored <- transaction(DoobieSchedulingDao.getById(id, None))
+
+        _ <- IO.delay {
+          staleTasks mustBe empty
+          stored.value.status mustBe SchedulingStatus.Active
+          stored.value.lastUpdatedAt.toEpochMilli mustBe timestamp.plusSeconds(15).toEpochMilli
+        }
+      } yield (): Unit
+  }
+
+  it should "only return the downloads that it marked as stale" in runTest {
+    (scheduledVideoDownload, transaction) =>
+      val id = scheduledVideoDownload.videoMetadata.id
+
+      for {
+        timestamp <- Clock[IO].timestamp
+        _ <- transaction(DoobieSchedulingDao.updateSchedulingStatusById(id, SchedulingStatus.Active, timestamp))
+
+        staleTasks <- transaction {
+          DoobieSchedulingDao.markTimedOutTasksAsStale(List(id, "unknown-id"), 10 seconds, timestamp.plusSeconds(20))
+        }
+
+        _ <- IO.delay {
+          staleTasks.map(_.videoMetadata.id) mustBe Seq(id)
+          staleTasks.map(_.status) mustBe Seq(SchedulingStatus.Stale)
+        }
+      } yield (): Unit
+  }
+
+  it should "not pause a download that left the status it was found in" in runTest {
+    (scheduledVideoDownload, transaction) =>
+      val id = scheduledVideoDownload.videoMetadata.id
+
+      for {
+        timestamp <- Clock[IO].timestamp
+        _ <- transaction(DoobieSchedulingDao.updateSchedulingStatusById(id, SchedulingStatus.Active, timestamp))
+
+        // The download completed between the SELECT of the active downloads and the UPDATE
+        _ <- transaction(DoobieSchedulingDao.markScheduledVideoDownloadAsComplete(id, timestamp.plusSeconds(1)))
+
+        paused <- transaction {
+          DoobieSchedulingDao.transitionSchedulingStatus(
+            List(id),
+            SchedulingStatus.Active,
+            SchedulingStatus.WorkersPaused
+          )
+        }
+        stored <- transaction(DoobieSchedulingDao.getById(id, None))
+
+        _ <- IO.delay {
+          paused mustBe empty
+          stored.value.status mustBe SchedulingStatus.Completed
+        }
+      } yield (): Unit
+  }
+
   it should "delete a download that is waiting to retry" in runTest {
     (scheduledVideoDownload, transaction) =>
       val id = scheduledVideoDownload.videoMetadata.id
