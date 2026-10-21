@@ -94,7 +94,43 @@ class SynchronizationServiceImpl[F[_]: Async: Clock, A, T[_]: MonadThrow](
       .compile
       .lastOrError
 
+  /**
+    * A video folder that is missing, unreadable or empty is most likely an unmounted volume. Every video in it would
+    * then look like it has lost its file, so the deletion pass only runs when all the configured folders are usable.
+    */
+  private val unavailableVideoFolders: F[List[(String, String)]] =
+    (storageConfiguration.videoFolder :: storageConfiguration.otherVideoFolders).flatTraverse { folder =>
+      fileRepositoryService
+        .exists(folder)
+        .flatMap { exists =>
+          if (!exists) Applicative[F].pure[Option[String]](Some("does not exist"))
+          else
+            fileRepositoryService
+              .list(folder)
+              .filter(path => stripTrailingDelimiter(path) != stripTrailingDelimiter(folder))
+              .take(1)
+              .compile
+              .toList
+              .map(entries => if (entries.isEmpty) Some("is empty") else None)
+        }
+        .handleError(throwable => Some(s"cannot be read: ${throwable.getMessage}"))
+        .map(_.map(reason => folder -> reason).toList)
+    }
+
   private def scanForMissingVideoFiles(scanCount: Int = 0): F[SynchronizationResult] =
+    unavailableVideoFolders.flatMap {
+      case Nil => deleteVideosWithMissingFiles(scanCount)
+
+      case unavailableFolders =>
+        logger
+          .warn[F] {
+            "Skipping the deletion of videos with missing video files, because the video folders are not available: " +
+              unavailableFolders.map { case (folder, reason) => s"$folder $reason" }.mkString(", ")
+          }
+          .as(SynchronizationResult.Zero)
+    }
+
+  private def deleteVideosWithMissingFiles(scanCount: Int): F[SynchronizationResult] =
     logger
       .info[F](s"Searching for videos with missing video files. scanCount=$scanCount")
       .productR {
@@ -102,26 +138,30 @@ class SynchronizationServiceImpl[F[_]: Async: Clock, A, T[_]: MonadThrow](
           .evalFilterNot { video =>
             fileRepositoryService.exists(video.fileResource.path)
           }
-          .evalTap { video =>
-            logger.warn[F](
-              f"Deleting video id=${video.videoMetadata.id}, size=${video.fileResource.size} url=${video.videoMetadata.url}, path=${video.fileResource.path}"
-            )
-          }
           .evalMap { video =>
-            batchVideoService
-              .deleteById(video.videoMetadata.id, deleteVideoFile = false)
+            logger
+              .warn[F](
+                f"Deleting video id=${video.videoMetadata.id}, size=${video.fileResource.size} url=${video.videoMetadata.url}, path=${video.fileResource.path}"
+              )
+              .productR(batchVideoService.deleteById(video.videoMetadata.id, deleteVideoFile = false))
               .productR {
                 logger.warn[F](f"Deleted video id=${video.videoMetadata.id}")
               }
-              .as(MissingVideoFile(video))
+              .as[FileSyncResult](MissingVideoFile(video))
+              .recoverWith {
+                errorHandler[F](video.fileResource.path) { throwable =>
+                  logger.error[F](s"Unable to delete video id=${video.videoMetadata.id}", throwable)
+                }.andThen(_.map(identity[FileSyncResult]))
+              }
           }
           .fold(SynchronizationResult.Zero)(_ + _)
           .compile
           .lastOrError
           .flatMap { result =>
-            if (result == SynchronizationResult.Zero) Applicative[F].pure(SynchronizationResult.Zero)
-            else
-              scanForMissingVideoFiles(scanCount + 1).map(_ + result)
+            // Deleting rows shifts the pages, so scan again until a pass deletes nothing. Videos that failed to delete
+            // are reported again by the next pass, so only the errors of the last pass are kept.
+            if (result.missingVideoFiles == 0) Applicative[F].pure(result)
+            else deleteVideosWithMissingFiles(scanCount + 1).map(_ + result.copy(syncErrors = 0))
           }
       }
 
@@ -130,17 +170,24 @@ class SynchronizationServiceImpl[F[_]: Async: Clock, A, T[_]: MonadThrow](
       .info[F](s"Scanning for videos without ${VideoEnrichmentService.SnapshotCount} snapshots")
       .productR {
         getAllVideos(0, 50)
-          .evalFilter { video =>
-            transaction { snapshotDao.findByVideo(video.videoMetadata.id, None) }
-              .map(_.size != VideoEnrichmentService.SnapshotCount)
-          }
           .evalMap { video =>
-            transaction { snapshotDao.deleteByVideo(video.videoMetadata.id) }
-              .product {
-                videoEnrichmentService.videoSnapshots(video)
+            // A video that fails is logged and skipped, so that it cannot abort the scan for the videos after it
+            transaction { snapshotDao.findByVideo(video.videoMetadata.id, None) }
+              .flatMap { snapshots =>
+                if (snapshots.size == VideoEnrichmentService.SnapshotCount)
+                  Applicative[F].pure(Option.empty[FileSyncResult])
+                else
+                  transaction { snapshotDao.deleteByVideo(video.videoMetadata.id) }
+                    .productR(videoEnrichmentService.videoSnapshots(video))
+                    .as(Option[FileSyncResult](VideoSnapshotsCreated(video)))
               }
-              .as(VideoSnapshotsCreated(video))
+              .recoverWith {
+                errorHandler[F](video.fileResource.path) { throwable =>
+                  logger.error[F](s"Unable to create snapshots for video id=${video.videoMetadata.id}", throwable)
+                }.andThen(_.map(syncError => Option[FileSyncResult](syncError)))
+              }
           }
+          .unNone
           .fold(SynchronizationResult.Zero)(_ + _)
           .compile
           .lastOrError
@@ -242,12 +289,16 @@ class SynchronizationServiceImpl[F[_]: Async: Clock, A, T[_]: MonadThrow](
               .map { case (insertion, deletion) => insertion + deletion }
           }.flatMap { count =>
               if (count > 0)
-                addVideo(videoPath)
-                  .productL {
+                addVideo(videoPath).flatTap {
+                  case _: VideoSynced =>
                     Clock[F].timestamp.flatMap { finishTimestamp =>
                       transaction(fileSyncDao.complete(videoPath, finishTimestamp))
                     }
-                  } else Applicative[F].pure[FileSyncResult](IgnoredFile(videoPath))
+
+                  // Only a successful import may be marked as synced. Otherwise a later scan would treat the file as
+                  // an existing video and never retry it, so the lock is released instead.
+                  case _ => transaction(fileSyncDao.deleteByPath(videoPath))
+                } else Applicative[F].pure[FileSyncResult](IgnoredFile(videoPath))
             }
             .handleErrorWith { throwable =>
               logger.warn[F](throwable.getMessage).as[FileSyncResult](IgnoredFile(videoPath))
@@ -347,6 +398,9 @@ object SynchronizationServiceImpl {
     case throwable =>
       handler(throwable).as(SyncError(throwable, videoPath))
   }
+
+  private def stripTrailingDelimiter(path: String): String =
+    path.replaceAll(s"$PathDelimiter+$$", "")
 
   private def fileName(path: String): String =
     path.split(PathDelimiter).lastOption.getOrElse(path)
