@@ -38,6 +38,24 @@ Globals:
         STAGE: !Ref Stage
         SCHEDULED_VIDEOS_TABLE_NAME: !Ref ScheduledVideosTable
         FALLBACK_TO_MAIN_QUEUE_URL: !Ref FallbackToMainQueue
+  Api:
+    # Throttles for the whole stage, shared by every caller (they are not per client): well above
+    # what the few users of the fallback need, but far below the account's default of 10,000
+    # requests a second, so a flood can't run up the Lambda, Cognito and DynamoDB bill or starve
+    # other APIs in the account.
+    MethodSettings:
+      - ResourcePath: "/*"
+        HttpMethod: "*"
+        ThrottlingRateLimit: 50
+        ThrottlingBurstLimit: 100
+      # Sign-up is unauthenticated and makes two main-API calls and several Cognito admin calls
+      # per request, and a client only calls it after a main-API login, so it is held much
+      # lower. It needs its own resource and method (the UserSignUp event) to be throttled
+      # apart from /{proxy+}. ResourcePath encodes the path's "/user" as "/~1user".
+      - ResourcePath: "/~1user"
+        HttpMethod: "POST"
+        ThrottlingRateLimit: 5
+        ThrottlingBurstLimit: 10
 
 Resources:
   ApiFunction:
@@ -55,11 +73,19 @@ Resources:
           AWS_COGNITO_CLIENT_ID: !Ref UserPoolClient
           VIDEO_DOWNLOADER_API_URL: !Ref VideoDownloaderApiUrl
       Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref ScheduledVideosTable
         - SQSSendMessagePolicy:
             QueueName: !GetAtt FallbackToMainQueue.QueueName
         - Statement:
+            # Only what DynamoDbSchedulingService calls: it lists videos and pending requests
+            # (Query, on the table and on GSI1 for admins) and stores pending requests (PutItem).
+            - Effect: Allow
+              Action: dynamodb:Query
+              Resource:
+                - !GetAtt ScheduledVideosTable.Arn
+                - !Sub "${ScheduledVideosTable.Arn}/index/GSI1"
+            - Effect: Allow
+              Action: dynamodb:PutItem
+              Resource: !GetAtt ScheduledVideosTable.Arn
             - Effect: Allow
               Action:
                 - cognito-idp:AdminCreateUser
@@ -70,6 +96,12 @@ Resources:
                 - cognito-idp:DescribeUserPoolClient
               Resource: !GetAtt UserPool.Arn
       Events:
+        # Served by /{proxy+} too, but its own resource lets Globals.Api throttle it apart.
+        UserSignUp:
+          Type: Api
+          Properties:
+            Path: /user
+            Method: POST
         RootPath:
           Type: Api
           Properties:

@@ -85,3 +85,6 @@ sam deploy --config-env prod        # production
 - A user's name, role and password are copied from the main API only when `POST /user` is called, so they stay as
   they were at the last call until the next one.
 - `GET /schedule` lists at most the 100 newest pending requests.
+- **API Gateway throttles every caller together** (`Globals.Api.MethodSettings` in `template.yaml`): `POST /user` at
+  5 requests a second (burst 10), everything else at 50 (burst 100), answering the excess with a 429. The limits are
+  not per client, so a flood of sign-ups can still crowd out other users' sign-ups, though not their logins.
