@@ -53,6 +53,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     @volatile var publishedIds: List[String] = List.empty
     @volatile var erroredTasks: List[(String, Throwable)] = List.empty
     @volatile var statusUpdates: List[(String, SchedulingStatus)] = List.empty
+    @volatile var guardedStatusUpdates: List[(String, Set[SchedulingStatus], SchedulingStatus)] = List.empty
     @volatile var bulkStatusUpdates: List[(SchedulingStatus, SchedulingStatus)] = List.empty
     @volatile var downloadProgressUpdates: List[(String, Long)] = List.empty
 
@@ -74,9 +75,18 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
       IO.raiseError(new NotImplementedError("deleteById stub"))
     }
 
-    override def recordFailure(id: String, throwable: Throwable): IO[ScheduledVideoDownload] = {
+    override def recordFailure(id: String, throwable: Throwable): IO[Option[ScheduledVideoDownload]] = {
       erroredTasks = erroredTasks :+ (id, throwable)
-      IO.pure(createScheduledVideoDownload(id, SchedulingStatus.Error))
+      IO.pure(Some(createScheduledVideoDownload(id, SchedulingStatus.Error)))
+    }
+
+    override def transitionSchedulingStatusById(
+      id: String,
+      from: Set[SchedulingStatus],
+      to: SchedulingStatus
+    ): IO[Option[ScheduledVideoDownload]] = {
+      guardedStatusUpdates = guardedStatusUpdates :+ (id, from, to)
+      IO.pure(Some(createScheduledVideoDownload(id, to)))
     }
 
     override def updateSchedulingStatusById(id: String, schedulingStatus: SchedulingStatus): IO[ScheduledVideoDownload] = {
