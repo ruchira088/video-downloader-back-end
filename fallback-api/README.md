@@ -96,7 +96,8 @@ sam deploy --config-env prod        # production
   within seconds, as long as the main API reaches SQS: a revocation it can't send is logged and dropped, not retried
   by the reconcile. A `POST /user` made right after a reset, or before a revocation redriven from the dead-letter
   queue, may be undone by that revocation; the next one then re-creates the account. A sign-up whose re-check finds
-  the main API unreachable, or runs out of time, keeps the account it wrote.
+  the main API unreachable, or runs out of time, keeps the account it wrote; so does one refused by a proxy in front
+  of the main API, since only a 401 or 403 with the main API's own `{"errorMessages": [...]}` body deletes it.
 - `GET /schedule` lists at most the 100 newest pending requests.
 - **API Gateway throttles every caller together** (`Globals.Api.MethodSettings` in `template.yaml`): `POST /user` at
   5 requests a second (burst 10), everything else at 50 (burst 100), answering the excess with a 429. The limits are

@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from pydantic import EmailStr
-from requests import HTTPError
+from requests import HTTPError, Response
 
 from src.config.configuration import AppConfiguration
 from src.services.exceptions import (
@@ -20,6 +20,30 @@ logger = logging.getLogger(__name__)
 
 # The main API's answers to a login that prove the credentials are no longer valid
 CREDENTIAL_REFUSALS = frozenset({401, 403})
+
+
+def is_main_api_credential_refusal(response: Response | None) -> bool:
+    """A 401 or 403 that the main API itself sent, not nginx, the forward proxy or a WAF in
+    front of it: its ExceptionHandler answers an AuthenticationException (e.g. "Invalid
+    password") or AuthorizationException with an ErrorResponse, {"errorMessages": [...]},
+    a non-empty list of strings."""
+    if response is None or response.status_code not in CREDENTIAL_REFUSALS:
+        return False
+
+    try:
+        body = response.json()
+    except ValueError:
+        return False
+
+    if not isinstance(body, dict):
+        return False
+
+    error_messages = body.get("errorMessages")
+    return (
+        isinstance(error_messages, list)
+        and len(error_messages) > 0
+        and all(isinstance(message, str) for message in error_messages)
+    )
 
 
 @dataclass(frozen=True)
@@ -91,12 +115,11 @@ class CognitoUserService(UserService):
                 email=email, password=password
             )
         except HTTPError as error:
-            # Only a credential refusal (401 or 403) proves the credentials changed. On any
-            # other error -- the main API unreachable, failing or answering oddly -- the account
-            # is kept, since deleting it would take the fallback away just as it is needed; the
-            # caller still sees the error.
-            response = error.response
-            if response is not None and response.status_code in CREDENTIAL_REFUSALS:
+            # Only the main API's own credential refusal proves the credentials changed. On any
+            # other error -- the main API unreachable, failing or answering oddly, or a proxy in
+            # front of it refusing the request -- the account is kept, since deleting it would
+            # take the fallback away just as it is needed; the caller still sees the error.
+            if is_main_api_credential_refusal(error.response):
                 self._remove_after_failed_recheck(email, user)
             raise
 

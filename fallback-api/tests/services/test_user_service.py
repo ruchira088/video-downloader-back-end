@@ -139,9 +139,18 @@ class TestCognitoUserService(unittest.TestCase):
         self.assertFalse(upsert.created)
         self._login(sample_user.email, NEW_PASSWORD)
 
-    def _main_api_rejection(self, status_code: int = 401) -> requests.HTTPError:
+    def _main_api_rejection(
+        self,
+        status_code: int = 401,
+        body: bytes = b'{"errorMessages": ["Invalid password"]}',
+        content_type: str = "application/json",
+    ) -> requests.HTTPError:
+        # By default the main API's own refusal: its ExceptionHandler answers an
+        # AuthenticationException with a 401 and an ErrorResponse body.
         response = requests.Response()
         response.status_code = status_code
+        response._content = body
+        response.headers["Content-Type"] = content_type
         return requests.HTTPError(f"{status_code} error", response=response)
 
     def test_a_password_reset_on_the_main_api_during_sign_up_undoes_the_sign_up(self):
@@ -222,6 +231,31 @@ class TestCognitoUserService(unittest.TestCase):
 
         with self.assertRaises(self.cognito_client.exceptions.UserNotFoundException):
             self._attributes(sample_user.email)
+
+    def test_the_sign_up_is_kept_when_a_proxy_refuses_the_re_check(self):
+        # nginx, the forward proxy or a WAF in front of the main API can answer 401 or 403
+        # themselves; only the main API's own ErrorResponse proves the password changed.
+        for status_code, body, content_type in [
+            (403, b"<html><h1>403 Forbidden</h1></html>", "text/html"),
+            (401, b"<html>401 Authorization Required</html>", "text/html"),
+            (403, b"", "text/plain"),
+            (403, b'{"message": "Forbidden"}', "application/json"),
+            (401, b'{"errorMessages": []}', "application/json"),
+            (401, b'{"errorMessages": "Invalid password"}', "application/json"),
+            (401, b'["Invalid password"]', "application/json"),
+        ]:
+            with self.subTest(status_code=status_code, body=body):
+                self.user_validation_service.get_user.side_effect = [
+                    sample_user,
+                    self._main_api_rejection(status_code, body, content_type),
+                ]
+
+                with self.assertRaises(requests.HTTPError):
+                    self.user_service.upsert_user(
+                        email=sample_user.email, password=sample_password
+                    )
+
+                self._login(sample_user.email, sample_password)
 
     def test_an_account_replaced_concurrently_is_not_removed_by_a_failed_re_check(
         self,
