@@ -63,7 +63,7 @@ object Routes {
           ),
           "/playlists" -> authMiddleware(PlaylistRoutes(playlistService)),
           "/assets" -> authMiddleware(AssetRoutes(assetService)),
-          "/service" -> ServiceRoutes(healthService),
+          "/service" -> ServiceRoutes(healthService, authenticationService),
         )
 
     MetricsMiddleware(metricPublisher) {
