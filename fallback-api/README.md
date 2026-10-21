@@ -98,6 +98,11 @@ sam deploy --config-env prod        # production
   queue, may be undone by that revocation; the next one then re-creates the account. A sign-up whose re-check finds
   the main API unreachable, or runs out of time, keeps the account it wrote; so does one refused by a proxy in front
   of the main API, since only a 401 or 403 with the main API's own `{"errorMessages": [...]}` body deletes it.
+- **A slow main API can make `POST /user` answer 503 without writing anything.** Its main-API calls share the time
+  the request has left (the Lambda's remaining time, at most API Gateway's 29 s, less a 2 s margin), and it writes to
+  Cognito only if enough is left to re-check the password afterwards: about as long as the first check took, plus
+  time for Cognito. The re-check's logout from the main API is best-effort and not waited for; a session it misses
+  expires on its own.
 - `GET /schedule` lists at most the 100 newest pending requests.
 - **API Gateway throttles every caller together** (`Globals.Api.MethodSettings` in `template.yaml`): `POST /user` at
   5 requests a second (burst 10), everything else at 50 (burst 100), answering the excess with a 429. The limits are

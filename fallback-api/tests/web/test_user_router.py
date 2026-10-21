@@ -6,7 +6,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from moto import mock_aws
 
-from src.services.user_service import CognitoUserService
+from src.services.deadline import SAFETY_MARGIN_SECONDS, Deadline
+from src.services.user_service import CognitoUserService, UserUpsert
 from src.web.handlers.exception_handlers import register_exception_handlers
 from src.web.routers.user_router import user_router
 from tests.services.test_data_helpers import sample_user
@@ -20,6 +21,7 @@ class TestUserRouter(unittest.TestCase):
         self.cognito_client = cognito_details.cognito_client
         self.user_validation_service = MagicMock()
         self.user_validation_service.get_user.return_value = sample_user
+        self.user_validation_service.check_credentials.return_value = sample_user.id
 
         user_service = CognitoUserService(
             user_validation_service=self.user_validation_service,
@@ -42,6 +44,27 @@ class TestUserRouter(unittest.TestCase):
         self.assertEqual(refreshed.status_code, 200)
         self.assertEqual(refreshed.json(), created.json())
         self.assertEqual(created.json()["id"], sample_user.id)
+
+    def test_sign_up_is_given_the_lambdas_remaining_time(self):
+        # Mangum puts the Lambda context in the ASGI scope as aws.context
+        lambda_context = MagicMock()
+        lambda_context.get_remaining_time_in_millis.return_value = 9_000
+        user_service = MagicMock()
+        user_service.upsert_user.return_value = UserUpsert(sample_user, created=True)
+        app = FastAPI()
+        app.include_router(user_router(user_service))
+
+        async def lambda_app(scope, receive, send):
+            await app({**scope, "aws.context": lambda_context}, receive, send)
+
+        response = TestClient(lambda_app).post(
+            "/user", json={"email": sample_user.email, "password": "Str0ng!Password"}
+        )
+
+        self.assertEqual(response.status_code, 201)
+        deadline = user_service.upsert_user.call_args.kwargs["deadline"]
+        self.assertIsInstance(deadline, Deadline)
+        self.assertAlmostEqual(deadline.remaining(), 9 - SAFETY_MARGIN_SECONDS, delta=1)
 
     def test_sign_up_with_a_weak_password_returns_400(self):
         response = self.client.post(

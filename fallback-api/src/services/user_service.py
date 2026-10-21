@@ -6,9 +6,11 @@ from pydantic import EmailStr
 from requests import HTTPError, Response
 
 from src.config.configuration import AppConfiguration
+from src.services.deadline import Deadline
 from src.services.exceptions import (
     IncorrectCredentialsException,
     InvalidPasswordException,
+    ServiceUnavailableException,
 )
 from src.services.models.user import User
 from src.services.user_validation_service import (
@@ -20,6 +22,12 @@ logger = logging.getLogger(__name__)
 
 # The main API's answers to a login that prove the credentials are no longer valid
 CREDENTIAL_REFUSALS = frozenset({401, 403})
+
+# Time kept for the Cognito calls of a sign-up: its lookup, write and the re-check's lookup
+# and any delete, each well under a second
+COGNITO_WRITE_SECONDS = 3.0
+# The least time the re-check is given, however fast the first check was
+MIN_RECHECK_SECONDS = 2.0
 
 
 def is_main_api_credential_refusal(response: Response | None) -> bool:
@@ -55,9 +63,13 @@ class UserUpsert:
 
 class UserService(ABC):
     @abstractmethod
-    def upsert_user(self, email: EmailStr, password: str) -> UserUpsert:
+    def upsert_user(
+        self, email: EmailStr, password: str, deadline: Deadline | None = None
+    ) -> UserUpsert:
         """Create the user from the main API's copy, or refresh an existing one's name, role and
-        password from it, once the main API accepts the email and password."""
+        password from it, once the main API accepts the email and password.
+
+        deadline is the time the request has left; without one, API Gateway's timeout."""
 
 
 class CognitoUserService(UserService):
@@ -71,10 +83,39 @@ class CognitoUserService(UserService):
         self._cognito_idp_client = cognito_idp_client
         self._cognito_user_pool_id = cognito_user_pool_id
 
-    def upsert_user(self, email: EmailStr, password: str) -> UserUpsert:
+    def upsert_user(
+        self, email: EmailStr, password: str, deadline: Deadline | None = None
+    ) -> UserUpsert:
+        if deadline is None:
+            deadline = Deadline.for_request(None)
+
         # Every call re-checks the password with the main API, so only the account's owner can
         # create or refresh it, and a password changed on the main API reaches the fallback.
-        user = self._user_validation_service.get_user(email=email, password=password)
+        before_check = deadline.remaining()
+        user = self._user_validation_service.get_user(
+            email=email, password=password, deadline=deadline
+        )
+        check_seconds = before_check - deadline.remaining()
+
+        # A write the re-check can't follow, because the Lambda or API Gateway would stop the
+        # request first, would keep a password the main API never confirmed after the write
+        # (see _recheck). The re-check is given as long as the first check took -- the main
+        # API's latency just now -- so a main API too slow for both leaves the account as it
+        # was, and the client can try again.
+        if deadline.remaining() < COGNITO_WRITE_SECONDS + max(
+            MIN_RECHECK_SECONDS, check_seconds
+        ):
+            logger.warning(
+                "Not writing the fallback account of user %s: the main API took %.1f s to "
+                "check their credentials, leaving %.1f s, too little to check them again",
+                user.id,
+                check_seconds,
+                deadline.remaining(),
+            )
+            raise ServiceUnavailableException(
+                "The main video downloader API answered too slowly to finish the sign-up in "
+                "time; try again"
+            )
 
         existing_user_id = self._existing_user_id(email)
         if existing_user_id is not None and existing_user_id != user.id:
@@ -99,10 +140,12 @@ class CognitoUserService(UserService):
             self._set_password(email, password, user, roll_back=False)
             upsert = UserUpsert(user, created=False)
 
-        self._recheck(email, password, user)
+        self._recheck(email, password, user, deadline)
         return upsert
 
-    def _recheck(self, email: str, password: str, user: User) -> None:
+    def _recheck(
+        self, email: str, password: str, user: User, deadline: Deadline
+    ) -> None:
         """Check the password with the main API again, now that it is in Cognito.
 
         A password reset (or deletion) on the main API that lands between the first check and
@@ -111,8 +154,8 @@ class CognitoUserService(UserService):
         catches it: the main API refuses the old password by then, and the account is deleted.
         """
         try:
-            confirmed = self._user_validation_service.get_user(
-                email=email, password=password
+            confirmed_user_id = self._user_validation_service.check_credentials(
+                email=email, password=password, deadline=deadline
             )
         except HTTPError as error:
             # Only the main API's own credential refusal proves the credentials changed. On any
@@ -123,7 +166,7 @@ class CognitoUserService(UserService):
                 self._remove_after_failed_recheck(email, user)
             raise
 
-        if confirmed.id != user.id:
+        if confirmed_user_id != user.id:
             self._remove_after_failed_recheck(email, user)
             raise IncorrectCredentialsException()
 
