@@ -32,6 +32,7 @@ class TestCognitoAuthenticationService(unittest.TestCase):
         cognito_details = self.cognito_details
         user_validation_service: UserValidationService | MagicMock = MagicMock()
         user_validation_service.get_user.return_value = sample_user
+        user_validation_service.check_credentials.return_value = sample_user.id
 
         user_service: UserService = CognitoUserService(
             user_validation_service=user_validation_service,

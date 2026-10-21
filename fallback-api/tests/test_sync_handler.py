@@ -38,6 +38,7 @@ class TestSyncHandler(unittest.TestCase):
         cognito_details = setup_cognito(__name__)
         user_validation_service = MagicMock()
         user_validation_service.get_user.return_value = sample_user
+        user_validation_service.check_credentials.return_value = sample_user.id
         CognitoUserService(
             user_validation_service=user_validation_service,
             cognito_idp_client=cognito_details.cognito_client,

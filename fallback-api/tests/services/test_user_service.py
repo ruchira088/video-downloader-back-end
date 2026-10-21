@@ -1,19 +1,26 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import requests
 from moto import mock_aws
 
 from src.services.authentication_service import CognitoAuthenticationService
+from src.services.deadline import Deadline
 from src.services.exceptions import (
     IncorrectCredentialsException,
     InvalidPasswordException,
     ServiceUnavailableException,
 )
 from src.services.models.user import Role, User
-from src.services.user_service import CognitoUserService, UserService
+from src.services.user_service import (
+    COGNITO_WRITE_SECONDS,
+    MIN_RECHECK_SECONDS,
+    CognitoUserService,
+    UserService,
+)
 from src.services.user_validation_service import UserValidationService
 from tests.services.test_data_helpers import sample_admin, sample_password, sample_user
+from tests.services.test_deadline import FakeClock
 from tests.services.test_service_helpers import (
     moto_access_token_verifier,
     setup_cognito,
@@ -57,13 +64,17 @@ class TestCognitoUserService(unittest.TestCase):
 
     def _upsert(self, user: User, password: str = sample_password):
         self.user_validation_service.get_user.return_value = user
+        self.user_validation_service.check_credentials.return_value = user.id
         return self.user_service.upsert_user(email=user.email, password=password)
 
     def test_a_new_user_is_created(self):
         upsert = self._upsert(sample_user)
 
-        self.user_validation_service.get_user.assert_called_with(
-            email=sample_user.email, password=sample_password
+        self.user_validation_service.get_user.assert_called_once_with(
+            email=sample_user.email, password=sample_password, deadline=ANY
+        )
+        self.user_validation_service.check_credentials.assert_called_once_with(
+            email=sample_user.email, password=sample_password, deadline=ANY
         )
         self.assertIs(upsert.user, sample_user)
         self.assertTrue(upsert.created)
@@ -139,19 +150,28 @@ class TestCognitoUserService(unittest.TestCase):
         self.assertFalse(upsert.created)
         self._login(sample_user.email, NEW_PASSWORD)
 
-    def _main_api_rejection(self, status_code: int = 401) -> requests.HTTPError:
+    def _main_api_rejection(
+        self,
+        status_code: int = 401,
+        body: bytes = b'{"errorMessages": ["Invalid password"]}',
+        content_type: str = "application/json",
+    ) -> requests.HTTPError:
+        # By default the main API's own refusal: its ExceptionHandler answers an
+        # AuthenticationException with a 401 and an ErrorResponse body.
         response = requests.Response()
         response.status_code = status_code
+        response._content = body
+        response.headers["Content-Type"] = content_type
         return requests.HTTPError(f"{status_code} error", response=response)
 
     def test_a_password_reset_on_the_main_api_during_sign_up_undoes_the_sign_up(self):
         # The sign-up checked the old password just before the main API reset it, and the
         # reset's revocation reached the fallback before the sign-up wrote to Cognito. The
         # re-check after the write, which the main API now refuses, must undo it.
-        self.user_validation_service.get_user.side_effect = [
-            sample_user,
-            self._main_api_rejection(),
-        ]
+        self.user_validation_service.get_user.return_value = sample_user
+        self.user_validation_service.check_credentials.side_effect = (
+            self._main_api_rejection()
+        )
 
         with self.assertRaises(requests.HTTPError):
             self.user_service.upsert_user(
@@ -163,10 +183,10 @@ class TestCognitoUserService(unittest.TestCase):
 
     def test_a_reset_during_the_refresh_of_an_existing_user_removes_the_account(self):
         self._upsert(sample_user)
-        self.user_validation_service.get_user.side_effect = [
-            sample_user,
-            self._main_api_rejection(),
-        ]
+        self.user_validation_service.get_user.return_value = sample_user
+        self.user_validation_service.check_credentials.side_effect = (
+            self._main_api_rejection()
+        )
 
         with self.assertRaises(requests.HTTPError):
             self.user_service.upsert_user(
@@ -181,10 +201,10 @@ class TestCognitoUserService(unittest.TestCase):
     ):
         # Only a refusal proves the password changed; deleting accounts whenever the main API
         # falters would take the fallback away just as it is needed.
-        self.user_validation_service.get_user.side_effect = [
-            sample_user,
-            ServiceUnavailableException("down"),
-        ]
+        self.user_validation_service.get_user.return_value = sample_user
+        self.user_validation_service.check_credentials.side_effect = (
+            ServiceUnavailableException("down")
+        )
 
         with self.assertRaises(ServiceUnavailableException):
             self.user_service.upsert_user(
@@ -197,10 +217,10 @@ class TestCognitoUserService(unittest.TestCase):
         # A 5xx, or any 4xx but 401 and 403, says nothing about the password.
         for status_code in [500, 502, 400, 404, 429]:
             with self.subTest(status_code=status_code):
-                self.user_validation_service.get_user.side_effect = [
-                    sample_user,
-                    self._main_api_rejection(status_code),
-                ]
+                self.user_validation_service.get_user.return_value = sample_user
+                self.user_validation_service.check_credentials.side_effect = (
+                    self._main_api_rejection(status_code)
+                )
 
                 with self.assertRaises(requests.HTTPError):
                     self.user_service.upsert_user(
@@ -210,10 +230,10 @@ class TestCognitoUserService(unittest.TestCase):
                 self._login(sample_user.email, sample_password)
 
     def test_a_forbidden_re_check_also_removes_the_account(self):
-        self.user_validation_service.get_user.side_effect = [
-            sample_user,
-            self._main_api_rejection(403),
-        ]
+        self.user_validation_service.get_user.return_value = sample_user
+        self.user_validation_service.check_credentials.side_effect = (
+            self._main_api_rejection(403)
+        )
 
         with self.assertRaises(requests.HTTPError):
             self.user_service.upsert_user(
@@ -223,6 +243,31 @@ class TestCognitoUserService(unittest.TestCase):
         with self.assertRaises(self.cognito_client.exceptions.UserNotFoundException):
             self._attributes(sample_user.email)
 
+    def test_the_sign_up_is_kept_when_a_proxy_refuses_the_re_check(self):
+        # nginx, the forward proxy or a WAF in front of the main API can answer 401 or 403
+        # themselves; only the main API's own ErrorResponse proves the password changed.
+        for status_code, body, content_type in [
+            (403, b"<html><h1>403 Forbidden</h1></html>", "text/html"),
+            (401, b"<html>401 Authorization Required</html>", "text/html"),
+            (403, b"", "text/plain"),
+            (403, b'{"message": "Forbidden"}', "application/json"),
+            (401, b'{"errorMessages": []}', "application/json"),
+            (401, b'{"errorMessages": "Invalid password"}', "application/json"),
+            (401, b'["Invalid password"]', "application/json"),
+        ]:
+            with self.subTest(status_code=status_code, body=body):
+                self.user_validation_service.get_user.return_value = sample_user
+                self.user_validation_service.check_credentials.side_effect = (
+                    self._main_api_rejection(status_code, body, content_type)
+                )
+
+                with self.assertRaises(requests.HTTPError):
+                    self.user_service.upsert_user(
+                        email=sample_user.email, password=sample_password
+                    )
+
+                self._login(sample_user.email, sample_password)
+
     def test_an_account_replaced_concurrently_is_not_removed_by_a_failed_re_check(
         self,
     ):
@@ -231,21 +276,19 @@ class TestCognitoUserService(unittest.TestCase):
         successor = sample_user.model_copy(update={"id": "successor-id"})
         successor_service = CognitoUserService(
             user_validation_service=MagicMock(
-                get_user=MagicMock(return_value=successor)
+                get_user=MagicMock(return_value=successor),
+                check_credentials=MagicMock(return_value=successor.id),
             ),
             cognito_idp_client=self.cognito_client,
             cognito_user_pool_id=self.cognito_details.user_pool_id,
         )
 
-        checks = iter(["first", "re-check"])
-
-        def validate(email: str, password: str) -> User:
-            if next(checks) == "first":
-                return sample_user
+        def recheck(email: str, password: str, deadline: Deadline) -> str:
             successor_service.upsert_user(email=email, password=NEW_PASSWORD)
             raise self._main_api_rejection(401)
 
-        self.user_validation_service.get_user.side_effect = validate
+        self.user_validation_service.get_user.return_value = sample_user
+        self.user_validation_service.check_credentials.side_effect = recheck
 
         with self.assertRaises(requests.HTTPError):
             self.user_service.upsert_user(
@@ -260,7 +303,89 @@ class TestCognitoUserService(unittest.TestCase):
     def test_the_password_is_checked_with_the_main_api_again_after_the_write(self):
         self._upsert(sample_user)
 
-        self.assertEqual(self.user_validation_service.get_user.call_count, 2)
+        self.user_validation_service.check_credentials.assert_called_once()
+
+    def test_a_re_check_finding_another_user_removes_the_account(self):
+        self.user_validation_service.get_user.return_value = sample_user
+        self.user_validation_service.check_credentials.return_value = "other-id"
+
+        with self.assertRaises(IncorrectCredentialsException):
+            self.user_service.upsert_user(
+                email=sample_user.email, password=sample_password
+            )
+
+        with self.assertRaises(self.cognito_client.exceptions.UserNotFoundException):
+            self._attributes(sample_user.email)
+
+    def _upsert_within(self, seconds: float, first_check_seconds: float):
+        # The first check takes first_check_seconds of a request that has seconds left
+        clock = FakeClock()
+        deadline = Deadline(seconds, clock=clock)
+
+        def first_check(email: str, password: str, deadline: Deadline) -> User:
+            clock.now += first_check_seconds
+            return sample_user
+
+        self.user_validation_service.get_user.side_effect = first_check
+        self.user_validation_service.check_credentials.return_value = sample_user.id
+        return self.user_service.upsert_user(
+            email=sample_user.email, password=sample_password, deadline=deadline
+        )
+
+    def test_the_request_deadline_is_shared_by_both_checks(self):
+        deadline = Deadline(20, clock=FakeClock())
+        self.user_validation_service.get_user.return_value = sample_user
+        self.user_validation_service.check_credentials.return_value = sample_user.id
+
+        self.user_service.upsert_user(
+            email=sample_user.email, password=sample_password, deadline=deadline
+        )
+
+        self.assertIs(
+            self.user_validation_service.get_user.call_args.kwargs["deadline"], deadline
+        )
+        self.assertIs(
+            self.user_validation_service.check_credentials.call_args.kwargs["deadline"],
+            deadline,
+        )
+
+    def test_a_slow_first_check_skips_the_write_when_the_re_check_could_not_finish(
+        self,
+    ):
+        # A main API that took 10 s to answer the first check leaves 7 s of a 17 s request:
+        # not enough to write to Cognito and wait as long again for the re-check, which the
+        # Lambda or API Gateway would cut short, keeping a password the main API never
+        # confirmed after the write.
+        with self.assertRaises(ServiceUnavailableException):
+            self._upsert_within(17, first_check_seconds=10)
+
+        self.user_validation_service.check_credentials.assert_not_called()
+        with self.assertRaises(self.cognito_client.exceptions.UserNotFoundException):
+            self._attributes(sample_user.email)
+
+    def test_a_slow_first_check_keeps_an_existing_users_password(self):
+        self._upsert(sample_user)
+
+        with self.assertRaises(ServiceUnavailableException):
+            self._upsert_within(17, first_check_seconds=10)
+
+        self._login(sample_user.email, sample_password)
+
+    def test_a_first_check_leaving_time_for_the_write_and_re_check_signs_up(self):
+        upsert = self._upsert_within(27, first_check_seconds=10)
+
+        self.assertTrue(upsert.created)
+        self.user_validation_service.check_credentials.assert_called_once()
+        self._login(sample_user.email, sample_password)
+
+    def test_even_a_fast_first_check_needs_a_minimum_time_left_for_the_re_check(self):
+        with self.assertRaises(ServiceUnavailableException):
+            self._upsert_within(
+                COGNITO_WRITE_SECONDS + MIN_RECHECK_SECONDS - 0.5,
+                first_check_seconds=0,
+            )
+
+        self.user_validation_service.check_credentials.assert_not_called()
 
     def test_a_half_created_user_is_repaired_by_the_next_upsert(self):
         # A sign-up that stopped (e.g. the Lambda timed out) between AdminCreateUser and
