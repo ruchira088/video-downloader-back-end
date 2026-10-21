@@ -10,6 +10,7 @@ import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.permission.DoobieVideoPermissionDao
 import com.ruchij.core.daos.permission.models.VideoPermission
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
+import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.video.DoobieVideoDao
@@ -31,6 +32,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
 
 /** Runs PlaylistServiceImpl against real DAOs, on both H2 (PostgreSQL mode) and PostgreSQL. */
 class PlaylistServiceIntegrationSpec extends AnyFlatSpec with Matchers with OptionValues {
@@ -306,6 +308,78 @@ class PlaylistServiceIntegrationSpec extends AnyFlatSpec with Matchers with Opti
         } yield {
           error mustBe a[ResourceNotFoundException]
           playlist.id mustBe NormalUserPlaylistId
+        }
+      }
+
+      def addAlbumArt(fixture: Fixture, fileName: String): IO[Playlist] =
+        fixture.service.addAlbumArt(
+          NormalUserPlaylistId,
+          fileName,
+          MediaType.image.png,
+          Stream.emits[IO, Byte](Array.fill[Byte](16)(1)),
+          AsNormalUser
+        )
+
+      def albumArtOf(playlist: Playlist): IO[FileResource] =
+        IO.fromOption(playlist.albumArt)(new IllegalStateException("The playlist has no album art"))
+
+      s"album art clean up ($databaseName)" should "delete the replaced album art" in runTest(provider) { fixture =>
+        for {
+          first <- addAlbumArt(fixture, "first.png").flatMap(albumArtOf)
+          second <- addAlbumArt(fixture, "second.png").flatMap(albumArtOf)
+          written <- fixture.written.get
+          firstResource <- fixture.transaction(DoobieFileResourceDao.getById(first.id))
+          secondResource <- fixture.transaction(DoobieFileResourceDao.getById(second.id))
+        } yield {
+          written.keySet mustBe Set(second.path)
+          firstResource mustBe None
+          secondResource.map(_.id) mustBe Some(second.id)
+        }
+      }
+
+      it should "delete removed album art" in runTest(provider) { fixture =>
+        for {
+          albumArt <- addAlbumArt(fixture, "art.png").flatMap(albumArtOf)
+          playlist <- fixture.service.removeAlbumArt(NormalUserPlaylistId, AsNormalUser)
+          written <- fixture.written.get
+          resource <- fixture.transaction(DoobieFileResourceDao.getById(albumArt.id))
+        } yield {
+          playlist.albumArt mustBe None
+          written mustBe empty
+          resource mustBe None
+        }
+      }
+
+      it should "delete the album art of a deleted playlist" in runTest(provider) { fixture =>
+        for {
+          albumArt <- addAlbumArt(fixture, "art.png").flatMap(albumArtOf)
+          _ <- fixture.service.deletePlaylist(NormalUserPlaylistId, AsNormalUser)
+          written <- fixture.written.get
+          resource <- fixture.transaction(DoobieFileResourceDao.getById(albumArt.id))
+        } yield {
+          written mustBe empty
+          resource mustBe None
+        }
+      }
+
+      it should "delete a partially written file when the upload is cancelled" in runTest(provider) { fixture =>
+        for {
+          fiber <- fixture.service
+            .addAlbumArt(
+              NormalUserPlaylistId,
+              "art.png",
+              MediaType.image.png,
+              Stream.emits[IO, Byte](Array.fill[Byte](16)(1)) ++ Stream.never[IO],
+              AsNormalUser
+            )
+            .start
+          _ <- fixture.written.get.map(_.nonEmpty).iterateUntil(identity).timeout(10.seconds)
+          _ <- fiber.cancel
+          written <- fixture.written.get
+          playlist <- fixture.service.fetchById(NormalUserPlaylistId, None)
+        } yield {
+          written mustBe empty
+          playlist.albumArt mustBe None
         }
       }
   }

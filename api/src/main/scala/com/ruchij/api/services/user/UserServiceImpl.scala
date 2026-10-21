@@ -2,9 +2,12 @@ package com.ruchij.api.services.user
 
 import cats.data.OptionT
 import cats.implicits._
+import cats.effect.Sync
 import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
 import com.ruchij.api.daos.credentials.CredentialsDao
 import com.ruchij.api.daos.credentials.models.Credentials
+import com.ruchij.api.daos.playlist.PlaylistDao
+import com.ruchij.api.daos.playlist.models.PlaylistSortBy
 import com.ruchij.api.daos.resettoken.CredentialsResetTokenDao
 import com.ruchij.api.daos.resettoken.models.CredentialsResetToken
 import com.ruchij.api.daos.user.UserDao
@@ -15,24 +18,33 @@ import com.ruchij.api.services.fallback.FallbackSyncRequester
 import com.ruchij.api.services.hashing.PasswordHashingService
 import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
 import com.ruchij.core.daos.permission.VideoPermissionDao
+import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.title.VideoTitleDao
 import com.ruchij.core.exceptions.{ResourceNotFoundException, ValidationException}
+import com.ruchij.core.logging.Logger
+import com.ruchij.core.services.models.Order
+import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.types.{Clock, RandomGenerator}
 
 import java.sql.SQLException
 import java.util.UUID
 
-class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: MonadThrow: Clock, G[_]: MonadThrow](
+class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: Sync: Clock, G[_]: MonadThrow](
   passwordHashingService: PasswordHashingService[F],
   userDao: UserDao[G],
   credentialsDao: CredentialsDao[G],
   credentialsResetTokenDao: CredentialsResetTokenDao[G],
   videoTitleDao: VideoTitleDao[G],
   videoPermissionDao: VideoPermissionDao[G],
+  playlistDao: PlaylistDao[G],
+  fileResourceDao: FileResourceDao[G],
+  repositoryService: RepositoryService[F],
   fallbackSyncRequester: FallbackSyncRequester[F]
 )(implicit transaction: G ~> F)
     extends UserService[F] {
   import UserServiceImpl.UniqueViolationSqlState
+
+  private val logger = Logger[UserServiceImpl[F, G]]
 
   override def create(firstName: String, lastName: String, email: Email, password: Password): F[User] =
     for {
@@ -120,10 +132,23 @@ class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: MonadThrow: Clock, G[_]
           _ <- videoTitleDao.delete(None, Some(userId))
           _ <- videoPermissionDao.delete(Some(userId), None)
           _ <- credentialsDao.deleteByUserId(userId)
+
+          // Deleting the user deletes their playlists, but not the album art the playlists refer to
+          playlists <- playlistDao.search(None, Int.MaxValue, 0, Order.Ascending, PlaylistSortBy.CreatedAt, Some(userId))
+          albumArts = playlists.flatMap(_.albumArt)
           _ <- userDao.deleteById(userId).one
-        } yield user -> permissions.map(_.scheduledVideoDownloadId).distinct
-      }.flatMap { case (user, videoIds) =>
-        fallbackSyncRequester.requestAll(videoIds).as(user)
+          _ <- albumArts.traverse_(albumArt => fileResourceDao.deleteById(albumArt.id))
+        } yield (user, permissions.map(_.scheduledVideoDownloadId).distinct, albumArts)
+      }.flatMap { case (user, videoIds, albumArts) =>
+        // The files are deleted once the database no longer refers to them. A failure only leaves a file behind.
+        albumArts
+          .traverse_ { albumArt =>
+            repositoryService.delete(albumArt.path).void.handleErrorWith { throwable =>
+              logger.warn[F](s"Unable to delete the album art file ${albumArt.path}: ${throwable.getMessage}")
+            }
+          }
+          .productR(fallbackSyncRequester.requestAll(videoIds))
+          .as(user)
       }
 
   /**

@@ -325,6 +325,9 @@ object ApiApp extends IOApp {
         DoobieCredentialsResetTokenDao,
         DoobieVideoTitleDao,
         DoobieVideoPermissionDao,
+        playlistDao,
+        DoobieFileResourceDao,
+        repositoryService,
         fallbackSyncRequester
       ),
       fallbackUserRevoker

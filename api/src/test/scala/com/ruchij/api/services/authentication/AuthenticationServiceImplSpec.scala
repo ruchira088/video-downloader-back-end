@@ -3,6 +3,7 @@ package com.ruchij.api.services.authentication
 import cats.effect.{IO, Ref}
 import com.ruchij.api.daos.credentials.DoobieCredentialsDao
 import com.ruchij.api.daos.credentials.models.Credentials.HashedPassword
+import com.ruchij.api.daos.playlist.DoobiePlaylistDao
 import com.ruchij.api.daos.resettoken.DoobieCredentialsResetTokenDao
 import com.ruchij.api.daos.user.DoobieUserDao
 import com.ruchij.api.daos.user.models.{Email, Role, User}
@@ -16,10 +17,13 @@ import com.ruchij.api.services.hashing.{BCryptPasswordHashingService, PasswordHa
 import com.ruchij.api.services.user.{UserService, UserServiceImpl}
 import com.ruchij.api.test.matchers.haveInstant
 import com.ruchij.core.daos.permission.DoobieVideoPermissionDao
+import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.title.DoobieVideoTitleDao
+import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.kv.{KeySpacedKeyValueStore, KeyValueStore, RedisKeyValueStore}
 import com.ruchij.core.kv.codecs.KVEncoder
 import com.ruchij.core.kv.keys.KeySpacedKeyEncoder
+import com.ruchij.core.services.repository.InMemoryRepositoryService
 import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import com.ruchij.core.types.{Clock, RandomGenerator, TimeUtils}
 import doobie.free.connection.ConnectionIO
@@ -29,6 +33,7 @@ import org.scalatest.matchers.must.Matchers
 
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
@@ -139,6 +144,9 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
                   DoobieCredentialsResetTokenDao,
                   DoobieVideoTitleDao,
                   DoobieVideoPermissionDao,
+                  new DoobiePlaylistDao(DoobieFileResourceDao, DoobieVideoDao),
+                  DoobieFileResourceDao,
+                  new InMemoryRepositoryService[IO](new ConcurrentHashMap[String, List[Byte]]()),
                   FallbackSyncRequester.noOp[IO]
                 )
 

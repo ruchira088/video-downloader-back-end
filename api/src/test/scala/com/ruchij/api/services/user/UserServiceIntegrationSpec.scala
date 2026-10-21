@@ -17,6 +17,7 @@ import com.ruchij.api.test.data.ApiTestData
 import com.ruchij.core.daos.doobie.DoobieCustomMappings.instantPut
 import com.ruchij.core.daos.permission.DoobieVideoPermissionDao
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
+import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.title.DoobieVideoTitleDao
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videowatchhistory.DoobieVideoWatchHistoryDao
@@ -25,13 +26,16 @@ import com.ruchij.core.exceptions.ValidationException
 import com.ruchij.core.external.CoreResourcesProvider
 import com.ruchij.core.external.containers.ContainerCoreResourcesProvider
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
+import com.ruchij.core.services.repository.InMemoryRepositoryService
 import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import com.ruchij.core.test.data.CoreTestData
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
+import org.http4s.MediaType
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
+import java.util.concurrent.ConcurrentHashMap
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
@@ -53,9 +57,10 @@ class UserServiceIntegrationSpec extends AnyFlatSpec with Matchers {
     override def lockAdminIds: ConnectionIO[List[String]] = DoobieUserDao.lockAdminIds
   }
 
-  private def userService(userDao: UserDao[ConnectionIO] = DoobieUserDao)(
-    implicit transaction: ConnectionIO ~> IO
-  ): UserServiceImpl[IO, ConnectionIO] =
+  private def userService(
+    userDao: UserDao[ConnectionIO] = DoobieUserDao,
+    files: ConcurrentHashMap[String, List[Byte]] = new ConcurrentHashMap[String, List[Byte]]()
+  )(implicit transaction: ConnectionIO ~> IO): UserServiceImpl[IO, ConnectionIO] =
     new UserServiceImpl[IO, ConnectionIO](
       new BCryptPasswordHashingService[IO],
       userDao,
@@ -63,6 +68,9 @@ class UserServiceIntegrationSpec extends AnyFlatSpec with Matchers {
       DoobieCredentialsResetTokenDao,
       DoobieVideoTitleDao,
       DoobieVideoPermissionDao,
+      new DoobiePlaylistDao(DoobieFileResourceDao, DoobieVideoDao),
+      DoobieFileResourceDao,
+      new InMemoryRepositoryService[IO](files),
       FallbackSyncRequester.noOp[IO]
     )
 
@@ -128,6 +136,28 @@ class UserServiceIntegrationSpec extends AnyFlatSpec with Matchers {
             playlistVideos mustBe 0
             maybeUser mustBe None
           }
+      }
+
+      it should "delete the album art of the user's playlists" in runTest(provider) { implicit transaction =>
+        val files = new ConcurrentHashMap[String, List[Byte]]()
+        val albumArt = FileResource("album-art", CoreTestData.Timestamp, "images/album-art.png", MediaType.image.png, 4)
+        val userId = ApiTestData.NormalUser.id
+
+        for {
+          _ <- IO.delay(files.put(albumArt.path, List[Byte](1, 2, 3, 4)))
+          _ <- transaction {
+            DoobieFileResourceDao.insert(albumArt) *>
+              new DoobiePlaylistDao(DoobieFileResourceDao, DoobieVideoDao)
+                .insert(Playlist("playlist", userId, CoreTestData.Timestamp, "Mine", None, Nil, Some(albumArt)))
+          }
+
+          _ <- userService(files = files).delete(userId, ApiTestData.AdminUser)
+
+          resource <- transaction(DoobieFileResourceDao.getById(albumArt.id))
+        } yield {
+          resource mustBe None
+          files.containsKey(albumArt.path) mustBe false
+        }
       }
 
       it should "not let an admin delete their own account" in runTest(provider) { implicit transaction =>

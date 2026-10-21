@@ -1,7 +1,8 @@
 package com.ruchij.api.services.playlist
 
 import cats.data.OptionT
-import cats.effect.Sync
+import cats.effect.{Outcome, Sync}
+import cats.effect.implicits._
 import cats.implicits._
 import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
 import com.ruchij.api.daos.playlist.PlaylistDao
@@ -11,6 +12,7 @@ import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.exceptions.{InvalidConditionException, ResourceNotFoundException, ValidationException}
+import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.models.Order
 import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.types.{Clock, RandomGenerator}
@@ -29,6 +31,8 @@ class PlaylistServiceImpl[F[_]: Sync: Clock: RandomGenerator[*[_], UUID], G[_]: 
   maxAlbumArtSize: Long = PlaylistService.MaxAlbumArtSize
 )(implicit transaction: G ~> F)
     extends PlaylistService[F] {
+
+  private val logger = Logger[PlaylistServiceImpl[F, G]]
 
   override def create(title: String, description: Option[String], userId: String): F[Playlist] =
     for {
@@ -85,11 +89,15 @@ class PlaylistServiceImpl[F[_]: Sync: Clock: RandomGenerator[*[_], UUID], G[_]: 
       id <- RandomGenerator[F, UUID].generate.map(_.toString)
       fileKey = s"${storageConfiguration.imageFolder}/${id.take(8)}-$fileName"
 
-      playlist <- saveAlbumArt(playlistId, id, timestamp, fileKey, mediaType, data, maybeUserId)
-        .onError { _ =>
-          // Removes a partially written file, or one that is not referenced because the update failed
-          repositoryService.delete(fileKey).attempt.void
+      (playlist, maybeReplaced) <- saveAlbumArt(playlistId, id, timestamp, fileKey, mediaType, data, maybeUserId)
+        .guaranteeCase {
+          case Outcome.Succeeded(_) => Applicative[F].unit
+
+          // Removes a partially written file, or one that is not referenced because the update failed or was cancelled
+          case _ => deleteFile(fileKey)
         }
+
+      _ <- maybeReplaced.traverse_(replaced => deleteFile(replaced.path))
     } yield playlist
 
   private def saveAlbumArt(
@@ -100,27 +108,29 @@ class PlaylistServiceImpl[F[_]: Sync: Clock: RandomGenerator[*[_], UUID], G[_]: 
     mediaType: MediaType,
     data: Stream[F, Byte],
     maybeUserId: Option[String]
-  ): F[Playlist] =
+  ): F[(Playlist, Option[FileResource])] =
     for {
       _ <- repositoryService.write(fileKey, data.through(limitSize(maxAlbumArtSize))).compile.drain
       fileSize <- OptionT(repositoryService.size(fileKey))
         .getOrElseF(ApplicativeError[F, Throwable].raiseError(InvalidConditionException("Unable to find saved file")))
       fileResource = FileResource(fileResourceId, timestamp, fileKey, mediaType, fileSize)
 
-      maybePlaylist <- transaction {
-        fileResourceDao
-          .insert(fileResource)
-          .productR {
+      result <- transaction {
+        for {
+          _ <- fileResourceDao.insert(fileResource)
+          existing <- findPlaylist(playlistId, maybeUserId)
+          _ <- OptionT(
             playlistDao
               .update(playlistId, None, None, None, Some(Right(fileResource.id)), maybeUserId)
               .singleUpdate
-              .productR(OptionT(playlistDao.findById(playlistId, maybeUserId)))
               .value
-          }
+          ).getOrRaise(playlistNotFoundException(playlistId))
+          // The replaced album art is no longer referenced, so its file resource goes with it
+          _ <- existing.albumArt.traverse_(albumArt => fileResourceDao.deleteById(albumArt.id))
+          playlist <- findPlaylist(playlistId, maybeUserId)
+        } yield playlist -> existing.albumArt
       }
-
-      playlist <- OptionT.fromOption[F](maybePlaylist).getOrElseF(playlistNotFound(playlistId))
-    } yield playlist
+    } yield result
 
   private def validateAlbumArtMediaType(mediaType: MediaType): F[Unit] =
     if (PlaylistService.AlbumArtMediaTypes.contains(mediaType)) Applicative[F].unit
@@ -140,23 +150,36 @@ class PlaylistServiceImpl[F[_]: Sync: Clock: RandomGenerator[*[_], UUID], G[_]: 
     StreamUtils.limitSize[F](maxSize)(ValidationException(s"Album art exceeds the maximum size of $maxSize bytes"))
 
   override def removeAlbumArt(playlistId: String, maybeUserId: Option[String]): F[Playlist] =
-    transaction {
-      playlistDao
-        .update(playlistId, None, None, None, Some(Left((): Unit)), maybeUserId)
-        .singleUpdate
-        .value
-        .productR(playlistDao.findById(playlistId, maybeUserId))
-    }.flatMap { maybePlaylist =>
-      OptionT.fromOption[F](maybePlaylist).getOrElseF(playlistNotFound(playlistId))
-    }
+    for {
+      (playlist, maybeRemoved) <- transaction {
+        for {
+          existing <- findPlaylist(playlistId, maybeUserId)
+          _ <- playlistDao.update(playlistId, None, None, None, Some(Left((): Unit)), maybeUserId)
+          _ <- existing.albumArt.traverse_(albumArt => fileResourceDao.deleteById(albumArt.id))
+          playlist <- findPlaylist(playlistId, maybeUserId)
+        } yield playlist -> existing.albumArt
+      }
+
+      _ <- maybeRemoved.traverse_(removed => deleteFile(removed.path))
+    } yield playlist
 
   override def deletePlaylist(playlistId: String, maybeUserId: Option[String]): F[Playlist] =
-    transaction {
-      playlistDao
-        .findById(playlistId, maybeUserId)
-        .productL(playlistDao.deleteById(playlistId, maybeUserId))
-    }.flatMap { maybePlaylist =>
-      OptionT.fromOption[F](maybePlaylist).getOrElseF(playlistNotFound(playlistId))
+    for {
+      playlist <- transaction {
+        for {
+          playlist <- findPlaylist(playlistId, maybeUserId)
+          _ <- playlistDao.deleteById(playlistId, maybeUserId)
+          _ <- playlist.albumArt.traverse_(albumArt => fileResourceDao.deleteById(albumArt.id))
+        } yield playlist
+      }
+
+      _ <- playlist.albumArt.traverse_(albumArt => deleteFile(albumArt.path))
+    } yield playlist
+
+  /** Deletes a file that is no longer referenced. A failure only leaves the file behind, so it is logged, not raised. */
+  private def deleteFile(fileKey: String): F[Unit] =
+    repositoryService.delete(fileKey).void.handleErrorWith { throwable =>
+      logger.warn[F](s"Unable to delete the album art file $fileKey: ${throwable.getMessage}")
     }
 
   private def findPlaylist(playlistId: String, maybeUserId: Option[String]): G[Playlist] =
