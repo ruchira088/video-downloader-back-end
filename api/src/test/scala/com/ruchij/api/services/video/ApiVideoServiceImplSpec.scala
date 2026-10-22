@@ -18,7 +18,7 @@ import com.ruchij.core.daos.snapshot.models.Snapshot
 import com.ruchij.core.daos.title.VideoTitleDao
 import com.ruchij.core.daos.title.models.VideoTitle
 import com.ruchij.core.daos.video.VideoDao
-import com.ruchij.core.daos.video.models.Video
+import com.ruchij.core.daos.video.models.{Video, VideoSiteSummary}
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata, VideoSite}
 import com.ruchij.core.daos.videowatchhistory.VideoWatchHistoryDao
@@ -127,7 +127,8 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     countResult: Int = 0,
     sizeResult: Long = 0L,
     durationResult: FiniteDuration = 0 seconds,
-    sitesResult: Set[VideoSite] = Set.empty
+    sitesResult: Set[VideoSite] = Set.empty,
+    siteSummariesResult: Seq[VideoSiteSummary] = Seq.empty
   ): VideoDao[IO] = new VideoDao[IO] {
     override def insert(videoMetadataId: String, videoFileResourceId: String, timestamp: Instant, watchTime: FiniteDuration): IO[Int] = IO.pure(1)
     override def search(term: Option[String], videoUrls: Option[NonEmptyList[Uri]], durationRange: RangeValue[FiniteDuration], sizeRange: RangeValue[Long], pageNumber: Int, pageSize: Int, sortBy: SortBy, order: Order, videoSites: Option[NonEmptyList[VideoSite]], maybeUserId: Option[String]): IO[Seq[Video]] = IO.pure(searchResult)
@@ -143,6 +144,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     override val duration: IO[FiniteDuration] = IO.pure(durationResult)
     override val size: IO[Long] = IO.pure(sizeResult)
     override val sites: IO[Set[VideoSite]] = IO.pure(sitesResult)
+    override val siteSummaries: IO[Seq[VideoSiteSummary]] = IO.pure(siteSummariesResult)
   }
 
   private def createStubVideoMetadataDao(
@@ -800,6 +802,12 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
 
     val sites: Set[VideoSite] = Set(CustomVideoSite.SpankBang, CustomVideoSite.PornOne)
 
+    val siteSummaries: Seq[VideoSiteSummary] =
+      Seq(
+        VideoSiteSummary(CustomVideoSite.SpankBang, 60, 3000000000L, 300 hours, 20 hours),
+        VideoSiteSummary(CustomVideoSite.PornOne, 40, 2000000000L, 200 hours, 0 seconds)
+      )
+
     val apiVideoService = createService(
       createStubVideoService(),
       createStubPublisher(),
@@ -808,7 +816,8 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
         countResult = 100,
         sizeResult = 5000000000L,
         durationResult = 500 hours,
-        sitesResult = sites
+        sitesResult = sites,
+        siteSummariesResult = siteSummaries
       ),
       createStubVideoMetadataDao(),
       createStubSnapshotDao(),
@@ -817,7 +826,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     )
 
     apiVideoService.summary.map { summary =>
-      summary mustBe VideoServiceSummary(100, 5000000000L, 500 hours, sites)
+      summary mustBe VideoServiceSummary(100, 5000000000L, 500 hours, sites, siteSummaries)
     }
   }
 

@@ -124,7 +124,8 @@ class ApiVideoServiceImpl[F[_]: MonadThrow: Clock, G[_]: MonadThrow](
         size <- videoDao.size
         duration <- videoDao.duration
         sites <- videoDao.sites
-      } yield VideoServiceSummary(count, size, duration, sites)
+        siteBreakdown <- videoDao.siteSummaries
+      } yield VideoServiceSummary(count, size, duration, sites, siteBreakdown)
     }
 
   override val scanForVideos: F[VideoScan] =

@@ -9,7 +9,7 @@ import com.ruchij.batch.external.containers.ContainerBatchResourcesProvider
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.video.DoobieVideoDao
-import com.ruchij.core.daos.video.models.Video
+import com.ruchij.core.daos.video.models.{Video, VideoSiteSummary}
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
 import com.ruchij.core.exceptions.ResourceNotFoundException
@@ -142,6 +142,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
     override val duration: IO[FiniteDuration] = IO.pure(0.seconds)
     override val size: IO[Long] = IO.pure(0L)
     override val sites: IO[Set[VideoSite]] = IO.pure(Set.empty)
+    override val siteSummaries: IO[Seq[VideoSiteSummary]] = IO.pure(Seq.empty)
   }
 
   class StubVideoMetadataDao extends com.ruchij.core.daos.videometadata.VideoMetadataDao[IO] {

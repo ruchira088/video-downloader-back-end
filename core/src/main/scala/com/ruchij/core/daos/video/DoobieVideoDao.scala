@@ -5,7 +5,7 @@ import cats.implicits._
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 import com.ruchij.core.daos.doobie.DoobieUtils.{SingleUpdateOps, ordering, sortByFieldName}
 import com.ruchij.core.daos.scheduling.models.RangeValue
-import com.ruchij.core.daos.video.models.Video
+import com.ruchij.core.daos.video.models.{Video, VideoSiteSummary}
 import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.services.models.{Order, SortBy}
 import doobie.Fragments.{in, whereAndOpt}
@@ -252,4 +252,26 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
     """
       .query[VideoSite]
       .to[Set]
+
+  /**
+    * SUM over a BIGINT column is NUMERIC in PostgreSQL, so each sum is cast back to BIGINT. The watch time join is a
+    * LEFT JOIN so that a video without a `video_watch_time` row counts as zero rather than being dropped.
+    */
+  override val siteSummaries: ConnectionIO[Seq[VideoSiteSummary]] =
+    sql"""
+      SELECT
+        video_metadata.video_site,
+        COUNT(*),
+        CAST(COALESCE(SUM(file_resource.size), 0) AS BIGINT),
+        CAST(COALESCE(SUM(video_metadata.duration), 0) AS BIGINT),
+        CAST(COALESCE(SUM(video_watch_time.watch_time_in_ms), 0) AS BIGINT)
+      FROM video
+      JOIN video_metadata ON video.video_metadata_id = video_metadata.id
+      JOIN file_resource ON video.file_resource_id = file_resource.id
+      LEFT JOIN video_watch_time ON video_watch_time.video_id = video.video_metadata_id
+      GROUP BY video_metadata.video_site
+      ORDER BY COUNT(*) DESC, video_metadata.video_site ASC
+    """
+      .query[VideoSiteSummary]
+      .to[Seq]
 }

@@ -17,7 +17,7 @@ import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownloa
 import com.ruchij.core.daos.snapshot.SnapshotDao
 import com.ruchij.core.daos.snapshot.models.Snapshot
 import com.ruchij.core.daos.video.VideoDao
-import com.ruchij.core.daos.video.models.Video
+import com.ruchij.core.daos.video.models.{Video, VideoSiteSummary}
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
 import com.ruchij.core.daos.workers.models.VideoScan.ScanStatus
@@ -864,6 +864,8 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
     override val size: IO[Long] = notImplemented
 
     override val sites: IO[Set[VideoSite]] = notImplemented
+
+    override val siteSummaries: IO[Seq[VideoSiteSummary]] = notImplemented
   }
 
   private class StubSnapshotDao(snapshots: Ref[IO, Map[String, Seq[Snapshot]]]) extends SnapshotDao[IO] {

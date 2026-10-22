@@ -2,7 +2,7 @@ package com.ruchij.core.daos.video
 
 import cats.data.NonEmptyList
 import com.ruchij.core.daos.scheduling.models.RangeValue
-import com.ruchij.core.daos.video.models.Video
+import com.ruchij.core.daos.video.models.{Video, VideoSiteSummary}
 import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.services.models.{Order, SortBy}
 import org.http4s.Uri
@@ -64,4 +64,7 @@ trait VideoDao[F[_]] {
   val size: F[Long]
 
   val sites: F[Set[VideoSite]]
+
+  /** Per-site totals, ordered by video count descending and then by site name. */
+  val siteSummaries: F[Seq[VideoSiteSummary]]
 }

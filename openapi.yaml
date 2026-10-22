@@ -1225,12 +1225,44 @@ components:
           type: integer
           format: int64
         totalDuration:
-          type: integer
-          description: Total duration in seconds
+          $ref: '#/components/schemas/FiniteDuration'
         sites:
           type: array
           items:
             type: string
+        siteBreakdown:
+          type: array
+          description: Totals per site, ordered by video count descending and then by site name
+          items:
+            $ref: '#/components/schemas/VideoSiteSummary'
+
+    VideoSiteSummary:
+      type: object
+      properties:
+        site:
+          type: string
+          description: Lowercased site name
+        videoCount:
+          type: integer
+        totalSize:
+          type: integer
+          format: int64
+        totalDuration:
+          $ref: '#/components/schemas/FiniteDuration'
+        watchTime:
+          description: Watch time summed across all users
+          allOf:
+            - $ref: '#/components/schemas/FiniteDuration'
+
+    FiniteDuration:
+      type: object
+      properties:
+        length:
+          type: integer
+          format: int64
+        unit:
+          type: string
+          enum: [NANOSECONDS, MICROSECONDS, MILLISECONDS, SECONDS, MINUTES, HOURS, DAYS]
 
     VideoScanProgressResponse:
       type: object

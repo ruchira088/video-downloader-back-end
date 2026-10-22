@@ -6,7 +6,7 @@ import cats.~>
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.video.VideoDao
-import com.ruchij.core.daos.video.models.Video
+import com.ruchij.core.daos.video.models.{Video, VideoSiteSummary}
 import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
 import com.ruchij.core.exceptions.{InvalidConditionException, ResourceNotFoundException}
@@ -111,6 +111,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     override val duration: IO[FiniteDuration] = IO.pure(0.seconds)
     override val size: IO[Long] = IO.pure(0L)
     override val sites: IO[Set[VideoSite]] = IO.pure(Set.empty)
+    override val siteSummaries: IO[Seq[VideoSiteSummary]] = IO.pure(Seq.empty)
   }
 
   class StubVideoMetadataDao(

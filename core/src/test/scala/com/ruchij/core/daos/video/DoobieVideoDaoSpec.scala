@@ -17,7 +17,7 @@ import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.types.Clock
 import doobie.ConnectionIO
 import doobie.implicits._
-import org.http4s.MediaType
+import org.http4s.{MediaType, Uri}
 import org.http4s.implicits.http4sLiteralsSyntax
 import java.time.Instant
 import org.scalatest.OptionValues
@@ -463,6 +463,71 @@ class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
 
       _ <- IO.delay {
         videoSites mustBe Set[VideoSite](CustomVideoSite.SpankBang)
+      }
+    } yield ()
+  }
+
+  it should "summarise videos per site, ordered by video count and then by site name" in runTest { fixture =>
+    def insertVideo(
+      videoId: String,
+      videoSite: VideoSite,
+      duration: FiniteDuration,
+      size: Long,
+      watchTime: FiniteDuration
+    ): ConnectionIO[Unit] =
+      for {
+        timestamp <- doobie.free.connection.delay(Instant.now())
+        videoMetadata = VideoMetadata(
+          Uri.unsafeFromString(s"https://example.com/$videoId"),
+          videoId,
+          videoSite,
+          s"Title of $videoId",
+          duration,
+          size,
+          fixture.thumbnailFileResource
+        )
+        _ <- DoobieVideoMetadataDao.insert(videoMetadata)
+        videoFileResource = FileResource(s"$videoId-file", timestamp, s"/opt/video/$videoId.mp4", MediaType.video.mp4, size)
+        _ <- DoobieFileResourceDao.insert(videoFileResource)
+        _ <- DoobieVideoDao.insert(videoId, videoFileResource.id, timestamp, watchTime)
+      } yield ()
+
+    for {
+      _ <- fixture.transaction(DoobieVideoDao.incrementWatchTime(fixture.video.videoMetadata.id, 2 minutes))
+      _ <- fixture.transaction(insertVideo("spankbang-2", CustomVideoSite.SpankBang, 10 minutes, 100000, 3 minutes))
+      _ <- fixture.transaction(insertVideo("pornone-1", CustomVideoSite.PornOne, 7 minutes, 20000, 1 minute))
+      _ <- fixture.transaction(insertVideo("freshporno-1", CustomVideoSite.FreshPorno, 4 minutes, 30000, 0 seconds))
+      // A video without a watch time row still counts, with no watch time
+      _ <- fixture.transaction(sql"DELETE FROM video_watch_time WHERE video_id = 'freshporno-1'".update.run)
+
+      siteSummaries <- fixture.transaction(DoobieVideoDao.siteSummaries)
+
+      _ <- IO.delay {
+        siteSummaries.map(summary => (summary.site, summary.videoCount, summary.totalSize)) mustBe
+          Seq[(VideoSite, Int, Long)](
+            (CustomVideoSite.SpankBang, 2, 150000L),
+            (CustomVideoSite.FreshPorno, 1, 30000L),
+            (CustomVideoSite.PornOne, 1, 20000L)
+          )
+
+        siteSummaries.map(summary => (summary.totalDuration.toMillis, summary.watchTime.toMillis)) mustBe
+          Seq(
+            ((15 minutes).toMillis, (5 minutes).toMillis),
+            ((4 minutes).toMillis, 0L),
+            ((7 minutes).toMillis, (1 minute).toMillis)
+          )
+      }
+    } yield ()
+  }
+
+  it should "return no site summaries when no videos exist" in runTest { fixture =>
+    for {
+      _ <- fixture.transaction(DoobieVideoDao.deleteById(fixture.video.videoMetadata.id))
+
+      siteSummaries <- fixture.transaction(DoobieVideoDao.siteSummaries)
+
+      _ <- IO.delay {
+        siteSummaries mustBe empty
       }
     } yield ()
   }

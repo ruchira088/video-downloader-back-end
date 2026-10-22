@@ -14,7 +14,7 @@ import com.ruchij.core.daos.snapshot.models.Snapshot
 import com.ruchij.core.daos.title.VideoTitleDao
 import com.ruchij.core.daos.title.models.VideoTitle
 import com.ruchij.core.daos.video.VideoDao
-import com.ruchij.core.daos.video.models.Video
+import com.ruchij.core.daos.video.models.{Video, VideoSiteSummary}
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
 import com.ruchij.core.daos.videowatchhistory.VideoWatchHistoryDao
 import com.ruchij.core.daos.videowatchhistory.models.{DetailedVideoWatchHistory, VideoWatchHistory}
@@ -120,6 +120,7 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
     override val duration: IO[FiniteDuration] = IO.pure(0.seconds)
     override val size: IO[Long] = IO.pure(0L)
     override val sites: IO[Set[VideoSite]] = IO.pure(Set.empty)
+    override val siteSummaries: IO[Seq[VideoSiteSummary]] = IO.pure(Seq.empty)
   }
 
   class StubSnapshotDao(findByVideoResult: Seq[Snapshot] = Seq.empty) extends SnapshotDao[IO] {
