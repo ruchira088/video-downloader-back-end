@@ -1,6 +1,7 @@
 package com.ruchij.api.services.background
 
 import cats.{Foldable, Functor}
+import cats.effect.testkit.TestControl
 import cats.effect.{Deferred, IO}
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.api.services.scheduling.ApiSchedulingService
@@ -127,6 +128,10 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
     }
   }
 
+  // A topic drops messages published before a subscriber has registered, so wait for the subscribers to register
+  private def awaitSubscribers[A](topic: Topic[IO, A], count: Int = 1): IO[Unit] =
+    topic.subscribers.find(_ >= count).compile.drain.timeout(10.seconds)
+
   "downloadProgress" should "create a stream from the topic" in runIO {
     for {
       downloadProgressTopic <- Topic[IO, DownloadProgress]
@@ -154,7 +159,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
         .timeout(5 seconds)
         .start
         .flatMap { fiber =>
-          IO.sleep(1 second) *>
+          awaitSubscribers(downloadProgressTopic) *>
             downloadProgressTopic.publish1(progress) *>
             fiber.joinWithNever
         }
@@ -189,10 +194,10 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
       healthCheck = HealthCheckMessage("instance-1", timestamp)
 
       received <- service.healthChecks.take(1).compile.toList
-        .timeout(1.second)
+        .timeout(10.seconds)
         .start
         .flatMap { fiber =>
-          IO.sleep(50.millis) *>
+          awaitSubscribers(healthCheckTopic) *>
             healthCheckTopic.publish1(healthCheck) *>
             fiber.joinWithNever
         }
@@ -225,10 +230,10 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
       )
 
       received <- service.updates.take(1).compile.toList
-        .timeout(1.second)
+        .timeout(10.seconds)
         .start
         .flatMap { fiber =>
-          IO.sleep(50.millis) *>
+          awaitSubscribers(scheduleVideoDownloadsTopic) *>
             scheduleVideoDownloadsTopic.publish1(sampleScheduledVideoDownload) *>
             fiber.joinWithNever
         }
@@ -299,8 +304,9 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
 
       // Start receiving from topic before running the service
       receivedFiber <- downloadProgressTopic.subscribe(10).take(1).compile.toList
-        .timeout(2.seconds)
+        .timeout(10.seconds)
         .start
+      _ <- awaitSubscribers(downloadProgressTopic)
 
       // Start the service
       fiber <- service.run
@@ -339,25 +345,27 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
         "test-group"
       )
 
-      // Start the service
-      fiber <- service.run
+      // Virtual time, so that the 5 second batch window elapses without waiting for it
+      _ <- TestControl.executeEmbed {
+        for {
+          fiber <- service.run
+          // The service subscribes to the topic itself
+          _ <- awaitSubscribers(downloadProgressTopic)
 
-      // Give the service time to start
-      _ <- IO.sleep(1 second)
+          _ <- downloadProgressTopic.publish1(DownloadProgress("video-1", timestamp, 1024L))
+          _ <- downloadProgressTopic.publish1(DownloadProgress("video-1", timestamp.plusSeconds(1), 2048L))
+          _ <- downloadProgressTopic.publish1(DownloadProgress("video-2", timestamp, 512L))
 
-      // Publish progress to the topic
-      _ <- downloadProgressTopic.publish1(DownloadProgress("video-1", timestamp, 1024L))
-      _ <- downloadProgressTopic.publish1(DownloadProgress("video-1", timestamp.plus(java.time.Duration.ofSeconds(1)), 2048L))
-      _ <- downloadProgressTopic.publish1(DownloadProgress("video-2", timestamp, 512L))
-
-      // Wait for batch window (5 seconds is the window, but we'll wait a bit extra)
-      _ <- IO.sleep(6 seconds)
-
-      _ <- fiber.cancel
+          _ <- IO.sleep(6 seconds)
+          _ <- fiber.cancel
+        } yield ()
+      }
 
       _ <- IO.delay {
-        // Should have processed the progress updates
-        apiSchedulingService.updatedProgress.size must be >= 1
+        // One update per video in the batch, with the most bytes downloaded
+        apiSchedulingService.updatedProgress.toSet mustBe
+          Set(("video-1", timestamp.plusSeconds(1), 2048L), ("video-2", timestamp, 512L))
+        apiSchedulingService.updatedProgress.size mustBe 2
       }
     } yield ()
   }
@@ -398,8 +406,7 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
         .timeout(30 seconds)
         .start
 
-      // Give the topic subscription time to register
-      _ <- IO.sleep(500.millis)
+      _ <- awaitSubscribers(healthCheckTopic)
 
       // Start the service
       fiber <- service.run
@@ -453,8 +460,8 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
       // Start the service
       fiber <- service.run
 
-      // Allow the topic subscriber to register, then release the gate so the stub emits
-      _ <- IO.sleep(1 second)
+      // Release the gate so the stub emits once the topic subscriber has registered
+      _ <- awaitSubscribers(scheduleVideoDownloadsTopic)
       _ <- gate.complete(())
 
       received <- receivedFiber.joinWithNever

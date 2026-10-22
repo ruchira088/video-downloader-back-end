@@ -11,10 +11,10 @@ import com.ruchij.core.daos.messaging.{
   MessageDao
 }
 import com.ruchij.core.external.containers.PostgresContainer
-import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage
 import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage._
+import com.ruchij.core.messaging.PublisherSubscriberSpec.{PubSubFixture, SubscriptionReadiness, TestMessage}
 import com.ruchij.core.messaging.db.{DoobiePublisher, DoobieSubscriber}
-import com.ruchij.core.messaging.{Publisher, PublisherSubscriberSpec, Subscriber}
+import com.ruchij.core.messaging.PublisherSubscriberSpec
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.types.Clock
 import com.ruchij.migration.MigrationApp
@@ -63,14 +63,30 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
         }
       }
 
-  override def resource: Resource[IO, (Publisher[IO, TestMessage], Subscriber[IO, TestMessage])] =
+  override def fixture: Resource[IO, PubSubFixture] =
     daoResource.map { case (messageDao, transaction) =>
       implicit val tx: ConnectionIO ~> IO = transaction
 
       val publisher = new DoobiePublisher[IO, ConnectionIO, TestMessage](messageDao)
       val subscriber =
         DoobieSubscriber.create[IO, ConnectionIO, TestMessage](DoobieMessageConsumerGroupDao, 500 milliseconds)
-      (publisher: Publisher[IO, TestMessage], subscriber: Subscriber[IO, TestMessage])
+
+      val readiness =
+        new SubscriptionReadiness {
+          // A new group starts from the latest message, so a message published before the first poll created the
+          // group would be skipped. Creating the groups up front makes them start before anything is published.
+          override def prepare(partitions: Int, groupIds: String*): IO[Unit] =
+            Clock[IO].timestamp.flatMap { timestamp =>
+              groupIds.toList.traverse_ { groupId =>
+                transaction(DoobieMessageConsumerGroupDao.createGroup(channel, groupId, timestamp))
+              }
+            }
+
+          // Messages wait in the table for the group, so a subscriber that has not polled yet still receives them
+          override def awaitReady(subscribersByGroup: (String, Int)*): IO[Unit] = IO.unit
+        }
+
+      PubSubFixture(publisher, subscriber, readiness)
     }
 
   override def testTimeout: FiniteDuration = 30 seconds

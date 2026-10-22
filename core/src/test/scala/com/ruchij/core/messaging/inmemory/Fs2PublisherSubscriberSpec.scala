@@ -1,8 +1,9 @@
 package com.ruchij.core.messaging.inmemory
 
 import cats.effect.{IO, Resource}
-import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage
-import com.ruchij.core.messaging.{Publisher, PublisherSubscriberSpec, Subscriber}
+import com.ruchij.core.messaging.PublisherSubscriberSpec.{PubSubFixture, SubscriptionReadiness, TestMessage}
+import com.ruchij.core.messaging.PublisherSubscriberSpec
+import fs2.concurrent.Topic
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
@@ -14,8 +15,25 @@ class Fs2PublisherSubscriberSpec
     with Matchers
     with PublisherSubscriberSpec {
 
-  override def resource: Resource[IO, (Publisher[IO, TestMessage], Subscriber[IO, TestMessage])] =
-    Resource.eval(Fs2PubSub[IO, TestMessage]).map(pubSub => (pubSub, pubSub))
+  override def fixture: Resource[IO, PubSubFixture] =
+    Resource.eval(Topic[IO, TestMessage]).map { topic =>
+      val pubSub = new Fs2PubSub[IO, TestMessage](topic)
+
+      val readiness =
+        new SubscriptionReadiness {
+          override def prepare(partitions: Int, groupIds: String*): IO[Unit] = IO.unit
+
+          // The topic drops messages published before a subscription registers, so wait until they all have
+          override def awaitReady(subscribersByGroup: (String, Int)*): IO[Unit] =
+            topic.subscribers
+              .find(_ >= subscribersByGroup.map { case (_, subscribers) => subscribers }.sum)
+              .compile
+              .drain
+              .timeout(testTimeout)
+        }
+
+      PubSubFixture(pubSub, pubSub, readiness)
+    }
 
   override def testTimeout: FiniteDuration = 10 seconds
 

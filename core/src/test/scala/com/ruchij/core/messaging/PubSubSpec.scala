@@ -101,13 +101,16 @@ class PubSubSpec extends AnyFlatSpec with Matchers {
           case (first, second) =>
             val message = TestMessage("shared-transactor", 1)
 
+            // A new group starts from the latest message, so a message published before the subscriber has created
+            // its group is never delivered. Publishing until one arrives keeps the test independent of that timing.
             second
               .subscribe("group")
               .map(second.extractValue)
               .take(1)
-              .concurrently(Stream.sleep[IO](200.millis) >> Stream.eval(first.publishOne(message)))
+              .concurrently(Stream.awakeEvery[IO](200.millis).evalMap(_ => first.publishOne(message)))
               .compile
               .lastOrError
+              .timeout(30.seconds)
               .map { received =>
                 received mustBe message
                 provider.messageTransaction mustBe defined

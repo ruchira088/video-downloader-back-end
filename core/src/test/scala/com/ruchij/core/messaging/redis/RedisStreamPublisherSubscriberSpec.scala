@@ -4,12 +4,13 @@ import cats.effect.{Deferred, IO, Resource}
 import cats.implicits._
 import com.ruchij.core.config.RedisConfiguration
 import com.ruchij.core.external.containers.RedisContainer
-import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage
 import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage._
-import com.ruchij.core.messaging.{Publisher, PublisherSubscriberSpec, Subscriber}
+import com.ruchij.core.messaging.PublisherSubscriberSpec.{PubSubFixture, SubscriptionReadiness, TestMessage}
+import com.ruchij.core.messaging.PublisherSubscriberSpec
 import com.ruchij.core.test.IOSupport.runIO
 import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.effect.Log.Stdout.instance
+import dev.profunktor.redis4cats.effects.XGroupCreateArgs
 import fs2.Stream
 import io.lettuce.core.api.sync.RedisCommands
 import io.lettuce.core.protocol.CommandType
@@ -22,14 +23,28 @@ import scala.language.postfixOps
 
 class RedisStreamPublisherSubscriberSpec extends AnyFlatSpec with Matchers with PublisherSubscriberSpec {
 
-  override def resource: Resource[IO, (Publisher[IO, TestMessage], Subscriber[IO, TestMessage])] =
+  override def fixture: Resource[IO, PubSubFixture] =
     RedisContainer
       .create[IO]
       .flatMap { redisConfiguration =>
         for {
           publisher <- RedisStreamPublisher.create[IO, TestMessage](redisConfiguration)
           subscriber <- RedisStreamSubscriber.create[IO, TestMessage](redisConfiguration)
-        } yield (publisher: Publisher[IO, TestMessage], subscriber: Subscriber[IO, TestMessage])
+          redisCommands <- Redis[IO].utf8(redisConfiguration.uri)
+
+          readiness = new SubscriptionReadiness {
+            // A new group starts from the latest message, so a message published before the first read created the
+            // group would be skipped. Creating the groups up front makes them start before anything is published.
+            override def prepare(partitions: Int, groupIds: String*): IO[Unit] =
+              groupIds.toList.traverse_ { groupId =>
+                redisCommands
+                  .xGroupCreate(testMessageMessagingTopic.name, groupId, "$", XGroupCreateArgs(mkStream = true))
+              }
+
+            // Messages wait in the stream for the group, so a subscriber that has not read yet still receives them
+            override def awaitReady(subscribersByGroup: (String, Int)*): IO[Unit] = IO.unit
+          }
+        } yield PubSubFixture(publisher, subscriber, readiness)
       }
 
   "RedisStreamPublisher" should "cap the length of the stream" in runIO {
