@@ -1,5 +1,6 @@
 package com.ruchij.core.utils
 
+import cats.effect.testkit.TestControl
 import cats.effect.{IO, Ref}
 import com.ruchij.core.test.IOSupport.runIO
 import org.scalatest.flatspec.AnyFlatSpec
@@ -9,58 +10,88 @@ import java.util.concurrent.TimeoutException
 import scala.concurrent.duration._
 
 class TimersSpec extends AnyFlatSpec with Matchers {
+  // Timers polls the reset signal every 5 seconds, so intervals must be longer than that for a reset to be seen
+  private val Interval: FiniteDuration = 12.seconds
 
-  "createResettableTimer" should "return timeout error when signal is never set" in runIO {
+  private def timeTimer(resetSignal: Ref[IO, Boolean]): IO[(Either[Throwable, Unit], FiniteDuration)] =
     for {
-      resetSignal <- Ref.of[IO, Boolean](false)
-      result <- Timers.createResettableTimer[IO](100.millis, resetSignal)
-    } yield {
-      result.isLeft mustBe true
-      result.left.toOption.get mustBe a[TimeoutException]
-      result.left.toOption.get.getMessage must include("100")
+      start <- IO.monotonic
+      result <- Timers.createResettableTimer[IO](Interval, resetSignal)
+      end <- IO.monotonic
+    } yield result -> (end - start)
+
+  "createResettableTimer" should "time out after the interval when the signal is never set" in runIO {
+    TestControl.executeEmbed {
+      for {
+        resetSignal <- Ref.of[IO, Boolean](false)
+        (result, elapsed) <- timeTimer(resetSignal)
+      } yield {
+        elapsed mustBe Interval
+        result.left.toOption.get mustBe a[TimeoutException]
+        result.left.toOption.get.getMessage must include(Interval.toMillis.toString)
+      }
     }
   }
 
-  it should "reset and continue when signal is set to true" in runIO {
-    for {
-      resetSignal <- Ref.of[IO, Boolean](false)
-
-      // Set the reset signal to true after a short delay, then race with timer
-      fiber <- IO.sleep(50.millis).flatMap(_ => resetSignal.set(true)).start
-
-      // The timer should reset when it sees true, then eventually timeout
-      result <- Timers.createResettableTimer[IO](200.millis, resetSignal)
-
-      _ <- fiber.join
-    } yield {
-      result.isLeft mustBe true
-      result.left.toOption.get mustBe a[TimeoutException]
+  it should "restart the interval from the poll that observes a reset" in runIO {
+    TestControl.executeEmbed {
+      for {
+        resetSignal <- Ref.of[IO, Boolean](false)
+        fiber <- IO.sleep(3.seconds).productR(resetSignal.set(true)).start
+        (result, elapsed) <- timeTimer(resetSignal)
+        _ <- fiber.join
+        signalAfter <- resetSignal.get
+      } yield {
+        // The reset set at 3s is observed by the poll at 5s, which restarts the 12s interval
+        elapsed mustBe 5.seconds + Interval
+        signalAfter mustBe false
+        result.left.toOption.get mustBe a[TimeoutException]
+      }
     }
   }
 
-  it should "include interval in timeout message" in runIO {
-    for {
-      resetSignal <- Ref.of[IO, Boolean](false)
-      result <- Timers.createResettableTimer[IO](150.millis, resetSignal)
-    } yield {
-      result.isLeft mustBe true
-      val timeoutException = result.left.toOption.get.asInstanceOf[TimeoutException]
-      timeoutException.getMessage must include("150")
-      timeoutException.getMessage must include("Timeout occurred")
-      timeoutException.getMessage must include("resettable timer")
+  it should "restart the interval for every reset it observes" in runIO {
+    TestControl.executeEmbed {
+      for {
+        resetSignal <- Ref.of[IO, Boolean](false)
+        fiber <- IO.sleep(3.seconds).productR(resetSignal.set(true)).productR {
+          IO.sleep(5.seconds).productR(resetSignal.set(true))
+        }.start
+        (result, elapsed) <- timeTimer(resetSignal)
+        _ <- fiber.join
+      } yield {
+        // Resets set at 3s and 8s are observed by the polls at 5s and 10s
+        elapsed mustBe 10.seconds + Interval
+        result.left.toOption.get mustBe a[TimeoutException]
+      }
     }
   }
 
-  it should "eventually timeout after resetting" in runIO {
-    for {
-      resetSignal <- Ref.of[IO, Boolean](true)
+  it should "treat a signal that is already set as a reset" in runIO {
+    TestControl.executeEmbed {
+      for {
+        resetSignal <- Ref.of[IO, Boolean](true)
+        (result, elapsed) <- timeTimer(resetSignal)
+        signalAfter <- resetSignal.get
+      } yield {
+        elapsed mustBe 5.seconds + Interval
+        signalAfter mustBe false
+        result.left.toOption.get mustBe a[TimeoutException]
+      }
+    }
+  }
 
-      // Start the timer - it should reset once when it sees true, then timeout
-      result <- Timers.createResettableTimer[IO](150.millis, resetSignal)
-    } yield {
-      // After initial reset, timer should eventually timeout
-      result.isLeft mustBe true
-      result.left.toOption.get mustBe a[TimeoutException]
+  it should "ignore a reset set after the interval has already elapsed" in runIO {
+    TestControl.executeEmbed {
+      for {
+        resetSignal <- Ref.of[IO, Boolean](false)
+        fiber <- IO.sleep(Interval + 1.second).productR(resetSignal.set(true)).start
+        (result, elapsed) <- timeTimer(resetSignal)
+        _ <- fiber.join
+      } yield {
+        elapsed mustBe Interval
+        result.left.toOption.get mustBe a[TimeoutException]
+      }
     }
   }
 }

@@ -36,6 +36,8 @@ import scala.collection.mutable
 import scala.concurrent.duration._
 
 class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
+  import VideoServiceImplSpec.VideoSearchCall
+
 
   private val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 30)
 
@@ -66,11 +68,16 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
 
   private val sampleSnapshot = Snapshot("video-1", snapshotFileResource, 2.minutes)
 
+
   class StubVideoDao(
     findByIdResult: (String, Option[String]) => Option[Video] = (_, _) => None,
     searchResult: Seq[Video] = Seq.empty,
     deleteByIdResult: Int = 1
   ) extends VideoDao[IO] {
+    val searchCalls: mutable.ListBuffer[VideoSearchCall] = mutable.ListBuffer.empty
+    val deletedByIdVideoIds: mutable.ListBuffer[String] = mutable.ListBuffer.empty
+    val deletedForRedownloadVideoIds: mutable.ListBuffer[String] = mutable.ListBuffer.empty
+
     override def insert(
       videoMetadataId: String,
       videoFileResourceId: String,
@@ -90,7 +97,11 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
       order: Order,
       videoSites: Option[NonEmptyList[VideoSite]],
       maybeUserId: Option[String]
-    ): IO[Seq[Video]] = IO.pure(searchResult)
+    ): IO[Seq[Video]] =
+      IO.delay {
+        searchCalls +=
+          VideoSearchCall(term, videoUrls, durationRange, sizeRange, pageNumber, pageSize, sortBy, order, videoSites, maybeUserId)
+      }.as(searchResult)
 
     override def incrementWatchTime(videoId: String, finiteDuration: FiniteDuration): IO[Option[FiniteDuration]] =
       IO.pure(None)
@@ -108,7 +119,10 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
       IO.pure(None)
 
     override def deleteById(videoId: String): IO[Int] =
-      IO.pure(deleteByIdResult)
+      IO.delay(deletedByIdVideoIds += videoId).as(deleteByIdResult)
+
+    override def deleteForRedownload(videoId: String): IO[Int] =
+      IO.delay(deletedForRedownloadVideoIds += videoId).as(deleteByIdResult)
 
     override def hasVideoFilePermission(videoFileResourceId: String, userId: String): IO[Boolean] =
       IO.pure(false)
@@ -156,6 +170,8 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
 
   class StubSchedulingDao(updateSchedulingStatusResult: Option[ScheduledVideoDownload] = None)
       extends SchedulingDao[IO] {
+    val statusUpdates: mutable.ListBuffer[(String, SchedulingStatus, Instant)] = mutable.ListBuffer.empty
+
     override def insert(scheduledVideoDownload: ScheduledVideoDownload): IO[Int] = IO.pure(1)
     override def getById(id: String, maybeUserId: Option[String]): IO[Option[ScheduledVideoDownload]] = IO.pure(None)
     override def markScheduledVideoDownloadAsComplete(
@@ -167,7 +183,7 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
       status: SchedulingStatus,
       timestamp: Instant
     ): IO[Option[ScheduledVideoDownload]] =
-      IO.pure(updateSchedulingStatusResult)
+      IO.delay(statusUpdates += ((id, status, timestamp))).as(updateSchedulingStatusResult)
     override def transitionSchedulingStatusById(
       id: String,
       from: NonEmptyList[SchedulingStatus],
@@ -438,6 +454,7 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
     val deletedPaths = mutable.ListBuffer.empty[String]
 
     val videoDao = new StubVideoDao(searchResult = Seq(smallVideo), findByIdResult = (_, _) => None)
+    val schedulingDao = new StubSchedulingDao()
 
     val snapshotDao = new StubSnapshotDao(findByVideoResult = Seq(sampleSnapshot))
 
@@ -448,13 +465,28 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
       }
     }
 
-    val service = createService(repositoryService = repositoryService, videoDao = videoDao, snapshotDao = snapshotDao)
+    val service =
+      createService(
+        repositoryService = repositoryService,
+        videoDao = videoDao,
+        snapshotDao = snapshotDao,
+        schedulingDao = schedulingDao
+      )
 
     service.queueIncorrectlyCompletedVideos.map { videos =>
-      videos.size mustBe 1
-      videos.head mustBe smallVideo
-      deletedPaths must contain(snapshotFileResource.path)
-      deletedPaths must contain(smallFileResource.path)
+      videos mustBe Seq(smallVideo)
+
+      // Only videos of at most 1MB are treated as incorrectly completed
+      videoDao.searchCalls.toList mustBe List(
+        VideoSearchCall(None, None, RangeValue.all, RangeValue(None, Some(1024 * 1024L)), 0, 100, SortBy.Date, Order.Descending, None, None)
+      )
+
+      // deleteForRedownload, not deleteById, so the video's playlist memberships survive the re-download
+      videoDao.deletedForRedownloadVideoIds.toList mustBe List(smallVideo.id)
+      videoDao.deletedByIdVideoIds mustBe empty
+
+      schedulingDao.statusUpdates.toList mustBe List((smallVideo.id, SchedulingStatus.Queued, timestamp))
+      deletedPaths.toList mustBe List(snapshotFileResource.path, smallFileResource.path)
     }
   }
 
@@ -484,6 +516,7 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
     val deletedPaths = mutable.ListBuffer.empty[String]
 
     val videoDao = new StubVideoDao(searchResult = Seq(smallVideo1, smallVideo2))
+    val schedulingDao = new StubSchedulingDao()
     val snapshotDao = new StubSnapshotDao(findByVideoResult = Seq.empty)
 
     val repositoryService = new StubRepositoryService() {
@@ -493,18 +526,24 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
       }
     }
 
-    val service = createService(repositoryService = repositoryService, videoDao = videoDao, snapshotDao = snapshotDao)
+    val service =
+      createService(
+        repositoryService = repositoryService,
+        videoDao = videoDao,
+        snapshotDao = snapshotDao,
+        schedulingDao = schedulingDao
+      )
 
     service.queueIncorrectlyCompletedVideos.map { videos =>
-      videos.size mustBe 2
-      videos must contain(smallVideo1)
-      videos must contain(smallVideo2)
-      deletedPaths must contain(smallFileResource1.path)
-      deletedPaths must contain(smallFileResource2.path)
+      videos mustBe Seq(smallVideo1, smallVideo2)
+      videoDao.deletedForRedownloadVideoIds.toList mustBe List(smallVideo1.id, smallVideo2.id)
+      schedulingDao.statusUpdates.toList mustBe
+        List((smallVideo1.id, SchedulingStatus.Queued, timestamp), (smallVideo2.id, SchedulingStatus.Queued, timestamp))
+      deletedPaths.toList mustBe List(smallFileResource1.path, smallFileResource2.path)
     }
   }
 
-  it should "delete snapshots before requeuing videos" in runIO {
+  it should "delete the snapshot files before the video file" in runIO {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val smallFileResource = sampleFileResource.copy(size = 500 * 1024L)
@@ -530,9 +569,22 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
 
     service.queueIncorrectlyCompletedVideos.map { videos =>
       videos.size mustBe 1
-      deletedPaths must contain(snapshotFileResource.path)
-      deletedPaths must contain(snapshotFile2.path)
-      deletedPaths must contain(smallFileResource.path)
+      deletedPaths.toList mustBe List(snapshotFileResource.path, snapshotFile2.path, smallFileResource.path)
     }
   }
+}
+
+object VideoServiceImplSpec {
+  final case class VideoSearchCall(
+    term: Option[String],
+    videoUrls: Option[NonEmptyList[org.http4s.Uri]],
+    durationRange: RangeValue[FiniteDuration],
+    sizeRange: RangeValue[Long],
+    pageNumber: Int,
+    pageSize: Int,
+    sortBy: SortBy,
+    order: Order,
+    videoSites: Option[NonEmptyList[VideoSite]],
+    maybeUserId: Option[String]
+  )
 }

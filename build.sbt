@@ -84,6 +84,7 @@ lazy val core =
           Seq(
             scalaTest,
             scalaMock,
+            catsEffectTestkit,
             kafka,
             embeddedKafkaSchemaRegistry,
             testContainers,
@@ -136,6 +137,13 @@ def coverageToggle(commandName: String, enabled: Boolean): Command =
   }
 
 commands ++= Seq(coverageToggle("coverageEnable", true), coverageToggle("coverageDisable", false))
+
+// Fail `coverageAggregate` when the combined coverage of all modules drops below these floors. They are set on
+// the root project only: subprojects keep scoverage's default of 0, since some (development, the migration
+// runner) are mostly entry points that tests never run.
+LocalRootProject / coverageMinimumStmtTotal := 90
+LocalRootProject / coverageMinimumBranchTotal := 85
+LocalRootProject / coverageFailOnMinimum := true
 
 val viewCoverageResults = taskKey[Unit]("Opens the coverage result in the default browser")
 

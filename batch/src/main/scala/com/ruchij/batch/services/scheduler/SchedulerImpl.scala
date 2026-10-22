@@ -574,13 +574,17 @@ object SchedulerImpl {
   private val VideoWatchMetricMaxRetries = 3
   private val VideoWatchMetricRetryBaseDelay: FiniteDuration = 1 second
 
-  private def isWorkPeriod[F[_]: Clock: Applicative](start: LocalTime, end: LocalTime): F[Boolean] =
+  private[scheduler] def isWorkPeriod[F[_]: Clock: Applicative](
+    start: LocalTime,
+    end: LocalTime,
+    zoneId: => ZoneId = ZoneId.systemDefault()
+  ): F[Boolean] =
     if (start == end)
       Applicative[F].pure(true)
     else
       Clock[F].timestamp
         .map { timestamp =>
-          val localTime = timestamp.atZone(ZoneId.systemDefault()).toLocalTime
+          val localTime = timestamp.atZone(zoneId).toLocalTime
 
           if (start.isBefore(end))
             localTime.isAfter(start) && localTime.isBefore(end)

@@ -38,6 +38,8 @@ import scala.collection.mutable
 import scala.concurrent.duration._
 
 class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
+  import ApiSchedulingServiceImplSpec.SearchCall
+
 
   private val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 30)
 
@@ -116,6 +118,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
       IO.delay { storage.remove(key.key).map(_.asInstanceOf[A]) }
   }
 
+
   class StubSchedulingDao(
     searchResult: Seq[ScheduledVideoDownload] = Seq.empty,
     getByIdResult: (String, Option[String]) => Option[ScheduledVideoDownload] = (_, _) => None,
@@ -124,6 +127,9 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     retryErroredResult: Seq[ScheduledVideoDownload] = Seq.empty,
     insertResult: Int = 1
   ) extends SchedulingDao[IO] {
+    val searchCalls: mutable.ListBuffer[SearchCall] = mutable.ListBuffer.empty[SearchCall]
+    val retryErroredCalls: mutable.ListBuffer[(Option[String], Instant)] = mutable.ListBuffer.empty
+
     override def insert(scheduledVideoDownload: ScheduledVideoDownload): IO[Int] = IO.pure(insertResult)
     override def getById(id: String, maybeUserId: Option[String]): IO[Option[ScheduledVideoDownload]] =
       IO.pure(getByIdResult(id, maybeUserId))
@@ -161,9 +167,13 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
       schedulingStatuses: Option[NonEmptyList[SchedulingStatus]],
       videoSites: Option[NonEmptyList[VideoSite]],
       maybeUserId: Option[String]
-    ): IO[Seq[ScheduledVideoDownload]] = IO.pure(searchResult)
+    ): IO[Seq[ScheduledVideoDownload]] =
+      IO.delay {
+        searchCalls += SearchCall(term, videoUrls, durationRange, sizeRange, pageNumber, pageSize, sortBy, order,
+          schedulingStatuses, videoSites, maybeUserId)
+      }.as(searchResult)
     override def retryErroredScheduledDownloads(maybeUserId: Option[String], timestamp: Instant): IO[Seq[ScheduledVideoDownload]] =
-      IO.pure(retryErroredResult)
+      IO.delay(retryErroredCalls += (maybeUserId -> timestamp)).as(retryErroredResult)
     override def staleTask(delay: FiniteDuration, timestamp: Instant): IO[Option[ScheduledVideoDownload]] = IO.pure(None)
     override def updateTimedOutTasks(timeout: FiniteDuration, timestamp: Instant): IO[Seq[ScheduledVideoDownload]] = IO.pure(Seq.empty)
     override def acquireTask(timestamp: Instant): IO[Option[ScheduledVideoDownload]] = IO.pure(None)
@@ -409,6 +419,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     service.retryFailed(Some("user-1")).map { result =>
       result mustBe Seq(failedDownload)
       publisher.publishedMessages.toList mustBe List(failedDownload)
+      schedulingDao.retryErroredCalls.toList mustBe List(Some("user-1") -> timestamp)
     }
   }
 
@@ -504,7 +515,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
 
     service.search(
       None,
-      Some(NonEmptyList.of(uri"https://youtube.com/watch?v=abc123")),
+      Some(NonEmptyList.of(uri"https://www.youtube.com/watch?v=abc123&list=PL123&t=42")),
       RangeValue.all[FiniteDuration],
       RangeValue.all[Long],
       0,
@@ -516,6 +527,9 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
       None
     ).map { result =>
       result mustBe Seq(sampleScheduledVideoDownload)
+      // YouTube URLs are reduced to their "v" parameter so they match the stored URL
+      schedulingDao.searchCalls.toList.map(_.videoUrls) mustBe
+        List(Some(NonEmptyList.of(uri"https://www.youtube.com/watch?v=abc123")))
     }
   }
 
@@ -528,8 +542,8 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     service.search(
       None,
       Some(NonEmptyList.of(
-        uri"https://youtube.com/watch?v=abc123",
-        uri"https://youtube.com/watch?v=def456"
+        uri"https://www.youtube.com/watch?v=abc123&list=PL123",
+        uri"https://example.com/videos/def456?quality=hd"
       )),
       RangeValue.all[FiniteDuration],
       RangeValue.all[Long],
@@ -542,6 +556,22 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
       Some("user-1")
     ).map { result =>
       result mustBe Seq(sampleScheduledVideoDownload)
+      schedulingDao.searchCalls.toList mustBe List(
+        SearchCall(
+          None,
+          // Only YouTube URLs are rewritten; other sites are passed through unchanged
+          Some(NonEmptyList.of(uri"https://www.youtube.com/watch?v=abc123", uri"https://example.com/videos/def456?quality=hd")),
+          RangeValue.all[FiniteDuration],
+          RangeValue.all[Long],
+          0,
+          10,
+          SortBy.Title,
+          Order.Ascending,
+          Some(NonEmptyList.of(SchedulingStatus.Queued)),
+          Some(NonEmptyList.of(VideoSite.YTDownloaderSite("youtube"))),
+          Some("user-1")
+        )
+      )
     }
   }
 
@@ -859,4 +889,20 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
       notOwned mustBe false
     }
   }
+}
+
+object ApiSchedulingServiceImplSpec {
+  final case class SearchCall(
+    term: Option[String],
+    videoUrls: Option[NonEmptyList[Uri]],
+    durationRange: RangeValue[FiniteDuration],
+    sizeRange: RangeValue[Long],
+    pageNumber: Int,
+    pageSize: Int,
+    sortBy: SortBy,
+    order: Order,
+    schedulingStatuses: Option[NonEmptyList[SchedulingStatus]],
+    videoSites: Option[NonEmptyList[VideoSite]],
+    maybeUserId: Option[String]
+  )
 }

@@ -28,12 +28,12 @@ import com.ruchij.core.messaging.models.VideoWatchMetric
 import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
 import com.ruchij.core.services.video.VideoWatchHistoryService
 import com.ruchij.batch.services.scheduler.Scheduler.PausedVideoDownload
-import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
+import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.types.Clock
 import com.ruchij.core.types.TimeUtils
 import fs2.Stream
 import org.http4s.{MediaType, Uri}
-import java.time.{Instant, LocalTime}
+import java.time.{Instant, LocalTime, ZoneId, ZoneOffset}
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -323,7 +323,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     val startTime = java.time.LocalTime.of(9, 0)
     val endTime = java.time.LocalTime.of(9, 0) // Same time means always working
 
-    testIsWorkPeriod(startTime, endTime)(Clock[IO]).map { result =>
+    isWorkPeriodInUtc(startTime, endTime)(Clock[IO]).map { result =>
       result mustBe true
     }
   }
@@ -335,7 +335,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     val startTime = java.time.LocalTime.of(9, 0)
     val endTime = java.time.LocalTime.of(18, 0)
 
-    testIsWorkPeriod(startTime, endTime).map { result =>
+    isWorkPeriodInUtc(startTime, endTime).map { result =>
       result mustBe true
     }
   }
@@ -347,7 +347,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     val startTime = java.time.LocalTime.of(9, 0)
     val endTime = java.time.LocalTime.of(18, 0)
 
-    testIsWorkPeriod(startTime, endTime).map { result =>
+    isWorkPeriodInUtc(startTime, endTime).map { result =>
       result mustBe false
     }
   }
@@ -359,7 +359,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     val startTime = java.time.LocalTime.of(22, 0)
     val endTime = java.time.LocalTime.of(6, 0) // Overnight period
 
-    testIsWorkPeriod(startTime, endTime).map { result =>
+    isWorkPeriodInUtc(startTime, endTime).map { result =>
       result mustBe true
     }
   }
@@ -371,7 +371,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     val startTime = java.time.LocalTime.of(22, 0)
     val endTime = java.time.LocalTime.of(6, 0)
 
-    testIsWorkPeriod(startTime, endTime).map { result =>
+    isWorkPeriodInUtc(startTime, endTime).map { result =>
       result mustBe true
     }
   }
@@ -383,7 +383,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     val startTime = java.time.LocalTime.of(22, 0)
     val endTime = java.time.LocalTime.of(6, 0)
 
-    testIsWorkPeriod(startTime, endTime).map { result =>
+    isWorkPeriodInUtc(startTime, endTime).map { result =>
       result mustBe false
     }
   }
@@ -395,7 +395,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     val startTime = java.time.LocalTime.of(9, 0)
     val endTime = java.time.LocalTime.of(18, 0)
 
-    testIsWorkPeriod(startTime, endTime).map { result =>
+    isWorkPeriodInUtc(startTime, endTime).map { result =>
       // isAfter is exclusive, so exactly at start time should be false
       result mustBe false
     }
@@ -408,7 +408,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     val startTime = java.time.LocalTime.of(9, 0)
     val endTime = java.time.LocalTime.of(18, 0)
 
-    testIsWorkPeriod(startTime, endTime).map { result =>
+    isWorkPeriodInUtc(startTime, endTime).map { result =>
       result mustBe true
     }
   }
@@ -417,29 +417,46 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     override val timestamp: IO[Instant] = IO.pure(TimeUtils.instantOf(2024, 1, 15, hour, minute))
   }
 
-  // Helper method to test isWorkPeriod using reflection since it's private
-  private def testIsWorkPeriod(start: LocalTime, end: LocalTime)(implicit clock: Clock[IO]): IO[Boolean] = {
-    if (start == end)
-      IO.pure(true)
-    else
-      clock.timestamp.map { timestamp =>
-        val localTime = timestamp.atZone(java.time.ZoneOffset.UTC).toLocalTime
+  // The fixed clocks above are built in UTC, so evaluate the work period in UTC too
+  private def isWorkPeriodInUtc(start: LocalTime, end: LocalTime)(implicit clock: Clock[IO]): IO[Boolean] =
+    SchedulerImpl.isWorkPeriod[IO](start, end, ZoneOffset.UTC)
 
-        if (start.isBefore(end))
-          localTime.isAfter(start) && localTime.isBefore(end)
-        else
-          localTime.isAfter(start) || localTime.isBefore(end)
-      }
+  it should "evaluate the work period in the given time zone" in runIO {
+    // 14:00 UTC on 15 Jan 2024 is 01:00 the next day in Sydney (UTC+11 during daylight saving)
+    implicit val clock: Clock[IO] = createFixedClock(14, 0)
+
+    val startTime = LocalTime.of(9, 0)
+    val endTime = LocalTime.of(18, 0)
+
+    for {
+      inUtc <- SchedulerImpl.isWorkPeriod[IO](startTime, endTime, ZoneOffset.UTC)
+      inSydney <- SchedulerImpl.isWorkPeriod[IO](startTime, endTime, ZoneId.of("Australia/Sydney"))
+    } yield {
+      inUtc mustBe true
+      inSydney mustBe false
+    }
   }
 
-  // Worker.workerIdFromIndex tests
+  it should "use the system default time zone when none is given" in runIO {
+    implicit val clock: Clock[IO] = createFixedClock(14, 0)
+
+    val localTime = TimeUtils.instantOf(2024, 1, 15, 14, 0).atZone(ZoneId.systemDefault()).toLocalTime
+    for {
+      around <- SchedulerImpl.isWorkPeriod[IO](localTime.minusHours(1), localTime.plusHours(1))
+      away <- SchedulerImpl.isWorkPeriod[IO](localTime.plusHours(2), localTime.plusHours(4))
+    } yield {
+      around mustBe true
+      away mustBe false
+    }
+  }
+
   "isWorkPeriod" should "handle end of day edge case" in runIO {
     implicit val clock: Clock[IO] = createFixedClock(23, 59)
 
     val startTime = java.time.LocalTime.of(9, 0)
     val endTime = java.time.LocalTime.of(18, 0)
 
-    testIsWorkPeriod(startTime, endTime).map { result =>
+    isWorkPeriodInUtc(startTime, endTime).map { result =>
       result mustBe false
     }
   }
@@ -450,7 +467,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     val startTime = java.time.LocalTime.of(22, 0)
     val endTime = java.time.LocalTime.of(6, 0)
 
-    testIsWorkPeriod(startTime, endTime).map { result =>
+    isWorkPeriodInUtc(startTime, endTime).map { result =>
       // 00:00 is before 6:00, so it should be within the overnight period
       result mustBe true
     }
@@ -462,7 +479,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     val startTime = java.time.LocalTime.of(22, 0)
     val endTime = java.time.LocalTime.of(6, 0)
 
-    testIsWorkPeriod(startTime, endTime).map { result =>
+    isWorkPeriodInUtc(startTime, endTime).map { result =>
       // isBefore is exclusive, so exactly at end time should be false
       result mustBe false
     }
@@ -474,7 +491,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     val startTime = java.time.LocalTime.of(9, 0)
     val endTime = java.time.LocalTime.of(18, 0)
 
-    testIsWorkPeriod(startTime, endTime).map { result =>
+    isWorkPeriodInUtc(startTime, endTime).map { result =>
       result mustBe true
     }
   }
@@ -674,7 +691,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     val startTime = java.time.LocalTime.of(22, 0)
     val endTime = java.time.LocalTime.of(6, 0)
 
-    testIsWorkPeriod(startTime, endTime).map { result =>
+    isWorkPeriodInUtc(startTime, endTime).map { result =>
       result mustBe true
     }
   }
@@ -685,7 +702,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     val startTime = java.time.LocalTime.of(22, 0)
     val endTime = java.time.LocalTime.of(6, 0)
 
-    testIsWorkPeriod(startTime, endTime).map { result =>
+    isWorkPeriodInUtc(startTime, endTime).map { result =>
       result mustBe true
     }
   }
@@ -696,7 +713,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     val startTime = java.time.LocalTime.of(22, 0)
     val endTime = java.time.LocalTime.of(6, 0)
 
-    testIsWorkPeriod(startTime, endTime).map { result =>
+    isWorkPeriodInUtc(startTime, endTime).map { result =>
       result mustBe false
     }
   }
@@ -727,7 +744,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
         workExecutor = workExecutor
       )
 
-    scheduler.run.head.compile.lastOrError.withTimeout(15.seconds).map { downloaded =>
+    TestControl.executeEmbed(scheduler.run.head.compile.lastOrError.timeout(15.seconds)).map { downloaded =>
       downloaded mustBe video
       workerDao.reservedWorkers must contain("worker-00")
       workerDao.assignedTasks must contain(("worker-00", task.videoMetadata.id))
@@ -759,7 +776,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
         workExecutor = new StubWorkExecutor((_, _) => IO.raiseError(failure))
       )
 
-    scheduler.run.interruptAfter(3.seconds).compile.toList.map { downloaded =>
+    TestControl.executeEmbed(scheduler.run.interruptAfter(3.seconds).compile.toList).map { downloaded =>
       downloaded mustBe empty
       batchSchedulingService.erroredTasks.map { case (id, _) => id } must contain(task.videoMetadata.id)
       batchSchedulingService.erroredTasks.map { case (_, throwable) => throwable } must contain(failure)
@@ -793,7 +810,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
         workExecutor = workExecutor
       )
 
-    scheduler.run.interruptAfter(4.seconds).compile.toList.map { downloaded =>
+    TestControl.executeEmbed(scheduler.run.interruptAfter(4.seconds).compile.toList).map { downloaded =>
       downloaded mustBe empty
       workExecutor.executedTasks must contain(task)
       batchSchedulingService.erroredTasks mustBe empty

@@ -33,6 +33,11 @@ Integration-style tests use TestContainers, so Docker must be running. `core` te
 (`Test / parallelExecution := false` for that module only). Under sbt 2, `test` skips suites that passed before and are
 unchanged -- the results live in the sbt disk cache, which CI also restores -- so use `testFull` to run everything.
 
+Tests run their `IO` through `IOSupport.runIO` (core test sources), which fails a test after 5 minutes instead of
+letting a hung container or connection stall the run. For timing-dependent code, prefer cats-effect `TestControl`
+(virtual time) over real sleeps. `coverageAggregate` fails the build when combined coverage drops below 90%
+statements or 85% branches (set on the root project only, in `build.sbt`).
+
 ## Module Structure
 
 sbt modules and their dependency chain:
@@ -40,7 +45,8 @@ sbt modules and their dependency chain:
 - **migration-application** — Flyway migration runner; SQL scripts live in
   `migration-application/src/main/resources/db/migration/`
 - **core** — depends on migration-application. Shared DAOs, services, messaging, Redis KV store
-- **api** — REST API (http4s Ember server, WebSocket download progress). Depends on
+- **api** — REST API (http4s Ember server; download progress streams as server-sent events from
+  `GET /schedule/updates`). Depends on
   `core % "compile->compile;test->test"`
 - **batch** — download worker: scheduler, video enrichment, file sync. Same core dependency
 - **development** — aggregates all of the above into a single runnable app (`DevelopmentApp`)
