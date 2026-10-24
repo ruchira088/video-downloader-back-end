@@ -1,0 +1,20 @@
+<!--
+    Used by the tests of every module, since api and batch depend on core's test configuration. Logback picks
+    logback-test.xml over the modules' logback.xml.
+
+    The tests only log warnings and errors. Forked tests write their output through sbt, and logging everything at
+    TRACE produced megabytes of output per run: a test whose code under test logs every line of a large output once
+    exhausted the sbt server's memory, so it stopped reading the test JVM's output, and every test that logged after
+    that blocked until it timed out.
+-->
+<configuration>
+    <appender name="STD_OUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <root level="WARN">
+        <appender-ref ref="STD_OUT"/>
+    </root>
+</configuration>

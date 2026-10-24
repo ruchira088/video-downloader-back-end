@@ -42,6 +42,10 @@ DAO specs are abstract over `TestDatabase` (core test sources) and run twice: `H
 `Postgres<Name>` mixes in `PostgresTestDatabase`, which copies a migrated template database in one container per test.
 The project's `Clock[IO]` reads the wall clock, so under `TestControl` use a clock built on `IO.realTime` instead.
 
+Tests log only warnings and errors (`core/src/test/resources/logback-test.xml`, shared by every module). Keep it that
+way: forked tests write their output through the sbt server, and a flood of log lines once exhausted its memory, so it
+stopped reading the test JVM's output and every later test blocked on logging until it timed out.
+
 ## Module Structure
 
 sbt modules and their dependency chain:
