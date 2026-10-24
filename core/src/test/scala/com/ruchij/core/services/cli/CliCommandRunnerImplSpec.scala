@@ -97,4 +97,60 @@ class CliCommandRunnerImplSpec extends AnyFlatSpec with Matchers {
     }
   }
 
+  it should "deliver every line of a large output, in order" in runIO {
+    Dispatcher.parallel[IO].use { dispatcher =>
+      val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
+
+      cliCommandRunner.run(List("seq", "1", "20000"))
+        .compile
+        .toList
+        .flatMap { lines => IO.delay(lines mustBe (1 to 20000).map(_.toString).toList) }
+    }
+  }
+
+  it should "deliver the output written just before the process exits" in runIO {
+    Dispatcher.parallel[IO].use { dispatcher =>
+      val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
+
+      cliCommandRunner.run(List("sh", "-c", "sleep 0.3; echo last"))
+        .compile
+        .toList
+        .flatMap { lines => IO.delay(lines mustBe List("last")) }
+    }
+  }
+
+  it should "always fail a command that writes to stderr, even if it exits with 0" in runIO {
+    Dispatcher.parallel[IO].use { dispatcher =>
+      val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
+
+      cliCommandRunner.run(List("sh", "-c", "echo output; echo problem >&2"))
+        .compile
+        .drain
+        .error
+        .flatMap { exception =>
+          IO.delay {
+            exception mustBe a [CliCommandException]
+            exception.getMessage mustBe "problem"
+          }
+        }
+    }
+  }
+
+  it should "stop a running process without waiting for it once enough output has been read" in runIO {
+    Dispatcher.parallel[IO].use { dispatcher =>
+      val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
+
+      cliCommandRunner.run(List("sh", "-c", "echo first; sleep 60"))
+        .take(1)
+        .compile
+        .toList
+        .timed
+        .flatMap { case (duration, lines) =>
+          IO.delay {
+            lines mustBe List("first")
+            duration.toSeconds must be < 30L
+          }
+        }
+    }
+  }
 }

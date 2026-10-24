@@ -3,40 +3,42 @@ package com.ruchij.core.services.cli
 import cats.effect.std.{Dispatcher, Queue}
 import cats.effect.{Async, Deferred, Sync}
 import cats.implicits._
-import cats.{Applicative, ApplicativeError}
 import com.ruchij.core.exceptions.CliCommandException
 import com.ruchij.core.logging.Logger
 import fs2.Stream
 
 import java.io.IOException
-import scala.concurrent.duration.DurationInt
-import scala.language.postfixOps
 import scala.sys.process._
 
 class CliCommandRunnerImpl[F[_]: Async](dispatcher: Dispatcher[F]) extends CliCommandRunner[F] {
 
   private val logger = Logger[CliCommandRunnerImpl[F]]
 
+  /**
+    * Each line is put in the queue before the thread reading the process's output moves on, and `exitValue` waits
+    * for those threads to finish. So by the time the exit code is known, every line is in the queue, ahead of the
+    * marker that ends the stream, and none can be lost however late the threads run.
+    */
   override def run(arguments: List[String]): Stream[F, String] = {
     val command = arguments.mkString(" ")
 
     for {
       _ <- Stream.eval(logger.info[F](s"Executing CLI command: $command"))
-      queue <- Stream.eval(Queue.unbounded[F, String])
+      queue <- Stream.eval(Queue.unbounded[F, Option[Either[Throwable, String]]])
       deferred <- Stream.eval(Deferred[F, Throwable])
 
-      process <- Stream.eval {
+      process <- Stream.bracket {
         Sync[F].blocking {
           Process(arguments).run {
             new ProcessLogger {
               override def out(output: => String): Unit =
-                dispatcher.unsafeRunAndForget(queue.offer(output))
+                dispatcher.unsafeRunSync(queue.offer(Some(Right(output))))
 
               override def err(error: => String): Unit =
-                dispatcher.unsafeRunAndForget {
+                dispatcher.unsafeRunSync {
                   logger
                     .error[F](s"Exception thrown by CLI command: $command", CliCommandException(error))
-                    .productR(deferred.complete(CliCommandException(error)))
+                    .productR(deferred.complete(CliCommandException(error)).void)
                 }
 
               override def buffer[T](f: => T): T = f
@@ -46,54 +48,32 @@ class CliCommandRunnerImpl[F[_]: Async](dispatcher: Dispatcher[F]) extends CliCo
           // Without a shell in between, a missing program surfaces as an IOException rather than a non-zero exit code
           case ioException: IOException => CliCommandException(ioException.getMessage)
         }
+      } { process =>
+        Sync[F]
+          .delay(process.isAlive())
+          .flatMap { isAlive =>
+            if (isAlive)
+              Sync[F]
+                .delay(process.destroy())
+                .productR(logger.info[F](s"Process was killed: $command"))
+            else logger.debug[F](s"Completed command: $command")
+          }
+      }
+
+      // Interruptible, so that a consumer that stops early isn't held up until the process exits
+      outcome = Sync[F].interruptible(process.exitValue()).flatMap { exitCode =>
+        deferred.tryGet.map {
+          case Some(throwable) => Some(Left(throwable))
+          case None if exitCode == 0 => None
+          case None => Some(Left(CliCommandException(s"CLI command exited with $exitCode code")))
+        }
       }
 
       line <- Stream
-        .eval(queue.take)
-        .repeat
+        .fromQueueNoneTerminated(queue)
+        .rethrow
         .evalTap(logger.debug[F])
-        .interruptWhen {
-          Stream
-            .eval(Sync[F].delay(process.isAlive()))
-            .repeat
-            .metered(100 milliseconds)
-            .filter(isAlive => !isAlive)
-            .productL {
-              Stream.eval {
-                logger.info[F](s"Waiting for output to be collected: $command")
-                  .productL(Sync[F].sleep(100 milliseconds))
-              }
-            }
-            .productR {
-              Stream
-                .eval(queue.size)
-                .flatMap(size => if (size == 0) Stream.emit[F, Boolean](true) else Stream.empty)
-                .repeat
-                .evalMap(_ => deferred.tryGet)
-                .evalMap {
-                  case Some(throwable) => ApplicativeError[F, Throwable].raiseError[Int](throwable)
-                  case _ => Sync[F].delay(process.exitValue())
-                }
-                .evalMap {
-                  case 0 => Applicative[F].pure[Boolean](true)
-                  case exitCode =>
-                    ApplicativeError[F, Throwable].raiseError[Boolean] {
-                      CliCommandException(s"CLI command exited with $exitCode code")
-                    }
-                }
-            }
-        }
-        .onFinalize {
-          Sync[F]
-            .delay(process.isAlive())
-            .flatMap { isAlive =>
-              if (isAlive)
-                Sync[F]
-                  .delay(process.destroy())
-                  .productR(logger.info[F](s"Process was killed: $command"))
-              else logger.debug[F](s"Completed command: $command")
-            }
-        }
+        .concurrently(Stream.eval(outcome.flatMap(queue.offer)))
     } yield line
   }
 
