@@ -5,7 +5,7 @@ object Dependencies
   val ScalaVersion = "2.13.18"
   private val Http4sVersion = "0.23.38"
   private val CirceVersion = "0.14.17"
-  private val FlywayVersion = "13.10.3"
+  private val FlywayVersion = "13.11.1"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -29,7 +29,7 @@ object Dependencies
 
   lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "8.3.2"
 
-  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.14.0"
+  lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.14.1"
 
   lazy val circeGeneric = "io.circe" %% "circe-generic" % CirceVersion
 
@@ -89,15 +89,15 @@ object Dependencies
 
   lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.20"
 
-  lazy val scalaMock = "org.scalamock" %% "scalamock-scalatest" % "7.6.0"
+  lazy val scalaMock = "org.scalamock" %% "scalamock-scalatest" % "7.6.1"
 
   lazy val pegdown = "org.pegdown" % "pegdown" % "1.6.0"
 
-  lazy val sentry = "io.sentry" % "sentry" % "8.61.0"
+  lazy val sentry = "io.sentry" % "sentry" % "8.61.1"
 
   lazy val perceptualHash = "dev.brachtendorf" % "JImageHash" % "1.0.0"
 
-  private val AwsSdkVersion = "2.56.0"
+  private val AwsSdkVersion = "2.57.3"
 
   // The fallback sync clients use the async Netty HTTP client, so the SDK's default synchronous client is left out.
   private val awsApache5Client = ExclusionRule("software.amazon.awssdk", "apache5-client")
@@ -110,7 +110,7 @@ object Dependencies
   // and eviction alone would leave the DNS resolver modules that only lettuce uses on the older one. Pinning every
   // Netty module keeps them on a single version.
   // Keep this equal to the `netty.version` property in the aws-sdk-java-pom of AwsSdkVersion (4.1.138.Final for
-  // 2.56.0), and check it on every SDK bump: these overrides win over whatever the SDK asks for, so leaving this
+  // 2.57.3), and check it on every SDK bump: these overrides win over whatever the SDK asks for, so leaving this
   // behind would silently downgrade netty-nio-client's Netty to a version the SDK was never built or tested against.
   private val NettyVersion = "4.1.138.Final"
 

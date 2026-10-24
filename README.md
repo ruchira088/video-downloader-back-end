@@ -28,13 +28,13 @@ API for video management, metadata handling, user authentication, and batch proc
 | JSON | Circe 0.14.17 |
 | Database Access | Doobie 1.0.0-RC12 |
 | Database | PostgreSQL 17 |
-| Migrations | Flyway 13.10.3 |
+| Migrations | Flyway 13.11.1 |
 | Messaging | Apache Kafka 8.3.2-ccs / Redis Streams / PostgreSQL (Doobie) |
 | Caching | Redis 8 |
 | Configuration | PureConfig 0.17.11 |
-| AWS | AWS SDK for Java 2.56.0 (SQS, DynamoDB — fallback sync) |
+| AWS | AWS SDK for Java 2.57.3 (SQS, DynamoDB — fallback sync) |
 | Networking | Netty 4.1.138.Final (every module pinned to one version for the AWS SDK and Redis clients) |
-| Testing | ScalaTest 3.2.20, ScalaMock 7.6.0, Cats Effect Testkit 3.7.1 |
+| Testing | ScalaTest 3.2.20, ScalaMock 7.6.1, Cats Effect Testkit 3.7.1 |
 
 ## Prerequisites
 
