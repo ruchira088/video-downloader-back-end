@@ -7,19 +7,22 @@ import com.ruchij.api.daos.credentials.models.Credentials
 import com.ruchij.api.daos.credentials.models.Credentials.HashedPassword
 import com.ruchij.api.daos.user.DoobieUserDao
 import com.ruchij.api.daos.user.models.{Email, Role, User}
-import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
+import com.ruchij.core.test.{H2TestDatabase, PostgresTestDatabase, TestDatabase}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.types.TimeUtils
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.ExecutionContext.Implicits.global
 
-class DoobieCredentialsDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
+class H2DoobieCredentialsDaoSpec extends DoobieCredentialsDaoSpec with H2TestDatabase
+
+class PostgresDoobieCredentialsDaoSpec extends DoobieCredentialsDaoSpec with PostgresTestDatabase
+
+abstract class DoobieCredentialsDaoSpec extends AnyFlatSpec with Matchers with OptionValues with TestDatabase {
 
   "DoobieCredentialsDao" should "perform CRUD operations for Credentials in the database" in runIO {
-    new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
+    transactor.use { implicit transactor =>
       val timestamp = TimeUtils.instantOf(2021, 10, 17, 22, 24, 10, 123)
 
       val user = User("my-user-id", timestamp, "John", "Doe", Email("john.doe@ruchij.com"), Role.Admin)

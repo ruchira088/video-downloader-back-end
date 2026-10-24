@@ -11,7 +11,7 @@ import com.ruchij.core.daos.scheduling.models.{RangeValue, SchedulingStatus}
 import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata, VideoSite}
-import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
+import com.ruchij.core.test.{H2TestDatabase, PostgresTestDatabase, TestDatabase}
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.types.Clock
@@ -24,11 +24,14 @@ import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
+class H2DoobieVideoDaoSpec extends DoobieVideoDaoSpec with H2TestDatabase
+
+class PostgresDoobieVideoDaoSpec extends DoobieVideoDaoSpec with PostgresTestDatabase
+
+abstract class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionValues with TestDatabase {
 
   import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 
@@ -48,7 +51,7 @@ class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
 
   def runTest(testFn: TestFixture => IO[Unit]): Unit =
     runIO {
-      new EmbeddedCoreResourcesProvider[IO].transactor.use { transaction =>
+      transactor.use { transaction =>
         for {
           timestamp <- Clock[IO].timestamp
           videoId = "test-video-id"

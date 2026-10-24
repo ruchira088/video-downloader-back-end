@@ -38,6 +38,10 @@ letting a hung container or connection stall the run. For timing-dependent code,
 (virtual time) over real sleeps. `coverageAggregate` fails the build when combined coverage drops below 90%
 statements or 85% branches (set on the root project only, in `build.sbt`).
 
+DAO specs are abstract over `TestDatabase` (core test sources) and run twice: `H2<Name>` mixes in `H2TestDatabase`,
+`Postgres<Name>` mixes in `PostgresTestDatabase`, which copies a migrated template database in one container per test.
+The project's `Clock[IO]` reads the wall clock, so under `TestControl` use a clock built on `IO.realTime` instead.
+
 ## Module Structure
 
 sbt modules and their dependency chain:

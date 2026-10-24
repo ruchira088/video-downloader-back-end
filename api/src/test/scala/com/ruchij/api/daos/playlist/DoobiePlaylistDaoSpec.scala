@@ -6,7 +6,7 @@ import com.ruchij.api.test.data.ApiTestData
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.video.DoobieVideoDao
-import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
+import com.ruchij.core.test.{H2TestDatabase, PostgresTestDatabase, TestDatabase}
 import com.ruchij.core.services.models.Order
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.data.CoreTestData
@@ -16,9 +16,12 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import java.time.Duration
-import scala.concurrent.ExecutionContext.Implicits.global
 
-class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
+class H2DoobiePlaylistDaoSpec extends DoobiePlaylistDaoSpec with H2TestDatabase
+
+class PostgresDoobiePlaylistDaoSpec extends DoobiePlaylistDaoSpec with PostgresTestDatabase
+
+abstract class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with OptionValues with TestDatabase {
 
   val doobiePlaylistDao = new DoobiePlaylistDao(DoobieFileResourceDao, DoobieVideoDao)
 
@@ -31,7 +34,7 @@ class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
   )
 
   "DoobiePlaylistDao" should "perform CRUD operations" in runIO {
-    new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
+    transactor.use { implicit transactor =>
       for {
         _ <- transactor(ApiTestData.setUpData)
 
@@ -109,7 +112,7 @@ class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
   }
 
   it should "insert playlist with album art" in runIO {
-    new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
+    transactor.use { implicit transactor =>
       for {
         _ <- transactor(ApiTestData.setUpData)
         _ <- transactor(DoobieFileResourceDao.insert(albumArtFileResource))
@@ -139,7 +142,7 @@ class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
   }
 
   it should "update playlist with album art" in runIO {
-    new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
+    transactor.use { implicit transactor =>
       for {
         _ <- transactor(ApiTestData.setUpData)
         _ <- transactor(DoobieFileResourceDao.insert(albumArtFileResource))
@@ -196,7 +199,7 @@ class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
   }
 
   it should "update playlist with user ID filter" in runIO {
-    new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
+    transactor.use { implicit transactor =>
       for {
         _ <- transactor(ApiTestData.setUpData)
 
@@ -248,7 +251,7 @@ class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
   }
 
   it should "return 0 when updating with no fields to update" in runIO {
-    new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
+    transactor.use { implicit transactor =>
       for {
         _ <- transactor(ApiTestData.setUpData)
 
@@ -282,7 +285,7 @@ class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
   }
 
   it should "search with user ID filter" in runIO {
-    new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
+    transactor.use { implicit transactor =>
       for {
         _ <- transactor(ApiTestData.setUpData)
 
@@ -339,7 +342,7 @@ class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
   }
 
   it should "search with different sort by options" in runIO {
-    new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
+    transactor.use { implicit transactor =>
       for {
         _ <- transactor(ApiTestData.setUpData)
 
@@ -401,7 +404,7 @@ class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
   }
 
   it should "support pagination in search" in runIO {
-    new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
+    transactor.use { implicit transactor =>
       for {
         _ <- transactor(ApiTestData.setUpData)
 
@@ -431,7 +434,7 @@ class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
   }
 
   it should "delete playlist with user ID filter" in runIO {
-    new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
+    transactor.use { implicit transactor =>
       for {
         _ <- transactor(ApiTestData.setUpData)
 
@@ -467,7 +470,7 @@ class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
   }
 
   it should "insert playlist with no videos" in runIO {
-    new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
+    transactor.use { implicit transactor =>
       for {
         _ <- transactor(ApiTestData.setUpData)
 
@@ -496,7 +499,7 @@ class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
   }
 
   it should "update playlist videos only" in runIO {
-    new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
+    transactor.use { implicit transactor =>
       for {
         _ <- transactor(ApiTestData.setUpData)
 
@@ -536,7 +539,7 @@ class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
   }
 
   it should "return true for isAlbumArtFileResource when file resource is album art" in runIO {
-    new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
+    transactor.use { implicit transactor =>
       for {
         _ <- transactor(ApiTestData.setUpData)
         _ <- transactor(DoobieFileResourceDao.insert(albumArtFileResource))
@@ -561,7 +564,7 @@ class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
   }
 
   it should "return false for isAlbumArtFileResource when file resource is not album art" in runIO {
-    new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
+    transactor.use { implicit transactor =>
       for {
         _ <- transactor(ApiTestData.setUpData)
 
@@ -572,7 +575,7 @@ class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
   }
 
   it should "return true for hasAlbumArtPermission when user owns the playlist" in runIO {
-    new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
+    transactor.use { implicit transactor =>
       for {
         _ <- transactor(ApiTestData.setUpData)
         _ <- transactor(DoobieFileResourceDao.insert(albumArtFileResource))
@@ -599,7 +602,7 @@ class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
   }
 
   it should "return false for hasAlbumArtPermission when user does not own the playlist" in runIO {
-    new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
+    transactor.use { implicit transactor =>
       for {
         _ <- transactor(ApiTestData.setUpData)
         _ <- transactor(DoobieFileResourceDao.insert(albumArtFileResource))

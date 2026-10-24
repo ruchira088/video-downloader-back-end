@@ -5,18 +5,21 @@ import cats.implicits._
 import com.ruchij.api.daos.resettoken.models.CredentialsResetToken
 import com.ruchij.api.daos.user.DoobieUserDao
 import com.ruchij.api.daos.user.models.{Email, Role, User}
-import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
+import com.ruchij.core.test.{H2TestDatabase, PostgresTestDatabase, TestDatabase}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.ExecutionContext.Implicits.global
 
-class DoobieCredentialsResetTokenDaoSpec extends AnyFlatSpec with Matchers {
+class H2DoobieCredentialsResetTokenDaoSpec extends DoobieCredentialsResetTokenDaoSpec with H2TestDatabase
+
+class PostgresDoobieCredentialsResetTokenDaoSpec extends DoobieCredentialsResetTokenDaoSpec with PostgresTestDatabase
+
+abstract class DoobieCredentialsResetTokenDaoSpec extends AnyFlatSpec with Matchers with TestDatabase {
 
   "DoobieCredentialsResetTokenDao" should "perform CRUD operations" in runIO {
-    new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
+    transactor.use { implicit transactor =>
       val timestamp = TimeUtils.instantOf(2021, 10, 18, 18, 5, 44, 100)
       val user = User("my-user-id", timestamp, "John", "Doe", Email("john@ruchij.com"), Role.User)
       val credentialsResetToken = CredentialsResetToken("my-user-id", timestamp, "my-token")

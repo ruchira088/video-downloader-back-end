@@ -5,7 +5,7 @@ import cats.~>
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata}
-import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
+import com.ruchij.core.test.{H2TestDatabase, PostgresTestDatabase, TestDatabase}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.types.Clock
 import doobie.ConnectionIO
@@ -15,11 +15,14 @@ import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class DoobieVideoMetadataDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
+class H2DoobieVideoMetadataDaoSpec extends DoobieVideoMetadataDaoSpec with H2TestDatabase
+
+class PostgresDoobieVideoMetadataDaoSpec extends DoobieVideoMetadataDaoSpec with PostgresTestDatabase
+
+abstract class DoobieVideoMetadataDaoSpec extends AnyFlatSpec with Matchers with OptionValues with TestDatabase {
 
   case class TestFixture(
     videoMetadata: VideoMetadata,
@@ -29,7 +32,7 @@ class DoobieVideoMetadataDaoSpec extends AnyFlatSpec with Matchers with OptionVa
 
   def runTest(testFn: TestFixture => IO[Unit]): Unit =
     runIO {
-      new EmbeddedCoreResourcesProvider[IO].transactor.use { transaction =>
+      transactor.use { transaction =>
         for {
           timestamp <- Clock[IO].timestamp
 

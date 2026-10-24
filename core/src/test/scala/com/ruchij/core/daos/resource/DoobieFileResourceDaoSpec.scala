@@ -3,18 +3,21 @@ package com.ruchij.core.daos.resource
 import cats.effect.IO
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.test.IOSupport.runIO
-import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
+import com.ruchij.core.test.{H2TestDatabase, PostgresTestDatabase, TestDatabase}
 import com.ruchij.core.types.Clock
 import org.http4s.MediaType
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.ExecutionContext.Implicits.global
 
-class DoobieFileResourceDaoSpec extends AnyFlatSpec with Matchers {
+class H2DoobieFileResourceDaoSpec extends DoobieFileResourceDaoSpec with H2TestDatabase
+
+class PostgresDoobieFileResourceDaoSpec extends DoobieFileResourceDaoSpec with PostgresTestDatabase
+
+abstract class DoobieFileResourceDaoSpec extends AnyFlatSpec with Matchers with TestDatabase {
 
   "DoobieFileResource" should "perform CRUD operation" in runIO {
-    new EmbeddedCoreResourcesProvider[IO].transactor
+    transactor
       .use {
         transaction =>
           for {
@@ -53,7 +56,7 @@ class DoobieFileResourceDaoSpec extends AnyFlatSpec with Matchers {
   }
 
   "update" should "update file resource size" in runIO {
-    new EmbeddedCoreResourcesProvider[IO].transactor
+    transactor
       .use { transaction =>
         for {
           timestamp <- Clock[IO].timestamp
@@ -75,7 +78,7 @@ class DoobieFileResourceDaoSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "return 0 when updating non-existent resource" in runIO {
-    new EmbeddedCoreResourcesProvider[IO].transactor
+    transactor
       .use { transaction =>
         for {
           updateResult <- transaction { DoobieFileResourceDao.update("non-existent-id", 9999) }

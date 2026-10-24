@@ -9,7 +9,7 @@ import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata}
-import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
+import com.ruchij.core.test.{H2TestDatabase, PostgresTestDatabase, TestDatabase}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.types.Clock
 import doobie.ConnectionIO
@@ -17,11 +17,14 @@ import org.http4s.MediaType
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class DoobieVideoPerceptualHashDaoSpec extends AnyFlatSpec with Matchers {
+class H2DoobieVideoPerceptualHashDaoSpec extends DoobieVideoPerceptualHashDaoSpec with H2TestDatabase
+
+class PostgresDoobieVideoPerceptualHashDaoSpec extends DoobieVideoPerceptualHashDaoSpec with PostgresTestDatabase
+
+abstract class DoobieVideoPerceptualHashDaoSpec extends AnyFlatSpec with Matchers with TestDatabase {
 
   private def insertVideo(videoId: String, duration: FiniteDuration, timestamp: java.time.Instant): ConnectionIO[Unit] = {
     val thumbnailId = s"$videoId-thumb"
@@ -47,7 +50,7 @@ class DoobieVideoPerceptualHashDaoSpec extends AnyFlatSpec with Matchers {
 
   def runTest(testFn: (ConnectionIO ~> IO) => IO[Unit]): Unit =
     runIO {
-      new EmbeddedCoreResourcesProvider[IO].transactor.use { transaction =>
+      transactor.use { transaction =>
         testFn(transaction)
       }
     }

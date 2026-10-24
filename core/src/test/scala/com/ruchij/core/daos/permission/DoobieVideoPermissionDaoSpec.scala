@@ -9,7 +9,7 @@ import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata}
-import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
+import com.ruchij.core.test.{H2TestDatabase, PostgresTestDatabase, TestDatabase}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.types.Clock
 import doobie.ConnectionIO
@@ -20,13 +20,16 @@ import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import doobie.implicits._
 import com.ruchij.core.daos.doobie.DoobieCustomMappings._
 
-class DoobieVideoPermissionDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
+class H2DoobieVideoPermissionDaoSpec extends DoobieVideoPermissionDaoSpec with H2TestDatabase
+
+class PostgresDoobieVideoPermissionDaoSpec extends DoobieVideoPermissionDaoSpec with PostgresTestDatabase
+
+abstract class DoobieVideoPermissionDaoSpec extends AnyFlatSpec with Matchers with OptionValues with TestDatabase {
 
   private def insertTestUser(userId: String, email: String, timestamp: Instant): ConnectionIO[Int] =
     sql"""
@@ -36,7 +39,7 @@ class DoobieVideoPermissionDaoSpec extends AnyFlatSpec with Matchers with Option
 
   def runTest(testFn: (ScheduledVideoDownload, ConnectionIO ~> IO) => IO[Unit]): Unit =
     runIO {
-      new EmbeddedCoreResourcesProvider[IO].transactor.use { transaction =>
+      transactor.use { transaction =>
         for {
           timestamp <- Clock[IO].timestamp
           thumbnailFileResource = FileResource("thumbnail-id", timestamp, "/opt/image/thumbnail.jpg", MediaType.image.jpeg, 100)

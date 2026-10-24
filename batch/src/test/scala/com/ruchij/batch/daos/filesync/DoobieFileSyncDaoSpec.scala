@@ -3,7 +3,7 @@ package com.ruchij.batch.daos.filesync
 import cats.effect.IO
 import cats.~>
 import com.ruchij.batch.daos.filesync.models.FileSync
-import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
+import com.ruchij.core.test.{H2TestDatabase, PostgresTestDatabase, TestDatabase}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.types.Clock
 import doobie.ConnectionIO
@@ -12,9 +12,12 @@ import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.ExecutionContext.Implicits.global
 
-class DoobieFileSyncDaoSpec extends AnyFlatSpec with Matchers with OptionValues {
+class H2DoobieFileSyncDaoSpec extends DoobieFileSyncDaoSpec with H2TestDatabase
+
+class PostgresDoobieFileSyncDaoSpec extends DoobieFileSyncDaoSpec with PostgresTestDatabase
+
+abstract class DoobieFileSyncDaoSpec extends AnyFlatSpec with Matchers with OptionValues with TestDatabase {
 
   case class TestFixture(
     transaction: ConnectionIO ~> IO,
@@ -23,7 +26,7 @@ class DoobieFileSyncDaoSpec extends AnyFlatSpec with Matchers with OptionValues 
 
   def runTest(testFn: TestFixture => IO[Unit]): Unit =
     runIO {
-      new EmbeddedCoreResourcesProvider[IO].transactor.use { transaction =>
+      transactor.use { transaction =>
         for {
           timestamp <- Clock[IO].timestamp
           result <- testFn(TestFixture(transaction, timestamp))
