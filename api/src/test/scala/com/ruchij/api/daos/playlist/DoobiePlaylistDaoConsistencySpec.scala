@@ -19,8 +19,8 @@ import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
 
 /** Paging and concurrent updates of playlists, run against both H2 and PostgreSQL. */
 class DoobiePlaylistDaoConsistencySpec extends AnyFlatSpec with Matchers with OptionValues {
@@ -82,12 +82,20 @@ class DoobiePlaylistDaoConsistencySpec extends AnyFlatSpec with Matchers with Op
           def updateVideos(videoIds: List[String]): ConnectionIO[Int] =
             playlistDao.update(playlistId, None, None, Some(videoIds), None, None)
 
-          // The first update holds its transaction open so that the second one runs while it is uncommitted
+          // The second update only starts once the first one holds the playlist's lock, and the first one keeps its
+          // transaction open for a while after that, so that the second one runs while it is uncommitted
+          val firstUpdateLocked = new CountDownLatch(1)
+
           val firstUpdate =
-            transaction(updateVideos(List(youTubeVideoId, spankBangVideoId)).productL(FC.delay(Thread.sleep(500))))
+            transaction {
+              updateVideos(List(youTubeVideoId, spankBangVideoId))
+                .productL(FC.delay(firstUpdateLocked.countDown()))
+                .productL(FC.delay(Thread.sleep(500)))
+            }
 
           val secondUpdate =
-            IO.sleep(150.millis).productR(transaction(updateVideos(List(spankBangVideoId, localVideoId))))
+            IO.blocking(firstUpdateLocked.await(30, TimeUnit.SECONDS))
+              .productR(transaction(updateVideos(List(spankBangVideoId, localVideoId))))
 
           for {
             _ <- transaction(playlistDao.insert(playlist(playlistId, "Concurrent Playlist")))

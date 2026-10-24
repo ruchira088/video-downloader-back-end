@@ -79,6 +79,7 @@ class RedisStreamPublisherSubscriberSpec extends AnyFlatSpec with Matchers with 
   "RedisStreamSubscriber" should "redeliver a message that was received but never committed" in runIO {
     RedisContainer
       .create[IO]
+      .evalTap(createGroup(_, "redelivery-group"))
       .flatMap { redisConfiguration =>
         RedisStreamPublisher
           .create[IO, TestMessage](redisConfiguration)
@@ -101,7 +102,6 @@ class RedisStreamPublisherSubscriberSpec extends AnyFlatSpec with Matchers with 
               .timeout(testTimeout)
               .start
 
-            _ <- IO.sleep(2 seconds)
             _ <- publisher.publishOne(TestMessage("redelivered", 3))
             uncommitted <- uncommittedFiber.joinWithNever
 
@@ -124,6 +124,7 @@ class RedisStreamPublisherSubscriberSpec extends AnyFlatSpec with Matchers with 
   it should "keep consuming after failing to acknowledge a message it cannot decode" in runIO {
     RedisContainer
       .create[IO]
+      .evalTap(createGroup(_, "undecodable-group"))
       .flatMap { redisConfiguration =>
         (
           RedisStreamPublisher.create[IO, TestMessage](redisConfiguration),
@@ -153,7 +154,6 @@ class RedisStreamPublisherSubscriberSpec extends AnyFlatSpec with Matchers with 
               .timeout(testTimeout)
               .start
 
-            _ <- IO.sleep(2 seconds)
             // XACK fails with NOPERM until it is allowed again
             _ <- setXAck(allowed = false)
             _ <- redisCommands.xAdd(testMessageMessagingTopic.name, Map("data" -> "not-json"))
@@ -173,6 +173,7 @@ class RedisStreamPublisherSubscriberSpec extends AnyFlatSpec with Matchers with 
   it should "release the messages a subscription read but never acknowledged once it ends" in runIO {
     RedisContainer
       .create[IO]
+      .evalTap(createGroup(_, "release-group"))
       .flatMap { redisConfiguration =>
         RedisStreamPublisher
           .create[IO, TestMessage](redisConfiguration)
@@ -191,7 +192,6 @@ class RedisStreamPublisherSubscriberSpec extends AnyFlatSpec with Matchers with 
               .timeout(testTimeout)
               .start
 
-            _ <- IO.sleep(2 seconds)
             _ <- publishAll(publisher, "release", 0 until 3)
             first <- firstFiber.joinWithNever
 
@@ -214,6 +214,7 @@ class RedisStreamPublisherSubscriberSpec extends AnyFlatSpec with Matchers with 
   it should "delete consumers that no longer hold pending messages" in runIO {
     RedisContainer
       .create[IO]
+      .evalTap(createGroup(_, "stale-group"))
       .flatMap { redisConfiguration =>
         (
           RedisStreamPublisher.create[IO, TestMessage](redisConfiguration),
@@ -240,7 +241,6 @@ class RedisStreamPublisherSubscriberSpec extends AnyFlatSpec with Matchers with 
               .timeout(testTimeout)
               .start
 
-            _ <- IO.sleep(2 seconds)
             _ <- publisher.publishOne(TestMessage("claimed-again", 1))
             _ <- firstFiber.joinWithNever
 
@@ -254,20 +254,30 @@ class RedisStreamPublisherSubscriberSpec extends AnyFlatSpec with Matchers with 
               .drain
               .background
               .use { _ =>
-                for {
-                  _ <- acknowledged.get.timeout(testTimeout)
-                  afterAcknowledgement <- consumerCount
-                  _ <- waitUntil(consumerCount.map(_ == 1)).timeout(15 seconds).attempt
-                  remaining <- consumerCount
-                } yield (afterAcknowledgement, remaining)
+                // The first consumer may already be gone by the time the message is acknowledged, so only the
+                // count it settles on is checked: the claiming consumer stays, the one that held the message doesn't
+                acknowledged.get.timeout(testTimeout) *>
+                  waitUntil(consumerCount.map(_ == 1)).timeout(15 seconds).attempt *>
+                  consumerCount
               }
 
             _ <- IO.delay {
-              consumerCounts mustBe (2, 1)
+              consumerCounts mustBe 1
             }
           } yield ()
       }
   }
+
+  /**
+    * A new group starts from the latest message, so a message published before the subscriber's first read created
+    * the group would be skipped. Creating the group up front lets a test publish straight away.
+    */
+  private def createGroup(redisConfiguration: RedisConfiguration, groupId: String): IO[Unit] =
+    Redis[IO].utf8(redisConfiguration.uri).use { redisCommands =>
+      redisCommands
+        .xGroupCreate(testMessageMessagingTopic.name, groupId, "$", XGroupCreateArgs(mkStream = true))
+        .void
+    }
 
   private def lettuce(redisConfiguration: RedisConfiguration): Resource[IO, RedisCommands[String, String]] =
     Resource

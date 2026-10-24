@@ -215,8 +215,10 @@ abstract class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with Op
 
   it should "update the download progress" in runTest {
     (scheduledVideoDownload, transaction) =>
+      // Progress is only recorded if it is newer than the last update, and two clock reads can share a millisecond
+      val timestamp = scheduledVideoDownload.lastUpdatedAt.plusSeconds(1)
+
       for {
-        timestamp <- Clock[IO].timestamp
         maybeUpdated <-
           transaction {
             DoobieSchedulingDao.updateDownloadProgress(scheduledVideoDownload.videoMetadata.id, 2021, timestamp)

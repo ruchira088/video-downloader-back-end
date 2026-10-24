@@ -29,6 +29,7 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
@@ -91,43 +92,73 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
 
   override def testTimeout: FiniteDuration = 30 seconds
 
+  /**
+    * A new group starts from the latest message, so its first poll would skip whatever was published before it.
+    * Creating the group up front lets a test publish straight away, instead of sleeping until the first poll.
+    */
+  private def createGroup(groupId: String)(implicit transaction: ConnectionIO ~> IO): IO[Unit] =
+    Clock[IO].timestamp.flatMap { timestamp =>
+      transaction(DoobieMessageConsumerGroupDao.createGroup(channel, groupId, timestamp)).void
+    }
+
   "DoobieSubscriber" should "deliver a row that commits after a row with a higher id" in runIO {
     daoResource.use {
       case (messageDao, transaction) =>
         implicit val tx: ConnectionIO ~> IO = transaction
 
+        val polls = new AtomicInteger(0)
         val publisher = new DoobiePublisher[IO, ConnectionIO, TestMessage](messageDao)
         val subscriber =
-          DoobieSubscriber.create[IO, ConnectionIO, TestMessage](DoobieMessageConsumerGroupDao, 200 milliseconds)
+          DoobieSubscriber.create[IO, ConnectionIO, TestMessage](
+            new FlakyConsumerGroupDao(DoobieMessageConsumerGroupDao, new AtomicInteger(0), lockCalls = polls),
+            200 milliseconds
+          )
+
+        def await(latch: CountDownLatch): IO[Boolean] =
+          IO.blocking(latch.await(testTimeout.toSeconds, TimeUnit.SECONDS))
 
         for {
+          _ <- createGroup("late-commit-group")
+          inserted <- IO.delay(new CountDownLatch(1))
+          earlyAcknowledged <- IO.delay(new CountDownLatch(1))
+          commitLate <- IO.delay(new CountDownLatch(1))
+
           receivedFiber <- subscriber
             .subscribe("late-commit-group")
-            .map(subscriber.extractValue)
+            .evalMap(record => subscriber.commit(List(record)).as(subscriber.extractValue(record)))
+            .evalTap(message => IO.delay(earlyAcknowledged.countDown()).whenA(message.name == "early"))
             .take(2)
             .compile
             .toList
             .timeout(testTimeout)
             .start
 
-          _ <- IO.sleep(2 seconds)
-
           now <- Clock[IO].timestamp
-          // Takes the lower id, but only commits after the next message has been published and delivered
+          // Takes the lower id, but only commits once the message with the higher id has been acknowledged
           slowInsert <- tx {
             messageDao
               .insert(testMessageMessagingTopic.name, testMessageCodec(TestMessage("late", 0)).noSpaces, now)
-              .flatMap(result => connectionDelay(Thread.sleep(3000)).as(result))
+              .productR(connectionDelay(inserted.countDown()))
+              .productR(connectionDelay(commitLate.await(testTimeout.toSeconds, TimeUnit.SECONDS)))
           }.start
 
-          _ <- IO.sleep(500 milliseconds)
+          _ <- await(inserted)
           _ <- publisher.publishOne(TestMessage("early", 1))
-          _ <- slowInsert.joinWithNever
+          acknowledged <- await(earlyAcknowledged)
 
+          // Every message up to the acknowledged one looks acknowledged while the lower id is uncommitted, so a poll
+          // could move the group's start id past it. Each poll locks the group once and polls run one after the
+          // other, so once two more polls have started, a whole poll has run after the acknowledgement.
+          pollsAfterAcknowledgement <- IO.delay(polls.get())
+          _ <- waitUntil(IO.delay(polls.get() >= pollsAfterAcknowledgement + 2)).timeout(testTimeout)
+
+          _ <- IO.delay(commitLate.countDown())
+          _ <- slowInsert.joinWithNever
           received <- receivedFiber.joinWithNever
 
           _ <- IO.delay {
-            received.map(_.name).toSet mustBe Set("late", "early")
+            acknowledged mustBe true
+            received.map(_.name) mustBe List("early", "late")
           }
         } yield ()
     }
@@ -145,6 +176,7 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
           publisher = new DoobiePublisher[IO, ConnectionIO, TestMessage](messageDao)
           subscriber = DoobieSubscriber.create[IO, ConnectionIO, TestMessage](flakyConsumerGroupDao, 200 milliseconds)
 
+          _ <- createGroup("flaky-group")
           receivedFiber <- subscriber
             .subscribe("flaky-group")
             .map(subscriber.extractValue)
@@ -154,7 +186,6 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
             .timeout(testTimeout)
             .start
 
-          _ <- IO.sleep(2 seconds)
           _ <- publisher.publishOne(TestMessage("after-errors", 7))
 
           received <- receivedFiber.joinWithNever
@@ -182,6 +213,7 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
           )
 
         for {
+          _ <- createGroup("redelivery-group")
           uncommittedFiber <- subscriber
             .subscribe("redelivery-group")
             .map(subscriber.extractValue)
@@ -191,7 +223,6 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
             .timeout(testTimeout)
             .start
 
-          _ <- IO.sleep(2 seconds)
           _ <- publisher.publishOne(TestMessage("redelivered", 3))
           uncommitted <- uncommittedFiber.joinWithNever
 
@@ -227,6 +258,7 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
         val startId: IO[Option[Long]] = tx(DoobieMessageConsumerGroupDao.lockGroup(channel, "low-water-group"))
 
         for {
+          _ <- createGroup("low-water-group")
           receivedFiber <- subscriber
             .subscribe("low-water-group")
             .evalMap { record =>
@@ -239,7 +271,6 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
             .timeout(testTimeout)
             .start
 
-          _ <- IO.sleep(2 seconds)
           _ <- publishAll(publisher, "low-water", 0 until 5)
           _ <- receivedFiber.joinWithNever
           ids <- tx(messageDao.findAfter(channel, 0)).map(_.map { case (id, _) => id })
@@ -269,6 +300,7 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
           publisher = new DoobiePublisher[IO, ConnectionIO, TestMessage](messageDao)
           subscriber = DoobieSubscriber.create[IO, ConnectionIO, TestMessage](flakyConsumerGroupDao, 200 milliseconds)
 
+          _ <- createGroup("undecodable-group")
           receivedFiber <- subscriber
             .subscribe("undecodable-group")
             .map(subscriber.extractValue)
@@ -278,7 +310,6 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
             .timeout(testTimeout)
             .start
 
-          _ <- IO.sleep(2 seconds)
           now <- Clock[IO].timestamp
           _ <- tx(messageDao.insert(channel, "not-json", now))
           _ <- publisher.publishOne(TestMessage("decodable", 1))
@@ -305,6 +336,7 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
           DoobieSubscriber.create[IO, ConnectionIO, TestMessage](DoobieMessageConsumerGroupDao, 200 milliseconds)
 
         for {
+          _ <- createGroup("release-group")
           firstFiber <- subscriber
             .subscribe("release-group")
             .map(subscriber.extractValue)
@@ -314,7 +346,6 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
             .timeout(testTimeout)
             .start
 
-          _ <- IO.sleep(2 seconds)
           _ <- publishAll(publisher, "release", 0 until 3)
           first <- firstFiber.joinWithNever
 
@@ -444,7 +475,8 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
 class FlakyConsumerGroupDao(
   underlying: MessageConsumerGroupDao[ConnectionIO],
   lockFailures: AtomicInteger,
-  acknowledgeFailures: AtomicInteger = new AtomicInteger(0)
+  acknowledgeFailures: AtomicInteger = new AtomicInteger(0),
+  lockCalls: AtomicInteger = new AtomicInteger(0)
 ) extends MessageConsumerGroupDao[ConnectionIO] {
   private def failIfRequired(failures: AtomicInteger): ConnectionIO[Unit] =
     connectionDelay(failures.getAndUpdate(count => math.max(count - 1, 0))).flatMap { remaining =>
@@ -456,7 +488,9 @@ class FlakyConsumerGroupDao(
     underlying.createGroup(channel, groupId, createdAt)
 
   override def lockGroup(channel: String, groupId: String): ConnectionIO[Option[Long]] =
-    failIfRequired(lockFailures).flatMap(_ => underlying.lockGroup(channel, groupId))
+    connectionDelay(lockCalls.incrementAndGet())
+      .productR(failIfRequired(lockFailures))
+      .flatMap(_ => underlying.lockGroup(channel, groupId))
 
   override def findUnclaimed(
     channel: String,

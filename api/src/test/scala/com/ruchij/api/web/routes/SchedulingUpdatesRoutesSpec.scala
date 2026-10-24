@@ -13,7 +13,7 @@ import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.data.CoreTestData
 import com.ruchij.core.types.TimeUtils
-import fs2.Stream
+import fs2.{Pull, Stream}
 import io.circe.parser.parse
 import org.http4s.dsl.io._
 import org.http4s.headers.Authorization
@@ -89,10 +89,14 @@ class SchedulingUpdatesRoutesSpec extends AnyFlatSpec with Matchers with MockedR
         .toOption
     }
 
-  private def receivedEvents: IO[List[(Option[String], Option[String])]] =
-    receivedEventsWithStatus.map(_.map { case (eventType, videoId, _) => eventType -> videoId })
+  private def receivedEvents(expected: Int): IO[List[(Option[String], Option[String])]] =
+    receivedEventsWithStatus(expected).map(_.map { case (eventType, videoId, _) => eventType -> videoId })
 
-  private def receivedEventsWithStatus: IO[List[(Option[String], Option[String], Option[String])]] =
+  /**
+    * Reads events until the expected number has arrived, however long that takes on a slow machine, and then for
+    * another second, so that an unexpected extra event shows up in the count. The heart-beats never end the stream.
+    */
+  private def receivedEventsWithStatus(expected: Int): IO[List[(Option[String], Option[String], Option[String])]] =
     createRoutes()
       .run(
         Request[IO](
@@ -106,9 +110,16 @@ class SchedulingUpdatesRoutesSpec extends AnyFlatSpec with Matchers with MockedR
           response.body
             .through(ServerSentEvent.decoder[IO])
             .filter(_.eventType.exists(_ != "heart-beat"))
-            .interruptAfter(2.seconds)
+            .pull
+            .take(expected.toLong)
+            .flatMap {
+              case Some(rest) => rest.interruptAfter(1.second).pull.echo
+              case None => Pull.done
+            }
+            .stream
             .compile
             .toList
+            .timeout(30.seconds)
             .map(_.map(event => (event.eventType, videoIdOf(event), statusOf(event))))
       }
 
@@ -127,7 +138,7 @@ class SchedulingUpdatesRoutesSpec extends AnyFlatSpec with Matchers with MockedR
           .returns(IO.pure(false))
       } *>
       ignoreHttpMetrics() *>
-      receivedEvents.flatMap { events =>
+      receivedEvents(expected = 4).flatMap { events =>
         IO.delay {
           events.flatMap(_._2).toSet mustBe Set(OwnedVideoId, DeletedVideoId)
           events.count(_._1.contains("active-download")) mustBe 2
@@ -142,7 +153,7 @@ class SchedulingUpdatesRoutesSpec extends AnyFlatSpec with Matchers with MockedR
         (apiSchedulingService.hasPermission _).expects(*, *).never()
       } *>
       ignoreHttpMetrics() *>
-      receivedEvents.flatMap { events =>
+      receivedEvents(expected = 7).flatMap { events =>
         IO.delay {
           events.flatMap(_._2).toSet mustBe Set(OwnedVideoId, OtherVideoId, DeletedVideoId)
           events.count(_._1.contains("active-download")) mustBe 4
@@ -164,7 +175,7 @@ class SchedulingUpdatesRoutesSpec extends AnyFlatSpec with Matchers with MockedR
             .returns(IO.pure(false))
         } *>
         ignoreHttpMetrics() *>
-        receivedEventsWithStatus.flatMap { events =>
+        receivedEventsWithStatus(expected = 4).flatMap { events =>
           IO.delay {
             events.collect { case (_, videoId, Some("Deleted")) => videoId } mustBe List(Some(DeletedVideoId))
           }

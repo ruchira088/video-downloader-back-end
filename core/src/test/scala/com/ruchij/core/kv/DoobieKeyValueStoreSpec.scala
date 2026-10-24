@@ -162,7 +162,12 @@ class DoobieKeyValueStoreSpec extends AnyFlatSpec with Matchers {
             _ <- kvStore.put("permanent-key", "permanent-value", None)
             _ <- kvStore.put("long-lived-key", "long-lived-value", Some(1 hour))
 
-            _ <- IO.sleep(1 second)
+            // Waits for a purge to run, however late, rather than sleeping for a few purge intervals
+            _ <- storedKeys
+              .map(keys => !keys.contains("expiring-key"))
+              .flatTap(purged => if (purged) IO.unit else IO.sleep(100 milliseconds))
+              .iterateUntil(purged => purged)
+              .timeout(30 seconds)
             keys <- storedKeys
 
             _ <- IO.delay {

@@ -44,7 +44,7 @@ object RandomGenerator {
     }
 
   implicit def instantRandomGenerator[F[_]: Clock: Sync]: RandomGenerator[F, Instant] =
-    range[F](-10_000, 0).evalMap(offset => Clock[F].timestamp.map(_.minus(Duration.ofMinutes(offset))))
+    range[F](-10_000, 0).evalMap(offset => Clock[F].timestamp.map(_.plus(Duration.ofMinutes(offset))))
 
   implicit def randomGeneratorMonad[F[_]: Monad]: Monad[RandomGenerator[F, *]] =
     new Monad[RandomGenerator[F, *]] {
