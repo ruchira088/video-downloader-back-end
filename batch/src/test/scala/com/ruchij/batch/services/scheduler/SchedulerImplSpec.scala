@@ -45,8 +45,10 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   val testTimestamp = TimeUtils.instantOf(2024, 5, 15, 14, 30)
 
   // Stub implementations for testing
-  class StubBatchSchedulingService(workerStatusUpdates: Stream[IO, WorkerStatusUpdate] = Stream.empty)
-      extends BatchSchedulingService[IO] {
+  class StubBatchSchedulingService(
+    workerStatusUpdates: Stream[IO, WorkerStatusUpdate] = Stream.empty,
+    scheduledVideoDownloadUpdates: Stream[IO, ScheduledVideoDownload] = Stream.empty
+  ) extends BatchSchedulingService[IO] {
     @volatile var acquiredTasks: List[ScheduledVideoDownload] = List.empty
     @volatile var staleTasks: List[ScheduledVideoDownload] = List.empty
     @volatile var deletedIds: List[String] = List.empty
@@ -111,7 +113,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     }
 
     override def subscribeToScheduledVideoDownloadUpdates(groupId: String): Stream[IO, ScheduledVideoDownload] =
-      Stream.empty
+      scheduledVideoDownloadUpdates
 
     override def subscribeToWorkerStatusUpdates(groupId: String): Stream[IO, WorkerStatusUpdate] = workerStatusUpdates
   }
@@ -1164,6 +1166,149 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
       batchSchedulingService.scheduledVideoDownloadGroupIds.distinct mustBe List("batch-scheduler-test-instance")
       batchSchedulingService.workerStatusGroupIds.size must be >= 2
       batchSchedulingService.workerStatusGroupIds.distinct mustBe List("batch-scheduler-test-instance")
+    }
+  }
+
+  // Clock[IO] reads the wall clock, which barely moves while TestControl runs virtual time. Updates sent after a task
+  // started could then carry the same timestamp as the task, so these tests use a clock that follows virtual time.
+  private val virtualClock: Clock[IO] = new Clock[IO] {
+    override val timestamp: IO[Instant] = IO.realTime.map(duration => Instant.ofEpochMilli(duration.toMillis))
+  }
+
+  /** Behaves like WorkExecutorImpl: completes the download after 10 seconds, unless it is interrupted first. */
+  private class InterruptibleWorkExecutor(video: Video) extends StubWorkExecutor() {
+    @volatile var interrupted: Boolean = false
+
+    override def execute(
+      scheduledVideoDownload: ScheduledVideoDownload,
+      worker: Worker,
+      interrupt: Stream[IO, Boolean],
+      retries: Int
+    ): IO[Video] = {
+      executedTasks = executedTasks :+ scheduledVideoDownload
+
+      IO.race(interrupt.head.compile.drain, IO.sleep(10.seconds)).flatMap {
+        case Left(_) => IO.delay { interrupted = true }.productR(IO.raiseError(PausedVideoDownload))
+        case Right(_) => IO.pure(video)
+      }
+    }
+  }
+
+  private val interruptibleTask = createScheduledVideoDownload("interruptible-task")
+
+  /** Repeats the update every 500ms, so that it also reaches subscribers that join the topic later. */
+  private def repeatedUpdates(update: Instant => ScheduledVideoDownload): Stream[IO, ScheduledVideoDownload] =
+    Stream.awakeEvery[IO](500.millis).evalMap(_ => virtualClock.timestamp.map(update))
+
+  private def interruptibleScheduler(
+    updates: Stream[IO, ScheduledVideoDownload]
+  ): (SchedulerImpl[IO, IO], StubBatchSchedulingService, StubWorkerDao, InterruptibleWorkExecutor) = {
+    val workerDao = new StubWorkerDao
+    workerDao.workers = List(availableWorker())
+
+    val batchSchedulingService = new StubBatchSchedulingService(scheduledVideoDownloadUpdates = updates)
+    batchSchedulingService.acquiredTasks = List(interruptibleTask)
+
+    val workExecutor = new InterruptibleWorkExecutor(createTestVideo(interruptibleTask.videoMetadata.id))
+
+    val scheduler =
+      createScheduler(
+        workerDao,
+        createWorkerConfiguration(maxConcurrentDownloads = 1),
+        batchSchedulingService = batchSchedulingService,
+        workExecutor = workExecutor
+      )(virtualClock)
+
+    (scheduler, batchSchedulingService, workerDao, workExecutor)
+  }
+
+  List(
+    SchedulingStatus.Error,
+    SchedulingStatus.WorkersPaused,
+    SchedulingStatus.Stale,
+    SchedulingStatus.Paused,
+    SchedulingStatus.Deleted
+  ).foreach { status =>
+    "SchedulerImpl.run" should s"interrupt the active download when it is updated to $status" in runIO {
+      val (scheduler, batchSchedulingService, workerDao, workExecutor) =
+        interruptibleScheduler {
+          repeatedUpdates(timestamp => interruptibleTask.copy(status = status, lastUpdatedAt = timestamp))
+        }
+
+      TestControl.executeEmbed(scheduler.run.interruptAfter(5.seconds).compile.toList).map { downloaded =>
+        downloaded mustBe empty
+        workExecutor.executedTasks must contain(interruptibleTask)
+        workExecutor.interrupted mustBe true
+        // An interrupted download is not a failure
+        batchSchedulingService.erroredTasks mustBe empty
+        workerDao.releasedWorkers must contain("worker-00")
+      }
+    }
+  }
+
+  List[(String, Instant => ScheduledVideoDownload)](
+    "is for another video" ->
+      (timestamp => createScheduledVideoDownload("other-task", SchedulingStatus.Paused).copy(lastUpdatedAt = timestamp)),
+    "is a progress update" ->
+      (timestamp => interruptibleTask.copy(status = SchedulingStatus.Active, lastUpdatedAt = timestamp)),
+    // e.g. a message that is replayed after the download was resumed
+    "was made before the download started" ->
+      (_ => interruptibleTask.copy(status = SchedulingStatus.Paused, lastUpdatedAt = Instant.EPOCH))
+  ).foreach {
+    case (description, update) =>
+      "SchedulerImpl.run" should s"not interrupt the active download for an update that $description" in runIO {
+        val (scheduler, _, _, workExecutor) = interruptibleScheduler(repeatedUpdates(update))
+
+        TestControl.executeEmbed(scheduler.run.head.compile.lastOrError.timeout(30.seconds)).map { downloaded =>
+          downloaded.videoMetadata.id mustBe interruptibleTask.videoMetadata.id
+          workExecutor.interrupted mustBe false
+        }
+      }
+  }
+
+  /** Sends the updates once, after the scheduler's subscribers have joined the topic. */
+  private def updatesOnce(updates: ScheduledVideoDownload*): Stream[IO, ScheduledVideoDownload] =
+    Stream.sleep_[IO](1.second) ++ Stream.emits(updates) ++ Stream.never[IO]
+
+  "SchedulerImpl.run" should "delete the scheduled video downloads that are updated to Deleted" in runIO {
+    implicit val clock: Clock[IO] = defaultClock
+
+    val batchSchedulingService =
+      new StubBatchSchedulingService(
+        scheduledVideoDownloadUpdates = updatesOnce(
+          createScheduledVideoDownload("deleted-1", SchedulingStatus.Deleted),
+          createScheduledVideoDownload("active", SchedulingStatus.Active),
+          createScheduledVideoDownload("paused", SchedulingStatus.Paused),
+          createScheduledVideoDownload("deleted-2", SchedulingStatus.Deleted)
+        )
+      ) {
+        override def deleteById(id: String): IO[ScheduledVideoDownload] =
+          super.deleteById(id).handleError(_ => createScheduledVideoDownload(id, SchedulingStatus.Deleted))
+      }
+
+    val scheduler = createScheduler(new StubWorkerDao, batchSchedulingService = batchSchedulingService)
+
+    TestControl.executeEmbed(scheduler.run.interruptAfter(3.seconds).compile.drain).map { _ =>
+      batchSchedulingService.deletedIds mustBe List("deleted-1", "deleted-2")
+    }
+  }
+
+  it should "keep deleting scheduled video downloads after a deletion fails" in runIO {
+    implicit val clock: Clock[IO] = defaultClock
+
+    // The stub fails every deletion
+    val batchSchedulingService =
+      new StubBatchSchedulingService(
+        scheduledVideoDownloadUpdates = updatesOnce(
+          createScheduledVideoDownload("failing-deletion", SchedulingStatus.Deleted),
+          createScheduledVideoDownload("next-deletion", SchedulingStatus.Deleted)
+        )
+      )
+
+    val scheduler = createScheduler(new StubWorkerDao, batchSchedulingService = batchSchedulingService)
+
+    TestControl.executeEmbed(scheduler.run.interruptAfter(3.seconds).compile.drain).map { _ =>
+      batchSchedulingService.deletedIds mustBe List("failing-deletion", "next-deletion")
     }
   }
 }
