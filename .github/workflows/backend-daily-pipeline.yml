@@ -3,12 +3,100 @@ name: Backend Daily Pipeline
 on:
   schedule:
     - cron: "0 0 * * *"
+  workflow_dispatch:
 
 jobs:
   compile-and-test:
     name: Run test suite
     uses: ./.github/workflows/backend-test.yml
     secrets: inherit
+
+  stress-test:
+    name: Stress test (shard ${{ matrix.shard }})
+    runs-on: ubuntu-latest
+    # Three full runs, one of them under CPU load, take about 30 minutes
+    timeout-minutes: 90
+
+    permissions:
+      contents: read
+      packages: read
+
+    # A flaky test fails one run in many, which the single run per push rarely catches. Each shard runs the suite three
+    # times, the second under CPU load, and stops at the first failure.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v6
+        with:
+          java-version: 25
+          distribution: temurin
+
+      - name: Set up sbt
+        uses: sbt/setup-sbt@v1
+
+      - name: Cache dependencies
+        uses: actions/cache@v6
+        with:
+          key: ${{ runner.os }}-${{ hashFiles('**/build.properties') }}-${{ hashFiles('**/plugins.sbt') }}-${{ hashFiles('**/Dependencies.scala') }}
+          path: |
+            ~/.sbt
+            ~/.cache/coursier
+          restore-keys: |
+            ${{ runner.os }}-${{ hashFiles('**/build.properties') }}-${{ hashFiles('**/plugins.sbt') }}
+            ${{ runner.os }}-${{ hashFiles('**/build.properties') }}
+            ${{ runner.os }}
+
+      - name: Compile
+        run: sbt "compile; Test / compile"
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install ffmpeg -y
+
+      - name: Install yt-dlp
+        run: pip install yt-dlp
+
+      - name: Login to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Run the test suite three times
+        run: |
+          for run in 1 2 3; do
+            echo "::group::Run $run of 3"
+            burners=()
+            if [ "$run" -eq 2 ]; then
+              for _ in $(seq $((2 * $(nproc)))); do yes > /dev/null & burners+=($!); done
+            fi
+
+            # If the run hangs, print every JVM's threads and kill them, so the step fails with the dump in its log
+            (sleep 1800; for pid in $(pgrep java); do echo "=== Thread dump of JVM $pid"; jstack -l "$pid"; done; pkill java) &
+            watchdog=$!
+
+            status=0
+            sbt -batch testFull || status=$?
+
+            pkill -P "$watchdog" || true
+            kill "$watchdog" "${burners[@]}" 2> /dev/null || true
+            echo "::endgroup::"
+
+            if [ "$status" -ne 0 ]; then
+              echo "::error::Run $run of 3 failed"
+              exit "$status"
+            fi
+          done
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: stress-test-results-shard-${{ matrix.shard }}
+          path: "target/out/**/test-reports/*.xml"
 
   send-notification:
     name: Send Slack notification
@@ -20,6 +108,7 @@ jobs:
 
     needs:
       - compile-and-test
+      - stress-test
 
     steps:
       - name: Send Slack notification
