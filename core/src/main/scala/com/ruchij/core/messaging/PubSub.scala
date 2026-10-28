@@ -4,6 +4,7 @@ import cats.Parallel
 import cats.effect.kernel.Resource
 import cats.effect.{Async, MonadCancelThrow}
 import cats.{Foldable, Functor, ~>}
+import cats.implicits._
 import com.ruchij.core.config.PubsubConfiguration
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.messaging.{DoobieMessageConsumerGroupDao, DoobieMessageDao}
@@ -13,13 +14,22 @@ import com.ruchij.core.messaging.kafka.KafkaPubSub
 import com.ruchij.core.messaging.redis.{RedisStreamPublisher, RedisStreamSubscriber}
 import com.ruchij.core.types.Clock
 import doobie.ConnectionIO
+import doobie.implicits._
+import dev.profunktor.redis4cats.Redis
+import dev.profunktor.redis4cats.effect.Log.Stdout.instance
 import enumeratum.{Enum, EnumEntry}
 import fs2.{Pipe, Stream}
+import fs2.kafka.{AdminClientSettings, KafkaAdminClient}
+
+import scala.concurrent.duration._
 
 trait PubSub[F[_], A] extends Publisher[F, A] with Subscriber[F, A]
 
 trait PubSubProvider[F[_]] {
   def pubSub[A: MessagingTopic]: Resource[F, PubSub[F, A]]
+
+  /** Acquires a reusable, read-only connectivity check for the configured messaging backend. */
+  def connectivityCheck: Resource[F, F[Unit]]
 
   /** The transactor backing the message queue when the Doobie backend is configured. */
   val messageTransaction: Option[ConnectionIO ~> F]
@@ -64,6 +74,14 @@ object PubSub {
               new PubSubProvider[F] {
                 override def pubSub[A: MessagingTopic]: Resource[F, PubSub[F, A]] = KafkaPubSub[F, A](kafkaConfiguration)
 
+                override def connectivityCheck: Resource[F, F[Unit]] =
+                  KafkaAdminClient.resource[F] {
+                    AdminClientSettings(kafkaConfiguration.bootstrapServers)
+                      .withProperty("default.api.timeout.ms", "2000")
+                      .withProperty("request.timeout.ms", "2000")
+                      .withCloseTimeout(2.seconds)
+                  }.map(admin => admin.describeCluster.nodes.void)
+
                 override val messageTransaction: Option[ConnectionIO ~> F] = None
               }
             }
@@ -79,6 +97,9 @@ object PubSub {
                     publisher <- RedisStreamPublisher.create[F, A](redisConfiguration)
                     subscriber <- RedisStreamSubscriber.create[F, A](redisConfiguration)
                   } yield PubSub.from(publisher, subscriber)
+
+                override def connectivityCheck: Resource[F, F[Unit]] =
+                  Redis[F].utf8(redisConfiguration.uri).map(commands => commands.ping.void)
 
                 override val messageTransaction: Option[ConnectionIO ~> F] = None
               }
@@ -96,6 +117,9 @@ object PubSub {
                 new PubSubProvider[F] {
                   override def pubSub[A: MessagingTopic]: Resource[F, PubSub[F, A]] =
                     Resource.pure(DoobiePubSub[F, ConnectionIO, A](DoobieMessageDao, DoobieMessageConsumerGroupDao))
+
+                  override def connectivityCheck: Resource[F, F[Unit]] =
+                    Resource.pure(transaction(sql"SELECT 1".query[Int].unique).void)
 
                   override val messageTransaction: Option[ConnectionIO ~> F] = Some(transaction)
                 }

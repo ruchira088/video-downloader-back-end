@@ -7,6 +7,7 @@ import cats.effect.std.Dispatcher
 import cats.implicits._
 import com.eed3si9n.ruchij.batch.BuildInfo
 import com.ruchij.batch.config.BatchServiceConfiguration
+import com.ruchij.batch.health.BatchHealth
 import com.ruchij.batch.daos.filesync.DoobieFileSyncDao
 import com.ruchij.batch.daos.scheduling.DoobieBatchSchedulingDao
 import com.ruchij.batch.daos.workers.DoobieWorkerDao
@@ -51,8 +52,10 @@ import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImp
 import com.ruchij.core.types.{Clock, RandomGenerator}
 import com.ruchij.core.utils.Clients
 import doobie.free.connection.ConnectionIO
+import doobie.implicits._
 import fs2.io.file.Files
 import org.apache.tika.Tika
+import org.http4s.ember.server.EmberServerBuilder
 import pureconfig.ConfigSource
 
 import java.util.UUID
@@ -67,15 +70,23 @@ object BatchApp extends IOApp {
 
       configObjectSource <- IO.delay(ConfigSource.defaultApplication)
       batchServiceConfiguration <- BatchServiceConfiguration.parse[IO](configObjectSource)
+      health <- BatchHealth.create[IO]
 
       _ <- Sentry
         .init[IO](batchServiceConfiguration.sentryConfiguration)
-        .productR { program[IO](batchServiceConfiguration) }
+        .productR {
+          EmberServerBuilder.default[IO]
+            .withHost(batchServiceConfiguration.healthConfiguration.host)
+            .withPort(batchServiceConfiguration.healthConfiguration.port)
+            .withHttpApp(health.routes)
+            .build
+        }
+        .flatMap(_ => program[IO](batchServiceConfiguration, Some(health)))
         .use { scheduler =>
           scheduler.init
             .productR(logger.info[IO]("Scheduler has started"))
             .productR {
-              scheduler.run
+              fs2.Stream.resource(health.running).flatMap(_ => scheduler.run)
                 .evalMap { video =>
                   logger.info[IO](s"Download completed for videoId = ${video.videoMetadata.id}")
                 }
@@ -86,14 +97,14 @@ object BatchApp extends IOApp {
     } yield ExitCode.Success
 
   def program[F[_]: Async: Parallel: Clock: Files](
-    batchServiceConfiguration: BatchServiceConfiguration
+    batchServiceConfiguration: BatchServiceConfiguration,
+    health: Option[BatchHealth[F]] = None
   ): Resource[F, Scheduler[F]] =
     DoobieTransactor
       .create[F](batchServiceConfiguration.databaseConfiguration)
       .map(_.trans)
       .flatMap { implicit transaction =>
         for {
-
           proxiedHttpClient <- Clients.create[F](batchServiceConfiguration.httpProxyConfiguration)
           httpClient <- Clients.create[F](None)
 
@@ -129,6 +140,16 @@ object BatchApp extends IOApp {
           )
 
           pubSubProvider <- PubSub.provider[F](batchServiceConfiguration.pubsubConfiguration)
+          _ <- health.traverse_ { batchHealth =>
+            pubSubProvider.connectivityCheck.flatMap { messagingCheck =>
+              Async[F].background {
+                batchHealth.monitor(
+                  transaction(sql"SELECT 1".query[Int].unique).void,
+                  messagingCheck
+                ).compile.drain
+              }.void
+            }
+          }
           downloadProgressPublisher <- pubSubProvider.pubSub[DownloadProgress]
           scheduledVideoDownloadPubSub <- pubSubProvider.pubSub[ScheduledVideoDownload]
           workerStatusUpdatesSubscriber <- pubSubProvider.pubSub[WorkerStatusUpdate]

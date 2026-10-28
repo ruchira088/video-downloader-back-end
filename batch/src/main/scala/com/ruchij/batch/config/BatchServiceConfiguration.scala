@@ -18,7 +18,8 @@ final case class BatchServiceConfiguration(
   spaSiteRendererConfiguration: SpaSiteRendererConfiguration,
   sentryConfiguration: SentryConfiguration,
   httpProxyConfiguration: Option[HttpProxyConfiguration],
-  retryConfiguration: RetryConfiguration = RetryConfiguration.Default
+  retryConfiguration: RetryConfiguration = RetryConfiguration.Default,
+  healthConfiguration: HealthConfiguration = HealthConfiguration()
 )
 
 object BatchServiceConfiguration {
