@@ -234,8 +234,23 @@ never sync. When enabling it:
 
 #### Batch Service
 
+The standalone batch app exposes health endpoints on port `9001` (no public ingress is needed):
+
+- `/health/started` returns 200 after initialization completes and the scheduler starts.
+- `/health/live` returns 200 while the scheduler stream is running, including when idle or paused.
+- `/health/ready` additionally requires successful database and messaging checks within the last 15 seconds.
+
+Dependency checks run every 5 seconds with a combined 2-second timeout. Failures return 503 for readiness without
+failing liveness. Responses contain no dependency details or credentials. Readiness reports pod status; it does not stop
+task acquisition. Messaging checks use Kafka cluster metadata, Redis PING, or SELECT 1 against the messaging
+database, depending on `PUBSUB_TYPE`. They do not publish messages or test topic permissions, Schema Registry,
+consumer progress, or individual task progress.
+The embedded batch scheduler in `development/run` does not start a separate health server.
+
 | Variable | Description | Default |
 |----------|-------------|---------|
+| `BATCH_HEALTH_HOST` | Health server bind address | `0.0.0.0` |
+| `BATCH_HEALTH_PORT` | Health server port (must match K8s probes if changed) | `9001` |
 | `HOSTNAME` | Worker hostname identifier | - |
 | `MAX_CONCURRENT_DOWNLOADS` | Parallel download limit | - |
 | `START_TIME` | Scheduling window start | - |

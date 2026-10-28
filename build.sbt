@@ -110,7 +110,7 @@ lazy val api =
 
 lazy val batch =
   packagedApp("batch", "./batch", "com.eed3si9n.ruchij.batch")
-    .settings(libraryDependencies ++= Seq(postgresql) ++ Seq(pegdown, catsEffectTestkit).map(_ % Test))
+    .settings(libraryDependencies ++= Seq(postgresql, http4sEmberServer) ++ Seq(pegdown, catsEffectTestkit).map(_ % Test))
     .dependsOn(core % "compile->compile;test->test")
 
 // DevelopmentApp wires the API and batch apps to the TestContainers-backed resource providers, which live in the

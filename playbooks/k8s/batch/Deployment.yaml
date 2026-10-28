@@ -20,6 +20,30 @@ spec:
       containers:
         - name: batch-container
           image: "ghcr.io/ruchira088/video-downloader-batch:{{ git_branch }}-{{ git_commit }}"
+          ports:
+            - name: health
+              containerPort: 9001
+          startupProbe:
+            httpGet:
+              port: health
+              path: /health/started
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 36
+          livenessProbe:
+            httpGet:
+              port: health
+              path: /health/live
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+          readinessProbe:
+            httpGet:
+              port: health
+              path: /health/ready
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
           envFrom:
             - configMapRef:
                 name: batch-data-config-map
