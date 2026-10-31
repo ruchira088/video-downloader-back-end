@@ -11,7 +11,7 @@ API for video management, metadata handling, user authentication, and batch proc
 - User authentication with role-based access control
 - Playlist management
 - Video watch history and analytics
-- Real-time download progress via WebSocket
+- Real-time download progress via Server-Sent Events (SSE)
 - Database migrations with Flyway
 - Pluggable messaging backend (Kafka, Redis Streams, or PostgreSQL via Doobie)
 - Redis caching layer
@@ -310,7 +310,7 @@ The API provides 30+ endpoints organized into the following categories:
 - `GET /schedule/search` - Search scheduled downloads
 - `POST /schedule` - Schedule a video download
 - `DELETE /schedule/id/{videoId}` - Cancel scheduled download
-- `GET /schedule/updates` - WebSocket for real-time download progress
+- `GET /schedule/updates` - Server-Sent Events (SSE) for real-time download progress
 - `GET /schedule/worker-status` - Worker health status
 
 ### Playlists
