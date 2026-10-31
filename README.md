@@ -269,6 +269,14 @@ The embedded batch scheduler in `development/run` does not start a separate heal
 |----------|-------------|---------|
 | `HASHED_ADMIN_PASSWORD` | BCrypt-hashed admin password | Hash of `top-secret` |
 
+## HTTP Downloads
+
+The internal HTTP downloader (used for thumbnails) resumes partial files only when a saved strong ETag identifies
+the remote representation. Resume metadata is stored beside an incomplete file as `<file>.http-download.json` and
+removed after successful completion. Keep that metadata with its partial file if moving it between retries.
+Files without valid metadata restart from zero. A full `200` response also replaces the partial file rather than
+appending to it. Invalid statuses, byte ranges, encodings, and body lengths fail the download.
+
 ## API Documentation
 
 The API provides 30+ endpoints organized into the following categories:
