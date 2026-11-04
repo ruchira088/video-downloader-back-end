@@ -2,6 +2,7 @@ package com.ruchij.core.services.video
 
 import cats.effect.IO
 import cats.effect.std.Dispatcher
+import cats.effect.testkit.TestControl
 import com.ruchij.core.config.HttpProxyConfiguration
 import com.ruchij.core.exceptions.{CliCommandException, ResourceNotFoundException}
 import com.ruchij.core.services.cli.{CliCommandRunner, CliCommandRunnerImpl}
@@ -18,7 +19,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import java.nio.file.Files
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{TimeUnit, TimeoutException}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.language.postfixOps
 
@@ -138,7 +139,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
         |""".stripMargin
 
     (cliCommandRunner.run _)
-      .expects(List("yt-dlp", "--no-warnings", "-o", "~/Videos/youtube-video-url-hash.%(ext)s", "https://www.youtube.com/watch?v=F1Zl1TRDJs0"))
+      .expects(List("yt-dlp", "--no-warnings", "--fixup", "force", "-o", "~/Videos/youtube-video-url-hash.%(ext)s", "https://www.youtube.com/watch?v=F1Zl1TRDJs0"))
       .returns {
         Stream.emits[IO, String] { cliOutput.split("\n") }
       }
@@ -164,6 +165,65 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
             )
         }
       }
+  }
+
+  private def downloadWithOutput(output: Stream[IO, String]): IO[Either[Throwable, Unit]] =
+    new YouTubeVideoDownloaderImpl[IO](
+      new CliCommandRunner[IO] {
+        override def run(arguments: List[String]): Stream[IO, String] = output
+      },
+      mock[Client[IO]],
+      None
+    ).downloadVideo(uri"https://www.youtube.com/watch?v=silent", "/videos/silent").compile.drain.attempt
+
+  private val DownloadedLine = "[download] 100% of 180.0MiB at 6.0MiB/s ETA 00:00"
+
+  it should "not time out while a silent fixup post-processes the download" in runIO {
+    TestControl.executeEmbed {
+      downloadWithOutput {
+        Stream.emits[IO, String](List(DownloadedLine, """[FixupM3u8] Fixing MPEG-TS in MP4 container of "/videos/silent.mp4"""")) ++
+          Stream.sleep_[IO](10 minutes)
+      }
+    }.flatMap(result => IO.delay(result mustBe Right((): Unit)))
+  }
+
+  it should "not time out while a silent merge post-processes the download" in runIO {
+    TestControl.executeEmbed {
+      downloadWithOutput {
+        Stream.emits[IO, String](List(DownloadedLine, """[Merger] Merging formats into "/videos/silent.mp4"""")) ++
+          Stream.sleep_[IO](10 minutes)
+      }
+    }.flatMap(result => IO.delay(result mustBe Right((): Unit)))
+  }
+
+  it should "time out when the download goes silent before post-processing" in runIO {
+    TestControl.executeEmbed {
+      for {
+        start <- IO.monotonic
+        result <- downloadWithOutput(Stream.emit[IO, String](DownloadedLine) ++ Stream.never[IO])
+        end <- IO.monotonic
+      } yield (result, end - start)
+    }.flatMap { case (result, elapsed) =>
+      IO.delay {
+        result.left.toOption.get mustBe a[TimeoutException]
+        elapsed must be < (1 minute)
+      }
+    }
+  }
+
+  it should "eventually time out a post-processing step that never finishes" in runIO {
+    TestControl.executeEmbed {
+      for {
+        start <- IO.monotonic
+        result <- downloadWithOutput(Stream.emit[IO, String]("[FixupM3u8] Fixing MPEG-TS") ++ Stream.never[IO])
+        end <- IO.monotonic
+      } yield (result, end - start)
+    }.flatMap { case (result, elapsed) =>
+      IO.delay {
+        result.left.toOption.get mustBe a[TimeoutException]
+        elapsed must be > (10 minutes)
+      }
+    }
   }
 
   it should "throw an error attempting to download a non-existing video" in runIO {
@@ -442,7 +502,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
         |""".stripMargin
 
     (cliCommandRunner.run _)
-      .expects(List("yt-dlp", "--no-warnings", "--proxy", "http://proxy.example.com:8080", "-o", "~/Downloads/proxy-video.%(ext)s", "https://www.youtube.com/watch?v=proxy1"))
+      .expects(List("yt-dlp", "--no-warnings", "--proxy", "http://proxy.example.com:8080", "--fixup", "force", "-o", "~/Downloads/proxy-video.%(ext)s", "https://www.youtube.com/watch?v=proxy1"))
       .returns {
         Stream.emits[IO, String] { cliOutput.split("\n") }
       }
