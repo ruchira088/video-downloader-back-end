@@ -7,6 +7,8 @@ import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
+import scala.concurrent.duration.DurationInt
+
 class CliCommandRunnerImplSpec extends AnyFlatSpec with Matchers {
 
   "CliCommandRunnerImpl.run" should "execute the CLI commands" in runIO {
@@ -151,6 +153,28 @@ class CliCommandRunnerImplSpec extends AnyFlatSpec with Matchers {
             duration.toSeconds must be < 30L
           }
         }
+    }
+  }
+
+  it should "stop the child processes of a process it kills" in runIO {
+    def isAlive(pid: Long): IO[Boolean] = IO.delay(ProcessHandle.of(pid).filter(_.isAlive).isPresent)
+
+    def awaitExit(pid: Long, attempts: Int): IO[Boolean] =
+      isAlive(pid).flatMap {
+        case true if attempts > 0 => IO.sleep(100.milliseconds) *> awaitExit(pid, attempts - 1)
+        case alive => IO.pure(!alive)
+      }
+
+    Dispatcher.parallel[IO].use { dispatcher =>
+      val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
+
+      // Like yt-dlp with ffmpeg: the parent waits for a child, and killing only the parent would orphan that child
+      cliCommandRunner.run(List("sh", "-c", "sleep 60 & echo $!; wait"))
+        .take(1)
+        .compile
+        .lastOrError
+        .flatMap(pid => awaitExit(pid.trim.toLong, 50))
+        .flatMap(exited => IO.delay(exited mustBe true))
     }
   }
 }

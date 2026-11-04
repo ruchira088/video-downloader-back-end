@@ -7,16 +7,16 @@ import com.ruchij.core.exceptions.CliCommandException
 import com.ruchij.core.logging.Logger
 import fs2.Stream
 
-import java.io.IOException
-import scala.sys.process._
+import java.io.{BufferedReader, IOException, InputStream, InputStreamReader}
+import scala.jdk.CollectionConverters._
 
 class CliCommandRunnerImpl[F[_]: Async](dispatcher: Dispatcher[F]) extends CliCommandRunner[F] {
 
   private val logger = Logger[CliCommandRunnerImpl[F]]
 
   /**
-    * Each line is put in the queue before the thread reading the process's output moves on, and `exitValue` waits
-    * for those threads to finish. So by the time the exit code is known, every line is in the queue, ahead of the
+    * Each line is put in the queue before the thread reading the process's output moves on, and the exit code is only
+    * read once those threads have finished. So by the time the exit code is known, every line is in the queue, ahead of the
     * marker that ends the stream, and none can be lost however late the threads run.
     */
   override def run(arguments: List[String]): Stream[F, String] = {
@@ -27,41 +27,56 @@ class CliCommandRunnerImpl[F[_]: Async](dispatcher: Dispatcher[F]) extends CliCo
       queue <- Stream.eval(Queue.unbounded[F, Option[Either[Throwable, String]]])
       deferred <- Stream.eval(Deferred[F, Throwable])
 
-      process <- Stream.bracket {
+      running <- Stream.bracket {
         Sync[F].blocking {
-          Process(arguments).run {
-            new ProcessLogger {
-              override def out(output: => String): Unit =
-                dispatcher.unsafeRunSync(queue.offer(Some(Right(output))))
+          val process = new ProcessBuilder(arguments.asJava).start()
+          process.getOutputStream.close()
 
-              override def err(error: => String): Unit =
-                dispatcher.unsafeRunSync {
-                  logger
-                    .error[F](s"Exception thrown by CLI command: $command", CliCommandException(error))
-                    .productR(deferred.complete(CliCommandException(error)).void)
-                }
-
-              override def buffer[T](f: => T): T = f
+          val outputReader =
+            readLines(process.getInputStream) { output =>
+              dispatcher.unsafeRunSync(queue.offer(Some(Right(output))))
             }
-          }
+
+          val errorReader =
+            readLines(process.getErrorStream) { error =>
+              dispatcher.unsafeRunSync {
+                logger
+                  .error[F](s"Exception thrown by CLI command: $command", CliCommandException(error))
+                  .productR(deferred.complete(CliCommandException(error)).void)
+              }
+            }
+
+          (process, List(outputReader, errorReader))
         }.adaptError {
           // Without a shell in between, a missing program surfaces as an IOException rather than a non-zero exit code
           case ioException: IOException => CliCommandException(ioException.getMessage)
         }
-      } { process =>
+      } { case (process, _) =>
         Sync[F]
           .delay(process.isAlive())
           .flatMap { isAlive =>
             if (isAlive)
               Sync[F]
-                .delay(process.destroy())
+                .delay {
+                  // Children are found first, they can't be traced back to the process once it is gone. Left running,
+                  // yt-dlp's ffmpeg would keep writing to a temporary file that a retry of the download also writes to.
+                  val descendants = process.descendants().iterator().asScala.toList
+                  process.destroy()
+                  descendants.foreach(_.destroy())
+                }
                 .productR(logger.info[F](s"Process was killed: $command"))
             else logger.debug[F](s"Completed command: $command")
           }
       }
 
+      (process, readers) = running
+
       // Interruptible, so that a consumer that stops early isn't held up until the process exits
-      outcome = Sync[F].interruptible(process.exitValue()).flatMap { exitCode =>
+      outcome = Sync[F].interruptible {
+        val exitCode = process.waitFor()
+        readers.foreach(_.join())
+        exitCode
+      }.flatMap { exitCode =>
         deferred.tryGet.map {
           case Some(throwable) => Some(Left(throwable))
           case None if exitCode == 0 => None
@@ -77,4 +92,18 @@ class CliCommandRunnerImpl[F[_]: Async](dispatcher: Dispatcher[F]) extends CliCo
     } yield line
   }
 
+  private def readLines(input: InputStream)(onLine: String => Unit): Thread = {
+    val thread = new Thread(() => {
+      val reader = new BufferedReader(new InputStreamReader(input))
+
+      // Destroying the process closes its streams, which ends the reading with an IOException
+      try Iterator.continually(reader.readLine()).takeWhile(_ != null).foreach(onLine)
+      catch { case _: IOException => () }
+      finally reader.close()
+    })
+
+    thread.setDaemon(true)
+    thread.start()
+    thread
+  }
 }

@@ -2,13 +2,18 @@ package com.ruchij.core.services.video
 
 import cats.{Applicative, MonadThrow}
 import cats.data.{Kleisli, OptionT}
-import cats.effect.{Async, Ref, Sync}
+import cats.effect.{Async, Deferred, Ref, Sync}
 import cats.implicits._
 import com.ruchij.core.config.HttpProxyConfiguration
 import com.ruchij.core.daos.videometadata.models.{VideoSite, WebPage}
 import com.ruchij.core.exceptions.{CliCommandException, ResourceNotFoundException}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.cli.CliCommandRunner
+import com.ruchij.core.services.video.YouTubeVideoDownloaderImpl.{
+  PostProcessingTimeout,
+  SilenceTimeout,
+  isPostProcessing
+}
 import com.ruchij.core.services.video.models.YTDataSize.ytDataSizeOrdering
 import com.ruchij.core.services.video.models._
 import com.ruchij.core.types.FunctionKTypes._
@@ -22,10 +27,11 @@ import org.http4s.client.Client
 import org.http4s.implicits.http4sLiteralsSyntax
 import org.jsoup.Jsoup
 
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{TimeUnit, TimeoutException}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.language.postfixOps
 import scala.math.Ordered.orderingToOrdered
+import scala.util.matching.Regex
 
 class YouTubeVideoDownloaderImpl[F[_]: Async](
   cliCommandRunner: CliCommandRunner[F],
@@ -120,35 +126,65 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](
     Sync[F].defer { cliCommandRunner.run(ytDlp :+ "--version").compile.string }
 
   override def downloadVideo(uri: Uri, pathWithoutExtension: String): Stream[F, YTDownloaderProgress] =
-    Stream.eval(Ref.of[F, Boolean](false)).flatMap { ref =>
-      cliCommandRunner
-        .run(ytDlp ++ List("-o", s"$pathWithoutExtension.%(ext)s", uri.renderString))
-        .interruptWhen {
-          Timers
-            .createResettableTimer(30 seconds, ref)
-            .flatTap {
-              case Left(timeoutException) =>
-                logger
-                  .error[F](s"YoutubeDownloader failed download any data for url=${uri.renderString}", timeoutException)
+    Stream.eval(Ref.of[F, Boolean](false).product(Deferred[F, Unit])).flatMap {
+      case (ref, postProcessingStarted) =>
+        cliCommandRunner
+          // yt-dlp skips fixups for a file it finds already downloaded, unless forced. A download that was interrupted
+          // during a fixup would otherwise be accepted on its retry in its unfixed form, such as MPEG-TS in an mp4 file.
+          .run(ytDlp ++ List("--fixup", "force", "-o", s"$pathWithoutExtension.%(ext)s", uri.renderString))
+          .interruptWhen {
+            downloadTimeout(ref, postProcessingStarted)
+              .flatTap {
+                case Left(timeoutException) =>
+                  logger.error[F](s"YoutubeDownloader timed out for url=${uri.renderString}", timeoutException)
 
-              case Right(_) => Applicative[F].unit
+                case Right(_) => Applicative[F].unit
+              }
+          }
+          .evalTap { line =>
+            ref.set(true).productR {
+              postProcessingStarted.complete((): Unit).void.whenA(isPostProcessing(line))
             }
-        }
-        .evalTap { _ =>
-          ref.set(true)
-        }
-        .collect {
-          case YTDownloaderProgress(progress) => progress
-        }
-        .scan(
-          YTDownloaderProgress(
-            0,
-            YTDataSize(0, YTDataUnit.MiB),
-            YTDataSize(0, YTDataUnit.MiB),
-            FiniteDuration(0, TimeUnit.SECONDS)
-          )
-        ) { (result, current) =>
-          if (current.totalSize >= result.totalSize) current else result
+          }
+          .collect {
+            case YTDownloaderProgress(progress) => progress
+          }
+          .scan(
+            YTDownloaderProgress(
+              0,
+              YTDataSize(0, YTDataUnit.MiB),
+              YTDataSize(0, YTDataUnit.MiB),
+              FiniteDuration(0, TimeUnit.SECONDS)
+            )
+          ) { (result, current) =>
+            if (current.totalSize >= result.totalSize) current else result
+          }
+    }
+
+  /**
+    * yt-dlp prints nothing while ffmpeg post-processes a file, which takes minutes for a large video. Silence only
+    * means a stalled download until post-processing starts, after which the whole step gets a single time limit.
+    */
+  private def downloadTimeout(
+    resetSignal: Ref[F, Boolean],
+    postProcessingStarted: Deferred[F, Unit]
+  ): F[Either[Throwable, Unit]] =
+    Async[F].race(Timers.createResettableTimer(SilenceTimeout, resetSignal), postProcessingStarted.get).flatMap {
+      case Left(result) => Applicative[F].pure(result)
+
+      case Right(_) =>
+        Async[F].sleep(PostProcessingTimeout).as {
+          Left(new TimeoutException(s"Post-processing did not finish within $PostProcessingTimeout"))
         }
     }
+}
+
+object YouTubeVideoDownloaderImpl {
+  private val SilenceTimeout: FiniteDuration = 30 seconds
+
+  private val PostProcessingTimeout: FiniteDuration = 30 minutes
+
+  private val PostProcessingLine: Regex = "^\\[(Fixup\\w+|Merger|ffmpeg)\\].*".r
+
+  private def isPostProcessing(line: String): Boolean = PostProcessingLine.matches(line)
 }
