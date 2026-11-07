@@ -5,7 +5,7 @@ object Dependencies
   val ScalaVersion = "2.13.18"
   private val Http4sVersion = "0.23.38"
   private val CirceVersion = "0.14.17"
-  private val FlywayVersion = "13.11.1"
+  private val FlywayVersion = "13.12.1"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -23,9 +23,9 @@ object Dependencies
 
   lazy val kafka = "org.apache.kafka" %% "kafka" % "8.4.0-ccs"
 
-  lazy val fs2Kafka = "org.typelevel" %% "fs2-kafka" % "4.1.3"
+  lazy val fs2Kafka = "org.typelevel" %% "fs2-kafka" % "4.2.0"
 
-  lazy val fs2KafkaVulkan = "org.typelevel" %% "fs2-kafka-vulcan" % "4.1.3"
+  lazy val fs2KafkaVulkan = "org.typelevel" %% "fs2-kafka-vulcan" % "4.2.0"
 
   lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "8.4.0"
 
@@ -45,7 +45,7 @@ object Dependencies
 
   lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "1.0.0-RC12"
 
-  lazy val jsoup = "org.jsoup" % "jsoup" % "1.23.2"
+  lazy val jsoup = "org.jsoup" % "jsoup" % "1.24.1"
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.11"
 
@@ -89,15 +89,15 @@ object Dependencies
 
   lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.20"
 
-  lazy val scalaMock = "org.scalamock" %% "scalamock-scalatest" % "7.6.2"
+  lazy val scalaMock = "org.scalamock" %% "scalamock-scalatest" % "7.6.3"
 
   lazy val pegdown = "org.pegdown" % "pegdown" % "1.6.0"
 
-  lazy val sentry = "io.sentry" % "sentry" % "8.62.0"
+  lazy val sentry = "io.sentry" % "sentry" % "8.63.0"
 
   lazy val perceptualHash = "dev.brachtendorf" % "JImageHash" % "1.0.0"
 
-  private val AwsSdkVersion = "2.57.6"
+  private val AwsSdkVersion = "2.57.11"
 
   // The fallback sync clients use the async Netty HTTP client, so the SDK's default synchronous client is left out.
   private val awsApache5Client = ExclusionRule("software.amazon.awssdk", "apache5-client")
@@ -110,7 +110,7 @@ object Dependencies
   // and eviction alone would leave the DNS resolver modules that only lettuce uses on the older one. Pinning every
   // Netty module keeps them on a single version.
   // Keep this equal to the `netty.version` property in the aws-sdk-java-pom of AwsSdkVersion (4.1.138.Final for
-  // 2.57.6), and check it on every SDK bump: these overrides win over whatever the SDK asks for, so leaving this
+  // 2.57.11), and check it on every SDK bump: these overrides win over whatever the SDK asks for, so leaving this
   // behind would silently downgrade netty-nio-client's Netty to a version the SDK was never built or tested against.
   private val NettyVersion = "4.1.138.Final"
 
