@@ -21,13 +21,13 @@ object Dependencies
 
   lazy val catsEffectTestkit = "org.typelevel" %% "cats-effect-testkit" % CatsEffectVersion
 
-  lazy val kafka = "org.apache.kafka" %% "kafka" % "8.4.0-ccs"
+  lazy val kafka = "org.apache.kafka" %% "kafka" % "8.4.1-ccs"
 
   lazy val fs2Kafka = "org.typelevel" %% "fs2-kafka" % "4.2.0"
 
   lazy val fs2KafkaVulkan = "org.typelevel" %% "fs2-kafka-vulcan" % "4.2.0"
 
-  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "8.4.0"
+  lazy val kafkaAvroSerializer = "io.confluent" % "kafka-avro-serializer" % "8.4.1"
 
   lazy val vulkanGeneric = "com.github.fd4s" %% "vulcan-generic" % "1.14.1"
 
@@ -97,7 +97,7 @@ object Dependencies
 
   lazy val perceptualHash = "dev.brachtendorf" % "JImageHash" % "1.0.0"
 
-  private val AwsSdkVersion = "2.57.11"
+  private val AwsSdkVersion = "2.57.12"
 
   // The fallback sync clients use the async Netty HTTP client, so the SDK's default synchronous client is left out.
   private val awsApache5Client = ExclusionRule("software.amazon.awssdk", "apache5-client")
@@ -110,7 +110,7 @@ object Dependencies
   // and eviction alone would leave the DNS resolver modules that only lettuce uses on the older one. Pinning every
   // Netty module keeps them on a single version.
   // Keep this equal to the `netty.version` property in the aws-sdk-java-pom of AwsSdkVersion (4.1.138.Final for
-  // 2.57.11), and check it on every SDK bump: these overrides win over whatever the SDK asks for, so leaving this
+  // 2.57.12), and check it on every SDK bump: these overrides win over whatever the SDK asks for, so leaving this
   // behind would silently downgrade netty-nio-client's Netty to a version the SDK was never built or tested against.
   private val NettyVersion = "4.1.138.Final"
 
