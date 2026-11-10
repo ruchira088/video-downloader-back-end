@@ -16,9 +16,20 @@ spec:
         app: postgres
         branch: "{{ git_branch }}"
     spec:
+      # Start as the image's postgres user (UID 999) so docker-entrypoint.sh skips its gosu
+      # privilege drop. After a node reboot on 2026-11-10, gosu hung at 100% CPU before
+      # exec'ing Postgres, so the startup probe kept restarting the pod and the batch app crash-looped.
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        runAsNonRoot: true
+        fsGroup: 999
+        fsGroupChangePolicy: OnRootMismatch
       containers:
         - name: postgres-container
           image: postgres:17
+          securityContext:
+            allowPrivilegeEscalation: false
           resources:
             requests:
               cpu: 250m
