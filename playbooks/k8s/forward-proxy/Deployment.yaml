@@ -4,6 +4,10 @@ metadata:
   name: forward-proxy-deployment
   namespace: "{{ k8s_namespace }}"
 spec:
+  # Exactly one replica: each replica has its own VPN exit IP, and sites such as
+  # SxyPrn only serve a video URL to the IP that rendered the page. The
+  # spa-renderer, API and batch must therefore all leave through the same pod.
+  replicas: 1
   selector:
     matchLabels:
       app: forward-proxy

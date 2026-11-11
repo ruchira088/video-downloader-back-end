@@ -134,6 +134,13 @@
         - name: Create Secrets
           command: "kubectl apply -f {{ k8s_output_dir }}/forward-proxy/Secrets.yaml --kubeconfig {{ kubeconfig }}"
 
+        # The forward-proxy is pinned to one replica (see its Deployment.yaml). kubectl apply does not
+        # prune, so the HorizontalPodAutoscaler it used to have must be removed explicitly.
+        - name: Delete the forward-proxy HorizontalPodAutoscaler
+          command: >
+            kubectl delete hpa forward-proxy-hpa --ignore-not-found
+            --kubeconfig {{ kubeconfig }} -n {{ k8s_namespace }}
+
         - name: Deploy application
           command: "kubectl apply -f {{ k8s_output_dir }}/forward-proxy --kubeconfig {{ kubeconfig }}"
 
