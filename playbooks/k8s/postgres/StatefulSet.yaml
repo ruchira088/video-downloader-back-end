@@ -20,6 +20,13 @@ spec:
       # privilege drop. After a node reboot on 2026-11-10, gosu hung at 100% CPU before
       # exec'ing Postgres, so the startup probe kept restarting the pod and the batch app crash-looped.
       securityContext:
+        # Kernel 7.0.0-43 reports signal/ptrace peers as stacked labels, which containerd's
+        # default profile rejects, so Postgres couldn't signal its own workers and hung in
+        # crash recovery. k8s-postgres is that profile plus rules for the stacked label.
+        # It must be loaded on the node first: see apparmor/README.md.
+        appArmorProfile:
+          type: Localhost
+          localhostProfile: k8s-postgres
         runAsUser: 999
         runAsGroup: 999
         runAsNonRoot: true
