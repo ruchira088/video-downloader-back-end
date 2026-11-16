@@ -10,7 +10,6 @@ profile k8s-postgres flags=(attach_disconnected,mediate_deleted) {
   capability,
   file,
   umount,
-  userns,
 
   signal (receive) peer=unconfined,
   signal (receive) peer=runc,

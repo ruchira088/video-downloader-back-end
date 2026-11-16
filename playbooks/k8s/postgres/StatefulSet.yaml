@@ -27,6 +27,8 @@ spec:
         appArmorProfile:
           type: Localhost
           localhostProfile: k8s-postgres
+        seccompProfile:
+          type: RuntimeDefault
         runAsUser: 999
         runAsGroup: 999
         runAsNonRoot: true
