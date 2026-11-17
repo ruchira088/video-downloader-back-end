@@ -147,7 +147,8 @@ LocalRootProject / coverageFailOnMinimum := true
 
 val viewCoverageResults = taskKey[Unit]("Opens the coverage result in the default browser")
 
-viewCoverageResults := {
+// Opening a browser is a side effect, so the task must run every time rather than be served from sbt 2's task cache.
+viewCoverageResults := Def.uncached {
   val coverageResults =
     target.value.toPath.resolve(s"scala-${scalaBinaryVersion.value}/scoverage-report/index.html")
 

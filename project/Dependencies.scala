@@ -5,7 +5,7 @@ object Dependencies
   val ScalaVersion = "2.13.18"
   private val Http4sVersion = "0.23.38"
   private val CirceVersion = "0.14.17"
-  private val FlywayVersion = "13.12.1"
+  private val FlywayVersion = "13.12.2"
 
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % Http4sVersion
 
@@ -65,7 +65,7 @@ object Dependencies
 
   lazy val jbcrypt = "org.mindrot" % "jbcrypt" % "0.4"
 
-  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "8.4.0"
+  lazy val embeddedKafkaSchemaRegistry = "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "8.4.1"
 
   private val TestContainersVersion = "2.0.5"
 
@@ -77,7 +77,7 @@ object Dependencies
 
   lazy val redisTestContainer = "com.redis" % "testcontainers-redis" % "3.0.1"
 
-  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.6.6"
+  lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.6.7"
 
   lazy val logstashLogbackEncoder = "net.logstash.logback" % "logstash-logback-encoder" % "9.0"
 
@@ -93,11 +93,11 @@ object Dependencies
 
   lazy val pegdown = "org.pegdown" % "pegdown" % "1.6.0"
 
-  lazy val sentry = "io.sentry" % "sentry" % "8.63.0"
+  lazy val sentry = "io.sentry" % "sentry" % "8.64.0"
 
   lazy val perceptualHash = "dev.brachtendorf" % "JImageHash" % "1.0.0"
 
-  private val AwsSdkVersion = "2.57.12"
+  private val AwsSdkVersion = "2.59.2"
 
   // The fallback sync clients use the async Netty HTTP client, so the SDK's default synchronous client is left out.
   private val awsApache5Client = ExclusionRule("software.amazon.awssdk", "apache5-client")
@@ -110,7 +110,7 @@ object Dependencies
   // and eviction alone would leave the DNS resolver modules that only lettuce uses on the older one. Pinning every
   // Netty module keeps them on a single version.
   // Keep this equal to the `netty.version` property in the aws-sdk-java-pom of AwsSdkVersion (4.1.138.Final for
-  // 2.57.12), and check it on every SDK bump: these overrides win over whatever the SDK asks for, so leaving this
+  // 2.59.2), and check it on every SDK bump: these overrides win over whatever the SDK asks for, so leaving this
   // behind would silently downgrade netty-nio-client's Netty to a version the SDK was never built or tested against.
   private val NettyVersion = "4.1.138.Final"
 
