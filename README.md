@@ -21,25 +21,25 @@ API for video management, metadata handling, user authentication, and batch proc
 | Category | Technology |
 |----------|------------|
 | Language | Scala 2.13.18 |
-| Build Tool | sbt 2.1.0 |
+| Build Tool | sbt 2.1.1 |
 | Runtime | Java 25 (Eclipse Temurin) |
-| Web Framework | HTTP4s 0.23.38 |
+| Web Framework | HTTP4s 0.23.39 |
 | Effect System | Cats Effect 3.7.1 |
 | JSON | Circe 0.14.17 |
 | Database Access | Doobie 1.0.0-RC12 |
 | Database | PostgreSQL 17 |
-| Migrations | Flyway 13.12.2 |
+| Migrations | Flyway 13.13.0 |
 | Messaging | Apache Kafka 8.4.1-ccs / Redis Streams / PostgreSQL (Doobie) |
 | Caching | Redis 8 |
 | Configuration | PureConfig 0.17.11 |
-| AWS | AWS SDK for Java 2.59.2 (SQS, DynamoDB — fallback sync) |
+| AWS | AWS SDK for Java 2.59.9 (SQS, DynamoDB — fallback sync) |
 | Networking | Netty 4.1.138.Final (every module pinned to one version for the AWS SDK and Redis clients) |
 | Testing | ScalaTest 3.2.20, ScalaMock 7.6.3, Cats Effect Testkit 3.7.1 |
 
 ## Prerequisites
 
 - JDK 25 (Eclipse Temurin recommended)
-- sbt 2.1.0
+- sbt 2.1.1
 - Docker & Docker Compose (for full stack deployment)
 - ffmpeg
 - yt-dlp (`pip install yt-dlp`)
