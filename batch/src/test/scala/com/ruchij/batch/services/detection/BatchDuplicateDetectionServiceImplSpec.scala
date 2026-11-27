@@ -99,7 +99,8 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
         else existingGroups.getOrElse(duplicateGroupId, Seq.empty)
       }
     override def getAll(offset: Int, limit: Int): IO[Seq[DuplicateVideo]] = IO.pure(Seq.empty)
-    override def duplicateGroupIds: IO[Seq[String]] = IO.pure(Seq.empty)
+    override def duplicateGroupIds: IO[Seq[String]] =
+      IO.delay((videos.map(_.duplicateGroupId).toSeq ++ existingGroups.keys).distinct)
     override def deleteAll: IO[Int] = IO.pure(0)
   }
 
@@ -484,7 +485,8 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
     val hashingService = new StubPerceptualHashingService(
       compareResults = Map((BigInt(100L), BigInt(101L)) -> 0.05)
     )
-    val service = createService(hashDao = hashDao, dupDao = dupDao, hashingService = hashingService)
+    val videoDao = new StubVideoDao(Seq(video("v1", 100, timestamp), video("v2", 200, timestamp)))
+    val service = createService(hashDao = hashDao, dupDao = dupDao, hashingService = hashingService, videoDao = videoDao)
 
     for {
       _ <- service.run
@@ -565,7 +567,8 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
     val hashingService = new StubPerceptualHashingService(
       compareResults = Map((BigInt(100L), BigInt(101L)) -> 0.05)
     )
-    val service = createService(hashDao = hashDao, dupDao = dupDao, hashingService = hashingService)
+    val videoDao = new StubVideoDao(Seq(video("v1", 100, timestamp), video("v2", 200, timestamp)))
+    val service = createService(hashDao = hashDao, dupDao = dupDao, hashingService = hashingService, videoDao = videoDao)
 
     for {
       _ <- service.run
@@ -777,6 +780,46 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
     for {
       _ <- service.run
     } yield batchVideoService.deletions mustBe empty
+  }
+
+  it should "not group a video with the hash of a video that is gone" in runIO {
+    val hashDao = new StubVideoPerceptualHashDao(
+      durations = Set(5 minutes),
+      videoIdsByDuration = Map((5 minutes) -> Seq("v2")),
+      hashesByDuration = Map(
+        (5 minutes) -> Seq(
+          VideoPerceptualHash("v1", timestamp, 5 minutes, BigInt(100L), 150 seconds),
+          VideoPerceptualHash("v2", timestamp, 5 minutes, BigInt(100L), 150 seconds)
+        )
+      )
+    )
+    val service = createService(hashDao = hashDao, hashingService = new PathHashingService())
+
+    for {
+      result <- service.detect
+    } yield result(5 minutes) mustBe empty
+  }
+
+  it should "drop group members whose video is gone, closing a group left with one video" in runIO {
+    val dupDao = new StubDuplicateVideoDao(
+      initialVideos = Seq(DuplicateVideo("v1", "v1", timestamp), DuplicateVideo("v2", "v1", timestamp))
+    )
+    val batchVideoService = new StubBatchVideoService()
+
+    val service =
+      autoDeletionService(
+        Seq(video("v2", 200, timestamp)),
+        dupDao,
+        hashDao = Some(new StubVideoPerceptualHashDao()),
+        batchVideoService = batchVideoService
+      )
+
+    for {
+      _ <- service.run
+    } yield {
+      batchVideoService.deletions mustBe empty
+      dupDao.videos mustBe empty
+    }
   }
 
   "verificationSnapshotTimestamps" should "be a quarter, half and three quarters of the way through the snapshots" in {

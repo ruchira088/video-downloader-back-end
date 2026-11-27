@@ -62,7 +62,10 @@ class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
         transaction {
           for {
             videoIds <- videoPerceptualHashDao.getVideoIdsByDuration(duration)
-            videoHashes <- videoPerceptualHashDao.findVideoHashesByDuration(duration)
+            // A hash outlives its video, which must not be grouped with the videos that are still there
+            videoHashes <- videoPerceptualHashDao
+              .findVideoHashesByDuration(duration)
+              .map(_.filter(videoHash => videoIds.contains(videoHash.videoId)))
             videoHashIds = videoHashes.map(_.videoId).toSet
             videoIdsWithoutHashes = videoIds.filterNot(videoHashIds.contains)
           } yield videoIdsWithoutHashes -> videoHashes
@@ -175,13 +178,13 @@ class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
     detect
       .map(_.values.flatten)
       .flatMap {
-        _.toList
-          .traverse(duplicateVideoSet => handleDuplicateVideoSet(duplicateVideoSet).flatMap(deleteSmallerDuplicates))
-          .void
+        _.toList.traverse_(handleDuplicateVideoSet)
       }
+      // Every group, not only the ones detected now, so that groups left for review are checked again
+      .productR(transaction(duplicateVideoDao.duplicateGroupIds))
+      .flatMap(_.toList.traverse_(deleteSmallerDuplicates))
 
-  /** Records the duplicate video set and returns the ID of the duplicate group that holds it. */
-  private def handleDuplicateVideoSet(duplicateVideoSet: Set[String]): F[String] =
+  private def handleDuplicateVideoSet(duplicateVideoSet: Set[String]): F[Unit] =
     for {
       groupId <- duplicateVideoSet.toSeq.sorted.headOption
         .toType[F, Throwable](InvalidConditionException("duplicate video set cannot be empty"))
@@ -208,11 +211,14 @@ class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
           }
       }
       _ <- logger.info[F](s"Added ${addedDuplicateVideos.size} duplicate videos for group $groupId")
-    } yield groupId
+    } yield ()
 
   /**
     * Keeps the video chosen by `videoToKeep` and deletes the rest of the duplicate group, along with their files. A video
     * that is not safe to delete stays in the group, for a user to review.
+    *
+    * A group member whose video is gone is dropped from the group first. Its row outlives the video, since
+    * duplicate_video references video_metadata rather than video, and it would otherwise keep the group open forever.
     */
   private def deleteSmallerDuplicates(groupId: String): F[Unit] =
     transaction {
@@ -220,15 +226,24 @@ class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
         NonEmptyList
           .fromList(duplicateVideos.map(_.videoId).toList)
           .fold(Applicative[G].pure(Seq.empty[Video]))(videoDao.findByIds)
+          .flatTap { videos =>
+            val videoIds = videos.map(_.id).toSet
+
+            duplicateVideos
+              .filterNot(duplicateVideo => videoIds.contains(duplicateVideo.videoId))
+              .traverse_(duplicateVideo => duplicateVideoDao.delete(duplicateVideo.videoId))
+          }
       }
     }.flatMap { videos =>
-      BatchDuplicateDetectionService.videoToKeep(videos).fold(Applicative[F].unit) { keptVideo =>
-        videos
-          .filter(_.id != keptVideo.id)
-          .toList
-          .traverse_(video => deleteDuplicate(video, keptVideo))
-          .productR(removeResolvedGroup(groupId))
-      }
+      BatchDuplicateDetectionService
+        .videoToKeep(videos)
+        .fold(Applicative[F].unit) { keptVideo =>
+          videos
+            .filter(_.id != keptVideo.id)
+            .toList
+            .traverse_(video => deleteDuplicate(video, keptVideo))
+        }
+        .productR(removeResolvedGroup(groupId))
     }
 
   /**
