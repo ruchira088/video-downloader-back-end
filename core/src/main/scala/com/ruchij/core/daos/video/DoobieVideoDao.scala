@@ -201,6 +201,13 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
       }
       .productR(deleteVideo(videoId))
 
+  override def transferPlaylistMemberships(fromVideoId: String, toVideoId: String): ConnectionIO[Int] =
+    sql"""
+      UPDATE playlist_video SET video_id = $toVideoId
+        WHERE video_id = $fromVideoId
+          AND playlist_id NOT IN (SELECT playlist_id FROM playlist_video WHERE video_id = $toVideoId)
+    """.update.run
+
   // Deleting the video row cascades to its playlist_video rows
   private def deleteVideo(videoId: String): ConnectionIO[Int] =
     sql"DELETE FROM video_watch_time WHERE video_id = $videoId".update.run.flatMap {

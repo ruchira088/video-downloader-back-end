@@ -158,14 +158,6 @@ object BatchApp extends IOApp {
 
           perceptualHashingService = new PerceptualHashingServiceImpl[F]
 
-          batchDuplicateDetectionService = new BatchDuplicateDetectionServiceImpl[F, ConnectionIO](
-            perceptualHashingService,
-            repositoryService,
-            DoobieVideoPerceptualHashDao,
-            DoobieDuplicateVideoDao,
-            DoobieSnapshotDao,
-          )
-
           batchSchedulingService = new BatchSchedulingServiceImpl[F, ConnectionIO](
             downloadProgressPublisher,
             workerStatusUpdatesSubscriber,
@@ -196,6 +188,17 @@ object BatchApp extends IOApp {
             DoobieVideoDao,
             DoobieVideoMetadataDao,
             DoobieFileResourceDao
+          )
+
+          batchDuplicateDetectionService = new BatchDuplicateDetectionServiceImpl[F, ConnectionIO](
+            perceptualHashingService,
+            repositoryService,
+            DoobieVideoPerceptualHashDao,
+            DoobieDuplicateVideoDao,
+            DoobieSnapshotDao,
+            DoobieVideoDao,
+            DoobieVideoPermissionDao,
+            batchVideoService
           )
 
           videoSnapshotService = new VideoSnapshotServiceImpl[F](cliCommandRunner, repositoryService, hashingService)

@@ -837,6 +837,8 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
     override def deleteById(videoId: String): IO[Int] =
       videos.modify(values => (values - videoId, if (values.contains(videoId)) 1 else 0))
 
+    override def transferPlaylistMemberships(fromVideoId: String, toVideoId: String): IO[Int] = notImplemented
+
     override def insert(
       videoMetadataId: String,
       videoFileResourceId: String,

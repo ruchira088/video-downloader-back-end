@@ -121,6 +121,8 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
     override def deleteById(videoId: String): IO[Int] =
       IO.delay(deletedByIdVideoIds += videoId).as(deleteByIdResult)
 
+    override def transferPlaylistMemberships(fromVideoId: String, toVideoId: String): IO[Int] = IO.pure(0)
+
     override def deleteForRedownload(videoId: String): IO[Int] =
       IO.delay(deletedForRedownloadVideoIds += videoId).as(deleteByIdResult)
 

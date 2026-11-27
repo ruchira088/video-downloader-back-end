@@ -1,16 +1,20 @@
 package com.ruchij.batch.services.detection
 
-import cats.data.OptionT
+import cats.data.{NonEmptyList, OptionT}
 import cats.effect.kernel.Sync
 import cats.implicits._
 import cats.{Applicative, Monad, ~>}
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService.SnapshotCount
+import com.ruchij.batch.services.video.BatchVideoService
 import com.ruchij.core.daos.duplicate.DuplicateVideoDao
 import com.ruchij.core.daos.duplicate.models.DuplicateVideo
 import com.ruchij.core.daos.hash.VideoPerceptualHashDao
 import com.ruchij.core.daos.hash.models.VideoPerceptualHash
+import com.ruchij.core.daos.permission.VideoPermissionDao
 import com.ruchij.core.daos.snapshot.SnapshotDao
+import com.ruchij.core.daos.video.VideoDao
+import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.exceptions.InvalidConditionException
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.hashing.PerceptualHashingService
@@ -25,7 +29,10 @@ class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
   repositoryService: RepositoryService[F],
   videoPerceptualHashDao: VideoPerceptualHashDao[G],
   duplicateVideoDao: DuplicateVideoDao[G],
-  snapshotDao: SnapshotDao[G]
+  snapshotDao: SnapshotDao[G],
+  videoDao: VideoDao[G],
+  videoPermissionDao: VideoPermissionDao[G],
+  batchVideoService: BatchVideoService[F]
 )(implicit transaction: G ~> F)
     extends BatchDuplicateDetectionService[F] {
   private val logger = Logger[BatchDuplicateDetectionServiceImpl[F, G]]
@@ -165,11 +172,12 @@ class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
       .map(_.values.flatten)
       .flatMap {
         _.toList
-          .traverse(handleDuplicateVideoSet)
+          .traverse(duplicateVideoSet => handleDuplicateVideoSet(duplicateVideoSet).flatMap(deleteSmallerDuplicates))
           .void
       }
 
-  private def handleDuplicateVideoSet(duplicateVideoSet: Set[String]): F[Unit] =
+  /** Records the duplicate video set and returns the ID of the duplicate group that holds it. */
+  private def handleDuplicateVideoSet(duplicateVideoSet: Set[String]): F[String] =
     for {
       groupId <- duplicateVideoSet.toSeq.sorted.headOption
         .toType[F, Throwable](InvalidConditionException("duplicate video set cannot be empty"))
@@ -196,6 +204,60 @@ class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
           }
       }
       _ <- logger.info[F](s"Added ${addedDuplicateVideos.size} duplicate videos for group $groupId")
-    } yield ()
+    } yield groupId
+
+  /** Keeps the video chosen by `videoToKeep` and deletes the rest of the duplicate group, along with their files. */
+  private def deleteSmallerDuplicates(groupId: String): F[Unit] =
+    transaction {
+      duplicateVideoDao.findByDuplicateGroupId(groupId).flatMap { duplicateVideos =>
+        NonEmptyList
+          .fromList(duplicateVideos.map(_.videoId).toList)
+          .fold(Applicative[G].pure(Seq.empty[Video]))(videoDao.findByIds)
+      }
+    }.flatMap { videos =>
+      BatchDuplicateDetectionService.videoToKeep(videos).fold(Applicative[F].unit) { keptVideo =>
+        videos
+          .filter(_.id != keptVideo.id)
+          .toList
+          .traverse_(video => deleteDuplicate(video, keptVideo))
+          .productR(removeResolvedGroup(groupId))
+      }
+    }
+
+  /**
+    * Gives the users and playlists that hold the duplicate the kept video instead, then deletes the duplicate. A failure
+    * is logged rather than raised, so that the rest of the group is still handled: another batch instance may have
+    * deleted the video already, and a video left behind is detected again in the next run.
+    */
+  private def deleteDuplicate(video: Video, keptVideo: Video): F[Unit] =
+    transaction {
+      videoPermissionDao
+        .find(None, Some(video.id))
+        .flatMap(_.traverse { permission =>
+          videoPermissionDao.insert(permission.copy(scheduledVideoDownloadId = keptVideo.id))
+        })
+        .productR(videoDao.transferPlaylistMemberships(video.id, keptVideo.id))
+        .productR(videoPerceptualHashDao.deleteByVideoId(video.id))
+        .productR(duplicateVideoDao.delete(video.id))
+    }.productR(batchVideoService.deleteById(video.id, deleteVideoFile = true))
+      .productR {
+        logger.info[F](
+          s"Deleted duplicate videoId=${video.id} (size=${video.fileResource.size}) " +
+            s"keeping videoId=${keptVideo.id} (size=${keptVideo.fileResource.size})"
+        )
+      }
+      .handleErrorWith { throwable =>
+        logger.error[F](s"Unable to delete duplicate videoId=${video.id} keeping videoId=${keptVideo.id}", throwable)
+      }
+
+  /** Removes the group once at most one of its videos is left, since a lone video is no longer a duplicate. */
+  private def removeResolvedGroup(groupId: String): F[Unit] =
+    transaction {
+      duplicateVideoDao.findByDuplicateGroupId(groupId).flatMap { duplicateVideos =>
+        if (duplicateVideos.size <= 1)
+          duplicateVideos.traverse_(duplicateVideo => duplicateVideoDao.delete(duplicateVideo.videoId))
+        else Applicative[G].unit
+      }
+    }
 
 }

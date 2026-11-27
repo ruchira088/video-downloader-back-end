@@ -1146,4 +1146,68 @@ abstract class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionV
       }
     } yield ()
   }
+
+  it should "transfer playlist memberships to another video, keeping their positions" in runTest { fixture =>
+    val firstVideoId = fixture.video.videoMetadata.id
+    val secondVideoId = "second-video-id"
+    val userId = "test-user-playlist-transfer"
+
+    def insertPlaylist(playlistId: String, timestamp: Instant): ConnectionIO[Int] =
+      sql"""
+        INSERT INTO playlist (id, created_at, title, user_id) VALUES ($playlistId, $timestamp, $playlistId, $userId)
+      """.update.run
+
+    def insertPlaylistVideo(playlistId: String, videoId: String, position: Int): ConnectionIO[Int] =
+      sql"""
+        INSERT INTO playlist_video (playlist_id, video_id, position_index) VALUES ($playlistId, $videoId, $position)
+      """.update.run
+
+    val playlistVideos: ConnectionIO[List[(String, String, Int)]] =
+      sql"SELECT playlist_id, video_id, position_index FROM playlist_video ORDER BY playlist_id, position_index"
+        .query[(String, String, Int)]
+        .to[List]
+
+    for {
+      timestamp <- Clock[IO].timestamp
+
+      secondVideoFileResource = FileResource(
+        "second-video-file-id",
+        timestamp,
+        "/opt/video/second-video.mp4",
+        MediaType.video.mp4,
+        60000
+      )
+      _ <- fixture.transaction(
+        DoobieVideoMetadataDao.insert(
+          fixture.videoMetadata.copy(url = uri"https://example.com/second-video", id = secondVideoId)
+        )
+      )
+      _ <- fixture.transaction(DoobieFileResourceDao.insert(secondVideoFileResource))
+      _ <- fixture.transaction(DoobieVideoDao.insert(secondVideoId, secondVideoFileResource.id, timestamp, 0 seconds))
+
+      _ <- fixture.transaction(insertTestUser(userId, "playlist-transfer@example.com", timestamp))
+      // "only-first" holds just the first video, "both" holds the two videos
+      _ <- fixture.transaction(insertPlaylist("only-first", timestamp))
+      _ <- fixture.transaction(insertPlaylist("both", timestamp))
+      _ <- fixture.transaction(insertPlaylistVideo("only-first", firstVideoId, 3))
+      _ <- fixture.transaction(insertPlaylistVideo("both", secondVideoId, 0))
+      _ <- fixture.transaction(insertPlaylistVideo("both", firstVideoId, 1))
+
+      transferred <- fixture.transaction(DoobieVideoDao.transferPlaylistMemberships(firstVideoId, secondVideoId))
+      afterTransfer <- fixture.transaction(playlistVideos)
+
+      _ <- fixture.transaction(DoobieVideoDao.deleteById(firstVideoId))
+      afterDeletion <- fixture.transaction(playlistVideos)
+
+      _ <- IO.delay {
+        transferred mustBe 1
+        afterTransfer mustBe List(
+          ("both", secondVideoId, 0),
+          ("both", firstVideoId, 1),
+          ("only-first", secondVideoId, 3)
+        )
+        afterDeletion mustBe List(("both", secondVideoId, 0), ("only-first", secondVideoId, 3))
+      }
+    } yield ()
+  }
 }

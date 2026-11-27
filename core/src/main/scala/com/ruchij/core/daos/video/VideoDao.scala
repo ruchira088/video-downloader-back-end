@@ -53,6 +53,12 @@ trait VideoDao[F[_]] {
     */
   def deleteForRedownload(videoId: String): F[Int] = deleteById(videoId)
 
+  /**
+    * Moves the playlist memberships of one video to another, keeping each one's position. A playlist that already
+    * holds the other video keeps its membership of the first, which goes when that video is deleted.
+    */
+  def transferPlaylistMemberships(fromVideoId: String, toVideoId: String): F[Int]
+
   def hasVideoFilePermission(videoFileResourceId: String, userId: String): F[Boolean]
 
   def isVideoFileResourceExist(videoFileResourceId: String): F[Boolean]

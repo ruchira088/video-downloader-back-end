@@ -125,6 +125,8 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
 
     override def deleteById(videoId: String): IO[Int] = IO.pure(1)
 
+    override def transferPlaylistMemberships(fromVideoId: String, toVideoId: String): IO[Int] = IO.pure(0)
+
     override def hasVideoFilePermission(videoFileResourceId: String, userId: String): IO[Boolean] =
       IO.pure(hasVideoFilePermissionResult)
 

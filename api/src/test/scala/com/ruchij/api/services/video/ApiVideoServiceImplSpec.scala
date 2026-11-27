@@ -146,6 +146,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     override def findByVideoFileResourceId(fileResourceId: String): IO[Option[Video]] = IO.pure(None)
     override def findByVideoPath(videoPath: String): IO[Option[Video]] = IO.pure(None)
     override def deleteById(videoId: String): IO[Int] = IO.pure(1)
+    override def transferPlaylistMemberships(fromVideoId: String, toVideoId: String): IO[Int] = IO.pure(0)
     override def hasVideoFilePermission(videoFileResourceId: String, userId: String): IO[Boolean] = IO.pure(true)
     override def isVideoFileResourceExist(videoFileResourceId: String): IO[Boolean] = IO.pure(false)
     override val count: IO[Int] = IO.pure(countResult)

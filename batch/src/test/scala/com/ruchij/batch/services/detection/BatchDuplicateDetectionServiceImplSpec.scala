@@ -1,26 +1,37 @@
 package com.ruchij.batch.services.detection
 
+import cats.data.NonEmptyList
 import cats.effect.IO
 import cats.implicits._
 import cats.~>
+import com.ruchij.batch.services.video.BatchVideoService
 import com.ruchij.core.daos.duplicate.DuplicateVideoDao
 import com.ruchij.core.daos.duplicate.models.DuplicateVideo
 import com.ruchij.core.daos.hash.VideoPerceptualHashDao
 import com.ruchij.core.daos.hash.models.VideoPerceptualHash
+import com.ruchij.core.daos.permission.VideoPermissionDao
+import com.ruchij.core.daos.permission.models.VideoPermission
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.snapshot.SnapshotDao
 import com.ruchij.core.daos.snapshot.models.Snapshot
+import com.ruchij.core.daos.scheduling.models.RangeValue
+import com.ruchij.core.daos.video.VideoDao
+import com.ruchij.core.daos.video.models.{Video, VideoSiteSummary}
+import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata, VideoSite}
+import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.hashing.PerceptualHashingService
 import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.Providers
 import com.ruchij.core.types.{Clock, TimeUtils}
 import fs2.Stream
-import org.http4s.MediaType
+import org.http4s.{MediaType, Uri}
+import org.http4s.implicits.http4sLiteralsSyntax
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import scala.collection.mutable
+import java.time.Instant
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
@@ -113,15 +124,114 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
       IO.pure(compareResults.getOrElse((hashA, hashB), compareResults.getOrElse((hashB, hashA), 0.5)))
   }
 
+  private def notImplemented[A]: IO[A] = IO.raiseError(new NotImplementedError("Not used by these tests"))
+
+  class StubVideoDao(videos: Seq[Video] = Seq.empty) extends VideoDao[IO] {
+    val playlistTransfers: mutable.ListBuffer[(String, String)] = mutable.ListBuffer.empty
+
+    override def findByIds(videoIds: NonEmptyList[String]): IO[Seq[Video]] =
+      IO.pure(videos.filter(video => videoIds.toList.contains(video.id)))
+    override def transferPlaylistMemberships(fromVideoId: String, toVideoId: String): IO[Int] =
+      IO.delay { playlistTransfers += (fromVideoId -> toVideoId); 1 }
+
+    override def insert(
+      videoMetadataId: String,
+      videoFileResourceId: String,
+      timestamp: Instant,
+      watchTime: FiniteDuration
+    ): IO[Int] = notImplemented
+    override def search(
+      term: Option[String],
+      videoUrls: Option[NonEmptyList[Uri]],
+      durationRange: RangeValue[FiniteDuration],
+      sizeRange: RangeValue[Long],
+      pageNumber: Int,
+      pageSize: Int,
+      sortBy: SortBy,
+      order: Order,
+      videoSites: Option[NonEmptyList[VideoSite]],
+      maybeUserId: Option[String]
+    ): IO[Seq[Video]] = notImplemented
+    override def incrementWatchTime(videoId: String, finiteDuration: FiniteDuration): IO[Option[FiniteDuration]] =
+      notImplemented
+    override def findById(videoId: String, maybeUserId: Option[String]): IO[Option[Video]] = notImplemented
+    override def findByVideoFileResourceId(fileResourceId: String): IO[Option[Video]] = notImplemented
+    override def findByVideoPath(videoPath: String): IO[Option[Video]] = notImplemented
+    override def deleteById(videoId: String): IO[Int] = notImplemented
+    override def hasVideoFilePermission(videoFileResourceId: String, userId: String): IO[Boolean] = notImplemented
+    override def isVideoFileResourceExist(videoFileResourceId: String): IO[Boolean] = notImplemented
+    override val count: IO[Int] = notImplemented
+    override val duration: IO[FiniteDuration] = notImplemented
+    override val size: IO[Long] = notImplemented
+    override val sites: IO[Set[VideoSite]] = notImplemented
+    override val siteSummaries: IO[Seq[VideoSiteSummary]] = notImplemented
+  }
+
+  class StubVideoPermissionDao(initialPermissions: Seq[VideoPermission] = Seq.empty) extends VideoPermissionDao[IO] {
+    val permissions: mutable.ListBuffer[VideoPermission] = mutable.ListBuffer.from(initialPermissions)
+
+    override def insert(videoPermission: VideoPermission): IO[Int] =
+      IO.delay {
+        val exists = permissions.exists { permission =>
+          permission.scheduledVideoDownloadId == videoPermission.scheduledVideoDownloadId &&
+          permission.userId == videoPermission.userId
+        }
+        if (exists) 0 else { permissions += videoPermission; 1 }
+      }
+    override def find(userId: Option[String], scheduledVideoId: Option[String]): IO[Seq[VideoPermission]] =
+      IO.delay {
+        permissions.filter { permission =>
+          userId.forall(_ == permission.userId) && scheduledVideoId.forall(_ == permission.scheduledVideoDownloadId)
+        }.toSeq
+      }
+    override def delete(maybeUserId: Option[String], maybeScheduledVideoId: Option[String]): IO[Int] = notImplemented
+  }
+
+  class StubBatchVideoService(failingVideoIds: Set[String] = Set.empty) extends BatchVideoService[IO] {
+    val deletions: mutable.ListBuffer[(String, Boolean)] = mutable.ListBuffer.empty
+
+    override def deleteById(videoId: String, deleteVideoFile: Boolean): IO[Video] =
+      if (failingVideoIds.contains(videoId)) IO.raiseError(new IllegalStateException(s"Unable to delete $videoId"))
+      else IO.delay(deletions += (videoId -> deleteVideoFile)) *> IO.pure(video(videoId, 0, timestamp))
+
+    override def insert(videoMetadataKey: String, fileResourceKey: String): IO[Video] = notImplemented
+    override def incrementWatchTime(videoId: String, duration: FiniteDuration): IO[FiniteDuration] = notImplemented
+    override def fetchByVideoFileResourceId(videoFileResourceId: String): IO[Video] = notImplemented
+    override def update(videoId: String, size: Long): IO[Video] = notImplemented
+  }
+
+  private def video(videoId: String, size: Long, createdAt: Instant): Video = {
+    val thumbnail = FileResource(s"$videoId-thumbnail", createdAt, s"/opt/images/$videoId.jpg", MediaType.image.jpeg, 10)
+    val videoMetadata =
+      VideoMetadata(uri"https://example.com/video", videoId, CustomVideoSite.SpankBang, videoId, 5 minutes, size, thumbnail)
+
+    Video(
+      videoMetadata,
+      FileResource(s"$videoId-file", createdAt, s"/opt/videos/$videoId.mp4", MediaType.video.mp4, size),
+      createdAt,
+      0 seconds
+    )
+  }
+
   private def createService(
     hashDao: StubVideoPerceptualHashDao = new StubVideoPerceptualHashDao(),
     dupDao: StubDuplicateVideoDao = new StubDuplicateVideoDao(),
     snapshotDao: SnapshotDao[IO] = new StubSnapshotDao(),
     hashingService: PerceptualHashingService[IO] = new StubPerceptualHashingService(),
-    repositoryService: RepositoryService[IO] = new StubRepositoryService()
+    repositoryService: RepositoryService[IO] = new StubRepositoryService(),
+    videoDao: VideoDao[IO] = new StubVideoDao(),
+    videoPermissionDao: VideoPermissionDao[IO] = new StubVideoPermissionDao(),
+    batchVideoService: BatchVideoService[IO] = new StubBatchVideoService()
   ): BatchDuplicateDetectionServiceImpl[IO, IO] =
     new BatchDuplicateDetectionServiceImpl[IO, IO](
-      hashingService, repositoryService, hashDao, dupDao, snapshotDao
+      hashingService,
+      repositoryService,
+      hashDao,
+      dupDao,
+      snapshotDao,
+      videoDao,
+      videoPermissionDao,
+      batchVideoService
     )
 
   "detect" should "return empty map when no video durations exist" in runIO {
@@ -463,6 +573,105 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
       dupDao.deletedVideoIds mustBe empty
       dupDao.insertedVideos mustBe empty
     }
+  }
+
+  private def similarVideosHashDao(videoIds: String*): StubVideoPerceptualHashDao = {
+    val hashes = videoIds.toList.map(videoId => VideoPerceptualHash(videoId, timestamp, 5 minutes, BigInt(100L), 150 seconds))
+
+    new StubVideoPerceptualHashDao(
+      durations = Set(5 minutes),
+      videoIdsByDuration = Map((5 minutes) -> videoIds),
+      hashesByDuration = Map((5 minutes) -> hashes)
+    )
+  }
+
+  private val similarHashingService = new StubPerceptualHashingService(compareResults = Map((BigInt(100L), BigInt(100L)) -> 0.0))
+
+  it should "delete the smaller duplicate along with its file, after handing its users and playlists to the kept one" in runIO {
+    val hashDao = similarVideosHashDao("v1", "v2")
+    val dupDao = new StubDuplicateVideoDao()
+    val videoDao = new StubVideoDao(Seq(video("v1", 100, timestamp), video("v2", 200, timestamp)))
+    val userPermission = VideoPermission(timestamp, "v1", "user-1")
+    val videoPermissionDao = new StubVideoPermissionDao(Seq(userPermission, VideoPermission(timestamp, "v2", "user-2")))
+    val batchVideoService = new StubBatchVideoService()
+
+    val service =
+      createService(hashDao, dupDao, hashingService = similarHashingService, videoDao = videoDao,
+        videoPermissionDao = videoPermissionDao, batchVideoService = batchVideoService)
+
+    for {
+      _ <- service.run
+    } yield {
+      batchVideoService.deletions.toList mustBe List("v1" -> true)
+      videoPermissionDao.permissions must contain(userPermission.copy(scheduledVideoDownloadId = "v2"))
+      videoDao.playlistTransfers.toList mustBe List("v1" -> "v2")
+      hashDao.deletedHashVideoIds.toList mustBe List("v1")
+      dupDao.videos mustBe empty
+    }
+  }
+
+  it should "delete the older duplicate when the files are the same size" in runIO {
+    val videoDao = new StubVideoDao(Seq(video("v1", 100, timestamp.plusSeconds(60)), video("v2", 100, timestamp)))
+    val batchVideoService = new StubBatchVideoService()
+
+    val service =
+      createService(similarVideosHashDao("v1", "v2"), hashingService = similarHashingService, videoDao = videoDao,
+        batchVideoService = batchVideoService)
+
+    for {
+      _ <- service.run
+    } yield batchVideoService.deletions.toList mustBe List("v2" -> true)
+  }
+
+  it should "keep only the largest video of a group of three" in runIO {
+    val videoDao =
+      new StubVideoDao(Seq(video("v1", 300, timestamp), video("v2", 500, timestamp), video("v3", 100, timestamp)))
+    val batchVideoService = new StubBatchVideoService()
+
+    val service =
+      createService(similarVideosHashDao("v1", "v2", "v3"), hashingService = similarHashingService, videoDao = videoDao,
+        batchVideoService = batchVideoService)
+
+    for {
+      _ <- service.run
+    } yield batchVideoService.deletions.map(_._1).toSet mustBe Set("v1", "v3")
+  }
+
+  it should "still delete the rest of the group when deleting one duplicate fails" in runIO {
+    val videoDao =
+      new StubVideoDao(Seq(video("v1", 100, timestamp), video("v2", 200, timestamp), video("v3", 500, timestamp)))
+    val batchVideoService = new StubBatchVideoService(failingVideoIds = Set("v1"))
+
+    val service =
+      createService(similarVideosHashDao("v1", "v2", "v3"), hashingService = similarHashingService, videoDao = videoDao,
+        batchVideoService = batchVideoService)
+
+    for {
+      _ <- service.run
+    } yield batchVideoService.deletions.toList mustBe List("v2" -> true)
+  }
+
+  "videoToKeep" should "pick the video with the largest file" in {
+    val videos = Seq(video("v1", 100, timestamp), video("v2", 300, timestamp), video("v3", 200, timestamp))
+
+    BatchDuplicateDetectionService.videoToKeep(videos).map(_.id) mustBe Some("v2")
+  }
+
+  it should "pick the newest video when the files are the same size" in {
+    val videos = Seq(video("v1", 100, timestamp.plusSeconds(60)), video("v2", 100, timestamp))
+
+    BatchDuplicateDetectionService.videoToKeep(videos).map(_.id) mustBe Some("v1")
+  }
+
+  it should "pick the same video whatever the order, when size and age are the same" in {
+    val videos = Seq(video("v1", 100, timestamp), video("v2", 100, timestamp))
+
+    BatchDuplicateDetectionService.videoToKeep(videos).map(_.id) mustBe Some("v2")
+    BatchDuplicateDetectionService.videoToKeep(videos.reverse).map(_.id) mustBe Some("v2")
+  }
+
+  it should "pick nothing from no videos" in {
+    BatchDuplicateDetectionService.videoToKeep(Seq.empty) mustBe None
   }
 
   "DifferenceThreshold" should "be 0.2" in {
