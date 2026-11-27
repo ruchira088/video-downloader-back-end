@@ -98,6 +98,15 @@ class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
     videoDuration: FiniteDuration,
     snapshotTimestamp: FiniteDuration
   ): OptionT[F, VideoPerceptualHash] =
+    snapshotHash(videoId, snapshotTimestamp)
+      .semiflatMap { hash =>
+        Clock[F].timestamp.map { timestamp =>
+          VideoPerceptualHash(videoId, timestamp, videoDuration, hash, snapshotTimestamp)
+        }
+      }
+
+  /** Computes the perceptual hash of the video's snapshot at the given timestamp, if the snapshot exists. */
+  private def snapshotHash(videoId: String, snapshotTimestamp: FiniteDuration): OptionT[F, BigInt] =
     OptionT {
       transaction {
         snapshotDao
@@ -118,11 +127,6 @@ class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
       }
       .semiflatMap { dataStream =>
         perceptualHashingService.hashImage(dataStream)
-      }
-      .semiflatMap { hash =>
-        Clock[F].timestamp.map { timestamp =>
-          VideoPerceptualHash(videoId, timestamp, videoDuration, hash, snapshotTimestamp)
-        }
       }
 
   private def calculateDuplicates(videoHashes: Seq[VideoPerceptualHash]): F[Set[Set[String]]] =
@@ -206,7 +210,10 @@ class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
       _ <- logger.info[F](s"Added ${addedDuplicateVideos.size} duplicate videos for group $groupId")
     } yield groupId
 
-  /** Keeps the video chosen by `videoToKeep` and deletes the rest of the duplicate group, along with their files. */
+  /**
+    * Keeps the video chosen by `videoToKeep` and deletes the rest of the duplicate group, along with their files. A video
+    * that is not safe to delete stays in the group, for a user to review.
+    */
   private def deleteSmallerDuplicates(groupId: String): F[Unit] =
     transaction {
       duplicateVideoDao.findByDuplicateGroupId(groupId).flatMap { duplicateVideos =>
@@ -225,18 +232,62 @@ class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
     }
 
   /**
-    * Gives the users and playlists that hold the duplicate the kept video instead, then deletes the duplicate. A failure
-    * is logged rather than raised, so that the rest of the group is still handled: another batch instance may have
-    * deleted the video already, and a video left behind is detected again in the next run.
+    * Deletes the duplicate if it is safe to: see `deletionBlocker`. Its playlist memberships are handed to the kept
+    * video first. A failure is logged rather than raised, so that the rest of the group is still handled: another batch
+    * instance may have deleted the video already, and a video left behind is detected again in the next run.
     */
   private def deleteDuplicate(video: Video, keptVideo: Video): F[Unit] =
+    deletionBlocker(video, keptVideo)
+      .flatMap {
+        case Some(reason) =>
+          logger.info[F](s"Keeping duplicate videoId=${video.id} of videoId=${keptVideo.id}, since $reason")
+
+        case None => deleteVerifiedDuplicate(video, keptVideo)
+      }
+      .handleErrorWith { throwable =>
+        logger.error[F](s"Unable to delete duplicate videoId=${video.id} keeping videoId=${keptVideo.id}", throwable)
+      }
+
+  /**
+    * Returns why the duplicate must not be deleted, if it must not. A duplicate is only deleted when the same users hold
+    * it and the kept video, so that no user loses a video or gains one they did not have, and when it matches the kept
+    * video directly at every one of the `VerificationSnapshotTimestamps`. Detection compares a single snapshot and
+    * chains matches into groups, so two videos in a group may never have been compared with each other.
+    */
+  private def deletionBlocker(video: Video, keptVideo: Video): F[Option[String]] =
+    if (video.videoMetadata.duration != keptVideo.videoMetadata.duration)
+      Applicative[F].pure(Some("their durations differ"))
+    else
+      transaction {
+        (videoPermissionDao.find(None, Some(video.id)), videoPermissionDao.find(None, Some(keptVideo.id))).tupled
+      }.flatMap {
+        case (videoPermissions, keptVideoPermissions) =>
+          if (videoPermissions.map(_.userId).toSet != keptVideoPermissions.map(_.userId).toSet)
+            Applicative[F].pure(Some("different users hold them"))
+          else
+            BatchDuplicateDetectionService
+              .verificationSnapshotTimestamps(video.videoMetadata.duration)
+              .toList
+              .traverse { snapshotTimestamp =>
+                (snapshotHash(video.id, snapshotTimestamp).value, snapshotHash(keptVideo.id, snapshotTimestamp).value).tupled
+              }
+              .flatMap { hashPairs =>
+                hashPairs
+                  .traverse(_.tupled)
+                  .fold(Applicative[F].pure[Option[String]](Some("a snapshot to compare them with is missing"))) {
+                    _.traverse { case (hash, keptHash) => perceptualHashingService.compareHashes(hash, keptHash) }
+                      .map { distances =>
+                        if (distances.forall(_ <= BatchDuplicateDetectionService.DifferenceThreshold)) None
+                        else Some("their snapshots differ")
+                      }
+                  }
+              }
+      }
+
+  private def deleteVerifiedDuplicate(video: Video, keptVideo: Video): F[Unit] =
     transaction {
-      videoPermissionDao
-        .find(None, Some(video.id))
-        .flatMap(_.traverse { permission =>
-          videoPermissionDao.insert(permission.copy(scheduledVideoDownloadId = keptVideo.id))
-        })
-        .productR(videoDao.transferPlaylistMemberships(video.id, keptVideo.id))
+      videoDao
+        .transferPlaylistMemberships(video.id, keptVideo.id)
         .productR(videoPerceptualHashDao.deleteByVideoId(video.id))
         .productR(duplicateVideoDao.delete(video.id))
     }.productR(batchVideoService.deleteById(video.id, deleteVideoFile = true))
@@ -245,9 +296,6 @@ class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
           s"Deleted duplicate videoId=${video.id} (size=${video.fileResource.size}) " +
             s"keeping videoId=${keptVideo.id} (size=${keptVideo.fileResource.size})"
         )
-      }
-      .handleErrorWith { throwable =>
-        logger.error[F](s"Unable to delete duplicate videoId=${video.id} keeping videoId=${keptVideo.id}", throwable)
       }
 
   /** Removes the group once at most one of its videos is left, since a lone video is no longer a duplicate. */

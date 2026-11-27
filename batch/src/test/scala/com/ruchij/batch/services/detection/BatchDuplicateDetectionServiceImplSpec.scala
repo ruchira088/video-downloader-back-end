@@ -585,25 +585,78 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
     )
   }
 
-  private val similarHashingService = new StubPerceptualHashingService(compareResults = Map((BigInt(100L), BigInt(100L)) -> 0.0))
+  private def snapshotPath(videoId: String, snapshotTimestamp: FiniteDuration): String =
+    s"/opt/snapshots/$videoId-${snapshotTimestamp.toMillis}.png"
 
-  it should "delete the smaller duplicate along with its file, after handing its users and playlists to the kept one" in runIO {
+  /** Gives each video a snapshot at every verification timestamp, except the ones in `missing`. */
+  private def verificationSnapshotDao(videoIds: Seq[String], missing: Set[String]): StubSnapshotDao =
+    new StubSnapshotDao(
+      videoIds.map { videoId =>
+        videoId -> BatchDuplicateDetectionService.verificationSnapshotTimestamps(5 minutes).flatMap { snapshotTimestamp =>
+          val path = snapshotPath(videoId, snapshotTimestamp)
+
+          if (missing.contains(path)) None
+          else Some(Snapshot(videoId, FileResource(path, timestamp, path, MediaType.image.png, 10), snapshotTimestamp))
+        }
+      }.toMap
+    )
+
+  /** Reads each file as its own path, so that the hashing service can tell the snapshots apart. */
+  class PathRepositoryService extends StubRepositoryService {
+    override def read(key: Key, start: Option[Long], end: Option[Long]): IO[Option[Stream[IO, Byte]]] =
+      IO.pure(Some(Stream.emits(key.getBytes)))
+  }
+
+  /** Hashes every image alike, except the ones at `differentPaths`. Equal hashes are 0 apart and others 1 apart. */
+  class PathHashingService(differentPaths: Set[String] = Set.empty) extends PerceptualHashingService[IO] {
+    override def hashImage(image: Stream[IO, Byte]): IO[BigInt] =
+      image.through(fs2.text.utf8.decode).compile.string.map { path =>
+        if (differentPaths.contains(path)) BigInt(999L) else BigInt(100L)
+      }
+    override def compareHashes(hashA: BigInt, hashB: BigInt): IO[Double] = IO.pure(if (hashA == hashB) 0.0 else 1.0)
+  }
+
+  private def autoDeletionService(
+    videos: Seq[Video],
+    dupDao: StubDuplicateVideoDao = new StubDuplicateVideoDao(),
+    hashDao: Option[StubVideoPerceptualHashDao] = None,
+    videoDao: Option[StubVideoDao] = None,
+    videoPermissionDao: VideoPermissionDao[IO] = new StubVideoPermissionDao(),
+    batchVideoService: BatchVideoService[IO],
+    differentSnapshotPaths: Set[String] = Set.empty,
+    missingSnapshotPaths: Set[String] = Set.empty
+  ): BatchDuplicateDetectionServiceImpl[IO, IO] = {
+    val videoIds = videos.map(_.id)
+
+    createService(
+      hashDao.getOrElse(similarVideosHashDao(videoIds: _*)),
+      dupDao,
+      verificationSnapshotDao(videoIds, missingSnapshotPaths),
+      new PathHashingService(differentSnapshotPaths),
+      new PathRepositoryService,
+      videoDao.getOrElse(new StubVideoDao(videos)),
+      videoPermissionDao,
+      batchVideoService
+    )
+  }
+
+  it should "delete the smaller duplicate along with its file, after handing its playlists to the kept one" in runIO {
+    val videos = Seq(video("v1", 100, timestamp), video("v2", 200, timestamp))
     val hashDao = similarVideosHashDao("v1", "v2")
     val dupDao = new StubDuplicateVideoDao()
-    val videoDao = new StubVideoDao(Seq(video("v1", 100, timestamp), video("v2", 200, timestamp)))
-    val userPermission = VideoPermission(timestamp, "v1", "user-1")
-    val videoPermissionDao = new StubVideoPermissionDao(Seq(userPermission, VideoPermission(timestamp, "v2", "user-2")))
+    val videoDao = new StubVideoDao(videos)
+    val permissions = Seq(VideoPermission(timestamp, "v1", "user-1"), VideoPermission(timestamp, "v2", "user-1"))
+    val videoPermissionDao = new StubVideoPermissionDao(permissions)
     val batchVideoService = new StubBatchVideoService()
 
     val service =
-      createService(hashDao, dupDao, hashingService = similarHashingService, videoDao = videoDao,
-        videoPermissionDao = videoPermissionDao, batchVideoService = batchVideoService)
+      autoDeletionService(videos, dupDao, Some(hashDao), Some(videoDao), videoPermissionDao, batchVideoService)
 
     for {
       _ <- service.run
     } yield {
       batchVideoService.deletions.toList mustBe List("v1" -> true)
-      videoPermissionDao.permissions must contain(userPermission.copy(scheduledVideoDownloadId = "v2"))
+      videoPermissionDao.permissions.toList mustBe permissions
       videoDao.playlistTransfers.toList mustBe List("v1" -> "v2")
       hashDao.deletedHashVideoIds.toList mustBe List("v1")
       dupDao.videos mustBe empty
@@ -611,12 +664,12 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "delete the older duplicate when the files are the same size" in runIO {
-    val videoDao = new StubVideoDao(Seq(video("v1", 100, timestamp.plusSeconds(60)), video("v2", 100, timestamp)))
     val batchVideoService = new StubBatchVideoService()
-
     val service =
-      createService(similarVideosHashDao("v1", "v2"), hashingService = similarHashingService, videoDao = videoDao,
-        batchVideoService = batchVideoService)
+      autoDeletionService(
+        Seq(video("v1", 100, timestamp.plusSeconds(60)), video("v2", 100, timestamp)),
+        batchVideoService = batchVideoService
+      )
 
     for {
       _ <- service.run
@@ -624,13 +677,12 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "keep only the largest video of a group of three" in runIO {
-    val videoDao =
-      new StubVideoDao(Seq(video("v1", 300, timestamp), video("v2", 500, timestamp), video("v3", 100, timestamp)))
     val batchVideoService = new StubBatchVideoService()
-
     val service =
-      createService(similarVideosHashDao("v1", "v2", "v3"), hashingService = similarHashingService, videoDao = videoDao,
-        batchVideoService = batchVideoService)
+      autoDeletionService(
+        Seq(video("v1", 300, timestamp), video("v2", 500, timestamp), video("v3", 100, timestamp)),
+        batchVideoService = batchVideoService
+      )
 
     for {
       _ <- service.run
@@ -638,17 +690,101 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "still delete the rest of the group when deleting one duplicate fails" in runIO {
-    val videoDao =
-      new StubVideoDao(Seq(video("v1", 100, timestamp), video("v2", 200, timestamp), video("v3", 500, timestamp)))
     val batchVideoService = new StubBatchVideoService(failingVideoIds = Set("v1"))
-
     val service =
-      createService(similarVideosHashDao("v1", "v2", "v3"), hashingService = similarHashingService, videoDao = videoDao,
-        batchVideoService = batchVideoService)
+      autoDeletionService(
+        Seq(video("v1", 100, timestamp), video("v2", 200, timestamp), video("v3", 500, timestamp)),
+        batchVideoService = batchVideoService
+      )
 
     for {
       _ <- service.run
     } yield batchVideoService.deletions.toList mustBe List("v2" -> true)
+  }
+
+  it should "keep a duplicate that different users hold, leaving the group for review" in runIO {
+    val dupDao = new StubDuplicateVideoDao()
+    val videoPermissionDao = new StubVideoPermissionDao(
+      Seq(VideoPermission(timestamp, "v1", "user-1"), VideoPermission(timestamp, "v2", "user-2"))
+    )
+    val batchVideoService = new StubBatchVideoService()
+
+    val service =
+      autoDeletionService(
+        Seq(video("v1", 100, timestamp), video("v2", 200, timestamp)),
+        dupDao,
+        videoPermissionDao = videoPermissionDao,
+        batchVideoService = batchVideoService
+      )
+
+    for {
+      _ <- service.run
+    } yield {
+      batchVideoService.deletions mustBe empty
+      videoPermissionDao.permissions.size mustBe 2
+      dupDao.videos.map(_.videoId).toSet mustBe Set("v1", "v2")
+    }
+  }
+
+  it should "keep a duplicate when one of its verification snapshots differs from the kept video's" in runIO {
+    val dupDao = new StubDuplicateVideoDao()
+    val batchVideoService = new StubBatchVideoService()
+    val lastTimestamp = BatchDuplicateDetectionService.verificationSnapshotTimestamps(5 minutes).last
+
+    val service =
+      autoDeletionService(
+        Seq(video("v1", 100, timestamp), video("v2", 200, timestamp)),
+        dupDao,
+        batchVideoService = batchVideoService,
+        differentSnapshotPaths = Set(snapshotPath("v1", lastTimestamp))
+      )
+
+    for {
+      _ <- service.run
+    } yield {
+      batchVideoService.deletions mustBe empty
+      dupDao.videos.map(_.videoId).toSet mustBe Set("v1", "v2")
+    }
+  }
+
+  it should "only delete the duplicates that match the kept video directly, not through another duplicate" in runIO {
+    val batchVideoService = new StubBatchVideoService()
+    val firstTimestamp = BatchDuplicateDetectionService.verificationSnapshotTimestamps(5 minutes).head
+
+    val service =
+      autoDeletionService(
+        Seq(video("v1", 100, timestamp), video("v2", 200, timestamp), video("v3", 500, timestamp)),
+        batchVideoService = batchVideoService,
+        differentSnapshotPaths = Set(snapshotPath("v1", firstTimestamp))
+      )
+
+    for {
+      _ <- service.run
+    } yield batchVideoService.deletions.toList mustBe List("v2" -> true)
+  }
+
+  it should "keep a duplicate when a verification snapshot is missing" in runIO {
+    val batchVideoService = new StubBatchVideoService()
+    val middleTimestamp = BatchDuplicateDetectionService.verificationSnapshotTimestamps(5 minutes)(1)
+
+    val service =
+      autoDeletionService(
+        Seq(video("v1", 100, timestamp), video("v2", 200, timestamp)),
+        batchVideoService = batchVideoService,
+        missingSnapshotPaths = Set(snapshotPath("v2", middleTimestamp))
+      )
+
+    for {
+      _ <- service.run
+    } yield batchVideoService.deletions mustBe empty
+  }
+
+  "verificationSnapshotTimestamps" should "be a quarter, half and three quarters of the way through the snapshots" in {
+    val snapshotTimestamps =
+      com.ruchij.batch.services.enrichment.VideoEnrichmentService.snapshotTimestamps(13 minutes, 12).sorted
+
+    BatchDuplicateDetectionService.verificationSnapshotTimestamps(13 minutes) mustBe
+      Seq(snapshotTimestamps(3), snapshotTimestamps(6), snapshotTimestamps(9))
   }
 
   "videoToKeep" should "pick the video with the largest file" in {
