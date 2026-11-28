@@ -5,7 +5,7 @@ import cats.implicits._
 import com.ruchij.core.daos.videometadata.models.VideoSite.YTDownloaderSite
 import com.ruchij.core.exceptions.ValidationException
 import com.ruchij.core.test.IOSupport.runIO
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 

@@ -52,7 +52,7 @@ class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
 
   private def detectDuplicates(duration: FiniteDuration): F[Set[Set[String]]] = {
     val snapshotDurations = VideoEnrichmentService.snapshotTimestamps(duration, SnapshotCount)
-    val snapshotTimestamp = snapshotDurations.sorted.toList(snapshotDurations.size / 2)
+    val snapshotTimestamp = snapshotDurations.sorted(using FiniteDuration.FiniteDurationIsOrdered).toList(snapshotDurations.size / 2)
 
     logger
       .info[F](

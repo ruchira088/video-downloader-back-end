@@ -20,7 +20,7 @@ API for video management, metadata handling, user authentication, and batch proc
 
 | Category | Technology |
 |----------|------------|
-| Language | Scala 2.13.18 |
+| Language | Scala 3.10.1 |
 | Build Tool | sbt 2.1.1 |
 | Runtime | Java 25 (Eclipse Temurin) |
 | Web Framework | HTTP4s 0.23.39 |

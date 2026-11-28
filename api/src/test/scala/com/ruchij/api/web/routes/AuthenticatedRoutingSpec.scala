@@ -10,7 +10,7 @@ import com.ruchij.api.web.middleware.Authenticator
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.types.TimeUtils
 import org.http4s.dsl.io._
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import org.http4s.{Method, Request, RequestCookie, Response, Status, Uri}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -34,7 +34,7 @@ class AuthenticatedRoutingSpec extends AnyFlatSpec with Matchers with MockedRout
 
     IO.delay {
       if (authenticated)
-        (authenticationService.authenticate _)
+        (authenticationService.authenticate)
           .expects(testSecret)
           .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
     } *>

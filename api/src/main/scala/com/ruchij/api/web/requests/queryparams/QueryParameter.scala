@@ -4,7 +4,7 @@ import java.util.concurrent.TimeUnit
 import cats.data.Validated.{Invalid, Valid}
 import cats.data.{Kleisli, NonEmptyList, Validated, ValidatedNel}
 import cats.implicits._
-import cats.{Applicative, ApplicativeError}
+import cats.{Applicative, ApplicativeError, ApplicativeThrow}
 import com.ruchij.api.web.requests.queryparams.QueryParameter.QueryParameters
 import com.ruchij.core.daos.scheduling.models.RangeValue
 import com.ruchij.core.daos.videometadata.models.VideoSite
@@ -16,7 +16,7 @@ import scala.concurrent.duration.FiniteDuration
 import scala.reflect.{ClassTag, classTag}
 
 trait QueryParameter[A] {
-  def parse[F[_]: ApplicativeError[*[_], Throwable]]: Kleisli[F, QueryParameters, A]
+  def parse[F[_]: ApplicativeThrow]: Kleisli[F, QueryParameters, A]
 
   def unapply(params: QueryParameters): Option[A] =
     parse[Either[Throwable, *]].run(params).toOption
@@ -25,7 +25,7 @@ trait QueryParameter[A] {
 object QueryParameter {
   type QueryParameters = Map[String, collection.Seq[String]]
 
-  def parse[F[_]: ApplicativeError[*[_], Throwable], A: QueryParamDecoder](
+  def parse[F[_]: ApplicativeThrow, A: QueryParamDecoder](
     key: String
   ): Kleisli[F, QueryParameters, List[A]] =
     Kleisli[F, QueryParameters, List[A]] {

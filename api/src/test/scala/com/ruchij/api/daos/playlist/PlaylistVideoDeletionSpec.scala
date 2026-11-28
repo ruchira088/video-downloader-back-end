@@ -24,7 +24,7 @@ import com.ruchij.core.test.data.CoreTestData
 import doobie.free.connection.ConnectionIO
 import fs2.Stream
 import org.http4s.MediaType
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers

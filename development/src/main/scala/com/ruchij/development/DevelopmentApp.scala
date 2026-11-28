@@ -5,7 +5,7 @@ import cats.Parallel
 import cats.data.OptionT
 import cats.effect._
 import cats.implicits._
-import com.comcast.ip4s.IpLiteralSyntax
+import com.comcast.ip4s.{ipv4, port}
 import com.ruchij.api.ApiApp
 import com.ruchij.api.config._
 import com.ruchij.api.external.ApiResourcesProvider
@@ -27,7 +27,7 @@ import fs2.io.file.Files
 import fs2.io.net.tls.TLSContext
 import org.http4s.HttpApp
 import org.http4s.ember.server.EmberServerBuilder
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 
 import java.nio.file.Paths
 import java.security.KeyStore

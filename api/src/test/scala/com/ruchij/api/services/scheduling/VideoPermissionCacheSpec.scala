@@ -23,7 +23,7 @@ class VideoPermissionCacheSpec extends AnyFlatSpec with Matchers {
       cache <- VideoPermissionCache.create[IO](
         videoId => lookupsRef.update(_ :+ videoId).as(permitted.contains(videoId)),
         settings
-      )(implicitly, clock)
+      )(using implicitly, clock)
     } yield (timeRef, lookupsRef, cache)
 
   "VideoPermissionCache" should "look up a video once and serve repeated checks from the cache" in runIO {

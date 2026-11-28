@@ -6,7 +6,7 @@ import com.ruchij.core.test.IOSupport.runIO
 import fs2.Stream
 import org.http4s._
 import org.http4s.client.Client
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 

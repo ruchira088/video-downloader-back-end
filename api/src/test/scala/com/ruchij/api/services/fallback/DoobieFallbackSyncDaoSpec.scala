@@ -151,7 +151,7 @@ class DoobieFallbackSyncDaoSpec extends AnyFlatSpec with Matchers {
           for {
             before <- videoCount
             // Commits on another connection while this transaction is still open
-            _ <- FC.delay(transaction(insertVideo(video)).unsafeRunSync()(runtime))
+            _ <- FC.delay(transaction(insertVideo(video)).unsafeRunSync()(using runtime))
             after <- videoCount
           } yield (before, after)
         }

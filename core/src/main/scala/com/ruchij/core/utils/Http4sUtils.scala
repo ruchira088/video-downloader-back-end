@@ -7,7 +7,7 @@ import org.http4s.Header.Select
 import org.http4s.{Header, Response}
 
 object Http4sUtils {
-  def header[F[_]: MonadThrow, A](implicit select: Select[A], header: Header[A, _]
+  def header[F[_]: MonadThrow, A](implicit select: Select[A], header: Header[A, ?]
   ): Kleisli[F, Response[F], select.F[A]] =
     Kleisli { response =>
       response.headers.get[A]

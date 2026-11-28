@@ -34,11 +34,11 @@ trait ApiVideoService[F[_]] {
     maybeUserId: Option[String]
   ): F[Seq[Video]]
 
-  val summary: F[VideoServiceSummary]
+  def summary: F[VideoServiceSummary]
 
-  val scanForVideos: F[VideoScan]
+  def scanForVideos: F[VideoScan]
 
-  val scanStatus: F[Option[VideoScan]]
+  def scanStatus: F[Option[VideoScan]]
 
-  val queueIncorrectlyCompletedVideos: F[Seq[Video]]
+  def queueIncorrectlyCompletedVideos: F[Seq[Video]]
 }

@@ -18,7 +18,7 @@ import io.circe.literal._
 import org.http4s.circe.CirceEntityEncoder._
 import org.http4s.dsl.io._
 import org.http4s.headers.Authorization
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import org.http4s.{AuthScheme, Credentials, Request, Status}
 import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
@@ -53,11 +53,11 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   )
 
   "GET /video/search" should "return paginated search results" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (apiVideoService.search _)
+    (apiVideoService.search)
       .expects(
         None,
         None,
@@ -90,11 +90,11 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   it should "support search term filter" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (apiVideoService.search _)
+    (apiVideoService.search)
       .expects(
         Some("test"),
         None,
@@ -126,11 +126,11 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   it should "support pagination parameters" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (apiVideoService.search _)
+    (apiVideoService.search)
       .expects(
         None,
         None,
@@ -162,11 +162,11 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   "GET /video/id/:videoId" should "return a video by id" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (apiVideoService.fetchById _)
+    (apiVideoService.fetchById)
       .expects("youtube-7488acd8", Some(ApiTestData.NormalUser.id))
       .returns(IO.pure(CoreTestData.YouTubeVideo))
 
@@ -188,11 +188,11 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   it should "return not found when video does not exist" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (apiVideoService.fetchById _)
+    (apiVideoService.fetchById)
       .expects("nonexistent-video", Some(ApiTestData.NormalUser.id))
       .returns(IO.raiseError(ResourceNotFoundException("Video not found: nonexistent-video")))
 
@@ -213,11 +213,11 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   "DELETE /video/id/:videoId" should "delete a video" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (apiVideoService.deleteById _)
+    (apiVideoService.deleteById)
       .expects("youtube-7488acd8", Some(ApiTestData.NormalUser.id), false)
       .returns(IO.pure(CoreTestData.YouTubeVideo))
 
@@ -238,11 +238,11 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   it should "delete video with file when requested" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (apiVideoService.deleteById _)
+    (apiVideoService.deleteById)
       .expects("youtube-7488acd8", Some(ApiTestData.NormalUser.id), true)
       .returns(IO.pure(CoreTestData.YouTubeVideo))
 
@@ -263,13 +263,13 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   "PATCH /video/id/:videoId/metadata" should "update video metadata" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
     val updatedVideo = CoreTestData.YouTubeVideo
 
-    (apiVideoService.update _)
+    (apiVideoService.update)
       .expects("youtube-7488acd8", "Updated Title", Some(ApiTestData.NormalUser.id))
       .returns(IO.pure(updatedVideo))
 
@@ -290,11 +290,11 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   "POST /video/metadata" should "return existing metadata when already analyzed" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (videoAnalysisService.metadata _)
+    (videoAnalysisService.metadata)
       .expects(uri"https://www.youtube.com/watch?v=S5n9emOr7SQ")
       .returns(IO.pure(Existing(CoreTestData.YouTubeVideo.videoMetadata)))
 
@@ -316,11 +316,11 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   it should "return created when new metadata is fetched" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (videoAnalysisService.metadata _)
+    (videoAnalysisService.metadata)
       .expects(uri"https://www.youtube.com/watch?v=new123")
       .returns(IO.pure(NewlyCreated(CoreTestData.YouTubeVideo.videoMetadata)))
 
@@ -342,11 +342,11 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   "GET /video/id/:videoId/snapshots" should "return video snapshots" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (apiVideoService.fetchById _)
+    (apiVideoService.fetchById)
       .expects("youtube-7488acd8", Some(ApiTestData.NormalUser.id))
       .returns(IO.pure(CoreTestData.YouTubeVideo))
 
@@ -356,7 +356,7 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
       5.seconds
     )
 
-    (apiVideoService.fetchVideoSnapshots _)
+    (apiVideoService.fetchVideoSnapshots)
       .expects("youtube-7488acd8", Some(ApiTestData.NormalUser.id))
       .returns(IO.pure(Seq(snapshot)))
 
@@ -378,7 +378,7 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   "GET /video/scan" should "return forbidden for non-admin users" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
@@ -399,13 +399,13 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   "GET /video/duplicates" should "return duplicate video groups for admin users" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((adminToken, ApiTestData.AdminUser)))
 
     val duplicateVideo = DuplicateVideo("youtube-7488acd8", "group-1", testTimestamp)
 
-    (duplicateDetectionService.findDuplicateVideos _)
+    (duplicateDetectionService.findDuplicateVideos)
       .expects(0, 25)
       .returns(IO.pure(Map("group-1" -> Set(duplicateVideo))))
 
@@ -427,7 +427,7 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   it should "return forbidden for non-admin users" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
@@ -448,11 +448,11 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   it should "support pagination parameters" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((adminToken, ApiTestData.AdminUser)))
 
-    (duplicateDetectionService.findDuplicateVideos _)
+    (duplicateDetectionService.findDuplicateVideos)
       .expects(10, 5)
       .returns(IO.pure(Map.empty[String, Set[DuplicateVideo]]))
 
@@ -473,7 +473,7 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   "GET /videos/summary" should "return forbidden for non-admin users" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
@@ -488,7 +488,7 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   "POST /videos/queue-incomplete-downloads" should "return forbidden for non-admin users" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 

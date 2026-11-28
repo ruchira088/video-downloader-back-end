@@ -23,7 +23,7 @@ import org.http4s.MediaType
 import java.time.Instant
 import java.util.UUID
 
-class PlaylistServiceImpl[F[_]: Sync: Clock: RandomGenerator[*[_], UUID], G[_]: MonadThrow](
+class PlaylistServiceImpl[F[_]: Sync: Clock: RandomGenerator.Of[UUID], G[_]: MonadThrow](
   playlistDao: PlaylistDao[G],
   fileResourceDao: FileResourceDao[G],
   repositoryService: RepositoryService[F],

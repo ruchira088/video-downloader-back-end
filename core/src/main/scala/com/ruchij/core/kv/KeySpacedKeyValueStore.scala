@@ -5,9 +5,10 @@ import cats.implicits._
 import com.ruchij.core.kv.codecs.KVCodec
 import com.ruchij.core.kv.keys.{KVStoreKey, KeySpace, KeySpacedKeyEncoder}
 
-class KeySpacedKeyValueStore[F[_]: Functor, K <: KVStoreKey : KeySpacedKeyEncoder[F, *], V: KVCodec[F, *]](
-  keySpace: KeySpace[K, V],
-  keyValueStore: KeyValueStore[F]
+class KeySpacedKeyValueStore[F[_], K <: KVStoreKey, V](keySpace: KeySpace[K, V], keyValueStore: KeyValueStore[F])(
+  implicit functor: Functor[F],
+  keySpacedKeyEncoder: KeySpacedKeyEncoder[F, K],
+  kvCodec: KVCodec[F, V]
 ) {
   def get(key: K): F[Option[V]] = keyValueStore.get[K, V](key)
 

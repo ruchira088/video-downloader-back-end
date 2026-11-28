@@ -65,7 +65,8 @@ object PlaylistRoutes {
         yield response
 
       case authRequest @ PUT -> Root / "id" / playlistId / "album-art" as AuthenticatedRequestContext(user, _) =>
-        authRequest.to[FileAsset[F]]
+        // FileAsset's multipart decoder, which circe's JSON entity decoder in scope would otherwise shadow
+        authRequest.to[FileAsset[F]](using FileAsset.fileAssetDecoder[F], summon)
           .flatMap { fileAsset => playlistService.addAlbumArt(playlistId, fileAsset.fileName, fileAsset.mediaType, fileAsset.data, user.nonAdminUserId) }
           .flatMap(playlist => Ok(playlist))
 

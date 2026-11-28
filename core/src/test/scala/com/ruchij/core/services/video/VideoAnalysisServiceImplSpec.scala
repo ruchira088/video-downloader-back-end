@@ -26,7 +26,7 @@ import com.ruchij.core.types.Clock
 import com.ruchij.core.types.FunctionKTypes.identityFunctionK
 import fs2.Stream
 import org.http4s.client.Client
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import org.http4s.jdkhttpclient.JdkHttpClient
 import org.http4s.{HttpApp, MediaType, Query, Uri}
 import org.scalamock.scalatest.MockFactory
@@ -175,9 +175,9 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
         thumbnail = uri"https://example.com/thumb.jpg"
       )
 
-    (videoMetadataDao.findByUrl _).expects(videoUri).returns(IO.pure(None))
-    (youTubeVideoDownloader.videoInformation _).expects(videoUri).returns(IO.pure(analysisResult))
-    (hashingService.hash _).expects(*).returns(IO.pure("hash")).anyNumberOfTimes()
+    (videoMetadataDao.findByUrl).expects(videoUri).returns(IO.pure(None))
+    (youTubeVideoDownloader.videoInformation).expects(videoUri).returns(IO.pure(analysisResult))
+    (hashingService.hash).expects(*).returns(IO.pure("hash")).anyNumberOfTimes()
 
     val downloadResult =
       DownloadResult.create[IO](
@@ -187,12 +187,12 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
         mediaType = MediaType.image.jpeg
       )(Stream.empty)
 
-    (downloadService.download _)
+    (downloadService.download)
       .expects(*, *)
       .returns(Resource.pure[IO, DownloadResult[IO]](downloadResult))
 
-    (fileResourceDao.insert _).expects(*).returns(IO.pure(1)).once()
-    (videoMetadataDao.insert _).expects(*).returns(IO.pure(1)).once()
+    (fileResourceDao.insert).expects(*).returns(IO.pure(1)).once()
+    (videoMetadataDao.insert).expects(*).returns(IO.pure(1)).once()
 
     val service =
       buildService(hashingService, downloadService, youTubeVideoDownloader, videoMetadataDao, fileResourceDao)
@@ -235,9 +235,9 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
     // Called twice: up-front existence check, then recovery lookup after the
     // persistence transaction fails. Both return None, so the original error
     // is re-raised.
-    (videoMetadataDao.findByUrl _).expects(videoUri).returns(IO.pure(None)).twice()
-    (youTubeVideoDownloader.videoInformation _).expects(videoUri).returns(IO.pure(analysisResult))
-    (hashingService.hash _).expects(*).returns(IO.pure("hash")).anyNumberOfTimes()
+    (videoMetadataDao.findByUrl).expects(videoUri).returns(IO.pure(None)).twice()
+    (youTubeVideoDownloader.videoInformation).expects(videoUri).returns(IO.pure(analysisResult))
+    (hashingService.hash).expects(*).returns(IO.pure("hash")).anyNumberOfTimes()
 
     val downloadResult =
       DownloadResult.create[IO](
@@ -247,7 +247,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
         mediaType = MediaType.image.jpeg
       )(Stream.empty)
 
-    (downloadService.download _)
+    (downloadService.download)
       .expects(*, *)
       .returns(Resource.pure[IO, DownloadResult[IO]](downloadResult))
 
@@ -257,7 +257,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
       // The mock returns a single IO that, every time it is evaluated, increments the counter
       // and then raises `dbError`. This lets us count *runtime evaluations* (which retries
       // would increase) rather than *mock invocations* (which happen once at IO construction).
-      (fileResourceDao.insert _)
+      (fileResourceDao.insert)
         .expects(*)
         .returns(fileInsertEvaluations.update(_ + 1) *> IO.raiseError[Int](dbError))
         .once()
@@ -265,7 +265,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
       // `videoMetadataDao.insert(videoMetadata)` is invoked at IO construction so that
       // `productR` has an IO node to compose, even though its body is never evaluated
       // (the failing left-hand side short-circuits `*>`).
-      (videoMetadataDao.insert _).expects(*).returns(IO.pure(1)).once()
+      (videoMetadataDao.insert).expects(*).returns(IO.pure(1)).once()
 
       val service =
         buildService(hashingService, downloadService, youTubeVideoDownloader, videoMetadataDao, fileResourceDao)
@@ -323,12 +323,12 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
     // lookup now finds the row, which the new logic interprets as "the
     // desired persisted state has been reached" and swallows the error.
     inSequence {
-      (videoMetadataDao.findByUrl _).expects(videoUri).returns(IO.pure(None)).once()
-      (videoMetadataDao.findByUrl _).expects(videoUri).returns(IO.pure(Some(concurrentlyPersisted))).once()
+      (videoMetadataDao.findByUrl).expects(videoUri).returns(IO.pure(None)).once()
+      (videoMetadataDao.findByUrl).expects(videoUri).returns(IO.pure(Some(concurrentlyPersisted))).once()
     }
 
-    (youTubeVideoDownloader.videoInformation _).expects(videoUri).returns(IO.pure(analysisResult))
-    (hashingService.hash _).expects(*).returns(IO.pure("hash")).anyNumberOfTimes()
+    (youTubeVideoDownloader.videoInformation).expects(videoUri).returns(IO.pure(analysisResult))
+    (hashingService.hash).expects(*).returns(IO.pure("hash")).anyNumberOfTimes()
 
     val downloadResult =
       DownloadResult.create[IO](
@@ -338,14 +338,14 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
         mediaType = MediaType.image.jpeg
       )(Stream.empty)
 
-    (downloadService.download _)
+    (downloadService.download)
       .expects(*, *)
       .returns(Resource.pure[IO, DownloadResult[IO]](downloadResult))
 
     val dbError = new RuntimeException("simulated unique-constraint violation")
 
-    (fileResourceDao.insert _).expects(*).returns(IO.raiseError[Int](dbError)).once()
-    (videoMetadataDao.insert _).expects(*).returns(IO.pure(1)).once()
+    (fileResourceDao.insert).expects(*).returns(IO.raiseError[Int](dbError)).once()
+    (videoMetadataDao.insert).expects(*).returns(IO.pure(1)).once()
 
     val service =
       buildService(hashingService, downloadService, youTubeVideoDownloader, videoMetadataDao, fileResourceDao)
@@ -396,12 +396,12 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
     // — the original `dbError` is lost because the recovery branch only re-raises
     // the original on a `None` result, not on a lookup failure.
     inSequence {
-      (videoMetadataDao.findByUrl _).expects(videoUri).returns(IO.pure(None)).once()
-      (videoMetadataDao.findByUrl _).expects(videoUri).returns(IO.raiseError[Option[VideoMetadata]](lookupError)).once()
+      (videoMetadataDao.findByUrl).expects(videoUri).returns(IO.pure(None)).once()
+      (videoMetadataDao.findByUrl).expects(videoUri).returns(IO.raiseError[Option[VideoMetadata]](lookupError)).once()
     }
 
-    (youTubeVideoDownloader.videoInformation _).expects(videoUri).returns(IO.pure(analysisResult))
-    (hashingService.hash _).expects(*).returns(IO.pure("hash")).anyNumberOfTimes()
+    (youTubeVideoDownloader.videoInformation).expects(videoUri).returns(IO.pure(analysisResult))
+    (hashingService.hash).expects(*).returns(IO.pure("hash")).anyNumberOfTimes()
 
     val downloadResult =
       DownloadResult.create[IO](
@@ -411,12 +411,12 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
         mediaType = MediaType.image.jpeg
       )(Stream.empty)
 
-    (downloadService.download _)
+    (downloadService.download)
       .expects(*, *)
       .returns(Resource.pure[IO, DownloadResult[IO]](downloadResult))
 
-    (fileResourceDao.insert _).expects(*).returns(IO.raiseError[Int](dbError)).once()
-    (videoMetadataDao.insert _).expects(*).returns(IO.pure(1)).once()
+    (fileResourceDao.insert).expects(*).returns(IO.raiseError[Int](dbError)).once()
+    (videoMetadataDao.insert).expects(*).returns(IO.pure(1)).once()
 
     val service =
       buildService(hashingService, downloadService, youTubeVideoDownloader, videoMetadataDao, fileResourceDao)

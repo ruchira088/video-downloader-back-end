@@ -4,8 +4,8 @@ This file provides guidance to coding agents when working with code in this repo
 
 ## Project Overview
 
-A Scala 2.13 backend for managing video downloads, built on the Typelevel stack (cats-effect, http4s, doobie, fs2).
-Uses sbt 2.x. The build compiles with `-Xfatal-warnings`, so any compiler warning fails the build.
+A Scala 3 backend for managing video downloads, built on the Typelevel stack (cats-effect, http4s, doobie, fs2).
+Uses sbt 2.x. The build compiles with `-Werror`, so any compiler warning fails the build.
 
 ## Commands
 
@@ -66,7 +66,8 @@ gitignored).
 ## Architecture
 
 **Tagless final everywhere.** Services and apps are parameterized over `F[_]: Async` (concrete type is `IO`, applied
-only in the `*App` main objects). Compiler plugins `kind-projector` and `better-monadic-for` are enabled.
+only in the `*App` main objects). `-Xkind-projector` enables the `F[*]` type lambda syntax; a higher-kinded
+placeholder such as `*[_]` is not supported, so write `ApplicativeThrow` or `RandomGenerator.Of[UUID]` instead.
 
 **Two-effect service pattern.** Database-touching services take two type parameters, e.g.
 `VideoServiceImpl[F[_], T[_]]`, where `T` is doobie's `ConnectionIO`. DAOs (`Doobie*Dao` objects in `core/.../daos/`

@@ -24,7 +24,6 @@ import com.ruchij.core.daos.workers.models.VideoScan.ScanStatus
 import com.ruchij.core.daos.workers.models.VideoScan
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.kv.codecs.{KVCodec, KVDecoder}
-import com.ruchij.core.kv.keys.KeySpacedKeyEncoder
 import com.ruchij.core.kv.{InMemoryKeyValueStore, KeySpacedKeyValueStore}
 import com.ruchij.core.services.config.models.SharedConfigKey
 import com.ruchij.core.services.config.models.SharedConfigKey.{SharedConfigKeySpace, VideoScanningStatus}
@@ -643,10 +642,10 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
 
     private def configurationService(
       scanStatuses: Ref[IO, List[ScanStatus]]
-    )(implicit keySpacedKeyEncoder: KeySpacedKeyEncoder[IO, SharedConfigKey[_]]): ConfigurationService[IO, SharedConfigKey] = {
+    ): ConfigurationService[IO, SharedConfigKey] = {
       val delegate =
-        new ConfigurationServiceImpl[IO, SharedConfigKey](
-          new KeySpacedKeyValueStore[IO, SharedConfigKey[_], String](
+        new ConfigurationServiceImpl[IO, SharedConfigKey, SharedConfigKey[?]](
+          new KeySpacedKeyValueStore[IO, SharedConfigKey[?], String](
             SharedConfigKeySpace,
             new InMemoryKeyValueStore[IO]
           )
@@ -660,10 +659,10 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
     delegate: ConfigurationService[IO, SharedConfigKey],
     scanStatuses: Ref[IO, List[ScanStatus]]
   ) extends ConfigurationService[IO, SharedConfigKey] {
-    override def get[A: KVDecoder[IO, *], K[_] <: SharedConfigKey[_]](key: K[A]): IO[Option[A]] =
+    override def get[A: KVDecoder[IO, *]](key: SharedConfigKey[A]): IO[Option[A]] =
       delegate.get(key)
 
-    override def put[A: KVCodec[IO, *], K[_] <: SharedConfigKey[_]](key: K[A], value: A): IO[Option[A]] =
+    override def put[A: KVCodec[IO, *]](key: SharedConfigKey[A], value: A): IO[Option[A]] =
       IO.defer {
         value match {
           case VideoScan(_, scanStatus) => scanStatuses.update(_ :+ scanStatus)
@@ -672,7 +671,7 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
       }
         .productR(delegate.put(key, value))
 
-    override def delete[A: KVDecoder[IO, *], K[_] <: SharedConfigKey[_]](key: K[A]): IO[Option[A]] =
+    override def delete[A: KVDecoder[IO, *]](key: SharedConfigKey[A]): IO[Option[A]] =
       delegate.delete(key)
   }
 

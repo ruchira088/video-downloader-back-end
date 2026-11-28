@@ -31,6 +31,7 @@ import java.time.Instant
 import java.util.concurrent.CompletableFuture
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
+import scala.util.control.NonFatal
 
 class FallbackAwsSpec extends AnyFlatSpec with Matchers {
 
@@ -74,7 +75,7 @@ class FallbackAwsSpec extends AnyFlatSpec with Matchers {
     override def sendMessageBatch(request: SendMessageBatchRequest): CompletableFuture[SendMessageBatchResponse] = {
       received.add(request)
       try CompletableFuture.completedFuture(respond(received.size(), request))
-      catch { case error: Throwable => CompletableFuture.failedFuture(error) }
+      catch { case NonFatal(error) => CompletableFuture.failedFuture(error) }
     }
   }
 

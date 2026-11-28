@@ -192,13 +192,13 @@ object ApiApp extends IOApp {
       new KeySpacedKeyValueStore(AuthenticationKeySpace, keyValueStore)
 
     val apiConfigurationService: ConfigurationService[F, ApiConfigKey] =
-      new ConfigurationServiceImpl[F, ApiConfigKey](
-        new KeySpacedKeyValueStore[F, ApiConfigKey[_], String](ApiConfigKeySpace, keyValueStore)
+      new ConfigurationServiceImpl[F, ApiConfigKey, ApiConfigKey[?]](
+        new KeySpacedKeyValueStore[F, ApiConfigKey[?], String](ApiConfigKeySpace, keyValueStore)
       )
 
     val sharedConfigurationService: ConfigurationService[F, SharedConfigKey] =
-      new ConfigurationServiceImpl[F, SharedConfigKey](
-        new KeySpacedKeyValueStore[F, SharedConfigKey[_], String](SharedConfigKeySpace, keyValueStore)
+      new ConfigurationServiceImpl[F, SharedConfigKey, SharedConfigKey[?]](
+        new KeySpacedKeyValueStore[F, SharedConfigKey[?], String](SharedConfigKeySpace, keyValueStore)
       )
 
     val fileTypeDetector = new PathFileTypeDetector[F](new Tika())

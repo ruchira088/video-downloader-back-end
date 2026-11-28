@@ -28,7 +28,7 @@ class FallbackRevokingUserServiceSpec extends AnyFlatSpec with Matchers with Moc
 
   "FallbackRevokingUserService" should "revoke the user's fallback account after a password reset" in runIO {
     val userService = mock[UserService[IO]]
-    (userService.resetPassword _).expects("user-1", "reset-token", Password("new-password")).returns(IO.pure(user))
+    (userService.resetPassword).expects("user-1", "reset-token", Password("new-password")).returns(IO.pure(user))
 
     for {
       revoker <- recordingRevoker
@@ -43,7 +43,7 @@ class FallbackRevokingUserServiceSpec extends AnyFlatSpec with Matchers with Moc
 
   it should "revoke the user's fallback account after the user is deleted" in runIO {
     val userService = mock[UserService[IO]]
-    (userService.delete _).expects("user-1", admin).returns(IO.pure(user))
+    (userService.delete).expects("user-1", admin).returns(IO.pure(user))
 
     for {
       revoker <- recordingRevoker
@@ -58,7 +58,7 @@ class FallbackRevokingUserServiceSpec extends AnyFlatSpec with Matchers with Moc
   it should "revoke nothing when the password reset fails" in runIO {
     val userService = mock[UserService[IO]]
     val failure = ResourceNotFoundException("Reset password token in not valid")
-    (userService.resetPassword _).expects("user-1", "bad-token", Password("new-password")).returns(IO.raiseError(failure))
+    (userService.resetPassword).expects("user-1", "bad-token", Password("new-password")).returns(IO.raiseError(failure))
 
     for {
       revoker <- recordingRevoker
@@ -75,10 +75,10 @@ class FallbackRevokingUserServiceSpec extends AnyFlatSpec with Matchers with Moc
   it should "revoke nothing for the other operations" in runIO {
     val userService = mock[UserService[IO]]
     val resetToken = CredentialsResetToken("user-1", timestamp, "reset-token")
-    (userService.create _).expects("John", "Doe", Email("me@ruchij.com"), Password("password")).returns(IO.pure(user))
-    (userService.getById _).expects("user-1").returns(IO.pure(user))
-    (userService.getByEmail _).expects(Email("me@ruchij.com")).returns(IO.pure(user))
-    (userService.forgotPassword _).expects(Email("me@ruchij.com")).returns(IO.pure(resetToken))
+    (userService.create).expects("John", "Doe", Email("me@ruchij.com"), Password("password")).returns(IO.pure(user))
+    (userService.getById).expects("user-1").returns(IO.pure(user))
+    (userService.getByEmail).expects(Email("me@ruchij.com")).returns(IO.pure(user))
+    (userService.forgotPassword).expects(Email("me@ruchij.com")).returns(IO.pure(resetToken))
 
     for {
       revoker <- recordingRevoker

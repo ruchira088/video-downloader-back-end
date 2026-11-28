@@ -1,12 +1,12 @@
 package com.ruchij.api.config
 
 import cats.effect.IO
-import com.comcast.ip4s.IpLiteralSyntax
+import com.comcast.ip4s.{ipv4, port}
 import com.ruchij.core.config.{HttpProxyConfiguration, KafkaConfiguration, PubsubConfiguration, RedisConfiguration, SentryConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
 import com.ruchij.core.messaging.PubSub.PubsubType
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.migration.config.DatabaseConfiguration
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 import pureconfig.ConfigSource

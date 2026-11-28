@@ -9,7 +9,7 @@ import com.ruchij.core.messaging.models.{HttpMetric, VideoWatchMetric}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import fs2.kafka.vulcan.{AvroSettings, SchemaRegistryClientSettings, avroDeserializer, avroSerializer}
 import fs2.kafka.{ValueDeserializer, ValueSerializer}
-import io.circe.generic.auto.{exportDecoder, exportEncoder}
+import io.circe.generic.auto._
 import io.circe.generic.semiauto.{deriveCodec => deriveJsonCodec}
 import io.circe.{Codec => JsonCodec, Json}
 import vulcan.generic._
@@ -28,12 +28,12 @@ trait MessagingTopic[A] {
   val jsonCodec: JsonCodec[A]
 
   def serializer[F[_]: Sync](kafkaConfiguration: KafkaConfiguration): Resource[F, ValueSerializer[F, A]] =
-    avroSerializer[A](avroCodec).forValue {
+    avroSerializer[A](using avroCodec).forValue {
       AvroSettings[F] { SchemaRegistryClientSettings[F](kafkaConfiguration.schemaRegistry.renderString) }
     }
 
   def deserializer[F[_]: Sync](kafkaConfiguration: KafkaConfiguration): Resource[F, ValueDeserializer[F, A]] =
-    avroDeserializer[A](avroCodec).forValue {
+    avroDeserializer[A](using avroCodec).forValue {
       AvroSettings[F] { SchemaRegistryClientSettings[F](kafkaConfiguration.schemaRegistry.renderString) }
     }
 }

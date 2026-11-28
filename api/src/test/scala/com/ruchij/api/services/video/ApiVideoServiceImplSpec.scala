@@ -37,7 +37,7 @@ import com.ruchij.core.test.Providers
 import com.ruchij.core.types.{Clock, TimeUtils}
 import fs2.Pipe
 import org.http4s.{MediaType, Uri}
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import java.time.Instant
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -97,15 +97,15 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   ): (ConfigurationService[IO, SharedConfigKey], AtomicReference[Option[VideoScan]]) = {
     val stateRef = new AtomicReference[Option[VideoScan]](initialValue)
     val service = new ConfigurationService[IO, SharedConfigKey] {
-      override def get[A: KVDecoder[IO, *], K[_] <: SharedConfigKey[_]](key: K[A]): IO[Option[A]] =
+      override def get[A: KVDecoder[IO, *]](key: SharedConfigKey[A]): IO[Option[A]] =
         IO.pure(stateRef.get().asInstanceOf[Option[A]])
 
-      override def put[A: KVCodec[IO, *], K[_] <: SharedConfigKey[_]](key: K[A], value: A): IO[Option[A]] = {
+      override def put[A: KVCodec[IO, *]](key: SharedConfigKey[A], value: A): IO[Option[A]] = {
         val old = stateRef.getAndSet(Some(value.asInstanceOf[VideoScan]))
         IO.pure(old.asInstanceOf[Option[A]])
       }
 
-      override def delete[A: KVDecoder[IO, *], K[_] <: SharedConfigKey[_]](key: K[A]): IO[Option[A]] = {
+      override def delete[A: KVDecoder[IO, *]](key: SharedConfigKey[A]): IO[Option[A]] = {
         val old = stateRef.getAndSet(None)
         IO.pure(old.asInstanceOf[Option[A]])
       }

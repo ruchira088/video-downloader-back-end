@@ -13,7 +13,7 @@ import fs2.Stream
 import io.circe.ParsingFailure
 import org.http4s.Uri
 import org.http4s.client.Client
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -71,7 +71,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
         |   "display_id": "4PrO20ALoCA"
         |}""".stripMargin
 
-    (cliCommandRunner.run _)
+    (cliCommandRunner.run)
       .expects(List("yt-dlp", "--no-warnings", "https://www.youtube.com/watch?v=4PrO20ALoCA", "-j"))
       .returns(Stream.emits[IO, String](cliOutput.split("\n")))
 
@@ -100,7 +100,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
         |XHamster
         |""".stripMargin
 
-    (cliCommandRunner.run _)
+    (cliCommandRunner.run)
       .expects(List("yt-dlp", "--no-warnings", "--list-extractors"))
       .returns {
         Stream.emits[IO, String] { cliOutput.split("\n").filter(_.nonEmpty) }
@@ -138,7 +138,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
         |Deleting original file /home/ruchira/Videos/youtube-video-url-hash.mp4.f140 (pass -k to keep)
         |""".stripMargin
 
-    (cliCommandRunner.run _)
+    (cliCommandRunner.run)
       .expects(List("yt-dlp", "--no-warnings", "--fixup", "force", "-o", "~/Videos/youtube-video-url-hash.%(ext)s", "https://www.youtube.com/watch?v=F1Zl1TRDJs0"))
       .returns {
         Stream.emits[IO, String] { cliOutput.split("\n") }
@@ -243,7 +243,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
         .flatMap { exception =>
           IO.delay {
             exception mustBe a [CliCommandException]
-            exception.getMessage contains "ERROR: [Eporner] kb38QBpRQaY: Unable to extract hash; please report this issue on  https://github.com/yt-dlp/yt-dlp/issues?q= , filling out the appropriate issue template. Confirm you are on the latest version using  yt-dlp -U"
+            exception.getMessage `contains` "ERROR: [Eporner] kb38QBpRQaY: Unable to extract hash; please report this issue on  https://github.com/yt-dlp/yt-dlp/issues?q= , filling out the appropriate issue template. Confirm you are on the latest version using  yt-dlp -U"
           }
         }
     }
@@ -254,7 +254,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
     val client = mock[Client[IO]]
     val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, None)
 
-    (cliCommandRunner.run _)
+    (cliCommandRunner.run)
       .expects(List("yt-dlp", "--no-warnings", "--version"))
       .returns {
         Stream.emit[IO, String] {  "2025.08.22" }
@@ -272,7 +272,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
     val client = mock[Client[IO]]
     val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, None)
 
-    (cliCommandRunner.run _)
+    (cliCommandRunner.run)
       .expects(List("yt-dlp", "--no-warnings", "https://www.youtube.com/watch?v=notfound", "-j"))
       .returns {
         Stream.raiseError[IO](CliCommandException("ERROR: HTTP Error 404: Not Found"))
@@ -294,7 +294,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
     val client = mock[Client[IO]]
     val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, None)
 
-    (cliCommandRunner.run _)
+    (cliCommandRunner.run)
       .expects(List("yt-dlp", "--no-warnings", "https://www.youtube.com/watch?v=deleted", "-j"))
       .returns {
         Stream.raiseError[IO](CliCommandException("ERROR: Unable to extract hash; some details"))
@@ -316,7 +316,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
     val client = mock[Client[IO]]
     val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, None)
 
-    (cliCommandRunner.run _)
+    (cliCommandRunner.run)
       .expects(List("yt-dlp", "--no-warnings", "https://www.youtube.com/watch?v=invalid", "-j"))
       .returns {
         Stream.emit[IO, String]("not valid json")
@@ -338,7 +338,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
     val client = mock[Client[IO]]
     val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, None)
 
-    (cliCommandRunner.run _)
+    (cliCommandRunner.run)
       .expects(List("yt-dlp", "--no-warnings", "https://www.youtube.com/watch?v=error", "-j"))
       .returns {
         Stream.raiseError[IO](CliCommandException("ERROR: Some other error"))
@@ -378,7 +378,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
         |  "thumbnail": null
         |}""".stripMargin
 
-    (cliCommandRunner.run _)
+    (cliCommandRunner.run)
       .expects(List("yt-dlp", "--no-warnings", "https://www.youtube.com/watch?v=test123", "-j"))
       .returns(Stream.emits[IO, String](cliOutput.split("\n")))
 
@@ -407,7 +407,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
         |  "thumbnail": "https://example.com/thumb.jpg"
         |}""".stripMargin
 
-    (cliCommandRunner.run _)
+    (cliCommandRunner.run)
       .expects(List("yt-dlp", "--no-warnings", "https://www.youtube.com/watch?v=nosize", "-j"))
       .returns(Stream.emits[IO, String](cliOutput.split("\n")))
 
@@ -438,7 +438,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
         |  "thumbnail": "https://i.ytimg.com/vi/abc123/default.jpg"
         |}""".stripMargin
 
-    (cliCommandRunner.run _)
+    (cliCommandRunner.run)
       .expects(List("yt-dlp", "--no-warnings", "--proxy", "http://proxy.example.com:8080", "https://www.youtube.com/watch?v=abc123", "-j"))
       .returns(Stream.emits[IO, String](cliOutput.split("\n")))
 
@@ -459,7 +459,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
     val client = mock[Client[IO]]
     val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, proxyConfig)
 
-    (cliCommandRunner.run _)
+    (cliCommandRunner.run)
       .expects(List("yt-dlp", "--no-warnings", "--proxy", "http://proxy.example.com:8080", "--list-extractors"))
       .returns {
         Stream.emits[IO, String](Seq("youtube", "vimeo"))
@@ -478,7 +478,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
     val client = mock[Client[IO]]
     val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, proxyConfig)
 
-    (cliCommandRunner.run _)
+    (cliCommandRunner.run)
       .expects(List("yt-dlp", "--no-warnings", "--proxy", "http://proxy.example.com:8080", "--version"))
       .returns {
         Stream.emit[IO, String]("2025.08.22")
@@ -501,7 +501,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
         |[download]  100% of 50.0MiB at  3.0MiB/s ETA 00:00
         |""".stripMargin
 
-    (cliCommandRunner.run _)
+    (cliCommandRunner.run)
       .expects(List("yt-dlp", "--no-warnings", "--proxy", "http://proxy.example.com:8080", "--fixup", "force", "-o", "~/Downloads/proxy-video.%(ext)s", "https://www.youtube.com/watch?v=proxy1"))
       .returns {
         Stream.emits[IO, String] { cliOutput.split("\n") }
@@ -524,7 +524,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
     val client = mock[Client[IO]]
     val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, proxyConfig)
 
-    (cliCommandRunner.run _)
+    (cliCommandRunner.run)
       .expects(List("yt-dlp", "--no-warnings", "--proxy", "http://proxy.example.com:8080", "https://www.youtube.com/watch?v=gone", "-j"))
       .returns {
         Stream.raiseError[IO](CliCommandException("ERROR: HTTP Error 404: Not Found"))
@@ -546,7 +546,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
     val client = mock[Client[IO]]
     val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, proxyConfig)
 
-    (cliCommandRunner.run _)
+    (cliCommandRunner.run)
       .expects(List("yt-dlp", "--no-warnings", "--proxy", "http://proxy.example.com:8080", "https://www.youtube.com/watch?v=removed", "-j"))
       .returns {
         Stream.raiseError[IO](CliCommandException("ERROR: Unable to extract hash; video removed"))
@@ -579,7 +579,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
         |  "thumbnail": "https://i.ytimg.com/vi/sec123/default.jpg"
         |}""".stripMargin
 
-    (cliCommandRunner.run _)
+    (cliCommandRunner.run)
       .expects(List("yt-dlp", "--no-warnings", "--proxy", "https://secure-proxy.corp.net:3128", "https://www.youtube.com/watch?v=sec123", "-j"))
       .returns(Stream.emits[IO, String](cliOutput.split("\n")))
 
@@ -608,7 +608,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
         |  "thumbnail": "https://example.com/thumb.jpg"
         |}""".stripMargin
 
-    (cliCommandRunner.run _)
+    (cliCommandRunner.run)
       .expects(List("yt-dlp", "--no-warnings", "--proxy", "http://proxy.example.com", "https://www.youtube.com/watch?v=noport", "-j"))
       .returns(Stream.emits[IO, String](cliOutput.split("\n")))
 

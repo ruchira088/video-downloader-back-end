@@ -15,7 +15,7 @@ import com.ruchij.api.web.responses.ErrorResponse
 import com.ruchij.core.exceptions._
 import com.ruchij.core.logging.Logger
 import io.circe.DecodingFailure
-import io.circe.generic.auto.exportEncoder
+import io.circe.generic.auto._
 import org.http4s.circe.CirceEntityEncoder.circeEntityEncoder
 import org.http4s.dsl.impl.EntityResponseGenerator
 import org.http4s.{ContextRequest, Header, MessageFailure, ParseFailure, Request, Response, Status}

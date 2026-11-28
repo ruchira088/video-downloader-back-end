@@ -36,6 +36,6 @@ object BatchDuplicateDetectionService {
     */
   def videoToKeep(videos: Seq[Video]): Option[Video] =
     videos.maxByOption(video => (video.fileResource.size, video.createdAt, video.id))(
-      Ordering.Tuple3(Ordering.Long, Ordering.fromLessThan[Instant](_.isBefore(_)), Ordering.String)
+      using Ordering.Tuple3(using Ordering.Long, Ordering.fromLessThan[Instant](_.isBefore(_)), Ordering.String)
     )
 }

@@ -434,7 +434,7 @@ class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
     allowMassRemoval: Boolean = false
   ): IO[(Option[ReconcileSummary], List[MainToFallbackMessage])] =
     for {
-      dao <- StubFallbackSyncDao(databaseVideos: _*)
+      dao <- StubFallbackSyncDao(databaseVideos*)
       transport <- RecordingTransport()
       coordination = new FallbackSyncCoordination[IO](new InMemoryKeyValueStore[IO])
       reconciler = new FallbackReconciler[IO, IO](

@@ -325,7 +325,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     val startTime = java.time.LocalTime.of(9, 0)
     val endTime = java.time.LocalTime.of(9, 0) // Same time means always working
 
-    isWorkPeriodInUtc(startTime, endTime)(Clock[IO]).map { result =>
+    isWorkPeriodInUtc(startTime, endTime)(using Clock[IO]).map { result =>
       result mustBe true
     }
   }
@@ -1217,7 +1217,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
         createWorkerConfiguration(maxConcurrentDownloads = 1),
         batchSchedulingService = batchSchedulingService,
         workExecutor = workExecutor
-      )(virtualClock)
+      )(using virtualClock)
 
     (scheduler, batchSchedulingService, workerDao, workExecutor)
   }

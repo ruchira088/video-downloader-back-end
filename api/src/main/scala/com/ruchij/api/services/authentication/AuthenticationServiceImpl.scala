@@ -18,7 +18,7 @@ import com.ruchij.core.types.{Clock, RandomGenerator}
 
 import scala.concurrent.duration.FiniteDuration
 
-class AuthenticationServiceImpl[F[_]: Async: Clock: RandomGenerator[*[_], Secret], G[_]: MonadThrow](
+class AuthenticationServiceImpl[F[_]: Async: Clock: RandomGenerator.Of[Secret], G[_]: MonadThrow](
   keySpacedKeyValueStore: KeySpacedKeyValueStore[F, AuthenticationTokenKey, AuthenticationToken],
   passwordHashingService: PasswordHashingService[F],
   userDao: UserDao[G],

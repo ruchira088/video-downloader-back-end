@@ -10,7 +10,7 @@ import com.ruchij.core.messaging.models.{HttpMetric, VideoWatchMetric}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.types.TimeUtils
 import io.circe.parser.decode
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import org.http4s.{MediaType, Method, Status}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -25,7 +25,7 @@ class MessagingTopicJsonCodecSpec extends AnyFlatSpec with Matchers {
   private val timestamp = TimeUtils.instantOf(2024, 3, 10, 8, 15)
 
   private def roundTrip[A](value: A)(implicit messagingTopic: MessagingTopic[A]): Either[io.circe.Error, A] =
-    decode[A](messagingTopic.jsonCodec(value).noSpaces)(messagingTopic.jsonCodec)
+    decode[A](messagingTopic.jsonCodec(value).noSpaces)(using messagingTopic.jsonCodec)
 
   "ScheduledVideoDownloadTopic" should "round-trip a ScheduledVideoDownload through its JSON codec" in {
     val scheduledVideoDownload =
@@ -75,7 +75,7 @@ class MessagingTopicJsonCodecSpec extends AnyFlatSpec with Matchers {
     val topic = MessagingTopic.ScheduledVideoDownloadTopic
     val legacyJson = topic.jsonCodec(scheduledVideoDownload).mapObject(_.remove("retryCount").remove("retryAfter"))
 
-    decode[ScheduledVideoDownload](legacyJson.noSpaces)(topic.jsonCodec) mustBe
+    decode[ScheduledVideoDownload](legacyJson.noSpaces)(using topic.jsonCodec) mustBe
       Right(scheduledVideoDownload.copy(retryCount = 0, retryAfter = None))
   }
 

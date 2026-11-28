@@ -24,12 +24,12 @@ trait TestDatabase { this: Suite =>
 
 trait H2TestDatabase extends TestDatabase { this: Suite =>
   override protected def transactor: Resource[IO, ConnectionIO ~> IO] =
-    new EmbeddedCoreResourcesProvider[IO].transactor(implicitly, ExecutionContext.global)
+    new EmbeddedCoreResourcesProvider[IO].transactor(using implicitly, ExecutionContext.global)
 }
 
 /** Starts one PostgreSQL container for the suite, and copies a migrated database in it for each test. */
 trait PostgresTestDatabase extends TestDatabase with BeforeAndAfterAll { this: Suite =>
-  private var databasesAndRelease: (Resource[IO, DatabaseConfiguration], IO[Unit]) = _
+  private var databasesAndRelease: (Resource[IO, DatabaseConfiguration], IO[Unit]) = scala.compiletime.uninitialized
 
   override protected def beforeAll(): Unit = {
     databasesAndRelease = PostgresContainer.migratedDatabases[IO].allocated.unsafeRunSync()

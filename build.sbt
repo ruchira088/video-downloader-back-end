@@ -9,19 +9,30 @@ import scala.util.Try
 organization := "com.ruchij"
 scalaVersion := Dependencies.ScalaVersion
 maintainer := "me@ruchij.com"
-scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-Xfatal-warnings", "-Xlint", "-Xsource:3-cross")
+// -Xkind-projector supports the type lambda syntax of the kind-projector plugin, such as `F[*]`.
+// The -Wunused categories are the ones Scala 2's -Xlint checked. circe's automatic derivation inlines once per
+// nested type, and some API responses nest deeper than the default limit of 32 inlines.
+scalacOptions ++=
+  Seq(
+    "-deprecation",
+    "-feature",
+    "-unchecked",
+    "-Werror",
+    "-Xkind-projector",
+    "-Wunused:imports,privates,locals,implicits,nowarn",
+    "-Xmax-inlines:128"
+  )
 // Generated sources, such as sbt-buildinfo's BuildInfo, are not ours to fix
 scalacOptions += "-Wconf:src=src_managed/.*:s"
-// -Xsource:3-cross adopts the Scala 3 semantics that differ from Scala 2, so that the code keeps compiling the same way
-// once the build moves to Scala 3.
 // Production code must not silently discard effects such as an un-chained `logger.info(...)`.
 // The test sources are exempt because their assertions are non-Unit statements by design.
 Compile / scalacOptions += "-Wnonunit-statement"
 Test / scalacOptions -= "-Wnonunit-statement"
 resolvers ++= Seq("Confluent" at "https://packages.confluent.io/maven/", "jitpack" at "https://jitpack.io")
 dependencyOverrides ++= nettyOverrides
-addCompilerPlugin(kindProjector)
-addCompilerPlugin(betterMonadicFor)
+// The Kafka broker that embedded Kafka runs in the tests is only published for Scala 2.13, and depends on the
+// Scala 2.13 build of scala-logging, which clashes with the Scala 3 build used here
+excludeDependencies += ExclusionRule("com.typesafe.scala-logging", "scala-logging_2.13")
 Test / parallelExecution := true
 Test / testForkedParallel := true
 
@@ -49,7 +60,7 @@ lazy val migrationApplication =
   packagedApp("migrationApplication", "./migration-application", "com.eed3si9n.ruchij.migration")
     .settings(
       libraryDependencies ++=
-        Seq(catsEffect, flywayCore, flywayPostgresql, h2, postgresql, pureconfig) ++ logging,
+        Seq(catsEffect, flywayCore, flywayPostgresql, h2, postgresql, pureconfig, pureconfigGeneric) ++ logging,
       libraryDependencies ++= Seq(scalaTest).map(_ % Test)
     )
 
@@ -74,6 +85,7 @@ lazy val core =
           doobie,
           doobieHikari,
           pureconfig,
+          pureconfigGeneric,
           enumeratum,
           apacheTika,
           redis4CatsEffects,
@@ -88,7 +100,6 @@ lazy val core =
             scalaTest,
             scalaMock,
             catsEffectTestkit,
-            kafka,
             embeddedKafkaSchemaRegistry,
             testContainers,
             kafkaTestContainer,
@@ -103,7 +114,16 @@ lazy val api =
     .settings(
       Test / fork := true,
       libraryDependencies ++=
-        Seq(http4sEmberServer, postgresql, pureconfig, jbcrypt, logbackClassic, awsSqs, awsDynamoDb) ++ circe ++
+        Seq(
+          http4sEmberServer,
+          postgresql,
+          pureconfig,
+          pureconfigGeneric,
+          jbcrypt,
+          logbackClassic,
+          awsSqs,
+          awsDynamoDb
+        ) ++ circe ++
           Seq(circeLiteral, pegdown, catsEffectTestkit).map(_ % Test),
       // The JSON contract shared with fallback-api/. As a resource directory its files are tracked inputs, so the
       // incremental `test` reruns the contract suites when a fixture changes. They land at the classpath root.

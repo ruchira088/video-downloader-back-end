@@ -29,7 +29,7 @@ import com.ruchij.core.types.{Clock, RandomGenerator}
 import java.sql.SQLException
 import java.util.UUID
 
-class UserServiceImpl[F[_]: RandomGenerator[*[_], UUID]: Sync: Clock, G[_]: MonadThrow](
+class UserServiceImpl[F[_]: RandomGenerator.Of[UUID]: Sync: Clock, G[_]: MonadThrow](
   passwordHashingService: PasswordHashingService[F],
   userDao: UserDao[G],
   credentialsDao: CredentialsDao[G],

@@ -107,8 +107,8 @@ class ApiSchedulingServiceIntegrationSpec extends AnyFlatSpec with Matchers with
             scheduledVideoDeletions,
             workerStatusUpdates,
             FallbackSyncRequester.noOp[IO],
-            new ConfigurationServiceImpl[IO, ApiConfigKey](
-              new KeySpacedKeyValueStore[IO, ApiConfigKey[_], String](ApiConfigKeySpace, new InMemoryKeyValueStore[IO])
+            new ConfigurationServiceImpl[IO, ApiConfigKey, ApiConfigKey[?]](
+              new KeySpacedKeyValueStore[IO, ApiConfigKey[?], String](ApiConfigKeySpace, new InMemoryKeyValueStore[IO])
             ),
             DoobieSchedulingDao,
             DoobieVideoTitleDao,

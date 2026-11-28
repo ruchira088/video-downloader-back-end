@@ -11,11 +11,11 @@ import doobie.free.connection.ConnectionIO
 import scala.concurrent.ExecutionContext
 
 trait CoreResourcesProvider[F[_]] {
-  val kafkaConfiguration: Resource[F, KafkaConfiguration]
+  def kafkaConfiguration: Resource[F, KafkaConfiguration]
 
-  val databaseConfiguration: Resource[F, DatabaseConfiguration]
+  def databaseConfiguration: Resource[F, DatabaseConfiguration]
 
-  val spaSiteRendererConfiguration: Resource[F, SpaSiteRendererConfiguration]
+  def spaSiteRendererConfiguration: Resource[F, SpaSiteRendererConfiguration]
 }
 
 object CoreResourcesProvider {

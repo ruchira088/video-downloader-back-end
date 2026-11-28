@@ -1,6 +1,6 @@
 package com.ruchij.api.web.requests
 
-import cats.{Applicative, ApplicativeError}
+import cats.{Applicative, ApplicativeError, ApplicativeThrow}
 import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.exceptions.ValidationException
 
@@ -9,7 +9,7 @@ final case class WorkerStatusUpdateRequest(workerStatus: WorkerStatus)
 object WorkerStatusUpdateRequest {
   private val ValidUpdateStatuses = Seq(WorkerStatus.Paused, WorkerStatus.Available)
 
-  implicit def workerStatusUpdateRequestValidator[F[_]: ApplicativeError[*[_], Throwable]]: Validator[F, WorkerStatusUpdateRequest] =
+  implicit def workerStatusUpdateRequestValidator[F[_]: ApplicativeThrow]: Validator[F, WorkerStatusUpdateRequest] =
     new Validator[F, WorkerStatusUpdateRequest] {
       override def validate[B <: WorkerStatusUpdateRequest](workerStatusUpdateRequest: B): F[B] =
         if (ValidUpdateStatuses.contains(workerStatusUpdateRequest.workerStatus))

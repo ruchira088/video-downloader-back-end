@@ -22,7 +22,7 @@ import com.ruchij.migration.config.{AdminConfiguration, DatabaseConfiguration, M
 import doobie.ConnectionIO
 import doobie.implicits._
 import org.http4s.MediaType
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.{BeforeAndAfterAll, OptionValues}
@@ -54,7 +54,7 @@ abstract class DoobieSchedulingDaoTransitionSpec(databaseConfiguration: Resource
   private val TransitionedAt: Instant = TimeUtils.instantOf(2024, 5, 1, 12, 30)
 
   // One database per suite: every test uses its own video and user ids, so tests cannot see each other's rows
-  private var transactionAndRelease: (ConnectionIO ~> IO, IO[Unit]) = _
+  private var transactionAndRelease: (ConnectionIO ~> IO, IO[Unit]) = scala.compiletime.uninitialized
 
   private def transaction: ConnectionIO ~> IO = transactionAndRelease._1
 

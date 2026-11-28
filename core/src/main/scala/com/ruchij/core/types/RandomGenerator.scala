@@ -14,6 +14,9 @@ trait RandomGenerator[F[_], A] {
 }
 
 object RandomGenerator {
+  // A context bound for an effect that generates values of A, such as F[_]: RandomGenerator.Of[UUID]
+  type Of[A] = [F[_]] =>> RandomGenerator[F, A]
+
   implicit class RandomGeneratorOps[F[_], A](randomGenerator: RandomGenerator[F, A]) {
     def evalMap[B](f: A => F[B])(implicit monad: Monad[F]): RandomGenerator[F, B] =
       new RandomGenerator[F, B] {

@@ -21,7 +21,7 @@ import com.ruchij.core.types.Clock
 import com.ruchij.core.types.TimeUtils
 import doobie.free.connection.ConnectionIO
 import org.http4s.MediaType
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import java.time.Instant
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec

@@ -1,13 +1,12 @@
 package com.ruchij.core.external.local
 
-import cats.Applicative
 import cats.effect.Resource
 import com.ruchij.core.config.{KafkaConfiguration, SpaSiteRendererConfiguration}
 import com.ruchij.core.external.CoreResourcesProvider
 import com.ruchij.migration.config.DatabaseConfiguration
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 
-class LocalCoreResourcesProvider[F[_]: Applicative] extends CoreResourcesProvider[F] {
+class LocalCoreResourcesProvider[F[_]] extends CoreResourcesProvider[F] {
   override val kafkaConfiguration: Resource[F, KafkaConfiguration] =
     Resource.pure(KafkaConfiguration("local-dev", "localhost:9092", uri"http://localhost:8081"))
 

@@ -6,7 +6,7 @@ import cats.implicits.{catsSyntaxApplicativeError, catsSyntaxApplyOps}
 import com.ruchij.core.config.SpaSiteRendererConfiguration
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.renderer.models.{JavaScriptExecutionRequest, SpaRendererRequest}
-import io.circe.generic.auto.exportEncoder
+import io.circe.generic.auto._
 import org.http4s.Method.POST
 import org.http4s.Uri
 import org.http4s.Uri.Path

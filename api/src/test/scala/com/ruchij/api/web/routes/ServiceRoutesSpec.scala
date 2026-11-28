@@ -15,7 +15,7 @@ import org.http4s.headers.Authorization
 import org.http4s.{AuthScheme, Credentials, Status}
 import org.http4s.client.dsl.io._
 import org.http4s.dsl.io.GET
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -27,7 +27,7 @@ class ServiceRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   private val authHeader = Authorization(Credentials.Token(AuthScheme.Bearer, testSecret.value))
 
   private def expectAuthentication(): Unit =
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns {
         IO.pure {

@@ -16,9 +16,9 @@ import scala.language.postfixOps
 
 class FileRepositoryServiceSpec extends AnyFlatSpec with Matchers with BeforeAndAfterEach with OptionValues {
 
-  private var tempDir: Path = _
-  private var fileRepositoryService: FileRepositoryService[IO] = _
-  private var stubFileTypeDetector: StubFileTypeDetector = _
+  private var tempDir: Path = scala.compiletime.uninitialized
+  private var fileRepositoryService: FileRepositoryService[IO] = scala.compiletime.uninitialized
+  private var stubFileTypeDetector: StubFileTypeDetector = scala.compiletime.uninitialized
 
   override def beforeEach(): Unit = {
     tempDir = Files[IO].createTempDirectory.unsafeRunSync()

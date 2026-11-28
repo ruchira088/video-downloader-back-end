@@ -2,7 +2,7 @@ package com.ruchij.core.utils
 
 import cats.data.{Kleisli, NonEmptyList}
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, MonadThrow}
+import cats.{Applicative, ApplicativeError, ApplicativeThrow, MonadThrow}
 import com.ruchij.core.daos.videometadata.models.CustomVideoSite.Selector
 import com.ruchij.core.daos.videometadata.models.WebPage
 import com.ruchij.core.exceptions.JSoupException._
@@ -34,14 +34,14 @@ object JsoupSelector {
       case head :: tail => Kleisli(_ => Applicative[F].pure(NonEmptyList(head, tail)))
     }
 
-  def select[F[_]: ApplicativeError[*[_], Throwable]](css: String): Selector[F, List[Element]] =
+  def select[F[_]: ApplicativeThrow](css: String): Selector[F, List[Element]] =
     Kleisli { webPage =>
       ApplicativeError[F, Throwable]
         .catchNonFatal(webPage.html.select(css))
         .map(_.asScala.toList)
     }
 
-  def text[F[_]: ApplicativeError[*[_], Throwable]](element: Element): F[String] =
+  def text[F[_]: ApplicativeThrow](element: Element): F[String] =
     parseProperty[Throwable, F](element.text(), TextNotFoundInElementException(element))
 
   def extractText[F[_]: MonadThrow](css: String): Selector[F, String] =
@@ -65,10 +65,12 @@ object JsoupSelector {
       } else Uri.fromString(input).toType[F, Throwable]
     })
 
-  def attribute[F[_]: ApplicativeError[*[_], Throwable]](element: Element, attributeKey: String): F[String] =
+  def attribute[F[_]: ApplicativeThrow](element: Element, attributeKey: String): F[String] =
     parseProperty[Throwable, F](element.attr(attributeKey), AttributeNotFoundInElementException(element, attributeKey))
 
-  private def parseProperty[E, F[_]: ApplicativeError[*[_], E]](value: String, onEmpty: => E): F[String] =
+  private def parseProperty[E, F[_]](value: String, onEmpty: => E)(
+    implicit applicativeError: ApplicativeError[F, E]
+  ): F[String] =
     Option(value)
       .map(_.trim)
       .filter(_.nonEmpty)

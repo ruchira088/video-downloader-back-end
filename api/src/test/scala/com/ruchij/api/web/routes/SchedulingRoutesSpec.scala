@@ -18,7 +18,7 @@ import org.http4s.{AuthScheme, Credentials, Request, Status}
 import org.http4s.circe.CirceEntityEncoder._
 import org.http4s.dsl.io._
 import org.http4s.headers.Authorization
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -62,11 +62,11 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
   )
 
   "POST /schedule" should "schedule a new video download" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (apiSchedulingService.schedule _)
+    (apiSchedulingService.schedule)
       .expects(uri"https://www.youtube.com/watch?v=test123", ApiTestData.NormalUser.id)
       .returns(IO.pure(NewlyScheduled(testScheduledDownload)))
 
@@ -88,11 +88,11 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
   }
 
   it should "return Ok when video is already scheduled" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (apiSchedulingService.schedule _)
+    (apiSchedulingService.schedule)
       .expects(uri"https://www.youtube.com/watch?v=existing", ApiTestData.NormalUser.id)
       .returns(IO.pure(AlreadyScheduled(testScheduledDownload)))
 
@@ -114,13 +114,13 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
   }
 
   "POST /schedule/retry-failed" should "retry failed downloads" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
     val failedDownload = testScheduledDownload.copy(status = SchedulingStatus.Error)
 
-    (apiSchedulingService.retryFailed _)
+    (apiSchedulingService.retryFailed)
       .expects(Some(ApiTestData.NormalUser.id))
       .returns(IO.pure(Seq(failedDownload)))
 
@@ -142,11 +142,11 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
   }
 
   "GET /schedule/search" should "return paginated scheduled downloads" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (apiSchedulingService.search _)
+    (apiSchedulingService.search)
       .expects(
         None,
         None,
@@ -180,11 +180,11 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
   }
 
   it should "support filtering by status" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (apiSchedulingService.search _)
+    (apiSchedulingService.search)
       .expects(*, *, *, *, *, *, *, *, *, *, *)
       .returns(IO.pure(Seq.empty))
 
@@ -205,11 +205,11 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
   }
 
   "GET /schedule/id/:videoId" should "return a scheduled download by id" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (apiSchedulingService.getById _)
+    (apiSchedulingService.getById)
       .expects("youtube-7488acd8", Some(ApiTestData.NormalUser.id))
       .returns(IO.pure(testScheduledDownload))
 
@@ -231,11 +231,11 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
   }
 
   it should "return not found when scheduled download does not exist" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (apiSchedulingService.getById _)
+    (apiSchedulingService.getById)
       .expects("nonexistent", Some(ApiTestData.NormalUser.id))
       .returns(IO.raiseError(ResourceNotFoundException("Scheduled download not found: nonexistent")))
 
@@ -256,11 +256,11 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
   }
 
   "DELETE /schedule/id/:videoId" should "delete a scheduled download" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (apiSchedulingService.deleteById _)
+    (apiSchedulingService.deleteById)
       .expects("youtube-7488acd8", Some(ApiTestData.NormalUser.id))
       .returns(IO.pure(testScheduledDownload))
 
@@ -282,13 +282,13 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
   }
 
   "PUT /schedule/id/:videoId" should "update scheduling status" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
     val pausedDownload = testScheduledDownload.copy(status = SchedulingStatus.Paused)
 
-    (apiSchedulingService.updateSchedulingStatus _)
+    (apiSchedulingService.updateSchedulingStatus)
       .expects("youtube-7488acd8", SchedulingStatus.Paused, Some(ApiTestData.NormalUser.id))
       .returns(IO.pure(pausedDownload))
 
@@ -310,11 +310,11 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
   }
 
   "PUT /schedule/worker-status" should "update worker status" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((adminToken, ApiTestData.AdminUser)))
 
-    (apiSchedulingService.updateWorkerStatus _)
+    (apiSchedulingService.updateWorkerStatus)
       .expects(WorkerStatus.Paused)
       .returns(IO.unit)
 
@@ -339,7 +339,7 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
   }
 
   it should "return forbidden for non-admin users" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
@@ -360,11 +360,11 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
   }
 
   "Admin user" should "be able to access all scheduled downloads" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((adminToken, ApiTestData.AdminUser)))
 
-    (apiSchedulingService.search _)
+    (apiSchedulingService.search)
       .expects(
         None,
         None,
@@ -397,11 +397,11 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
   }
 
   it should "be able to retry all failed downloads" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((adminToken, ApiTestData.AdminUser)))
 
-    (apiSchedulingService.retryFailed _)
+    (apiSchedulingService.retryFailed)
       .expects(None)
       .returns(IO.pure(Seq.empty))
 

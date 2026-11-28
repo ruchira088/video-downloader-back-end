@@ -13,7 +13,6 @@ import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, Schedulin
 import com.ruchij.core.kv.{KeySpacedKeyValueStore, KeyValueStore}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.{PubSub, Subscriber}
-import com.ruchij.core.types.Clock
 import doobie.free.connection.ConnectionIO
 import fs2.Stream
 
@@ -38,7 +37,7 @@ object FallbackSync {
 
   private val logger = Logger[FallbackSync.type]
 
-  def stream[F[_]: Async: Clock](
+  def stream[F[_]: Async](
     resources: FallbackSyncResources[F],
     keyValueStore: KeyValueStore[F],
     schedulingService: ApiSchedulingService[F],

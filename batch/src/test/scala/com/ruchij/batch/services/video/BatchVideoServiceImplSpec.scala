@@ -16,7 +16,7 @@ import com.ruchij.core.test.Providers
 import com.ruchij.core.types.Clock
 import com.ruchij.core.types.TimeUtils
 import org.http4s.MediaType
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import java.time.Instant
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers

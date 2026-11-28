@@ -1,7 +1,7 @@
 package com.ruchij.api
 
 import cats.effect.{IO, Resource}
-import com.comcast.ip4s.IpLiteralSyntax
+import com.comcast.ip4s.{ipv4, port}
 import com.ruchij.api.config.{
   ApiServiceConfiguration,
   AuthenticationConfiguration,
@@ -21,7 +21,7 @@ import fs2.io.file.Files
 import io.circe.literal._
 import org.http4s.circe.CirceEntityEncoder._
 import org.http4s.headers.Authorization
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import org.http4s.{AuthScheme, Credentials, HttpApp, Method, Request, Status}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
