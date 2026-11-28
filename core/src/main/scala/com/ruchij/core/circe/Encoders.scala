@@ -3,7 +3,7 @@ package com.ruchij.core.circe
 import java.nio.file.Path
 import cats.Show
 import com.ruchij.core.daos.videometadata.models.VideoSite
-import enumeratum.EnumEntry
+import com.ruchij.core.types.EnumEntry
 import io.circe.{Encoder, Json}
 import org.http4s.{MediaType, Method, Status}
 

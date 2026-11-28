@@ -83,7 +83,6 @@ lazy val core =
           doobieHikari,
           pureconfig,
           pureconfigGeneric,
-          enumeratum,
           apacheTika,
           redis4CatsEffects,
           redis4catsStreams,

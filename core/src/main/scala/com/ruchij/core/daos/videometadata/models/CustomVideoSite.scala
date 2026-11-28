@@ -10,7 +10,7 @@ import com.ruchij.core.services.renderer.SpaSiteRenderer
 import com.ruchij.core.types.FunctionKTypes.{given, *}
 import com.ruchij.core.utils.JsoupSelector
 import com.ruchij.core.utils.MatcherUtils.FiniteDurationValue
-import enumeratum.{Enum, EnumEntry}
+import com.ruchij.core.types.{EnumEntry, EnumValues}
 import org.http4s.circe.decodeUri
 import org.http4s.implicits.*
 import org.http4s.{Query, Uri}
@@ -35,7 +35,7 @@ sealed trait CustomVideoSite extends VideoSite with EnumEntry { self =>
   def test(uri: Uri): Boolean = uri.host.exists(_.value.toLowerCase.contains(hostname.toLowerCase))
 }
 
-object CustomVideoSite extends Enum[CustomVideoSite] {
+object CustomVideoSite extends EnumValues[CustomVideoSite] {
   type Selector[F[_], A] = Kleisli[F, WebPage, A]
 
   private def parseDuration[F[_]: ApplicativeThrow](duration: String): F[FiniteDuration] =
@@ -324,5 +324,5 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
     override val hostname: String = "hdzog.com"
   }
 
-  override def values: IndexedSeq[CustomVideoSite] = findValues
+  override def values: Array[CustomVideoSite] = EnumValues.of[CustomVideoSite]
 }

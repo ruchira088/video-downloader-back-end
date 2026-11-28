@@ -1,12 +1,9 @@
 package com.ruchij.api.daos.user.models
 
-import enumeratum.{Enum, EnumEntry}
+import com.ruchij.core.types.{EnumEntry, EnumValues}
 
-sealed trait Role extends EnumEntry
-
-object Role extends Enum[Role] {
-  case object User extends Role
-  case object Admin extends Role
-
-  override def values: IndexedSeq[Role] = findValues
+enum Role extends EnumEntry {
+  case User, Admin
 }
+
+object Role extends EnumValues[Role]

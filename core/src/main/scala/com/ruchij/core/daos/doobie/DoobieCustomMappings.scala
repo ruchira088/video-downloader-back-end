@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit
 import cats.Show
 import com.ruchij.core.daos.videometadata.models.VideoSite
 import doobie.util.{Get, Put}
-import enumeratum.{Enum, EnumEntry}
+import com.ruchij.core.types.{EnumEntry, EnumValues}
 import org.http4s.{MediaType, Uri}
 import java.time.Instant
 
@@ -22,7 +22,7 @@ object DoobieCustomMappings {
 
   given enumPut[A <: EnumEntry]: Put[A] = Put[String].contramap[A](_.entryName)
 
-  given enumGet[A <: EnumEntry](using enumValues: Enum[A]): Get[A] =
+  given enumGet[A <: EnumEntry](using enumValues: EnumValues[A]): Get[A] =
     Get[String].temap(text => enumValues.withNameInsensitiveEither(text).left.map(_.getMessage()))
 
   given uriPut: Put[Uri] = Put[String].contramap[Uri](_.renderString)

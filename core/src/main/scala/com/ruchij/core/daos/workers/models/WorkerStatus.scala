@@ -1,15 +1,9 @@
 package com.ruchij.core.daos.workers.models
 
-import enumeratum.{Enum, EnumEntry}
+import com.ruchij.core.types.{EnumEntry, EnumValues}
 
-sealed trait WorkerStatus extends EnumEntry
-
-object WorkerStatus extends Enum[WorkerStatus] {
-  case object Active extends WorkerStatus
-  case object Reserved extends WorkerStatus
-  case object Available extends WorkerStatus
-  case object Paused extends WorkerStatus
-  case object Deleted extends WorkerStatus
-
-  override def values: IndexedSeq[WorkerStatus] = findValues
+enum WorkerStatus extends EnumEntry {
+  case Active, Reserved, Available, Paused, Deleted
 }
+
+object WorkerStatus extends EnumValues[WorkerStatus]

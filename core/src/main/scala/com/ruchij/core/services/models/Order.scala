@@ -1,17 +1,10 @@
 package com.ruchij.core.services.models
 
-import enumeratum.{Enum, EnumEntry}
+import com.ruchij.core.types.{EnumEntry, EnumValues}
 
-sealed trait Order extends EnumEntry
-
-object Order extends Enum[Order] {
-  case object Ascending extends Order {
-    override def entryName: String = "asc"
-  }
-
-  case object Descending extends Order {
-    override def entryName: String = "desc"
-  }
-
-  override val values: IndexedSeq[Order] = findValues
+enum Order(override val entryName: String) extends EnumEntry {
+  case Ascending extends Order("asc")
+  case Descending extends Order("desc")
 }
+
+object Order extends EnumValues[Order]

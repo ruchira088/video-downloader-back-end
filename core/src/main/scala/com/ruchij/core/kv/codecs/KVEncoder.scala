@@ -3,7 +3,7 @@ package com.ruchij.core.kv.codecs
 import cats.implicits.*
 import cats.{Applicative, Monad}
 import com.ruchij.core.kv.keys.KVStoreKey.KeySeparator
-import enumeratum.EnumEntry
+import com.ruchij.core.types.EnumEntry
 
 import java.time.Instant
 

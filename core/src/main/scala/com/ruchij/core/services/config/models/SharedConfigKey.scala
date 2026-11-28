@@ -2,7 +2,7 @@ package com.ruchij.core.services.config.models
 
 import com.ruchij.core.daos.workers.models.VideoScan
 import com.ruchij.core.kv.keys.{KVStoreKey, KeySpace}
-import enumeratum.EnumEntry
+import com.ruchij.core.types.EnumEntry
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.language.postfixOps

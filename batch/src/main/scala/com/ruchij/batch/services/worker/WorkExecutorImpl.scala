@@ -331,7 +331,7 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
           .flatMap { fileResource =>
             if (
               fileResource.size < scheduledVideoDownload.videoMetadata.size && CustomVideoSite.values
-                .contains(scheduledVideoDownload.videoMetadata.videoSite) && retries > 0
+                .exists(_ == scheduledVideoDownload.videoMetadata.videoSite) && retries > 0
             )
               logger
                 .warn[F](

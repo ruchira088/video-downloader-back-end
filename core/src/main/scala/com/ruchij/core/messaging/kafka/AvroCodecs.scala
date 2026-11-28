@@ -4,7 +4,7 @@ import cats.Show
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload.ErrorInfo
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
-import enumeratum.{Enum, EnumEntry}
+import com.ruchij.core.types.{EnumEntry, EnumValues}
 import org.http4s.{MediaType, Method, Status, Uri}
 import vulcan.generic.*
 import vulcan.{AvroError, Codec}
@@ -15,7 +15,7 @@ import scala.concurrent.duration.FiniteDuration
 object AvroCodecs {
   given videoSiteCodex: Codec[VideoSite] = Codec[String].imap(VideoSite.from)(_.name)
 
-  given enumCodec[A <: EnumEntry](using enumValues: Enum[A]): Codec[A] =
+  given enumCodec[A <: EnumEntry](using enumValues: EnumValues[A]): Codec[A] =
     Codec[String].imapError[A] { input =>
       enumValues.withNameInsensitiveEither(input).left.map(error => AvroError(error.getMessage()))
     }(_.entryName)

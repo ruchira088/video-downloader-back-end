@@ -3,7 +3,7 @@ package com.ruchij.core.kv.codecs
 import cats.implicits.*
 import cats.{Applicative, ApplicativeError, Functor, Monad, MonadError, MonadThrow}
 import com.ruchij.core.kv.keys.KVStoreKey.{KeyList, KeySeparator}
-import enumeratum.{Enum, EnumEntry}
+import com.ruchij.core.types.{EnumEntry, EnumValues}
 
 import java.time.Instant
 
@@ -50,7 +50,7 @@ object KVDecoder {
   given stringKVDecoder[F[_]: Applicative]: KVDecoder[F, String] =
     (value: String) => Applicative[F].pure(value)
 
-  given enumKVDecoder[F[_]: MonadThrow, A <: EnumEntry](using enumValues: Enum[A]): KVDecoder[F, A] =
+  given enumKVDecoder[F[_]: MonadThrow, A <: EnumEntry](using enumValues: EnumValues[A]): KVDecoder[F, A] =
     stringKVDecoder[F].mapEither { string =>
       enumValues.withNameInsensitiveEither(string).left.map(_.getMessage)
     }

@@ -1,14 +1,9 @@
 package com.ruchij.api.services.asset.models
 
-import enumeratum.{Enum, EnumEntry}
+import com.ruchij.core.types.{EnumEntry, EnumValues}
 
-sealed trait AssetType extends EnumEntry
-
-object AssetType extends Enum[AssetType] {
-  case object Video extends AssetType
-  case object Thumbnail extends AssetType
-  case object Snapshot extends AssetType
-  case object AlbumArt extends AssetType
-
-  override def values: IndexedSeq[AssetType] = findValues
+enum AssetType extends EnumEntry {
+  case Video, Thumbnail, Snapshot, AlbumArt
 }
+
+object AssetType extends EnumValues[AssetType]

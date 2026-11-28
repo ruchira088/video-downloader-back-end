@@ -20,8 +20,6 @@ import com.ruchij.core.messaging.models.VideoWatchMetric
 import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.types.Clock
 
-import scala.reflect.ClassTag
-
 class AssetServiceImpl[F[_]: MonadThrow: Clock, T[_]: MonadThrow](
   fileResourceDao: FileResourceDao[T],
   snapshotDao: SnapshotDao[T],
@@ -35,23 +33,21 @@ class AssetServiceImpl[F[_]: MonadThrow: Clock, T[_]: MonadThrow](
 
   private def typeValidator[A <: AssetType](
     validator: String => T[Boolean]
-  )(using classTag: ClassTag[A]): String => T[Unit] =
+  )(using assetType: ValueOf[A]): String => T[Unit] =
     resourceId =>
       validator(resourceId).flatMap { isValid =>
         if (isValid) Applicative[T].unit
         else
           ApplicativeError[T, Throwable].raiseError[Unit] {
-            ResourceNotFoundException(
-              s"Unable to find ${classTag.runtimeClass.getSimpleName.stripSuffix("$")} file $resourceId"
-            )
+            ResourceNotFoundException(s"Unable to find ${assetType.value.entryName} file $resourceId")
           }
       }
 
   private def notFoundError[K[_]: ApplicativeThrow, A <: AssetType](
     id: String
-  )(using classTag: ClassTag[A]): K[Asset[F, A]] =
+  )(using assetType: ValueOf[A]): K[Asset[F, A]] =
     ApplicativeError[K, Throwable].raiseError[Asset[F, A]] {
-      ResourceNotFoundException(s"Unable to find ${classTag.runtimeClass.getSimpleName.stripSuffix("$")} file $id")
+      ResourceNotFoundException(s"Unable to find ${assetType.value.entryName} file $id")
     }
 
   override def videoFile(

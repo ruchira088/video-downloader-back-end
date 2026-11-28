@@ -9,7 +9,7 @@ import com.ruchij.api.web.requests.queryparams.QueryParameter.QueryParameters
 import com.ruchij.core.daos.scheduling.models.RangeValue
 import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.exceptions.{AggregatedException, ValidationException}
-import enumeratum.{Enum, EnumEntry}
+import com.ruchij.core.types.{EnumEntry, EnumValues}
 import org.http4s.{ParseFailure, QueryParamDecoder, QueryParameterValue}
 
 import scala.concurrent.duration.FiniteDuration
@@ -110,7 +110,10 @@ object QueryParameter {
           }
         )
 
-  given enumQueryParamDecoder[A <: EnumEntry](using enumValue: Enum[A], classTag: ClassTag[A]): QueryParamDecoder[A] =
+  given enumQueryParamDecoder[A <: EnumEntry](using
+    enumValue: EnumValues[A],
+    classTag: ClassTag[A]
+  ): QueryParamDecoder[A] =
     (queryParameterValue: QueryParameterValue) =>
       enumValue.values
         .find(_.entryName.equalsIgnoreCase(queryParameterValue.value))

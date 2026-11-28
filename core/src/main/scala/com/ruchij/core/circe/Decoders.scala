@@ -1,7 +1,7 @@
 package com.ruchij.core.circe
 
 import com.ruchij.core.daos.videometadata.models.VideoSite
-import enumeratum.{Enum, EnumEntry}
+import com.ruchij.core.types.{EnumEntry, EnumValues}
 import io.circe.Decoder
 import org.http4s.{MediaType, Method, Status}
 
@@ -35,7 +35,7 @@ object Decoders {
 
   given statusDecoder: Decoder[Status] = Decoder.decodeInt.emap(Status.fromInt(_).left.map(_.message))
 
-  given enumDecoder[A <: EnumEntry](using enumValues: Enum[A]): Decoder[A] =
+  given enumDecoder[A <: EnumEntry](using enumValues: EnumValues[A]): Decoder[A] =
     Decoder.decodeString.emap { enumString =>
       enumValues.withNameInsensitiveEither(enumString).left.map(_.getMessage)
     }

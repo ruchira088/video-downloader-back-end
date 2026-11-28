@@ -1,19 +1,15 @@
 package com.ruchij.api.services.health.models
 
-import enumeratum.{Enum, EnumEntry}
+import com.ruchij.core.types.{EnumEntry, EnumValues}
 
-sealed trait HealthStatus extends EnumEntry {
-  def +(healthStatus: HealthStatus): HealthStatus
+enum HealthStatus extends EnumEntry {
+  case Healthy, Unhealthy
+
+  def +(healthStatus: HealthStatus): HealthStatus =
+    this match {
+      case Healthy => healthStatus
+      case Unhealthy => Unhealthy
+    }
 }
 
-object HealthStatus extends Enum[HealthStatus] {
-  case object Healthy extends HealthStatus {
-    override def +(healthStatus: HealthStatus): HealthStatus = healthStatus
-  }
-
-  case object Unhealthy extends HealthStatus {
-    override def +(healthStatus: HealthStatus): HealthStatus = Unhealthy
-  }
-
-  override def values: IndexedSeq[HealthStatus] = findValues
-}
+object HealthStatus extends EnumValues[HealthStatus]

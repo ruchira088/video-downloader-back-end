@@ -1,20 +1,15 @@
 package com.ruchij.core.daos.doobie
 
-import enumeratum.{Enum, EnumEntry}
+import com.ruchij.core.types.{EnumEntry, EnumValues}
 import org.{h2, postgresql}
 
-import java.sql
-import scala.reflect.ClassTag
-
-sealed abstract class DatabaseDriver[A <: sql.Driver](using classTag: ClassTag[A]) extends EnumEntry {
-  val driver: String = classTag.runtimeClass.getName
+enum DatabaseDriver(val driver: String) extends EnumEntry {
+  case PostgreSQL extends DatabaseDriver(classOf[postgresql.Driver].getName)
+  case H2 extends DatabaseDriver(classOf[h2.Driver].getName)
 }
 
-object DatabaseDriver extends Enum[DatabaseDriver[?]] {
-  case object PostgreSQL extends DatabaseDriver[postgresql.Driver]
-  case object H2 extends DatabaseDriver[h2.Driver]
-
-  def parseFromConnectionUrl(connectionUrl: String): Either[Throwable, DatabaseDriver[?]] =
+object DatabaseDriver extends EnumValues[DatabaseDriver] {
+  def parseFromConnectionUrl(connectionUrl: String): Either[Throwable, DatabaseDriver] =
     DatabaseDriver.values
       .find { driver => connectionUrl.startsWith(s"jdbc:${driver.entryName.toLowerCase}") }
       .toRight {
@@ -24,6 +19,4 @@ object DatabaseDriver extends Enum[DatabaseDriver[?]] {
               .mkString(", ")}]"""
         )
       }
-
-  override def values: IndexedSeq[DatabaseDriver[?]] = findValues
 }

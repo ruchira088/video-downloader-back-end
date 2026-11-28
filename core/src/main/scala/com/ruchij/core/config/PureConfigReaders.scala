@@ -1,7 +1,7 @@
 package com.ruchij.core.config
 
 import com.comcast.ip4s.{Host, Port}
-import enumeratum.{Enum, EnumEntry}
+import com.ruchij.core.types.{EnumEntry, EnumValues}
 import org.http4s.Uri
 import java.time.LocalTime
 import pureconfig.ConfigReader
@@ -37,7 +37,7 @@ object PureConfigReaders {
       }
     }
 
-  given enumPureConfigReader[A <: EnumEntry: ClassTag](using enumValues: Enum[A]): ConfigReader[A] =
+  given enumPureConfigReader[A <: EnumEntry: ClassTag](using enumValues: EnumValues[A]): ConfigReader[A] =
     ConfigReader.fromNonEmptyStringOpt[A] { value =>
       enumValues.values.find(_.entryName.equalsIgnoreCase(value))
     }

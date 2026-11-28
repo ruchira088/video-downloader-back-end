@@ -17,7 +17,7 @@ import doobie.ConnectionIO
 import doobie.implicits.*
 import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.effect.Log.Stdout.instance
-import enumeratum.{Enum, EnumEntry}
+import com.ruchij.core.types.{EnumEntry, EnumValues}
 import fs2.{Pipe, Stream}
 import fs2.kafka.{AdminClientSettings, KafkaAdminClient}
 
@@ -36,15 +36,11 @@ trait PubSubProvider[F[_]] {
 }
 
 object PubSub {
-  sealed trait PubsubType extends EnumEntry
-
-  object PubsubType extends Enum[PubsubType] {
-    case object Kafka extends PubsubType
-    case object Redis extends PubsubType
-    case object Doobie extends PubsubType
-
-    override def values: IndexedSeq[PubsubType] = findValues
+  enum PubsubType extends EnumEntry {
+    case Kafka, Redis, Doobie
   }
+
+  object PubsubType extends EnumValues[PubsubType]
 
   def from[F[_], A](publisher: Publisher[F, A], subscriber: Subscriber[F, A]): PubSub[F, A] =
     new PubSub[F, A] {
