@@ -1,0 +1,12 @@
+{
+  "type" : "record",
+  "name" : "ScanVideosCommand",
+  "namespace" : "com.ruchij.core.commands",
+  "fields" : [ {
+    "name" : "issuedAt",
+    "type" : {
+      "type" : "long",
+      "logicalType" : "timestamp-millis"
+    }
+  } ]
+}

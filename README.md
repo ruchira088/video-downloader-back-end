@@ -390,6 +390,16 @@ All backends implement the unified `MessagingTopic[A]` trait, which provides bot
 JSON codec (for Redis/Doobie). The `Subscriber` trait uses a type member `C[_]` to abstract over backend-specific
 wrapper types (e.g., Kafka's `CommittableRecord` for offset management vs. identity for Redis/Doobie).
 
+The Avro schemas are derived at compile time, so a compiler or library upgrade can change them without any code
+change. Each topic's schema is snapshotted under `<module>/src/test/resources/avro-schemas/<module>`, and
+`CoreAvroSchemaSnapshotSpec` / `ApiAvroSchemaSnapshotSpec` fail when a derived schema differs from its snapshot,
+listing any incompatibility in either direction. Add new topics to the spec of the module that defines them. After an
+intended change, regenerate the snapshots and review the diff:
+
+```bash
+sbt "core/testOnly *AvroSchemaSnapshotSpec -- -Dupdate-avro-snapshots=true"   # likewise api/testOnly
+```
+
 When an admin deletes a scheduled video, the API also publishes a `scheduled-video-deletions` message naming the
 users who had scheduled it, since their permissions are deleted with it. Every API instance uses it to send the
 `Deleted` update to those users' `/schedule/updates` streams. With `PUBSUB_TYPE=Kafka`, create the

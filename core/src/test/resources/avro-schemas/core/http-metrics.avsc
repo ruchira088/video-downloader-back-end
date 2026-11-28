@@ -1,0 +1,24 @@
+{
+  "type" : "record",
+  "name" : "HttpMetric",
+  "namespace" : "com.ruchij.core.messaging.models",
+  "fields" : [ {
+    "name" : "method",
+    "type" : "string"
+  }, {
+    "name" : "uri",
+    "type" : "string"
+  }, {
+    "name" : "finiteDuration",
+    "type" : "long"
+  }, {
+    "name" : "responseStatus",
+    "type" : "int"
+  }, {
+    "name" : "contentType",
+    "type" : [ "null", "string" ]
+  }, {
+    "name" : "size",
+    "type" : [ "null", "long" ]
+  } ]
+}

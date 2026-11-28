@@ -1,0 +1,9 @@
+{
+  "type" : "record",
+  "name" : "WorkerStatusUpdate",
+  "namespace" : "com.ruchij.core.services.scheduling.models",
+  "fields" : [ {
+    "name" : "workerStatus",
+    "type" : "string"
+  } ]
+}

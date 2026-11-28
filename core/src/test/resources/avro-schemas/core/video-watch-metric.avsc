@@ -1,0 +1,24 @@
+{
+  "type" : "record",
+  "name" : "VideoWatchMetric",
+  "namespace" : "com.ruchij.core.messaging.models",
+  "fields" : [ {
+    "name" : "userId",
+    "type" : "string"
+  }, {
+    "name" : "videoFileResourceId",
+    "type" : "string"
+  }, {
+    "name" : "startByte",
+    "type" : "long"
+  }, {
+    "name" : "endByte",
+    "type" : "long"
+  }, {
+    "name" : "timestamp",
+    "type" : {
+      "type" : "long",
+      "logicalType" : "timestamp-millis"
+    }
+  } ]
+}

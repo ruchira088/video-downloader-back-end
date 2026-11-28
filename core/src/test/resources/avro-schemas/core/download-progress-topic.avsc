@@ -1,0 +1,18 @@
+{
+  "type" : "record",
+  "name" : "DownloadProgress",
+  "namespace" : "com.ruchij.core.services.scheduling.models",
+  "fields" : [ {
+    "name" : "videoId",
+    "type" : "string"
+  }, {
+    "name" : "updatedAt",
+    "type" : {
+      "type" : "long",
+      "logicalType" : "timestamp-millis"
+    }
+  }, {
+    "name" : "bytes",
+    "type" : "long"
+  } ]
+}

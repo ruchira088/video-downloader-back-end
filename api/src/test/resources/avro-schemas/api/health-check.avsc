@@ -1,0 +1,15 @@
+{
+  "type" : "record",
+  "name" : "HealthCheckMessage",
+  "namespace" : "com.ruchij.api.services.health.models.messaging",
+  "fields" : [ {
+    "name" : "instanceId",
+    "type" : "string"
+  }, {
+    "name" : "dateTime",
+    "type" : {
+      "type" : "long",
+      "logicalType" : "timestamp-millis"
+    }
+  } ]
+}

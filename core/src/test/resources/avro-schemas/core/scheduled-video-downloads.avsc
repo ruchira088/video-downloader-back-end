@@ -1,0 +1,107 @@
+{
+  "type" : "record",
+  "name" : "ScheduledVideoDownload",
+  "namespace" : "com.ruchij.core.daos.scheduling.models",
+  "fields" : [ {
+    "name" : "scheduledAt",
+    "type" : {
+      "type" : "long",
+      "logicalType" : "timestamp-millis"
+    }
+  }, {
+    "name" : "lastUpdatedAt",
+    "type" : {
+      "type" : "long",
+      "logicalType" : "timestamp-millis"
+    }
+  }, {
+    "name" : "status",
+    "type" : "string"
+  }, {
+    "name" : "downloadedBytes",
+    "type" : "long"
+  }, {
+    "name" : "videoMetadata",
+    "type" : {
+      "type" : "record",
+      "name" : "VideoMetadata",
+      "namespace" : "com.ruchij.core.daos.videometadata.models",
+      "fields" : [ {
+        "name" : "url",
+        "type" : "string"
+      }, {
+        "name" : "id",
+        "type" : "string"
+      }, {
+        "name" : "videoSite",
+        "type" : "string"
+      }, {
+        "name" : "title",
+        "type" : "string"
+      }, {
+        "name" : "duration",
+        "type" : "long"
+      }, {
+        "name" : "size",
+        "type" : "long"
+      }, {
+        "name" : "thumbnail",
+        "type" : {
+          "type" : "record",
+          "name" : "FileResource",
+          "namespace" : "com.ruchij.core.daos.resource.models",
+          "fields" : [ {
+            "name" : "id",
+            "type" : "string"
+          }, {
+            "name" : "createdAt",
+            "type" : {
+              "type" : "long",
+              "logicalType" : "timestamp-millis"
+            }
+          }, {
+            "name" : "path",
+            "type" : "string"
+          }, {
+            "name" : "mediaType",
+            "type" : "string"
+          }, {
+            "name" : "size",
+            "type" : "long"
+          } ]
+        }
+      } ]
+    }
+  }, {
+    "name" : "completedAt",
+    "type" : [ "null", {
+      "type" : "long",
+      "logicalType" : "timestamp-millis"
+    } ]
+  }, {
+    "name" : "errorInfo",
+    "type" : [ "null", {
+      "type" : "record",
+      "name" : "ErrorInfo",
+      "namespace" : "com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload",
+      "fields" : [ {
+        "name" : "message",
+        "type" : "string"
+      }, {
+        "name" : "details",
+        "type" : "string"
+      } ]
+    } ]
+  }, {
+    "name" : "retryCount",
+    "type" : "int",
+    "default" : 0
+  }, {
+    "name" : "retryAfter",
+    "type" : [ "null", {
+      "type" : "long",
+      "logicalType" : "timestamp-millis"
+    } ],
+    "default" : null
+  } ]
+}

@@ -1,0 +1,9 @@
+{
+  "type" : "record",
+  "name" : "FallbackSyncRequest",
+  "namespace" : "com.ruchij.api.services.fallback.models",
+  "fields" : [ {
+    "name" : "videoId",
+    "type" : "string"
+  } ]
+}
