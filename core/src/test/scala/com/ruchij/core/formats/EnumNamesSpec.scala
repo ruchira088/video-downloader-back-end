@@ -24,6 +24,11 @@ abstract class EnumNamesSpec(enums: List[EnumNames]) extends AnyFlatSpec with Ma
       }
 
       enumNames.parse("not-a-value") mustBe None
+
+      // A name differing only in a character that case-insensitive comparison treats as equal must not parse
+      enumNames.expected.find(_.toLowerCase.contains("i")).foreach { name =>
+        enumNames.parse(name.toLowerCase.replace('i', '\u0131')) mustBe None
+      }
     }
   }
 }

@@ -19,7 +19,10 @@ trait EnumValues[A <: EnumEntry] { self =>
 
   def withNameOption(name: String): Option[A] = values.find(_.entryName == name)
 
-  def withNameInsensitiveOption(name: String): Option[A] = values.find(_.entryName.equalsIgnoreCase(name))
+  // Lower cases both names, as enumeratum did. equalsIgnoreCase would also accept names that differ in characters
+  // such as the dotless i, which earlier releases rejected.
+  def withNameInsensitiveOption(name: String): Option[A] =
+    values.find(_.entryName.toLowerCase == name.toLowerCase)
 
   def withNameInsensitiveEither(name: String): Either[NoSuchElementException, A] =
     withNameInsensitiveOption(name).toRight(noSuchMember(name))

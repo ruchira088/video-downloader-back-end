@@ -1,6 +1,7 @@
 package com.ruchij.api.web.routes
 
 import cats.effect.IO
+import cats.effect.testkit.TestControl
 import com.ruchij.api.daos.user.models.User
 import com.ruchij.api.services.authentication.AuthenticationService.Secret
 import com.ruchij.api.services.authentication.models.AuthenticationToken
@@ -171,34 +172,36 @@ class SchedulingUpdatesRoutesSpec extends AnyFlatSpec with Matchers with MockedR
   it should "send heart-beat events, named as such, between updates" in runIO {
     val updateEventTypes = Set("active-download", "scheduled-video-download-update")
 
-    authenticateAs(ApiTestData.AdminUser) *>
-      IO.delay((apiSchedulingService.hasPermission).expects(*, *).never()) *>
-      ignoreHttpMetrics() *>
-      createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/schedule/updates",
-            headers = Headers(Authorization(Credentials.Token(AuthScheme.Bearer, testSecret.value)))
+    // The first heart-beat is sent after 10 seconds, which virtual time skips
+    TestControl.executeEmbed {
+      authenticateAs(ApiTestData.AdminUser) *>
+        IO.delay((apiSchedulingService.hasPermission).expects(*, *).never()) *>
+        ignoreHttpMetrics() *>
+        createRoutes()
+          .run(
+            Request[IO](
+              method = GET,
+              uri = uri"/schedule/updates",
+              headers = Headers(Authorization(Credentials.Token(AuthScheme.Bearer, testSecret.value)))
+            )
           )
-        )
-        .flatMap { response =>
-          // The first heart-beat is sent after 10 seconds
-          response.body
-            .through(ServerSentEvent.decoder[IO])
-            .filterNot(_.eventType.exists(updateEventTypes.contains))
-            .take(1)
-            .compile
-            .lastOrError
-            .timeout(30.seconds)
-        }
-        .flatMap { heartBeat =>
-          IO.delay {
-            heartBeat.eventType mustBe Some("heart-beat")
-            heartBeat.data.flatMap(data => parse(data).toOption).flatMap(_.hcursor.downField("timestamp").focus) must
-              not be empty
+          .flatMap { response =>
+            response.body
+              .through(ServerSentEvent.decoder[IO])
+              .filterNot(_.eventType.exists(updateEventTypes.contains))
+              .take(1)
+              .compile
+              .lastOrError
+              .timeout(30.seconds)
           }
-        }
+          .flatMap { heartBeat =>
+            IO.delay {
+              heartBeat.eventType mustBe Some("heart-beat")
+              heartBeat.data.flatMap(data => parse(data).toOption).flatMap(_.hcursor.downField("timestamp").focus) must
+                not be empty
+            }
+          }
+    }
   }
 
   it should "send a non-admin user the Deleted update of a video they had after its permissions are gone" in
