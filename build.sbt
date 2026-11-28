@@ -73,7 +73,6 @@ lazy val core =
           h2,
           doobie,
           doobieHikari,
-          shapeless,
           pureconfig,
           enumeratum,
           apacheTika,

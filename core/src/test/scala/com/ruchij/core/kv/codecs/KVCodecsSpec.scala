@@ -1,6 +1,7 @@
 package com.ruchij.core.kv.codecs
 
 import cats.effect.IO
+import cats.{Monad, MonadThrow}
 import cats.effect.unsafe.implicits.global
 import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 import com.ruchij.core.services.models.Order
@@ -9,7 +10,6 @@ import java.time.{Instant, ZoneOffset}
 import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
-import shapeless.{::, HNil}
 
 class KVCodecsSpec extends AnyFlatSpec with Matchers {
 
@@ -231,67 +231,53 @@ class KVCodecsSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  "KVEncoder for HList" should "encode single element HList" in runIO {
-    val encoder = implicitly[KVEncoder[IO, String :: HNil]]
+  "KVEncoder.forProductN" should "encode the fields of a product joined with the key separator" in runIO {
     for {
-      result <- encoder.encode("hello" :: HNil)
+      result <- KVEncoder[IO, KVCodecsSpec.Pair].encode(KVCodecsSpec.Pair("hello", 42))
     } yield {
-      result mustBe "hello"
+      result mustBe "hello::42"
     }
   }
 
-  it should "encode multi-element HList with separator" in runIO {
-    val encoder = implicitly[KVEncoder[IO, String :: String :: HNil]]
+  it should "encode nested products as all of their fields' terms" in runIO {
     for {
-      result <- encoder.encode("hello" :: "world" :: HNil)
+      result <- KVEncoder[IO, KVCodecsSpec.Pairs].encode(
+        KVCodecsSpec.Pairs(KVCodecsSpec.Pair("a", 1), KVCodecsSpec.Pair("b", 2))
+      )
     } yield {
-      result mustBe "hello::world"  // KeySeparator is "::"
+      result mustBe "a::1::b::2"
     }
   }
 
-  "KVDecoder for HList" should "decode single element HList" in runIO {
-    val decoder = implicitly[KVDecoder[IO, String :: HNil]]
+  "KVDecoder.forProductN" should "decode the fields of a product" in runIO {
     for {
-      result <- decoder.decode("hello")
+      result <- KVDecoder[IO, KVCodecsSpec.Pair].decode("hello::42")
     } yield {
-      result mustBe ("hello" :: HNil)
+      result mustBe KVCodecsSpec.Pair("hello", 42)
     }
   }
 
-  it should "decode multi-element HList" in runIO {
-    val decoder = implicitly[KVDecoder[IO, String :: String :: HNil]]
+  it should "split the terms of nested products by their term counts" in runIO {
     for {
-      result <- decoder.decode("hello::world")  // KeySeparator is "::"
+      result <- KVDecoder[IO, KVCodecsSpec.Pairs].decode("a::1::b::2")
     } yield {
-      result mustBe ("hello" :: "world" :: HNil)
+      result mustBe KVCodecsSpec.Pairs(KVCodecsSpec.Pair("a", 1), KVCodecsSpec.Pair("b", 2))
     }
   }
 
-  it should "fail for empty value when expecting HNil" in runIO {
-    val decoder = implicitly[KVDecoder[IO, HNil]]
+  it should "fail for values with extra terms" in runIO {
     for {
-      result <- decoder.decode("extra-terms").attempt
+      result <- KVDecoder[IO, KVCodecsSpec.Pair].decode("hello::42::extra::terms").attempt
     } yield {
-      result.isLeft mustBe true
-      result.left.exists(_.getMessage.contains("extra terms")) mustBe true
+      result.left.map(_.getMessage) mustBe Left("Key contains extra terms: extra::terms")
     }
   }
 
-  it should "succeed for empty string when expecting HNil" in runIO {
-    val decoder = implicitly[KVDecoder[IO, HNil]]
+  it should "fail for values with too few terms" in runIO {
     for {
-      result <- decoder.decode("")
+      result <- KVDecoder[IO, KVCodecsSpec.Pair].decode("hello").attempt
     } yield {
-      result mustBe HNil
-    }
-  }
-
-  "KVEncoder for HNil" should "fail to encode" in runIO {
-    val encoder = implicitly[KVEncoder[IO, HNil]]
-    for {
-      result <- encoder.encode(HNil).attempt
-    } yield {
-      result.isLeft mustBe true
+      result.left.map(_.getMessage) mustBe Left("Key is too short")
     }
   }
 
@@ -369,23 +355,55 @@ class KVCodecsSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  "KVDecoder.TermCount" should "count single non-product term as 1" in {
-    val stringTermCount = KVDecoder.TermCount[String]
-    stringTermCount.size mustBe 1
+  "KVEncoder.forProduct4 and KVDecoder.forProduct4" should "round-trip a product with four fields" in runIO {
+    val quad = KVCodecsSpec.Quad("a", 1, "b", 2)
+
+    for {
+      encoded <- KVEncoder[IO, KVCodecsSpec.Quad].encode(quad)
+      decoded <- KVDecoder[IO, KVCodecsSpec.Quad].decode(encoded)
+    } yield {
+      encoded mustBe "a::1::b::2"
+      decoded mustBe quad
+    }
   }
 
-  it should "count HNil as 0" in {
-    val hnilTermCount = KVDecoder.TermCount[HNil]
-    hnilTermCount.size mustBe 0
+  "KVDecoder.termCount" should "be 1 for a plain value" in {
+    KVDecoder[IO, String].termCount mustBe 1
   }
 
-  it should "count HList terms correctly" in {
-    val hlistTermCount = KVDecoder.TermCount[String :: String :: HNil]
-    hlistTermCount.size mustBe 2
+  it should "be the sum of the fields' term counts for a product" in {
+    KVDecoder[IO, KVCodecsSpec.Pair].termCount mustBe 2
+    KVDecoder[IO, KVCodecsSpec.Pairs].termCount mustBe 4
   }
 
-  it should "count three-element HList correctly" in {
-    val hlistTermCount = KVDecoder.TermCount[String :: Long :: String :: HNil]
-    hlistTermCount.size mustBe 3
+  it should "be kept by map" in {
+    KVDecoder[IO, KVCodecsSpec.Pair].map(_.name).termCount mustBe 2
+  }
+}
+
+object KVCodecsSpec {
+  final case class Pair(name: String, count: Long)
+  final case class Pairs(first: Pair, second: Pair)
+  final case class Quad(first: String, second: Long, third: String, fourth: Long)
+
+  object Quad {
+    implicit def kvEncoder[F[_]: Monad]: KVEncoder[F, Quad] =
+      KVEncoder.forProduct4((quad: Quad) => (quad.first, quad.second, quad.third, quad.fourth))
+
+    implicit def kvDecoder[F[_]: MonadThrow]: KVDecoder[F, Quad] = KVDecoder.forProduct4(Quad.apply)
+  }
+
+  object Pair {
+    implicit def kvEncoder[F[_]: Monad]: KVEncoder[F, Pair] =
+      KVEncoder.forProduct2((pair: Pair) => (pair.name, pair.count))
+
+    implicit def kvDecoder[F[_]: MonadThrow]: KVDecoder[F, Pair] = KVDecoder.forProduct2(Pair.apply)
+  }
+
+  object Pairs {
+    implicit def kvEncoder[F[_]: Monad]: KVEncoder[F, Pairs] =
+      KVEncoder.forProduct2((pairs: Pairs) => (pairs.first, pairs.second))
+
+    implicit def kvDecoder[F[_]: MonadThrow]: KVDecoder[F, Pairs] = KVDecoder.forProduct2(Pairs.apply)
   }
 }

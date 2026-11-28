@@ -1,5 +1,6 @@
 package com.ruchij.core.kv
 
+import cats.MonadThrow
 import cats.effect.IO
 import com.ruchij.core.kv.KVDecoderSpec.{KVDecoderStringExtension, Person, Student}
 import com.ruchij.core.kv.codecs.KVDecoder
@@ -53,6 +54,10 @@ class KVDecoderSpec extends AnyFlatSpec with Matchers {
 object KVDecoderSpec {
   final case class Person(id: Int, firstName: String, lastName: String)
   final case class Student(self: Person, teacher: Person)
+
+  implicit def personKVDecoder[F[_]: MonadThrow]: KVDecoder[F, Person] = KVDecoder.forProduct3(Person.apply)
+
+  implicit def studentKVDecoder[F[_]: MonadThrow]: KVDecoder[F, Student] = KVDecoder.forProduct2(Student.apply)
 
   implicit class KVDecoderStringExtension(string: String) {
     def decodeAs[F[_], A](implicit decoder: KVDecoder[F, A]): F[A] = decoder.decode(string)

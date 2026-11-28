@@ -26,8 +26,6 @@ import com.ruchij.core.daos.workers.models.VideoScan
 import com.ruchij.core.daos.workers.models.VideoScan.ScanStatus
 import com.ruchij.core.daos.workers.models.VideoScan.ScanStatus.{Idle, InProgress}
 import com.ruchij.core.exceptions.ResourceNotFoundException
-import com.ruchij.core.kv.codecs.KVDecoder._
-import com.ruchij.core.kv.codecs.KVEncoder._
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.config.ConfigurationService
 import com.ruchij.core.services.config.models.SharedConfigKey

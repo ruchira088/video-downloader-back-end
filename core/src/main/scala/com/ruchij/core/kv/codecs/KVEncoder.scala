@@ -1,11 +1,9 @@
 package com.ruchij.core.kv.codecs
 
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, Monad, MonadThrow}
-import com.ruchij.core.exceptions.InvalidConditionException
+import cats.{Applicative, Monad}
 import com.ruchij.core.kv.keys.KVStoreKey.KeySeparator
 import enumeratum.EnumEntry
-import shapeless.{::, Generic, HList, HNil}
 
 import java.time.Instant
 
@@ -33,30 +31,80 @@ object KVEncoder {
   implicit def instantKVEncoder[F[_]: Applicative]: KVEncoder[F, Instant] =
     stringKVEncoder[F].coMap[Instant](_.toString)
 
-  implicit def genericKVEncoder[F[_]: Applicative, A, Repr <: HList](
-    implicit generic: Generic.Aux[A, Repr],
-    encoder: KVEncoder[F, Repr]
+  // A product is stored as the encodings of its fields, in order, joined with the key separator. KVDecoder.forProductN
+  // reads it back.
+  def forProduct2[F[_]: Applicative, A, B1, B2](fields: A => (B1, B2))(
+    implicit encoder1: KVEncoder[F, B1],
+    encoder2: KVEncoder[F, B2]
   ): KVEncoder[F, A] =
-    (kvStoreKey: A) => encoder.encode(generic.to(kvStoreKey))
-
-  implicit def reprEncoder[F[_]: MonadThrow, H, T <: HList](
-    implicit headEncoder: KVEncoder[F, H],
-    tailEncoder: KVEncoder[F, T]
-  ): KVEncoder[F, H :: T] = {
-    case head :: HNil => headEncoder.encode(head)
-
-    case head :: tail =>
-      headEncoder
-        .encode(head)
-        .flatMap { value =>
-          tailEncoder.encode(tail).map(value + KeySeparator + _)
-        }
-  }
-
-  implicit def hNilKVEncoder[F[_]: ApplicativeError[*[_], Throwable]]: KVEncoder[F, HNil] =
-    (_: HNil) => ApplicativeError[F, Throwable].raiseError {
-      InvalidConditionException {
-        "Unable to encode HNil for KVEncoder"
-      }
+    (value: A) => {
+      val (b1, b2) = fields(value)
+      joinTerms(List(encoder1.encode(b1), encoder2.encode(b2)))
     }
+
+  def forProduct3[F[_]: Applicative, A, B1, B2, B3](fields: A => (B1, B2, B3))(
+    implicit encoder1: KVEncoder[F, B1],
+    encoder2: KVEncoder[F, B2],
+    encoder3: KVEncoder[F, B3]
+  ): KVEncoder[F, A] =
+    (value: A) => {
+      val (b1, b2, b3) = fields(value)
+      joinTerms(List(encoder1.encode(b1), encoder2.encode(b2), encoder3.encode(b3)))
+    }
+
+  def forProduct4[F[_]: Applicative, A, B1, B2, B3, B4](fields: A => (B1, B2, B3, B4))(
+    implicit encoder1: KVEncoder[F, B1],
+    encoder2: KVEncoder[F, B2],
+    encoder3: KVEncoder[F, B3],
+    encoder4: KVEncoder[F, B4]
+  ): KVEncoder[F, A] =
+    (value: A) => {
+      val (b1, b2, b3, b4) = fields(value)
+      joinTerms(List(encoder1.encode(b1), encoder2.encode(b2), encoder3.encode(b3), encoder4.encode(b4)))
+    }
+
+  def forProduct5[F[_]: Applicative, A, B1, B2, B3, B4, B5](fields: A => (B1, B2, B3, B4, B5))(
+    implicit encoder1: KVEncoder[F, B1],
+    encoder2: KVEncoder[F, B2],
+    encoder3: KVEncoder[F, B3],
+    encoder4: KVEncoder[F, B4],
+    encoder5: KVEncoder[F, B5]
+  ): KVEncoder[F, A] =
+    (value: A) => {
+      val (b1, b2, b3, b4, b5) = fields(value)
+      joinTerms(
+        List(
+          encoder1.encode(b1),
+          encoder2.encode(b2),
+          encoder3.encode(b3),
+          encoder4.encode(b4),
+          encoder5.encode(b5)
+        )
+      )
+    }
+
+  def forProduct6[F[_]: Applicative, A, B1, B2, B3, B4, B5, B6](fields: A => (B1, B2, B3, B4, B5, B6))(
+    implicit encoder1: KVEncoder[F, B1],
+    encoder2: KVEncoder[F, B2],
+    encoder3: KVEncoder[F, B3],
+    encoder4: KVEncoder[F, B4],
+    encoder5: KVEncoder[F, B5],
+    encoder6: KVEncoder[F, B6]
+  ): KVEncoder[F, A] =
+    (value: A) => {
+      val (b1, b2, b3, b4, b5, b6) = fields(value)
+      joinTerms(
+        List(
+          encoder1.encode(b1),
+          encoder2.encode(b2),
+          encoder3.encode(b3),
+          encoder4.encode(b4),
+          encoder5.encode(b5),
+          encoder6.encode(b6)
+        )
+      )
+    }
+
+  private def joinTerms[F[_]: Applicative](terms: List[F[String]]): F[String] =
+    terms.sequence.map(_.mkString(KeySeparator))
 }

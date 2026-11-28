@@ -39,8 +39,6 @@ object Dependencies
 
   lazy val enumeratum = "com.beachape" %% "enumeratum" % "1.9.9"
 
-  lazy val shapeless = "com.chuusai" %% "shapeless" % "2.3.13"
-
   lazy val doobie = "org.tpolecat" %% "doobie-core" % "1.0.0-RC12"
 
   lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "1.0.0-RC12"

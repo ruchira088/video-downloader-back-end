@@ -4,7 +4,6 @@ import com.ruchij.core.daos.videometadata.models.VideoSite
 import enumeratum.{Enum, EnumEntry}
 import io.circe.Decoder
 import org.http4s.{MediaType, Method, Status}
-import shapeless.{::, Generic, HNil}
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
@@ -41,8 +40,9 @@ object Decoders {
       enumValues.withNameInsensitiveEither(enumString).left.map(_.getMessage)
     }
 
-  implicit def stringWrapperDecoder[A <: AnyVal](implicit generic: Generic.Aux[A, String :: HNil]): Decoder[A] =
+  // Decodes a non-empty string into a value class that wraps it
+  def stringWrapperDecoder[A](wrap: String => A): Decoder[A] =
     Decoder.decodeString.emap {
-      value => if (value.trim.isEmpty) Left("Cannot be empty") else Right(generic.from(value :: HNil))
+      value => if (value.trim.isEmpty) Left("Cannot be empty") else Right(wrap(value))
     }
 }

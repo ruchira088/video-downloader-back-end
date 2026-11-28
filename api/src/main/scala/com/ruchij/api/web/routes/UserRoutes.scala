@@ -2,6 +2,7 @@ package com.ruchij.api.web.routes
 
 import cats.effect.Async
 import cats.implicits._
+import com.ruchij.api.circe.ValueClassCodecs._
 import com.ruchij.api.services.authentication.AuthenticationService
 import com.ruchij.api.services.models.Context.{AuthenticatedRequestContext, RequestContext}
 import com.ruchij.api.services.user.UserService
@@ -9,7 +10,6 @@ import com.ruchij.api.web.middleware.Authenticator
 import com.ruchij.api.web.requests.{CreateUserRequest, ForgotPasswordRequest, ResetPasswordRequest}
 import com.ruchij.api.web.requests.RequestOps.ContextRequestOpsSyntax
 import com.ruchij.api.web.responses.ResultResponse
-import com.ruchij.core.circe.Decoders._
 import com.ruchij.core.circe.Encoders._
 import io.circe.generic.auto._
 import org.http4s.ContextRoutes

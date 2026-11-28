@@ -6,6 +6,7 @@ import com.ruchij.core.circe.Encoders._
 import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoSite}
 import com.ruchij.core.services.models.{Order, SortBy}
+import io.circe.Decoder
 import io.circe.parser._
 import io.circe.syntax._
 import org.http4s.MediaType
@@ -233,7 +234,7 @@ class CirceCodecsSpec extends AnyFlatSpec with Matchers with OptionValues {
   }
 
   "stringWrapperDecoder" should "decode valid strings for value classes" in {
-    import Decoders.stringWrapperDecoder
+    implicit val testWrapperDecoder: Decoder[TestWrapper] = Decoders.stringWrapperDecoder(TestWrapper.apply)
 
     // TestWrapper is defined in the companion object below
     val testStr = "\"test-value\""
@@ -243,7 +244,7 @@ class CirceCodecsSpec extends AnyFlatSpec with Matchers with OptionValues {
   }
 
   it should "fail to decode empty string for value classes" in {
-    import Decoders.stringWrapperDecoder
+    implicit val testWrapperDecoder: Decoder[TestWrapper] = Decoders.stringWrapperDecoder(TestWrapper.apply)
 
     val emptyStr = "\"\""
     val result = decode[TestWrapper](emptyStr)
@@ -252,7 +253,7 @@ class CirceCodecsSpec extends AnyFlatSpec with Matchers with OptionValues {
   }
 
   it should "fail to decode whitespace-only string for value classes" in {
-    import Decoders.stringWrapperDecoder
+    implicit val testWrapperDecoder: Decoder[TestWrapper] = Decoders.stringWrapperDecoder(TestWrapper.apply)
 
     val whitespaceStr = "\"   \""
     val result = decode[TestWrapper](whitespaceStr)

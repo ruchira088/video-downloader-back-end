@@ -6,7 +6,6 @@ import com.ruchij.core.daos.videometadata.models.VideoSite
 import enumeratum.EnumEntry
 import io.circe.{Encoder, Json}
 import org.http4s.{MediaType, Method, Status}
-import shapeless.{::, Generic, HNil}
 
 import java.time.Instant
 import scala.concurrent.duration.FiniteDuration
@@ -36,6 +35,6 @@ object Encoders {
 
   implicit val statusEncoder: Encoder[Status] = Encoder.encodeInt.contramap(_.code)
 
-  implicit def stringWrapperEncoder[A <: AnyVal](implicit generic: Generic.Aux[A, String :: HNil]): Encoder[A] =
-    Encoder[String].contramap[A](value => generic.to(value).head)
+  // Encodes a value class as the string it wraps
+  def stringWrapperEncoder[A](unwrap: A => String): Encoder[A] = Encoder[String].contramap[A](unwrap)
 }

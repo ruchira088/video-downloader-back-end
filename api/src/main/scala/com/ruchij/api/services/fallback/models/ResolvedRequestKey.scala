@@ -1,6 +1,8 @@
 package com.ruchij.api.services.fallback.models
 
-import com.ruchij.core.kv.keys.{KVStoreKey, KeySpace}
+import cats.Applicative
+import com.ruchij.core.kv.codecs.KVEncoder
+import com.ruchij.core.kv.keys.{KVStoreKey, KeySpace, KeySpacedKeyEncoder}
 
 import scala.concurrent.duration._
 
@@ -14,4 +16,7 @@ object ResolvedRequestKey {
     // As long as SQS can keep the request itself
     override val maybeTtl: Option[FiniteDuration] = Some(14.days)
   }
+
+  implicit def keySpacedKeyEncoder[F[_]: Applicative]: KeySpacedKeyEncoder[F, ResolvedRequestKey] =
+    KeySpacedKeyEncoder.of(ResolvedRequestKeySpace, KVEncoder[F, String].coMap[ResolvedRequestKey](_.requestId))
 }
