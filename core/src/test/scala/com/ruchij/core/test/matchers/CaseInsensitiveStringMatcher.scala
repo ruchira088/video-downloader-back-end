@@ -2,7 +2,7 @@ package com.ruchij.core.test.matchers
 
 import org.scalatest.matchers.{MatchResult, Matcher}
 
-class CaseInsensitiveStringMatcher(right: String) extends Matcher[String]{
+class CaseInsensitiveStringMatcher(right: String) extends Matcher[String] {
   override def apply(left: String): MatchResult =
     MatchResult(
       right.toLowerCase == left.toLowerCase,

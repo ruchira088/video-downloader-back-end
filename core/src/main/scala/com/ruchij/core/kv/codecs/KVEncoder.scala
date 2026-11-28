@@ -33,27 +33,24 @@ object KVEncoder {
 
   // A product is stored as the encodings of its fields, in order, joined with the key separator. KVDecoder.forProductN
   // reads it back.
-  def forProduct2[F[_]: Applicative, A, B1, B2](fields: A => (B1, B2))(
-    implicit encoder1: KVEncoder[F, B1],
-    encoder2: KVEncoder[F, B2]
-  ): KVEncoder[F, A] =
+  def forProduct2[F[_]: Applicative, A, B1, B2](
+    fields: A => (B1, B2)
+  )(implicit encoder1: KVEncoder[F, B1], encoder2: KVEncoder[F, B2]): KVEncoder[F, A] =
     (value: A) => {
       val (b1, b2) = fields(value)
       joinTerms(List(encoder1.encode(b1), encoder2.encode(b2)))
     }
 
-  def forProduct3[F[_]: Applicative, A, B1, B2, B3](fields: A => (B1, B2, B3))(
-    implicit encoder1: KVEncoder[F, B1],
-    encoder2: KVEncoder[F, B2],
-    encoder3: KVEncoder[F, B3]
-  ): KVEncoder[F, A] =
+  def forProduct3[F[_]: Applicative, A, B1, B2, B3](
+    fields: A => (B1, B2, B3)
+  )(implicit encoder1: KVEncoder[F, B1], encoder2: KVEncoder[F, B2], encoder3: KVEncoder[F, B3]): KVEncoder[F, A] =
     (value: A) => {
       val (b1, b2, b3) = fields(value)
       joinTerms(List(encoder1.encode(b1), encoder2.encode(b2), encoder3.encode(b3)))
     }
 
-  def forProduct4[F[_]: Applicative, A, B1, B2, B3, B4](fields: A => (B1, B2, B3, B4))(
-    implicit encoder1: KVEncoder[F, B1],
+  def forProduct4[F[_]: Applicative, A, B1, B2, B3, B4](fields: A => (B1, B2, B3, B4))(implicit
+    encoder1: KVEncoder[F, B1],
     encoder2: KVEncoder[F, B2],
     encoder3: KVEncoder[F, B3],
     encoder4: KVEncoder[F, B4]
@@ -63,8 +60,8 @@ object KVEncoder {
       joinTerms(List(encoder1.encode(b1), encoder2.encode(b2), encoder3.encode(b3), encoder4.encode(b4)))
     }
 
-  def forProduct5[F[_]: Applicative, A, B1, B2, B3, B4, B5](fields: A => (B1, B2, B3, B4, B5))(
-    implicit encoder1: KVEncoder[F, B1],
+  def forProduct5[F[_]: Applicative, A, B1, B2, B3, B4, B5](fields: A => (B1, B2, B3, B4, B5))(implicit
+    encoder1: KVEncoder[F, B1],
     encoder2: KVEncoder[F, B2],
     encoder3: KVEncoder[F, B3],
     encoder4: KVEncoder[F, B4],
@@ -73,18 +70,12 @@ object KVEncoder {
     (value: A) => {
       val (b1, b2, b3, b4, b5) = fields(value)
       joinTerms(
-        List(
-          encoder1.encode(b1),
-          encoder2.encode(b2),
-          encoder3.encode(b3),
-          encoder4.encode(b4),
-          encoder5.encode(b5)
-        )
+        List(encoder1.encode(b1), encoder2.encode(b2), encoder3.encode(b3), encoder4.encode(b4), encoder5.encode(b5))
       )
     }
 
-  def forProduct6[F[_]: Applicative, A, B1, B2, B3, B4, B5, B6](fields: A => (B1, B2, B3, B4, B5, B6))(
-    implicit encoder1: KVEncoder[F, B1],
+  def forProduct6[F[_]: Applicative, A, B1, B2, B3, B4, B5, B6](fields: A => (B1, B2, B3, B4, B5, B6))(implicit
+    encoder1: KVEncoder[F, B1],
     encoder2: KVEncoder[F, B2],
     encoder3: KVEncoder[F, B3],
     encoder4: KVEncoder[F, B4],

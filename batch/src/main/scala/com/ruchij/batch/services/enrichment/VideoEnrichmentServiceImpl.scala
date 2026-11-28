@@ -17,7 +17,7 @@ import org.http4s.MediaType
 import java.util.UUID
 import scala.concurrent.duration.FiniteDuration
 
-class VideoEnrichmentServiceImpl[F[_]: Sync: RandomGenerator.Of[UUID],T[_]: Monad](
+class VideoEnrichmentServiceImpl[F[_]: Sync: RandomGenerator.Of[UUID], T[_]: Monad](
   videoSnapshotService: VideoSnapshotService[F],
   snapshotDao: SnapshotDao[T],
   fileResourceDao: FileResourceDao[T],
@@ -29,7 +29,8 @@ class VideoEnrichmentServiceImpl[F[_]: Sync: RandomGenerator.Of[UUID],T[_]: Mona
   override val snapshotMediaType: MediaType = MediaType.image.jpeg
 
   override def videoSnapshots(video: Video): F[List[Snapshot]] =
-    logger.info[F](s"Taking video snapshots for id=${video.videoMetadata.id}")
+    logger
+      .info[F](s"Taking video snapshots for id=${video.videoMetadata.id}")
       .productR {
         VideoEnrichmentService
           .snapshotTimestamps(video, VideoEnrichmentService.SnapshotCount)
@@ -40,7 +41,6 @@ class VideoEnrichmentServiceImpl[F[_]: Sync: RandomGenerator.Of[UUID],T[_]: Mona
         logger.info[F](s"Completed video snapshots for id=${video.videoMetadata.id}")
       }
 
-
   override def snapshotFileResource(
     videoPath: String,
     snapshotPath: String,
@@ -49,17 +49,16 @@ class VideoEnrichmentServiceImpl[F[_]: Sync: RandomGenerator.Of[UUID],T[_]: Mona
     videoSnapshotService.takeSnapshot(videoPath, videoTimestamp, snapshotPath)
 
   private def createSnapshot(video: Video, videoTimestamp: FiniteDuration): F[Snapshot] =
-   for {
-     suffix <- RandomGenerator[F, UUID].generate.map(_.toString.take(5))
+    for {
+      suffix <- RandomGenerator[F, UUID].generate.map(_.toString.take(5))
 
-     snapshotPath =
-       s"${storageConfiguration.imageFolder}/${video.videoMetadata.id}-snapshot-${videoTimestamp.toMillis}-$suffix.${snapshotMediaType.subType}"
+      snapshotPath =
+        s"${storageConfiguration.imageFolder}/${video.videoMetadata.id}-snapshot-${videoTimestamp.toMillis}-$suffix.${snapshotMediaType.subType}"
 
-     fileResource <- snapshotFileResource(video.fileResource.path, snapshotPath, videoTimestamp)
+      fileResource <- snapshotFileResource(video.fileResource.path, snapshotPath, videoTimestamp)
 
-     snapshot = Snapshot(video.videoMetadata.id, fileResource, videoTimestamp)
+      snapshot = Snapshot(video.videoMetadata.id, fileResource, videoTimestamp)
 
-     _ <-  transaction { fileResourceDao.insert(fileResource).product(snapshotDao.insert(snapshot)) }
-   }
-   yield snapshot
+      _ <- transaction { fileResourceDao.insert(fileResource).product(snapshotDao.insert(snapshot)) }
+    } yield snapshot
 }

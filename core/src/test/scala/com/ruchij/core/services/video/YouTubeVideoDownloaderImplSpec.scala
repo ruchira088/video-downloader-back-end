@@ -139,7 +139,17 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
         |""".stripMargin
 
     (cliCommandRunner.run)
-      .expects(List("yt-dlp", "--no-warnings", "--fixup", "force", "-o", "~/Videos/youtube-video-url-hash.%(ext)s", "https://www.youtube.com/watch?v=F1Zl1TRDJs0"))
+      .expects(
+        List(
+          "yt-dlp",
+          "--no-warnings",
+          "--fixup",
+          "force",
+          "-o",
+          "~/Videos/youtube-video-url-hash.%(ext)s",
+          "https://www.youtube.com/watch?v=F1Zl1TRDJs0"
+        )
+      )
       .returns {
         Stream.emits[IO, String] { cliOutput.split("\n") }
       }
@@ -179,51 +189,61 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
   private val DownloadedLine = "[download] 100% of 180.0MiB at 6.0MiB/s ETA 00:00"
 
   it should "not time out while a silent fixup post-processes the download" in runIO {
-    TestControl.executeEmbed {
-      downloadWithOutput {
-        Stream.emits[IO, String](List(DownloadedLine, """[FixupM3u8] Fixing MPEG-TS in MP4 container of "/videos/silent.mp4"""")) ++
-          Stream.sleep_[IO](10 minutes)
+    TestControl
+      .executeEmbed {
+        downloadWithOutput {
+          Stream.emits[IO, String](
+            List(DownloadedLine, """[FixupM3u8] Fixing MPEG-TS in MP4 container of "/videos/silent.mp4"""")
+          ) ++
+            Stream.sleep_[IO](10 minutes)
+        }
       }
-    }.flatMap(result => IO.delay(result mustBe Right((): Unit)))
+      .flatMap(result => IO.delay(result mustBe Right((): Unit)))
   }
 
   it should "not time out while a silent merge post-processes the download" in runIO {
-    TestControl.executeEmbed {
-      downloadWithOutput {
-        Stream.emits[IO, String](List(DownloadedLine, """[Merger] Merging formats into "/videos/silent.mp4"""")) ++
-          Stream.sleep_[IO](10 minutes)
+    TestControl
+      .executeEmbed {
+        downloadWithOutput {
+          Stream.emits[IO, String](List(DownloadedLine, """[Merger] Merging formats into "/videos/silent.mp4"""")) ++
+            Stream.sleep_[IO](10 minutes)
+        }
       }
-    }.flatMap(result => IO.delay(result mustBe Right((): Unit)))
+      .flatMap(result => IO.delay(result mustBe Right((): Unit)))
   }
 
   it should "time out when the download goes silent before post-processing" in runIO {
-    TestControl.executeEmbed {
-      for {
-        start <- IO.monotonic
-        result <- downloadWithOutput(Stream.emit[IO, String](DownloadedLine) ++ Stream.never[IO])
-        end <- IO.monotonic
-      } yield (result, end - start)
-    }.flatMap { case (result, elapsed) =>
-      IO.delay {
-        result.left.toOption.get mustBe a[TimeoutException]
-        elapsed must be < (1 minute)
+    TestControl
+      .executeEmbed {
+        for {
+          start <- IO.monotonic
+          result <- downloadWithOutput(Stream.emit[IO, String](DownloadedLine) ++ Stream.never[IO])
+          end <- IO.monotonic
+        } yield (result, end - start)
       }
-    }
+      .flatMap { case (result, elapsed) =>
+        IO.delay {
+          result.left.toOption.get mustBe a[TimeoutException]
+          elapsed must be < (1 minute)
+        }
+      }
   }
 
   it should "eventually time out a post-processing step that never finishes" in runIO {
-    TestControl.executeEmbed {
-      for {
-        start <- IO.monotonic
-        result <- downloadWithOutput(Stream.emit[IO, String]("[FixupM3u8] Fixing MPEG-TS") ++ Stream.never[IO])
-        end <- IO.monotonic
-      } yield (result, end - start)
-    }.flatMap { case (result, elapsed) =>
-      IO.delay {
-        result.left.toOption.get mustBe a[TimeoutException]
-        elapsed must be > (10 minutes)
+    TestControl
+      .executeEmbed {
+        for {
+          start <- IO.monotonic
+          result <- downloadWithOutput(Stream.emit[IO, String]("[FixupM3u8] Fixing MPEG-TS") ++ Stream.never[IO])
+          end <- IO.monotonic
+        } yield (result, end - start)
       }
-    }
+      .flatMap { case (result, elapsed) =>
+        IO.delay {
+          result.left.toOption.get mustBe a[TimeoutException]
+          elapsed must be > (10 minutes)
+        }
+      }
   }
 
   it should "throw an error attempting to download a non-existing video" in runIO {
@@ -233,16 +253,17 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
 
       val youTubeVideoDownloaderImpl = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, None)
 
-      youTubeVideoDownloaderImpl.downloadVideo(
-        uri"https://www.eporner.com/video-kb38QBpRQaY/small-town-girl-cheerleader-kait-gets-double-dick/",
-        "./video-file"
-      )
+      youTubeVideoDownloaderImpl
+        .downloadVideo(
+          uri"https://www.eporner.com/video-kb38QBpRQaY/small-town-girl-cheerleader-kait-gets-double-dick/",
+          "./video-file"
+        )
         .compile
         .drain
         .error
         .flatMap { exception =>
           IO.delay {
-            exception mustBe a [CliCommandException]
+            exception mustBe a[CliCommandException]
             exception.getMessage `contains` "ERROR: [Eporner] kb38QBpRQaY: Unable to extract hash; please report this issue on  https://github.com/yt-dlp/yt-dlp/issues?q= , filling out the appropriate issue template. Confirm you are on the latest version using  yt-dlp -U"
           }
         }
@@ -257,7 +278,7 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
     (cliCommandRunner.run)
       .expects(List("yt-dlp", "--no-warnings", "--version"))
       .returns {
-        Stream.emit[IO, String] {  "2025.08.22" }
+        Stream.emit[IO, String] { "2025.08.22" }
       }
 
     youTubeVideoDownloader.version.flatMap { version =>
@@ -439,7 +460,16 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
         |}""".stripMargin
 
     (cliCommandRunner.run)
-      .expects(List("yt-dlp", "--no-warnings", "--proxy", "http://proxy.example.com:8080", "https://www.youtube.com/watch?v=abc123", "-j"))
+      .expects(
+        List(
+          "yt-dlp",
+          "--no-warnings",
+          "--proxy",
+          "http://proxy.example.com:8080",
+          "https://www.youtube.com/watch?v=abc123",
+          "-j"
+        )
+      )
       .returns(Stream.emits[IO, String](cliOutput.split("\n")))
 
     youTubeVideoDownloader
@@ -502,7 +532,19 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
         |""".stripMargin
 
     (cliCommandRunner.run)
-      .expects(List("yt-dlp", "--no-warnings", "--proxy", "http://proxy.example.com:8080", "--fixup", "force", "-o", "~/Downloads/proxy-video.%(ext)s", "https://www.youtube.com/watch?v=proxy1"))
+      .expects(
+        List(
+          "yt-dlp",
+          "--no-warnings",
+          "--proxy",
+          "http://proxy.example.com:8080",
+          "--fixup",
+          "force",
+          "-o",
+          "~/Downloads/proxy-video.%(ext)s",
+          "https://www.youtube.com/watch?v=proxy1"
+        )
+      )
       .returns {
         Stream.emits[IO, String] { cliOutput.split("\n") }
       }
@@ -525,7 +567,16 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
     val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, proxyConfig)
 
     (cliCommandRunner.run)
-      .expects(List("yt-dlp", "--no-warnings", "--proxy", "http://proxy.example.com:8080", "https://www.youtube.com/watch?v=gone", "-j"))
+      .expects(
+        List(
+          "yt-dlp",
+          "--no-warnings",
+          "--proxy",
+          "http://proxy.example.com:8080",
+          "https://www.youtube.com/watch?v=gone",
+          "-j"
+        )
+      )
       .returns {
         Stream.raiseError[IO](CliCommandException("ERROR: HTTP Error 404: Not Found"))
       }
@@ -547,7 +598,16 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
     val youTubeVideoDownloader = new YouTubeVideoDownloaderImpl[IO](cliCommandRunner, client, proxyConfig)
 
     (cliCommandRunner.run)
-      .expects(List("yt-dlp", "--no-warnings", "--proxy", "http://proxy.example.com:8080", "https://www.youtube.com/watch?v=removed", "-j"))
+      .expects(
+        List(
+          "yt-dlp",
+          "--no-warnings",
+          "--proxy",
+          "http://proxy.example.com:8080",
+          "https://www.youtube.com/watch?v=removed",
+          "-j"
+        )
+      )
       .returns {
         Stream.raiseError[IO](CliCommandException("ERROR: Unable to extract hash; video removed"))
       }
@@ -580,7 +640,16 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
         |}""".stripMargin
 
     (cliCommandRunner.run)
-      .expects(List("yt-dlp", "--no-warnings", "--proxy", "https://secure-proxy.corp.net:3128", "https://www.youtube.com/watch?v=sec123", "-j"))
+      .expects(
+        List(
+          "yt-dlp",
+          "--no-warnings",
+          "--proxy",
+          "https://secure-proxy.corp.net:3128",
+          "https://www.youtube.com/watch?v=sec123",
+          "-j"
+        )
+      )
       .returns(Stream.emits[IO, String](cliOutput.split("\n")))
 
     youTubeVideoDownloader
@@ -609,7 +678,16 @@ class YouTubeVideoDownloaderImplSpec extends AnyFlatSpec with MockFactory with M
         |}""".stripMargin
 
     (cliCommandRunner.run)
-      .expects(List("yt-dlp", "--no-warnings", "--proxy", "http://proxy.example.com", "https://www.youtube.com/watch?v=noport", "-j"))
+      .expects(
+        List(
+          "yt-dlp",
+          "--no-warnings",
+          "--proxy",
+          "http://proxy.example.com",
+          "https://www.youtube.com/watch?v=noport",
+          "-j"
+        )
+      )
       .returns(Stream.emits[IO, String](cliOutput.split("\n")))
 
     youTubeVideoDownloader

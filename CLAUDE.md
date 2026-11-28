@@ -17,6 +17,7 @@ sbt "core/testOnly *ClockSpec"                                  # Single test cl
 sbt "api/testOnly com.ruchij.api.services.user.UserServiceSpec" # Single test class (FQN)
 sbt testWithCoverage         # Clean, test with scoverage, open HTML report
 sbt cleanCompile / cleanTest # Aliases for clean;compile / clean;testFull
+sbt "scalafmtAll; scalafmtSbt"   # Format the sources (CI fails on unformatted code, via scalafmtCheckAll)
 
 sbt "development/run"        # Run everything (migrations + API + batch) in one JVM,
                              # backed by Docker containers via TestContainers; HTTPS on port 443

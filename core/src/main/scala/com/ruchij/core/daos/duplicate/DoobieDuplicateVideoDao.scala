@@ -18,9 +18,7 @@ object DoobieDuplicateVideoDao extends DuplicateVideoDao[ConnectionIO] {
     """.update.run
 
   override def delete(videoId: String): ConnectionIO[Int] =
-    sql"DELETE FROM duplicate_video WHERE video_id = $videoId"
-      .update
-      .run
+    sql"DELETE FROM duplicate_video WHERE video_id = $videoId".update.run
 
   override def findByVideoId(videoId: String): ConnectionIO[Option[DuplicateVideo]] =
     sql"SELECT video_id, duplicate_group_id, created_at FROM duplicate_video WHERE video_id = $videoId"
@@ -52,7 +50,5 @@ object DoobieDuplicateVideoDao extends DuplicateVideoDao[ConnectionIO] {
       .to[Seq]
 
   override def deleteAll: ConnectionIO[Int] =
-    sql"DELETE FROM duplicate_video"
-      .update
-      .run
+    sql"DELETE FROM duplicate_video".update.run
 }

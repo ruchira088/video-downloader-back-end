@@ -91,12 +91,18 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
       IO.pure(Some(createScheduledVideoDownload(id, to)))
     }
 
-    override def updateSchedulingStatusById(id: String, schedulingStatus: SchedulingStatus): IO[ScheduledVideoDownload] = {
+    override def updateSchedulingStatusById(
+      id: String,
+      schedulingStatus: SchedulingStatus
+    ): IO[ScheduledVideoDownload] = {
       statusUpdates = statusUpdates :+ (id, schedulingStatus)
       IO.pure(createScheduledVideoDownload(id, schedulingStatus))
     }
 
-    override def updateSchedulingStatus(from: SchedulingStatus, to: SchedulingStatus): IO[Seq[ScheduledVideoDownload]] = {
+    override def updateSchedulingStatus(
+      from: SchedulingStatus,
+      to: SchedulingStatus
+    ): IO[Seq[ScheduledVideoDownload]] = {
       bulkStatusUpdates = bulkStatusUpdates :+ (from, to)
       IO.pure(Seq.empty)
     }
@@ -144,16 +150,25 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   class StubVideoWatchHistoryService extends VideoWatchHistoryService[IO] {
-    override def addWatchHistory(userId: String, videoId: String, timestamp: Instant, watchDuration: FiniteDuration): IO[Unit] =
+    override def addWatchHistory(
+      userId: String,
+      videoId: String,
+      timestamp: Instant,
+      watchDuration: FiniteDuration
+    ): IO[Unit] =
       IO.unit
 
-    override def getWatchHistoryByUser(userId: String, pageSize: Int, pageNumber: Int): IO[List[DetailedVideoWatchHistory]] =
+    override def getWatchHistoryByUser(
+      userId: String,
+      pageSize: Int,
+      pageNumber: Int
+    ): IO[List[DetailedVideoWatchHistory]] =
       IO.pure(List.empty)
   }
 
   class StubWorkExecutor(
-    result: (ScheduledVideoDownload, Stream[IO, Boolean]) => IO[Video] =
-      (_, _) => IO.raiseError(new NotImplementedError("execute stub"))
+    result: (ScheduledVideoDownload, Stream[IO, Boolean]) => IO[Video] = (_, _) =>
+      IO.raiseError(new NotImplementedError("execute stub"))
   ) extends WorkExecutor[IO] {
     @volatile var executedTasks: List[ScheduledVideoDownload] = List.empty
 
@@ -293,7 +308,10 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     Video(videoMetadata, fileResource, testTimestamp, 0.seconds)
   }
 
-  def createScheduledVideoDownload(id: String = "test-id", status: SchedulingStatus = SchedulingStatus.Queued): ScheduledVideoDownload = {
+  def createScheduledVideoDownload(
+    id: String = "test-id",
+    status: SchedulingStatus = SchedulingStatus.Queued
+  ): ScheduledVideoDownload = {
     val fileResource = FileResource(
       id = s"$id-file",
       createdAt = testTimestamp,
@@ -720,7 +738,6 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     }
   }
 
-
   private def availableWorker(id: String = "worker-00"): Worker =
     Worker(id, WorkerStatus.Available, None, None, None, None)
 
@@ -795,8 +812,8 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     workerDao.workers = List(availableWorker())
 
     val batchSchedulingService =
-      new StubBatchSchedulingService(
-        workerStatusUpdates = Stream.awakeEvery[IO](500.millis).as(WorkerStatusUpdate(WorkerStatus.Paused))
+      new StubBatchSchedulingService(workerStatusUpdates =
+        Stream.awakeEvery[IO](500.millis).as(WorkerStatusUpdate(WorkerStatus.Paused))
       )
     batchSchedulingService.acquiredTasks = List(task)
 
@@ -909,8 +926,8 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     val scanCommands = Stream.awakeEvery[IO](10.seconds).take(2).as(ScanVideosCommand(testTimestamp))
 
     val batchSchedulingService =
-      new StubBatchSchedulingService(
-        workerStatusUpdates = Stream.awakeEvery[IO](10.seconds).take(2).as(WorkerStatusUpdate(WorkerStatus.Available))
+      new StubBatchSchedulingService(workerStatusUpdates =
+        Stream.awakeEvery[IO](10.seconds).take(2).as(WorkerStatusUpdate(WorkerStatus.Available))
       )
 
     val scheduler =
@@ -949,9 +966,8 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
     override def fetchByVideoFileResourceId(fileResourceId: String): IO[Video] =
       IO.delay {
-          fetchAttempts = fetchAttempts.updated(fileResourceId, fetchAttempts.getOrElse(fileResourceId, 0) + 1)
-        }
-        .productR(fetch(fileResourceId))
+        fetchAttempts = fetchAttempts.updated(fileResourceId, fetchAttempts.getOrElse(fileResourceId, 0) + 1)
+      }.productR(fetch(fileResourceId))
 
     override def incrementWatchTime(videoId: String, duration: FiniteDuration): IO[FiniteDuration] =
       IO.delay { watchTimeIncrements = watchTimeIncrements :+ videoId }.as(duration)
@@ -969,7 +985,11 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     val subscriber = new RecordingVideoWatchMetricsSubscriber(List(metric))
 
     val scheduler =
-      createScheduler(new StubWorkerDao, batchVideoService = batchVideoService, videoWatchMetricsSubscriber = subscriber)
+      createScheduler(
+        new StubWorkerDao,
+        batchVideoService = batchVideoService,
+        videoWatchMetricsSubscriber = subscriber
+      )
 
     TestControl.executeEmbed(scheduler.run.interruptAfter(2.minutes).compile.drain).map { _ =>
       fetchVideo.calls mustBe 3
@@ -994,7 +1014,11 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     val subscriber = new RecordingVideoWatchMetricsSubscriber(metrics)
 
     val scheduler =
-      createScheduler(new StubWorkerDao, batchVideoService = batchVideoService, videoWatchMetricsSubscriber = subscriber)
+      createScheduler(
+        new StubWorkerDao,
+        batchVideoService = batchVideoService,
+        videoWatchMetricsSubscriber = subscriber
+      )
 
     TestControl.executeEmbed(scheduler.run.interruptAfter(2.minutes).compile.drain.attempt).map { result =>
       result mustBe Right((): Unit)
@@ -1103,7 +1127,8 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     TestControl.executeEmbed(scheduler.run.interruptAfter(1500.millis).compile.drain).map { _ =>
       workExecutor.executedTasks mustBe empty
       batchSchedulingService.guardedStatusUpdates must contain(
-        (task.videoMetadata.id, ClaimedStatuses, SchedulingStatus.WorkersPaused))
+        (task.videoMetadata.id, ClaimedStatuses, SchedulingStatus.WorkersPaused)
+      )
     }
   }
 
@@ -1134,7 +1159,8 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     TestControl.executeEmbed(scheduler.run.interruptAfter(1500.millis).compile.drain).map { _ =>
       workExecutor.executedTasks mustBe empty
       batchSchedulingService.guardedStatusUpdates must contain(
-        (task.videoMetadata.id, ClaimedStatuses, SchedulingStatus.Queued))
+        (task.videoMetadata.id, ClaimedStatuses, SchedulingStatus.Queued)
+      )
       workerDao.releasedWorkers must contain("worker-00")
     }
   }
@@ -1248,22 +1274,23 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   List[(String, Instant => ScheduledVideoDownload)](
     "is for another video" ->
-      (timestamp => createScheduledVideoDownload("other-task", SchedulingStatus.Paused).copy(lastUpdatedAt = timestamp)),
+      (timestamp =>
+        createScheduledVideoDownload("other-task", SchedulingStatus.Paused).copy(lastUpdatedAt = timestamp)
+      ),
     "is a progress update" ->
       (timestamp => interruptibleTask.copy(status = SchedulingStatus.Active, lastUpdatedAt = timestamp)),
     // e.g. a message that is replayed after the download was resumed
     "was made before the download started" ->
       (_ => interruptibleTask.copy(status = SchedulingStatus.Paused, lastUpdatedAt = Instant.EPOCH))
-  ).foreach {
-    case (description, update) =>
-      "SchedulerImpl.run" should s"not interrupt the active download for an update that $description" in runIO {
-        val (scheduler, _, _, workExecutor) = interruptibleScheduler(repeatedUpdates(update))
+  ).foreach { case (description, update) =>
+    "SchedulerImpl.run" should s"not interrupt the active download for an update that $description" in runIO {
+      val (scheduler, _, _, workExecutor) = interruptibleScheduler(repeatedUpdates(update))
 
-        TestControl.executeEmbed(scheduler.run.head.compile.lastOrError.timeout(30.seconds)).map { downloaded =>
-          downloaded.videoMetadata.id mustBe interruptibleTask.videoMetadata.id
-          workExecutor.interrupted mustBe false
-        }
+      TestControl.executeEmbed(scheduler.run.head.compile.lastOrError.timeout(30.seconds)).map { downloaded =>
+        downloaded.videoMetadata.id mustBe interruptibleTask.videoMetadata.id
+        workExecutor.interrupted mustBe false
       }
+    }
   }
 
   /** Sends the updates once, after the scheduler's subscribers have joined the topic. */
@@ -1274,8 +1301,8 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     implicit val clock: Clock[IO] = defaultClock
 
     val batchSchedulingService =
-      new StubBatchSchedulingService(
-        scheduledVideoDownloadUpdates = updatesOnce(
+      new StubBatchSchedulingService(scheduledVideoDownloadUpdates =
+        updatesOnce(
           createScheduledVideoDownload("deleted-1", SchedulingStatus.Deleted),
           createScheduledVideoDownload("active", SchedulingStatus.Active),
           createScheduledVideoDownload("paused", SchedulingStatus.Paused),
@@ -1298,8 +1325,8 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
     // The stub fails every deletion
     val batchSchedulingService =
-      new StubBatchSchedulingService(
-        scheduledVideoDownloadUpdates = updatesOnce(
+      new StubBatchSchedulingService(scheduledVideoDownloadUpdates =
+        updatesOnce(
           createScheduledVideoDownload("failing-deletion", SchedulingStatus.Deleted),
           createScheduledVideoDownload("next-deletion", SchedulingStatus.Deleted)
         )

@@ -11,9 +11,10 @@ import scala.concurrent.duration._
 
 class FallbackSyncSpec extends AnyFlatSpec with Matchers {
 
-  /** Guards the ruling in the plan: `FallbackSync.stream` runs in a started fiber that nobody joins, so a
-    * component stream that ends by raising must be restarted rather than allowed to end the whole
-    * `parJoinUnbounded` stream (which would silently stop every other component too). */
+  /** Guards the ruling in the plan: `FallbackSync.stream` runs in a started fiber that nobody joins, so a component
+    * stream that ends by raising must be restarted rather than allowed to end the whole `parJoinUnbounded` stream
+    * (which would silently stop every other component too).
+    */
   "resilient" should "restart a component stream that fails, instead of letting the failure end it" in runIO {
     for {
       attempts <- Ref.of[IO, Int](0)

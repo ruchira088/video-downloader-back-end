@@ -129,88 +129,87 @@ class PlaylistVideoDeletionSpec extends AnyFlatSpec with Matchers with OptionVal
   private def playlistVideoIds(playlistId: String): ConnectionIO[List[String]] =
     playlistDao.findById(playlistId, None).map(_.toList.flatMap(_.videos.map(_.videoMetadata.id)))
 
-  providers.foreach {
-    case (databaseName, provider) =>
-      s"VideoServiceImpl.queueIncorrectlyCompletedVideos ($databaseName)" should
-        "keep the re-queued video in its playlists once it is downloaded again" in
-        withPlaylist(provider) { implicit transaction =>
-          val playlistId = playlistsWithSmallVideo.head.id
-          val otherPlaylistId = playlistsWithSmallVideo.last.id
+  providers.foreach { case (databaseName, provider) =>
+    s"VideoServiceImpl.queueIncorrectlyCompletedVideos ($databaseName)" should
+      "keep the re-queued video in its playlists once it is downloaded again" in
+      withPlaylist(provider) { implicit transaction =>
+        val playlistId = playlistsWithSmallVideo.head.id
+        val otherPlaylistId = playlistsWithSmallVideo.last.id
 
-          for {
-            _ <- transaction(insertSmallVideo)
-            _ <- playlistsWithSmallVideo.traverse(playlist => transaction(playlistDao.insert(playlist)))
+        for {
+          _ <- transaction(insertSmallVideo)
+          _ <- playlistsWithSmallVideo.traverse(playlist => transaction(playlistDao.insert(playlist)))
 
-            requeued <- videoService.queueIncorrectlyCompletedVideos
-            whileRequeued <- transaction(playlistVideoIds(playlistId))
+          requeued <- videoService.queueIncorrectlyCompletedVideos
+          whileRequeued <- transaction(playlistVideoIds(playlistId))
 
-            // The batch worker downloads the video again and saves it under the same ID
-            _ <- transaction(insertSmallVideoFile)
-            redownloaded <- transaction(playlistVideoIds(playlistId))
-            otherRedownloaded <- transaction(playlistVideoIds(otherPlaylistId))
-          } yield {
-            requeued.map(_.videoMetadata.id) mustBe List(smallVideo.videoMetadata.id)
-            whileRequeued mustBe List(CoreTestData.YouTubeVideo, CoreTestData.SpankBangVideo).map(_.videoMetadata.id)
-            redownloaded mustBe
-              List(CoreTestData.YouTubeVideo, smallVideo, CoreTestData.SpankBangVideo).map(_.videoMetadata.id)
-            otherRedownloaded mustBe List(smallVideo.videoMetadata.id)
-          }
+          // The batch worker downloads the video again and saves it under the same ID
+          _ <- transaction(insertSmallVideoFile)
+          redownloaded <- transaction(playlistVideoIds(playlistId))
+          otherRedownloaded <- transaction(playlistVideoIds(otherPlaylistId))
+        } yield {
+          requeued.map(_.videoMetadata.id) mustBe List(smallVideo.videoMetadata.id)
+          whileRequeued mustBe List(CoreTestData.YouTubeVideo, CoreTestData.SpankBangVideo).map(_.videoMetadata.id)
+          redownloaded mustBe
+            List(CoreTestData.YouTubeVideo, smallVideo, CoreTestData.SpankBangVideo).map(_.videoMetadata.id)
+          otherRedownloaded mustBe List(smallVideo.videoMetadata.id)
         }
-
-      it should "append the re-queued video when its position was taken while it was downloaded again" in
-        withPlaylist(provider) { implicit transaction =>
-          val playlistId = playlistsWithSmallVideo.head.id
-          val reorderedVideoIds = List(CoreTestData.SpankBangVideo, CoreTestData.YouTubeVideo).map(_.videoMetadata.id)
-
-          for {
-            _ <- transaction(insertSmallVideo)
-            _ <- transaction(playlistDao.insert(playlistsWithSmallVideo.head))
-
-            _ <- videoService.queueIncorrectlyCompletedVideos
-            _ <- transaction(playlistDao.update(playlistId, None, None, Some(reorderedVideoIds), None, None))
-
-            _ <- transaction(insertSmallVideoFile)
-            redownloaded <- transaction(playlistVideoIds(playlistId))
-          } yield redownloaded mustBe reorderedVideoIds :+ smallVideo.videoMetadata.id
-        }
-
-      it should "not bring back a re-queued video that is deleted after it is downloaded again" in
-        withPlaylist(provider) { implicit transaction =>
-          val playlistId = playlistsWithSmallVideo.head.id
-
-          for {
-            _ <- transaction(insertSmallVideo)
-            _ <- transaction(playlistDao.insert(playlistsWithSmallVideo.head))
-
-            _ <- videoService.queueIncorrectlyCompletedVideos
-            _ <- transaction(insertSmallVideoFile)
-            _ <- videoService.deleteById(smallVideo.videoMetadata.id, deleteVideoFile = false)
-
-            // Scheduled and downloaded again later
-            _ <- transaction(insertSmallVideoFile)
-            afterDelete <- transaction(playlistVideoIds(playlistId))
-          } yield afterDelete mustBe
-            List(CoreTestData.YouTubeVideo, CoreTestData.SpankBangVideo).map(_.videoMetadata.id)
-        }
-
-      s"VideoServiceImpl.deleteById ($databaseName)" should "delete a video that is in a playlist" in
-        withPlaylist(provider) { implicit transaction =>
-          for {
-            deleted <- videoService.deleteById(CoreTestData.YouTubeVideo.videoMetadata.id, deleteVideoFile = false)
-            remaining <- transaction(playlistDao.findById(playlist.id, None))
-          } yield {
-            deleted.videoMetadata.id mustBe CoreTestData.YouTubeVideo.videoMetadata.id
-            remaining.value.videos.map(_.videoMetadata.id) mustBe List(CoreTestData.SpankBangVideo.videoMetadata.id)
-          }
       }
 
-      s"DoobieVideoDao.deleteById ($databaseName)" should "delete a video that is in a playlist" in
-        withPlaylist(provider) { transaction =>
-          for {
-            // queueIncorrectlyCompletedVideos deletes videos through this DAO call
-            _ <- transaction(DoobieVideoDao.deleteById(CoreTestData.SpankBangVideo.videoMetadata.id))
-            remaining <- transaction(playlistDao.findById(playlist.id, None))
-          } yield remaining.value.videos.map(_.videoMetadata.id) mustBe List(CoreTestData.YouTubeVideo.videoMetadata.id)
+    it should "append the re-queued video when its position was taken while it was downloaded again" in
+      withPlaylist(provider) { implicit transaction =>
+        val playlistId = playlistsWithSmallVideo.head.id
+        val reorderedVideoIds = List(CoreTestData.SpankBangVideo, CoreTestData.YouTubeVideo).map(_.videoMetadata.id)
+
+        for {
+          _ <- transaction(insertSmallVideo)
+          _ <- transaction(playlistDao.insert(playlistsWithSmallVideo.head))
+
+          _ <- videoService.queueIncorrectlyCompletedVideos
+          _ <- transaction(playlistDao.update(playlistId, None, None, Some(reorderedVideoIds), None, None))
+
+          _ <- transaction(insertSmallVideoFile)
+          redownloaded <- transaction(playlistVideoIds(playlistId))
+        } yield redownloaded mustBe reorderedVideoIds :+ smallVideo.videoMetadata.id
+      }
+
+    it should "not bring back a re-queued video that is deleted after it is downloaded again" in
+      withPlaylist(provider) { implicit transaction =>
+        val playlistId = playlistsWithSmallVideo.head.id
+
+        for {
+          _ <- transaction(insertSmallVideo)
+          _ <- transaction(playlistDao.insert(playlistsWithSmallVideo.head))
+
+          _ <- videoService.queueIncorrectlyCompletedVideos
+          _ <- transaction(insertSmallVideoFile)
+          _ <- videoService.deleteById(smallVideo.videoMetadata.id, deleteVideoFile = false)
+
+          // Scheduled and downloaded again later
+          _ <- transaction(insertSmallVideoFile)
+          afterDelete <- transaction(playlistVideoIds(playlistId))
+        } yield afterDelete mustBe
+          List(CoreTestData.YouTubeVideo, CoreTestData.SpankBangVideo).map(_.videoMetadata.id)
+      }
+
+    s"VideoServiceImpl.deleteById ($databaseName)" should "delete a video that is in a playlist" in
+      withPlaylist(provider) { implicit transaction =>
+        for {
+          deleted <- videoService.deleteById(CoreTestData.YouTubeVideo.videoMetadata.id, deleteVideoFile = false)
+          remaining <- transaction(playlistDao.findById(playlist.id, None))
+        } yield {
+          deleted.videoMetadata.id mustBe CoreTestData.YouTubeVideo.videoMetadata.id
+          remaining.value.videos.map(_.videoMetadata.id) mustBe List(CoreTestData.SpankBangVideo.videoMetadata.id)
+        }
+      }
+
+    s"DoobieVideoDao.deleteById ($databaseName)" should "delete a video that is in a playlist" in
+      withPlaylist(provider) { transaction =>
+        for {
+          // queueIncorrectlyCompletedVideos deletes videos through this DAO call
+          _ <- transaction(DoobieVideoDao.deleteById(CoreTestData.SpankBangVideo.videoMetadata.id))
+          remaining <- transaction(playlistDao.findById(playlist.id, None))
+        } yield remaining.value.videos.map(_.videoMetadata.id) mustBe List(CoreTestData.YouTubeVideo.videoMetadata.id)
       }
   }
 }

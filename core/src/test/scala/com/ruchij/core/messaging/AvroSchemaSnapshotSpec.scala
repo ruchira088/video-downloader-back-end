@@ -61,7 +61,11 @@ abstract class AvroSchemaSnapshotSpec(module: String, topics: List[MessagingTopi
         "Old consumers reading new messages" -> (expected, actual)
       )
         .flatMap { case (direction, (reader, writer)) =>
-          SchemaCompatibility.checkReaderWriterCompatibility(reader, writer).getResult.getIncompatibilities.asScala
+          SchemaCompatibility
+            .checkReaderWriterCompatibility(reader, writer)
+            .getResult
+            .getIncompatibilities
+            .asScala
             .map(incompatibility =>
               s"$direction: ${incompatibility.getType} at ${incompatibility.getLocation}: ${incompatibility.getMessage}"
             )

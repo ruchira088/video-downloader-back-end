@@ -26,17 +26,16 @@ object ServiceInformation {
     for {
       timestamp <- Clock[F].timestamp
       javaVersion <- Sync[F].delay(Properties.javaVersion)
-    } yield
-      ServiceInformation(
-        BuildInfo.name,
-        BuildInfo.organization,
-        BuildInfo.scalaVersion,
-        BuildInfo.sbtVersion,
-        javaVersion,
-        ytDlpVersion,
-        timestamp,
-        BuildInfo.gitBranch,
-        BuildInfo.gitCommit,
-        BuildInfo.buildTimestamp
-      )
+    } yield ServiceInformation(
+      BuildInfo.name,
+      BuildInfo.organization,
+      BuildInfo.scalaVersion,
+      BuildInfo.sbtVersion,
+      javaVersion,
+      ytDlpVersion,
+      timestamp,
+      BuildInfo.gitBranch,
+      BuildInfo.gitCommit,
+      BuildInfo.buildTimestamp
+    )
 }

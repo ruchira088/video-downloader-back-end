@@ -31,16 +31,16 @@ object RedisContainer {
     }
 
   private def container[F[_]: Sync]: Resource[F, RedisConfiguration] =
-    Resource.eval {
-      Sync[F].delay { new RedisContainer().withCommand(s"redis-server --requirepass $Password") }
-    }
+    Resource
+      .eval {
+        Sync[F].delay { new RedisContainer().withCommand(s"redis-server --requirepass $Password") }
+      }
       .flatMap(redisContainer => ContainerCoreResourcesProvider.start(redisContainer))
       .evalMap { redisContainer =>
         for {
           host <- Sync[F].blocking(redisContainer.getHost)
           port <- Sync[F].blocking(redisContainer.getRedisPort)
-        }
-        yield RedisConfiguration(host, port, Some(Password))
+        } yield RedisConfiguration(host, port, Some(Password))
       }
       .evalTap(redisConfiguration => awaitReady(redisConfiguration, ReadinessAttempts))
 
@@ -48,7 +48,8 @@ object RedisContainer {
     Sync[F]
       .blocking {
         val redisUri =
-          RedisURI.builder()
+          RedisURI
+            .builder()
             .withHost(redisConfiguration.hostname)
             .withPort(redisConfiguration.port)
             .withPassword(Password.toCharArray)

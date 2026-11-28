@@ -48,7 +48,12 @@ import com.ruchij.core.services.hashing.{MurmurHash3Service, PerceptualHashingSe
 import com.ruchij.core.services.renderer.SpaSiteRendererImpl
 import com.ruchij.core.services.repository.{FileRepositoryService, PathFileTypeDetector}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
-import com.ruchij.core.services.video.{VideoAnalysisServiceImpl, VideoServiceImpl, VideoWatchHistoryServiceImpl, YouTubeVideoDownloaderImpl}
+import com.ruchij.core.services.video.{
+  VideoAnalysisServiceImpl,
+  VideoServiceImpl,
+  VideoWatchHistoryServiceImpl,
+  YouTubeVideoDownloaderImpl
+}
 import com.ruchij.core.types.{Clock, RandomGenerator}
 import com.ruchij.core.utils.Clients
 import doobie.free.connection.ConnectionIO
@@ -75,7 +80,8 @@ object BatchApp extends IOApp {
       _ <- Sentry
         .init[IO](batchServiceConfiguration.sentryConfiguration)
         .productR {
-          EmberServerBuilder.default[IO]
+          EmberServerBuilder
+            .default[IO]
             .withHost(batchServiceConfiguration.healthConfiguration.host)
             .withPort(batchServiceConfiguration.healthConfiguration.port)
             .withHttpApp(health.routes)
@@ -86,7 +92,9 @@ object BatchApp extends IOApp {
           scheduler.init
             .productR(logger.info[IO]("Scheduler has started"))
             .productR {
-              fs2.Stream.resource(health.running).flatMap(_ => scheduler.run)
+              fs2.Stream
+                .resource(health.running)
+                .flatMap(_ => scheduler.run)
                 .evalMap { video =>
                   logger.info[IO](s"Download completed for videoId = ${video.videoMetadata.id}")
                 }
@@ -116,7 +124,11 @@ object BatchApp extends IOApp {
 
           cliCommandRunner = new CliCommandRunnerImpl[F](dispatcher)
 
-          youtubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](cliCommandRunner, proxiedHttpClient, batchServiceConfiguration.httpProxyConfiguration)
+          youtubeVideoDownloader = new YouTubeVideoDownloaderImpl[F](
+            cliCommandRunner,
+            proxiedHttpClient,
+            batchServiceConfiguration.httpProxyConfiguration
+          )
           spaSiteRenderer = new SpaSiteRendererImpl[F](
             httpClient,
             batchServiceConfiguration.spaSiteRendererConfiguration
@@ -143,10 +155,7 @@ object BatchApp extends IOApp {
           _ <- health.traverse_ { batchHealth =>
             pubSubProvider.connectivityCheck.flatMap { messagingCheck =>
               Async[F].background {
-                batchHealth.monitor(
-                  transaction(sql"SELECT 1".query[Int].unique).void,
-                  messagingCheck
-                ).compile.drain
+                batchHealth.monitor(transaction(sql"SELECT 1".query[Int].unique).void, messagingCheck).compile.drain
               }.void
             }
           }

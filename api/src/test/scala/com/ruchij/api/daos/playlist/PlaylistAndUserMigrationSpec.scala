@@ -65,49 +65,46 @@ class PlaylistAndUserMigrationSpec extends AnyFlatSpec with Matchers {
         """.update.run
     }
 
-  providers.foreach {
-    case (databaseName, provider) =>
-      s"V041 ($databaseName)" should "keep existing playlist videos, dropping duplicates and numbering them" in runIO {
-        atVersion40(provider).use {
-          case (databaseConfiguration, transactor) =>
-            val youTubeId = CoreTestData.YouTubeVideo.videoMetadata.id
-            val spankBangId = CoreTestData.SpankBangVideo.videoMetadata.id
+  providers.foreach { case (databaseName, provider) =>
+    s"V041 ($databaseName)" should "keep existing playlist videos, dropping duplicates and numbering them" in runIO {
+      atVersion40(provider).use { case (databaseConfiguration, transactor) =>
+        val youTubeId = CoreTestData.YouTubeVideo.videoMetadata.id
+        val spankBangId = CoreTestData.SpankBangVideo.videoMetadata.id
 
-            for {
-              _ <- {
-                DoobieUserDao.insert(ApiTestData.NormalUser) *>
-                  insertVideos *>
-                  sql"""
+        for {
+          _ <- {
+            DoobieUserDao.insert(ApiTestData.NormalUser) *>
+              insertVideos *>
+              sql"""
                     INSERT INTO playlist (id, user_id, title) VALUES ('playlist', ${ApiTestData.NormalUser.id}, 'Title')
                   """.update.run *>
-                  List(youTubeId, spankBangId, youTubeId).traverse_ { videoId =>
-                    sql"INSERT INTO playlist_video (playlist_id, video_id) VALUES ('playlist', $videoId)".update.run
-                  }
-              }.transact(transactor)
+              List(youTubeId, spankBangId, youTubeId).traverse_ { videoId =>
+                sql"INSERT INTO playlist_video (playlist_id, video_id) VALUES ('playlist', $videoId)".update.run
+              }
+          }.transact(transactor)
 
-              _ <- IO.blocking(flyway(databaseConfiguration, "latest").migrate())
+          _ <- IO.blocking(flyway(databaseConfiguration, "latest").migrate())
 
-              rows <- sql"""
+          rows <- sql"""
                   SELECT video_id, position_index FROM playlist_video
                     WHERE playlist_id = 'playlist' ORDER BY position_index
                 """.query[(String, Int)].to[List].transact(transactor)
-            // Without a recorded order, the surviving videos are numbered by video ID
-            } yield rows mustBe List(spankBangId -> 0, youTubeId -> 1)
-        }
+          // Without a recorded order, the surviving videos are numbered by video ID
+        } yield rows mustBe List(spankBangId -> 0, youTubeId -> 1)
       }
+    }
 
-      s"V042 ($databaseName)" should "fail when api_user already holds duplicate emails" in runIO {
-        atVersion40(provider).use {
-          case (databaseConfiguration, transactor) =>
-            for {
-              _ <- {
-                DoobieUserDao.insert(ApiTestData.NormalUser) *>
-                  DoobieUserDao.insert(ApiTestData.NormalUser.copy(id = "duplicate-email-user"))
-              }.transact(transactor)
+    s"V042 ($databaseName)" should "fail when api_user already holds duplicate emails" in runIO {
+      atVersion40(provider).use { case (databaseConfiguration, transactor) =>
+        for {
+          _ <- {
+            DoobieUserDao.insert(ApiTestData.NormalUser) *>
+              DoobieUserDao.insert(ApiTestData.NormalUser.copy(id = "duplicate-email-user"))
+          }.transact(transactor)
 
-              result <- IO.blocking(Try(flyway(databaseConfiguration, "latest").migrate()))
-            } yield result.isFailure mustBe true
-        }
+          result <- IO.blocking(Try(flyway(databaseConfiguration, "latest").migrate()))
+        } yield result.isFailure mustBe true
       }
+    }
   }
 }

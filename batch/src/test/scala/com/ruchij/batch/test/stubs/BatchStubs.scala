@@ -22,9 +22,8 @@ import org.http4s.{MediaType, Uri}
 import java.time.Instant
 import scala.concurrent.duration.FiniteDuration
 
-/**
-  * Hand-written test doubles for the batch services. They return canned values and record the calls made to them,
-  * so specs can assert on the interactions without a mocking framework.
+/** Hand-written test doubles for the batch services. They return canned values and record the calls made to them, so
+  * specs can assert on the interactions without a mocking framework.
   */
 object BatchStubs {
 

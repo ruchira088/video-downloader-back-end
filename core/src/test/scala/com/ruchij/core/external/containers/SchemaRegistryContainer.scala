@@ -7,8 +7,7 @@ import com.ruchij.core.types.FunctionKTypes._
 import org.http4s.Uri
 import org.testcontainers.containers.{GenericContainer, Network}
 
-class SchemaRegistryContainer
-    extends GenericContainer[SchemaRegistryContainer]("confluentinc/cp-schema-registry:8.3.1")
+class SchemaRegistryContainer extends GenericContainer[SchemaRegistryContainer]("confluentinc/cp-schema-registry:8.3.1")
 
 object SchemaRegistryContainer {
   private val Port = 8081

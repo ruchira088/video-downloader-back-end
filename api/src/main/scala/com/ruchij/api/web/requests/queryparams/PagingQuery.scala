@@ -4,7 +4,10 @@ import cats.MonadThrow
 import cats.data.Kleisli
 import com.ruchij.core.exceptions.ValidationException
 import com.ruchij.api.web.requests.queryparams.QueryParameter.QueryParameters
-import com.ruchij.api.web.requests.queryparams.SingleValueQueryParameter.{PageNumberQueryParameter, PageSizeQueryParameter}
+import com.ruchij.api.web.requests.queryparams.SingleValueQueryParameter.{
+  PageNumberQueryParameter,
+  PageSizeQueryParameter
+}
 
 final case class PagingQuery(pageSize: Int, pageNumber: Int)
 

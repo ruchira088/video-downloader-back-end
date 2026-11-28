@@ -13,8 +13,10 @@ import scala.jdk.CollectionConverters._
 final case class ManifestEntry(hash: String, capturedAt: Instant)
 
 object ManifestEntry {
+
   /** Stands in for the hash of an item the reader can't parse. SyncHash is 16 hex characters, so this never matches:
-    * the reconcile then upserts the video if it still exists on the main side and removes it otherwise. */
+    * the reconcile then upserts the video if it still exists on the main side and removes it otherwise.
+    */
   val MalformedHash = "malformed"
 }
 
@@ -22,9 +24,10 @@ trait FallbackManifestReader[F[_]] {
   def manifest: F[Map[String, ManifestEntry]]
 }
 
-/** Scans the sparse GSI1, which holds exactly the live videos: the fallback gives a video item GSI1 attributes when
-  * it is live and drops them when it tombstones it (or while a new video's item is only a lock placeholder). The
-  * index projects every attribute, so the scan reads the hash and capturedAt from it directly. */
+/** Scans the sparse GSI1, which holds exactly the live videos: the fallback gives a video item GSI1 attributes when it
+  * is live and drops them when it tombstones it (or while a new video's item is only a lock placeholder). The index
+  * projects every attribute, so the scan reads the hash and capturedAt from it directly.
+  */
 class DynamoDbFallbackManifestReader[F[_]: Async](dynamoDbClient: DynamoDbAsyncClient, tableName: String)
     extends FallbackManifestReader[F] {
   private val logger = Logger[DynamoDbFallbackManifestReader[F]]
@@ -59,8 +62,9 @@ class DynamoDbFallbackManifestReader[F[_]: Async](dynamoDbClient: DynamoDbAsyncC
     } yield result
   }
 
-  /** An item whose hash or capturedAt is missing or unparseable stays in the manifest under `MalformedHash` instead
-    * of failing the scan or being skipped: skipped, a video gone from the main side would never be removed. */
+  /** An item whose hash or capturedAt is missing or unparseable stays in the manifest under `MalformedHash` instead of
+    * failing the scan or being skipped: skipped, a video gone from the main side would never be removed.
+    */
   private def entry(item: JMap[String, AttributeValue]): F[List[(String, ManifestEntry)]] = {
     def string(name: String): Option[String] = Option(item.get(name)).flatMap(value => Option(value.s()))
 

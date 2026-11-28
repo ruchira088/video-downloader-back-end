@@ -51,13 +51,11 @@ object KVDecoder {
     (value: String) => Applicative[F].pure(value)
 
   implicit def enumKVDecoder[F[_]: MonadThrow, A <: EnumEntry](implicit enumValues: Enum[A]): KVDecoder[F, A] =
-    stringKVDecoder[F].mapEither {
-      string => enumValues.withNameInsensitiveEither(string).left.map(_.getMessage)
+    stringKVDecoder[F].mapEither { string =>
+      enumValues.withNameInsensitiveEither(string).left.map(_.getMessage)
     }
 
-  implicit def numericKVDecoder[F[_]: MonadThrow, A: Numeric](
-    implicit classTag: ClassTag[A]
-  ): KVDecoder[F, A] =
+  implicit def numericKVDecoder[F[_]: MonadThrow, A: Numeric](implicit classTag: ClassTag[A]): KVDecoder[F, A] =
     stringKVDecoder[F].mapEither { value =>
       Numeric[A]
         .parseString(value)
@@ -73,53 +71,40 @@ object KVDecoder {
 
   // Reads a product written by KVEncoder.forProductN: the key separated terms are split among the fields by their term
   // counts, so a field may itself be a product
-  def forProduct2[F[_]: MonadThrow, A, B1, B2](construct: (B1, B2) => A)(
-    implicit decoder1: KVDecoder[F, B1],
-    decoder2: KVDecoder[F, B2]
-  ): KVDecoder[F, A] =
+  def forProduct2[F[_]: MonadThrow, A, B1, B2](
+    construct: (B1, B2) => A
+  )(implicit decoder1: KVDecoder[F, B1], decoder2: KVDecoder[F, B2]): KVDecoder[F, A] =
     product[F, A](List(decoder1.termCount, decoder2.termCount)) { fields =>
       (decoder1.decode(fields(0)), decoder2.decode(fields(1))).mapN(construct)
     }
 
-  def forProduct3[F[_]: MonadThrow, A, B1, B2, B3](construct: (B1, B2, B3) => A)(
-    implicit decoder1: KVDecoder[F, B1],
-    decoder2: KVDecoder[F, B2],
-    decoder3: KVDecoder[F, B3]
-  ): KVDecoder[F, A] =
+  def forProduct3[F[_]: MonadThrow, A, B1, B2, B3](
+    construct: (B1, B2, B3) => A
+  )(implicit decoder1: KVDecoder[F, B1], decoder2: KVDecoder[F, B2], decoder3: KVDecoder[F, B3]): KVDecoder[F, A] =
     product[F, A](List(decoder1.termCount, decoder2.termCount, decoder3.termCount)) { fields =>
       (decoder1.decode(fields(0)), decoder2.decode(fields(1)), decoder3.decode(fields(2))).mapN(construct)
     }
 
-  def forProduct4[F[_]: MonadThrow, A, B1, B2, B3, B4](construct: (B1, B2, B3, B4) => A)(
-    implicit decoder1: KVDecoder[F, B1],
+  def forProduct4[F[_]: MonadThrow, A, B1, B2, B3, B4](construct: (B1, B2, B3, B4) => A)(implicit
+    decoder1: KVDecoder[F, B1],
     decoder2: KVDecoder[F, B2],
     decoder3: KVDecoder[F, B3],
     decoder4: KVDecoder[F, B4]
   ): KVDecoder[F, A] =
     product[F, A](List(decoder1.termCount, decoder2.termCount, decoder3.termCount, decoder4.termCount)) { fields =>
-      (
-        decoder1.decode(fields(0)),
-        decoder2.decode(fields(1)),
-        decoder3.decode(fields(2)),
-        decoder4.decode(fields(3))
-      ).mapN(construct)
+      (decoder1.decode(fields(0)), decoder2.decode(fields(1)), decoder3.decode(fields(2)), decoder4.decode(fields(3)))
+        .mapN(construct)
     }
 
-  def forProduct5[F[_]: MonadThrow, A, B1, B2, B3, B4, B5](construct: (B1, B2, B3, B4, B5) => A)(
-    implicit decoder1: KVDecoder[F, B1],
+  def forProduct5[F[_]: MonadThrow, A, B1, B2, B3, B4, B5](construct: (B1, B2, B3, B4, B5) => A)(implicit
+    decoder1: KVDecoder[F, B1],
     decoder2: KVDecoder[F, B2],
     decoder3: KVDecoder[F, B3],
     decoder4: KVDecoder[F, B4],
     decoder5: KVDecoder[F, B5]
   ): KVDecoder[F, A] =
     product[F, A](
-      List(
-        decoder1.termCount,
-        decoder2.termCount,
-        decoder3.termCount,
-        decoder4.termCount,
-        decoder5.termCount
-      )
+      List(decoder1.termCount, decoder2.termCount, decoder3.termCount, decoder4.termCount, decoder5.termCount)
     ) { fields =>
       (
         decoder1.decode(fields(0)),
@@ -130,8 +115,8 @@ object KVDecoder {
       ).mapN(construct)
     }
 
-  def forProduct6[F[_]: MonadThrow, A, B1, B2, B3, B4, B5, B6](construct: (B1, B2, B3, B4, B5, B6) => A)(
-    implicit decoder1: KVDecoder[F, B1],
+  def forProduct6[F[_]: MonadThrow, A, B1, B2, B3, B4, B5, B6](construct: (B1, B2, B3, B4, B5, B6) => A)(implicit
+    decoder1: KVDecoder[F, B1],
     decoder2: KVDecoder[F, B2],
     decoder3: KVDecoder[F, B3],
     decoder4: KVDecoder[F, B4],

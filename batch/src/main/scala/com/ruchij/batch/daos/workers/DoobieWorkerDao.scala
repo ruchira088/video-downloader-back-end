@@ -116,8 +116,7 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
       .productR(getById(workerId))
   }
 
-  /**
-    * Only the owner may release a worker. If the worker was freed as stale and claimed by another instance in the
+  /** Only the owner may release a worker. If the worker was freed as stale and claimed by another instance in the
     * meantime, releasing it by id alone would wipe out the other instance's claim.
     */
   override def releaseWorker(workerId: String, owner: String): ConnectionIO[Option[Worker]] =
@@ -174,15 +173,14 @@ class DoobieWorkerDao(schedulingDao: SchedulingDao[ConnectionIO]) extends Worker
           }
       }
 
-  /**
-    * Every batch instance applies the same worker status update, at different times, so the update must be
-    * idempotent and must not undo the work that other instances have done since.
+  /** Every batch instance applies the same worker status update, at different times, so the update must be idempotent
+    * and must not undo the work that other instances have done since.
     *
-    *  - Pausing pauses every worker that is not already paused, or deleted. Its owner is removed, so the instance
-    *    running a download on it can neither release it nor keep it alive, and the worker stays paused.
-    *  - Resuming only resumes the paused workers. The workers that have been claimed since, by an instance that has
-    *    already resumed, are left alone.
-    *  - Deleted workers are never brought back.
+    *   - Pausing pauses every worker that is not already paused, or deleted. Its owner is removed, so the instance
+    *     running a download on it can neither release it nor keep it alive, and the worker stays paused.
+    *   - Resuming only resumes the paused workers. The workers that have been claimed since, by an instance that has
+    *     already resumed, are left alone.
+    *   - Deleted workers are never brought back.
     */
   override def updateWorkerStatuses(workerStatus: WorkerStatus): ConnectionIO[Seq[Worker]] = {
     val maybeCondition: Option[Fragment] =

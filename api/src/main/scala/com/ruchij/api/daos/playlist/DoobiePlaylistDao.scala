@@ -36,23 +36,21 @@ class DoobiePlaylistDao(fileResourceDao: FileResourceDao[ConnectionIO], videoDao
             )
     """.update.run
       .product(insertPlaylistVideos(playlist.id, playlist.videos.map(_.videoMetadata.id)))
-      .map {
-        case (playlistCount, videoCount) => playlistCount + videoCount
+      .map { case (playlistCount, videoCount) =>
+        playlistCount + videoCount
       }
 
   /** Inserts the videos in the given order, keeping only the first occurrence of a repeated video ID. */
   private def insertPlaylistVideos(playlistId: String, videoIds: Seq[String]): ConnectionIO[Int] =
     videoIds.distinct.zipWithIndex.toList
-      .traverse {
-        case (videoId, position) =>
-          sql"""
+      .traverse { case (videoId, position) =>
+        sql"""
             INSERT INTO playlist_video (playlist_id, video_id, position_index) VALUES ($playlistId, $videoId, $position)
           """.update.run
       }
       .map(_.sum)
 
-  /**
-    * Locks the playlist row until the end of the transaction, so that concurrent updates of the same playlist, which
+  /** Locks the playlist row until the end of the transaction, so that concurrent updates of the same playlist, which
     * replace all of its playlist_video rows, run one after the other instead of colliding on its unique constraints.
     */
   private def lockOwnedPlaylist(playlistId: String, maybeUserId: Option[String]): ConnectionIO[Boolean] =
@@ -63,8 +61,7 @@ class DoobiePlaylistDao(fileResourceDao: FileResourceDao[ConnectionIO], videoDao
       .option
       .map(_.nonEmpty)
 
-  /**
-    * Fails with a ResourceNotFoundException unless every video exists and, when a user ID is given, the user has
+  /** Fails with a ResourceNotFoundException unless every video exists and, when a user ID is given, the user has
     * permission for it.
     */
   private def checkVideoAccess(videoIds: Seq[String], maybeUserId: Option[String]): ConnectionIO[Unit] =
@@ -145,9 +142,8 @@ class DoobiePlaylistDao(fileResourceDao: FileResourceDao[ConnectionIO], videoDao
   ): ConnectionIO[Seq[Playlist]] =
     findPlaylists(
       whereAndOpt(
-        maybeSearchTerm.map(
-          searchTerm =>
-            fr"(playlist.title ILIKE ${"%" + searchTerm + "%"} OR playlist.description ILIKE ${"%" + searchTerm + "%"})"
+        maybeSearchTerm.map(searchTerm =>
+          fr"(playlist.title ILIKE ${"%" + searchTerm + "%"} OR playlist.description ILIKE ${"%" + searchTerm + "%"})"
         ),
         maybeUserId.map(userId => fr"playlist.user_id = $userId")
       ) ++
@@ -157,8 +153,7 @@ class DoobiePlaylistDao(fileResourceDao: FileResourceDao[ConnectionIO], videoDao
       maybeUserId
     ).widen[Seq[Playlist]]
 
-  /**
-    * Loads a set of playlists with three queries in total: the playlist rows (with their album art joined in), the
+  /** Loads a set of playlists with three queries in total: the playlist rows (with their album art joined in), the
     * playlist-to-video links, and the videos themselves. Videos are returned in their playlist order and, when a user
     * ID is given, only the videos that user has permission for are included.
     */
@@ -208,7 +203,9 @@ class DoobiePlaylistDao(fileResourceDao: FileResourceDao[ConnectionIO], videoDao
     sql"SELECT EXISTS(SELECT 1 FROM playlist WHERE album_art_id = $fileResourceId)".query[Boolean].unique
 
   override def hasAlbumArtPermission(fileResourceId: String, userId: String): ConnectionIO[Boolean] =
-    sql"SELECT EXISTS(SELECT 1 FROM playlist WHERE album_art_id = $fileResourceId AND user_id = $userId)".query[Boolean].unique
+    sql"SELECT EXISTS(SELECT 1 FROM playlist WHERE album_art_id = $fileResourceId AND user_id = $userId)"
+      .query[Boolean]
+      .unique
 
   override def deleteById(playlistId: String, maybeUserId: Option[String]): ConnectionIO[Int] =
     maybeUserId
@@ -223,8 +220,8 @@ class DoobiePlaylistDao(fileResourceDao: FileResourceDao[ConnectionIO], videoDao
             .product {
               sql"DELETE FROM playlist WHERE id = $playlistId".update.run
             }
-            .map {
-              case (playlistVideoDeletions, playlistDeletion) => playlistVideoDeletions + playlistDeletion
+            .map { case (playlistVideoDeletions, playlistDeletion) =>
+              playlistVideoDeletions + playlistDeletion
             }
         } else Applicative[ConnectionIO].pure(0)
       }

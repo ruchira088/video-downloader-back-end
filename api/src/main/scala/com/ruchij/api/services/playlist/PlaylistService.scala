@@ -41,6 +41,7 @@ trait PlaylistService[F[_]] {
 }
 
 object PlaylistService {
+
   /** The largest album art image accepted, in bytes */
   val MaxAlbumArtSize: Long = 10 * 1024 * 1024
 

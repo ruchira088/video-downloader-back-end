@@ -39,6 +39,9 @@ jobs:
             ${{ runner.os }}-${{ hashFiles('**/build.properties') }}
             ${{ runner.os }}
 
+      - name: Check formatting
+        run: sbt "scalafmtCheckAll; scalafmtSbtCheck"
+
       - name: Compile
         run: sbt "compile; Test / compile"
 

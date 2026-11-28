@@ -10,8 +10,8 @@ class VideoEnrichmentServiceSpec extends AnyFlatSpec with Matchers {
 
   "snapshotTimestamps" should "generate evenly spaced timestamps for snapshots" in {
     // Video with 13 minute duration (13 * 60 = 780 seconds)
-    val video = CoreTestData.YouTubeVideo.copy(
-      videoMetadata = CoreTestData.YouTubeVideo.videoMetadata.copy(duration = 780.seconds)
+    val video = CoreTestData.YouTubeVideo.copy(videoMetadata =
+      CoreTestData.YouTubeVideo.videoMetadata.copy(duration = 780.seconds)
     )
 
     val timestamps = VideoEnrichmentService.snapshotTimestamps(video, 12)
@@ -31,8 +31,8 @@ class VideoEnrichmentServiceSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "generate correct timestamps for short videos" in {
-    val shortVideo = CoreTestData.YouTubeVideo.copy(
-      videoMetadata = CoreTestData.YouTubeVideo.videoMetadata.copy(duration = 26.seconds)
+    val shortVideo = CoreTestData.YouTubeVideo.copy(videoMetadata =
+      CoreTestData.YouTubeVideo.videoMetadata.copy(duration = 26.seconds)
     )
 
     val timestamps = VideoEnrichmentService.snapshotTimestamps(shortVideo, 12)
@@ -45,9 +45,8 @@ class VideoEnrichmentServiceSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "generate correct timestamps for very long videos" in {
-    val longVideo = CoreTestData.YouTubeVideo.copy(
-      videoMetadata = CoreTestData.YouTubeVideo.videoMetadata.copy(duration = 2.hours)
-    )
+    val longVideo =
+      CoreTestData.YouTubeVideo.copy(videoMetadata = CoreTestData.YouTubeVideo.videoMetadata.copy(duration = 2.hours))
 
     val timestamps = VideoEnrichmentService.snapshotTimestamps(longVideo, 12)
 
@@ -60,8 +59,8 @@ class VideoEnrichmentServiceSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "handle single snapshot request" in {
-    val video = CoreTestData.YouTubeVideo.copy(
-      videoMetadata = CoreTestData.YouTubeVideo.videoMetadata.copy(duration = 100.seconds)
+    val video = CoreTestData.YouTubeVideo.copy(videoMetadata =
+      CoreTestData.YouTubeVideo.videoMetadata.copy(duration = 100.seconds)
     )
 
     val timestamps = VideoEnrichmentService.snapshotTimestamps(video, 1)
@@ -84,8 +83,8 @@ class VideoEnrichmentServiceSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "never include timestamp 0" in {
-    val video = CoreTestData.YouTubeVideo.copy(
-      videoMetadata = CoreTestData.YouTubeVideo.videoMetadata.copy(duration = 120.seconds)
+    val video = CoreTestData.YouTubeVideo.copy(videoMetadata =
+      CoreTestData.YouTubeVideo.videoMetadata.copy(duration = 120.seconds)
     )
 
     val timestamps = VideoEnrichmentService.snapshotTimestamps(video, 5)
@@ -95,8 +94,8 @@ class VideoEnrichmentServiceSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "never include timestamp at or beyond video duration" in {
-    val video = CoreTestData.YouTubeVideo.copy(
-      videoMetadata = CoreTestData.YouTubeVideo.videoMetadata.copy(duration = 100.seconds)
+    val video = CoreTestData.YouTubeVideo.copy(videoMetadata =
+      CoreTestData.YouTubeVideo.videoMetadata.copy(duration = 100.seconds)
     )
 
     val timestamps = VideoEnrichmentService.snapshotTimestamps(video, 10)
@@ -105,8 +104,8 @@ class VideoEnrichmentServiceSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "return two evenly spaced timestamps for 2 snapshots" in {
-    val video = CoreTestData.YouTubeVideo.copy(
-      videoMetadata = CoreTestData.YouTubeVideo.videoMetadata.copy(duration = 90.seconds)
+    val video = CoreTestData.YouTubeVideo.copy(videoMetadata =
+      CoreTestData.YouTubeVideo.videoMetadata.copy(duration = 90.seconds)
     )
 
     val timestamps = VideoEnrichmentService.snapshotTimestamps(video, 2)
@@ -118,8 +117,8 @@ class VideoEnrichmentServiceSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "handle millisecond precision" in {
-    val video = CoreTestData.YouTubeVideo.copy(
-      videoMetadata = CoreTestData.YouTubeVideo.videoMetadata.copy(duration = 1300.millis)
+    val video = CoreTestData.YouTubeVideo.copy(videoMetadata =
+      CoreTestData.YouTubeVideo.videoMetadata.copy(duration = 1300.millis)
     )
 
     val timestamps = VideoEnrichmentService.snapshotTimestamps(video, 12)
@@ -131,8 +130,8 @@ class VideoEnrichmentServiceSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "work correctly with different snapshot counts" in {
-    val video = CoreTestData.YouTubeVideo.copy(
-      videoMetadata = CoreTestData.YouTubeVideo.videoMetadata.copy(duration = 100.seconds)
+    val video = CoreTestData.YouTubeVideo.copy(videoMetadata =
+      CoreTestData.YouTubeVideo.videoMetadata.copy(duration = 100.seconds)
     )
 
     for (count <- 1 to 20) {

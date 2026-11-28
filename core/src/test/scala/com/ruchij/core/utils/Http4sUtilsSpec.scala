@@ -11,10 +11,7 @@ import org.scalatest.matchers.must.Matchers
 class Http4sUtilsSpec extends AnyFlatSpec with Matchers {
 
   "Http4sUtils.header" should "extract Content-Length header from response" in runIO {
-    val response = Response[IO](
-      status = Status.Ok,
-      headers = Headers(`Content-Length`.unsafeFromLong(1024L))
-    )
+    val response = Response[IO](status = Status.Ok, headers = Headers(`Content-Length`.unsafeFromLong(1024L)))
 
     Http4sUtils.header[IO, `Content-Length`].run(response).map { contentLength =>
       contentLength.length mustBe 1024L
@@ -22,10 +19,7 @@ class Http4sUtilsSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "extract Content-Type header from response" in runIO {
-    val response = Response[IO](
-      status = Status.Ok,
-      headers = Headers(`Content-Type`(MediaType.video.mp4))
-    )
+    val response = Response[IO](status = Status.Ok, headers = Headers(`Content-Type`(MediaType.video.mp4)))
 
     Http4sUtils.header[IO, `Content-Type`].run(response).map { contentType =>
       contentType.mediaType mustBe MediaType.video.mp4
@@ -33,10 +27,7 @@ class Http4sUtilsSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "raise ExternalServiceException when header is missing" in runIO {
-    val response = Response[IO](
-      status = Status.Ok,
-      headers = Headers.empty
-    )
+    val response = Response[IO](status = Status.Ok, headers = Headers.empty)
 
     Http4sUtils.header[IO, `Content-Length`].run(response).attempt.map { result =>
       result.isLeft mustBe true
@@ -46,10 +37,7 @@ class Http4sUtilsSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "include existing headers in error message" in runIO {
-    val response = Response[IO](
-      status = Status.Ok,
-      headers = Headers(`Content-Type`(MediaType.video.mp4))
-    )
+    val response = Response[IO](status = Status.Ok, headers = Headers(`Content-Type`(MediaType.video.mp4)))
 
     Http4sUtils.header[IO, `Content-Length`].run(response).attempt.map { result =>
       result.isLeft mustBe true
@@ -60,10 +48,7 @@ class Http4sUtilsSpec extends AnyFlatSpec with Matchers {
   it should "work with responses containing multiple headers" in runIO {
     val response = Response[IO](
       status = Status.Ok,
-      headers = Headers(
-        `Content-Length`.unsafeFromLong(2048L),
-        `Content-Type`(MediaType.video.webm)
-      )
+      headers = Headers(`Content-Length`.unsafeFromLong(2048L), `Content-Type`(MediaType.video.webm))
     )
 
     for {

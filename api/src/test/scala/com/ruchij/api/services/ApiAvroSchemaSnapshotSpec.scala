@@ -7,7 +7,4 @@ import com.ruchij.core.messaging.AvroSchemaSnapshotSpec
 
 // Add every new MessagingTopic defined in api here, so that its schema is snapshotted too
 class ApiAvroSchemaSnapshotSpec
-    extends AvroSchemaSnapshotSpec(
-      "api",
-      List(ScheduledVideoDeletionTopic, HealthCheckTopic, FallbackSyncRequestTopic)
-    )
+    extends AvroSchemaSnapshotSpec("api", List(ScheduledVideoDeletionTopic, HealthCheckTopic, FallbackSyncRequestTopic))

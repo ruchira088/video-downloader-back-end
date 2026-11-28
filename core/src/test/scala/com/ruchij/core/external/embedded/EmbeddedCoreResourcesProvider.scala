@@ -33,8 +33,8 @@ class EmbeddedCoreResourcesProvider[F[_]: Sync] extends CoreResourcesProvider[F]
       embeddedKafkaWithSR <- Resource.make(
         Sync[F]
           .blocking(
-            EmbeddedKafka.start()(
-              using EmbeddedKafkaSchemaRegistryConfig(kafkaPort = kafkaPort, schemaRegistryPort = schemaRegistryPort)
+            EmbeddedKafka.start()(using
+              EmbeddedKafkaSchemaRegistryConfig(kafkaPort = kafkaPort, schemaRegistryPort = schemaRegistryPort)
             )
           )
       ) { kafka =>

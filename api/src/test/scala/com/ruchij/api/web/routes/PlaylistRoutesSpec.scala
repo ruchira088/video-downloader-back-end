@@ -29,22 +29,10 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   private val testTimestamp = TimeUtils.instantOf(2022, 8, 1, 10, 10)
   private val expiresAt = testTimestamp.plus(java.time.Duration.ofDays(45))
   private val testSecret = Secret("test-secret-uuid")
-  private val adminToken = AuthenticationToken(
-    ApiTestData.AdminUser.id,
-    testSecret,
-    expiresAt,
-    testTimestamp,
-    0,
-    testTimestamp
-  )
-  private val normalUserToken = AuthenticationToken(
-    ApiTestData.NormalUser.id,
-    testSecret,
-    expiresAt,
-    testTimestamp,
-    0,
-    testTimestamp
-  )
+  private val adminToken =
+    AuthenticationToken(ApiTestData.AdminUser.id, testSecret, expiresAt, testTimestamp, 0, testTimestamp)
+  private val normalUserToken =
+    AuthenticationToken(ApiTestData.NormalUser.id, testSecret, expiresAt, testTimestamp, 0, testTimestamp)
 
   private val testPlaylist = Playlist(
     id = "playlist-123",
@@ -56,9 +44,7 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
     albumArt = None
   )
 
-  private def authHeaders = org.http4s.Headers(
-    Authorization(Credentials.Token(AuthScheme.Bearer, testSecret.value))
-  )
+  private def authHeaders = org.http4s.Headers(Authorization(Credentials.Token(AuthScheme.Bearer, testSecret.value)))
 
   "POST /playlist" should "create a new playlist successfully" in runIO {
     (authenticationService.authenticate)
@@ -83,11 +69,8 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
     ignoreHttpMetrics() *>
       createRoutes()
         .run(
-          Request[IO](
-            method = POST,
-            uri = uri"/playlists",
-            headers = authHeaders
-          ).withEntity(json"""{"title": "My Playlist", "description": "Test description"}""")
+          Request[IO](method = POST, uri = uri"/playlists", headers = authHeaders)
+            .withEntity(json"""{"title": "My Playlist", "description": "Test description"}""")
         )
         .flatMap { response =>
           IO.delay {
@@ -110,11 +93,8 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
     ignoreHttpMetrics() *>
       createRoutes()
         .run(
-          Request[IO](
-            method = POST,
-            uri = uri"/playlists",
-            headers = authHeaders
-          ).withEntity(json"""{"title": "My Playlist"}""")
+          Request[IO](method = POST, uri = uri"/playlists", headers = authHeaders)
+            .withEntity(json"""{"title": "My Playlist"}""")
         )
         .flatMap { response =>
           IO.delay {
@@ -126,12 +106,7 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   it should "return unauthorized when not authenticated" in runIO {
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          POST(
-            json"""{"title": "My Playlist"}""",
-            uri"/playlists"
-          )
-        )
+        .run(POST(json"""{"title": "My Playlist"}""", uri"/playlists"))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.Unauthorized)
@@ -150,13 +125,7 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/playlists",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/playlists", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must beJsonContentType
@@ -176,13 +145,7 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/playlists?search-term=test",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/playlists?search-term=test", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.Ok)
@@ -237,13 +200,7 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/playlists/id/playlist-123",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/playlists/id/playlist-123", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must beJsonContentType
@@ -264,13 +221,7 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/playlists/id/nonexistent-playlist",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/playlists/id/nonexistent-playlist", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.NotFound)
@@ -286,17 +237,20 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
     val updatedPlaylist = testPlaylist.copy(title = "Updated Title", description = Some("Updated description"))
 
     (playlistService.updatePlaylist)
-      .expects("playlist-123", Some("Updated Title"), Some("Updated description"), None, Some(ApiTestData.NormalUser.id))
+      .expects(
+        "playlist-123",
+        Some("Updated Title"),
+        Some("Updated description"),
+        None,
+        Some(ApiTestData.NormalUser.id)
+      )
       .returns(IO.pure(updatedPlaylist))
 
     ignoreHttpMetrics() *>
       createRoutes()
         .run(
-          Request[IO](
-            method = PUT,
-            uri = uri"/playlists/id/playlist-123",
-            headers = authHeaders
-          ).withEntity(json"""{"title": "Updated Title", "description": "Updated description"}""")
+          Request[IO](method = PUT, uri = uri"/playlists/id/playlist-123", headers = authHeaders)
+            .withEntity(json"""{"title": "Updated Title", "description": "Updated description"}""")
         )
         .flatMap { response =>
           IO.delay {
@@ -319,11 +273,8 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
     ignoreHttpMetrics() *>
       createRoutes()
         .run(
-          Request[IO](
-            method = PUT,
-            uri = uri"/playlists/id/playlist-123",
-            headers = authHeaders
-          ).withEntity(json"""{"videoIds": ["video-1", "video-2"]}""")
+          Request[IO](method = PUT, uri = uri"/playlists/id/playlist-123", headers = authHeaders)
+            .withEntity(json"""{"videoIds": ["video-1", "video-2"]}""")
         )
         .flatMap { response =>
           IO.delay {
@@ -343,13 +294,7 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = DELETE,
-            uri = uri"/playlists/id/playlist-123",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = DELETE, uri = uri"/playlists/id/playlist-123", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.Ok)
@@ -375,9 +320,7 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
       multipart <- Multiparts.forSync[IO].flatMap { multiparts =>
         multiparts.multipart(
-          Vector(
-            Part.fileData[IO]("image", "cover.png", Stream.emits(imageBytes), `Content-Type`(MediaType.image.png))
-          )
+          Vector(Part.fileData[IO]("image", "cover.png", Stream.emits(imageBytes), `Content-Type`(MediaType.image.png)))
         )
       }
 
@@ -408,13 +351,7 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = DELETE,
-            uri = uri"/playlists/id/playlist-123/album-art",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = DELETE, uri = uri"/playlists/id/playlist-123/album-art", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.Ok)
@@ -433,13 +370,7 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/playlists",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/playlists", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.Ok)

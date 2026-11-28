@@ -59,15 +59,14 @@ abstract class DoobieSchedulingDaoTransitionSpec(databaseConfiguration: Resource
   private def transaction: ConnectionIO ~> IO = transactionAndRelease._1
 
   override protected def beforeAll(): Unit =
-    transactionAndRelease =
-      databaseConfiguration
-        .evalTap { dbConfig =>
-          MigrationApp.migration[IO](MigrationServiceConfiguration(dbConfig, AdminConfiguration("dummy-hash")))
-        }
-        .flatMap(DoobieTransactor.create[IO])
-        .map(_.trans)
-        .allocated
-        .unsafeRunSync()
+    transactionAndRelease = databaseConfiguration
+      .evalTap { dbConfig =>
+        MigrationApp.migration[IO](MigrationServiceConfiguration(dbConfig, AdminConfiguration("dummy-hash")))
+      }
+      .flatMap(DoobieTransactor.create[IO])
+      .map(_.trans)
+      .allocated
+      .unsafeRunSync()
 
   override protected def afterAll(): Unit =
     Option(transactionAndRelease).foreach { case (_, release) => release.unsafeRunSync() }
@@ -92,7 +91,9 @@ abstract class DoobieSchedulingDaoTransitionSpec(databaseConfiguration: Resource
       for {
         _ <- DoobieFileResourceDao.insert(thumbnail)
         _ <- DoobieVideoMetadataDao.insert(videoMetadata)
-        _ <- DoobieSchedulingDao.insert(ScheduledVideoDownload(ScheduledAt, ScheduledAt, status, 0, videoMetadata, None, None))
+        _ <- DoobieSchedulingDao.insert(
+          ScheduledVideoDownload(ScheduledAt, ScheduledAt, status, 0, videoMetadata, None, None)
+        )
       } yield videoId
     }
   }
@@ -124,7 +125,11 @@ abstract class DoobieSchedulingDaoTransitionSpec(databaseConfiguration: Resource
   "transitionSchedulingStatusById" should "update the status when the current status is one of the allowed sources" in runIO {
     for {
       videoId <- insertScheduledVideo(SchedulingStatus.Queued)
-      result <- transition(videoId, NonEmptyList.of(SchedulingStatus.Paused, SchedulingStatus.Queued), SchedulingStatus.Paused)
+      result <- transition(
+        videoId,
+        NonEmptyList.of(SchedulingStatus.Paused, SchedulingStatus.Queued),
+        SchedulingStatus.Paused
+      )
       stored <- getById(videoId)
     } yield {
       result.value.status mustBe SchedulingStatus.Paused
@@ -137,7 +142,11 @@ abstract class DoobieSchedulingDaoTransitionSpec(databaseConfiguration: Resource
   it should "leave the row untouched and return None when the current status is not an allowed source" in runIO {
     for {
       videoId <- insertScheduledVideo(SchedulingStatus.Completed)
-      result <- transition(videoId, NonEmptyList.of(SchedulingStatus.Queued, SchedulingStatus.Active), SchedulingStatus.Paused)
+      result <- transition(
+        videoId,
+        NonEmptyList.of(SchedulingStatus.Queued, SchedulingStatus.Active),
+        SchedulingStatus.Paused
+      )
       stored <- getById(videoId)
     } yield {
       result mustBe None
@@ -159,9 +168,16 @@ abstract class DoobieSchedulingDaoTransitionSpec(databaseConfiguration: Resource
         DoobieSchedulingDao.scheduleRetry(videoId, new Exception("first"), ScheduledAt.plusSeconds(60), ScheduledAt)
       }
       _ <- transaction {
-        DoobieSchedulingDao.scheduleRetry(videoId, new Exception("second"), ScheduledAt.plusSeconds(120), ScheduledAt.plusSeconds(1))
+        DoobieSchedulingDao.scheduleRetry(
+          videoId,
+          new Exception("second"),
+          ScheduledAt.plusSeconds(120),
+          ScheduledAt.plusSeconds(1)
+        )
       }
-      errored <- transaction(DoobieSchedulingDao.setErrorById(videoId, new Exception("final"), ScheduledAt.plusSeconds(2)))
+      errored <- transaction(
+        DoobieSchedulingDao.setErrorById(videoId, new Exception("final"), ScheduledAt.plusSeconds(2))
+      )
       result <- transition(videoId, NonEmptyList.of(SchedulingStatus.Error), SchedulingStatus.Queued)
     } yield {
       errored.value.status mustBe SchedulingStatus.Error

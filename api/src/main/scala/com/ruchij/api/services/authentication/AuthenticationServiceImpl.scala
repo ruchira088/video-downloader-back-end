@@ -38,8 +38,9 @@ class AuthenticationServiceImpl[F[_]: Async: Clock: RandomGenerator.Of[Secret], 
       }
 
       isAuthenticated <- passwordHashingService.checkPassword(password, credentials.hashedPassword)
-      _ <- if (isAuthenticated) Applicative[F].unit
-      else MonadThrow[F].raiseError(AuthenticationException("Invalid password"))
+      _ <-
+        if (isAuthenticated) Applicative[F].unit
+        else MonadThrow[F].raiseError(AuthenticationException("Invalid password"))
 
       timestamp <- Clock[F].timestamp
       secret <- RandomGenerator[F, Secret].generate
@@ -62,15 +63,16 @@ class AuthenticationServiceImpl[F[_]: Async: Clock: RandomGenerator.Of[Secret], 
         case AuthenticationToken(userId, secret, expiresAt, issuedAt, renewals, credentialsLastUpdatedAt) =>
           for {
             timestamp <- Clock[F].timestamp
-            _ <- if (timestamp.isBefore(expiresAt)) Applicative[F].unit
-            else
-              keySpacedKeyValueStore
-                .remove(AuthenticationTokenKey(secret))
-                .productR {
-                  MonadThrow[F].raiseError {
-                    AuthenticationException(s"Authentication token expired at $expiresAt")
+            _ <-
+              if (timestamp.isBefore(expiresAt)) Applicative[F].unit
+              else
+                keySpacedKeyValueStore
+                  .remove(AuthenticationTokenKey(secret))
+                  .productR {
+                    MonadThrow[F].raiseError {
+                      AuthenticationException(s"Authentication token expired at $expiresAt")
+                    }
                   }
-                }
 
             (maybeUser, maybeCredentials) <- transaction {
               userDao.findById(userId).product(credentialsDao.findCredentialsByUserId(userId))
@@ -78,12 +80,13 @@ class AuthenticationServiceImpl[F[_]: Async: Clock: RandomGenerator.Of[Secret], 
 
             // Tokens are bound to the credentials verified at login, so updating them (e.g. a password reset) revokes
             // every token issued for the previous credentials
-            _ <- if (maybeCredentials.exists(_.lastUpdatedAt == credentialsLastUpdatedAt))
-              Applicative[F].unit
-            else
-              keySpacedKeyValueStore
-                .remove(AuthenticationTokenKey(secret))
-                .productR(MonadThrow[F].raiseError(AuthenticationException.RevokedAuthenticationToken))
+            _ <-
+              if (maybeCredentials.exists(_.lastUpdatedAt == credentialsLastUpdatedAt))
+                Applicative[F].unit
+              else
+                keySpacedKeyValueStore
+                  .remove(AuthenticationTokenKey(secret))
+                  .productR(MonadThrow[F].raiseError(AuthenticationException.RevokedAuthenticationToken))
 
             user <- OptionT.fromOption[F](maybeUser).getOrRaise(ResourceNotFoundException(s"User not found id=$userId"))
 

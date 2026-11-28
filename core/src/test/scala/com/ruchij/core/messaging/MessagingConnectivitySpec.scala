@@ -28,7 +28,8 @@ class MessagingConnectivitySpec extends AnyFlatSpec with Matchers {
   it should "ping Redis and fail when the messaging Redis server stops" in runIO {
     ContainerCoreResourcesProvider.start[IO, RedisTestContainer](new RedisContainer()).use { container =>
       val config = RedisConfiguration(container.getHost, container.getRedisPort, None)
-      PubSub.provider[IO](PubsubConfiguration(PubsubType.Redis, None, Some(config), None))
+      PubSub
+        .provider[IO](PubsubConfiguration(PubsubType.Redis, None, Some(config), None))
         .flatMap(_.connectivityCheck)
         .use { check =>
           for {
@@ -42,22 +43,25 @@ class MessagingConnectivitySpec extends AnyFlatSpec with Matchers {
   }
 
   it should "query Kafka metadata without Schema Registry and fail when the broker stops" in runIO {
-    ContainerCoreResourcesProvider.start[IO, ConfluentKafkaContainer] {
-      new ConfluentKafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:8.3.1"))
-    }.use { container =>
-      // The registry is deliberately absent: this check tests broker connectivity without serializing messages.
-      val config =
-        KafkaConfiguration("health", container.getBootstrapServers, Uri.unsafeFromString("http://localhost:1"))
-      PubSub.provider[IO](PubsubConfiguration(PubsubType.Kafka, Some(config), None, None))
-        .flatMap(_.connectivityCheck)
-        .use { check =>
-          for {
-            _ <- check.timeout(5.seconds)
-            _ <- IO.blocking(container.stop())
-            result <- check.timeout(3.seconds).attempt
-            _ <- IO(result.isLeft mustBe true)
-          } yield ()
-        }
-    }
+    ContainerCoreResourcesProvider
+      .start[IO, ConfluentKafkaContainer] {
+        new ConfluentKafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:8.3.1"))
+      }
+      .use { container =>
+        // The registry is deliberately absent: this check tests broker connectivity without serializing messages.
+        val config =
+          KafkaConfiguration("health", container.getBootstrapServers, Uri.unsafeFromString("http://localhost:1"))
+        PubSub
+          .provider[IO](PubsubConfiguration(PubsubType.Kafka, Some(config), None, None))
+          .flatMap(_.connectivityCheck)
+          .use { check =>
+            for {
+              _ <- check.timeout(5.seconds)
+              _ <- IO.blocking(container.stop())
+              result <- check.timeout(3.seconds).attempt
+              _ <- IO(result.isLeft mustBe true)
+            } yield ()
+          }
+      }
   }
 }

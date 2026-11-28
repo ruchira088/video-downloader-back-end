@@ -1,7 +1,15 @@
 package com.ruchij.batch.config
 
 import cats.effect.IO
-import com.ruchij.core.config.{HttpProxyConfiguration, KafkaConfiguration, PubsubConfiguration, RedisConfiguration, SentryConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
+import com.ruchij.core.config.{
+  HttpProxyConfiguration,
+  KafkaConfiguration,
+  PubsubConfiguration,
+  RedisConfiguration,
+  SentryConfiguration,
+  SpaSiteRendererConfiguration,
+  StorageConfiguration
+}
 import com.ruchij.core.messaging.PubSub.PubsubType
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.migration.config.DatabaseConfiguration
@@ -95,19 +103,27 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
       BatchServiceConfiguration(
         StorageConfiguration("./videos", "./images", List("./video-folder-1", "./video-folder-2")),
         WorkerConfiguration(10, java.time.LocalTime.MIDNIGHT, java.time.LocalTime.MIDNIGHT, "test-suite"),
-        DatabaseConfiguration("jdbc:h2:mem:video-downloader;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false", "my-user", "my-password"),
-        PubsubConfiguration(PubsubType.Kafka, Some(KafkaConfiguration("local", "kafka-cluster:9092", uri"http://kafka-cluster:8081")), None, None),
+        DatabaseConfiguration(
+          "jdbc:h2:mem:video-downloader;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false",
+          "my-user",
+          "my-password"
+        ),
+        PubsubConfiguration(
+          PubsubType.Kafka,
+          Some(KafkaConfiguration("local", "kafka-cluster:9092", uri"http://kafka-cluster:8081")),
+          None,
+          None
+        ),
         RedisConfiguration("localhost", 6379, Some("redis-password")),
         SpaSiteRendererConfiguration(uri"http://spa-renderer-service:8000"),
         SentryConfiguration(Some("https://key@sentry.io/456"), "test", 0.5),
         None
       )
 
-    BatchServiceConfiguration.parse[IO](ConfigSource.string(configSource)).flatMap {
-      batchServiceConfiguration =>
-        IO.delay {
-          batchServiceConfiguration mustBe expectedBatchServiceConfiguration
-        }
+    BatchServiceConfiguration.parse[IO](ConfigSource.string(configSource)).flatMap { batchServiceConfiguration =>
+      IO.delay {
+        batchServiceConfiguration mustBe expectedBatchServiceConfiguration
+      }
     }
   }
 
@@ -265,7 +281,8 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
       invalid = "config"
     """
 
-    BatchServiceConfiguration.parse[IO](ConfigSource.string(invalidConfig))
+    BatchServiceConfiguration
+      .parse[IO](ConfigSource.string(invalidConfig))
       .attempt
       .flatMap { result =>
         IO.delay {
@@ -281,7 +298,8 @@ class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
       }
     """
 
-    BatchServiceConfiguration.parse[IO](ConfigSource.string(incompleteConfig))
+    BatchServiceConfiguration
+      .parse[IO](ConfigSource.string(incompleteConfig))
       .attempt
       .flatMap { result =>
         IO.delay {

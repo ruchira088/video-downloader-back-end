@@ -15,31 +15,29 @@ import scala.concurrent.duration.FiniteDuration
 object MetricsMiddleware {
 
   def apply[F[_]: Clock: Monad](metricPublisher: Publisher[F, HttpMetric])(http: HttpApp[F]): HttpApp[F] =
-    Kleisli[F, Request[F], Response[F]] {
-      request =>
-        for {
-          startTime <- Clock[F].timestamp
+    Kleisli[F, Request[F], Response[F]] { request =>
+      for {
+        startTime <- Clock[F].timestamp
 
-          response <- http.run(request)
+        response <- http.run(request)
 
-          endTime <- Clock[F].timestamp
+        endTime <- Clock[F].timestamp
 
-          maybeContentType = response.headers.get[`Content-Type`].map(_.mediaType)
-          maybeContentLength = response.headers.get[`Content-Length`].map(_.length)
+        maybeContentType = response.headers.get[`Content-Type`].map(_.mediaType)
+        maybeContentLength = response.headers.get[`Content-Length`].map(_.length)
 
-          _ <-
-            metricPublisher.publishOne {
-              HttpMetric(
-                request.method,
-                request.uri,
-                FiniteDuration(endTime.toEpochMilli - startTime.toEpochMilli, TimeUnit.MILLISECONDS),
-                response.status,
-                maybeContentType,
-                maybeContentLength
-              )
-            }
-        }
-        yield response
+        _ <-
+          metricPublisher.publishOne {
+            HttpMetric(
+              request.method,
+              request.uri,
+              FiniteDuration(endTime.toEpochMilli - startTime.toEpochMilli, TimeUnit.MILLISECONDS),
+              response.status,
+              maybeContentType,
+              maybeContentLength
+            )
+          }
+      } yield response
 
     }
 

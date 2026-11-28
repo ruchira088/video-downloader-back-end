@@ -21,7 +21,9 @@ import org.http4s.dsl.Http4sDsl
 
 object PlaylistRoutes {
 
-  def apply[F[_]: Async](playlistService: PlaylistService[F])(implicit dsl: Http4sDsl[F]): ContextRoutes[AuthenticatedRequestContext, F] = {
+  def apply[F[_]: Async](
+    playlistService: PlaylistService[F]
+  )(implicit dsl: Http4sDsl[F]): ContextRoutes[AuthenticatedRequestContext, F] = {
     import dsl._
 
     ContextRoutes.of[AuthenticatedRequestContext, F] {
@@ -47,7 +49,9 @@ object PlaylistRoutes {
               user.nonAdminUserId
             )
 
-          response <- Ok(PagingResponse(playlists, pageQuery.pageSize, pageQuery.pageNumber, pageQuery.order, pageQuery.maybeSortBy))
+          response <- Ok(
+            PagingResponse(playlists, pageQuery.pageSize, pageQuery.pageNumber, pageQuery.order, pageQuery.maybeSortBy)
+          )
         } yield response
 
       case GET -> Root / "id" / playlistId as AuthenticatedRequestContext(user, _) =>
@@ -58,16 +62,31 @@ object PlaylistRoutes {
 
       case contextRequest @ PUT -> Root / "id" / playlistId as AuthenticatedRequestContext(user, _) =>
         for {
-          UpdatePlaylistRequest(maybeTitle, maybeDescription, maybeVideoIdList) <- contextRequest.to[UpdatePlaylistRequest]
-          playlist <- playlistService.updatePlaylist(playlistId, maybeTitle, maybeDescription, maybeVideoIdList, user.nonAdminUserId)
+          UpdatePlaylistRequest(maybeTitle, maybeDescription, maybeVideoIdList) <- contextRequest
+            .to[UpdatePlaylistRequest]
+          playlist <- playlistService.updatePlaylist(
+            playlistId,
+            maybeTitle,
+            maybeDescription,
+            maybeVideoIdList,
+            user.nonAdminUserId
+          )
           response <- Ok(playlist)
-        }
-        yield response
+        } yield response
 
       case authRequest @ PUT -> Root / "id" / playlistId / "album-art" as AuthenticatedRequestContext(user, _) =>
         // FileAsset's multipart decoder, which circe's JSON entity decoder in scope would otherwise shadow
-        authRequest.to[FileAsset[F]](using FileAsset.fileAssetDecoder[F], summon)
-          .flatMap { fileAsset => playlistService.addAlbumArt(playlistId, fileAsset.fileName, fileAsset.mediaType, fileAsset.data, user.nonAdminUserId) }
+        authRequest
+          .to[FileAsset[F]](using FileAsset.fileAssetDecoder[F], summon)
+          .flatMap { fileAsset =>
+            playlistService.addAlbumArt(
+              playlistId,
+              fileAsset.fileName,
+              fileAsset.mediaType,
+              fileAsset.data,
+              user.nonAdminUserId
+            )
+          }
           .flatMap(playlist => Ok(playlist))
 
       case DELETE -> Root / "id" / playlistId / "album-art" as AuthenticatedRequestContext(user, _) =>

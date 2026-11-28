@@ -14,9 +14,7 @@ class RequestContextMiddlewareSpec extends AnyFlatSpec with Matchers {
 
   private def testContextHttpApp: Kleisli[IO, ContextRequest[IO, RequestContext], Response[IO]] =
     Kleisli { contextRequest =>
-      IO.pure(Response[IO](Status.Ok).withHeaders(
-        `X-Request-ID`(contextRequest.context.requestId)
-      ))
+      IO.pure(Response[IO](Status.Ok).withHeaders(`X-Request-ID`(contextRequest.context.requestId)))
     }
 
   "RequestContextMiddleware" should "generate a request ID when none is provided" in runIO {
@@ -81,9 +79,7 @@ class RequestContextMiddlewareSpec extends AnyFlatSpec with Matchers {
   it should "preserve existing response headers" in runIO {
     val responseWithCustomHeader: Kleisli[IO, ContextRequest[IO, RequestContext], Response[IO]] =
       Kleisli { _ =>
-        IO.pure(Response[IO](Status.Ok).putHeaders(
-          org.http4s.headers.`Content-Type`(MediaType.application.json)
-        ))
+        IO.pure(Response[IO](Status.Ok).putHeaders(org.http4s.headers.`Content-Type`(MediaType.application.json)))
       }
 
     val httpApp = RequestContextMiddleware[IO](responseWithCustomHeader)

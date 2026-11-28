@@ -472,11 +472,13 @@ class VideoSiteSpec extends AnyFlatSpec with Matchers {
       (CustomVideoSite.HdZog, uri"https://hdzog.com/video/123")
     )
 
-    sites.traverse { case (site, siteUri) =>
-      val webPage = WebPage(siteUri, document)
-      site.title[IO].run(webPage).map { title =>
-        title mustBe "Network Video"
+    sites
+      .traverse { case (site, siteUri) =>
+        val webPage = WebPage(siteUri, document)
+        site.title[IO].run(webPage).map { title =>
+          title mustBe "Network Video"
+        }
       }
-    }.map(_ => succeed)
+      .map(_ => succeed)
   }
 }

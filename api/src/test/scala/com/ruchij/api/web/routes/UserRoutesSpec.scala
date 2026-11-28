@@ -27,14 +27,8 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   private val testTimestamp = TimeUtils.instantOf(2022, 8, 1, 10, 10)
   private val expiresAt = testTimestamp.plus(java.time.Duration.ofDays(45))
   private val testSecret = Secret("test-secret-uuid")
-  private val testToken = AuthenticationToken(
-    ApiTestData.AdminUser.id,
-    testSecret,
-    expiresAt,
-    testTimestamp,
-    0,
-    testTimestamp
-  )
+  private val testToken =
+    AuthenticationToken(ApiTestData.AdminUser.id, testSecret, expiresAt, testTimestamp, 0, testTimestamp)
 
   "POST /user" should "create a new user successfully" in runIO {
     val email = Email("new.user@example.com")
@@ -111,12 +105,7 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          PUT(
-            json"""{"email": "john.smith@ruchij.com"}""",
-            uri"/users/forgot-password"
-          )
-        )
+        .run(PUT(json"""{"email": "john.smith@ruchij.com"}""", uri"/users/forgot-password"))
         .flatMap { response =>
           IO.delay {
             response must beJsonContentType
@@ -135,12 +124,7 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          PUT(
-            json"""{"email": "nonexistent@example.com"}""",
-            uri"/users/forgot-password"
-          )
-        )
+        .run(PUT(json"""{"email": "nonexistent@example.com"}""", uri"/users/forgot-password"))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.NotFound)
@@ -182,10 +166,7 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
     ignoreHttpMetrics() *>
       createRoutes()
         .run(
-          PUT(
-            json"""{"token": "invalid-token", "password": "new-password"}""",
-            uri"/users/id/alice.doe/reset-password"
-          )
+          PUT(json"""{"token": "invalid-token", "password": "new-password"}""", uri"/users/id/alice.doe/reset-password")
         )
         .flatMap { response =>
           IO.delay {
@@ -209,9 +190,7 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
           Request[IO](
             method = DELETE,
             uri = uri"/users/id/alice.doe",
-            headers = org.http4s.Headers(
-              Authorization(Credentials.Token(AuthScheme.Bearer, testSecret.value))
-            )
+            headers = org.http4s.Headers(Authorization(Credentials.Token(AuthScheme.Bearer, testSecret.value)))
           )
         )
         .flatMap { response =>
@@ -234,14 +213,8 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   it should "return forbidden when non-admin user tries to delete another user" in runIO {
-    val normalUserToken = AuthenticationToken(
-      ApiTestData.NormalUser.id,
-      testSecret,
-      expiresAt,
-      testTimestamp,
-      0,
-      testTimestamp
-    )
+    val normalUserToken =
+      AuthenticationToken(ApiTestData.NormalUser.id, testSecret, expiresAt, testTimestamp, 0, testTimestamp)
 
     (authenticationService.authenticate)
       .expects(testSecret)
@@ -257,9 +230,7 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
           Request[IO](
             method = DELETE,
             uri = uri"/users/id/john.smith",
-            headers = org.http4s.Headers(
-              Authorization(Credentials.Token(AuthScheme.Bearer, testSecret.value))
-            )
+            headers = org.http4s.Headers(Authorization(Credentials.Token(AuthScheme.Bearer, testSecret.value)))
           )
         )
         .flatMap { response =>
@@ -284,9 +255,7 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
           Request[IO](
             method = DELETE,
             uri = uri"/users/id/nonexistent-user",
-            headers = org.http4s.Headers(
-              Authorization(Credentials.Token(AuthScheme.Bearer, testSecret.value))
-            )
+            headers = org.http4s.Headers(Authorization(Credentials.Token(AuthScheme.Bearer, testSecret.value)))
           )
         )
         .flatMap { response =>

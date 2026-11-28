@@ -14,6 +14,7 @@ trait Scheduler[F[_]] {
 }
 
 object Scheduler {
+
   /** Used to interrupt a running download; it is control flow, not a failure, so no stack trace is captured. */
   case object PausedVideoDownload extends Exception with NoStackTrace
 }

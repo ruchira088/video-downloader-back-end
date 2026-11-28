@@ -47,15 +47,13 @@ trait VideoDao[F[_]] {
   /** Deletes the video, which also removes it from every playlist. */
   def deleteById(videoId: String): F[Int]
 
-  /**
-    * Deletes a video that is going to be downloaded again. Its playlist memberships are kept aside and restored when
+  /** Deletes a video that is going to be downloaded again. Its playlist memberships are kept aside and restored when
     * the video is inserted again under the same ID.
     */
   def deleteForRedownload(videoId: String): F[Int] = deleteById(videoId)
 
-  /**
-    * Moves the playlist memberships of one video to another, keeping each one's position. A playlist that already
-    * holds the other video keeps its membership of the first, which goes when that video is deleted.
+  /** Moves the playlist memberships of one video to another, keeping each one's position. A playlist that already holds
+    * the other video keeps its membership of the first, which goes when that video is deleted.
     */
   def transferPlaylistMemberships(fromVideoId: String, toVideoId: String): F[Int]
 

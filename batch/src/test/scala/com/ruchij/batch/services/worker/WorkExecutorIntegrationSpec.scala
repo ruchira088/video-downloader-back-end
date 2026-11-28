@@ -53,8 +53,8 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
     batchServiceProvider.transactor.use { implicit transactor =>
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
-        customSiteVideo = scheduledVideo.copy(
-          videoMetadata = scheduledVideo.videoMetadata.copy(videoSite = CustomVideoSite.SpankBang)
+        customSiteVideo = scheduledVideo.copy(videoMetadata =
+          scheduledVideo.videoMetadata.copy(videoSite = CustomVideoSite.SpankBang)
         )
 
         downloadResult = DownloadResult[IO](
@@ -70,11 +70,19 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
 
         batchSchedulingService <- StubBatchSchedulingService.create(customSiteVideo)
         batchVideoService = new StubBatchVideoService(
-          Video(customSiteVideo.videoMetadata, FileResource("file-id", timestamp, "/videos/test.mp4", MediaType.video.mp4, 1000), timestamp, 0.seconds)
+          Video(
+            customSiteVideo.videoMetadata,
+            FileResource("file-id", timestamp, "/videos/test.mp4", MediaType.video.mp4, 1000),
+            timestamp,
+            0.seconds
+          )
         )
         videoEnrichmentService = new StubVideoEnrichmentService(timestamp)
         repositoryService = new StubRepositoryService(true, Some(1000L), Some(MediaType.video.mp4))
-        videoAnalysisService = new StubVideoAnalysisService(Uri.unsafeFromString("https://example.com/video.mp4"), 10.minutes)
+        videoAnalysisService = new StubVideoAnalysisService(
+          Uri.unsafeFromString("https://example.com/video.mp4"),
+          10.minutes
+        )
         downloadService = new StubDownloadService(downloadResult)
         youTubeVideoDownloader = new StubYouTubeVideoDownloader()
 
@@ -97,13 +105,12 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
         // Use the download method to create a resource
         downloadResource = workExecutor.download(customSiteVideo)
 
-        result <- downloadResource.use {
-          case (dataStream, fileResourceF) =>
-            for {
-              // Consume the data stream
-              data <- dataStream.compile.toList
-              fileResource <- fileResourceF
-            } yield (data, fileResource)
+        result <- downloadResource.use { case (dataStream, fileResourceF) =>
+          for {
+            // Consume the data stream
+            data <- dataStream.compile.toList
+            fileResource <- fileResourceF
+          } yield (data, fileResource)
         }
 
         _ <- IO.delay {
@@ -120,11 +127,8 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
     batchServiceProvider.transactor.use { implicit transactor =>
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
-        customSiteVideo = scheduledVideo.copy(
-          videoMetadata = scheduledVideo.videoMetadata.copy(
-            videoSite = CustomVideoSite.SpankBang,
-            size = 5L
-          )
+        customSiteVideo = scheduledVideo.copy(videoMetadata =
+          scheduledVideo.videoMetadata.copy(videoSite = CustomVideoSite.SpankBang, size = 5L)
         )
 
         downloadResult = DownloadResult[IO](
@@ -149,7 +153,10 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
         batchVideoService = new StubBatchVideoService(sampleVideo)
         videoEnrichmentService = new StubVideoEnrichmentService(timestamp)
         repositoryService = new StubRepositoryService(true, Some(5L), Some(MediaType.video.mp4))
-        videoAnalysisService = new StubVideoAnalysisService(Uri.unsafeFromString("https://example.com/video.mp4"), 10.minutes)
+        videoAnalysisService = new StubVideoAnalysisService(
+          Uri.unsafeFromString("https://example.com/video.mp4"),
+          10.minutes
+        )
         downloadService = new StubDownloadService(downloadResult)
         youTubeVideoDownloader = new StubYouTubeVideoDownloader()
 
@@ -171,12 +178,7 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
 
         worker = Worker("worker-0", WorkerStatus.Active, None, None, None, None)
 
-        video <- workExecutor.execute(
-          customSiteVideo,
-          worker,
-          Stream.empty,
-          3
-        )
+        video <- workExecutor.execute(customSiteVideo, worker, Stream.empty, 3)
 
         _ <- IO.delay {
           video.id mustBe customSiteVideo.videoMetadata.id
@@ -200,8 +202,8 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
     batchServiceProvider.transactor.use { implicit transactor =>
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
-        customSiteVideo = scheduledVideo.copy(
-          videoMetadata = scheduledVideo.videoMetadata.copy(
+        customSiteVideo = scheduledVideo.copy(videoMetadata =
+          scheduledVideo.videoMetadata.copy(
             videoSite = CustomVideoSite.SpankBang,
             size = 1000L // Larger than what we'll download
           )
@@ -229,7 +231,10 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
         batchVideoService = new StubBatchVideoService(sampleVideo)
         videoEnrichmentService = new StubVideoEnrichmentService(timestamp)
         repositoryService = new StubRepositoryService(true, Some(5L), Some(MediaType.video.mp4))
-        videoAnalysisService = new StubVideoAnalysisService(Uri.unsafeFromString("https://example.com/video.mp4"), 10.minutes)
+        videoAnalysisService = new StubVideoAnalysisService(
+          Uri.unsafeFromString("https://example.com/video.mp4"),
+          10.minutes
+        )
         downloadService = new StubDownloadService(downloadResult)
         youTubeVideoDownloader = new StubYouTubeVideoDownloader()
 
@@ -272,8 +277,8 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
     batchServiceProvider.transactor.use { implicit transactor =>
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
-        customSiteVideo = scheduledVideo.copy(
-          videoMetadata = scheduledVideo.videoMetadata.copy(
+        customSiteVideo = scheduledVideo.copy(videoMetadata =
+          scheduledVideo.videoMetadata.copy(
             videoSite = CustomVideoSite.SpankBang,
             size = 5L,
             duration = 0.seconds // Duration is 0, should be updated
@@ -303,7 +308,10 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
         videoEnrichmentService = new StubVideoEnrichmentService(timestamp)
         repositoryService = new StubRepositoryService(true, Some(5L), Some(MediaType.video.mp4))
         // Return a non-zero duration
-        videoAnalysisService = new StubVideoAnalysisService(Uri.unsafeFromString("https://example.com/video.mp4"), 15.minutes)
+        videoAnalysisService = new StubVideoAnalysisService(
+          Uri.unsafeFromString("https://example.com/video.mp4"),
+          15.minutes
+        )
         downloadService = new StubDownloadService(downloadResult)
         youTubeVideoDownloader = new StubYouTubeVideoDownloader()
 
@@ -325,12 +333,7 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
 
         worker = Worker("worker-duration", WorkerStatus.Active, None, None, None, None)
 
-        video <- workExecutor.execute(
-          customSiteVideo,
-          worker,
-          Stream.empty,
-          0
-        )
+        video <- workExecutor.execute(customSiteVideo, worker, Stream.empty, 0)
 
         _ <- IO.delay {
           video.id mustBe customSiteVideo.videoMetadata.id
@@ -345,8 +348,8 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
     batchServiceProvider.transactor.use { implicit transactor =>
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
-        customSiteVideo = scheduledVideo.copy(
-          videoMetadata = scheduledVideo.videoMetadata.copy(
+        customSiteVideo = scheduledVideo.copy(videoMetadata =
+          scheduledVideo.videoMetadata.copy(
             videoSite = CustomVideoSite.SpankBang,
             size = 100L, // Different from actual file size
             duration = 5.minutes
@@ -375,7 +378,10 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
         batchVideoService = new StubBatchVideoService(sampleVideo)
         videoEnrichmentService = new StubVideoEnrichmentService(timestamp)
         repositoryService = new StubRepositoryService(true, Some(200L), Some(MediaType.video.mp4))
-        videoAnalysisService = new StubVideoAnalysisService(Uri.unsafeFromString("https://example.com/video.mp4"), 10.minutes)
+        videoAnalysisService = new StubVideoAnalysisService(
+          Uri.unsafeFromString("https://example.com/video.mp4"),
+          10.minutes
+        )
         downloadService = new StubDownloadService(downloadResult)
         youTubeVideoDownloader = new StubYouTubeVideoDownloader()
 
@@ -397,12 +403,7 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
 
         worker = Worker("worker-size", WorkerStatus.Active, None, None, None, None)
 
-        video <- workExecutor.execute(
-          customSiteVideo,
-          worker,
-          Stream.empty,
-          0
-        )
+        video <- workExecutor.execute(customSiteVideo, worker, Stream.empty, 0)
 
         _ <- IO.delay {
           video.id mustBe customSiteVideo.videoMetadata.id
@@ -417,10 +418,8 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
     batchServiceProvider.transactor.use { implicit transactor =>
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
-        ytVideo = scheduledVideo.copy(
-          videoMetadata = scheduledVideo.videoMetadata.copy(
-            videoSite = VideoSite.YTDownloaderSite("youtube")
-          )
+        ytVideo = scheduledVideo.copy(videoMetadata =
+          scheduledVideo.videoMetadata.copy(videoSite = VideoSite.YTDownloaderSite("youtube"))
         )
 
         _ <- transactor(insertScheduledVideo(ytVideo))
@@ -428,13 +427,27 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
 
         batchSchedulingService <- StubBatchSchedulingService.create(ytVideo)
         batchVideoService = new StubBatchVideoService(
-          Video(ytVideo.videoMetadata, FileResource("file-id", timestamp, "/videos/test.mp4", MediaType.video.mp4, 1000), timestamp, 0.seconds)
+          Video(
+            ytVideo.videoMetadata,
+            FileResource("file-id", timestamp, "/videos/test.mp4", MediaType.video.mp4, 1000),
+            timestamp,
+            0.seconds
+          )
         )
         videoEnrichmentService = new StubVideoEnrichmentService(timestamp)
         repositoryService = new StubRepositoryService(true, Some(1000L), Some(MediaType.video.mp4))
-        videoAnalysisService = new StubVideoAnalysisService(Uri.unsafeFromString("https://youtube.com/watch?v=abc"), 10.minutes)
+        videoAnalysisService = new StubVideoAnalysisService(
+          Uri.unsafeFromString("https://youtube.com/watch?v=abc"),
+          10.minutes
+        )
         downloadService = new StubDownloadService(
-          DownloadResult[IO](Uri.unsafeFromString("https://youtube.com/video"), "/videos/yt.mp4", 1000L, MediaType.video.mp4, Stream.empty)
+          DownloadResult[IO](
+            Uri.unsafeFromString("https://youtube.com/video"),
+            "/videos/yt.mp4",
+            1000L,
+            MediaType.video.mp4,
+            Stream.empty
+          )
         )
         youTubeVideoDownloader = new StubYouTubeVideoDownloader()
 
@@ -471,12 +484,9 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
     batchServiceProvider.transactor.use { implicit transactor =>
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
-        ytVideo = scheduledVideo.copy(
-          videoMetadata = scheduledVideo.videoMetadata.copy(
-            videoSite = VideoSite.YTDownloaderSite("youtube"),
-            size = 1000L,
-            duration = 5.minutes
-          )
+        ytVideo = scheduledVideo.copy(videoMetadata =
+          scheduledVideo.videoMetadata
+            .copy(videoSite = VideoSite.YTDownloaderSite("youtube"), size = 1000L, duration = 5.minutes)
         )
 
         _ <- transactor(insertScheduledVideo(ytVideo))
@@ -484,7 +494,12 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
 
         batchSchedulingService <- StubBatchSchedulingService.create(ytVideo)
         batchVideoService = new StubBatchVideoService(
-          Video(ytVideo.videoMetadata, FileResource("file-id", timestamp, s"/videos/${ytVideo.videoMetadata.id}.mp4", MediaType.video.mp4, 1000), timestamp, 0.seconds)
+          Video(
+            ytVideo.videoMetadata,
+            FileResource("file-id", timestamp, s"/videos/${ytVideo.videoMetadata.id}.mp4", MediaType.video.mp4, 1000),
+            timestamp,
+            0.seconds
+          )
         )
         videoEnrichmentService = new StubVideoEnrichmentService(timestamp)
         // Repository that finds file by crawling
@@ -499,14 +514,25 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
           override def list(prefix: String): Stream[IO, String] =
             Stream.emit(s"/videos/${ytVideo.videoMetadata.id}.mp4")
         }
-        videoAnalysisService = new StubVideoAnalysisService(Uri.unsafeFromString("https://youtube.com/watch?v=abc"), 10.minutes)
+        videoAnalysisService = new StubVideoAnalysisService(
+          Uri.unsafeFromString("https://youtube.com/watch?v=abc"),
+          10.minutes
+        )
         downloadService = new StubDownloadService(
-          DownloadResult[IO](Uri.unsafeFromString("https://youtube.com/video"), "/videos/yt.mp4", 1000L, MediaType.video.mp4, Stream.empty)
+          DownloadResult[IO](
+            Uri.unsafeFromString("https://youtube.com/video"),
+            "/videos/yt.mp4",
+            1000L,
+            MediaType.video.mp4,
+            Stream.empty
+          )
         )
         youTubeVideoDownloader = new StubYouTubeVideoDownloader() {
           import com.ruchij.core.services.video.models.{YTDataSize, YTDataUnit}
           override def downloadVideo(videoUrl: Uri, destinationPath: String): Stream[IO, YTDownloaderProgress] =
-            Stream.emit(YTDownloaderProgress(100.0, YTDataSize(1.0, YTDataUnit.MiB), YTDataSize(1.0, YTDataUnit.MiB), 0.seconds))
+            Stream.emit(
+              YTDownloaderProgress(100.0, YTDataSize(1.0, YTDataUnit.MiB), YTDataSize(1.0, YTDataUnit.MiB), 0.seconds)
+            )
         }
 
         workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
@@ -528,12 +554,7 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
         worker = Worker("worker-crawl", WorkerStatus.Active, None, None, None, None)
 
         // Execute download - this will exercise the YouTube download path
-        video <- workExecutor.execute(
-          ytVideo,
-          worker,
-          Stream.empty,
-          0
-        )
+        video <- workExecutor.execute(ytVideo, worker, Stream.empty, 0)
 
         _ <- IO.delay {
           video.id mustBe ytVideo.videoMetadata.id
@@ -548,12 +569,9 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
     batchServiceProvider.transactor.use { implicit transactor =>
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
-        ytVideo = scheduledVideo.copy(
-          videoMetadata = scheduledVideo.videoMetadata.copy(
-            videoSite = VideoSite.YTDownloaderSite("youtube"),
-            size = 1000L,
-            duration = 5.minutes
-          )
+        ytVideo = scheduledVideo.copy(videoMetadata =
+          scheduledVideo.videoMetadata
+            .copy(videoSite = VideoSite.YTDownloaderSite("youtube"), size = 1000L, duration = 5.minutes)
         )
 
         _ <- transactor(insertScheduledVideo(ytVideo))
@@ -561,7 +579,12 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
 
         batchSchedulingService <- StubBatchSchedulingService.create(ytVideo)
         batchVideoService = new StubBatchVideoService(
-          Video(ytVideo.videoMetadata, FileResource("file-id", timestamp, "/videos/test.mp4", MediaType.video.mp4, 1000), timestamp, 0.seconds)
+          Video(
+            ytVideo.videoMetadata,
+            FileResource("file-id", timestamp, "/videos/test.mp4", MediaType.video.mp4, 1000),
+            timestamp,
+            0.seconds
+          )
         )
         videoEnrichmentService = new StubVideoEnrichmentService(timestamp)
         // Repository returns empty list - no files found
@@ -569,9 +592,18 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
           override def size(key: String): IO[Option[Long]] = IO.pure(None)
           override def list(prefix: String): Stream[IO, String] = Stream.empty
         }
-        videoAnalysisService = new StubVideoAnalysisService(Uri.unsafeFromString("https://youtube.com/watch?v=abc"), 10.minutes)
+        videoAnalysisService = new StubVideoAnalysisService(
+          Uri.unsafeFromString("https://youtube.com/watch?v=abc"),
+          10.minutes
+        )
         downloadService = new StubDownloadService(
-          DownloadResult[IO](Uri.unsafeFromString("https://youtube.com/video"), "/videos/yt.mp4", 1000L, MediaType.video.mp4, Stream.empty)
+          DownloadResult[IO](
+            Uri.unsafeFromString("https://youtube.com/video"),
+            "/videos/yt.mp4",
+            1000L,
+            MediaType.video.mp4,
+            Stream.empty
+          )
         )
         youTubeVideoDownloader = new StubYouTubeVideoDownloader()
 
@@ -610,12 +642,9 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
     batchServiceProvider.transactor.use { implicit transactor =>
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
-        ytVideo = scheduledVideo.copy(
-          videoMetadata = scheduledVideo.videoMetadata.copy(
-            videoSite = VideoSite.YTDownloaderSite("youtube"),
-            size = 1000L,
-            duration = 5.minutes
-          )
+        ytVideo = scheduledVideo.copy(videoMetadata =
+          scheduledVideo.videoMetadata
+            .copy(videoSite = VideoSite.YTDownloaderSite("youtube"), size = 1000L, duration = 5.minutes)
         )
 
         _ <- transactor(insertScheduledVideo(ytVideo))
@@ -623,21 +652,32 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
 
         batchSchedulingService <- StubBatchSchedulingService.create(ytVideo)
         batchVideoService = new StubBatchVideoService(
-          Video(ytVideo.videoMetadata, FileResource("file-id", timestamp, "/videos/test.mp4", MediaType.video.mp4, 1000), timestamp, 0.seconds)
+          Video(
+            ytVideo.videoMetadata,
+            FileResource("file-id", timestamp, "/videos/test.mp4", MediaType.video.mp4, 1000),
+            timestamp,
+            0.seconds
+          )
         )
         videoEnrichmentService = new StubVideoEnrichmentService(timestamp)
         // Repository returns multiple files with the same ID prefix
         repositoryService = new StubRepositoryService(true, Some(1000L), Some(MediaType.video.mp4)) {
           override def size(key: String): IO[Option[Long]] = IO.pure(None)
           override def list(prefix: String): Stream[IO, String] =
-            Stream.emits(List(
-              s"/videos/${ytVideo.videoMetadata.id}.mp4",
-              s"/videos/${ytVideo.videoMetadata.id}.webm"
-            ))
+            Stream.emits(List(s"/videos/${ytVideo.videoMetadata.id}.mp4", s"/videos/${ytVideo.videoMetadata.id}.webm"))
         }
-        videoAnalysisService = new StubVideoAnalysisService(Uri.unsafeFromString("https://youtube.com/watch?v=abc"), 10.minutes)
+        videoAnalysisService = new StubVideoAnalysisService(
+          Uri.unsafeFromString("https://youtube.com/watch?v=abc"),
+          10.minutes
+        )
         downloadService = new StubDownloadService(
-          DownloadResult[IO](Uri.unsafeFromString("https://youtube.com/video"), "/videos/yt.mp4", 1000L, MediaType.video.mp4, Stream.empty)
+          DownloadResult[IO](
+            Uri.unsafeFromString("https://youtube.com/video"),
+            "/videos/yt.mp4",
+            1000L,
+            MediaType.video.mp4,
+            Stream.empty
+          )
         )
         youTubeVideoDownloader = new StubYouTubeVideoDownloader()
 
@@ -676,12 +716,8 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
     batchServiceProvider.transactor.use { implicit transactor =>
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
-        customVideo = scheduledVideo.copy(
-          videoMetadata = scheduledVideo.videoMetadata.copy(
-            videoSite = CustomVideoSite.SpankBang,
-            size = 2000L,
-            duration = 10.minutes
-          )
+        customVideo = scheduledVideo.copy(videoMetadata =
+          scheduledVideo.videoMetadata.copy(videoSite = CustomVideoSite.SpankBang, size = 2000L, duration = 10.minutes)
         )
 
         _ <- transactor(insertScheduledVideo(customVideo))
@@ -691,13 +727,24 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
 
         batchSchedulingService <- StubBatchSchedulingService.create(customVideo)
         batchVideoService = new StubBatchVideoService(
-          Video(customVideo.videoMetadata, FileResource("file-id", timestamp, "/videos/custom.mp4", MediaType.video.mp4, 2000), timestamp, 0.seconds)
+          Video(
+            customVideo.videoMetadata,
+            FileResource("file-id", timestamp, "/videos/custom.mp4", MediaType.video.mp4, 2000),
+            timestamp,
+            0.seconds
+          )
         )
         videoEnrichmentService = new StubVideoEnrichmentService(timestamp)
         repositoryService = new StubRepositoryService(true, Some(2000L), Some(MediaType.video.mp4))
         videoAnalysisService = new StubVideoAnalysisService(downloadUri, 10.minutes)
         downloadService = new StubDownloadService(
-          DownloadResult[IO](downloadUri, s"/videos/${customVideo.videoMetadata.id}-video.mp4", 2000L, MediaType.video.mp4, Stream.emit(2000L))
+          DownloadResult[IO](
+            downloadUri,
+            s"/videos/${customVideo.videoMetadata.id}-video.mp4",
+            2000L,
+            MediaType.video.mp4,
+            Stream.emit(2000L)
+          )
         )
         youTubeVideoDownloader = new StubYouTubeVideoDownloader()
 

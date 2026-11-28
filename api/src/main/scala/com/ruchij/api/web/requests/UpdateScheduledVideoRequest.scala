@@ -9,8 +9,7 @@ final case class UpdateScheduledVideoRequest(status: SchedulingStatus)
 object UpdateScheduledVideoRequest {
   private val ValidInputStatuses = List(SchedulingStatus.Queued, SchedulingStatus.Paused)
 
-  implicit def updateScheduledVideoRequestValidator[F[_]: ApplicativeThrow]
-    : Validator[F, UpdateScheduledVideoRequest] =
+  implicit def updateScheduledVideoRequestValidator[F[_]: ApplicativeThrow]: Validator[F, UpdateScheduledVideoRequest] =
     new Validator[F, UpdateScheduledVideoRequest] {
       override def validate[B <: UpdateScheduledVideoRequest](value: B): F[B] =
         if (ValidInputStatuses.contains(value.status))

@@ -67,9 +67,8 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   private val adminUser = User("admin-1", timestamp, "Admin", "User", Email("admin@example.com"), Role.Admin)
   private val normalUser = User("user-1", timestamp, "Normal", "User", Email("user@example.com"), Role.User)
 
-  class StubFileResourceDao(
-    getByIdResult: String => Option[FileResource] = _ => Some(sampleFileResource)
-  ) extends FileResourceDao[IO] {
+  class StubFileResourceDao(getByIdResult: String => Option[FileResource] = _ => Some(sampleFileResource))
+      extends FileResourceDao[IO] {
     override def insert(resource: FileResource): IO[Int] = IO.pure(1)
     override def update(id: String, size: Long): IO[Int] = IO.pure(1)
     override def getById(id: String): IO[Option[FileResource]] = IO.pure(getByIdResult(id))
@@ -77,21 +76,18 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
     override def deleteById(id: String): IO[Int] = IO.pure(1)
   }
 
-  class StubSnapshotDao(
-    hasPermissionResult: Boolean = true,
-    isSnapshotFileResourceResult: Boolean = true
-  ) extends SnapshotDao[IO] {
+  class StubSnapshotDao(hasPermissionResult: Boolean = true, isSnapshotFileResourceResult: Boolean = true)
+      extends SnapshotDao[IO] {
     override def insert(snapshot: Snapshot): IO[Int] = IO.pure(1)
     override def findByVideo(videoId: String, maybeUserId: Option[String]): IO[Seq[Snapshot]] = IO.pure(Seq.empty)
-    override def hasPermission(snapshotFileResourceId: String, userId: String): IO[Boolean] = IO.pure(hasPermissionResult)
+    override def hasPermission(snapshotFileResourceId: String, userId: String): IO[Boolean] =
+      IO.pure(hasPermissionResult)
     override def isSnapshotFileResource(fileResourceId: String): IO[Boolean] = IO.pure(isSnapshotFileResourceResult)
     override def deleteByVideo(videoId: String): IO[Int] = IO.pure(1)
   }
 
-  class StubVideoDao(
-    hasVideoFilePermissionResult: Boolean = true,
-    isVideoFileResourceExistResult: Boolean = true
-  ) extends VideoDao[IO] {
+  class StubVideoDao(hasVideoFilePermissionResult: Boolean = true, isVideoFileResourceExistResult: Boolean = true)
+      extends VideoDao[IO] {
     override def insert(
       videoMetadataId: String,
       videoFileResourceId: String,
@@ -140,9 +136,8 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
     override val siteSummaries: IO[Seq[VideoSiteSummary]] = IO.pure(Seq.empty)
   }
 
-  class StubRepositoryService(
-    readResult: Option[Stream[IO, Byte]] = Some(Stream.emits("test-content".getBytes))
-  ) extends RepositoryService[IO] {
+  class StubRepositoryService(readResult: Option[Stream[IO, Byte]] = Some(Stream.emits("test-content".getBytes)))
+      extends RepositoryService[IO] {
     override type BackedType = String
     override def write(key: Key, data: Stream[IO, Byte]): Stream[IO, Nothing] = Stream.empty
     var readRange: Option[(Option[Long], Option[Long])] = None
@@ -165,27 +160,43 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
     override val publish: fs2.Pipe[IO, VideoWatchMetric, Unit] = _.evalMap(publishOne)
   }
 
-  class StubVideoMetadataDao(
-    isThumbnailFileResourceResult: Boolean = true
-  ) extends VideoMetadataDao[IO] {
+  class StubVideoMetadataDao(isThumbnailFileResourceResult: Boolean = true) extends VideoMetadataDao[IO] {
     override def insert(videoMetadata: VideoMetadata): IO[Int] = IO.pure(1)
-    override def update(videoMetadataId: String, title: Option[String], size: Option[Long], maybeDuration: Option[FiniteDuration]): IO[Int] = IO.pure(1)
+    override def update(
+      videoMetadataId: String,
+      title: Option[String],
+      size: Option[Long],
+      maybeDuration: Option[FiniteDuration]
+    ): IO[Int] = IO.pure(1)
     override def findById(videoMetadataId: String): IO[Option[VideoMetadata]] = IO.pure(None)
     override def isThumbnailFileResource(thumbnailId: String): IO[Boolean] = IO.pure(isThumbnailFileResourceResult)
     override def findByUrl(uri: Uri): IO[Option[VideoMetadata]] = IO.pure(None)
     override def deleteById(videoMetadataId: String): IO[Int] = IO.pure(1)
   }
 
-  class StubPlaylistDao(
-    isAlbumArtFileResourceResult: Boolean = true,
-    hasAlbumArtPermissionResult: Boolean = true
-  ) extends PlaylistDao[IO] {
+  class StubPlaylistDao(isAlbumArtFileResourceResult: Boolean = true, hasAlbumArtPermissionResult: Boolean = true)
+      extends PlaylistDao[IO] {
     override def insert(playlist: Playlist): IO[Int] = IO.pure(1)
-    override def update(playlistId: String, maybeTitle: Option[String], maybeDescription: Option[String], maybeVideoIds: Option[Seq[String]], maybeAlbumArt: Option[Either[Unit, String]], maybeUserId: Option[String]): IO[Int] = IO.pure(1)
+    override def update(
+      playlistId: String,
+      maybeTitle: Option[String],
+      maybeDescription: Option[String],
+      maybeVideoIds: Option[Seq[String]],
+      maybeAlbumArt: Option[Either[Unit, String]],
+      maybeUserId: Option[String]
+    ): IO[Int] = IO.pure(1)
     override def findById(playlistId: String, maybeUserId: Option[String]): IO[Option[Playlist]] = IO.pure(None)
-    override def search(maybeSearchTerm: Option[String], pageSize: Int, pageNumber: Int, order: Order, sortBy: PlaylistSortBy, maybeUserId: Option[String]): IO[Seq[Playlist]] = IO.pure(Seq.empty)
+    override def search(
+      maybeSearchTerm: Option[String],
+      pageSize: Int,
+      pageNumber: Int,
+      order: Order,
+      sortBy: PlaylistSortBy,
+      maybeUserId: Option[String]
+    ): IO[Seq[Playlist]] = IO.pure(Seq.empty)
     override def isAlbumArtFileResource(fileResourceId: String): IO[Boolean] = IO.pure(isAlbumArtFileResourceResult)
-    override def hasAlbumArtPermission(fileResourceId: String, userId: String): IO[Boolean] = IO.pure(hasAlbumArtPermissionResult)
+    override def hasAlbumArtPermission(fileResourceId: String, userId: String): IO[Boolean] =
+      IO.pure(hasAlbumArtPermissionResult)
     override def deleteById(playlistId: String, maybeUserId: Option[String]): IO[Int] = IO.pure(1)
   }
 
@@ -212,9 +223,8 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   "thumbnail" should "return asset for a valid thumbnail" in runIO {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
-    val fileResourceDao = new StubFileResourceDao(getByIdResult = id =>
-      if (id == "thumbnail-1") Some(sampleThumbnail) else None
-    )
+    val fileResourceDao =
+      new StubFileResourceDao(getByIdResult = id => if (id == "thumbnail-1") Some(sampleThumbnail) else None)
     val service = createService(fileResourceDao = fileResourceDao)
 
     service.thumbnail("thumbnail-1").map { asset =>
@@ -248,9 +258,8 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   "snapshot" should "return asset for admin user" in runIO {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
-    val fileResourceDao = new StubFileResourceDao(getByIdResult = id =>
-      if (id == "snapshot-file-1") Some(snapshotFileResource) else None
-    )
+    val fileResourceDao =
+      new StubFileResourceDao(getByIdResult = id => if (id == "snapshot-file-1") Some(snapshotFileResource) else None)
     val service = createService(fileResourceDao = fileResourceDao)
 
     service.snapshot("snapshot-file-1", adminUser).map { asset =>
@@ -261,9 +270,8 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   it should "return asset for normal user with permission" in runIO {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
-    val fileResourceDao = new StubFileResourceDao(getByIdResult = id =>
-      if (id == "snapshot-file-1") Some(snapshotFileResource) else None
-    )
+    val fileResourceDao =
+      new StubFileResourceDao(getByIdResult = id => if (id == "snapshot-file-1") Some(snapshotFileResource) else None)
     val snapshotDao = new StubSnapshotDao(hasPermissionResult = true)
     val service = createService(fileResourceDao = fileResourceDao, snapshotDao = snapshotDao)
 
@@ -380,49 +388,47 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "serve a byte range with an inclusive last byte position" in runIO {
-    rangeRequest(ByteRange(100L, Some(499L))).map {
-      case (fileRange, readRange) =>
-        // FileRange.end is exclusive, so bytes=100-499 is 400 bytes
-        fileRange mustBe Asset.FileRange(100L, 500L)
-        readRange mustBe Some(Some(100L) -> Some(500L))
+    rangeRequest(ByteRange(100L, Some(499L))).map { case (fileRange, readRange) =>
+      // FileRange.end is exclusive, so bytes=100-499 is 400 bytes
+      fileRange mustBe Asset.FileRange(100L, 500L)
+      readRange mustBe Some(Some(100L) -> Some(500L))
     }
   }
 
   it should "serve an open ended byte range to the end of the file" in runIO {
-    rangeRequest(ByteRange(9000L, None)).map {
-      case (fileRange, _) => fileRange mustBe Asset.FileRange(9000L, 10000L)
+    rangeRequest(ByteRange(9000L, None)).map { case (fileRange, _) =>
+      fileRange mustBe Asset.FileRange(9000L, 10000L)
     }
   }
 
   it should "clamp the last byte position to the size of the file" in runIO {
-    rangeRequest(ByteRange(9000L, Some(20000L))).map {
-      case (fileRange, _) => fileRange mustBe Asset.FileRange(9000L, 10000L)
+    rangeRequest(ByteRange(9000L, Some(20000L))).map { case (fileRange, _) =>
+      fileRange mustBe Asset.FileRange(9000L, 10000L)
     }
   }
 
   it should "serve a suffix range from the end of the file" in runIO {
-    rangeRequest(SuffixRange(500L)).map {
-      case (fileRange, readRange) =>
-        fileRange mustBe Asset.FileRange(9500L, 10000L)
-        readRange mustBe Some(Some(9500L) -> Some(10000L))
+    rangeRequest(SuffixRange(500L)).map { case (fileRange, readRange) =>
+      fileRange mustBe Asset.FileRange(9500L, 10000L)
+      readRange mustBe Some(Some(9500L) -> Some(10000L))
     }
   }
 
   it should "serve the whole file for a suffix range longer than the file" in runIO {
-    rangeRequest(SuffixRange(50000L)).map {
-      case (fileRange, _) => fileRange mustBe Asset.FileRange(0L, 10000L)
+    rangeRequest(SuffixRange(50000L)).map { case (fileRange, _) =>
+      fileRange mustBe Asset.FileRange(0L, 10000L)
     }
   }
 
   it should "limit a suffix range by the max stream size" in runIO {
-    rangeRequest(SuffixRange(5000L), Some(1000L)).map {
-      case (fileRange, _) => fileRange mustBe Asset.FileRange(5000L, 6000L)
+    rangeRequest(SuffixRange(5000L), Some(1000L)).map { case (fileRange, _) =>
+      fileRange mustBe Asset.FileRange(5000L, 6000L)
     }
   }
 
   it should "limit a byte range by the max stream size" in runIO {
-    rangeRequest(ByteRange(100L, None), Some(1000L)).map {
-      case (fileRange, _) => fileRange mustBe Asset.FileRange(100L, 1100L)
+    rangeRequest(ByteRange(100L, None), Some(1000L)).map { case (fileRange, _) =>
+      fileRange mustBe Asset.FileRange(100L, 1100L)
     }
   }
 
@@ -441,9 +447,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   it should "handle max stream size" in runIO {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
-    val fileResourceDao = new StubFileResourceDao(getByIdResult = _ =>
-      Some(sampleFileResource.copy(size = 10000L))
-    )
+    val fileResourceDao = new StubFileResourceDao(getByIdResult = _ => Some(sampleFileResource.copy(size = 10000L)))
     val publisher = new StubPublisher()
     val service = createService(fileResourceDao = fileResourceDao, publisher = publisher)
 
@@ -478,10 +482,10 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   "albumArt" should "return asset for admin user" in runIO {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
-    val albumArtFileResource = FileResource("album-art-1", timestamp, "/album-art/art1.jpg", MediaType.image.jpeg, 40000L)
-    val fileResourceDao = new StubFileResourceDao(getByIdResult = id =>
-      if (id == "album-art-1") Some(albumArtFileResource) else None
-    )
+    val albumArtFileResource =
+      FileResource("album-art-1", timestamp, "/album-art/art1.jpg", MediaType.image.jpeg, 40000L)
+    val fileResourceDao =
+      new StubFileResourceDao(getByIdResult = id => if (id == "album-art-1") Some(albumArtFileResource) else None)
     val service = createService(fileResourceDao = fileResourceDao)
 
     service.albumArt("album-art-1", adminUser).map { asset =>
@@ -492,10 +496,10 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   it should "return asset for normal user with permission" in runIO {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
-    val albumArtFileResource = FileResource("album-art-1", timestamp, "/album-art/art1.jpg", MediaType.image.jpeg, 40000L)
-    val fileResourceDao = new StubFileResourceDao(getByIdResult = id =>
-      if (id == "album-art-1") Some(albumArtFileResource) else None
-    )
+    val albumArtFileResource =
+      FileResource("album-art-1", timestamp, "/album-art/art1.jpg", MediaType.image.jpeg, 40000L)
+    val fileResourceDao =
+      new StubFileResourceDao(getByIdResult = id => if (id == "album-art-1") Some(albumArtFileResource) else None)
     val playlistDao = new StubPlaylistDao(hasAlbumArtPermissionResult = true)
     val service = createService(fileResourceDao = fileResourceDao, playlistDao = playlistDao)
 

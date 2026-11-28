@@ -21,11 +21,17 @@ class RedisKeyValueStore[F[_]: MonadThrow](redisCommands: RedisCommands[F, Strin
       encodedKey <- KVEncoder[F, K].encode(key)
       fetchedValue <- redisCommands.get(encodedKey)
       value <- fetchedValue.fold[F[Option[V]]](Applicative[F].pure(None)) { stringValue =>
-        MonadThrow[F].handleErrorWith[Option[V]](KVDecoder[F, V].decode(stringValue).map(Some.apply)) { _ => remove(key).as(None) }
+        MonadThrow[F].handleErrorWith[Option[V]](KVDecoder[F, V].decode(stringValue).map(Some.apply)) { _ =>
+          remove(key).as(None)
+        }
       }
     } yield value
 
-  override def put[K: KVEncoder[F, *], V: KVEncoder[F, *]](key: K, value: V, maybeTtl: Option[FiniteDuration]): F[Unit] =
+  override def put[K: KVEncoder[F, *], V: KVEncoder[F, *]](
+    key: K,
+    value: V,
+    maybeTtl: Option[FiniteDuration]
+  ): F[Unit] =
     for {
       encodedKey <- KVEncoder[F, K].encode(key)
       encodedValue <- KVEncoder[F, V].encode(value)

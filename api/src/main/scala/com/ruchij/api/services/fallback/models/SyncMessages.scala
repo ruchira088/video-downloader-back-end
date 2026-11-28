@@ -25,7 +25,8 @@ final case class RequestResolved(requestId: String, userId: String, outcome: Res
     extends MainToFallbackMessage
 
 /** The user's password was reset, or the user deleted, at `capturedAt`: the fallback deletes their account (named after
-  * `email`), so the old password and tokens stop working there until they sign up to the fallback again. */
+  * `email`), so the old password and tokens stop working there until they sign up to the fallback again.
+  */
 final case class UserRevocation(userId: String, email: String, capturedAt: Instant) extends MainToFallbackMessage
 
 sealed trait ResolutionOutcome

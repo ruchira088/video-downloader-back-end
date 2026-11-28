@@ -93,28 +93,30 @@ class PubSubSpec extends AnyFlatSpec with Matchers {
   it should "share a single transactor between Doobie-backed topics" in runIO {
     new EmbeddedCoreResourcesProvider[IO].databaseConfiguration
       .flatMap { databaseConfiguration =>
-        Resource.eval(MigrationApp.migration[IO](CoreResourcesProvider.migrationServiceConfiguration(databaseConfiguration)))
-          .productR(PubSub.provider[IO](PubsubConfiguration(PubsubType.Doobie, None, None, Some(databaseConfiguration))))
+        Resource
+          .eval(MigrationApp.migration[IO](CoreResourcesProvider.migrationServiceConfiguration(databaseConfiguration)))
+          .productR(
+            PubSub.provider[IO](PubsubConfiguration(PubsubType.Doobie, None, None, Some(databaseConfiguration)))
+          )
       }
       .use { provider =>
-        provider.pubSub[TestMessage].product(provider.pubSub[TestMessage]).use {
-          case (first, second) =>
-            val message = TestMessage("shared-transactor", 1)
+        provider.pubSub[TestMessage].product(provider.pubSub[TestMessage]).use { case (first, second) =>
+          val message = TestMessage("shared-transactor", 1)
 
-            // A new group starts from the latest message, so a message published before the subscriber has created
-            // its group is never delivered. Publishing until one arrives keeps the test independent of that timing.
-            second
-              .subscribe("group")
-              .map(second.extractValue)
-              .take(1)
-              .concurrently(Stream.awakeEvery[IO](200.millis).evalMap(_ => first.publishOne(message)))
-              .compile
-              .lastOrError
-              .timeout(30.seconds)
-              .map { received =>
-                received mustBe message
-                provider.messageTransaction mustBe defined
-              }
+          // A new group starts from the latest message, so a message published before the subscriber has created
+          // its group is never delivered. Publishing until one arrives keeps the test independent of that timing.
+          second
+            .subscribe("group")
+            .map(second.extractValue)
+            .take(1)
+            .concurrently(Stream.awakeEvery[IO](200.millis).evalMap(_ => first.publishOne(message)))
+            .compile
+            .lastOrError
+            .timeout(30.seconds)
+            .map { received =>
+              received mustBe message
+              provider.messageTransaction mustBe defined
+            }
         }
       }
   }

@@ -19,10 +19,7 @@ object SentryMiddleware {
       }
     }
 
-  private def captureWithContext[F[_]: Sync, A](
-    throwable: Throwable,
-    contextRequest: ContextRequest[F, A]
-  ): F[Unit] =
+  private def captureWithContext[F[_]: Sync, A](throwable: Throwable, contextRequest: ContextRequest[F, A]): F[Unit] =
     Sync[F].delay {
       JavaSentry.withScope { scope =>
         val request = contextRequest.req

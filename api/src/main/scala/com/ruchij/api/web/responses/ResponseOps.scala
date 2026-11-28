@@ -11,7 +11,8 @@ object ResponseOps {
 
   private def assetResponse[F[_]: Sync, A <: AssetType](asset: Asset[F, A]): F[Response[F]] =
     Sync[F].defer {
-      `Content-Length`.fromLong(asset.fileRange.end - asset.fileRange.start)
+      `Content-Length`
+        .fromLong(asset.fileRange.end - asset.fileRange.start)
         .toType[F, Throwable]
         .map { contentLength =>
           val headers =
@@ -21,20 +22,18 @@ object ResponseOps {
             Response(
               status = Status.PartialContent,
               body = asset.stream,
-              headers =
-                headers ++
-                  Headers(
-                    `Content-Range`(
-                      Range.SubRange(asset.fileRange.start, asset.fileRange.start + contentLength.length - 1),
-                      Some(asset.fileResource.size)
-                    )
+              headers = headers ++
+                Headers(
+                  `Content-Range`(
+                    Range.SubRange(asset.fileRange.start, asset.fileRange.start + contentLength.length - 1),
+                    Some(asset.fileResource.size)
                   )
+                )
             )
           else
             Response(status = Status.Ok, body = asset.stream, headers = headers)
         }
     }
-
 
   implicit class AssetResponseOps[F[_]: Sync, A <: AssetType](asset: Asset[F, A]) {
     val asResponse: F[Response[F]] = assetResponse[F, A](asset)

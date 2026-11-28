@@ -115,10 +115,7 @@ class ExceptionHandlerSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "handle AggregatedException by using first exception's status" in runIO {
-    val exceptions = NonEmptyList.of(
-      ResourceNotFoundException("First"),
-      AuthenticationException("Second")
-    )
+    val exceptions = NonEmptyList.of(ResourceNotFoundException("First"), AuthenticationException("Second"))
     val handler = createHandler(AggregatedException(exceptions))
 
     handler.run(contextRequest).map { response =>
@@ -178,10 +175,7 @@ class ExceptionHandlerSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "handle AggregatedException with multiple error messages" in runIO {
-    val exceptions = NonEmptyList.of(
-      ValidationException("Error 1"),
-      ValidationException("Error 2")
-    )
+    val exceptions = NonEmptyList.of(ValidationException("Error 1"), ValidationException("Error 2"))
     val handler = createHandler(AggregatedException(exceptions))
 
     handler.run(contextRequest).flatMap { response =>

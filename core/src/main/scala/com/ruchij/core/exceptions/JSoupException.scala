@@ -13,8 +13,12 @@ object JSoupException {
     override def getMessage: String = s"Unable to find attribute=$attributeKey in element=$element"
   }
 
-  final case class MultipleElementsFoundException(uri: Uri, element: Element, css: String, result: NonEmptyList[Element])
-      extends JSoupException {
+  final case class MultipleElementsFoundException(
+    uri: Uri,
+    element: Element,
+    css: String,
+    result: NonEmptyList[Element]
+  ) extends JSoupException {
     override def getMessage: String = s"Multiple elements found CSS=$css for element=$element at $uri"
   }
 

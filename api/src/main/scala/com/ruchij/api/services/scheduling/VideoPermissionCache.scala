@@ -16,10 +16,12 @@ trait VideoPermissionCache[F[_]] {
 
 object VideoPermissionCache {
 
-  /**
-    * @param maxEntries   upper bound on the number of cached videos; the least recently looked up entry is evicted
-    * @param permittedTtl how long a "has permission" answer is trusted, so a removed permission is eventually noticed
-    * @param deniedTtl    how long a "no permission" answer is trusted, so a newly scheduled video is picked up quickly
+  /** @param maxEntries
+    *   upper bound on the number of cached videos; the least recently looked up entry is evicted
+    * @param permittedTtl
+    *   how long a "has permission" answer is trusted, so a removed permission is eventually noticed
+    * @param deniedTtl
+    *   how long a "no permission" answer is trusted, so a newly scheduled video is picked up quickly
     */
   final case class Settings(maxEntries: Int, permittedTtl: FiniteDuration, deniedTtl: FiniteDuration)
 

@@ -8,7 +8,12 @@ import scala.concurrent.duration.FiniteDuration
 trait VideoMetadataDao[F[_]] {
   def insert(videoMetadata: VideoMetadata): F[Int]
 
-  def update(videoMetadataId: String, title: Option[String], size: Option[Long], maybeDuration: Option[FiniteDuration]): F[Int]
+  def update(
+    videoMetadataId: String,
+    title: Option[String],
+    size: Option[Long],
+    maybeDuration: Option[FiniteDuration]
+  ): F[Int]
 
   def findById(videoMetadataId: String): F[Option[VideoMetadata]]
 

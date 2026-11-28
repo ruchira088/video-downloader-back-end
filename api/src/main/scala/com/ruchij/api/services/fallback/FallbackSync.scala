@@ -28,7 +28,8 @@ final case class FallbackSyncResources[F[_]](
 )
 
 /** Syncs on scheduled-video events and on the `FallbackSyncRequest`s the API publishes after user-visible writes.
-  * Batch-side changes that publish neither (local-file sync inserts, resets to Queued) are left to the reconcile. */
+  * Batch-side changes that publish neither (local-file sync inserts, resets to Queued) are left to the reconcile.
+  */
 object FallbackSync {
   // Shared by every API instance. Only Kafka splits a group's messages across instances; Redis and Doobie deliver
   // every message to every instance, which is harmless because sync messages are idempotent.
@@ -84,11 +85,12 @@ object FallbackSync {
     ).parJoinUnbounded
   }
 
-  /** `stream(...)` runs in a background fiber that nobody joins until the app is released (see `ApiApp.program`), so
-    * a component stream that fails would silently stop syncing forever with nothing to notice. Restarting just the failed component after a
-    * delay, instead of letting the failure propagate out of the `parJoinUnbounded` stream and end every other
-    * component too, keeps the rest of fallback sync alive. Only errors trigger a restart: every component is an
-    * infinite stream. */
+  /** `stream(...)` runs in a background fiber that nobody joins until the app is released (see `ApiApp.program`), so a
+    * component stream that fails would silently stop syncing forever with nothing to notice. Restarting just the failed
+    * component after a delay, instead of letting the failure propagate out of the `parJoinUnbounded` stream and end
+    * every other component too, keeps the rest of fallback sync alive. Only errors trigger a restart: every component
+    * is an infinite stream.
+    */
   private[fallback] def resilient[F[_]: Async, A](name: String, restartDelay: FiniteDuration = 30.seconds)(
     stream: Stream[F, A]
   ): Stream[F, A] =

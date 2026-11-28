@@ -25,9 +25,7 @@ trait QueryParameter[A] {
 object QueryParameter {
   type QueryParameters = Map[String, collection.Seq[String]]
 
-  def parse[F[_]: ApplicativeThrow, A: QueryParamDecoder](
-    key: String
-  ): Kleisli[F, QueryParameters, List[A]] =
+  def parse[F[_]: ApplicativeThrow, A: QueryParamDecoder](key: String): Kleisli[F, QueryParameters, List[A]] =
     Kleisli[F, QueryParameters, List[A]] {
       _.get(key).toList.flatten
         .traverse { rawValue =>
@@ -37,12 +35,11 @@ object QueryParameter {
               errors =>
                 ApplicativeError[F, Throwable].raiseError(
                   AggregatedException(
-                    errors.map(
-                      parseFailure =>
-                        ValidationException(s"Query parameter parse error: $key - ${parseFailure.sanitized}")
+                    errors.map(parseFailure =>
+                      ValidationException(s"Query parameter parse error: $key - ${parseFailure.sanitized}")
                     )
                   )
-              ),
+                ),
               parsedValue => Applicative[F].pure(parsedValue)
             )
         }
@@ -52,7 +49,8 @@ object QueryParameter {
     (queryParameterValue: QueryParameterValue) => {
       val valuesList = queryParameterValue.value.split('-').toList
 
-      if(valuesList.size > 2) Validated.Invalid(NonEmptyList.one(ParseFailure(queryParameterValue.value, "Range contains more than 2 terms")))
+      if (valuesList.size > 2)
+        Validated.Invalid(NonEmptyList.one(ParseFailure(queryParameterValue.value, "Range contains more than 2 terms")))
       else
         valuesList
           .traverse { stringValue =>
@@ -94,7 +92,8 @@ object QueryParameter {
         .toList
         .traverse(value => QueryParamDecoder[A].decode(QueryParameterValue(value)))
         .fold[ValidatedNel[ParseFailure, NonEmptyList[A]]](
-          Invalid.apply, {
+          Invalid.apply,
+          {
             case head :: tail => Valid(NonEmptyList(head, tail))
 
             case Nil =>
@@ -102,15 +101,17 @@ object QueryParameter {
                 NonEmptyList.one {
                   ParseFailure(
                     "Values cannot be empty",
-                    s"""Unable to parse "${queryParameterValue.value}" as non-empty list of ${classTag[A].runtimeClass.getSimpleName}"""
+                    s"""Unable to parse "${queryParameterValue.value}" as non-empty list of ${classTag[
+                        A
+                      ].runtimeClass.getSimpleName}"""
                   )
                 }
               }
           }
-      )
+        )
 
-  implicit def enumQueryParamDecoder[A <: EnumEntry](
-    implicit enumValue: Enum[A],
+  implicit def enumQueryParamDecoder[A <: EnumEntry](implicit
+    enumValue: Enum[A],
     classTag: ClassTag[A]
   ): QueryParamDecoder[A] =
     (queryParameterValue: QueryParameterValue) =>
@@ -121,8 +122,8 @@ object QueryParameter {
             NonEmptyList.of(
               ParseFailure(
                 s"""Unable to parse "${queryParameterValue.value}" as ${classTag.runtimeClass.getSimpleName}. Possible values are [${enumValue.values
-                  .map(_.entryName)
-                  .mkString(", ")}]""",
+                    .map(_.entryName)
+                    .mkString(", ")}]""",
                 ""
               )
             )

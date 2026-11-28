@@ -54,9 +54,13 @@ class TimersSpec extends AnyFlatSpec with Matchers {
     TestControl.executeEmbed {
       for {
         resetSignal <- Ref.of[IO, Boolean](false)
-        fiber <- IO.sleep(3.seconds).productR(resetSignal.set(true)).productR {
-          IO.sleep(5.seconds).productR(resetSignal.set(true))
-        }.start
+        fiber <- IO
+          .sleep(3.seconds)
+          .productR(resetSignal.set(true))
+          .productR {
+            IO.sleep(5.seconds).productR(resetSignal.set(true))
+          }
+          .start
         (result, elapsed) <- timeTimer(resetSignal)
         _ <- fiber.join
       } yield {

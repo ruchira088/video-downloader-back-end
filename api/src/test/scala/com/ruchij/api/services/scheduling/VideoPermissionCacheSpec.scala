@@ -79,10 +79,8 @@ class VideoPermissionCacheSpec extends AnyFlatSpec with Matchers {
   it should "share a single look up between concurrent checks of the same video" in runIO {
     for {
       lookupsRef <- Ref.of[IO, Int](0)
-      cache <- VideoPermissionCache.create[IO](
-        _ => lookupsRef.update(_ + 1).productR(IO.sleep(100.milliseconds)).as(true),
-        settings
-      )
+      cache <- VideoPermissionCache
+        .create[IO](_ => lookupsRef.update(_ + 1).productR(IO.sleep(100.milliseconds)).as(true), settings)
       results <- List.fill(10)("video-1").parTraverse(cache.hasPermission)
       lookups <- lookupsRef.get
     } yield {

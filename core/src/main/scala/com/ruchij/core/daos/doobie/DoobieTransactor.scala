@@ -13,26 +13,28 @@ object DoobieTransactor {
 
   def create[F[_]: Async](databaseConfiguration: DatabaseConfiguration): Resource[F, HikariTransactor[F]] =
     for {
-      executorService <- Resource.make(Sync[F].delay(Executors.newVirtualThreadPerTaskExecutor())) {
-        executorService => Sync[F].delay(executorService.shutdown())
+      executorService <- Resource.make(Sync[F].delay(Executors.newVirtualThreadPerTaskExecutor())) { executorService =>
+        Sync[F].delay(executorService.shutdown())
       }
 
       executionContext = ExecutionContext.fromExecutorService(executorService)
 
       transactor <- create[F](databaseConfiguration, executionContext)
-    }
-    yield transactor
+    } yield transactor
 
-  def create[F[_]: Async](databaseConfiguration: DatabaseConfiguration, connectEC: ExecutionContext): Resource[F, HikariTransactor[F]] =
-    Resource.eval(parseFromConnectionUrl(databaseConfiguration.url).toType[F, Throwable])
-      .flatMap {
-        driverType =>
-          HikariTransactor.newHikariTransactor[F](
-            driverType.driver,
-            databaseConfiguration.url,
-            databaseConfiguration.user,
-            databaseConfiguration.password,
-            connectEC
-          )
+  def create[F[_]: Async](
+    databaseConfiguration: DatabaseConfiguration,
+    connectEC: ExecutionContext
+  ): Resource[F, HikariTransactor[F]] =
+    Resource
+      .eval(parseFromConnectionUrl(databaseConfiguration.url).toType[F, Throwable])
+      .flatMap { driverType =>
+        HikariTransactor.newHikariTransactor[F](
+          driverType.driver,
+          databaseConfiguration.url,
+          databaseConfiguration.user,
+          databaseConfiguration.password,
+          connectEC
+        )
       }
 }

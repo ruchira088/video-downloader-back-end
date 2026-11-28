@@ -87,14 +87,7 @@ abstract class DoobieVideoWatchHistoryDaoSpec extends AnyFlatSpec with Matchers 
 
           _ <- transaction(DoobieVideoDao.insert(videoId, videoFileResource.id, timestamp, 0 seconds))
 
-          videoWatchHistory = VideoWatchHistory(
-            "watch-history-id",
-            userId,
-            videoId,
-            timestamp,
-            timestamp,
-            30 seconds
-          )
+          videoWatchHistory = VideoWatchHistory("watch-history-id", userId, videoId, timestamp, timestamp, 30 seconds)
 
           result <- testFn(TestFixture(videoWatchHistory, videoId, userId, transaction))
         } yield result
@@ -105,9 +98,7 @@ abstract class DoobieVideoWatchHistoryDaoSpec extends AnyFlatSpec with Matchers 
     for {
       _ <- fixture.transaction(DoobieVideoWatchHistoryDao.insert(fixture.videoWatchHistory))
 
-      results <- fixture.transaction(
-        DoobieVideoWatchHistoryDao.findBy(fixture.userId, 10, 0)
-      )
+      results <- fixture.transaction(DoobieVideoWatchHistoryDao.findBy(fixture.userId, 10, 0))
 
       _ <- IO.delay {
         results.size mustBe 1
@@ -123,9 +114,7 @@ abstract class DoobieVideoWatchHistoryDaoSpec extends AnyFlatSpec with Matchers 
     for {
       _ <- fixture.transaction(DoobieVideoWatchHistoryDao.insert(fixture.videoWatchHistory))
 
-      results <- fixture.transaction(
-        DoobieVideoWatchHistoryDao.findBy(fixture.userId, fixture.videoId, 10, 0)
-      )
+      results <- fixture.transaction(DoobieVideoWatchHistoryDao.findBy(fixture.userId, fixture.videoId, 10, 0))
 
       _ <- IO.delay {
         results.size mustBe 1
@@ -166,16 +155,11 @@ abstract class DoobieVideoWatchHistoryDaoSpec extends AnyFlatSpec with Matchers 
       _ <- fixture.transaction(DoobieVideoWatchHistoryDao.insert(fixture.videoWatchHistory))
 
       timestamp <- Clock[IO].timestamp
-      updatedWatchHistory = fixture.videoWatchHistory.copy(
-        lastUpdatedAt = timestamp,
-        duration = updatedDuration
-      )
+      updatedWatchHistory = fixture.videoWatchHistory.copy(lastUpdatedAt = timestamp, duration = updatedDuration)
 
       _ <- fixture.transaction(DoobieVideoWatchHistoryDao.update(updatedWatchHistory))
 
-      results <- fixture.transaction(
-        DoobieVideoWatchHistoryDao.findBy(fixture.userId, 10, 0)
-      )
+      results <- fixture.transaction(DoobieVideoWatchHistoryDao.findBy(fixture.userId, 10, 0))
 
       _ <- IO.delay {
         results.size mustBe 1
@@ -189,18 +173,12 @@ abstract class DoobieVideoWatchHistoryDaoSpec extends AnyFlatSpec with Matchers 
     for {
       _ <- fixture.transaction(DoobieVideoWatchHistoryDao.insert(fixture.videoWatchHistory))
 
-      resultsBefore <- fixture.transaction(
-        DoobieVideoWatchHistoryDao.findBy(fixture.userId, 10, 0)
-      )
+      resultsBefore <- fixture.transaction(DoobieVideoWatchHistoryDao.findBy(fixture.userId, 10, 0))
       _ <- IO.delay { resultsBefore.size mustBe 1 }
 
-      deleteCount <- fixture.transaction(
-        DoobieVideoWatchHistoryDao.deleteBy(fixture.videoId)
-      )
+      deleteCount <- fixture.transaction(DoobieVideoWatchHistoryDao.deleteBy(fixture.videoId))
 
-      resultsAfter <- fixture.transaction(
-        DoobieVideoWatchHistoryDao.findBy(fixture.userId, 10, 0)
-      )
+      resultsAfter <- fixture.transaction(DoobieVideoWatchHistoryDao.findBy(fixture.userId, 10, 0))
 
       _ <- IO.delay {
         deleteCount mustBe 1
@@ -211,9 +189,7 @@ abstract class DoobieVideoWatchHistoryDaoSpec extends AnyFlatSpec with Matchers 
 
   it should "return empty list when no watch history exists for user" in runTest { fixture =>
     for {
-      results <- fixture.transaction(
-        DoobieVideoWatchHistoryDao.findBy("non-existent-user", 10, 0)
-      )
+      results <- fixture.transaction(DoobieVideoWatchHistoryDao.findBy("non-existent-user", 10, 0))
 
       _ <- IO.delay {
         results mustBe empty
@@ -223,9 +199,7 @@ abstract class DoobieVideoWatchHistoryDaoSpec extends AnyFlatSpec with Matchers 
 
   it should "return 0 when deleting non-existent video watch history" in runTest { fixture =>
     for {
-      deleteCount <- fixture.transaction(
-        DoobieVideoWatchHistoryDao.deleteBy("non-existent-video-id")
-      )
+      deleteCount <- fixture.transaction(DoobieVideoWatchHistoryDao.deleteBy("non-existent-video-id"))
 
       _ <- IO.delay {
         deleteCount mustBe 0
@@ -279,15 +253,9 @@ abstract class DoobieVideoWatchHistoryDaoSpec extends AnyFlatSpec with Matchers 
       )
       _ <- fixture.transaction(DoobieVideoWatchHistoryDao.insert(watchHistory2))
 
-      page1 <- fixture.transaction(
-        DoobieVideoWatchHistoryDao.findBy(fixture.userId, 1, 0)
-      )
-      page2 <- fixture.transaction(
-        DoobieVideoWatchHistoryDao.findBy(fixture.userId, 1, 1)
-      )
-      allResults <- fixture.transaction(
-        DoobieVideoWatchHistoryDao.findBy(fixture.userId, 10, 0)
-      )
+      page1 <- fixture.transaction(DoobieVideoWatchHistoryDao.findBy(fixture.userId, 1, 0))
+      page2 <- fixture.transaction(DoobieVideoWatchHistoryDao.findBy(fixture.userId, 1, 1))
+      allResults <- fixture.transaction(DoobieVideoWatchHistoryDao.findBy(fixture.userId, 10, 0))
 
       _ <- IO.delay {
         page1.size mustBe 1
@@ -345,9 +313,7 @@ abstract class DoobieVideoWatchHistoryDaoSpec extends AnyFlatSpec with Matchers 
       )
       _ <- fixture.transaction(DoobieVideoWatchHistoryDao.insert(watchHistory2))
 
-      results <- fixture.transaction(
-        DoobieVideoWatchHistoryDao.findBy(fixture.userId, 10, 0)
-      )
+      results <- fixture.transaction(DoobieVideoWatchHistoryDao.findBy(fixture.userId, 10, 0))
 
       _ <- IO.delay {
         results.size mustBe 2

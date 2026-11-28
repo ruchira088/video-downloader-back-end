@@ -11,6 +11,7 @@ class ElasticMqContainer
 }
 
 object ElasticMqContainer {
+
   /** Resolves to the SQS-compatible endpoint URL. */
   def create[F[_]: Sync]: Resource[F, String] =
     ContainerCoreResourcesProvider

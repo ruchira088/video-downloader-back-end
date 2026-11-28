@@ -31,8 +31,7 @@ class Http4sDownloadServiceSpec extends AnyFlatSpec with Matchers {
       repository.read(path, None, None).flatMap(_.fold(IO.pure(""))(_.through(text.utf8.decode).compile.string))
 
     def seedPartial: IO[Unit] =
-      write(key, "abc") *> write(metadataKey,
-        """{"uri":"https://example.com/video.mp4","etag":"\"v1\"","size":6}""")
+      write(key, "abc") *> write(metadataKey, """{"uri":"https://example.com/video.mp4","etag":"\"v1\"","size":6}""")
 
     def service(response: Response[IO]): Http4sDownloadService[IO] =
       // fromHttpApp drains response bodies on release, which cannot terminate for the cancellation fixture.
@@ -56,14 +55,20 @@ class Http4sDownloadServiceSpec extends AnyFlatSpec with Matchers {
     length: Long = 6L,
     extraHeaders: List[Header.Raw] = Nil
   ): Response[IO] =
-    Response[IO](status = status,
+    Response[IO](
+      status = status,
       headers = Headers(`Content-Length`.unsafeFromLong(length), `Content-Type`(MediaType.video.mp4)) ++
         Headers(extraHeaders),
-      body = Stream.emit(body).through(text.utf8.encode))
+      body = Stream.emit(body).through(text.utf8.encode)
+    )
 
   private def partialResponse: Response[IO] =
-    response("def", Status.PartialContent, 3,
-      List(Header.Raw(CIString("Content-Range"), "bytes 3-5/6"), Header.Raw(CIString("ETag"), "\"v1\"")))
+    response(
+      "def",
+      Status.PartialContent,
+      3,
+      List(Header.Raw(CIString("Content-Range"), "bytes 3-5/6"), Header.Raw(CIString("ETag"), "\"v1\""))
+    )
 
   private def assertDownloadError(result: Either[Throwable, Any]): Assertion = {
     result.left.toOption.get mustBe a[ExternalServiceException]
@@ -103,7 +108,8 @@ class Http4sDownloadServiceSpec extends AnyFlatSpec with Matchers {
       })
       for {
         _ <- fixture.seedPartial
-        progress <- new Http4sDownloadService[IO](client, fixture.repository).download(uri, fixture.key)
+        progress <- new Http4sDownloadService[IO](client, fixture.repository)
+          .download(uri, fixture.key)
           .use(_.data.compile.toVector)
         content <- fixture.read(fixture.key)
         metadataExists <- fixture.repository.exists(fixture.metadataKey)
@@ -130,15 +136,17 @@ class Http4sDownloadServiceSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  for ((description, metadata) <- List(
-    "missing" -> None,
-    "malformed" -> Some("not JSON"),
-    "oversized" -> Some("x" * 16385),
-    "weak" -> Some("""{"uri":"https://example.com/video.mp4","etag":"W/\"v1\"","size":6}"""),
-    "different URL" -> Some("""{"uri":"https://example.com/other","etag":"\"v1\"","size":6}"""),
-    "invalid ETag" -> Some("""{"uri":"https://example.com/video.mp4","etag":"invalid","size":6}"""),
-    "complete file" -> Some("""{"uri":"https://example.com/video.mp4","etag":"\"v1\"","size":3}""")
-  )) {
+  for (
+    (description, metadata) <- List(
+      "missing" -> None,
+      "malformed" -> Some("not JSON"),
+      "oversized" -> Some("x" * 16385),
+      "weak" -> Some("""{"uri":"https://example.com/video.mp4","etag":"W/\"v1\"","size":6}"""),
+      "different URL" -> Some("""{"uri":"https://example.com/other","etag":"\"v1\"","size":6}"""),
+      "invalid ETag" -> Some("""{"uri":"https://example.com/video.mp4","etag":"invalid","size":6}"""),
+      "complete file" -> Some("""{"uri":"https://example.com/video.mp4","etag":"\"v1\"","size":3}""")
+    )
+  ) {
     it should s"restart without a range when resume metadata is $description" in runIO {
       withFile { fixture =>
         val client = Client.fromHttpApp[IO](HttpApp[IO] { request =>
@@ -151,7 +159,8 @@ class Http4sDownloadServiceSpec extends AnyFlatSpec with Matchers {
         for {
           _ <- fixture.write(fixture.key, "old")
           _ <- metadata.traverse_(fixture.write(fixture.metadataKey, _))
-          _ <- new Http4sDownloadService[IO](client, fixture.repository).download(uri, fixture.key)
+          _ <- new Http4sDownloadService[IO](client, fixture.repository)
+            .download(uri, fixture.key)
             .use(_.data.compile.drain)
           content <- fixture.read(fixture.key)
         } yield content mustBe "abcdef"
@@ -159,8 +168,15 @@ class Http4sDownloadServiceSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  for (status <- List(Status.NotFound, Status.InternalServerError, Status.Found, Status.NoContent,
-    Status.RangeNotSatisfiable)) {
+  for (
+    status <- List(
+      Status.NotFound,
+      Status.InternalServerError,
+      Status.Found,
+      Status.NoContent,
+      Status.RangeNotSatisfiable
+    )
+  ) {
     it should s"reject $status without changing an existing partial file" in runIO {
       withFile { fixture =>
         for {
@@ -177,14 +193,31 @@ class Http4sDownloadServiceSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  for (range <- List(None, Some("invalid"), Some("bytes 0-2/6"), Some("bytes 3-4/6"),
-    Some("bytes 3-5/7"), Some("bytes 3-5/*"), Some("items 3-5/6"))) {
+  for (
+    range <- List(
+      None,
+      Some("invalid"),
+      Some("bytes 0-2/6"),
+      Some("bytes 3-4/6"),
+      Some("bytes 3-5/7"),
+      Some("bytes 3-5/*"),
+      Some("items 3-5/6")
+    )
+  ) {
     it should s"reject a partial response with Content-Range $range" in runIO {
       withFile { fixture =>
         for {
           _ <- fixture.seedPartial
-          result <- fixture.consume(response("def", Status.PartialContent, 3,
-            range.toList.map(value => Header.Raw(CIString("Content-Range"), value)))).attempt
+          result <- fixture
+            .consume(
+              response(
+                "def",
+                Status.PartialContent,
+                3,
+                range.toList.map(value => Header.Raw(CIString("Content-Range"), value))
+              )
+            )
+            .attempt
           content <- fixture.read(fixture.key)
         } yield {
           assertDownloadError(result)
@@ -237,8 +270,9 @@ class Http4sDownloadServiceSpec extends AnyFlatSpec with Matchers {
     withFile { fixture =>
       for {
         _ <- fixture.seedPartial
-        _ <- fixture.consume(partialResponse.transformHeaders(headers =>
-          Headers(headers.headers.filterNot(_.name == CIString("ETag")))))
+        _ <- fixture.consume(
+          partialResponse.transformHeaders(headers => Headers(headers.headers.filterNot(_.name == CIString("ETag"))))
+        )
         content <- fixture.read(fixture.key)
       } yield content mustBe "abcdef"
     }
@@ -253,8 +287,9 @@ class Http4sDownloadServiceSpec extends AnyFlatSpec with Matchers {
       withFile { fixture =>
         for {
           _ <- fixture.seedPartial
-          result <- fixture.consume(response().transformHeaders(value =>
-            Headers(value.headers.filterNot(_.name == header)))).attempt
+          result <- fixture
+            .consume(response().transformHeaders(value => Headers(value.headers.filterNot(_.name == header))))
+            .attempt
           content <- fixture.read(fixture.key)
         } yield {
           assertDownloadError(result)
@@ -268,7 +303,8 @@ class Http4sDownloadServiceSpec extends AnyFlatSpec with Matchers {
     withFile { fixture =>
       for {
         _ <- fixture.seedPartial
-        result <- fixture.consume(response(extraHeaders = List(Header.Raw(CIString("Content-Encoding"), "gzip"))))
+        result <- fixture
+          .consume(response(extraHeaders = List(Header.Raw(CIString("Content-Encoding"), "gzip"))))
           .attempt
         content <- fixture.read(fixture.key)
       } yield {
@@ -308,7 +344,8 @@ class Http4sDownloadServiceSpec extends AnyFlatSpec with Matchers {
         for {
           first <- fixture.consume(firstResponse).attempt
           metadataExists <- fixture.repository.exists(fixture.metadataKey)
-          _ <- new Http4sDownloadService[IO](client, fixture.repository).download(uri, fixture.key)
+          _ <- new Http4sDownloadService[IO](client, fixture.repository)
+            .download(uri, fixture.key)
             .use(_.data.compile.drain)
           content <- fixture.read(fixture.key)
         } yield {
@@ -324,8 +361,11 @@ class Http4sDownloadServiceSpec extends AnyFlatSpec with Matchers {
     withFile { fixture =>
       for {
         ready <- cats.effect.Deferred[IO, Unit]
-        firstResponse = response().putHeaders(ETag("v1")).copy(body =
-          Stream.emit("abc").through(text.utf8.encode) ++ Stream.exec(ready.complete(()).void) ++ Stream.never[IO])
+        firstResponse = response()
+          .putHeaders(ETag("v1"))
+          .copy(body =
+            Stream.emit("abc").through(text.utf8.encode) ++ Stream.exec(ready.complete(()).void) ++ Stream.never[IO]
+          )
         fiber <- fixture.consume(firstResponse).start
         _ <- ready.get.timeoutAndForget(5.seconds)
         _ <- fiber.cancel.timeoutAndForget(5.seconds)
@@ -360,8 +400,10 @@ class Http4sDownloadServiceSpec extends AnyFlatSpec with Matchers {
         client = Client[IO] { _ =>
           Resource.make(IO.pure(response().copy(body = Stream.raiseError[IO](error))))(_ => released.set(true))
         }
-        result <- new Http4sDownloadService[IO](client, fixture.repository).download(uri, fixture.key)
-          .use(_.data.compile.drain).attempt
+        result <- new Http4sDownloadService[IO](client, fixture.repository)
+          .download(uri, fixture.key)
+          .use(_.data.compile.drain)
+          .attempt
         wasReleased <- released.get
       } yield {
         result mustBe Left(error)

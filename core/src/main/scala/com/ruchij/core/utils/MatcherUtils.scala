@@ -20,7 +20,12 @@ object MatcherUtils {
     def unapply(text: String): Option[FiniteDuration] =
       text match {
         case FiniteDurationPattern(hours, IntNumber(minutes), IntNumber(seconds)) =>
-          Some(FiniteDuration(3600 * Option(hours).flatMap(_.toIntOption).getOrElse(0) + minutes * 60 + seconds, TimeUnit.SECONDS))
+          Some(
+            FiniteDuration(
+              3600 * Option(hours).flatMap(_.toIntOption).getOrElse(0) + minutes * 60 + seconds,
+              TimeUnit.SECONDS
+            )
+          )
 
         case _ => None
       }

@@ -40,20 +40,14 @@ import scala.concurrent.duration._
 class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   import ApiSchedulingServiceImplSpec.SearchCall
 
-
   private val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 30)
 
   implicit val transaction: IO ~> IO = new (IO ~> IO) {
     override def apply[A](fa: IO[A]): IO[A] = fa
   }
 
-  private val sampleThumbnail = FileResource(
-    "thumbnail-1",
-    timestamp,
-    "/thumbnails/thumb1.jpg",
-    MediaType.image.jpeg,
-    50000L
-  )
+  private val sampleThumbnail =
+    FileResource("thumbnail-1", timestamp, "/thumbnails/thumb1.jpg", MediaType.image.jpeg, 50000L)
 
   private val sampleVideoMetadata = VideoMetadata(
     uri"https://example.com/video1",
@@ -65,15 +59,8 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     sampleThumbnail
   )
 
-  private val sampleScheduledVideoDownload = ScheduledVideoDownload(
-    timestamp,
-    timestamp,
-    SchedulingStatus.Queued,
-    0,
-    sampleVideoMetadata,
-    None,
-    None
-  )
+  private val sampleScheduledVideoDownload =
+    ScheduledVideoDownload(timestamp, timestamp, SchedulingStatus.Queued, 0, sampleVideoMetadata, None, None)
 
   class StubVideoAnalysisService(
     metadataResult: Uri => IO[VideoMetadataResult] = _ => IO.raiseError(new RuntimeException("Not implemented"))
@@ -81,7 +68,8 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     override def metadata(uri: Uri): IO[VideoMetadataResult] = metadataResult(uri)
     override def analyze(uri: Uri): IO[VideoAnalysisResult] = IO.raiseError(new RuntimeException("Not implemented"))
     override def downloadUri(uri: Uri): IO[Uri] = IO.raiseError(new RuntimeException("Not implemented"))
-    override def videoDurationFromPath(videoPath: String): IO[FiniteDuration] = IO.raiseError(new RuntimeException("Not implemented"))
+    override def videoDurationFromPath(videoPath: String): IO[FiniteDuration] =
+      IO.raiseError(new RuntimeException("Not implemented"))
   }
 
   class StubPublisher[A] extends Publisher[IO, A] {
@@ -101,9 +89,8 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     override def publishOne(message: A): IO[Unit] = IO.raiseError(new RuntimeException("Publish failed"))
   }
 
-  class StubConfigurationService(
-    storage: mutable.Map[String, WorkerStatus] = mutable.Map.empty
-  ) extends ConfigurationService[IO, ApiConfigKey] {
+  class StubConfigurationService(storage: mutable.Map[String, WorkerStatus] = mutable.Map.empty)
+      extends ConfigurationService[IO, ApiConfigKey] {
     override def get[A: KVDecoder[IO, *]](key: ApiConfigKey[A]): IO[Option[A]] =
       IO.pure(storage.get(key.key).map(_.asInstanceOf[A]))
 
@@ -117,7 +104,6 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     override def delete[A: KVDecoder[IO, *]](key: ApiConfigKey[A]): IO[Option[A]] =
       IO.delay { storage.remove(key.key).map(_.asInstanceOf[A]) }
   }
-
 
   class StubSchedulingDao(
     searchResult: Seq[ScheduledVideoDownload] = Seq.empty,
@@ -133,8 +119,15 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     override def insert(scheduledVideoDownload: ScheduledVideoDownload): IO[Int] = IO.pure(insertResult)
     override def getById(id: String, maybeUserId: Option[String]): IO[Option[ScheduledVideoDownload]] =
       IO.pure(getByIdResult(id, maybeUserId))
-    override def markScheduledVideoDownloadAsComplete(id: String, timestamp: Instant): IO[Option[ScheduledVideoDownload]] = IO.pure(None)
-    override def updateSchedulingStatusById(id: String, status: SchedulingStatus, timestamp: Instant): IO[Option[ScheduledVideoDownload]] =
+    override def markScheduledVideoDownloadAsComplete(
+      id: String,
+      timestamp: Instant
+    ): IO[Option[ScheduledVideoDownload]] = IO.pure(None)
+    override def updateSchedulingStatusById(
+      id: String,
+      status: SchedulingStatus,
+      timestamp: Instant
+    ): IO[Option[ScheduledVideoDownload]] =
       IO.pure(updateSchedulingStatusResult)
     override def transitionSchedulingStatusById(
       id: String,
@@ -144,15 +137,24 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
       maybeSoleUserId: Option[String]
     ): IO[Option[ScheduledVideoDownload]] =
       IO.pure(updateSchedulingStatusResult)
-    override def setErrorById(id: String, throwable: Throwable, timestamp: Instant): IO[Option[ScheduledVideoDownload]] = IO.pure(None)
+    override def setErrorById(
+      id: String,
+      throwable: Throwable,
+      timestamp: Instant
+    ): IO[Option[ScheduledVideoDownload]] = IO.pure(None)
     override def scheduleRetry(
       id: String,
       throwable: Throwable,
       retryAfter: Instant,
       timestamp: Instant
     ): IO[Option[ScheduledVideoDownload]] = IO.pure(None)
-    override def updateSchedulingStatus(from: SchedulingStatus, to: SchedulingStatus): IO[Seq[ScheduledVideoDownload]] = IO.pure(Seq.empty)
-    override def updateDownloadProgress(id: String, downloadedBytes: Long, timestamp: Instant): IO[Option[ScheduledVideoDownload]] =
+    override def updateSchedulingStatus(from: SchedulingStatus, to: SchedulingStatus): IO[Seq[ScheduledVideoDownload]] =
+      IO.pure(Seq.empty)
+    override def updateDownloadProgress(
+      id: String,
+      downloadedBytes: Long,
+      timestamp: Instant
+    ): IO[Option[ScheduledVideoDownload]] =
       IO.pure(updateDownloadProgressResult)
     override def deleteById(id: String): IO[Int] = IO.pure(1)
     override def search(
@@ -169,13 +171,29 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
       maybeUserId: Option[String]
     ): IO[Seq[ScheduledVideoDownload]] =
       IO.delay {
-        searchCalls += SearchCall(term, videoUrls, durationRange, sizeRange, pageNumber, pageSize, sortBy, order,
-          schedulingStatuses, videoSites, maybeUserId)
+        searchCalls += SearchCall(
+          term,
+          videoUrls,
+          durationRange,
+          sizeRange,
+          pageNumber,
+          pageSize,
+          sortBy,
+          order,
+          schedulingStatuses,
+          videoSites,
+          maybeUserId
+        )
       }.as(searchResult)
-    override def retryErroredScheduledDownloads(maybeUserId: Option[String], timestamp: Instant): IO[Seq[ScheduledVideoDownload]] =
+    override def retryErroredScheduledDownloads(
+      maybeUserId: Option[String],
+      timestamp: Instant
+    ): IO[Seq[ScheduledVideoDownload]] =
       IO.delay(retryErroredCalls += (maybeUserId -> timestamp)).as(retryErroredResult)
-    override def staleTask(delay: FiniteDuration, timestamp: Instant): IO[Option[ScheduledVideoDownload]] = IO.pure(None)
-    override def updateTimedOutTasks(timeout: FiniteDuration, timestamp: Instant): IO[Seq[ScheduledVideoDownload]] = IO.pure(Seq.empty)
+    override def staleTask(delay: FiniteDuration, timestamp: Instant): IO[Option[ScheduledVideoDownload]] =
+      IO.pure(None)
+    override def updateTimedOutTasks(timeout: FiniteDuration, timestamp: Instant): IO[Seq[ScheduledVideoDownload]] =
+      IO.pure(Seq.empty)
     override def acquireTask(timestamp: Instant): IO[Option[ScheduledVideoDownload]] = IO.pure(None)
   }
 
@@ -195,14 +213,17 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
 
   private def createService(
     videoAnalysisService: VideoAnalysisService[IO] = new StubVideoAnalysisService(),
-    scheduledVideoDownloadPublisher: StubPublisher[ScheduledVideoDownload] = new StubPublisher[ScheduledVideoDownload](),
+    scheduledVideoDownloadPublisher: StubPublisher[ScheduledVideoDownload] =
+      new StubPublisher[ScheduledVideoDownload](),
     workerStatusPublisher: StubPublisher[WorkerStatusUpdate] = new StubPublisher[WorkerStatusUpdate](),
     fallbackSyncRequestPublisher: StubPublisher[FallbackSyncRequest] = new StubPublisher[FallbackSyncRequest](),
     configurationService: ConfigurationService[IO, ApiConfigKey] = new StubConfigurationService(),
     schedulingDao: SchedulingDao[IO] = new StubSchedulingDao(),
     videoTitleDao: VideoTitleDao[IO] = new StubVideoTitleDao(),
     videoPermissionDao: VideoPermissionDao[IO] = new StubVideoPermissionDao()
-  )(implicit clock: Clock[IO]): (ApiSchedulingServiceImpl[IO, IO], StubPublisher[ScheduledVideoDownload], StubPublisher[WorkerStatusUpdate]) = {
+  )(implicit
+    clock: Clock[IO]
+  ): (ApiSchedulingServiceImpl[IO, IO], StubPublisher[ScheduledVideoDownload], StubPublisher[WorkerStatusUpdate]) = {
     val service = new ApiSchedulingServiceImpl[IO, IO](
       videoAnalysisService,
       scheduledVideoDownloadPublisher,
@@ -225,9 +246,8 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     val videoUrl = uri"https://youtube.com/watch?v=abc123"
     val publisher = new StubPublisher[ScheduledVideoDownload]()
 
-    val videoAnalysisService = new StubVideoAnalysisService(
-      metadataResult = _ => IO.pure(NewlyCreated(sampleVideoMetadata))
-    )
+    val videoAnalysisService =
+      new StubVideoAnalysisService(metadataResult = _ => IO.pure(NewlyCreated(sampleVideoMetadata)))
 
     val (service, _, _) = createService(
       videoAnalysisService = videoAnalysisService,
@@ -273,10 +293,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
 
     val schedulingDao = new StubSchedulingDao(searchResult = Seq(sampleScheduledVideoDownload))
 
-    val (service, _, _) = createService(
-      scheduledVideoDownloadPublisher = publisher,
-      schedulingDao = schedulingDao
-    )
+    val (service, _, _) = createService(scheduledVideoDownloadPublisher = publisher, schedulingDao = schedulingDao)
 
     service.schedule(videoUrl, "user-2").map { result =>
       result mustBe a[ScheduledVideoResult.NewlyScheduled]
@@ -292,9 +309,8 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     val videoUrl = uri"https://youtube.com/watch?v=abc123"
     val publisher = new StubPublisher[ScheduledVideoDownload]()
 
-    val videoAnalysisService = new StubVideoAnalysisService(
-      metadataResult = _ => IO.pure(NewlyCreated(sampleVideoMetadata))
-    )
+    val videoAnalysisService =
+      new StubVideoAnalysisService(metadataResult = _ => IO.pure(NewlyCreated(sampleVideoMetadata)))
 
     val schedulingDao = new StubSchedulingDao(
       searchResult = Seq.empty,
@@ -325,9 +341,8 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     val publisher = new StubPublisher[ScheduledVideoDownload]()
     val fallbackSyncRequests = new StubPublisher[FallbackSyncRequest]()
 
-    val videoAnalysisService = new StubVideoAnalysisService(
-      metadataResult = _ => IO.pure(NewlyCreated(sampleVideoMetadata))
-    )
+    val videoAnalysisService =
+      new StubVideoAnalysisService(metadataResult = _ => IO.pure(NewlyCreated(sampleVideoMetadata)))
 
     val schedulingDao = new StubSchedulingDao(
       searchResult = Seq.empty,
@@ -411,10 +426,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     val publisher = new StubPublisher[ScheduledVideoDownload]()
     val schedulingDao = new StubSchedulingDao(retryErroredResult = Seq(failedDownload))
 
-    val (service, _, _) = createService(
-      scheduledVideoDownloadPublisher = publisher,
-      schedulingDao = schedulingDao
-    )
+    val (service, _, _) = createService(scheduledVideoDownloadPublisher = publisher, schedulingDao = schedulingDao)
 
     service.retryFailed(Some("user-1")).map { result =>
       result mustBe Seq(failedDownload)
@@ -429,10 +441,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     val publisher = new StubPublisher[ScheduledVideoDownload]()
     val schedulingDao = new StubSchedulingDao(retryErroredResult = Seq.empty)
 
-    val (service, _, _) = createService(
-      scheduledVideoDownloadPublisher = publisher,
-      schedulingDao = schedulingDao
-    )
+    val (service, _, _) = createService(scheduledVideoDownloadPublisher = publisher, schedulingDao = schedulingDao)
 
     service.retryFailed(None).map { result =>
       result mustBe empty
@@ -449,10 +458,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     val publisher = new StubPublisher[ScheduledVideoDownload]()
     val schedulingDao = new StubSchedulingDao(retryErroredResult = Seq(failedDownload1, failedDownload2))
 
-    val (service, _, _) = createService(
-      scheduledVideoDownloadPublisher = publisher,
-      schedulingDao = schedulingDao
-    )
+    val (service, _, _) = createService(scheduledVideoDownloadPublisher = publisher, schedulingDao = schedulingDao)
 
     service.retryFailed(None).map { result =>
       result.size mustBe 2
@@ -467,21 +473,23 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     val schedulingDao = new StubSchedulingDao(searchResult = Seq(sampleScheduledVideoDownload))
     val (service, _, _) = createService(schedulingDao = schedulingDao)
 
-    service.search(
-      Some("test"),
-      None,
-      RangeValue.all[FiniteDuration],
-      RangeValue.all[Long],
-      0,
-      10,
-      SortBy.Date,
-      Order.Descending,
-      None,
-      None,
-      None
-    ).map { result =>
-      result mustBe Seq(sampleScheduledVideoDownload)
-    }
+    service
+      .search(
+        Some("test"),
+        None,
+        RangeValue.all[FiniteDuration],
+        RangeValue.all[Long],
+        0,
+        10,
+        SortBy.Date,
+        Order.Descending,
+        None,
+        None,
+        None
+      )
+      .map { result =>
+        result mustBe Seq(sampleScheduledVideoDownload)
+      }
   }
 
   it should "raise error when sortBy is WatchTime" in runIO {
@@ -489,22 +497,25 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
 
     val (service, _, _) = createService()
 
-    service.search(
-      None,
-      None,
-      RangeValue.all[FiniteDuration],
-      RangeValue.all[Long],
-      0,
-      10,
-      SortBy.WatchTime,
-      Order.Descending,
-      None,
-      None,
-      None
-    ).error.map { error =>
-      error mustBe a[ValidationException]
-      error.getMessage must include("watch_time")
-    }
+    service
+      .search(
+        None,
+        None,
+        RangeValue.all[FiniteDuration],
+        RangeValue.all[Long],
+        0,
+        10,
+        SortBy.WatchTime,
+        Order.Descending,
+        None,
+        None,
+        None
+      )
+      .error
+      .map { error =>
+        error mustBe a[ValidationException]
+        error.getMessage must include("watch_time")
+      }
   }
 
   it should "process video URLs before searching" in runIO {
@@ -513,24 +524,26 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     val schedulingDao = new StubSchedulingDao(searchResult = Seq(sampleScheduledVideoDownload))
     val (service, _, _) = createService(schedulingDao = schedulingDao)
 
-    service.search(
-      None,
-      Some(NonEmptyList.of(uri"https://www.youtube.com/watch?v=abc123&list=PL123&t=42")),
-      RangeValue.all[FiniteDuration],
-      RangeValue.all[Long],
-      0,
-      10,
-      SortBy.Date,
-      Order.Descending,
-      None,
-      None,
-      None
-    ).map { result =>
-      result mustBe Seq(sampleScheduledVideoDownload)
-      // YouTube URLs are reduced to their "v" parameter so they match the stored URL
-      schedulingDao.searchCalls.toList.map(_.videoUrls) mustBe
-        List(Some(NonEmptyList.of(uri"https://www.youtube.com/watch?v=abc123")))
-    }
+    service
+      .search(
+        None,
+        Some(NonEmptyList.of(uri"https://www.youtube.com/watch?v=abc123&list=PL123&t=42")),
+        RangeValue.all[FiniteDuration],
+        RangeValue.all[Long],
+        0,
+        10,
+        SortBy.Date,
+        Order.Descending,
+        None,
+        None,
+        None
+      )
+      .map { result =>
+        result mustBe Seq(sampleScheduledVideoDownload)
+        // YouTube URLs are reduced to their "v" parameter so they match the stored URL
+        schedulingDao.searchCalls.toList.map(_.videoUrls) mustBe
+          List(Some(NonEmptyList.of(uri"https://www.youtube.com/watch?v=abc123")))
+      }
   }
 
   it should "handle multiple video URLs and filters" in runIO {
@@ -539,40 +552,47 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     val schedulingDao = new StubSchedulingDao(searchResult = Seq(sampleScheduledVideoDownload))
     val (service, _, _) = createService(schedulingDao = schedulingDao)
 
-    service.search(
-      None,
-      Some(NonEmptyList.of(
-        uri"https://www.youtube.com/watch?v=abc123&list=PL123",
-        uri"https://example.com/videos/def456?quality=hd"
-      )),
-      RangeValue.all[FiniteDuration],
-      RangeValue.all[Long],
-      0,
-      10,
-      SortBy.Title,
-      Order.Ascending,
-      Some(NonEmptyList.of(SchedulingStatus.Queued)),
-      Some(NonEmptyList.of(VideoSite.YTDownloaderSite("youtube"))),
-      Some("user-1")
-    ).map { result =>
-      result mustBe Seq(sampleScheduledVideoDownload)
-      schedulingDao.searchCalls.toList mustBe List(
-        SearchCall(
-          None,
-          // Only YouTube URLs are rewritten; other sites are passed through unchanged
-          Some(NonEmptyList.of(uri"https://www.youtube.com/watch?v=abc123", uri"https://example.com/videos/def456?quality=hd")),
-          RangeValue.all[FiniteDuration],
-          RangeValue.all[Long],
-          0,
-          10,
-          SortBy.Title,
-          Order.Ascending,
-          Some(NonEmptyList.of(SchedulingStatus.Queued)),
-          Some(NonEmptyList.of(VideoSite.YTDownloaderSite("youtube"))),
-          Some("user-1")
-        )
+    service
+      .search(
+        None,
+        Some(
+          NonEmptyList.of(
+            uri"https://www.youtube.com/watch?v=abc123&list=PL123",
+            uri"https://example.com/videos/def456?quality=hd"
+          )
+        ),
+        RangeValue.all[FiniteDuration],
+        RangeValue.all[Long],
+        0,
+        10,
+        SortBy.Title,
+        Order.Ascending,
+        Some(NonEmptyList.of(SchedulingStatus.Queued)),
+        Some(NonEmptyList.of(VideoSite.YTDownloaderSite("youtube"))),
+        Some("user-1")
       )
-    }
+      .map { result =>
+        result mustBe Seq(sampleScheduledVideoDownload)
+        schedulingDao.searchCalls.toList mustBe List(
+          SearchCall(
+            None,
+            // Only YouTube URLs are rewritten; other sites are passed through unchanged
+            Some(
+              NonEmptyList
+                .of(uri"https://www.youtube.com/watch?v=abc123", uri"https://example.com/videos/def456?quality=hd")
+            ),
+            RangeValue.all[FiniteDuration],
+            RangeValue.all[Long],
+            0,
+            10,
+            SortBy.Title,
+            Order.Ascending,
+            Some(NonEmptyList.of(SchedulingStatus.Queued)),
+            Some(NonEmptyList.of(VideoSite.YTDownloaderSite("youtube"))),
+            Some("user-1")
+          )
+        )
+      }
   }
 
   // updateSchedulingStatus tests
@@ -583,10 +603,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     val publisher = new StubPublisher[ScheduledVideoDownload]()
     val schedulingDao = new StubSchedulingDao(updateSchedulingStatusResult = Some(updatedDownload))
 
-    val (service, _, _) = createService(
-      scheduledVideoDownloadPublisher = publisher,
-      schedulingDao = schedulingDao
-    )
+    val (service, _, _) = createService(scheduledVideoDownloadPublisher = publisher, schedulingDao = schedulingDao)
 
     service.updateSchedulingStatus("video-1", SchedulingStatus.Queued, None).map { result =>
       result mustBe updatedDownload
@@ -652,8 +669,8 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   "getById" should "return scheduled video download when found" in runIO {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
-    val schedulingDao = new StubSchedulingDao(
-      getByIdResult = (id, _) => if (id == "video-1") Some(sampleScheduledVideoDownload) else None
+    val schedulingDao = new StubSchedulingDao(getByIdResult =
+      (id, _) => if (id == "video-1") Some(sampleScheduledVideoDownload) else None
     )
     val (service, _, _) = createService(schedulingDao = schedulingDao)
 
@@ -665,9 +682,8 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   it should "filter by user ID when provided" in runIO {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
-    val schedulingDao = new StubSchedulingDao(
-      getByIdResult = (id, userId) =>
-        if (id == "video-1" && userId.contains("user-1")) Some(sampleScheduledVideoDownload) else None
+    val schedulingDao = new StubSchedulingDao(getByIdResult =
+      (id, userId) => if (id == "video-1" && userId.contains("user-1")) Some(sampleScheduledVideoDownload) else None
     )
     val (service, _, _) = createService(schedulingDao = schedulingDao)
 
@@ -695,10 +711,8 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     val configService = new StubConfigurationService(configStorage)
     val workerStatusPublisher = new StubPublisher[WorkerStatusUpdate]()
 
-    val (service, _, _) = createService(
-      configurationService = configService,
-      workerStatusPublisher = workerStatusPublisher
-    )
+    val (service, _, _) =
+      createService(configurationService = configService, workerStatusPublisher = workerStatusPublisher)
 
     service.updateWorkerStatus(WorkerStatus.Paused).map { _ =>
       workerStatusPublisher.publishedMessages.toList mustBe List(WorkerStatusUpdate(WorkerStatus.Paused))
@@ -763,9 +777,8 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   "deleteById" should "delete scheduled video download with user filter" in runIO {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
-    val schedulingDao = new StubSchedulingDao(
-      getByIdResult = (id, userId) =>
-        if (id == "video-1" && userId.contains("user-1")) Some(sampleScheduledVideoDownload) else None
+    val schedulingDao = new StubSchedulingDao(getByIdResult =
+      (id, userId) => if (id == "video-1" && userId.contains("user-1")) Some(sampleScheduledVideoDownload) else None
     )
 
     val (service, _, _) = createService(schedulingDao = schedulingDao)
@@ -779,14 +792,11 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val publisher = new StubPublisher[ScheduledVideoDownload]()
-    val schedulingDao = new StubSchedulingDao(
-      getByIdResult = (id, _) => if (id == "video-1") Some(sampleScheduledVideoDownload) else None
+    val schedulingDao = new StubSchedulingDao(getByIdResult =
+      (id, _) => if (id == "video-1") Some(sampleScheduledVideoDownload) else None
     )
 
-    val (service, _, _) = createService(
-      scheduledVideoDownloadPublisher = publisher,
-      schedulingDao = schedulingDao
-    )
+    val (service, _, _) = createService(scheduledVideoDownloadPublisher = publisher, schedulingDao = schedulingDao)
 
     service.deleteById("video-1", None).map { result =>
       result.status mustBe SchedulingStatus.Deleted
@@ -799,9 +809,8 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val completedDownload = sampleScheduledVideoDownload.copy(status = SchedulingStatus.Completed)
-    val schedulingDao = new StubSchedulingDao(
-      getByIdResult = (id, _) => if (id == "video-1") Some(completedDownload) else None
-    )
+    val schedulingDao =
+      new StubSchedulingDao(getByIdResult = (id, _) => if (id == "video-1") Some(completedDownload) else None)
 
     val (service, _, _) = createService(schedulingDao = schedulingDao)
 
@@ -815,9 +824,8 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val downloadedDownload = sampleScheduledVideoDownload.copy(status = SchedulingStatus.Downloaded)
-    val schedulingDao = new StubSchedulingDao(
-      getByIdResult = (id, _) => if (id == "video-1") Some(downloadedDownload) else None
-    )
+    val schedulingDao =
+      new StubSchedulingDao(getByIdResult = (id, _) => if (id == "video-1") Some(downloadedDownload) else None)
 
     val (service, _, _) = createService(schedulingDao = schedulingDao)
 

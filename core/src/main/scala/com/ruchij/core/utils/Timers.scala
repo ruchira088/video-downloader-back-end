@@ -11,10 +11,9 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 object Timers {
   private val ResetPollInterval: FiniteDuration = 5.seconds
 
-  /**
-    * Completes with a `Left(TimeoutException)` once `interval` elapses without `resetSignal` having been set to
-    * `true`. Every observed reset clears the signal and restarts the interval. The timeout is returned as a value
-    * (never raised) so the result can be passed straight to `Stream#interruptWhen`.
+  /** Completes with a `Left(TimeoutException)` once `interval` elapses without `resetSignal` having been set to `true`.
+    * Every observed reset clears the signal and restarts the interval. The timeout is returned as a value (never
+    * raised) so the result can be passed straight to `Stream#interruptWhen`.
     */
   def createResettableTimer[F[_]: Temporal](
     interval: FiniteDuration,

@@ -14,10 +14,9 @@ class CliCommandRunnerImpl[F[_]: Async](dispatcher: Dispatcher[F]) extends CliCo
 
   private val logger = Logger[CliCommandRunnerImpl[F]]
 
-  /**
-    * Each line is put in the queue before the thread reading the process's output moves on, and the exit code is only
-    * read once those threads have finished. So by the time the exit code is known, every line is in the queue, ahead of the
-    * marker that ends the stream, and none can be lost however late the threads run.
+  /** Each line is put in the queue before the thread reading the process's output moves on, and the exit code is only
+    * read once those threads have finished. So by the time the exit code is known, every line is in the queue, ahead of
+    * the marker that ends the stream, and none can be lost however late the threads run.
     */
   override def run(arguments: List[String]): Stream[F, String] = {
     val command = arguments.mkString(" ")
@@ -28,29 +27,31 @@ class CliCommandRunnerImpl[F[_]: Async](dispatcher: Dispatcher[F]) extends CliCo
       deferred <- Stream.eval(Deferred[F, Throwable])
 
       running <- Stream.bracket {
-        Sync[F].blocking {
-          val process = new ProcessBuilder(arguments.asJava).start()
-          process.getOutputStream.close()
+        Sync[F]
+          .blocking {
+            val process = new ProcessBuilder(arguments.asJava).start()
+            process.getOutputStream.close()
 
-          val outputReader =
-            readLines(process.getInputStream) { output =>
-              dispatcher.unsafeRunSync(queue.offer(Some(Right(output))))
-            }
-
-          val errorReader =
-            readLines(process.getErrorStream) { error =>
-              dispatcher.unsafeRunSync {
-                logger
-                  .error[F](s"Exception thrown by CLI command: $command", CliCommandException(error))
-                  .productR(deferred.complete(CliCommandException(error)).void)
+            val outputReader =
+              readLines(process.getInputStream) { output =>
+                dispatcher.unsafeRunSync(queue.offer(Some(Right(output))))
               }
-            }
 
-          (process, List(outputReader, errorReader))
-        }.adaptError {
-          // Without a shell in between, a missing program surfaces as an IOException rather than a non-zero exit code
-          case ioException: IOException => CliCommandException(ioException.getMessage)
-        }
+            val errorReader =
+              readLines(process.getErrorStream) { error =>
+                dispatcher.unsafeRunSync {
+                  logger
+                    .error[F](s"Exception thrown by CLI command: $command", CliCommandException(error))
+                    .productR(deferred.complete(CliCommandException(error)).void)
+                }
+              }
+
+            (process, List(outputReader, errorReader))
+          }
+          .adaptError {
+            // Without a shell in between, a missing program surfaces as an IOException rather than a non-zero exit code
+            case ioException: IOException => CliCommandException(ioException.getMessage)
+          }
       } { case (process, _) =>
         Sync[F]
           .delay(process.isAlive())
@@ -72,17 +73,19 @@ class CliCommandRunnerImpl[F[_]: Async](dispatcher: Dispatcher[F]) extends CliCo
       (process, readers) = running
 
       // Interruptible, so that a consumer that stops early isn't held up until the process exits
-      outcome = Sync[F].interruptible {
-        val exitCode = process.waitFor()
-        readers.foreach(_.join())
-        exitCode
-      }.flatMap { exitCode =>
-        deferred.tryGet.map {
-          case Some(throwable) => Some(Left(throwable))
-          case None if exitCode == 0 => None
-          case None => Some(Left(CliCommandException(s"CLI command exited with $exitCode code")))
+      outcome = Sync[F]
+        .interruptible {
+          val exitCode = process.waitFor()
+          readers.foreach(_.join())
+          exitCode
         }
-      }
+        .flatMap { exitCode =>
+          deferred.tryGet.map {
+            case Some(throwable) => Some(Left(throwable))
+            case None if exitCode == 0 => None
+            case None => Some(Left(CliCommandException(s"CLI command exited with $exitCode code")))
+          }
+        }
 
       line <- Stream
         .fromQueueNoneTerminated(queue)

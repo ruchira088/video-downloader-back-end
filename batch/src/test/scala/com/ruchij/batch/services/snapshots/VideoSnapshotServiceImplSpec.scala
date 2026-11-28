@@ -233,9 +233,9 @@ class VideoSnapshotServiceImplSpec extends AnyFlatSpec with Matchers {
       val adjacentArguments = arguments.sliding(2).toList
 
       adjacentArguments must contain(List("-frames:v", "1")) // Take only 1 frame
-      adjacentArguments must contain(List("-q:v", "2"))      // Quality setting
-      arguments must contain("-y")                           // Overwrite output
-      adjacentArguments must contain(List("-v", "error"))    // Only show errors
+      adjacentArguments must contain(List("-q:v", "2")) // Quality setting
+      arguments must contain("-y") // Overwrite output
+      adjacentArguments must contain(List("-v", "error")) // Only show errors
 
       // Paths with spaces are passed as a single, unquoted argument since no shell is involved
       adjacentArguments must contain(List("-i", "/videos/my video.mp4"))

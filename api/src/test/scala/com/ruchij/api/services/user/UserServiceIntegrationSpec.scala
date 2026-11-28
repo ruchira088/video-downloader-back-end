@@ -87,163 +87,154 @@ class UserServiceIntegrationSpec extends AnyFlatSpec with Matchers {
   private def count(table: String, userId: String): ConnectionIO[Int] =
     (fr"SELECT COUNT(*) FROM" ++ doobie.Fragment.const(table) ++ fr"WHERE user_id = $userId").query[Int].unique
 
-  providers.foreach {
-    case (databaseName, provider) =>
-      s"delete ($databaseName)" should "delete a user who has playlists, watch history and reset tokens" in
-        runTest(provider) { implicit transaction =>
-          val service = userService()
-          val playlistDao = new DoobiePlaylistDao(DoobieFileResourceDao, DoobieVideoDao)
-          val userId = ApiTestData.NormalUser.id
-
-          for {
-            _ <- transaction {
-              playlistDao.insert(
-                Playlist(
-                  "playlist",
-                  userId,
-                  CoreTestData.Timestamp,
-                  "Mine",
-                  None,
-                  List(CoreTestData.YouTubeVideo),
-                  None
-                )
-              ) *>
-                DoobieVideoWatchHistoryDao.insert(
-                  VideoWatchHistory(
-                    "history",
-                    userId,
-                    CoreTestData.YouTubeVideo.videoMetadata.id,
-                    CoreTestData.Timestamp,
-                    CoreTestData.Timestamp,
-                    1.minute
-                  )
-                )
-            }
-            _ <- service.forgotPassword(ApiTestData.NormalUser.email)
-
-            deleted <- service.delete(userId, ApiTestData.AdminUser)
-
-            remaining <- transaction {
-              List("playlist", "video_watch_history", "credentials_reset_token").traverse(table => count(table, userId))
-            }
-            playlistVideos <- transaction {
-              sql"SELECT COUNT(*) FROM playlist_video WHERE playlist_id = 'playlist'".query[Int].unique
-            }
-            maybeUser <- transaction(DoobieUserDao.findById(userId))
-          } yield {
-            deleted.id mustBe userId
-            remaining mustBe List(0, 0, 0)
-            playlistVideos mustBe 0
-            maybeUser mustBe None
-          }
-      }
-
-      it should "delete the album art of the user's playlists" in runTest(provider) { implicit transaction =>
-        val files = new ConcurrentHashMap[String, List[Byte]]()
-        val albumArt = FileResource("album-art", CoreTestData.Timestamp, "images/album-art.png", MediaType.image.png, 4)
+  providers.foreach { case (databaseName, provider) =>
+    s"delete ($databaseName)" should "delete a user who has playlists, watch history and reset tokens" in
+      runTest(provider) { implicit transaction =>
+        val service = userService()
+        val playlistDao = new DoobiePlaylistDao(DoobieFileResourceDao, DoobieVideoDao)
         val userId = ApiTestData.NormalUser.id
 
         for {
-          _ <- IO.delay(files.put(albumArt.path, List[Byte](1, 2, 3, 4)))
           _ <- transaction {
-            DoobieFileResourceDao.insert(albumArt) *>
-              new DoobiePlaylistDao(DoobieFileResourceDao, DoobieVideoDao)
-                .insert(Playlist("playlist", userId, CoreTestData.Timestamp, "Mine", None, Nil, Some(albumArt)))
+            playlistDao.insert(
+              Playlist("playlist", userId, CoreTestData.Timestamp, "Mine", None, List(CoreTestData.YouTubeVideo), None)
+            ) *>
+              DoobieVideoWatchHistoryDao.insert(
+                VideoWatchHistory(
+                  "history",
+                  userId,
+                  CoreTestData.YouTubeVideo.videoMetadata.id,
+                  CoreTestData.Timestamp,
+                  CoreTestData.Timestamp,
+                  1.minute
+                )
+              )
           }
+          _ <- service.forgotPassword(ApiTestData.NormalUser.email)
 
-          _ <- userService(files = files).delete(userId, ApiTestData.AdminUser)
+          deleted <- service.delete(userId, ApiTestData.AdminUser)
 
-          resource <- transaction(DoobieFileResourceDao.getById(albumArt.id))
+          remaining <- transaction {
+            List("playlist", "video_watch_history", "credentials_reset_token").traverse(table => count(table, userId))
+          }
+          playlistVideos <- transaction {
+            sql"SELECT COUNT(*) FROM playlist_video WHERE playlist_id = 'playlist'".query[Int].unique
+          }
+          maybeUser <- transaction(DoobieUserDao.findById(userId))
         } yield {
-          resource mustBe None
-          files.containsKey(albumArt.path) mustBe false
+          deleted.id mustBe userId
+          remaining mustBe List(0, 0, 0)
+          playlistVideos mustBe 0
+          maybeUser mustBe None
         }
       }
 
-      it should "not let an admin delete their own account" in runTest(provider) { implicit transaction =>
-        for {
-          error <- userService().delete(ApiTestData.AdminUser.id, ApiTestData.AdminUser).error
-          maybeAdmin <- transaction(DoobieUserDao.findById(ApiTestData.AdminUser.id))
-        } yield {
-          error mustBe a[ValidationException]
-          maybeAdmin mustBe Some(ApiTestData.AdminUser)
+    it should "delete the album art of the user's playlists" in runTest(provider) { implicit transaction =>
+      val files = new ConcurrentHashMap[String, List[Byte]]()
+      val albumArt = FileResource("album-art", CoreTestData.Timestamp, "images/album-art.png", MediaType.image.png, 4)
+      val userId = ApiTestData.NormalUser.id
+
+      for {
+        _ <- IO.delay(files.put(albumArt.path, List[Byte](1, 2, 3, 4)))
+        _ <- transaction {
+          DoobieFileResourceDao.insert(albumArt) *>
+            new DoobiePlaylistDao(DoobieFileResourceDao, DoobieVideoDao)
+              .insert(Playlist("playlist", userId, CoreTestData.Timestamp, "Mine", None, Nil, Some(albumArt)))
         }
-      }
 
-      it should "not delete the last remaining admin" in runTest(provider) { implicit transaction =>
-        // An admin whose own account was deleted after they signed in
-        val formerAdmin = ApiTestData.AdminUser.copy(id = "former-admin", email = Email("former-admin@ruchij.com"))
+        _ <- userService(files = files).delete(userId, ApiTestData.AdminUser)
+
+        resource <- transaction(DoobieFileResourceDao.getById(albumArt.id))
+      } yield {
+        resource mustBe None
+        files.containsKey(albumArt.path) mustBe false
+      }
+    }
+
+    it should "not let an admin delete their own account" in runTest(provider) { implicit transaction =>
+      for {
+        error <- userService().delete(ApiTestData.AdminUser.id, ApiTestData.AdminUser).error
+        maybeAdmin <- transaction(DoobieUserDao.findById(ApiTestData.AdminUser.id))
+      } yield {
+        error mustBe a[ValidationException]
+        maybeAdmin mustBe Some(ApiTestData.AdminUser)
+      }
+    }
+
+    it should "not delete the last remaining admin" in runTest(provider) { implicit transaction =>
+      // An admin whose own account was deleted after they signed in
+      val formerAdmin = ApiTestData.AdminUser.copy(id = "former-admin", email = Email("former-admin@ruchij.com"))
+
+      for {
+        _ <- userService().delete(SeededAdminId, ApiTestData.AdminUser)
+        error <- userService().delete(ApiTestData.AdminUser.id, formerAdmin).error
+        maybeAdmin <- transaction(DoobieUserDao.findById(ApiTestData.AdminUser.id))
+      } yield {
+        error mustBe a[ResourceConflictException]
+        maybeAdmin mustBe Some(ApiTestData.AdminUser)
+      }
+    }
+
+    it should "keep an admin when two admins delete each other concurrently" in runTest(provider) {
+      implicit transaction =>
+        val otherAdmin = ApiTestData.AdminUser.copy(id = "other-admin", email = Email("other-admin@ruchij.com"))
+        val service = userService()
 
         for {
-          _ <- userService().delete(SeededAdminId, ApiTestData.AdminUser)
-          error <- userService().delete(ApiTestData.AdminUser.id, formerAdmin).error
-          maybeAdmin <- transaction(DoobieUserDao.findById(ApiTestData.AdminUser.id))
+          _ <- service.delete(SeededAdminId, ApiTestData.AdminUser)
+          _ <- transaction(DoobieUserDao.insert(otherAdmin))
+          results <- List(
+            service.delete(otherAdmin.id, ApiTestData.AdminUser),
+            service.delete(ApiTestData.AdminUser.id, otherAdmin)
+          ).parTraverse(_.attempt)
+          admins <- transaction(sql"SELECT COUNT(*) FROM api_user WHERE role = 'Admin'".query[Int].unique)
+        } yield {
+          results.count(_.isRight) mustBe 1
+          admins mustBe 1
+        }
+    }
+
+    s"create ($databaseName)" should "reject a duplicate email even when the email check is raced" in
+      runTest(provider) { implicit transaction =>
+        val service = userService(RacingUserDao)
+
+        for {
+          _ <- service.create("Jane", "Doe", Email("jane.doe@example.com"), Password("password-1"))
+          error <- service.create("Janet", "Doe", Email("jane.doe@example.com"), Password("password-2")).error
+          users <- transaction {
+            sql"SELECT COUNT(*) FROM api_user WHERE email = 'jane.doe@example.com'".query[Int].unique
+          }
         } yield {
           error mustBe a[ResourceConflictException]
-          maybeAdmin mustBe Some(ApiTestData.AdminUser)
+          error.getMessage mustBe "User with email jane.doe@example.com already exists"
+          users mustBe 1
         }
       }
 
-      it should "keep an admin when two admins delete each other concurrently" in runTest(provider) {
-        implicit transaction =>
-          val otherAdmin = ApiTestData.AdminUser.copy(id = "other-admin", email = Email("other-admin@ruchij.com"))
-          val service = userService()
+    s"resetPassword ($databaseName)" should "accept a reset token only once, even when used concurrently" in
+      runTest(provider) { implicit transaction =>
+        val service = userService()
+        val userId = ApiTestData.NormalUser.id
 
-          for {
-            _ <- service.delete(SeededAdminId, ApiTestData.AdminUser)
-            _ <- transaction(DoobieUserDao.insert(otherAdmin))
-            results <- List(
-              service.delete(otherAdmin.id, ApiTestData.AdminUser),
-              service.delete(ApiTestData.AdminUser.id, otherAdmin)
-            ).parTraverse(_.attempt)
-            admins <- transaction(sql"SELECT COUNT(*) FROM api_user WHERE role = 'Admin'".query[Int].unique)
-          } yield {
-            results.count(_.isRight) mustBe 1
-            admins mustBe 1
-          }
-      }
-
-      s"create ($databaseName)" should "reject a duplicate email even when the email check is raced" in
-        runTest(provider) { implicit transaction =>
-          val service = userService(RacingUserDao)
-
-          for {
-            _ <- service.create("Jane", "Doe", Email("jane.doe@example.com"), Password("password-1"))
-            error <- service.create("Janet", "Doe", Email("jane.doe@example.com"), Password("password-2")).error
-            users <- transaction {
-              sql"SELECT COUNT(*) FROM api_user WHERE email = 'jane.doe@example.com'".query[Int].unique
-            }
-          } yield {
-            error mustBe a[ResourceConflictException]
-            error.getMessage mustBe "User with email jane.doe@example.com already exists"
-            users mustBe 1
-          }
-      }
-
-      s"resetPassword ($databaseName)" should "accept a reset token only once, even when used concurrently" in
-        runTest(provider) { implicit transaction =>
-          val service = userService()
-          val userId = ApiTestData.NormalUser.id
-
-          for {
-            // setUpData does not create credentials, so the user needs some before a reset
-            _ <- transaction {
-              sql"""
+        for {
+          // setUpData does not create credentials, so the user needs some before a reset
+          _ <- transaction {
+            sql"""
                 INSERT INTO credentials (user_id, last_updated_at, hashed_password)
                   VALUES ($userId, ${CoreTestData.Timestamp}, 'hash')
               """.update.run
-            }
-            resetToken <- service.forgotPassword(ApiTestData.NormalUser.email)
-
-            results <- List("password-a", "password-b").parTraverse { password =>
-              service.resetPassword(userId, resetToken.token, Password(password)).attempt
-            }
-
-            reuse <- service.resetPassword(userId, resetToken.token, Password("password-c")).attempt
-          } yield {
-            results.count(_.isRight) mustBe 1
-            reuse.isLeft mustBe true
           }
+          resetToken <- service.forgotPassword(ApiTestData.NormalUser.email)
+
+          results <- List("password-a", "password-b").parTraverse { password =>
+            service.resetPassword(userId, resetToken.token, Password(password)).attempt
+          }
+
+          reuse <- service.resetPassword(userId, resetToken.token, Password("password-c")).attempt
+        } yield {
+          results.count(_.isRight) mustBe 1
+          reuse.isLeft mustBe true
+        }
       }
   }
 }

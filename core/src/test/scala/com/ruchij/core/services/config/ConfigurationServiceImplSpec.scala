@@ -39,7 +39,10 @@ class ConfigurationServiceImplSpec extends AnyFlatSpec with Matchers {
       timestamp2 <- Clock[IO].timestamp.map(_.plus(java.time.Duration.ofMinutes(1)))
 
       _ <- configurationService.put(VideoScanningStatus, VideoScan(timestamp1, Scheduled))
-      previousValue <- configurationService.put(VideoScanningStatus, VideoScan(timestamp2, VideoScan.ScanStatus.InProgress))
+      previousValue <- configurationService.put(
+        VideoScanningStatus,
+        VideoScan(timestamp2, VideoScan.ScanStatus.InProgress)
+      )
 
       _ <- IO.delay { previousValue mustBe Some(VideoScan(timestamp1, Scheduled)) }
 

@@ -23,13 +23,13 @@ object DoobieSnapshotDao extends SnapshotDao[ConnectionIO] {
               video_snapshot.video_timestamp
        FROM video_snapshot
        JOIN file_resource ON video_snapshot.file_resource_id = file_resource.id
-    """ ++ (if (maybeUserId.isEmpty) Fragment.empty else fr"JOIN permission on video_snapshot.video_id = permission.video_id")
+    """ ++ (if (maybeUserId.isEmpty) Fragment.empty
+            else fr"JOIN permission on video_snapshot.video_id = permission.video_id")
       ++
       whereAndOpt(
         Some(fr"video_snapshot.video_id = $videoId"),
         maybeUserId.map(userId => fr"permission.user_id = $userId")
-      ) ++ fr"ORDER BY video_snapshot.video_timestamp, file_resource.id"
-    )
+      ) ++ fr"ORDER BY video_snapshot.video_timestamp, file_resource.id")
       .query[Snapshot]
       .to[Seq]
 

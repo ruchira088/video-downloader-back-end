@@ -162,10 +162,9 @@ class BatchSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
         }.as(scheduledVideoDownloadPubSub.extractValue(committableRecord))
       }
 
-  /**
-    * A failed commit, such as one interrupted by a consumer group rebalance, is logged rather than failing the
-    * subscription. Committing a later message covers this one too, while restarting the subscription would leave a
-    * gap in which the messages for this instance could be missed.
+  /** A failed commit, such as one interrupted by a consumer group rebalance, is logged rather than failing the
+    * subscription. Committing a later message covers this one too, while restarting the subscription would leave a gap
+    * in which the messages for this instance could be missed.
     */
   private def commitOrLog(subscriber: String, groupId: String)(commit: F[Unit]): F[Unit] =
     commit
@@ -197,7 +196,8 @@ class BatchSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
         }.getOrElseF(ApplicativeError[F, Throwable].raiseError(notFound(id)))
           .flatTap { scheduledVideoDownload =>
             if (scheduledVideoDownload.downloadedBytes > 0) {
-              logger.info[F](s"Deleting video file for ScheduledVideoDownload with id=$id")
+              logger
+                .info[F](s"Deleting video file for ScheduledVideoDownload with id=$id")
                 .productR {
                   repositoryService
                     .list(storageConfiguration.videoFolder)

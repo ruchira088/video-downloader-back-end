@@ -19,11 +19,11 @@ class KafkaPublisher[F[_]: Sync, A](topicName: String, kafkaProducer: KafkaProdu
         val producerRecords: List[ProducerRecord[Unit, A]] =
           chunk.map { value => ProducerRecord[Unit, A](topicName, (): Unit, value) }.toList
 
-        kafkaProducer.produce(ProducerRecords[List, Unit, A](producerRecords))
+        kafkaProducer
+          .produce(ProducerRecords[List, Unit, A](producerRecords))
           .productR {
-            producerRecords.traverse {
-              producerRecord =>
-                logger.trace[F](s"Published: topic=${producerRecord.topic}, value=${producerRecord.value}")
+            producerRecords.traverse { producerRecord =>
+              logger.trace[F](s"Published: topic=${producerRecord.topic}, value=${producerRecord.value}")
             }
           }
 
@@ -35,13 +35,14 @@ class KafkaPublisher[F[_]: Sync, A](topicName: String, kafkaProducer: KafkaProdu
 }
 
 object KafkaPublisher {
-  def apply[F[_]: Async, A](kafkaConfiguration: KafkaConfiguration)(
-    implicit topic: MessagingTopic[A]
-  ): Resource[F, KafkaPublisher[F, A]] =
-    KafkaProducer.resource {
-      ProducerSettings[F, Unit, A](GenericSerializer[F, Unit], topic.serializer[F](kafkaConfiguration))
-        .withBootstrapServers(kafkaConfiguration.bootstrapServers)
-    }
+  def apply[F[_]: Async, A](
+    kafkaConfiguration: KafkaConfiguration
+  )(implicit topic: MessagingTopic[A]): Resource[F, KafkaPublisher[F, A]] =
+    KafkaProducer
+      .resource {
+        ProducerSettings[F, Unit, A](GenericSerializer[F, Unit], topic.serializer[F](kafkaConfiguration))
+          .withBootstrapServers(kafkaConfiguration.bootstrapServers)
+      }
       .map { producer =>
         new KafkaPublisher[F, A](kafkaConfiguration.topicName(topic.name), producer)
       }

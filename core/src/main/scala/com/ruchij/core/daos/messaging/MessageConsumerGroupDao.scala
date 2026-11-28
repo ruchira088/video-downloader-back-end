@@ -4,14 +4,12 @@ import java.time.Instant
 
 trait MessageConsumerGroupDao[F[_]] {
 
-  /**
-    * Creates the consumer group, starting it from the latest message on the channel. Fails with a unique violation
-    * if the group already exists.
+  /** Creates the consumer group, starting it from the latest message on the channel. Fails with a unique violation if
+    * the group already exists.
     */
   def createGroup(channel: String, groupId: String, createdAt: Instant): F[Int]
 
-  /**
-    * Locks the consumer group row until the end of the transaction, so that only one consumer of the group claims
+  /** Locks the consumer group row until the end of the transaction, so that only one consumer of the group claims
     * messages at a time. Returns the id the group starts from, or None if the group doesn't exist.
     */
   def lockGroup(channel: String, groupId: String): F[Option[Long]]
@@ -19,11 +17,9 @@ trait MessageConsumerGroupDao[F[_]] {
   /** Records that the group polled at `polledAt`, unless it is already recorded as polling after `staleBefore`. */
   def markPolled(channel: String, groupId: String, polledAt: Instant, staleBefore: Instant): F[Int]
 
-  /**
-    * Moves the group's start id up to the last message of the unbroken run of messages after `startId` that the
-    * group has acknowledged, and drops the claims it moved past. It stops at messages created at or after
-    * `createdBefore`, since a message with a lower id may still commit until then. Returns the new start id, if it
-    * moved.
+  /** Moves the group's start id up to the last message of the unbroken run of messages after `startId` that the group
+    * has acknowledged, and drops the claims it moved past. It stops at messages created at or after `createdBefore`,
+    * since a message with a lower id may still commit until then. Returns the new start id, if it moved.
     */
   def advanceStartId(channel: String, groupId: String, startId: Long, createdBefore: Instant): F[Option[Long]]
 

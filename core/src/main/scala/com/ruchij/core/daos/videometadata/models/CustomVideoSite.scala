@@ -60,8 +60,8 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
         .liftF[F, Uri, JsExecutionOutput] {
           JsonParser.parse(output).flatMap(_.as[JsExecutionOutput]).toType[F, Throwable]
         }
-        .flatMap {
-          case JsExecutionOutput(videoPath) => JsoupSelector.stringToUri(videoPath)
+        .flatMap { case JsExecutionOutput(videoPath) =>
+          JsoupSelector.stringToUri(videoPath)
         }
 
     val readyCssSelectors: Seq[String]
@@ -76,8 +76,8 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
       JsoupSelector
         .nonEmptyElementList[F]("ul.download-list a")
         .map(_.head)
-        .recoverWith {
-          case _ => JsoupSelector.singleElement[F](".btn-download")
+        .recoverWith { case _ =>
+          JsoupSelector.singleElement[F](".btn-download")
         }
         .flatMapF(JsoupSelector.attribute[F](_, "href"))
         .flatMapF(urlString => Uri.fromString(urlString).toType[F, Throwable])
@@ -128,8 +128,8 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
     override def downloadUri[F[_]: MonadThrow]: Selector[F, Uri] =
       JsoupSelector
         .nonEmptyElementList[F]("#pornone-video-player source")
-        .flatMap {
-          case NonEmptyList(element, _) => JsoupSelector.src[F](element)
+        .flatMap { case NonEmptyList(element, _) =>
+          JsoupSelector.src[F](element)
         }
 
     override def processUri[F[_]: MonadThrow](uri: Uri): F[Uri] =
@@ -243,11 +243,7 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
   }
 
   sealed trait TxxxNetwork extends SpaCustomVideoSite {
-    private case class TxxNetworkMetadata(
-      name: String,
-      thumbnailUrl: Option[Uri],
-      duration: Option[FiniteDuration]
-    )
+    private case class TxxNetworkMetadata(name: String, thumbnailUrl: Option[Uri], duration: Option[FiniteDuration])
 
     private val JavascriptCode: String =
       """

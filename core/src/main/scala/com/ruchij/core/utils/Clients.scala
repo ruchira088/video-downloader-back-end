@@ -14,9 +14,7 @@ import java.net.{InetSocketAddress, ProxySelector}
 object Clients {
   private final case class ProxyDetails(hostname: String, port: Int)
 
-  def create[F[_]: Async](
-    maybeHttpProxyConfiguration: Option[HttpProxyConfiguration]
-  ): Resource[F, Client[F]] = {
+  def create[F[_]: Async](maybeHttpProxyConfiguration: Option[HttpProxyConfiguration]): Resource[F, Client[F]] = {
     val maybeProxyDetails = for {
       httpProxyConfiguration <- maybeHttpProxyConfiguration
       hostname <- httpProxyConfiguration.proxyUrl.host

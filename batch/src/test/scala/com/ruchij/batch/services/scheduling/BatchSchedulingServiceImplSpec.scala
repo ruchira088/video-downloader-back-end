@@ -123,7 +123,8 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         .compile
         .toList
         .product {
-          Stream.emit[IO, Unit]((): Unit)
+          Stream
+            .emit[IO, Unit]((): Unit)
             .repeat
             .parEvalMapUnordered(concurrency) { _ =>
               batchSchedulingServiceImpl.acquireTask.value
@@ -133,16 +134,16 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
             .compile
             .toList
         }
-        .flatMap {
-          case (persisted, retrieved) =>
-            IO.delay {
-              retrieved must have length persisted.size
-              retrieved.map(_.videoMetadata.id) must contain allElementsOf persisted.map(_.videoMetadata.id)
-              all(retrieved.map(_.status)) mustBe SchedulingStatus.Acquired
-            }
+        .flatMap { case (persisted, retrieved) =>
+          IO.delay {
+            retrieved must have length persisted.size
+            retrieved.map(_.videoMetadata.id) must contain allElementsOf persisted.map(_.videoMetadata.id)
+            all(retrieved.map(_.status)) mustBe SchedulingStatus.Acquired
+          }
         }
         .productR {
-          Stream.emit[IO, Unit]((): Unit)
+          Stream
+            .emit[IO, Unit]((): Unit)
             .repeatN(concurrency)
             .evalMap { _ => batchSchedulingServiceImpl.acquireTask.value }
             .collect { case Some(value) => value }
@@ -170,7 +171,10 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
 
         _ = (fixture.scheduledVideoDownloadPubSub.publishOne).expects(*).returning(IO.unit)
 
-        updated <- fixture.batchSchedulingService.updateSchedulingStatusById(scheduledVideo.videoMetadata.id, SchedulingStatus.Downloaded)
+        updated <- fixture.batchSchedulingService.updateSchedulingStatusById(
+          scheduledVideo.videoMetadata.id,
+          SchedulingStatus.Downloaded
+        )
         _ <- IO.delay {
           updated.status mustBe SchedulingStatus.Downloaded
           updated.videoMetadata.id mustBe scheduledVideo.videoMetadata.id
@@ -185,7 +189,8 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     batchServiceProvider.transactor.use { implicit transactor =>
       val fixture = createTestFixture()
 
-      fixture.batchSchedulingService.updateSchedulingStatusById("non-existent-id", SchedulingStatus.Downloaded)
+      fixture.batchSchedulingService
+        .updateSchedulingStatusById("non-existent-id", SchedulingStatus.Downloaded)
         .attempt
         .flatMap { result =>
           IO.delay {
@@ -195,7 +200,6 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         }
     }
   }
-
 
   "transitionSchedulingStatusById" should "change the status from one of the given statuses and publish it" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
@@ -483,7 +487,8 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     batchServiceProvider.transactor.use { implicit transactor =>
       val fixture = createTestFixture()
 
-      fixture.batchSchedulingService.publishScheduledVideoDownload("non-existent-id")
+      fixture.batchSchedulingService
+        .publishScheduledVideoDownload("non-existent-id")
         .attempt
         .flatMap { result =>
           IO.delay {
@@ -532,7 +537,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         }
 
         // Verify it's deleted
-        notFound <- fixture.batchSchedulingService.publishScheduledVideoDownload(scheduledVideo.videoMetadata.id).attempt
+        notFound <- fixture.batchSchedulingService
+          .publishScheduledVideoDownload(scheduledVideo.videoMetadata.id)
+          .attempt
         _ <- IO.delay {
           notFound.isLeft mustBe true
         }
@@ -546,7 +553,8 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     batchServiceProvider.transactor.use { implicit transactor =>
       val fixture = createTestFixture()
 
-      fixture.batchSchedulingService.deleteById("non-existent-id")
+      fixture.batchSchedulingService
+        .deleteById("non-existent-id")
         .attempt
         .flatMap { result =>
           IO.delay {
@@ -590,10 +598,12 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         _ <- transactor(DoobieSchedulingDao.updateDownloadProgress(videoWithBytes.videoMetadata.id, 1024L, timestamp))
 
         // Mock repository to return the video file and accept delete
-        _ = (repositoryService.list).expects("video-folder").returning(
-          Stream.emit(s"video-folder/${videoWithBytes.videoMetadata.id}.mp4")
-        )
-        _ = (repositoryService.delete).expects(s"video-folder/${videoWithBytes.videoMetadata.id}.mp4").returning(IO.pure(true))
+        _ = (repositoryService.list)
+          .expects("video-folder")
+          .returning(Stream.emit(s"video-folder/${videoWithBytes.videoMetadata.id}.mp4"))
+        _ = (repositoryService.delete)
+          .expects(s"video-folder/${videoWithBytes.videoMetadata.id}.mp4")
+          .returning(IO.pure(true))
 
         deleted <- batchSchedulingService.deleteById(videoWithBytes.videoMetadata.id)
         _ <- IO.delay {
@@ -609,7 +619,8 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     batchServiceProvider.transactor.use { implicit transactor =>
       val fixture = createTestFixture()
 
-      fixture.batchSchedulingService.completeScheduledVideoDownload("non-existent-id")
+      fixture.batchSchedulingService
+        .completeScheduledVideoDownload("non-existent-id")
         .attempt
         .flatMap { result =>
           IO.delay {
@@ -847,16 +858,28 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
         _ <- transactor(insertScheduledVideo(scheduledVideo))
 
-        videoFileResource <- DataGenerators.fileResource[IO](cats.data.NonEmptyList.of(org.http4s.MediaType.video.mp4)).generate
+        videoFileResource <- DataGenerators
+          .fileResource[IO](cats.data.NonEmptyList.of(org.http4s.MediaType.video.mp4))
+          .generate
         _ <- transactor(DoobieFileResourceDao.insert(videoFileResource))
 
         timestamp <- Clock[IO].timestamp
-        _ <- transactor(DoobieVideoDao.insert(scheduledVideo.videoMetadata.id, videoFileResource.id, timestamp, 0.seconds))
+        _ <- transactor(
+          DoobieVideoDao.insert(scheduledVideo.videoMetadata.id, videoFileResource.id, timestamp, 0.seconds)
+        )
 
         // Insert a perceptual hash record for this video
-        _ <- transactor(DoobieVideoPerceptualHashDao.insert(
-          VideoPerceptualHash(scheduledVideo.videoMetadata.id, timestamp, scheduledVideo.videoMetadata.duration, BigInt(42L), 150.seconds)
-        ))
+        _ <- transactor(
+          DoobieVideoPerceptualHashDao.insert(
+            VideoPerceptualHash(
+              scheduledVideo.videoMetadata.id,
+              timestamp,
+              scheduledVideo.videoMetadata.duration,
+              BigInt(42L),
+              150.seconds
+            )
+          )
+        )
 
         // Deleting the video row should succeed despite the perceptual hash record
         // (FK now references video_metadata, not video)
@@ -876,16 +899,21 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
         _ <- transactor(insertScheduledVideo(scheduledVideo))
 
-        videoFileResource <- DataGenerators.fileResource[IO](cats.data.NonEmptyList.of(org.http4s.MediaType.video.mp4)).generate
+        videoFileResource <- DataGenerators
+          .fileResource[IO](cats.data.NonEmptyList.of(org.http4s.MediaType.video.mp4))
+          .generate
         _ <- transactor(DoobieFileResourceDao.insert(videoFileResource))
 
         timestamp <- Clock[IO].timestamp
-        _ <- transactor(DoobieVideoDao.insert(scheduledVideo.videoMetadata.id, videoFileResource.id, timestamp, 0.seconds))
+        _ <- transactor(
+          DoobieVideoDao.insert(scheduledVideo.videoMetadata.id, videoFileResource.id, timestamp, 0.seconds)
+        )
 
         // Insert a duplicate video record for this video
-        _ <- transactor(DoobieDuplicateVideoDao.insert(
-          DuplicateVideo(scheduledVideo.videoMetadata.id, scheduledVideo.videoMetadata.id, timestamp)
-        ))
+        _ <- transactor(
+          DoobieDuplicateVideoDao
+            .insert(DuplicateVideo(scheduledVideo.videoMetadata.id, scheduledVideo.videoMetadata.id, timestamp))
+        )
 
         // Deleting the video row should succeed despite the duplicate video record
         // (FK now references video_metadata, not video)

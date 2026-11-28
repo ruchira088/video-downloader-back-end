@@ -42,7 +42,8 @@ class DoobieCustomMappingsSpec extends AnyFlatSpec with Matchers {
     DoobieTransactor.create[IO](dbConfig).use { transactor =>
       for {
         _ <- sql"CREATE TABLE enum_test (status VARCHAR(255))".update.run.transact(transactor)
-        _ <- sql"INSERT INTO enum_test VALUES (${SchedulingStatus.Completed: SchedulingStatus})".update.run.transact(transactor)
+        _ <- sql"INSERT INTO enum_test VALUES (${SchedulingStatus.Completed: SchedulingStatus})".update.run
+          .transact(transactor)
         result <- sql"SELECT status FROM enum_test".query[SchedulingStatus].unique.transact(transactor)
       } yield {
         result mustBe SchedulingStatus.Completed
@@ -131,7 +132,8 @@ class DoobieCustomMappingsSpec extends AnyFlatSpec with Matchers {
     DoobieTransactor.create[IO](dbConfig).use { transactor =>
       for {
         _ <- sql"CREATE TABLE uri_error_test (uri VARCHAR(255))".update.run.transact(transactor)
-        _ <- sql"INSERT INTO uri_error_test VALUES ('not a valid uri with spaces and ::: stuff')".update.run.transact(transactor)
+        _ <- sql"INSERT INTO uri_error_test VALUES ('not a valid uri with spaces and ::: stuff')".update.run
+          .transact(transactor)
         result <- sql"SELECT uri FROM uri_error_test".query[Uri].unique.transact(transactor).attempt
       } yield {
         result.isLeft mustBe true

@@ -59,7 +59,12 @@ class WorkExecutorImplSpec extends AnyFlatSpec with Matchers {
     )
 
   private val video =
-    Video(videoMetadata, FileResource("spankbang-abc", timestamp, "/videos/abc.mp4", MediaType.video.mp4, 5_000), timestamp, 0.seconds)
+    Video(
+      videoMetadata,
+      FileResource("spankbang-abc", timestamp, "/videos/abc.mp4", MediaType.video.mp4, 5_000),
+      timestamp,
+      0.seconds
+    )
 
   private val worker = Worker("worker-00", WorkerStatus.Active, None, None, None, Some("test-owner"))
 
@@ -76,7 +81,12 @@ class WorkExecutorImplSpec extends AnyFlatSpec with Matchers {
     override def getById(workerId: String): IO[Option[Worker]] = notImplemented
     override def setStatus(workerId: String, workerStatus: WorkerStatus): IO[Int] = notImplemented
     override def reserveWorker(workerId: String, owner: String, timestamp: Instant): IO[Option[Worker]] = notImplemented
-    override def assignTask(workerId: String, scheduledVideoId: String, owner: String, timestamp: Instant): IO[Option[Worker]] =
+    override def assignTask(
+      workerId: String,
+      scheduledVideoId: String,
+      owner: String,
+      timestamp: Instant
+    ): IO[Option[Worker]] =
       notImplemented
     override def releaseWorker(workerId: String, owner: String): IO[Option[Worker]] = notImplemented
     override def updateHeartBeat(workerId: String, owner: String, timestamp: Instant): IO[Option[Worker]] =
@@ -96,7 +106,12 @@ class WorkExecutorImplSpec extends AnyFlatSpec with Matchers {
 
   private class NoOpVideoMetadataDao extends VideoMetadataDao[IO] {
     override def insert(videoMetadata: VideoMetadata): IO[Int] = IO.pure(1)
-    override def update(videoMetadataId: String, title: Option[String], size: Option[Long], maybeDuration: Option[FiniteDuration]): IO[Int] =
+    override def update(
+      videoMetadataId: String,
+      title: Option[String],
+      size: Option[Long],
+      maybeDuration: Option[FiniteDuration]
+    ): IO[Int] =
       IO.pure(1)
     override def findById(videoMetadataId: String): IO[Option[VideoMetadata]] = IO.pure(None)
     override def isThumbnailFileResource(thumbnailId: String): IO[Boolean] = IO.pure(false)
@@ -146,7 +161,10 @@ class WorkExecutorImplSpec extends AnyFlatSpec with Matchers {
 
       pauseSignal: Stream[IO, Boolean] = Stream.sleep_[IO](300.millis) ++ Stream.emit(true)
 
-      error <- workExecutor.execute(scheduledVideoDownload, worker, pauseSignal, retries = 0).withTimeout(10.seconds).error
+      error <- workExecutor
+        .execute(scheduledVideoDownload, worker, pauseSignal, retries = 0)
+        .withTimeout(10.seconds)
+        .error
       statusUpdates <- batchSchedulingService.statusUpdates.get
       completedIds <- batchSchedulingService.completedIds.get
     } yield {
@@ -162,7 +180,11 @@ class WorkExecutorImplSpec extends AnyFlatSpec with Matchers {
       heartBeats <- Ref.of[IO, List[(String, Instant)]](List.empty)
 
       workExecutor =
-        createWorkExecutor(Stream.emits[IO, Long](List(1_000, 2_500, 5_000)), batchSchedulingService, new RecordingWorkerDao(heartBeats))
+        createWorkExecutor(
+          Stream.emits[IO, Long](List(1_000, 2_500, 5_000)),
+          batchSchedulingService,
+          new RecordingWorkerDao(heartBeats)
+        )
 
       result <- workExecutor.execute(scheduledVideoDownload, worker, Stream.empty, retries = 0).withTimeout(10.seconds)
       statusUpdates <- batchSchedulingService.statusUpdates.get
@@ -212,7 +234,8 @@ class WorkExecutorImplSpec extends AnyFlatSpec with Matchers {
 
   it should "publish the download progress regularly while the downloader reports progress continuously" in runIO {
     // The HTTP download emits on every chunk and yt-dlp on every progress line, far more often than every 3 seconds
-    val continuousDownload = Stream.awakeEvery[IO](200.millis).take(300).zipWithIndex.map { case (_, index) => (index + 1) * 10 }
+    val continuousDownload =
+      Stream.awakeEvery[IO](200.millis).take(300).zipWithIndex.map { case (_, index) => (index + 1) * 10 }
 
     publishedProgress(continuousDownload).map { published =>
       // The first progress arrives 200 milliseconds in, so allow for that on top of the 3 second period
@@ -253,7 +276,9 @@ class WorkExecutorImplSpec extends AnyFlatSpec with Matchers {
     val source = Stream.emit[IO, Int](1) ++ Stream.sleep_[IO](5.seconds) ++ Stream.raiseError[IO](failure)
 
     TestControl
-      .executeEmbed(source.through(WorkExecutorImpl.sampleLatest(2.seconds, repeatUnchanged = true)).compile.toList.attempt)
+      .executeEmbed(
+        source.through(WorkExecutorImpl.sampleLatest(2.seconds, repeatUnchanged = true)).compile.toList.attempt
+      )
       .map { _ mustBe Left(failure) }
   }
 
@@ -281,13 +306,12 @@ class WorkExecutorImplSpec extends AnyFlatSpec with Matchers {
         recordedHeartBeats <- heartBeats.get
       } yield (result, recordedHeartBeats)
 
-    TestControl.executeEmbed(test).map {
-      case (result, recordedHeartBeats) =>
-        result mustBe video
+    TestControl.executeEmbed(test).map { case (result, recordedHeartBeats) =>
+      result mustBe video
 
-        // A heartbeat every 30 seconds keeps the worker from being freed as stale by another instance
-        recordedHeartBeats.size must be >= 5
-        recordedHeartBeats.map { case (owner, _) => owner }.distinct mustBe List("test-owner")
+      // A heartbeat every 30 seconds keeps the worker from being freed as stale by another instance
+      recordedHeartBeats.size must be >= 5
+      recordedHeartBeats.map { case (owner, _) => owner }.distinct mustBe List("test-owner")
     }
   }
 
@@ -335,14 +359,13 @@ class WorkExecutorImplSpec extends AnyFlatSpec with Matchers {
         .awakeEvery[IO](1.second)
         .take(30)
         .zipWithIndex
-        .map {
-          case (_, index) =>
-            YTDownloaderProgress(
-              (index + 1) * 100.0 / 30,
-              YTDataSize(5, YTDataUnit.KiB),
-              YTDataSize(1, YTDataUnit.KiB),
-              1.second
-            )
+        .map { case (_, index) =>
+          YTDownloaderProgress(
+            (index + 1) * 100.0 / 30,
+            YTDataSize(5, YTDataUnit.KiB),
+            YTDataSize(1, YTDataUnit.KiB),
+            1.second
+          )
         }
 
     // The database connection pool times out every time the progress is saved
@@ -378,11 +401,10 @@ class WorkExecutorImplSpec extends AnyFlatSpec with Matchers {
         completedIds <- batchSchedulingService.completedIds.get
       } yield (result, completedIds)
 
-    TestControl.executeEmbed(test).map {
-      case (result, completedIds) =>
-        result mustBe Right(video)
-        completedIds mustBe List(ytDlpVideoMetadata.id)
-        failingVideoMetadataDao.updateAttempts must be >= 2
+    TestControl.executeEmbed(test).map { case (result, completedIds) =>
+      result mustBe Right(video)
+      completedIds mustBe List(ytDlpVideoMetadata.id)
+      failingVideoMetadataDao.updateAttempts must be >= 2
     }
   }
 

@@ -132,10 +132,11 @@ class FallbackRequestConsumerSpec extends AnyFlatSpec with Matchers {
 
   private val scheduled = IO.pure(ScheduledVideoResult.NewlyScheduled(scheduledVideoDownload("video-1")))
 
-  /** Lower-level runner for scenarios that need a bespoke `UserDao`/`FallbackSyncDao`/`FallbackSyncTransport`
-    * (e.g. one that fails), where the caller already holds the transport/dao it wants to inspect afterwards.
-    * Errors from `handle` are swallowed (via `.attempt`) so the assertion can inspect the resulting state
-    * (what was deleted, what if anything was sent) instead of the test itself failing. */
+  /** Lower-level runner for scenarios that need a bespoke `UserDao`/`FallbackSyncDao`/`FallbackSyncTransport` (e.g. one
+    * that fails), where the caller already holds the transport/dao it wants to inspect afterwards. Errors from `handle`
+    * are swallowed (via `.attempt`) so the assertion can inspect the resulting state (what was deleted, what if
+    * anything was sent) instead of the test itself failing.
+    */
   private def runConsumer(
     schedule: IO[ScheduledVideoResult],
     userDao: UserDao[IO],
@@ -167,16 +168,15 @@ class FallbackRequestConsumerSpec extends AnyFlatSpec with Matchers {
     }
 
   "FallbackRequestConsumer" should "reply Scheduled with the video's state and delete the message" in runIO {
-    run(scheduled, userExists = true, message(body(request))).map {
-      case (sent, deleted) =>
-        sent match {
-          case List(RequestResolved("request-1", "user-1", ResolutionOutcome.Scheduled(upsert))) =>
-            upsert.videoId mustBe "video-1"
-            // The stub database clock's reading, not the application clock
-            upsert.capturedAt mustBe capturedAt
-          case other => fail(s"Unexpected messages: $other")
-        }
-        deleted mustBe List("receipt-1")
+    run(scheduled, userExists = true, message(body(request))).map { case (sent, deleted) =>
+      sent match {
+        case List(RequestResolved("request-1", "user-1", ResolutionOutcome.Scheduled(upsert))) =>
+          upsert.videoId mustBe "video-1"
+          // The stub database clock's reading, not the application clock
+          upsert.capturedAt mustBe capturedAt
+        case other => fail(s"Unexpected messages: $other")
+      }
+      deleted mustBe List("receipt-1")
     }
   }
 
@@ -208,9 +208,7 @@ class FallbackRequestConsumerSpec extends AnyFlatSpec with Matchers {
   it should "reject permanent scheduling failures" in runIO {
     run(IO.raiseError(ValidationException("Unable infer video site")), userExists = true, message(body(request))).map {
       case (sent, deleted) =>
-        sent mustBe List(
-          RequestResolved("request-1", "user-1", ResolutionOutcome.Rejected("Unable infer video site"))
-        )
+        sent mustBe List(RequestResolved("request-1", "user-1", ResolutionOutcome.Rejected("Unable infer video site")))
         deleted mustBe List("receipt-1")
     }
   }

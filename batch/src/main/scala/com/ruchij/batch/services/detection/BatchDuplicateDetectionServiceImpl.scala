@@ -52,7 +52,8 @@ class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
 
   private def detectDuplicates(duration: FiniteDuration): F[Set[Set[String]]] = {
     val snapshotDurations = VideoEnrichmentService.snapshotTimestamps(duration, SnapshotCount)
-    val snapshotTimestamp = snapshotDurations.sorted(using FiniteDuration.FiniteDurationIsOrdered).toList(snapshotDurations.size / 2)
+    val snapshotTimestamp =
+      snapshotDurations.sorted(using FiniteDuration.FiniteDurationIsOrdered).toList(snapshotDurations.size / 2)
 
     logger
       .info[F](
@@ -69,29 +70,27 @@ class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
             videoHashIds = videoHashes.map(_.videoId).toSet
             videoIdsWithoutHashes = videoIds.filterNot(videoHashIds.contains)
           } yield videoIdsWithoutHashes -> videoHashes
-        }.flatMap {
-            case (videoIds, videoHashes) =>
-              videoIds
-                .traverse { videoId =>
-                  perceptualHash(videoId, duration, snapshotTimestamp).value
-                }
-                .map(_.collect { case Some(value) => value })
-                .flatTap { newVideoHashes =>
-                  transaction {
-                    newVideoHashes.traverse { videoHash =>
-                      videoPerceptualHashDao
-                        .getByVideoId(videoHash.videoId)
-                        .map(_.find(_.snapshotTimestamp == videoHash.snapshotTimestamp))
-                        .flatMap {
-                          case None => videoPerceptualHashDao.insert(videoHash)
-                          case _ => Applicative[G].pure(0)
-                        }
+        }.flatMap { case (videoIds, videoHashes) =>
+          videoIds
+            .traverse { videoId =>
+              perceptualHash(videoId, duration, snapshotTimestamp).value
+            }
+            .map(_.collect { case Some(value) => value })
+            .flatTap { newVideoHashes =>
+              transaction {
+                newVideoHashes.traverse { videoHash =>
+                  videoPerceptualHashDao
+                    .getByVideoId(videoHash.videoId)
+                    .map(_.find(_.snapshotTimestamp == videoHash.snapshotTimestamp))
+                    .flatMap {
+                      case None => videoPerceptualHashDao.insert(videoHash)
+                      case _ => Applicative[G].pure(0)
                     }
-                  }
                 }
-                .map(_ ++ videoHashes)
-          }
-          .flatMap(videoHashes => calculateDuplicates(videoHashes))
+              }
+            }
+            .map(_ ++ videoHashes)
+        }.flatMap(videoHashes => calculateDuplicates(videoHashes))
 
       }
   }
@@ -118,19 +117,16 @@ class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
             snapshots.find(_.videoTimestamp.toMillis == snapshotTimestamp.toMillis)
           }
       }.flatTap {
-          case None =>
-            logger.info[F](
-              s"Snapshot not found for videoId=$videoId, snapshotTimestamp=${snapshotTimestamp.toSeconds}s"
-            )
-          case _ => Applicative[F].unit
-        }
+        case None =>
+          logger.info[F](s"Snapshot not found for videoId=$videoId, snapshotTimestamp=${snapshotTimestamp.toSeconds}s")
+        case _ => Applicative[F].unit
+      }
     }.flatMapF { snapshot =>
-        repositoryService
-          .read(snapshot.fileResource.path, None, None)
-      }
-      .semiflatMap { dataStream =>
-        perceptualHashingService.hashImage(dataStream)
-      }
+      repositoryService
+        .read(snapshot.fileResource.path, None, None)
+    }.semiflatMap { dataStream =>
+      perceptualHashingService.hashImage(dataStream)
+    }
 
   private def calculateDuplicates(videoHashes: Seq[VideoPerceptualHash]): F[Set[Set[String]]] =
     videoHashes.headOption.fold(Set.empty[Set[String]].pure[F]) { videoHash =>
@@ -189,8 +185,8 @@ class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
       groupId <- duplicateVideoSet.toSeq.sorted.headOption
         .toType[F, Throwable](InvalidConditionException("duplicate video set cannot be empty"))
       timestamp <- Clock[F].timestamp
-      duplicateVideos = duplicateVideoSet.map(
-        videoId => DuplicateVideo(videoId = videoId, duplicateGroupId = groupId, createdAt = timestamp)
+      duplicateVideos = duplicateVideoSet.map(videoId =>
+        DuplicateVideo(videoId = videoId, duplicateGroupId = groupId, createdAt = timestamp)
       )
       addedDuplicateVideos <- transaction {
         duplicateVideoDao
@@ -213,9 +209,8 @@ class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
       _ <- logger.info[F](s"Added ${addedDuplicateVideos.size} duplicate videos for group $groupId")
     } yield ()
 
-  /**
-    * Keeps the video chosen by `videoToKeep` and deletes the rest of the duplicate group, along with their files. A video
-    * that is not safe to delete stays in the group, for a user to review.
+  /** Keeps the video chosen by `videoToKeep` and deletes the rest of the duplicate group, along with their files. A
+    * video that is not safe to delete stays in the group, for a user to review.
     *
     * A group member whose video is gone is dropped from the group first. Its row outlives the video, since
     * duplicate_video references video_metadata rather than video, and it would otherwise keep the group open forever.
@@ -246,8 +241,7 @@ class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
         .productR(removeResolvedGroup(groupId))
     }
 
-  /**
-    * Deletes the duplicate if it is safe to: see `deletionBlocker`. Its playlist memberships are handed to the kept
+  /** Deletes the duplicate if it is safe to: see `deletionBlocker`. Its playlist memberships are handed to the kept
     * video first. A failure is logged rather than raised, so that the rest of the group is still handled: another batch
     * instance may have deleted the video already, and a video left behind is detected again in the next run.
     */
@@ -263,10 +257,9 @@ class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
         logger.error[F](s"Unable to delete duplicate videoId=${video.id} keeping videoId=${keptVideo.id}", throwable)
       }
 
-  /**
-    * Returns why the duplicate must not be deleted, if it must not. A duplicate is only deleted when the same users hold
-    * it and the kept video, so that no user loses a video or gains one they did not have, and when it matches the kept
-    * video directly at every one of the `VerificationSnapshotTimestamps`. Detection compares a single snapshot and
+  /** Returns why the duplicate must not be deleted, if it must not. A duplicate is only deleted when the same users
+    * hold it and the kept video, so that no user loses a video or gains one they did not have, and when it matches the
+    * kept video directly at every one of the `VerificationSnapshotTimestamps`. Detection compares a single snapshot and
     * chains matches into groups, so two videos in a group may never have been compared with each other.
     */
   private def deletionBlocker(video: Video, keptVideo: Video): F[Option[String]] =
@@ -275,28 +268,30 @@ class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
     else
       transaction {
         (videoPermissionDao.find(None, Some(video.id)), videoPermissionDao.find(None, Some(keptVideo.id))).tupled
-      }.flatMap {
-        case (videoPermissions, keptVideoPermissions) =>
-          if (videoPermissions.map(_.userId).toSet != keptVideoPermissions.map(_.userId).toSet)
-            Applicative[F].pure(Some("different users hold them"))
-          else
-            BatchDuplicateDetectionService
-              .verificationSnapshotTimestamps(video.videoMetadata.duration)
-              .toList
-              .traverse { snapshotTimestamp =>
-                (snapshotHash(video.id, snapshotTimestamp).value, snapshotHash(keptVideo.id, snapshotTimestamp).value).tupled
-              }
-              .flatMap { hashPairs =>
-                hashPairs
-                  .traverse(_.tupled)
-                  .fold(Applicative[F].pure[Option[String]](Some("a snapshot to compare them with is missing"))) {
-                    _.traverse { case (hash, keptHash) => perceptualHashingService.compareHashes(hash, keptHash) }
-                      .map { distances =>
-                        if (distances.forall(_ <= BatchDuplicateDetectionService.DifferenceThreshold)) None
-                        else Some("their snapshots differ")
-                      }
-                  }
-              }
+      }.flatMap { case (videoPermissions, keptVideoPermissions) =>
+        if (videoPermissions.map(_.userId).toSet != keptVideoPermissions.map(_.userId).toSet)
+          Applicative[F].pure(Some("different users hold them"))
+        else
+          BatchDuplicateDetectionService
+            .verificationSnapshotTimestamps(video.videoMetadata.duration)
+            .toList
+            .traverse { snapshotTimestamp =>
+              (
+                snapshotHash(video.id, snapshotTimestamp).value,
+                snapshotHash(keptVideo.id, snapshotTimestamp).value
+              ).tupled
+            }
+            .flatMap { hashPairs =>
+              hashPairs
+                .traverse(_.tupled)
+                .fold(Applicative[F].pure[Option[String]](Some("a snapshot to compare them with is missing"))) {
+                  _.traverse { case (hash, keptHash) => perceptualHashingService.compareHashes(hash, keptHash) }
+                    .map { distances =>
+                      if (distances.forall(_ <= BatchDuplicateDetectionService.DifferenceThreshold)) None
+                      else Some("their snapshots differ")
+                    }
+                }
+            }
       }
 
   private def deleteVerifiedDuplicate(video: Video, keptVideo: Video): F[Unit] =

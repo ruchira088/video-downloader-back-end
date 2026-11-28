@@ -11,9 +11,7 @@ object DoobieCredentialsDao extends CredentialsDao[ConnectionIO] {
     sql"""
       INSERT INTO credentials (user_id, last_updated_at, hashed_password)
         VALUES (${credentials.userId}, ${credentials.lastUpdatedAt}, ${credentials.hashedPassword})
-    """
-      .update
-      .run
+    """.update.run
 
   override def findCredentialsByUserId(userId: String): ConnectionIO[Option[Credentials]] =
     sql"SELECT user_id, last_updated_at, hashed_password FROM credentials WHERE user_id = $userId"
@@ -28,7 +26,5 @@ object DoobieCredentialsDao extends CredentialsDao[ConnectionIO] {
       UPDATE credentials
         SET last_updated_at = ${credentials.lastUpdatedAt}, hashed_password = ${credentials.hashedPassword}
         WHERE user_id = ${credentials.userId}
-    """
-      .update
-      .run
+    """.update.run
 }

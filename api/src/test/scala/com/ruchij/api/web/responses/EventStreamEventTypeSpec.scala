@@ -50,6 +50,8 @@ class EventStreamEventTypeSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "find ScheduledVideoDownloadUpdate by entry name" in {
-    EventStreamEventType.withNameInsensitive("scheduled-video-download-update") mustBe EventStreamEventType.ScheduledVideoDownloadUpdate
+    EventStreamEventType.withNameInsensitive(
+      "scheduled-video-download-update"
+    ) mustBe EventStreamEventType.ScheduledVideoDownloadUpdate
   }
 }

@@ -145,8 +145,7 @@ object ApiApp extends IOApp {
           awsClients <- FallbackSyncAwsClients.create[F](settings)
           fallbackSyncRequestPubSub <- pubSubProvider.pubSub[FallbackSyncRequest]
           scheduledVideoDownloadSubscriber <- pubSubProvider.pubSub[ScheduledVideoDownload]
-        } yield
-          FallbackSyncResources(settings, awsClients, fallbackSyncRequestPubSub, scheduledVideoDownloadSubscriber)
+        } yield FallbackSyncResources(settings, awsClients, fallbackSyncRequestPubSub, scheduledVideoDownloadSubscriber)
       }
 
       messageBrokers = ApiMessageBrokers(
@@ -161,15 +160,15 @@ object ApiApp extends IOApp {
       )
 
       httpApp <- program[F](
-          hikariTransactor,
-          proxiedHttpClient,
-          httpClient,
-          redisKeyValueStore,
-          messageBrokers,
-          dispatcher,
-          apiServiceConfiguration,
-          fallbackSyncResources
-        )
+        hikariTransactor,
+        proxiedHttpClient,
+        httpClient,
+        redisKeyValueStore,
+        messageBrokers,
+        dispatcher,
+        apiServiceConfiguration,
+        fallbackSyncResources
+      )
     } yield httpApp
 
   def program[F[_]: Async: Clock: Files: Compression](
@@ -375,24 +374,23 @@ object ApiApp extends IOApp {
         }
       }
 
-    } yield
-      Routes(
-        userService,
-        apiVideoService,
-        videoAnalysisService,
-        schedulingService,
-        playlistService,
-        assetService,
-        videoWatchHistoryService,
-        healthService,
-        authenticationService,
-        backgroundService.downloadProgress,
-        backgroundService.updates,
-        backgroundService.deletions,
-        messageBrokers.httpMetricsPublisher,
-        apiDuplicateDetectionService,
-        apiServiceConfiguration.httpConfiguration.allowedOriginHosts
-      )
+    } yield Routes(
+      userService,
+      apiVideoService,
+      videoAnalysisService,
+      schedulingService,
+      playlistService,
+      assetService,
+      videoWatchHistoryService,
+      healthService,
+      authenticationService,
+      backgroundService.downloadProgress,
+      backgroundService.updates,
+      backgroundService.deletions,
+      messageBrokers.httpMetricsPublisher,
+      apiDuplicateDetectionService,
+      apiServiceConfiguration.httpConfiguration.allowedOriginHosts
+    )
   }
 
 }

@@ -23,10 +23,9 @@ object PostgresContainer {
 
   def create[F[_]: Sync]: Resource[F, DatabaseConfiguration] = readyContainer(ContainerAttempts)
 
-  /**
-    * Starts a container with a migrated database in it, and returns a resource that creates a fresh copy of that
-    * database each time it is used. Copying a template database is far faster than migrating a new database, so
-    * every test can get a database of its own without a container or a migration run per test.
+  /** Starts a container with a migrated database in it, and returns a resource that creates a fresh copy of that
+    * database each time it is used. Copying a template database is far faster than migrating a new database, so every
+    * test can get a database of its own without a container or a migration run per test.
     */
   def migratedDatabases[F[_]: Sync]: Resource[F, Resource[F, DatabaseConfiguration]] =
     create[F]
@@ -36,7 +35,9 @@ object PostgresContainer {
       .map(templateConfiguration => databaseCopy[F](templateConfiguration))
 
   // The copy's database name only contains characters that need no quoting
-  private def databaseCopy[F[_]: Sync](templateConfiguration: DatabaseConfiguration): Resource[F, DatabaseConfiguration] =
+  private def databaseCopy[F[_]: Sync](
+    templateConfiguration: DatabaseConfiguration
+  ): Resource[F, DatabaseConfiguration] =
     Resource
       .eval(Sync[F].delay(s"test_${UUID.randomUUID().toString.replace("-", "")}"))
       .flatMap { copyName =>

@@ -67,15 +67,18 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
             Resource
               .eval(Clock[F].timestamp)
               .map { timestamp =>
-                (downloadResult.data, Applicative[F].pure {
-                  FileResource(
-                    scheduledVideoDownload.videoMetadata.id,
-                    timestamp,
-                    downloadResult.downloadedFileKey,
-                    downloadResult.mediaType,
-                    downloadResult.size
-                  )
-                })
+                (
+                  downloadResult.data,
+                  Applicative[F].pure {
+                    FileResource(
+                      scheduledVideoDownload.videoMetadata.id,
+                      timestamp,
+                      downloadResult.downloadedFileKey,
+                      downloadResult.mediaType,
+                      downloadResult.size
+                    )
+                  }
+                )
               }
           }
 
@@ -219,7 +222,7 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
             case fileKeys =>
               val illegalStateException =
                 new IllegalStateException(s"Multiple file keys found for $videoMetadataId. Keys=${fileKeys
-                  .mkString("[", ", ", "]")}")
+                    .mkString("[", ", ", "]")}")
 
               logger
                 .error[F]("Multiple file keys found", illegalStateException)
@@ -235,39 +238,38 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
     interrupt: Stream[F, Boolean]
   ): F[FileResource] =
     download(scheduledVideoDownload)
-      .use {
-        case (data, fileResourceF) =>
-          // The published progress is what refreshes last_updated_at, and a download that is not refreshed for 2
-          // minutes is marked as stale. The latest progress is therefore republished even while the downloader is
-          // quiet, such as while yt-dlp merges the downloaded formats.
-          data
-            .through(WorkExecutorImpl.sampleLatest(3 seconds, repeatUnchanged = true))
-            // A failure to publish the progress, such as the message broker being briefly unavailable, must not abort
-            // a download that may have been running for hours. The progress is published again on the next tick.
-            .evalTap { byteCount =>
-              publishDownloadProgress(scheduledVideoDownload.videoMetadata.id, byteCount)
+      .use { case (data, fileResourceF) =>
+        // The published progress is what refreshes last_updated_at, and a download that is not refreshed for 2
+        // minutes is marked as stale. The latest progress is therefore republished even while the downloader is
+        // quiet, such as while yt-dlp merges the downloaded formats.
+        data
+          .through(WorkExecutorImpl.sampleLatest(3 seconds, repeatUnchanged = true))
+          // A failure to publish the progress, such as the message broker being briefly unavailable, must not abort
+          // a download that may have been running for hours. The progress is published again on the next tick.
+          .evalTap { byteCount =>
+            publishDownloadProgress(scheduledVideoDownload.videoMetadata.id, byteCount)
+          }
+          // fs2 halts the stream gracefully on `true`, which would look like a finished download, so turn the
+          // signal into an error that the scheduler recognises as a pause
+          .interruptWhen {
+            interrupt.flatMap { halt =>
+              if (halt) Stream.raiseError[F](PausedVideoDownload) else Stream.emit(false)
             }
-            // fs2 halts the stream gracefully on `true`, which would look like a finished download, so turn the
-            // signal into an error that the scheduler recognises as a pause
-            .interruptWhen {
-              interrupt.flatMap { halt =>
-                if (halt) Stream.raiseError[F](PausedVideoDownload) else Stream.emit(false)
-              }
-            }
-            .compile
-            .last
-            .flatMap {
-              case Some(byteCount) =>
-                logger.info[F](
-                  s"Worker $workerId reached byteCount=$byteCount for videoId=${scheduledVideoDownload.videoMetadata.id}"
-                )
+          }
+          .compile
+          .last
+          .flatMap {
+            case Some(byteCount) =>
+              logger.info[F](
+                s"Worker $workerId reached byteCount=$byteCount for videoId=${scheduledVideoDownload.videoMetadata.id}"
+              )
 
-              case _ =>
-                logger.info[F](
-                  s"Worker $workerId didn't download any bytes for videoId=${scheduledVideoDownload.videoMetadata.id}"
-                )
-            }
-            .productR(fileResourceF)
+            case _ =>
+              logger.info[F](
+                s"Worker $workerId didn't download any bytes for videoId=${scheduledVideoDownload.videoMetadata.id}"
+              )
+          }
+          .productR(fileResourceF)
       }
 
   private def publishDownloadProgress(videoId: String, byteCount: Long): F[Unit] =
@@ -278,9 +280,8 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
   private def logSideEffectFailure(description: String)(sideEffect: F[Unit]): F[Unit] =
     sideEffect.handleErrorWith(throwable => logger.warn[F](s"$description. error=$throwable"))
 
-  /**
-    * Keeps the worker alive for as long as it is in use. A failed heartbeat is logged and tried again on the next
-    * tick, rather than silently ending the heartbeats.
+  /** Keeps the worker alive for as long as it is in use. A failed heartbeat is logged and tried again on the next tick,
+    * rather than silently ending the heartbeats.
     */
   private def heartBeats(worker: Worker): Stream[F, Unit] =
     worker.owner.fold[Stream[F, Unit]](Stream.exec(logger.warn[F](s"Worker ${worker.id} has no owner"))) { owner =>
@@ -328,8 +329,10 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
             }
           }
           .flatMap { fileResource =>
-            if (fileResource.size < scheduledVideoDownload.videoMetadata.size && CustomVideoSite.values
-                .contains(scheduledVideoDownload.videoMetadata.videoSite) && retries > 0)
+            if (
+              fileResource.size < scheduledVideoDownload.videoMetadata.size && CustomVideoSite.values
+                .contains(scheduledVideoDownload.videoMetadata.videoSite) && retries > 0
+            )
               logger
                 .warn[F](
                   s"Worker ${worker.id} invalidly deemed as complete: ${scheduledVideoDownload.videoMetadata.url}"
@@ -347,10 +350,9 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
                           .error[F](s"Failed infer video duration for path=${fileResource.path} error", throwable)
                           .productR(ApplicativeError[F, Throwable].raiseError(throwable))
                       }
-                      .flatMap(
-                        duration =>
-                          transaction(
-                            videoMetadataDao.update(scheduledVideoDownload.videoMetadata.id, None, None, Some(duration))
+                      .flatMap(duration =>
+                        transaction(
+                          videoMetadataDao.update(scheduledVideoDownload.videoMetadata.id, None, None, Some(duration))
                         )
                       )
                       .void
@@ -389,8 +391,7 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
 object WorkExecutorImpl {
   private val HeartBeatPeriod: FiniteDuration = 30 seconds
 
-  /**
-    * Emits the latest value of the stream once every `period`, and the last value when the stream ends.
+  /** Emits the latest value of the stream once every `period`, and the last value when the stream ends.
     *
     * With `repeatUnchanged`, the latest value is emitted on every tick even if the stream has not emitted since the
     * previous tick, so that a quiet stream still produces a value at least once every `period`.
@@ -403,8 +404,8 @@ object WorkExecutorImpl {
         sourceCompleted <- Stream.eval(SignallingRef[F, Boolean](false))
 
         takeLatest = (emitUnchanged: Boolean) =>
-          latest.modify {
-            case (value, changed) => ((value, false), if (changed || emitUnchanged) value else None)
+          latest.modify { case (value, changed) =>
+            ((value, false), if (changed || emitUnchanged) value else None)
           }
 
         value <- Stream

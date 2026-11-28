@@ -56,14 +56,13 @@ class VideoSnapshotServiceImpl[F[_]: Async: Clock: RandomGenerator.Of[UUID]](
                 }
               }
           }
-          .flatMap {
-            case (fileSize, fileType) =>
-              for {
-                timestamp <- Clock[F].timestamp
-                videoFileKeyHash <- hashingService.hash(videoFileKey)
-                suffix <- RandomGenerator[F, UUID].generate.map(_.toString.take(5))
-                id = s"$videoFileKeyHash-snapshot-${videoTimestamp.toMillis}-$suffix"
-              } yield FileResource(id, timestamp, snapshotDestination, fileType, fileSize)
+          .flatMap { case (fileSize, fileType) =>
+            for {
+              timestamp <- Clock[F].timestamp
+              videoFileKeyHash <- hashingService.hash(videoFileKey)
+              suffix <- RandomGenerator[F, UUID].generate.map(_.toString.take(5))
+              id = s"$videoFileKeyHash-snapshot-${videoTimestamp.toMillis}-$suffix"
+            } yield FileResource(id, timestamp, snapshotDestination, fileType, fileSize)
           }
       }
 

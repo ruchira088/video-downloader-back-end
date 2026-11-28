@@ -2,7 +2,15 @@ package com.ruchij.api.config
 
 import cats.effect.IO
 import com.comcast.ip4s.{ipv4, port}
-import com.ruchij.core.config.{HttpProxyConfiguration, KafkaConfiguration, PubsubConfiguration, RedisConfiguration, SentryConfiguration, SpaSiteRendererConfiguration, StorageConfiguration}
+import com.ruchij.core.config.{
+  HttpProxyConfiguration,
+  KafkaConfiguration,
+  PubsubConfiguration,
+  RedisConfiguration,
+  SentryConfiguration,
+  SpaSiteRendererConfiguration,
+  StorageConfiguration
+}
 import com.ruchij.core.messaging.PubSub.PubsubType
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.migration.config.DatabaseConfiguration
@@ -94,21 +102,29 @@ class ApiServiceConfigurationSpec extends AnyFlatSpec with Matchers {
       ApiServiceConfiguration(
         HttpConfiguration(ipv4"127.0.0.1", port"80", Some(Set("*.localhost", "*.ruchij.com"))),
         StorageConfiguration("./videos", "./images", List("./video-folder-1", "./video-folder-2")),
-        DatabaseConfiguration("jdbc:h2:mem:video-downloader;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false", "", ""),
+        DatabaseConfiguration(
+          "jdbc:h2:mem:video-downloader;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false",
+          "",
+          ""
+        ),
         RedisConfiguration("localhost", 6379, Some("redis-password")),
         AuthenticationConfiguration(30 days),
-        PubsubConfiguration(PubsubType.Kafka, Some(KafkaConfiguration("local", "kafka-cluster:9092", uri"http://kafka-cluster:8081")), None, None),
+        PubsubConfiguration(
+          PubsubType.Kafka,
+          Some(KafkaConfiguration("local", "kafka-cluster:9092", uri"http://kafka-cluster:8081")),
+          None,
+          None
+        ),
         SpaSiteRendererConfiguration(uri"http://spa-renderer-service:8000"),
         SentryConfiguration(Some("https://key@sentry.io/123"), "test", 0.5),
         None,
         FallbackSyncConfiguration.Disabled
       )
 
-    ApiServiceConfiguration.parse[IO](ConfigSource.string(configSource)).flatMap {
-      apiServiceConfiguration =>
-        IO.delay {
-          apiServiceConfiguration mustBe expectedApiServiceConfiguration
-        }
+    ApiServiceConfiguration.parse[IO](ConfigSource.string(configSource)).flatMap { apiServiceConfiguration =>
+      IO.delay {
+        apiServiceConfiguration mustBe expectedApiServiceConfiguration
+      }
     }
   }
 

@@ -154,10 +154,8 @@ class ApiDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "getDuplicateVideoGroup" should "return videos for a specific group" in runIO {
-    val groupVideos = Seq(
-      DuplicateVideo("video-1", "group-a", timestamp),
-      DuplicateVideo("video-2", "group-a", timestamp)
-    )
+    val groupVideos =
+      Seq(DuplicateVideo("video-1", "group-a", timestamp), DuplicateVideo("video-2", "group-a", timestamp))
     val dao = new StubDuplicateVideoDao(findByGroupResult = groupVideos)
     val service = createService(dao = dao)
 

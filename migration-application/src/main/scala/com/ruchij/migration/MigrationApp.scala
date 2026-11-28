@@ -35,8 +35,7 @@ object MigrationApp extends IOApp {
             migrationServiceConfiguration.databaseConfiguration.password
           )
           .placeholders(
-            Map("adminHashedPassword" -> migrationServiceConfiguration.adminConfiguration.hashedAdminPassword)
-              .asJava
+            Map("adminHashedPassword" -> migrationServiceConfiguration.adminConfiguration.hashedAdminPassword).asJava
           )
           .load()
       }

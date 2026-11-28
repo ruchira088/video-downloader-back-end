@@ -14,9 +14,12 @@ object WorkerStatusUpdateRequest {
       override def validate[B <: WorkerStatusUpdateRequest](workerStatusUpdateRequest: B): F[B] =
         if (ValidUpdateStatuses.contains(workerStatusUpdateRequest.workerStatus))
           Applicative[F].pure(workerStatusUpdateRequest)
-        else ApplicativeError[F, Throwable].raiseError {
-          ValidationException(s"Invalid status value: ${workerStatusUpdateRequest.workerStatus}. Valid statuses are ${ValidUpdateStatuses.mkString("[ ", ", ", " ]")}")
-        }
+        else
+          ApplicativeError[F, Throwable].raiseError {
+            ValidationException(
+              s"Invalid status value: ${workerStatusUpdateRequest.workerStatus}. Valid statuses are ${ValidUpdateStatuses.mkString("[ ", ", ", " ]")}"
+            )
+          }
 
     }
 }

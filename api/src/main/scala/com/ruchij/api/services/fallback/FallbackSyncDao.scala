@@ -18,9 +18,11 @@ import scala.concurrent.duration.FiniteDuration
 final case class SyncedVideo(scheduledVideoDownload: ScheduledVideoDownload, userIds: List[String])
 
 trait FallbackSyncDao[F[_]] {
+
   /** The database's clock, used as every sync message's capturedAt so that all API instances stamp messages from one
-    * clock. Postgres returns the transaction's start time, so reading it in the same transaction as the rows it
-    * stamps keeps capturedAt no later than the read. */
+    * clock. Postgres returns the transaction's start time, so reading it in the same transaction as the rows it stamps
+    * keeps capturedAt no later than the read.
+    */
   def currentTimestamp: F[Instant]
 
   /** `read` stamped with `currentTimestamp`, both run in one transaction by the caller. */
@@ -39,11 +41,12 @@ class DoobieFallbackSyncDao(
 
   override val currentTimestamp: ConnectionIO[Instant] = sql"SELECT CURRENT_TIMESTAMP".query[Instant].unique
 
-  /** Under REPEATABLE READ, so every statement of `read` sees the snapshot taken by the first one, which also reads
-    * the timestamp. Under the default READ COMMITTED each statement takes a fresh snapshot, so a change committed
-    * after the timestamp could be read under it: a message stamped earlier than another could then carry newer data,
-    * and lose to the other's older data. A read-only transaction can't fail with a serialization error, and HikariCP
-    * restores the pool's isolation level when the connection is returned. */
+  /** Under REPEATABLE READ, so every statement of `read` sees the snapshot taken by the first one, which also reads the
+    * timestamp. Under the default READ COMMITTED each statement takes a fresh snapshot, so a change committed after the
+    * timestamp could be read under it: a message stamped earlier than another could then carry newer data, and lose to
+    * the other's older data. A read-only transaction can't fail with a serialization error, and HikariCP restores the
+    * pool's isolation level when the connection is returned.
+    */
   override def timestamped[A](read: ConnectionIO[A])(implicit monad: Monad[ConnectionIO]): ConnectionIO[(Instant, A)] =
     FC.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ) *> currentTimestamp.product(read)
 
@@ -61,10 +64,9 @@ class DoobieFallbackSyncDao(
       videos <- allVideos(0, Vector.empty)
       permissions <- videoPermissionDao.find(None, None)
       userIdsByVideo = permissions.groupMap(_.scheduledVideoDownloadId)(_.userId)
-    } yield
-      videos.toList.map { video =>
-        SyncedVideo(video, userIdsByVideo.getOrElse(video.videoMetadata.id, Seq.empty).toList)
-      }
+    } yield videos.toList.map { video =>
+      SyncedVideo(video, userIdsByVideo.getOrElse(video.videoMetadata.id, Seq.empty).toList)
+    }
 
   private def allVideos(
     pageNumber: Int,

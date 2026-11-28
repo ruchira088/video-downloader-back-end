@@ -18,19 +18,18 @@ import java.util.UUID
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-/**
-  * Polls the message_queue table on behalf of a consumer group, mirroring the Kafka backend's semantics:
+/** Polls the message_queue table on behalf of a consumer group, mirroring the Kafka backend's semantics:
   *
   *   - consumers sharing a group id split the messages between them, while each group receives every message
   *   - a group resumes where it left off, and a brand-new group starts from the latest message
-  *   - a message claimed but not committed within `redeliveryTimeout` is delivered to the group again, and one
-  *     claimed by a subscription that has ended is delivered again at once
+  *   - a message claimed but not committed within `redeliveryTimeout` is delivered to the group again, and one claimed
+  *     by a subscription that has ended is delivered again at once
   *
-  * Each poll locks the group's row, so concurrent consumers of a group never claim the same message. Claims are
-  * tracked per message instead of with a cursor, since ids become visible in commit order rather than in id order.
-  * Each poll also moves the group's start id past the messages it has acknowledged, so that polling only scans the
-  * recent messages, but never past messages younger than `lateCommitWindow`, since a message with a lower id may
-  * still commit until then.
+  * Each poll locks the group's row, so concurrent consumers of a group never claim the same message. Claims are tracked
+  * per message instead of with a cursor, since ids become visible in commit order rather than in id order. Each poll
+  * also moves the group's start id past the messages it has acknowledged, so that polling only scans the recent
+  * messages, but never past messages younger than `lateCommitWindow`, since a message with a lower id may still commit
+  * until then.
   */
 class DoobieSubscriber[F[_]: Async: Clock, G[_]: Monad, A](
   consumerGroupDao: MessageConsumerGroupDao[G],
@@ -85,15 +84,13 @@ class DoobieSubscriber[F[_]: Async: Clock, G[_]: Monad, A](
       transaction(claimMessages(channel, groupId, consumerId, timestamp)).flatMap {
         case Some((claimed, undecodable)) =>
           undecodable
-            .traverse_ {
-              case (id, error) =>
-                logger.error[F](s"Unable to parse message id=$id for topic=${messagingTopic.name}", error)
+            .traverse_ { case (id, error) =>
+              logger.error[F](s"Unable to parse message id=$id for topic=${messagingTopic.name}", error)
             }
             .as(claimed)
 
         case None =>
-          transaction(consumerGroupDao.createGroup(channel, groupId, timestamp))
-            .void
+          transaction(consumerGroupDao.createGroup(channel, groupId, timestamp)).void
             .recover {
               // Another consumer created the group at the same time
               case sqlException: SQLException if sqlException.getSQLState == UniqueViolationSqlState => ()
@@ -173,9 +170,8 @@ object DoobieSubscriber {
 
   val DefaultMaxRetryDelay: FiniteDuration = 30 seconds
 
-  /**
-    * How long after a message is created a message with a lower id may still commit. Publishing is a single insert,
-    * so a minute is plenty.
+  /** How long after a message is created a message with a lower id may still commit. Publishing is a single insert, so
+    * a minute is plenty.
     */
   val DefaultLateCommitWindow: FiniteDuration = 1 minute
 

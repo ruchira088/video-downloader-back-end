@@ -21,8 +21,7 @@ object DataGenerators {
     for {
       videoMetadata <- videoMetadata[F]
       timestamp <- RandomGenerator[F, Instant]
-    }
-    yield ScheduledVideoDownload(timestamp, timestamp, SchedulingStatus.Queued, 0, videoMetadata, None, None)
+    } yield ScheduledVideoDownload(timestamp, timestamp, SchedulingStatus.Queued, 0, videoMetadata, None, None)
 
   def videoMetadata[F[_]: Sync: Clock]: RandomGenerator[F, VideoMetadata] =
     for {
@@ -33,8 +32,7 @@ object DataGenerators {
       duration <- RandomGenerator.range[F](0, 3600).map(seconds => FiniteDuration(seconds, TimeUnit.SECONDS))
       size <- RandomGenerator.range[F](10_000, 1_000_000).map(_.toLong)
       thumbnail <- fileResource[F](NonEmptyList.of(MediaType.image.png, MediaType.image.jpeg, MediaType.image.gif))
-    }
-    yield VideoMetadata(uri, id, videoSite, title, duration, size, thumbnail)
+    } yield VideoMetadata(uri, id, videoSite, title, duration, size, thumbnail)
 
   def fileResource[F[_]: Sync: Clock](fileTypes: NonEmptyList[MediaType]): RandomGenerator[F, FileResource] =
     for {
@@ -43,8 +41,7 @@ object DataGenerators {
       mediaType <- RandomGenerator.from[F, MediaType](fileTypes)
       size <- RandomGenerator.range[F](1_000, 40_000)
       path = s"/data/files/$id.${mediaType.subType}"
-    }
-    yield FileResource(id, timestamp, path, mediaType, size)
+    } yield FileResource(id, timestamp, path, mediaType, size)
 
   def customVideoSite[F[_]: Sync]: RandomGenerator[F, CustomVideoSite] =
     RandomGenerator.from(NonEmptyList.of(SpankBang, PornOne, XFreeHD, TXXX, UPornia, HdZog, HClips))

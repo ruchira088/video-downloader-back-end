@@ -71,12 +71,11 @@ object ExceptionHandler {
     case _ => Status.InternalServerError
   }
 
-  /**
-    * Only the messages that the app writes for the client (e.g. ValidationException) are returned to it. The messages
+  /** Only the messages that the app writes for the client (e.g. ValidationException) are returned to it. The messages
     * of an unexpected error (status 500), of an external service or page failure (ExternalServiceException,
     * JSoupException), of an IllegalArgumentException and of an http4s MessageFailure may expose internals or upstream
-    * content (e.g. SQL, file paths, host names or a page's HTML), so the client gets a generic message for them and
-    * the details are only logged. A ParseFailure's sanitized message is meant for clients, so it is returned.
+    * content (e.g. SQL, file paths, host names or a page's HTML), so the client gets a generic message for them and the
+    * details are only logged. A ParseFailure's sanitized message is meant for clients, so it is returned.
     */
   private val throwableResponseBody: Throwable => ErrorResponse = {
     case AggregatedException(exceptions) =>

@@ -126,21 +126,20 @@ object SyncJson {
         status <- cursor.get[String]("status")
         scheduledAt <- cursor.get[Instant]("scheduledAt")(using timestampDecoder)
         completedAt <- cursor.get[Option[Instant]]("completedAt")(using Decoder.decodeOption(using timestampDecoder))
-      } yield
-        ScheduledVideoUpsert(
-          videoId,
-          capturedAt,
-          hash,
-          userIds,
-          url,
-          videoSite,
-          title,
-          durationMs,
-          sizeBytes,
-          status,
-          scheduledAt,
-          completedAt
-        )
+      } yield ScheduledVideoUpsert(
+        videoId,
+        capturedAt,
+        hash,
+        userIds,
+        url,
+        videoSite,
+        title,
+        durationMs,
+        sizeBytes,
+        status,
+        scheduledAt,
+        completedAt
+      )
     }
 
   /** The main side only decodes the replies it stored itself (see FallbackRequestConsumer). */

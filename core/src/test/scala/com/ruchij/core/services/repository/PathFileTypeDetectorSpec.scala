@@ -61,7 +61,7 @@ class PathFileTypeDetectorSpec extends AnyFlatSpec with Matchers {
 
   it should "detect image/png for PNG image files" in runIO {
     // PNG file header bytes
-    val pngHeader = Array[Byte](0x89.toByte, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
+    val pngHeader = Array[Byte](0x89.toByte, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)
     val tempFile = Files.createTempFile("test", ".png")
     Files.write(tempFile, pngHeader)
 
@@ -74,7 +74,7 @@ class PathFileTypeDetectorSpec extends AnyFlatSpec with Matchers {
 
   it should "detect image/jpeg for JPEG image files" in runIO {
     // JPEG file header bytes
-    val jpegHeader = Array[Byte](0xFF.toByte, 0xD8.toByte, 0xFF.toByte, 0xE0.toByte)
+    val jpegHeader = Array[Byte](0xff.toByte, 0xd8.toByte, 0xff.toByte, 0xe0.toByte)
     val tempFile = Files.createTempFile("test", ".jpg")
     Files.write(tempFile, jpegHeader)
 
@@ -88,13 +88,13 @@ class PathFileTypeDetectorSpec extends AnyFlatSpec with Matchers {
   it should "detect video/mp4 for MP4 video files" in runIO {
     // MP4 file header bytes (simplified ftyp header)
     val mp4Header = Array[Byte](
-      0x00, 0x00, 0x00, 0x1C, // size
+      0x00, 0x00, 0x00, 0x1c, // size
       0x66, 0x74, 0x79, 0x70, // ftyp
-      0x69, 0x73, 0x6F, 0x6D, // isom
+      0x69, 0x73, 0x6f, 0x6d, // isom
       0x00, 0x00, 0x02, 0x00, // minor version
-      0x69, 0x73, 0x6F, 0x6D, // isom
-      0x69, 0x73, 0x6F, 0x32, // iso2
-      0x6D, 0x70, 0x34, 0x31  // mp41
+      0x69, 0x73, 0x6f, 0x6d, // isom
+      0x69, 0x73, 0x6f, 0x32, // iso2
+      0x6d, 0x70, 0x34, 0x31 // mp41
     )
     val tempFile = Files.createTempFile("test", ".mp4")
     Files.write(tempFile, mp4Header)

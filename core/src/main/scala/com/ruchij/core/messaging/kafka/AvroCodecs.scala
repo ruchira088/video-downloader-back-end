@@ -16,8 +16,8 @@ object AvroCodecs {
   implicit val videoSiteCodex: Codec[VideoSite] = Codec[String].imap(VideoSite.from)(_.name)
 
   implicit def enumCodec[A <: EnumEntry](implicit enumValues: Enum[A]): Codec[A] =
-    Codec[String].imapError[A] {
-      input => enumValues.withNameInsensitiveEither(input).left.map(error => AvroError(error.getMessage()))
+    Codec[String].imapError[A] { input =>
+      enumValues.withNameInsensitiveEither(input).left.map(error => AvroError(error.getMessage()))
     }(_.entryName)
 
   implicit val finiteDurationCodec: Codec[FiniteDuration] =
@@ -27,8 +27,8 @@ object AvroCodecs {
     Codec[String].imapError(input => Uri.fromString(input).left.map(error => AvroError(error.message)))(_.renderString)
 
   implicit val mediaTypeCodec: Codec[MediaType] =
-    Codec[String].imapError {
-      input => MediaType.parse(input).left.map(error => AvroError(error.message))
+    Codec[String].imapError { input =>
+      MediaType.parse(input).left.map(error => AvroError(error.message))
     }(Show[MediaType].show)
 
   implicit val statusCodec: Codec[Status] =

@@ -64,10 +64,12 @@ class MurmurHash3ServiceSpec extends AnyFlatSpec with Matchers {
         "hello" -> "7rsgl2"
       )
 
-    cases.traverse { case (input, expected) =>
-      hashingService.hash(input).map { actual =>
-        actual mustBe expected
+    cases
+      .traverse { case (input, expected) =>
+        hashingService.hash(input).map { actual =>
+          actual mustBe expected
+        }
       }
-    }.map(_ => succeed)
+      .map(_ => succeed)
   }
 }

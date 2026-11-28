@@ -19,8 +19,9 @@ trait FallbackRequestQueue[F[_]] {
   def delete(receiptHandle: String): F[Unit]
 }
 
-/** Receives one message at a time by default: each can take a while to schedule (the video's metadata is fetched),
-  * and a batch whose last message is handled after the queue's 300 s visibility timeout gets redelivered. */
+/** Receives one message at a time by default: each can take a while to schedule (the video's metadata is fetched), and
+  * a batch whose last message is handled after the queue's 300 s visibility timeout gets redelivered.
+  */
 class SqsFallbackRequestQueue[F[_]: Async](
   sqsClient: SqsAsyncClient,
   queueUrl: String,
@@ -57,9 +58,8 @@ class SqsFallbackRequestQueue[F[_]: Async](
     Async[F]
       .fromCompletableFuture(
         Sync[F].delay(
-          sqsClient.deleteMessage(
-            DeleteMessageRequest.builder().queueUrl(queueUrl).receiptHandle(receiptHandle).build()
-          )
+          sqsClient
+            .deleteMessage(DeleteMessageRequest.builder().queueUrl(queueUrl).receiptHandle(receiptHandle).build())
         )
       )
       .void

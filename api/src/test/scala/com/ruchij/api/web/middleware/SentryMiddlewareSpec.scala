@@ -9,7 +9,10 @@ import org.scalatest.matchers.must.Matchers
 
 class SentryMiddlewareSpec extends AnyFlatSpec with Matchers {
 
-  private def contextRequest(method: Method = Method.GET, uri: Uri = Uri.unsafeFromString("/test")): ContextRequest[IO, String] =
+  private def contextRequest(
+    method: Method = Method.GET,
+    uri: Uri = Uri.unsafeFromString("/test")
+  ): ContextRequest[IO, String] =
     ContextRequest("test-context", Request[IO](method = method, uri = uri))
 
   private def successApp: Kleisli[IO, ContextRequest[IO, String], Response[IO]] =

@@ -15,11 +15,8 @@ class HealthCheckSpec extends AnyFlatSpec with Matchers {
   "HealthCheck.isHealthy" should "return true when all checks are healthy" in {
     val healthCheck = HealthCheck(
       database = healthyDetails,
-      fileRepository = FileRepositoryCheck(
-        healthyFilePathCheck("/images"),
-        healthyFilePathCheck("/videos"),
-        List.empty
-      ),
+      fileRepository =
+        FileRepositoryCheck(healthyFilePathCheck("/images"), healthyFilePathCheck("/videos"), List.empty),
       keyValueStore = healthyDetails,
       pubSub = healthyDetails,
       spaRenderer = healthyDetails,
@@ -32,11 +29,8 @@ class HealthCheckSpec extends AnyFlatSpec with Matchers {
   it should "return false when database is unhealthy" in {
     val healthCheck = HealthCheck(
       database = unhealthyDetails,
-      fileRepository = FileRepositoryCheck(
-        healthyFilePathCheck("/images"),
-        healthyFilePathCheck("/videos"),
-        List.empty
-      ),
+      fileRepository =
+        FileRepositoryCheck(healthyFilePathCheck("/images"), healthyFilePathCheck("/videos"), List.empty),
       keyValueStore = healthyDetails,
       pubSub = healthyDetails,
       spaRenderer = healthyDetails,
@@ -49,11 +43,8 @@ class HealthCheckSpec extends AnyFlatSpec with Matchers {
   it should "return false when keyValueStore is unhealthy" in {
     val healthCheck = HealthCheck(
       database = healthyDetails,
-      fileRepository = FileRepositoryCheck(
-        healthyFilePathCheck("/images"),
-        healthyFilePathCheck("/videos"),
-        List.empty
-      ),
+      fileRepository =
+        FileRepositoryCheck(healthyFilePathCheck("/images"), healthyFilePathCheck("/videos"), List.empty),
       keyValueStore = unhealthyDetails,
       pubSub = healthyDetails,
       spaRenderer = healthyDetails,
@@ -66,11 +57,8 @@ class HealthCheckSpec extends AnyFlatSpec with Matchers {
   it should "return false when pubSub is unhealthy" in {
     val healthCheck = HealthCheck(
       database = healthyDetails,
-      fileRepository = FileRepositoryCheck(
-        healthyFilePathCheck("/images"),
-        healthyFilePathCheck("/videos"),
-        List.empty
-      ),
+      fileRepository =
+        FileRepositoryCheck(healthyFilePathCheck("/images"), healthyFilePathCheck("/videos"), List.empty),
       keyValueStore = healthyDetails,
       pubSub = unhealthyDetails,
       spaRenderer = healthyDetails,
@@ -83,11 +71,8 @@ class HealthCheckSpec extends AnyFlatSpec with Matchers {
   it should "return false when spaRenderer is unhealthy" in {
     val healthCheck = HealthCheck(
       database = healthyDetails,
-      fileRepository = FileRepositoryCheck(
-        healthyFilePathCheck("/images"),
-        healthyFilePathCheck("/videos"),
-        List.empty
-      ),
+      fileRepository =
+        FileRepositoryCheck(healthyFilePathCheck("/images"), healthyFilePathCheck("/videos"), List.empty),
       keyValueStore = healthyDetails,
       pubSub = healthyDetails,
       spaRenderer = unhealthyDetails,
@@ -100,11 +85,8 @@ class HealthCheckSpec extends AnyFlatSpec with Matchers {
   it should "return false when internetConnectivity is unhealthy" in {
     val healthCheck = HealthCheck(
       database = healthyDetails,
-      fileRepository = FileRepositoryCheck(
-        healthyFilePathCheck("/images"),
-        healthyFilePathCheck("/videos"),
-        List.empty
-      ),
+      fileRepository =
+        FileRepositoryCheck(healthyFilePathCheck("/images"), healthyFilePathCheck("/videos"), List.empty),
       keyValueStore = healthyDetails,
       pubSub = healthyDetails,
       spaRenderer = healthyDetails,
@@ -117,11 +99,8 @@ class HealthCheckSpec extends AnyFlatSpec with Matchers {
   it should "return false when image folder is unhealthy" in {
     val healthCheck = HealthCheck(
       database = healthyDetails,
-      fileRepository = FileRepositoryCheck(
-        unhealthyFilePathCheck("/images"),
-        healthyFilePathCheck("/videos"),
-        List.empty
-      ),
+      fileRepository =
+        FileRepositoryCheck(unhealthyFilePathCheck("/images"), healthyFilePathCheck("/videos"), List.empty),
       keyValueStore = healthyDetails,
       pubSub = healthyDetails,
       spaRenderer = healthyDetails,
@@ -134,11 +113,8 @@ class HealthCheckSpec extends AnyFlatSpec with Matchers {
   it should "return false when video folder is unhealthy" in {
     val healthCheck = HealthCheck(
       database = healthyDetails,
-      fileRepository = FileRepositoryCheck(
-        healthyFilePathCheck("/images"),
-        unhealthyFilePathCheck("/videos"),
-        List.empty
-      ),
+      fileRepository =
+        FileRepositoryCheck(healthyFilePathCheck("/images"), unhealthyFilePathCheck("/videos"), List.empty),
       keyValueStore = healthyDetails,
       pubSub = healthyDetails,
       spaRenderer = healthyDetails,
@@ -154,11 +130,7 @@ class HealthCheckSpec extends AnyFlatSpec with Matchers {
       fileRepository = FileRepositoryCheck(
         healthyFilePathCheck("/images"),
         healthyFilePathCheck("/videos"),
-        List(
-          healthyFilePathCheck("/other1"),
-          unhealthyFilePathCheck("/other2"),
-          healthyFilePathCheck("/other3")
-        )
+        List(healthyFilePathCheck("/other1"), unhealthyFilePathCheck("/other2"), healthyFilePathCheck("/other3"))
       ),
       keyValueStore = healthyDetails,
       pubSub = healthyDetails,
@@ -175,10 +147,7 @@ class HealthCheckSpec extends AnyFlatSpec with Matchers {
       fileRepository = FileRepositoryCheck(
         healthyFilePathCheck("/images"),
         healthyFilePathCheck("/videos"),
-        List(
-          healthyFilePathCheck("/other1"),
-          healthyFilePathCheck("/other2")
-        )
+        List(healthyFilePathCheck("/other1"), healthyFilePathCheck("/other2"))
       ),
       keyValueStore = healthyDetails,
       pubSub = healthyDetails,
@@ -200,21 +169,15 @@ class HealthCheckSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "return false when image folder is unhealthy" in {
-    val fileRepositoryCheck = FileRepositoryCheck(
-      unhealthyFilePathCheck("/images"),
-      healthyFilePathCheck("/videos"),
-      List.empty
-    )
+    val fileRepositoryCheck =
+      FileRepositoryCheck(unhealthyFilePathCheck("/images"), healthyFilePathCheck("/videos"), List.empty)
 
     fileRepositoryCheck.isHealthy mustBe false
   }
 
   it should "return false when video folder is unhealthy" in {
-    val fileRepositoryCheck = FileRepositoryCheck(
-      healthyFilePathCheck("/images"),
-      unhealthyFilePathCheck("/videos"),
-      List.empty
-    )
+    val fileRepositoryCheck =
+      FileRepositoryCheck(healthyFilePathCheck("/images"), unhealthyFilePathCheck("/videos"), List.empty)
 
     fileRepositoryCheck.isHealthy mustBe false
   }

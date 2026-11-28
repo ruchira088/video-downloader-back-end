@@ -13,10 +13,9 @@ import org.scalatest.{BeforeAndAfterAll, Suite}
 
 import scala.concurrent.ExecutionContext
 
-/**
-  * Gives each test of a DAO spec a fresh, migrated database. A spec written against this runs on H2 and on
-  * PostgreSQL by mixing in [[H2TestDatabase]] or [[PostgresTestDatabase]], since H2's PostgreSQL mode differs from
-  * PostgreSQL in ways that only show on a real PostgreSQL database, such as locking and timestamp precision.
+/** Gives each test of a DAO spec a fresh, migrated database. A spec written against this runs on H2 and on PostgreSQL
+  * by mixing in [[H2TestDatabase]] or [[PostgresTestDatabase]], since H2's PostgreSQL mode differs from PostgreSQL in
+  * ways that only show on a real PostgreSQL database, such as locking and timestamp precision.
   */
 trait TestDatabase { this: Suite =>
   protected def transactor: Resource[IO, ConnectionIO ~> IO]

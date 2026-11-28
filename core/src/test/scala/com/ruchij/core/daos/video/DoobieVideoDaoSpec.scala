@@ -115,9 +115,7 @@ abstract class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionV
 
   it should "find video by video file resource ID" in runTest { fixture =>
     for {
-      maybeVideo <- fixture.transaction(
-        DoobieVideoDao.findByVideoFileResourceId(fixture.videoFileResource.id)
-      )
+      maybeVideo <- fixture.transaction(DoobieVideoDao.findByVideoFileResourceId(fixture.videoFileResource.id))
 
       _ <- IO.delay {
         maybeVideo mustBe defined
@@ -128,9 +126,7 @@ abstract class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionV
 
   it should "find video by video path" in runTest { fixture =>
     for {
-      maybeVideo <- fixture.transaction(
-        DoobieVideoDao.findByVideoPath(fixture.videoFileResource.path)
-      )
+      maybeVideo <- fixture.transaction(DoobieVideoDao.findByVideoPath(fixture.videoFileResource.path))
 
       _ <- IO.delay {
         maybeVideo mustBe defined
@@ -397,9 +393,7 @@ abstract class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionV
 
   it should "return None when incrementing watch time for non-existent video" in runTest { fixture =>
     for {
-      result <- fixture.transaction(
-        DoobieVideoDao.incrementWatchTime("non-existent-id", 30 seconds)
-      )
+      result <- fixture.transaction(DoobieVideoDao.incrementWatchTime("non-existent-id", 30 seconds))
 
       _ <- IO.delay {
         result mustBe None
@@ -490,7 +484,13 @@ abstract class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionV
           fixture.thumbnailFileResource
         )
         _ <- DoobieVideoMetadataDao.insert(videoMetadata)
-        videoFileResource = FileResource(s"$videoId-file", timestamp, s"/opt/video/$videoId.mp4", MediaType.video.mp4, size)
+        videoFileResource = FileResource(
+          s"$videoId-file",
+          timestamp,
+          s"/opt/video/$videoId.mp4",
+          MediaType.video.mp4,
+          size
+        )
         _ <- DoobieFileResourceDao.insert(videoFileResource)
         _ <- DoobieVideoDao.insert(videoId, videoFileResource.id, timestamp, watchTime)
       } yield ()
@@ -687,7 +687,10 @@ abstract class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionV
         100000
       )
       _ <- fixture.transaction(DoobieFileResourceDao.insert(videoFileResource2))
-      _ <- fixture.transaction(DoobieVideoDao.insert("test-video-id-2", videoFileResource2.id, timestamp.plus(java.time.Duration.ofHours(1)), 0 seconds))
+      _ <- fixture.transaction(
+        DoobieVideoDao
+          .insert("test-video-id-2", videoFileResource2.id, timestamp.plus(java.time.Duration.ofHours(1)), 0 seconds)
+      )
 
       resultsByDateDesc <- fixture.transaction(
         DoobieVideoDao.search(
@@ -792,7 +795,10 @@ abstract class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionV
         100000
       )
       _ <- fixture.transaction(DoobieFileResourceDao.insert(videoFileResource2))
-      _ <- fixture.transaction(DoobieVideoDao.insert("test-video-id-2", videoFileResource2.id, timestamp.plus(java.time.Duration.ofHours(1)), 5 minutes))
+      _ <- fixture.transaction(
+        DoobieVideoDao
+          .insert("test-video-id-2", videoFileResource2.id, timestamp.plus(java.time.Duration.ofHours(1)), 5 minutes)
+      )
 
       resultsByWatchTimeDesc <- fixture.transaction(
         DoobieVideoDao.search(
@@ -934,7 +940,18 @@ abstract class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionV
       )
 
       searchResults <- fixture.transaction(
-        DoobieVideoDao.search(None, None, RangeValue.all[FiniteDuration], RangeValue.all[Long], 0, 10, SortBy.Date, Order.Descending, None, Some(userId))
+        DoobieVideoDao.search(
+          None,
+          None,
+          RangeValue.all[FiniteDuration],
+          RangeValue.all[Long],
+          0,
+          10,
+          SortBy.Date,
+          Order.Descending,
+          None,
+          Some(userId)
+        )
       )
       foundById <- fixture.transaction(DoobieVideoDao.findById(fixture.video.videoMetadata.id, Some(userId)))
 
@@ -987,9 +1004,7 @@ abstract class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionV
         """.update.run
       }
 
-      videoWithPermission <- fixture.transaction(
-        DoobieVideoDao.findById(fixture.video.videoMetadata.id, Some(userId))
-      )
+      videoWithPermission <- fixture.transaction(DoobieVideoDao.findById(fixture.video.videoMetadata.id, Some(userId)))
 
       videoWithoutPermission <- fixture.transaction(
         DoobieVideoDao.findById(fixture.video.videoMetadata.id, Some("other-user"))
@@ -1041,9 +1056,7 @@ abstract class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionV
 
   it should "return true for isVideoFileResourceExist when video file resource exists" in runTest { fixture =>
     for {
-      exists <- fixture.transaction(
-        DoobieVideoDao.isVideoFileResourceExist(fixture.videoFileResource.id)
-      )
+      exists <- fixture.transaction(DoobieVideoDao.isVideoFileResourceExist(fixture.videoFileResource.id))
 
       _ <- IO.delay {
         exists mustBe true
@@ -1053,9 +1066,7 @@ abstract class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionV
 
   it should "return false for isVideoFileResourceExist when video file resource does not exist" in runTest { fixture =>
     for {
-      exists <- fixture.transaction(
-        DoobieVideoDao.isVideoFileResourceExist("non-existent-file-resource")
-      )
+      exists <- fixture.transaction(DoobieVideoDao.isVideoFileResourceExist("non-existent-file-resource"))
 
       _ <- IO.delay {
         exists mustBe false
@@ -1063,17 +1074,16 @@ abstract class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionV
     } yield ()
   }
 
-  it should "return false for isVideoFileResourceExist when file resource exists but is not a video file" in runTest { fixture =>
-    for {
-      // thumbnail-id exists as a file resource but is not a video file resource
-      exists <- fixture.transaction(
-        DoobieVideoDao.isVideoFileResourceExist(fixture.thumbnailFileResource.id)
-      )
+  it should "return false for isVideoFileResourceExist when file resource exists but is not a video file" in runTest {
+    fixture =>
+      for {
+        // thumbnail-id exists as a file resource but is not a video file resource
+        exists <- fixture.transaction(DoobieVideoDao.isVideoFileResourceExist(fixture.thumbnailFileResource.id))
 
-      _ <- IO.delay {
-        exists mustBe false
-      }
-    } yield ()
+        _ <- IO.delay {
+          exists mustBe false
+        }
+      } yield ()
   }
 
   it should "search and sort by the title the user sees" in runTest { fixture =>
@@ -1178,9 +1188,8 @@ abstract class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionV
         60000
       )
       _ <- fixture.transaction(
-        DoobieVideoMetadataDao.insert(
-          fixture.videoMetadata.copy(url = uri"https://example.com/second-video", id = secondVideoId)
-        )
+        DoobieVideoMetadataDao
+          .insert(fixture.videoMetadata.copy(url = uri"https://example.com/second-video", id = secondVideoId))
       )
       _ <- fixture.transaction(DoobieFileResourceDao.insert(secondVideoFileResource))
       _ <- fixture.transaction(DoobieVideoDao.insert(secondVideoId, secondVideoFileResource.id, timestamp, 0 seconds))

@@ -352,9 +352,8 @@ class KVCodecsSpec extends AnyFlatSpec with Matchers {
 
   it should "handle failed effects" in runIO {
     val baseEncoder = KVEncoder[IO, String]
-    val failingEncoder: KVEncoder[IO, String] = baseEncoder.coMapF[String, String](_ =>
-      IO.raiseError(new RuntimeException("encoding failed"))
-    )
+    val failingEncoder: KVEncoder[IO, String] =
+      baseEncoder.coMapF[String, String](_ => IO.raiseError(new RuntimeException("encoding failed")))
     for {
       result <- failingEncoder.encode("test").attempt
     } yield {
@@ -365,9 +364,7 @@ class KVCodecsSpec extends AnyFlatSpec with Matchers {
 
   it should "chain effects correctly" in runIO {
     val baseEncoder = KVEncoder[IO, Long]
-    val stringToLongEncoder: KVEncoder[IO, String] = baseEncoder.coMapF[String, Long](s =>
-      IO.delay(s.length.toLong)
-    )
+    val stringToLongEncoder: KVEncoder[IO, String] = baseEncoder.coMapF[String, Long](s => IO.delay(s.length.toLong))
     for {
       result <- stringToLongEncoder.encode("hello world")
     } yield {

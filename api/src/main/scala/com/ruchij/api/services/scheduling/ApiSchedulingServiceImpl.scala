@@ -85,9 +85,8 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
       .flatMap { timestamp =>
         transaction(schedulingDao.retryErroredScheduledDownloads(maybeUserId, timestamp))
       }
-      .flatTap {
-        scheduledVideoDownloads =>
-          scheduledVideoDownloadPublisher.publish(Stream.emits(scheduledVideoDownloads)).compile.drain
+      .flatTap { scheduledVideoDownloads =>
+        scheduledVideoDownloadPublisher.publish(Stream.emits(scheduledVideoDownloads)).compile.drain
       }
 
   private def existingScheduledVideoDownload(videoMetadata: VideoMetadata, userId: String): F[Boolean] =
@@ -125,7 +124,11 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
             else
               videoTitleDao
                 .insert {
-                  VideoTitle(scheduledVideoDownload.videoMetadata.id, userId, scheduledVideoDownload.videoMetadata.title)
+                  VideoTitle(
+                    scheduledVideoDownload.videoMetadata.id,
+                    userId,
+                    scheduledVideoDownload.videoMetadata.title
+                  )
                 }
                 .product {
                   videoPermissionDao.insert(VideoPermission(timestamp, scheduledVideoDownload.videoMetadata.id, userId))
@@ -134,24 +137,25 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
           }
       }
 
-      result <- if (isNew)
-        logger
-          .info[F](s"Scheduled to download video at $uri")
-          .productR(scheduledVideoDownloadPublisher.publishOne(scheduledVideoDownload))
-          .as[ScheduledVideoResult](ScheduledVideoResult.NewlyScheduled(scheduledVideoDownload))
-      else
-        // A concurrent request scheduled the same video between the search and the insert
-        getById(scheduledVideoDownload.videoMetadata.id, None)
-          .flatMap { existing =>
-            existingScheduledVideoDownload(existing.videoMetadata, userId)
-              .flatTap { created =>
-                fallbackSyncRequester.request(existing.videoMetadata.id).whenA(created)
-              }
-              .map { created =>
-                if (created) ScheduledVideoResult.NewlyScheduled(existing)
-                else ScheduledVideoResult.AlreadyScheduled(existing)
-              }
-          }
+      result <-
+        if (isNew)
+          logger
+            .info[F](s"Scheduled to download video at $uri")
+            .productR(scheduledVideoDownloadPublisher.publishOne(scheduledVideoDownload))
+            .as[ScheduledVideoResult](ScheduledVideoResult.NewlyScheduled(scheduledVideoDownload))
+        else
+          // A concurrent request scheduled the same video between the search and the insert
+          getById(scheduledVideoDownload.videoMetadata.id, None)
+            .flatMap { existing =>
+              existingScheduledVideoDownload(existing.videoMetadata, userId)
+                .flatTap { created =>
+                  fallbackSyncRequester.request(existing.videoMetadata.id).whenA(created)
+                }
+                .map { created =>
+                  if (created) ScheduledVideoResult.NewlyScheduled(existing)
+                  else ScheduledVideoResult.AlreadyScheduled(existing)
+                }
+            }
     } yield result
 
   override def search(
@@ -170,7 +174,8 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
     if (sortBy == SortBy.WatchTime)
       ApplicativeError[F, Throwable].raiseError {
         ValidationException("Searching for scheduled videos by watch_time is not valid")
-      } else
+      }
+    else
       maybeVideoUrls
         .traverse(_.traverse(videoUrl => VideoSite.processUri[F](videoUrl)))
         .flatMap { maybeProcessedUrls =>
@@ -244,9 +249,12 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
     timestamp: Instant,
     downloadedBytes: Long
   ): F[ScheduledVideoDownload] =
-    OptionT { transaction { schedulingDao.updateDownloadProgress(id, downloadedBytes, timestamp) }}
+    OptionT { transaction { schedulingDao.updateDownloadProgress(id, downloadedBytes, timestamp) } }
       .getOrElseF {
-        logger.warn[F](s"Ignored download progress update for id=$id, timestamp=$timestamp, downloadedBytes=$downloadedBytes")
+        logger
+          .warn[F](
+            s"Ignored download progress update for id=$id, timestamp=$timestamp, downloadedBytes=$downloadedBytes"
+          )
           .productR(getById(id, None))
       }
 
@@ -260,7 +268,8 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
           if (List(SchedulingStatus.Completed, SchedulingStatus.Downloaded).contains(scheduledVideoDownload.status))
             ApplicativeError[T, Throwable].raiseError[Unit] {
               ValidationException("Unable to delete scheduled video downloads that are completed or downloaded")
-            } else Applicative[T].unit
+            }
+          else Applicative[T].unit
         }
         // An admin's delete removes every user's permission, so the users are collected first to be told of it
         .product {
@@ -275,26 +284,25 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
         .getOrElseF(ApplicativeError[T, Throwable].raiseError(notFound(id)))
     }
       .flatMap { case (scheduledVideoDownload, permissions) =>
-      if (maybeUserId.isEmpty) {
-        Clock[F].timestamp.flatMap { timestamp =>
-          val deleted = scheduledVideoDownload.copy(lastUpdatedAt = timestamp, status = SchedulingStatus.Deleted)
-          val userIds = permissions.map(_.userId).distinct.sorted.toList
+        if (maybeUserId.isEmpty) {
+          Clock[F].timestamp.flatMap { timestamp =>
+            val deleted = scheduledVideoDownload.copy(lastUpdatedAt = timestamp, status = SchedulingStatus.Deleted)
+            val userIds = permissions.map(_.userId).distinct.sorted.toList
 
-          scheduledVideoDownloadPublisher
-            .publishOne(deleted)
-            .productR(scheduledVideoDeletionPublisher.publishOne(ScheduledVideoDeletion(deleted, userIds)))
-            .as(deleted)
-        }
-      } else
-        fallbackSyncRequester.request(scheduledVideoDownload.videoMetadata.id).as(scheduledVideoDownload)
-    }
+            scheduledVideoDownloadPublisher
+              .publishOne(deleted)
+              .productR(scheduledVideoDeletionPublisher.publishOne(ScheduledVideoDeletion(deleted, userIds)))
+              .as(deleted)
+          }
+        } else
+          fallbackSyncRequester.request(scheduledVideoDownload.videoMetadata.id).as(scheduledVideoDownload)
+      }
 }
 
 object ApiSchedulingServiceImpl {
 
-  /**
-    * The statuses a scheduled video download may be changed from, by the status it is changed to. These are the
-    * changes the front-end offers. In particular a completed or downloaded video is never queued to download again.
+  /** The statuses a scheduled video download may be changed from, by the status it is changed to. These are the changes
+    * the front-end offers. In particular a completed or downloaded video is never queued to download again.
     */
   val ValidTransitions: Map[SchedulingStatus, NonEmptyList[SchedulingStatus]] =
     Map(

@@ -33,7 +33,5 @@ object DoobieFileResourceDao extends FileResourceDao[ConnectionIO] {
       .option
 
   override def deleteById(id: String): ConnectionIO[Int] =
-    sql"DELETE FROM file_resource WHERE id = $id"
-      .update
-      .run
+    sql"DELETE FROM file_resource WHERE id = $id".update.run
 }

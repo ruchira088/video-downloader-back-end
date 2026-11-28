@@ -50,8 +50,9 @@ object SchedulingRoutes {
           scheduleRequest <- contextRequest.to[SchedulingRequest]
           scheduledVideoResult <- apiSchedulingService.schedule(scheduleRequest.url.withoutFragment, user.id)
 
-          response <- if (scheduledVideoResult.isNew) Created(scheduledVideoResult.scheduledVideoDownload)
-          else Ok(scheduledVideoResult.scheduledVideoDownload)
+          response <-
+            if (scheduledVideoResult.isNew) Created(scheduledVideoResult.scheduledVideoDownload)
+            else Ok(scheduledVideoResult.scheduledVideoDownload)
         } yield response
 
       case POST -> Root / "retry-failed" as AuthenticatedRequestContext(user, _) =>

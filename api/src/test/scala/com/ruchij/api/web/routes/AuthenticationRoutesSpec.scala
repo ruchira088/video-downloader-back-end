@@ -25,14 +25,8 @@ class AuthenticationRoutesSpec extends AnyFlatSpec with Matchers with MockedRout
   private val testTimestamp = TimeUtils.instantOf(2022, 8, 1, 10, 10)
   private val expiresAt = testTimestamp.plus(java.time.Duration.ofDays(45))
   private val testSecret = Secret("test-secret-uuid")
-  private val testToken = AuthenticationToken(
-    ApiTestData.AdminUser.id,
-    testSecret,
-    expiresAt,
-    testTimestamp,
-    0,
-    testTimestamp
-  )
+  private val testToken =
+    AuthenticationToken(ApiTestData.AdminUser.id, testSecret, expiresAt, testTimestamp, 0, testTimestamp)
 
   "POST /authentication/login" should "return a successful response with authentication token when credentials are valid" in runIO {
     val email = Email("john.smith@ruchij.com")
@@ -54,10 +48,7 @@ class AuthenticationRoutesSpec extends AnyFlatSpec with Matchers with MockedRout
     ignoreHttpMetrics() *>
       createRoutes()
         .run(
-          POST(
-            json"""{"email": "john.smith@ruchij.com", "password": "secure-password"}""",
-            uri"/authentication/login"
-          )
+          POST(json"""{"email": "john.smith@ruchij.com", "password": "secure-password"}""", uri"/authentication/login")
         )
         .flatMap { response =>
           IO.delay {
@@ -80,10 +71,7 @@ class AuthenticationRoutesSpec extends AnyFlatSpec with Matchers with MockedRout
     ignoreHttpMetrics() *>
       createRoutes()
         .run(
-          POST(
-            json"""{"email": "john.smith@ruchij.com", "password": "wrong-password"}""",
-            uri"/authentication/login"
-          )
+          POST(json"""{"email": "john.smith@ruchij.com", "password": "wrong-password"}""", uri"/authentication/login")
         )
         .flatMap { response =>
           IO.delay {
@@ -104,9 +92,7 @@ class AuthenticationRoutesSpec extends AnyFlatSpec with Matchers with MockedRout
           Request[IO](
             method = DELETE,
             uri = uri"/authentication/logout",
-            headers = org.http4s.Headers(
-              Authorization(Credentials.Token(AuthScheme.Bearer, testSecret.value))
-            )
+            headers = org.http4s.Headers(Authorization(Credentials.Token(AuthScheme.Bearer, testSecret.value)))
           )
         )
         .flatMap { response =>
@@ -139,9 +125,7 @@ class AuthenticationRoutesSpec extends AnyFlatSpec with Matchers with MockedRout
           Request[IO](
             method = GET,
             uri = uri"/authentication/user",
-            headers = org.http4s.Headers(
-              Authorization(Credentials.Token(AuthScheme.Bearer, testSecret.value))
-            )
+            headers = org.http4s.Headers(Authorization(Credentials.Token(AuthScheme.Bearer, testSecret.value)))
           )
         )
         .flatMap { response =>
@@ -174,9 +158,7 @@ class AuthenticationRoutesSpec extends AnyFlatSpec with Matchers with MockedRout
           Request[IO](
             method = GET,
             uri = uri"/authentication/user",
-            headers = org.http4s.Headers(
-              Cookie(org.http4s.RequestCookie("authentication", testSecret.value))
-            )
+            headers = org.http4s.Headers(Cookie(org.http4s.RequestCookie("authentication", testSecret.value)))
           )
         )
         .flatMap { response =>
@@ -200,9 +182,7 @@ class AuthenticationRoutesSpec extends AnyFlatSpec with Matchers with MockedRout
           Request[IO](
             method = GET,
             uri = uri"/authentication/user",
-            headers = org.http4s.Headers(
-              Authorization(Credentials.Token(AuthScheme.Bearer, invalidSecret.value))
-            )
+            headers = org.http4s.Headers(Authorization(Credentials.Token(AuthScheme.Bearer, invalidSecret.value)))
           )
         )
         .flatMap { response =>
@@ -223,9 +203,7 @@ class AuthenticationRoutesSpec extends AnyFlatSpec with Matchers with MockedRout
           Request[IO](
             method = GET,
             uri = uri"/authentication/user",
-            headers = org.http4s.Headers(
-              Cookie(org.http4s.RequestCookie("authentication", testSecret.value))
-            )
+            headers = org.http4s.Headers(Cookie(org.http4s.RequestCookie("authentication", testSecret.value)))
           )
         )
         .flatMap { response =>

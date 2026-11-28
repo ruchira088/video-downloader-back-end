@@ -14,7 +14,8 @@ trait VideoSite {
 
 object VideoSite {
   def from(input: String): VideoSite =
-    CustomVideoSite.withNameInsensitiveOption(input)
+    CustomVideoSite
+      .withNameInsensitiveOption(input)
       .getOrElse {
         if (Local.name.equalsIgnoreCase(input)) Local else YTDownloaderSite(input.toLowerCase)
       }
@@ -38,14 +39,14 @@ object VideoSite {
   case object Local extends VideoSite {
     override val name: String = "Local"
 
-    override def processUri[F[_] : MonadThrow](uri: Uri): F[Uri] =
+    override def processUri[F[_]: MonadThrow](uri: Uri): F[Uri] =
       MonadThrow[F].raiseError(ValidationException("Unable to process URIs for local videos"))
   }
 
   final case class YTDownloaderSite(site: String) extends VideoSite {
     override val name: String = site
 
-    override def processUri[F[_] : MonadThrow](uri: Uri): F[Uri] =
+    override def processUri[F[_]: MonadThrow](uri: Uri): F[Uri] =
       uri.host.map(_.renderString) match {
         case Some("www.youtube.com") =>
           Applicative[F].pure {

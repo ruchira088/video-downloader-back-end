@@ -17,8 +17,8 @@ import org.http4s.circe.CirceEntityCodec._
 import org.http4s.dsl.Http4sDsl
 
 object UserRoutes {
-  def apply[F[_]: Async](userService: UserService[F], authenticationService: AuthenticationService[F])(
-    implicit dsl: Http4sDsl[F]
+  def apply[F[_]: Async](userService: UserService[F], authenticationService: AuthenticationService[F])(implicit
+    dsl: Http4sDsl[F]
   ): ContextRoutes[RequestContext, F] = {
     import dsl._
 
@@ -36,22 +36,21 @@ object UserRoutes {
             ForgotPasswordRequest(email) <- contextRequest.to[ForgotPasswordRequest]
             _ <- userService.forgotPassword(email)
             response <- Ok(ResultResponse(s"Password reset token sent to ${email.value}"))
-          }
-          yield response
+          } yield response
 
         case contextRequest @ PUT -> Root / "id" / userId / "reset-password" as _ =>
           for {
             ResetPasswordRequest(token, password) <- contextRequest.to[ResetPasswordRequest]
             user <- userService.resetPassword(userId, token, password)
             response <- Ok(user)
-          }
-          yield response
+          } yield response
       }
 
     val authenticatedRoutes =
       ContextRoutes.of[AuthenticatedRequestContext, F] {
         case DELETE -> Root / "id" / userId as AuthenticatedRequestContext(adminUser, _) =>
-          userService.delete(userId, adminUser)
+          userService
+            .delete(userId, adminUser)
             .flatMap(user => Ok(user))
       }
 

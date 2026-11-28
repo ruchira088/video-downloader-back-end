@@ -7,8 +7,8 @@ import com.ruchij.core.messaging.{MessagingTopic, Publisher}
 import com.ruchij.core.types.Clock
 import fs2.Pipe
 
-class DoobiePublisher[F[_]: MonadThrow: Clock, G[_], A](messageDao: MessageDao[G])(
-  implicit messagingTopic: MessagingTopic[A],
+class DoobiePublisher[F[_]: MonadThrow: Clock, G[_], A](messageDao: MessageDao[G])(implicit
+  messagingTopic: MessagingTopic[A],
   transaction: G ~> F
 ) extends Publisher[F, A] {
 

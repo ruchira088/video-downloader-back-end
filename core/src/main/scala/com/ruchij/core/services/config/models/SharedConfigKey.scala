@@ -9,7 +9,7 @@ import scala.language.postfixOps
 
 sealed trait SharedConfigKey[A] extends EnumEntry with ConfigKey with KVStoreKey
 
-object SharedConfigKey  {
+object SharedConfigKey {
   case object VideoScanningStatus extends SharedConfigKey[VideoScan] { self =>
     override val maybeTtl: Option[FiniteDuration] = Some(15 minutes)
     override val key: String = "video-scanning-status"

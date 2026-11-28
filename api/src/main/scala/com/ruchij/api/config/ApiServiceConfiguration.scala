@@ -25,9 +25,7 @@ final case class ApiServiceConfiguration(
 object ApiServiceConfiguration {
   implicit val configReader: ConfigReader[ApiServiceConfiguration] = deriveReader[ApiServiceConfiguration]
 
-  def parse[F[_]: ApplicativeThrow](
-    configObjectSource: ConfigObjectSource
-  ): F[ApiServiceConfiguration] =
+  def parse[F[_]: ApplicativeThrow](configObjectSource: ConfigObjectSource): F[ApiServiceConfiguration] =
     configObjectSource
       .load[ApiServiceConfiguration]
       .left

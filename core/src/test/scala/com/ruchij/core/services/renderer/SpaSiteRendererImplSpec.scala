@@ -17,12 +17,9 @@ class SpaSiteRendererImplSpec extends AnyFlatSpec with Matchers {
   "SpaSiteRendererImpl.render" should "send POST request and return rendered HTML" in runIO {
     val expectedHtml = "<html><body>Rendered Content</body></html>"
 
-    val client = Client.fromHttpApp[IO](HttpApp.liftF(IO.pure(
-      Response[IO](
-        status = Status.Ok,
-        body = Stream.emits(expectedHtml.getBytes)
-      )
-    )))
+    val client = Client.fromHttpApp[IO](
+      HttpApp.liftF(IO.pure(Response[IO](status = Status.Ok, body = Stream.emits(expectedHtml.getBytes))))
+    )
 
     val renderer = new SpaSiteRendererImpl[IO](client, rendererConfig)
 
@@ -35,13 +32,13 @@ class SpaSiteRendererImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "handle error responses and re-raise exception" in runIO {
-    val client = Client.fromHttpApp[IO](HttpApp.liftF(IO.raiseError[Response[IO]](
-      new RuntimeException("Server error")
-    )))
+    val client =
+      Client.fromHttpApp[IO](HttpApp.liftF(IO.raiseError[Response[IO]](new RuntimeException("Server error"))))
 
     val renderer = new SpaSiteRendererImpl[IO](client, rendererConfig)
 
-    renderer.render(uri"https://example.com/page", Seq(".content"))
+    renderer
+      .render(uri"https://example.com/page", Seq(".content"))
       .attempt
       .flatMap { result =>
         IO.delay {
@@ -54,12 +51,9 @@ class SpaSiteRendererImplSpec extends AnyFlatSpec with Matchers {
   "SpaSiteRendererImpl.executeJavaScript" should "send POST request with script and return result" in runIO {
     val expectedResult = "JavaScript Result"
 
-    val client = Client.fromHttpApp[IO](HttpApp.liftF(IO.pure(
-      Response[IO](
-        status = Status.Ok,
-        body = Stream.emits(expectedResult.getBytes)
-      )
-    )))
+    val client = Client.fromHttpApp[IO](
+      HttpApp.liftF(IO.pure(Response[IO](status = Status.Ok, body = Stream.emits(expectedResult.getBytes))))
+    )
 
     val renderer = new SpaSiteRendererImpl[IO](client, rendererConfig)
 
@@ -76,13 +70,14 @@ class SpaSiteRendererImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "handle error responses and re-raise exception for JS" in runIO {
-    val client = Client.fromHttpApp[IO](HttpApp.liftF(IO.raiseError[Response[IO]](
-      new RuntimeException("Script execution failed")
-    )))
+    val client = Client.fromHttpApp[IO](
+      HttpApp.liftF(IO.raiseError[Response[IO]](new RuntimeException("Script execution failed")))
+    )
 
     val renderer = new SpaSiteRendererImpl[IO](client, rendererConfig)
 
-    renderer.executeJavaScript(uri"https://example.com/page", Seq(".ready"), "script")
+    renderer
+      .executeJavaScript(uri"https://example.com/page", Seq(".ready"), "script")
       .attempt
       .flatMap { result =>
         IO.delay {
@@ -95,12 +90,9 @@ class SpaSiteRendererImplSpec extends AnyFlatSpec with Matchers {
   it should "handle empty selectors list" in runIO {
     val expectedHtml = "<html></html>"
 
-    val client = Client.fromHttpApp[IO](HttpApp.liftF(IO.pure(
-      Response[IO](
-        status = Status.Ok,
-        body = Stream.emits(expectedHtml.getBytes)
-      )
-    )))
+    val client = Client.fromHttpApp[IO](
+      HttpApp.liftF(IO.pure(Response[IO](status = Status.Ok, body = Stream.emits(expectedHtml.getBytes))))
+    )
 
     val renderer = new SpaSiteRendererImpl[IO](client, rendererConfig)
 

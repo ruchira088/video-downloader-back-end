@@ -30,22 +30,10 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
   private val testTimestamp = TimeUtils.instantOf(2022, 8, 1, 10, 10)
   private val expiresAt = testTimestamp.plus(java.time.Duration.ofDays(45))
   private val testSecret = Secret("test-secret-uuid")
-  private val adminToken = AuthenticationToken(
-    ApiTestData.AdminUser.id,
-    testSecret,
-    expiresAt,
-    testTimestamp,
-    0,
-    testTimestamp
-  )
-  private val normalUserToken = AuthenticationToken(
-    ApiTestData.NormalUser.id,
-    testSecret,
-    expiresAt,
-    testTimestamp,
-    0,
-    testTimestamp
-  )
+  private val adminToken =
+    AuthenticationToken(ApiTestData.AdminUser.id, testSecret, expiresAt, testTimestamp, 0, testTimestamp)
+  private val normalUserToken =
+    AuthenticationToken(ApiTestData.NormalUser.id, testSecret, expiresAt, testTimestamp, 0, testTimestamp)
 
   private val testScheduledDownload = ScheduledVideoDownload(
     scheduledAt = testTimestamp,
@@ -57,9 +45,7 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
     errorInfo = None
   )
 
-  private def authHeaders = org.http4s.Headers(
-    Authorization(Credentials.Token(AuthScheme.Bearer, testSecret.value))
-  )
+  private def authHeaders = org.http4s.Headers(Authorization(Credentials.Token(AuthScheme.Bearer, testSecret.value)))
 
   "POST /schedule" should "schedule a new video download" in runIO {
     (authenticationService.authenticate)
@@ -73,11 +59,8 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
     ignoreHttpMetrics() *>
       createRoutes()
         .run(
-          Request[IO](
-            method = POST,
-            uri = uri"/schedule",
-            headers = authHeaders
-          ).withEntity(json"""{"url": "https://www.youtube.com/watch?v=test123"}""")
+          Request[IO](method = POST, uri = uri"/schedule", headers = authHeaders)
+            .withEntity(json"""{"url": "https://www.youtube.com/watch?v=test123"}""")
         )
         .flatMap { response =>
           IO.delay {
@@ -99,11 +82,8 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
     ignoreHttpMetrics() *>
       createRoutes()
         .run(
-          Request[IO](
-            method = POST,
-            uri = uri"/schedule",
-            headers = authHeaders
-          ).withEntity(json"""{"url": "https://www.youtube.com/watch?v=existing"}""")
+          Request[IO](method = POST, uri = uri"/schedule", headers = authHeaders)
+            .withEntity(json"""{"url": "https://www.youtube.com/watch?v=existing"}""")
         )
         .flatMap { response =>
           IO.delay {
@@ -126,13 +106,7 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = POST,
-            uri = uri"/schedule/retry-failed",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = POST, uri = uri"/schedule/retry-failed", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must beJsonContentType
@@ -164,13 +138,7 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/schedule/search",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/schedule/search", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must beJsonContentType
@@ -190,13 +158,7 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/schedule/search?status=Active",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/schedule/search?status=Active", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.Ok)
@@ -215,13 +177,7 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/schedule/id/youtube-7488acd8",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/schedule/id/youtube-7488acd8", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must beJsonContentType
@@ -241,13 +197,7 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/schedule/id/nonexistent",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/schedule/id/nonexistent", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.NotFound)
@@ -266,13 +216,7 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = DELETE,
-            uri = uri"/schedule/id/youtube-7488acd8",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = DELETE, uri = uri"/schedule/id/youtube-7488acd8", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must beJsonContentType
@@ -295,11 +239,8 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
     ignoreHttpMetrics() *>
       createRoutes()
         .run(
-          Request[IO](
-            method = PUT,
-            uri = uri"/schedule/id/youtube-7488acd8",
-            headers = authHeaders
-          ).withEntity(json"""{"status": "Paused"}""")
+          Request[IO](method = PUT, uri = uri"/schedule/id/youtube-7488acd8", headers = authHeaders)
+            .withEntity(json"""{"status": "Paused"}""")
         )
         .flatMap { response =>
           IO.delay {
@@ -323,11 +264,8 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
     ignoreHttpMetrics() *>
       createRoutes()
         .run(
-          Request[IO](
-            method = PUT,
-            uri = uri"/schedule/worker-status",
-            headers = authHeaders
-          ).withEntity(json"""{"workerStatus": "Paused"}""")
+          Request[IO](method = PUT, uri = uri"/schedule/worker-status", headers = authHeaders)
+            .withEntity(json"""{"workerStatus": "Paused"}""")
         )
         .flatMap { response =>
           IO.delay {
@@ -346,11 +284,8 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
     ignoreHttpMetrics() *>
       createRoutes()
         .run(
-          Request[IO](
-            method = PUT,
-            uri = uri"/schedule/worker-status",
-            headers = authHeaders
-          ).withEntity(json"""{"workerStatus": "Paused"}""")
+          Request[IO](method = PUT, uri = uri"/schedule/worker-status", headers = authHeaders)
+            .withEntity(json"""{"workerStatus": "Paused"}""")
         )
         .flatMap { response =>
           IO.delay {
@@ -382,13 +317,7 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/schedule/search",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/schedule/search", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.Ok)
@@ -407,13 +336,7 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = POST,
-            uri = uri"/schedule/retry-failed",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = POST, uri = uri"/schedule/retry-failed", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.Ok)

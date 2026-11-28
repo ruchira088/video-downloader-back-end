@@ -32,413 +32,561 @@ abstract class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with Op
 
   def runTest(testFn: (ScheduledVideoDownload, ConnectionIO ~> IO) => IO[Unit]): Unit =
     runIO {
-      transactor.use {
-        transaction =>
-          for {
-            timestamp <- Clock[IO].timestamp
-            thumbnailFileResource = FileResource("thumbnail-id", timestamp, "/opt/image/thumbnail.jpg", MediaType.image.jpeg, 100)
-            _ <- transaction {
-              DoobieFileResourceDao.insert(thumbnailFileResource)
-            }
-
-            videoMetadata =
-              VideoMetadata(
-                uri"https://spankbang.com",
-                "video-metadata-id",
-                CustomVideoSite.SpankBang,
-                "sample-video-title",
-                5 minutes,
-                50_000,
-                thumbnailFileResource
-              )
-            _ <- transaction {
-              DoobieVideoMetadataDao.insert(videoMetadata)
-            }
-
-            scheduledVideoDownload =
-              ScheduledVideoDownload(
-                timestamp,
-                timestamp,
-                SchedulingStatus.Queued,
-                0,
-                videoMetadata,
-                None,
-                None
-              )
-            _ <- transaction {
-              DoobieSchedulingDao.insert(scheduledVideoDownload)
-            }
-
-            maybeScheduledVideoDownload <-
-              transaction { DoobieSchedulingDao.getById(scheduledVideoDownload.videoMetadata.id, None) }
-
-            _ <- IO.delay {
-              maybeScheduledVideoDownload.value.videoMetadata.id mustBe videoMetadata.id
-              maybeScheduledVideoDownload.value.videoMetadata.size mustBe videoMetadata.size
-              maybeScheduledVideoDownload.value.videoMetadata.duration mustBe videoMetadata.duration
-              maybeScheduledVideoDownload.value.videoMetadata.videoSite mustBe videoMetadata.videoSite
-              maybeScheduledVideoDownload.value.videoMetadata.url mustBe videoMetadata.url
-              maybeScheduledVideoDownload.value.videoMetadata.thumbnail.id mustBe thumbnailFileResource.id
-              maybeScheduledVideoDownload.value.videoMetadata.thumbnail.size mustBe thumbnailFileResource.size
-              maybeScheduledVideoDownload.value.videoMetadata.thumbnail.path mustBe thumbnailFileResource.path
-              maybeScheduledVideoDownload.value.videoMetadata.thumbnail.mediaType mustBe thumbnailFileResource.mediaType
-              maybeScheduledVideoDownload.value.videoMetadata.thumbnail.createdAt.toEpochMilli mustBe thumbnailFileResource.createdAt.toEpochMilli
-              maybeScheduledVideoDownload.value.scheduledAt.toEpochMilli mustBe scheduledVideoDownload.scheduledAt.toEpochMilli
-              maybeScheduledVideoDownload.value.status mustBe scheduledVideoDownload.status
-              maybeScheduledVideoDownload.value.downloadedBytes mustBe scheduledVideoDownload.downloadedBytes
-              maybeScheduledVideoDownload.value.lastUpdatedAt.toEpochMilli mustBe scheduledVideoDownload.lastUpdatedAt.toEpochMilli
-              maybeScheduledVideoDownload.value.completedAt.map(_.toEpochMilli) mustBe scheduledVideoDownload.completedAt.map(_.toEpochMilli)
-              maybeScheduledVideoDownload.value.errorInfo mustBe None
-            }
-
-            result <- testFn(maybeScheduledVideoDownload.value, transaction)
+      transactor.use { transaction =>
+        for {
+          timestamp <- Clock[IO].timestamp
+          thumbnailFileResource = FileResource(
+            "thumbnail-id",
+            timestamp,
+            "/opt/image/thumbnail.jpg",
+            MediaType.image.jpeg,
+            100
+          )
+          _ <- transaction {
+            DoobieFileResourceDao.insert(thumbnailFileResource)
           }
-          yield result
+
+          videoMetadata =
+            VideoMetadata(
+              uri"https://spankbang.com",
+              "video-metadata-id",
+              CustomVideoSite.SpankBang,
+              "sample-video-title",
+              5 minutes,
+              50_000,
+              thumbnailFileResource
+            )
+          _ <- transaction {
+            DoobieVideoMetadataDao.insert(videoMetadata)
+          }
+
+          scheduledVideoDownload =
+            ScheduledVideoDownload(timestamp, timestamp, SchedulingStatus.Queued, 0, videoMetadata, None, None)
+          _ <- transaction {
+            DoobieSchedulingDao.insert(scheduledVideoDownload)
+          }
+
+          maybeScheduledVideoDownload <-
+            transaction { DoobieSchedulingDao.getById(scheduledVideoDownload.videoMetadata.id, None) }
+
+          _ <- IO.delay {
+            maybeScheduledVideoDownload.value.videoMetadata.id mustBe videoMetadata.id
+            maybeScheduledVideoDownload.value.videoMetadata.size mustBe videoMetadata.size
+            maybeScheduledVideoDownload.value.videoMetadata.duration mustBe videoMetadata.duration
+            maybeScheduledVideoDownload.value.videoMetadata.videoSite mustBe videoMetadata.videoSite
+            maybeScheduledVideoDownload.value.videoMetadata.url mustBe videoMetadata.url
+            maybeScheduledVideoDownload.value.videoMetadata.thumbnail.id mustBe thumbnailFileResource.id
+            maybeScheduledVideoDownload.value.videoMetadata.thumbnail.size mustBe thumbnailFileResource.size
+            maybeScheduledVideoDownload.value.videoMetadata.thumbnail.path mustBe thumbnailFileResource.path
+            maybeScheduledVideoDownload.value.videoMetadata.thumbnail.mediaType mustBe thumbnailFileResource.mediaType
+            maybeScheduledVideoDownload.value.videoMetadata.thumbnail.createdAt.toEpochMilli mustBe thumbnailFileResource.createdAt.toEpochMilli
+            maybeScheduledVideoDownload.value.scheduledAt.toEpochMilli mustBe scheduledVideoDownload.scheduledAt.toEpochMilli
+            maybeScheduledVideoDownload.value.status mustBe scheduledVideoDownload.status
+            maybeScheduledVideoDownload.value.downloadedBytes mustBe scheduledVideoDownload.downloadedBytes
+            maybeScheduledVideoDownload.value.lastUpdatedAt.toEpochMilli mustBe scheduledVideoDownload.lastUpdatedAt.toEpochMilli
+            maybeScheduledVideoDownload.value.completedAt.map(_.toEpochMilli) mustBe scheduledVideoDownload.completedAt
+              .map(_.toEpochMilli)
+            maybeScheduledVideoDownload.value.errorInfo mustBe None
+          }
+
+          result <- testFn(maybeScheduledVideoDownload.value, transaction)
+        } yield result
       }
     }
 
-  "DoobieSchedulingDao" should "correctly perform search queries" in runTest {  (scheduledVideoDownload, transaction) =>
+  "DoobieSchedulingDao" should "correctly perform search queries" in runTest { (scheduledVideoDownload, transaction) =>
     for {
       searchResultOne <-
         transaction {
-          DoobieSchedulingDao.search(None, None, RangeValue.all[FiniteDuration], RangeValue.all[Long], 0, 10, SortBy.Date, Order.Descending, None, None, None)
-       }
-      _ <- IO.delay {  searchResultOne mustBe Seq(scheduledVideoDownload) }
+          DoobieSchedulingDao.search(
+            None,
+            None,
+            RangeValue.all[FiniteDuration],
+            RangeValue.all[Long],
+            0,
+            10,
+            SortBy.Date,
+            Order.Descending,
+            None,
+            None,
+            None
+          )
+        }
+      _ <- IO.delay { searchResultOne mustBe Seq(scheduledVideoDownload) }
 
       searchResultTwo <-
         transaction {
-          DoobieSchedulingDao.search(Some("sample"), None, RangeValue.all[FiniteDuration], RangeValue.all[Long], 0, 10, SortBy.Date, Order.Descending, None, Some(NonEmptyList.one(CustomVideoSite.SpankBang)), None)
+          DoobieSchedulingDao.search(
+            Some("sample"),
+            None,
+            RangeValue.all[FiniteDuration],
+            RangeValue.all[Long],
+            0,
+            10,
+            SortBy.Date,
+            Order.Descending,
+            None,
+            Some(NonEmptyList.one(CustomVideoSite.SpankBang)),
+            None
+          )
         }
-      _ <- IO.delay {  searchResultTwo mustBe Seq(scheduledVideoDownload) }
+      _ <- IO.delay { searchResultTwo mustBe Seq(scheduledVideoDownload) }
 
       searchResultThree <-
         transaction {
-          DoobieSchedulingDao.search(Some("non-existent"), None, RangeValue.all[FiniteDuration], RangeValue.all[Long], 0, 10, SortBy.Date, Order.Descending, None, None, None)
+          DoobieSchedulingDao.search(
+            Some("non-existent"),
+            None,
+            RangeValue.all[FiniteDuration],
+            RangeValue.all[Long],
+            0,
+            10,
+            SortBy.Date,
+            Order.Descending,
+            None,
+            None,
+            None
+          )
         }
-      _ <- IO.delay {  searchResultThree mustBe Seq.empty }
+      _ <- IO.delay { searchResultThree mustBe Seq.empty }
 
       searchResultFour <-
         transaction {
-          DoobieSchedulingDao.search(None, None, RangeValue[FiniteDuration](None, Some(6 minutes)), RangeValue.all[Long], 0, 10, SortBy.Date, Order.Descending, None, None, None)
+          DoobieSchedulingDao.search(
+            None,
+            None,
+            RangeValue[FiniteDuration](None, Some(6 minutes)),
+            RangeValue.all[Long],
+            0,
+            10,
+            SortBy.Date,
+            Order.Descending,
+            None,
+            None,
+            None
+          )
         }
-      _ <- IO.delay {  searchResultFour mustBe Seq(scheduledVideoDownload) }
+      _ <- IO.delay { searchResultFour mustBe Seq(scheduledVideoDownload) }
 
       searchResultFive <-
         transaction {
-          DoobieSchedulingDao.search(None, None, RangeValue[FiniteDuration](None, Some(4 minutes)), RangeValue.all[Long], 0, 10, SortBy.Date, Order.Descending, None, None, None)
+          DoobieSchedulingDao.search(
+            None,
+            None,
+            RangeValue[FiniteDuration](None, Some(4 minutes)),
+            RangeValue.all[Long],
+            0,
+            10,
+            SortBy.Date,
+            Order.Descending,
+            None,
+            None,
+            None
+          )
         }
-      _ <- IO.delay {  searchResultFive mustBe Seq.empty }
+      _ <- IO.delay { searchResultFive mustBe Seq.empty }
 
       searchResultSix <-
         transaction {
-          DoobieSchedulingDao.search(None, None, RangeValue[FiniteDuration](Some(4 minutes), None), RangeValue.all[Long], 0, 10, SortBy.Date, Order.Descending, None, None, None)
+          DoobieSchedulingDao.search(
+            None,
+            None,
+            RangeValue[FiniteDuration](Some(4 minutes), None),
+            RangeValue.all[Long],
+            0,
+            10,
+            SortBy.Date,
+            Order.Descending,
+            None,
+            None,
+            None
+          )
         }
-      _ <- IO.delay {  searchResultSix mustBe Seq(scheduledVideoDownload) }
+      _ <- IO.delay { searchResultSix mustBe Seq(scheduledVideoDownload) }
 
       searchResultSeven <-
         transaction {
-          DoobieSchedulingDao.search(None, None, RangeValue[FiniteDuration](Some(6 minutes), None), RangeValue.all[Long], 0, 10, SortBy.Date, Order.Descending, None, None, None)
+          DoobieSchedulingDao.search(
+            None,
+            None,
+            RangeValue[FiniteDuration](Some(6 minutes), None),
+            RangeValue.all[Long],
+            0,
+            10,
+            SortBy.Date,
+            Order.Descending,
+            None,
+            None,
+            None
+          )
         }
-      _ <- IO.delay {  searchResultSeven mustBe Seq.empty }
+      _ <- IO.delay { searchResultSeven mustBe Seq.empty }
 
       searchResultEight <-
         transaction {
-          DoobieSchedulingDao.search(None, None, RangeValue.all[FiniteDuration], RangeValue.all[Long], 0, 10, SortBy.Date, Order.Descending, Some(NonEmptyList.one(SchedulingStatus.Queued)), None, None)
+          DoobieSchedulingDao.search(
+            None,
+            None,
+            RangeValue.all[FiniteDuration],
+            RangeValue.all[Long],
+            0,
+            10,
+            SortBy.Date,
+            Order.Descending,
+            Some(NonEmptyList.one(SchedulingStatus.Queued)),
+            None,
+            None
+          )
         }
       _ <- IO.delay { searchResultEight mustBe Seq(scheduledVideoDownload) }
 
       searchResultNine <-
         transaction {
-          DoobieSchedulingDao.search(None, None, RangeValue.all[FiniteDuration], RangeValue.all[Long], 0, 10, SortBy.Date, Order.Descending, Some(NonEmptyList.one(SchedulingStatus.Completed)), None, None)
+          DoobieSchedulingDao.search(
+            None,
+            None,
+            RangeValue.all[FiniteDuration],
+            RangeValue.all[Long],
+            0,
+            10,
+            SortBy.Date,
+            Order.Descending,
+            Some(NonEmptyList.one(SchedulingStatus.Completed)),
+            None,
+            None
+          )
         }
-      _ <- IO.delay {  searchResultNine mustBe Seq.empty }
+      _ <- IO.delay { searchResultNine mustBe Seq.empty }
 
       searchResultTen <-
         transaction {
-          DoobieSchedulingDao.search(None, None, RangeValue.all[FiniteDuration], RangeValue.all[Long], 0, 10, SortBy.Date, Order.Descending, None, Some(NonEmptyList.one(CustomVideoSite.PornOne)), None)
+          DoobieSchedulingDao.search(
+            None,
+            None,
+            RangeValue.all[FiniteDuration],
+            RangeValue.all[Long],
+            0,
+            10,
+            SortBy.Date,
+            Order.Descending,
+            None,
+            Some(NonEmptyList.one(CustomVideoSite.PornOne)),
+            None
+          )
         }
-      _ <- IO.delay {  searchResultTen mustBe Seq.empty }
+      _ <- IO.delay { searchResultTen mustBe Seq.empty }
 
       searchResultEleven <-
         transaction {
-          DoobieSchedulingDao.search(None, None, RangeValue.all[FiniteDuration], RangeValue(Some(40_000), None), 0, 10, SortBy.Date, Order.Descending, None, None, None)
+          DoobieSchedulingDao.search(
+            None,
+            None,
+            RangeValue.all[FiniteDuration],
+            RangeValue(Some(40_000), None),
+            0,
+            10,
+            SortBy.Date,
+            Order.Descending,
+            None,
+            None,
+            None
+          )
         }
-      _ <- IO.delay {  searchResultEleven mustBe Seq(scheduledVideoDownload) }
+      _ <- IO.delay { searchResultEleven mustBe Seq(scheduledVideoDownload) }
 
       searchResultTwelve <-
         transaction {
-          DoobieSchedulingDao.search(None, None, RangeValue.all[FiniteDuration], RangeValue(Some(60_000), None), 0, 10, SortBy.Date, Order.Descending, None, None, None)
+          DoobieSchedulingDao.search(
+            None,
+            None,
+            RangeValue.all[FiniteDuration],
+            RangeValue(Some(60_000), None),
+            0,
+            10,
+            SortBy.Date,
+            Order.Descending,
+            None,
+            None,
+            None
+          )
         }
-      _ <- IO.delay {  searchResultTwelve mustBe Seq.empty }
-    }
-    yield (): Unit
+      _ <- IO.delay { searchResultTwelve mustBe Seq.empty }
+    } yield (): Unit
   }
 
-  it should "complete the scheduled download video task" in runTest {
-    (scheduledVideoDownload, transaction) =>
-      for {
-        timestamp <- Clock[IO].timestamp
-        maybeUpdated <-
-          transaction {
-            DoobieSchedulingDao.markScheduledVideoDownloadAsComplete(scheduledVideoDownload.videoMetadata.id, timestamp)
-          }
-
-        _ <- IO.delay {
-          maybeUpdated.value.completedAt.map(_.toEpochMilli) mustBe Some(timestamp.toEpochMilli)
-          maybeUpdated.value.status mustBe SchedulingStatus.Completed
-          maybeUpdated.value.lastUpdatedAt.toEpochMilli mustBe timestamp.toEpochMilli
-
-          maybeUpdated.value.copy(completedAt = scheduledVideoDownload.completedAt, status = scheduledVideoDownload.status, lastUpdatedAt = scheduledVideoDownload.lastUpdatedAt) mustBe scheduledVideoDownload
+  it should "complete the scheduled download video task" in runTest { (scheduledVideoDownload, transaction) =>
+    for {
+      timestamp <- Clock[IO].timestamp
+      maybeUpdated <-
+        transaction {
+          DoobieSchedulingDao.markScheduledVideoDownloadAsComplete(scheduledVideoDownload.videoMetadata.id, timestamp)
         }
+
+      _ <- IO.delay {
+        maybeUpdated.value.completedAt.map(_.toEpochMilli) mustBe Some(timestamp.toEpochMilli)
+        maybeUpdated.value.status mustBe SchedulingStatus.Completed
+        maybeUpdated.value.lastUpdatedAt.toEpochMilli mustBe timestamp.toEpochMilli
+
+        maybeUpdated.value.copy(
+          completedAt = scheduledVideoDownload.completedAt,
+          status = scheduledVideoDownload.status,
+          lastUpdatedAt = scheduledVideoDownload.lastUpdatedAt
+        ) mustBe scheduledVideoDownload
       }
-      yield (): Unit
+    } yield (): Unit
   }
 
-  it should "update the status of the scheduled video download" in runTest {
-    (scheduledVideoDownload, transaction) =>
-      for {
-        timestamp <- Clock[IO].timestamp
-        maybeUpdated <-
-          transaction {
-            DoobieSchedulingDao.updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Active, timestamp)
-          }
-
-        _ <- IO.delay {
-          maybeUpdated.value.status mustBe SchedulingStatus.Active
-          maybeUpdated.value.lastUpdatedAt.toEpochMilli mustBe timestamp.toEpochMilli
-
-          maybeUpdated.value.copy(status = scheduledVideoDownload.status, lastUpdatedAt = scheduledVideoDownload.lastUpdatedAt) mustBe scheduledVideoDownload
+  it should "update the status of the scheduled video download" in runTest { (scheduledVideoDownload, transaction) =>
+    for {
+      timestamp <- Clock[IO].timestamp
+      maybeUpdated <-
+        transaction {
+          DoobieSchedulingDao.updateSchedulingStatusById(
+            scheduledVideoDownload.videoMetadata.id,
+            SchedulingStatus.Active,
+            timestamp
+          )
         }
+
+      _ <- IO.delay {
+        maybeUpdated.value.status mustBe SchedulingStatus.Active
+        maybeUpdated.value.lastUpdatedAt.toEpochMilli mustBe timestamp.toEpochMilli
+
+        maybeUpdated.value.copy(
+          status = scheduledVideoDownload.status,
+          lastUpdatedAt = scheduledVideoDownload.lastUpdatedAt
+        ) mustBe scheduledVideoDownload
       }
-      yield (): Unit
+    } yield (): Unit
   }
 
-  it should "update the download progress" in runTest {
-    (scheduledVideoDownload, transaction) =>
-      // Progress is only recorded if it is newer than the last update, and two clock reads can share a millisecond
-      val timestamp = scheduledVideoDownload.lastUpdatedAt.plusSeconds(1)
+  it should "update the download progress" in runTest { (scheduledVideoDownload, transaction) =>
+    // Progress is only recorded if it is newer than the last update, and two clock reads can share a millisecond
+    val timestamp = scheduledVideoDownload.lastUpdatedAt.plusSeconds(1)
 
-      for {
-        maybeUpdated <-
-          transaction {
-            DoobieSchedulingDao.updateDownloadProgress(scheduledVideoDownload.videoMetadata.id, 2021, timestamp)
-          }
-
-        _ <- IO.delay {
-          maybeUpdated.value.downloadedBytes mustBe 2021
-          maybeUpdated.value.lastUpdatedAt.toEpochMilli mustBe timestamp.toEpochMilli
-
-          maybeUpdated.value.copy(downloadedBytes = scheduledVideoDownload.downloadedBytes, lastUpdatedAt = scheduledVideoDownload.lastUpdatedAt) mustBe scheduledVideoDownload
+    for {
+      maybeUpdated <-
+        transaction {
+          DoobieSchedulingDao.updateDownloadProgress(scheduledVideoDownload.videoMetadata.id, 2021, timestamp)
         }
+
+      _ <- IO.delay {
+        maybeUpdated.value.downloadedBytes mustBe 2021
+        maybeUpdated.value.lastUpdatedAt.toEpochMilli mustBe timestamp.toEpochMilli
+
+        maybeUpdated.value.copy(
+          downloadedBytes = scheduledVideoDownload.downloadedBytes,
+          lastUpdatedAt = scheduledVideoDownload.lastUpdatedAt
+        ) mustBe scheduledVideoDownload
       }
-      yield (): Unit
+    } yield (): Unit
   }
 
-  it should "update timed-out tasks and return a stale task" in runTest {
-    (scheduledVideoDownload, transaction) =>
-      for {
-        timestampZero <- Clock[IO].timestamp
-        timestampTwenty = timestampZero.plusSeconds(20)
-        timestampForty = timestampTwenty.plusSeconds(20)
+  it should "update timed-out tasks and return a stale task" in runTest { (scheduledVideoDownload, transaction) =>
+    for {
+      timestampZero <- Clock[IO].timestamp
+      timestampTwenty = timestampZero.plusSeconds(20)
+      timestampForty = timestampTwenty.plusSeconds(20)
 
-        timedOutTasks <-
-          transaction {
-            DoobieSchedulingDao.updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Active, timestampZero)
-              .productR {
-                DoobieSchedulingDao.updateTimedOutTasks(10 seconds, timestampTwenty)
-              }
-          }
-
-        _ <- IO.delay {
-          timedOutTasks.size mustBe 1
-          timedOutTasks.headOption.value.status mustBe SchedulingStatus.Stale
-          timedOutTasks.headOption.value.lastUpdatedAt.toEpochMilli mustBe timestampTwenty.toEpochMilli
-
-          timedOutTasks.map(_.copy(lastUpdatedAt = scheduledVideoDownload.lastUpdatedAt, status = scheduledVideoDownload.status)) mustBe Seq(scheduledVideoDownload)
+      timedOutTasks <-
+        transaction {
+          DoobieSchedulingDao
+            .updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Active, timestampZero)
+            .productR {
+              DoobieSchedulingDao.updateTimedOutTasks(10 seconds, timestampTwenty)
+            }
         }
 
-        maybeStaleTask <- transaction {
-          DoobieSchedulingDao.staleTask(10 seconds, timestampForty)
-        }
+      _ <- IO.delay {
+        timedOutTasks.size mustBe 1
+        timedOutTasks.headOption.value.status mustBe SchedulingStatus.Stale
+        timedOutTasks.headOption.value.lastUpdatedAt.toEpochMilli mustBe timestampTwenty.toEpochMilli
 
-        _ <- IO.delay {
-          maybeStaleTask.value.status mustBe SchedulingStatus.Acquired
-          maybeStaleTask.value.lastUpdatedAt.toEpochMilli mustBe timestampForty.toEpochMilli
-
-          maybeStaleTask.value.copy(lastUpdatedAt = scheduledVideoDownload.lastUpdatedAt, status = scheduledVideoDownload.status) mustBe scheduledVideoDownload
-        }
-
-        moreTimedOutTasks <-
-          transaction(DoobieSchedulingDao.updateTimedOutTasks(10 seconds, timestampForty))
-
-        _ <- IO.delay {  moreTimedOutTasks mustBe Seq.empty }
-
-        maybeMoreStaledTasks <- transaction {
-          DoobieSchedulingDao.staleTask(10 seconds, timestampForty)
-        }
-
-        _ <- IO.delay { maybeMoreStaledTasks mustBe None }
+        timedOutTasks.map(
+          _.copy(lastUpdatedAt = scheduledVideoDownload.lastUpdatedAt, status = scheduledVideoDownload.status)
+        ) mustBe Seq(scheduledVideoDownload)
       }
-      yield (): Unit
+
+      maybeStaleTask <- transaction {
+        DoobieSchedulingDao.staleTask(10 seconds, timestampForty)
+      }
+
+      _ <- IO.delay {
+        maybeStaleTask.value.status mustBe SchedulingStatus.Acquired
+        maybeStaleTask.value.lastUpdatedAt.toEpochMilli mustBe timestampForty.toEpochMilli
+
+        maybeStaleTask.value.copy(
+          lastUpdatedAt = scheduledVideoDownload.lastUpdatedAt,
+          status = scheduledVideoDownload.status
+        ) mustBe scheduledVideoDownload
+      }
+
+      moreTimedOutTasks <-
+        transaction(DoobieSchedulingDao.updateTimedOutTasks(10 seconds, timestampForty))
+
+      _ <- IO.delay { moreTimedOutTasks mustBe Seq.empty }
+
+      maybeMoreStaledTasks <- transaction {
+        DoobieSchedulingDao.staleTask(10 seconds, timestampForty)
+      }
+
+      _ <- IO.delay { maybeMoreStaledTasks mustBe None }
+    } yield (): Unit
   }
 
-  it should "acquire queued scheduled video downloads" in runTest {
-    (scheduledVideDownload, transaction) =>
-      for {
-        timestamp <- Clock[IO].timestamp
+  it should "acquire queued scheduled video downloads" in runTest { (scheduledVideDownload, transaction) =>
+    for {
+      timestamp <- Clock[IO].timestamp
 
-        _ <- transaction {
-          DoobieSchedulingDao.updateSchedulingStatusById(scheduledVideDownload.videoMetadata.id, SchedulingStatus.Queued, timestamp)
-        }
-
-        maybeAcquiredTask <- transaction(DoobieSchedulingDao.acquireTask(timestamp))
-
-        _ <- IO.delay {
-          maybeAcquiredTask.value.status mustBe SchedulingStatus.Acquired
-          maybeAcquiredTask.value.lastUpdatedAt.toEpochMilli mustBe timestamp.toEpochMilli
-
-          maybeAcquiredTask.value.copy(status = scheduledVideDownload.status, lastUpdatedAt = scheduledVideDownload.lastUpdatedAt) mustBe scheduledVideDownload
-        }
-
-        maybeAnotherTask <- transaction(DoobieSchedulingDao.acquireTask(timestamp))
-
-        _ <- IO.delay {  maybeAnotherTask mustBe None }
+      _ <- transaction {
+        DoobieSchedulingDao.updateSchedulingStatusById(
+          scheduledVideDownload.videoMetadata.id,
+          SchedulingStatus.Queued,
+          timestamp
+        )
       }
-      yield (): Unit
+
+      maybeAcquiredTask <- transaction(DoobieSchedulingDao.acquireTask(timestamp))
+
+      _ <- IO.delay {
+        maybeAcquiredTask.value.status mustBe SchedulingStatus.Acquired
+        maybeAcquiredTask.value.lastUpdatedAt.toEpochMilli mustBe timestamp.toEpochMilli
+
+        maybeAcquiredTask.value.copy(
+          status = scheduledVideDownload.status,
+          lastUpdatedAt = scheduledVideDownload.lastUpdatedAt
+        ) mustBe scheduledVideDownload
+      }
+
+      maybeAnotherTask <- transaction(DoobieSchedulingDao.acquireTask(timestamp))
+
+      _ <- IO.delay { maybeAnotherTask mustBe None }
+    } yield (): Unit
   }
 
-  it should "delete the scheduled video download" in runTest {
-    (scheduledVideoDownload, transaction) =>
-      for {
-        deletionResult <- transaction(DoobieSchedulingDao.deleteById(scheduledVideoDownload.videoMetadata.id))
+  it should "delete the scheduled video download" in runTest { (scheduledVideoDownload, transaction) =>
+    for {
+      deletionResult <- transaction(DoobieSchedulingDao.deleteById(scheduledVideoDownload.videoMetadata.id))
 
-        _ <- IO.delay {  deletionResult mustBe 1 }
+      _ <- IO.delay { deletionResult mustBe 1 }
 
-        repeatDeletionResult <- transaction(DoobieSchedulingDao.deleteById(scheduledVideoDownload.videoMetadata.id))
+      repeatDeletionResult <- transaction(DoobieSchedulingDao.deleteById(scheduledVideoDownload.videoMetadata.id))
 
-        _ <- IO.delay {  repeatDeletionResult mustBe 0 }
-      }
-      yield (): Unit
+      _ <- IO.delay { repeatDeletionResult mustBe 0 }
+    } yield (): Unit
   }
 
-  it should "set error information" in runTest {
-    (scheduledVideoDownload, transaction) =>
-      for {
-        timestamp <- Clock[IO].timestamp
-        exception = new Exception("This is a test error")
-        _ <- transaction {
-          DoobieSchedulingDao.setErrorById(scheduledVideoDownload.videoMetadata.id, exception, timestamp)
-        }
-
-        maybeUpdated <- transaction(DoobieSchedulingDao.getById(scheduledVideoDownload.videoMetadata.id, None))
-
-        updated <- IO.delay(maybeUpdated.value)
-
-        _ <- IO.delay {
-          updated.errorInfo must not be empty
-          updated.errorInfo.value.message mustBe exception.getMessage
-          updated.errorInfo.value.details mustBe exception.getStackTrace.map(_.toString).mkString("\n")
-        }
+  it should "set error information" in runTest { (scheduledVideoDownload, transaction) =>
+    for {
+      timestamp <- Clock[IO].timestamp
+      exception = new Exception("This is a test error")
+      _ <- transaction {
+        DoobieSchedulingDao.setErrorById(scheduledVideoDownload.videoMetadata.id, exception, timestamp)
       }
-      yield (): Unit
+
+      maybeUpdated <- transaction(DoobieSchedulingDao.getById(scheduledVideoDownload.videoMetadata.id, None))
+
+      updated <- IO.delay(maybeUpdated.value)
+
+      _ <- IO.delay {
+        updated.errorInfo must not be empty
+        updated.errorInfo.value.message mustBe exception.getMessage
+        updated.errorInfo.value.details mustBe exception.getStackTrace.map(_.toString).mkString("\n")
+      }
+    } yield (): Unit
   }
 
-  it should "reject insert with error info" in runTest {
-    (scheduledVideoDownload, transaction) =>
-      val errorInfo = ScheduledVideoDownload.ErrorInfo(
-        "error-message",
-        "error-details"
-      )
-      val downloadWithError = scheduledVideoDownload.copy(errorInfo = Some(errorInfo))
+  it should "reject insert with error info" in runTest { (scheduledVideoDownload, transaction) =>
+    val errorInfo = ScheduledVideoDownload.ErrorInfo("error-message", "error-details")
+    val downloadWithError = scheduledVideoDownload.copy(errorInfo = Some(errorInfo))
 
-      for {
-        result <- transaction(DoobieSchedulingDao.insert(downloadWithError)).attempt
+    for {
+      result <- transaction(DoobieSchedulingDao.insert(downloadWithError)).attempt
 
-        _ <- IO.delay {
-          result.isLeft mustBe true
-          result.left.exists(_.isInstanceOf[IllegalArgumentException]) mustBe true
-        }
+      _ <- IO.delay {
+        result.isLeft mustBe true
+        result.left.exists(_.isInstanceOf[IllegalArgumentException]) mustBe true
       }
-      yield (): Unit
+    } yield (): Unit
   }
 
-  it should "update scheduling status in batch" in runTest {
-    (scheduledVideoDownload, transaction) =>
-      for {
-        timestamp <- Clock[IO].timestamp
+  it should "update scheduling status in batch" in runTest { (scheduledVideoDownload, transaction) =>
+    for {
+      timestamp <- Clock[IO].timestamp
 
-        // Update status to Error first
-        _ <- transaction {
-          DoobieSchedulingDao.updateSchedulingStatusById(scheduledVideoDownload.videoMetadata.id, SchedulingStatus.Error, timestamp)
-        }
-
-        // Batch update from Error to Queued
-        updated <- transaction {
-          DoobieSchedulingDao.updateSchedulingStatus(SchedulingStatus.Error, SchedulingStatus.Queued)
-        }
-
-        _ <- IO.delay {
-          updated.size mustBe 1
-          updated.head.status mustBe SchedulingStatus.Queued
-        }
-
-        // Batch update with no matching status should return empty
-        emptyResult <- transaction {
-          DoobieSchedulingDao.updateSchedulingStatus(SchedulingStatus.Error, SchedulingStatus.Queued)
-        }
-
-        _ <- IO.delay {
-          emptyResult mustBe empty
-        }
+      // Update status to Error first
+      _ <- transaction {
+        DoobieSchedulingDao.updateSchedulingStatusById(
+          scheduledVideoDownload.videoMetadata.id,
+          SchedulingStatus.Error,
+          timestamp
+        )
       }
-      yield (): Unit
+
+      // Batch update from Error to Queued
+      updated <- transaction {
+        DoobieSchedulingDao.updateSchedulingStatus(SchedulingStatus.Error, SchedulingStatus.Queued)
+      }
+
+      _ <- IO.delay {
+        updated.size mustBe 1
+        updated.head.status mustBe SchedulingStatus.Queued
+      }
+
+      // Batch update with no matching status should return empty
+      emptyResult <- transaction {
+        DoobieSchedulingDao.updateSchedulingStatus(SchedulingStatus.Error, SchedulingStatus.Queued)
+      }
+
+      _ <- IO.delay {
+        emptyResult mustBe empty
+      }
+    } yield (): Unit
   }
 
-  it should "retry errored scheduled downloads" in runTest {
-    (scheduledVideoDownload, transaction) =>
-      for {
-        timestamp <- Clock[IO].timestamp
+  it should "retry errored scheduled downloads" in runTest { (scheduledVideoDownload, transaction) =>
+    for {
+      timestamp <- Clock[IO].timestamp
 
-        // Set error on the scheduled download
-        exception = new Exception("Download failed")
-        _ <- transaction {
-          DoobieSchedulingDao.setErrorById(scheduledVideoDownload.videoMetadata.id, exception, timestamp)
-        }
-
-        // Verify it's in Error state
-        maybeErrored <- transaction(DoobieSchedulingDao.getById(scheduledVideoDownload.videoMetadata.id, None))
-        _ <- IO.delay {
-          maybeErrored.value.status mustBe SchedulingStatus.Error
-        }
-
-        // Retry errored downloads
-        retried <- transaction {
-          DoobieSchedulingDao.retryErroredScheduledDownloads(None, timestamp)
-        }
-
-        _ <- IO.delay {
-          retried.size mustBe 1
-          retried.head.status mustBe SchedulingStatus.Queued
-          // Note: returned copy has old errorInfo, but database record is cleared
-        }
-
-        // Verify database state shows no error
-        maybeRetried <- transaction(DoobieSchedulingDao.getById(scheduledVideoDownload.videoMetadata.id, None))
-        _ <- IO.delay {
-          maybeRetried.value.status mustBe SchedulingStatus.Queued
-          maybeRetried.value.errorInfo mustBe None
-        }
-
-        // Retry again should return empty
-        retriedAgain <- transaction {
-          DoobieSchedulingDao.retryErroredScheduledDownloads(None, timestamp)
-        }
-
-        _ <- IO.delay {
-          retriedAgain mustBe empty
-        }
+      // Set error on the scheduled download
+      exception = new Exception("Download failed")
+      _ <- transaction {
+        DoobieSchedulingDao.setErrorById(scheduledVideoDownload.videoMetadata.id, exception, timestamp)
       }
-      yield (): Unit
+
+      // Verify it's in Error state
+      maybeErrored <- transaction(DoobieSchedulingDao.getById(scheduledVideoDownload.videoMetadata.id, None))
+      _ <- IO.delay {
+        maybeErrored.value.status mustBe SchedulingStatus.Error
+      }
+
+      // Retry errored downloads
+      retried <- transaction {
+        DoobieSchedulingDao.retryErroredScheduledDownloads(None, timestamp)
+      }
+
+      _ <- IO.delay {
+        retried.size mustBe 1
+        retried.head.status mustBe SchedulingStatus.Queued
+        // Note: returned copy has old errorInfo, but database record is cleared
+      }
+
+      // Verify database state shows no error
+      maybeRetried <- transaction(DoobieSchedulingDao.getById(scheduledVideoDownload.videoMetadata.id, None))
+      _ <- IO.delay {
+        maybeRetried.value.status mustBe SchedulingStatus.Queued
+        maybeRetried.value.errorInfo mustBe None
+      }
+
+      // Retry again should return empty
+      retriedAgain <- transaction {
+        DoobieSchedulingDao.retryErroredScheduledDownloads(None, timestamp)
+      }
+
+      _ <- IO.delay {
+        retriedAgain mustBe empty
+      }
+    } yield (): Unit
   }
 
   it should "retry every errored download when there is more than one page of failures" in runTest {
@@ -466,7 +614,19 @@ abstract class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with Op
         }
 
         errored <- transaction {
-          DoobieSchedulingDao.search(None, None, RangeValue.all[FiniteDuration], RangeValue.all[Long], 0, 1000, SortBy.Date, Order.Descending, Some(NonEmptyList.one(SchedulingStatus.Error)), None, None)
+          DoobieSchedulingDao.search(
+            None,
+            None,
+            RangeValue.all[FiniteDuration],
+            RangeValue.all[Long],
+            0,
+            1000,
+            SortBy.Date,
+            Order.Descending,
+            Some(NonEmptyList.one(SchedulingStatus.Error)),
+            None,
+            None
+          )
         }
         _ <- IO.delay { errored.size mustBe erroredCount }
 
@@ -480,10 +640,34 @@ abstract class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with Op
         }
 
         remainingErrored <- transaction {
-          DoobieSchedulingDao.search(None, None, RangeValue.all[FiniteDuration], RangeValue.all[Long], 0, 1000, SortBy.Date, Order.Descending, Some(NonEmptyList.one(SchedulingStatus.Error)), None, None)
+          DoobieSchedulingDao.search(
+            None,
+            None,
+            RangeValue.all[FiniteDuration],
+            RangeValue.all[Long],
+            0,
+            1000,
+            SortBy.Date,
+            Order.Descending,
+            Some(NonEmptyList.one(SchedulingStatus.Error)),
+            None,
+            None
+          )
         }
         queued <- transaction {
-          DoobieSchedulingDao.search(None, None, RangeValue.all[FiniteDuration], RangeValue.all[Long], 0, 1000, SortBy.Date, Order.Descending, Some(NonEmptyList.one(SchedulingStatus.Queued)), None, None)
+          DoobieSchedulingDao.search(
+            None,
+            None,
+            RangeValue.all[FiniteDuration],
+            RangeValue.all[Long],
+            0,
+            1000,
+            SortBy.Date,
+            Order.Descending,
+            Some(NonEmptyList.one(SchedulingStatus.Queued)),
+            None,
+            None
+          )
         }
 
         _ <- IO.delay {
@@ -491,147 +675,166 @@ abstract class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with Op
           // The fixture's own queued download plus every retried one
           queued.size mustBe erroredCount + 1
         }
-      }
-      yield (): Unit
+      } yield (): Unit
   }
 
-  it should "search with ascending order" in runTest {
-    (scheduledVideoDownload, transaction) =>
-      for {
-        searchResult <- transaction {
-          DoobieSchedulingDao.search(None, None, RangeValue.all[FiniteDuration], RangeValue.all[Long], 0, 10, SortBy.Date, Order.Ascending, None, None, None)
-        }
-
-        _ <- IO.delay {
-          searchResult mustBe Seq(scheduledVideoDownload)
-        }
+  it should "search with ascending order" in runTest { (scheduledVideoDownload, transaction) =>
+    for {
+      searchResult <- transaction {
+        DoobieSchedulingDao.search(
+          None,
+          None,
+          RangeValue.all[FiniteDuration],
+          RangeValue.all[Long],
+          0,
+          10,
+          SortBy.Date,
+          Order.Ascending,
+          None,
+          None,
+          None
+        )
       }
-      yield (): Unit
+
+      _ <- IO.delay {
+        searchResult mustBe Seq(scheduledVideoDownload)
+      }
+    } yield (): Unit
   }
 
-  it should "search with video URLs filter" in runTest {
-    (scheduledVideoDownload, transaction) =>
-      for {
-        // Search with matching URL
-        searchResultMatch <- transaction {
-          DoobieSchedulingDao.search(
-            None,
-            Some(NonEmptyList.one(uri"https://spankbang.com")),
-            RangeValue.all[FiniteDuration],
-            RangeValue.all[Long],
-            0, 10,
-            SortBy.Date,
-            Order.Descending,
-            None, None, None
-          )
-        }
-
-        _ <- IO.delay {
-          searchResultMatch mustBe Seq(scheduledVideoDownload)
-        }
-
-        // Search with non-matching URL
-        searchResultNoMatch <- transaction {
-          DoobieSchedulingDao.search(
-            None,
-            Some(NonEmptyList.one(uri"https://pornhub.com")),
-            RangeValue.all[FiniteDuration],
-            RangeValue.all[Long],
-            0, 10,
-            SortBy.Date,
-            Order.Descending,
-            None, None, None
-          )
-        }
-
-        _ <- IO.delay {
-          searchResultNoMatch mustBe empty
-        }
+  it should "search with video URLs filter" in runTest { (scheduledVideoDownload, transaction) =>
+    for {
+      // Search with matching URL
+      searchResultMatch <- transaction {
+        DoobieSchedulingDao.search(
+          None,
+          Some(NonEmptyList.one(uri"https://spankbang.com")),
+          RangeValue.all[FiniteDuration],
+          RangeValue.all[Long],
+          0,
+          10,
+          SortBy.Date,
+          Order.Descending,
+          None,
+          None,
+          None
+        )
       }
-      yield (): Unit
+
+      _ <- IO.delay {
+        searchResultMatch mustBe Seq(scheduledVideoDownload)
+      }
+
+      // Search with non-matching URL
+      searchResultNoMatch <- transaction {
+        DoobieSchedulingDao.search(
+          None,
+          Some(NonEmptyList.one(uri"https://pornhub.com")),
+          RangeValue.all[FiniteDuration],
+          RangeValue.all[Long],
+          0,
+          10,
+          SortBy.Date,
+          Order.Descending,
+          None,
+          None,
+          None
+        )
+      }
+
+      _ <- IO.delay {
+        searchResultNoMatch mustBe empty
+      }
+    } yield (): Unit
   }
 
-  it should "search with size range max filter" in runTest {
-    (scheduledVideoDownload, transaction) =>
-      for {
-        // Search with max size that includes the video
-        searchResultMatch <- transaction {
-          DoobieSchedulingDao.search(
-            None, None,
-            RangeValue.all[FiniteDuration],
-            RangeValue[Long](None, Some(60_000)),
-            0, 10,
-            SortBy.Date,
-            Order.Descending,
-            None, None, None
-          )
-        }
-
-        _ <- IO.delay {
-          searchResultMatch mustBe Seq(scheduledVideoDownload)
-        }
-
-        // Search with max size that excludes the video
-        searchResultNoMatch <- transaction {
-          DoobieSchedulingDao.search(
-            None, None,
-            RangeValue.all[FiniteDuration],
-            RangeValue[Long](None, Some(40_000)),
-            0, 10,
-            SortBy.Date,
-            Order.Descending,
-            None, None, None
-          )
-        }
-
-        _ <- IO.delay {
-          searchResultNoMatch mustBe empty
-        }
+  it should "search with size range max filter" in runTest { (scheduledVideoDownload, transaction) =>
+    for {
+      // Search with max size that includes the video
+      searchResultMatch <- transaction {
+        DoobieSchedulingDao.search(
+          None,
+          None,
+          RangeValue.all[FiniteDuration],
+          RangeValue[Long](None, Some(60_000)),
+          0,
+          10,
+          SortBy.Date,
+          Order.Descending,
+          None,
+          None,
+          None
+        )
       }
-      yield (): Unit
+
+      _ <- IO.delay {
+        searchResultMatch mustBe Seq(scheduledVideoDownload)
+      }
+
+      // Search with max size that excludes the video
+      searchResultNoMatch <- transaction {
+        DoobieSchedulingDao.search(
+          None,
+          None,
+          RangeValue.all[FiniteDuration],
+          RangeValue[Long](None, Some(40_000)),
+          0,
+          10,
+          SortBy.Date,
+          Order.Descending,
+          None,
+          None,
+          None
+        )
+      }
+
+      _ <- IO.delay {
+        searchResultNoMatch mustBe empty
+      }
+    } yield (): Unit
   }
 
-  it should "search with random sort order" in runTest {
-    (scheduledVideoDownload, transaction) =>
-      for {
-        searchResult <- transaction {
-          DoobieSchedulingDao.search(
-            None, None,
-            RangeValue.all[FiniteDuration],
-            RangeValue.all[Long],
-            0, 10,
-            SortBy.Random,
-            Order.Descending,
-            None, None, None
-          )
-        }
-
-        _ <- IO.delay {
-          searchResult mustBe Seq(scheduledVideoDownload)
-        }
+  it should "search with random sort order" in runTest { (scheduledVideoDownload, transaction) =>
+    for {
+      searchResult <- transaction {
+        DoobieSchedulingDao.search(
+          None,
+          None,
+          RangeValue.all[FiniteDuration],
+          RangeValue.all[Long],
+          0,
+          10,
+          SortBy.Random,
+          Order.Descending,
+          None,
+          None,
+          None
+        )
       }
-      yield (): Unit
+
+      _ <- IO.delay {
+        searchResult mustBe Seq(scheduledVideoDownload)
+      }
+    } yield (): Unit
   }
 
-  it should "handle nested exception in setErrorById" in runTest {
-    (scheduledVideoDownload, transaction) =>
-      for {
-        timestamp <- Clock[IO].timestamp
-        rootCause = new Exception("Root cause")
-        wrappedException = new RuntimeException("Wrapper exception", rootCause)
+  it should "handle nested exception in setErrorById" in runTest { (scheduledVideoDownload, transaction) =>
+    for {
+      timestamp <- Clock[IO].timestamp
+      rootCause = new Exception("Root cause")
+      wrappedException = new RuntimeException("Wrapper exception", rootCause)
 
-        _ <- transaction {
-          DoobieSchedulingDao.setErrorById(scheduledVideoDownload.videoMetadata.id, wrappedException, timestamp)
-        }
-
-        maybeUpdated <- transaction(DoobieSchedulingDao.getById(scheduledVideoDownload.videoMetadata.id, None))
-
-        _ <- IO.delay {
-          maybeUpdated.value.errorInfo must not be empty
-          maybeUpdated.value.errorInfo.value.message mustBe "Root cause"
-        }
+      _ <- transaction {
+        DoobieSchedulingDao.setErrorById(scheduledVideoDownload.videoMetadata.id, wrappedException, timestamp)
       }
-      yield (): Unit
+
+      maybeUpdated <- transaction(DoobieSchedulingDao.getById(scheduledVideoDownload.videoMetadata.id, None))
+
+      _ <- IO.delay {
+        maybeUpdated.value.errorInfo must not be empty
+        maybeUpdated.value.errorInfo.value.message mustBe "Root cause"
+      }
+    } yield (): Unit
   }
 
   it should "getById with groupId filter returns None when videoId doesn't match" in runTest {
@@ -642,27 +845,24 @@ abstract class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with Op
         _ <- IO.delay {
           result mustBe None
         }
-      }
-      yield (): Unit
+      } yield (): Unit
   }
 
-  it should "getById with groupId filter can filter by groupId" in runTest {
-    (scheduledVideoDownload, transaction) =>
-      for {
-        // Get by ID with a groupId that doesn't match (no group exists)
-        resultWithNonExistentGroup <- transaction(
-          DoobieSchedulingDao.getById(scheduledVideoDownload.videoMetadata.id, Some("non-existent-group"))
-        )
+  it should "getById with groupId filter can filter by groupId" in runTest { (scheduledVideoDownload, transaction) =>
+    for {
+      // Get by ID with a groupId that doesn't match (no group exists)
+      resultWithNonExistentGroup <- transaction(
+        DoobieSchedulingDao.getById(scheduledVideoDownload.videoMetadata.id, Some("non-existent-group"))
+      )
 
-        // Since there's no group assigned, it should still return the video
-        // (the SQL logic checks if groupId is null or matches)
-        _ <- IO.delay {
-          // Based on the DAO implementation, getById with groupId filters by video_permission
-          // If no permission exists, it should return None
-          resultWithNonExistentGroup mustBe None
-        }
+      // Since there's no group assigned, it should still return the video
+      // (the SQL logic checks if groupId is null or matches)
+      _ <- IO.delay {
+        // Based on the DAO implementation, getById with groupId filters by video_permission
+        // If no permission exists, it should return None
+        resultWithNonExistentGroup mustBe None
       }
-      yield (): Unit
+    } yield (): Unit
   }
 
   it should "schedule a retry that acquireTask skips until retryAfter is due" in runTest {
@@ -696,37 +896,35 @@ abstract class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with Op
       } yield (): Unit
   }
 
-  it should "increment the retry count on every scheduled retry" in runTest {
-    (scheduledVideoDownload, transaction) =>
-      val id = scheduledVideoDownload.videoMetadata.id
+  it should "increment the retry count on every scheduled retry" in runTest { (scheduledVideoDownload, transaction) =>
+    val id = scheduledVideoDownload.videoMetadata.id
 
-      for {
-        timestamp <- Clock[IO].timestamp
-        _ <- transaction(DoobieSchedulingDao.scheduleRetry(id, new Exception("first"), timestamp, timestamp))
-        second <- transaction {
-          DoobieSchedulingDao.scheduleRetry(id, new Exception("second"), timestamp, timestamp.plusMillis(1))
-        }
-        _ <- IO.delay {
-          second.value.retryCount mustBe 2
-          second.value.errorInfo.value.message mustBe "second"
-        }
-      } yield (): Unit
+    for {
+      timestamp <- Clock[IO].timestamp
+      _ <- transaction(DoobieSchedulingDao.scheduleRetry(id, new Exception("first"), timestamp, timestamp))
+      second <- transaction {
+        DoobieSchedulingDao.scheduleRetry(id, new Exception("second"), timestamp, timestamp.plusMillis(1))
+      }
+      _ <- IO.delay {
+        second.value.retryCount mustBe 2
+        second.value.errorInfo.value.message mustBe "second"
+      }
+    } yield (): Unit
   }
 
-  it should "reset retry state when the download completes" in runTest {
-    (scheduledVideoDownload, transaction) =>
-      val id = scheduledVideoDownload.videoMetadata.id
+  it should "reset retry state when the download completes" in runTest { (scheduledVideoDownload, transaction) =>
+    val id = scheduledVideoDownload.videoMetadata.id
 
-      for {
-        timestamp <- Clock[IO].timestamp
-        _ <- transaction(DoobieSchedulingDao.scheduleRetry(id, new Exception("blip"), timestamp, timestamp))
-        completed <- transaction(DoobieSchedulingDao.markScheduledVideoDownloadAsComplete(id, timestamp.plusMillis(1)))
-        _ <- IO.delay {
-          completed.value.status mustBe SchedulingStatus.Completed
-          completed.value.retryCount mustBe 0
-          completed.value.retryAfter mustBe None
-        }
-      } yield (): Unit
+    for {
+      timestamp <- Clock[IO].timestamp
+      _ <- transaction(DoobieSchedulingDao.scheduleRetry(id, new Exception("blip"), timestamp, timestamp))
+      completed <- transaction(DoobieSchedulingDao.markScheduledVideoDownloadAsComplete(id, timestamp.plusMillis(1)))
+      _ <- IO.delay {
+        completed.value.status mustBe SchedulingStatus.Completed
+        completed.value.retryCount mustBe 0
+        completed.value.retryAfter mustBe None
+      }
+    } yield (): Unit
   }
 
   it should "reset retry state when errored downloads are retried manually" in runTest {
@@ -854,23 +1052,22 @@ abstract class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with Op
       } yield (): Unit
   }
 
-  it should "only return the downloads that it marked as stale" in runTest {
-    (scheduledVideoDownload, transaction) =>
-      val id = scheduledVideoDownload.videoMetadata.id
+  it should "only return the downloads that it marked as stale" in runTest { (scheduledVideoDownload, transaction) =>
+    val id = scheduledVideoDownload.videoMetadata.id
 
-      for {
-        timestamp <- Clock[IO].timestamp
-        _ <- transaction(DoobieSchedulingDao.updateSchedulingStatusById(id, SchedulingStatus.Active, timestamp))
+    for {
+      timestamp <- Clock[IO].timestamp
+      _ <- transaction(DoobieSchedulingDao.updateSchedulingStatusById(id, SchedulingStatus.Active, timestamp))
 
-        staleTasks <- transaction {
-          DoobieSchedulingDao.markTimedOutTasksAsStale(List(id, "unknown-id"), 10 seconds, timestamp.plusSeconds(20))
-        }
+      staleTasks <- transaction {
+        DoobieSchedulingDao.markTimedOutTasksAsStale(List(id, "unknown-id"), 10 seconds, timestamp.plusSeconds(20))
+      }
 
-        _ <- IO.delay {
-          staleTasks.map(_.videoMetadata.id) mustBe Seq(id)
-          staleTasks.map(_.status) mustBe Seq(SchedulingStatus.Stale)
-        }
-      } yield (): Unit
+      _ <- IO.delay {
+        staleTasks.map(_.videoMetadata.id) mustBe Seq(id)
+        staleTasks.map(_.status) mustBe Seq(SchedulingStatus.Stale)
+      }
+    } yield (): Unit
   }
 
   it should "not pause a download that left the status it was found in" in runTest {
@@ -900,20 +1097,19 @@ abstract class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with Op
       } yield (): Unit
   }
 
-  it should "delete a download that is waiting to retry" in runTest {
-    (scheduledVideoDownload, transaction) =>
-      val id = scheduledVideoDownload.videoMetadata.id
+  it should "delete a download that is waiting to retry" in runTest { (scheduledVideoDownload, transaction) =>
+    val id = scheduledVideoDownload.videoMetadata.id
 
-      for {
-        timestamp <- Clock[IO].timestamp
-        _ <- transaction(DoobieSchedulingDao.scheduleRetry(id, new Exception("blip"), timestamp, timestamp))
-        deleted <- transaction(DoobieSchedulingDao.deleteById(id))
-        stored <- transaction(DoobieSchedulingDao.getById(id, None))
-        _ <- IO.delay {
-          deleted mustBe 2 // one error row and one scheduled_video row
-          stored mustBe None
-        }
-      } yield (): Unit
+    for {
+      timestamp <- Clock[IO].timestamp
+      _ <- transaction(DoobieSchedulingDao.scheduleRetry(id, new Exception("blip"), timestamp, timestamp))
+      deleted <- transaction(DoobieSchedulingDao.deleteById(id))
+      stored <- transaction(DoobieSchedulingDao.getById(id, None))
+      _ <- IO.delay {
+        deleted mustBe 2 // one error row and one scheduled_video row
+        stored mustBe None
+      }
+    } yield (): Unit
   }
 
 }

@@ -31,26 +31,12 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   private val testTimestamp = TimeUtils.instantOf(2022, 8, 1, 10, 10)
   private val expiresAt = testTimestamp.plus(java.time.Duration.ofDays(45))
   private val testSecret = Secret("test-secret-uuid")
-  private val normalUserToken = AuthenticationToken(
-    ApiTestData.NormalUser.id,
-    testSecret,
-    expiresAt,
-    testTimestamp,
-    0,
-    testTimestamp
-  )
-  private val adminToken = AuthenticationToken(
-    ApiTestData.AdminUser.id,
-    testSecret,
-    expiresAt,
-    testTimestamp,
-    0,
-    testTimestamp
-  )
+  private val normalUserToken =
+    AuthenticationToken(ApiTestData.NormalUser.id, testSecret, expiresAt, testTimestamp, 0, testTimestamp)
+  private val adminToken =
+    AuthenticationToken(ApiTestData.AdminUser.id, testSecret, expiresAt, testTimestamp, 0, testTimestamp)
 
-  private def authHeaders = org.http4s.Headers(
-    Authorization(Credentials.Token(AuthScheme.Bearer, testSecret.value))
-  )
+  private def authHeaders = org.http4s.Headers(Authorization(Credentials.Token(AuthScheme.Bearer, testSecret.value)))
 
   "GET /video/search" should "return paginated search results" in runIO {
     (authenticationService.authenticate)
@@ -74,13 +60,7 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/videos/search",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/videos/search", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must beJsonContentType
@@ -111,13 +91,7 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/videos/search?search-term=test",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/videos/search?search-term=test", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.Ok)
@@ -172,13 +146,7 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/videos/id/youtube-7488acd8",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/videos/id/youtube-7488acd8", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must beJsonContentType
@@ -198,13 +166,7 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/videos/id/nonexistent-video",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/videos/id/nonexistent-video", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.NotFound)
@@ -223,13 +185,7 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = DELETE,
-            uri = uri"/videos/id/youtube-7488acd8",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = DELETE, uri = uri"/videos/id/youtube-7488acd8", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.Ok)
@@ -276,11 +232,8 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
     ignoreHttpMetrics() *>
       createRoutes()
         .run(
-          Request[IO](
-            method = PATCH,
-            uri = uri"/videos/id/youtube-7488acd8/metadata",
-            headers = authHeaders
-          ).withEntity(json"""{"title": "Updated Title"}""")
+          Request[IO](method = PATCH, uri = uri"/videos/id/youtube-7488acd8/metadata", headers = authHeaders)
+            .withEntity(json"""{"title": "Updated Title"}""")
         )
         .flatMap { response =>
           IO.delay {
@@ -301,11 +254,8 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
     ignoreHttpMetrics() *>
       createRoutes()
         .run(
-          Request[IO](
-            method = POST,
-            uri = uri"/videos/metadata",
-            headers = authHeaders
-          ).withEntity(json"""{"url": "https://www.youtube.com/watch?v=S5n9emOr7SQ"}""")
+          Request[IO](method = POST, uri = uri"/videos/metadata", headers = authHeaders)
+            .withEntity(json"""{"url": "https://www.youtube.com/watch?v=S5n9emOr7SQ"}""")
         )
         .flatMap { response =>
           IO.delay {
@@ -327,11 +277,8 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
     ignoreHttpMetrics() *>
       createRoutes()
         .run(
-          Request[IO](
-            method = POST,
-            uri = uri"/videos/metadata",
-            headers = authHeaders
-          ).withEntity(json"""{"url": "https://www.youtube.com/watch?v=new123"}""")
+          Request[IO](method = POST, uri = uri"/videos/metadata", headers = authHeaders)
+            .withEntity(json"""{"url": "https://www.youtube.com/watch?v=new123"}""")
         )
         .flatMap { response =>
           IO.delay {
@@ -350,11 +297,7 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
       .expects("youtube-7488acd8", Some(ApiTestData.NormalUser.id))
       .returns(IO.pure(CoreTestData.YouTubeVideo))
 
-    val snapshot = Snapshot(
-      "youtube-7488acd8",
-      CoreTestData.YouTubeVideo.videoMetadata.thumbnail,
-      5.seconds
-    )
+    val snapshot = Snapshot("youtube-7488acd8", CoreTestData.YouTubeVideo.videoMetadata.thumbnail, 5.seconds)
 
     (apiVideoService.fetchVideoSnapshots)
       .expects("youtube-7488acd8", Some(ApiTestData.NormalUser.id))
@@ -362,13 +305,7 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/videos/id/youtube-7488acd8/snapshots",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/videos/id/youtube-7488acd8/snapshots", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must beJsonContentType
@@ -384,13 +321,7 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/videos/scan",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/videos/scan", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.Forbidden)
@@ -411,13 +342,7 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/videos/duplicates",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/videos/duplicates", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must beJsonContentType
@@ -433,13 +358,7 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/videos/duplicates",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/videos/duplicates", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.Forbidden)
@@ -458,13 +377,7 @@ class VideoRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/videos/duplicates?page-number=2&page-size=5",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/videos/duplicates?page-number=2&page-size=5", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.Ok)

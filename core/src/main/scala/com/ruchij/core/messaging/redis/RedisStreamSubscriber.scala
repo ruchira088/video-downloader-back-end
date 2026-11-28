@@ -18,17 +18,16 @@ import java.util.UUID
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-/**
-  * Reads a Redis stream through a consumer group, mirroring the Kafka backend's semantics:
+/** Reads a Redis stream through a consumer group, mirroring the Kafka backend's semantics:
   *
   *   - consumers sharing a group id split the messages between them, while each group receives every message
   *   - a group resumes where it left off, and a brand-new group starts from the latest message
-  *   - a message read but not committed (XACK) within `redeliveryTimeout` is claimed again by a live consumer, and
-  *     one read by a subscription that has ended can be claimed again at once
+  *   - a message read but not committed (XACK) within `redeliveryTimeout` is claimed again by a live consumer, and one
+  *     read by a subscription that has ended can be claimed again at once
   *
   * Each subscription reads on its own connection, since a blocking XREADGROUP holds up every other command on the
-  * connection it is sent on. Every `redeliveryTimeout`, each subscription also deletes the group's consumers that
-  * hold no pending messages and have been idle for longer than `redeliveryTimeout`, which are left behind by ended
+  * connection it is sent on. Every `redeliveryTimeout`, each subscription also deletes the group's consumers that hold
+  * no pending messages and have been idle for longer than `redeliveryTimeout`, which are left behind by ended
   * subscriptions whose messages were claimed by other consumers.
   */
 class RedisStreamSubscriber[F[_]: Async, A](
@@ -66,10 +65,9 @@ class RedisStreamSubscriber[F[_]: Async, A](
         }
     }
 
-  /**
-    * Makes the consumer's pending messages claimable by the group's other consumers at once, rather than only after
-    * `redeliveryTimeout`, by claiming them for itself with their idle time set to `redeliveryTimeout`. Redis has no
-    * way of handing pending messages back to the group. Returns how many messages it released.
+  /** Makes the consumer's pending messages claimable by the group's other consumers at once, rather than only after
+    * `redeliveryTimeout`, by claiming them for itself with their idle time set to `redeliveryTimeout`. Redis has no way
+    * of handing pending messages back to the group. Returns how many messages it released.
     */
   private def releasePending(streamConsumer: StreamConsumer[String], start: XRangePoint, released: Int): F[Int] =
     redisCommands
@@ -215,8 +213,7 @@ object RedisStreamSubscriber {
     maxRetryDelay: FiniteDuration = 30 seconds
   )
 
-  /**
-    * Deletes the consumers of group ARGV[1] on stream KEYS[1] that hold no pending messages and have been idle for
+  /** Deletes the consumers of group ARGV[1] on stream KEYS[1] that hold no pending messages and have been idle for
     * longer than ARGV[2] milliseconds, returning how many it deleted. A script, so that no consumer can be handed a
     * message between checking it and deleting it.
     */

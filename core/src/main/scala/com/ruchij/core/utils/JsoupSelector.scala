@@ -48,7 +48,8 @@ object JsoupSelector {
     singleElement[F](css).flatMapF(text[F])
 
   def src[F[_]: MonadThrow](element: Element): Selector[F, Uri] =
-    Kleisli.liftF(attribute[F](element, "src"))
+    Kleisli
+      .liftF(attribute[F](element, "src"))
       .flatMap(value => stringToUri[F](value).local[WebPage](_.uri))
 
   def stringToUri[F[_]: MonadThrow](input: String): Kleisli[F, Uri, Uri] =
@@ -68,8 +69,8 @@ object JsoupSelector {
   def attribute[F[_]: ApplicativeThrow](element: Element, attributeKey: String): F[String] =
     parseProperty[Throwable, F](element.attr(attributeKey), AttributeNotFoundInElementException(element, attributeKey))
 
-  private def parseProperty[E, F[_]](value: String, onEmpty: => E)(
-    implicit applicativeError: ApplicativeError[F, E]
+  private def parseProperty[E, F[_]](value: String, onEmpty: => E)(implicit
+    applicativeError: ApplicativeError[F, E]
   ): F[String] =
     Option(value)
       .map(_.trim)

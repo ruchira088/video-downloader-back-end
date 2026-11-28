@@ -43,8 +43,8 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](
 
   private def ytDlp: List[String] =
     List("yt-dlp", "--no-warnings") ++
-      maybeHttpProxyConfiguration.fold[List[String]](List.empty) {
-        httpProxy => List("--proxy", httpProxy.proxyUrl.renderString)
+      maybeHttpProxyConfiguration.fold[List[String]](List.empty) { httpProxy =>
+        List("--proxy", httpProxy.proxyUrl.renderString)
       }
 
   override def videoInformation(uri: Uri): F[VideoAnalysisResult] =
@@ -52,21 +52,20 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](
       .run(ytDlp ++ List(uri.renderString, "-j"))
       .compile
       .string
-      .recoverWith {
-        case cliCommandException: CliCommandException =>
-          val errorMessage = cliCommandException.error
+      .recoverWith { case cliCommandException: CliCommandException =>
+        val errorMessage = cliCommandException.error
 
-          if (errorMessage.contains("HTTP Error 404: Not Found")) {
-            MonadThrow[F].raiseError {
-              ResourceNotFoundException(s"Unable to find the video resource at ${uri.renderString}")
-            }
-          } else if (errorMessage.contains("Unable to extract hash;")) {
-            MonadThrow[F].raiseError {
-              ResourceNotFoundException(s"Video seems to have been deleted at ${uri.renderString}")
-            }
-          } else {
-            MonadThrow[F].raiseError(cliCommandException)
+        if (errorMessage.contains("HTTP Error 404: Not Found")) {
+          MonadThrow[F].raiseError {
+            ResourceNotFoundException(s"Unable to find the video resource at ${uri.renderString}")
           }
+        } else if (errorMessage.contains("Unable to extract hash;")) {
+          MonadThrow[F].raiseError {
+            ResourceNotFoundException(s"Video seems to have been deleted at ${uri.renderString}")
+          }
+        } else {
+          MonadThrow[F].raiseError(cliCommandException)
+        }
       }
       .flatMap { output =>
         JsonParser.decode[YTDownloaderMetadata](output).toType[F, Throwable]
@@ -84,20 +83,19 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](
                 }
               }
           }
-          .flatMap {
-            case (videoSite, thumbnail) =>
-              MonadThrow[F]
-                .catchNonFatal(Math.floor(metadata.duration).toInt)
-                .map { seconds =>
-                  VideoAnalysisResult(
-                    uri,
-                    videoSite,
-                    metadata.title,
-                    FiniteDuration(seconds, TimeUnit.SECONDS),
-                    metadata.formats.flatMap(_.filesize.map(_.toLong)).maxOption.getOrElse[Long](0),
-                    thumbnail
-                  )
-                }
+          .flatMap { case (videoSite, thumbnail) =>
+            MonadThrow[F]
+              .catchNonFatal(Math.floor(metadata.duration).toInt)
+              .map { seconds =>
+                VideoAnalysisResult(
+                  uri,
+                  videoSite,
+                  metadata.title,
+                  FiniteDuration(seconds, TimeUnit.SECONDS),
+                  metadata.formats.flatMap(_.filesize.map(_.toLong)).maxOption.getOrElse[Long](0),
+                  thumbnail
+                )
+              }
           }
       }
 
@@ -126,43 +124,41 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](
     Sync[F].defer { cliCommandRunner.run(ytDlp :+ "--version").compile.string }
 
   override def downloadVideo(uri: Uri, pathWithoutExtension: String): Stream[F, YTDownloaderProgress] =
-    Stream.eval(Ref.of[F, Boolean](false).product(Deferred[F, Unit])).flatMap {
-      case (ref, postProcessingStarted) =>
-        cliCommandRunner
-          // yt-dlp skips fixups for a file it finds already downloaded, unless forced. A download that was interrupted
-          // during a fixup would otherwise be accepted on its retry in its unfixed form, such as MPEG-TS in an mp4 file.
-          .run(ytDlp ++ List("--fixup", "force", "-o", s"$pathWithoutExtension.%(ext)s", uri.renderString))
-          .interruptWhen {
-            downloadTimeout(ref, postProcessingStarted)
-              .flatTap {
-                case Left(timeoutException) =>
-                  logger.error[F](s"YoutubeDownloader timed out for url=${uri.renderString}", timeoutException)
+    Stream.eval(Ref.of[F, Boolean](false).product(Deferred[F, Unit])).flatMap { case (ref, postProcessingStarted) =>
+      cliCommandRunner
+        // yt-dlp skips fixups for a file it finds already downloaded, unless forced. A download that was interrupted
+        // during a fixup would otherwise be accepted on its retry in its unfixed form, such as MPEG-TS in an mp4 file.
+        .run(ytDlp ++ List("--fixup", "force", "-o", s"$pathWithoutExtension.%(ext)s", uri.renderString))
+        .interruptWhen {
+          downloadTimeout(ref, postProcessingStarted)
+            .flatTap {
+              case Left(timeoutException) =>
+                logger.error[F](s"YoutubeDownloader timed out for url=${uri.renderString}", timeoutException)
 
-                case Right(_) => Applicative[F].unit
-              }
-          }
-          .evalTap { line =>
-            ref.set(true).productR {
-              postProcessingStarted.complete((): Unit).void.whenA(isPostProcessing(line))
+              case Right(_) => Applicative[F].unit
             }
+        }
+        .evalTap { line =>
+          ref.set(true).productR {
+            postProcessingStarted.complete((): Unit).void.whenA(isPostProcessing(line))
           }
-          .collect {
-            case YTDownloaderProgress(progress) => progress
-          }
-          .scan(
-            YTDownloaderProgress(
-              0,
-              YTDataSize(0, YTDataUnit.MiB),
-              YTDataSize(0, YTDataUnit.MiB),
-              FiniteDuration(0, TimeUnit.SECONDS)
-            )
-          ) { (result, current) =>
-            if (current.totalSize >= result.totalSize) current else result
-          }
+        }
+        .collect { case YTDownloaderProgress(progress) =>
+          progress
+        }
+        .scan(
+          YTDownloaderProgress(
+            0,
+            YTDataSize(0, YTDataUnit.MiB),
+            YTDataSize(0, YTDataUnit.MiB),
+            FiniteDuration(0, TimeUnit.SECONDS)
+          )
+        ) { (result, current) =>
+          if (current.totalSize >= result.totalSize) current else result
+        }
     }
 
-  /**
-    * yt-dlp prints nothing while ffmpeg post-processes a file, which takes minutes for a large video. Silence only
+  /** yt-dlp prints nothing while ffmpeg post-processes a file, which takes minutes for a large video. Silence only
     * means a stalled download until post-processing starts, after which the whole step gets a single time limit.
     */
   private def downloadTimeout(

@@ -262,10 +262,11 @@ class FileRepositoryServiceSpec extends AnyFlatSpec with Matchers with BeforeAnd
   it should "return false for path with invalid characters" in runIO {
     IO.delay {
       tempDir.resolve("file\u0000name.txt").toString
-    }.attempt.map { result =>
-      result.isLeft mustBe true
-      result.left.exists(_.isInstanceOf[java.nio.file.InvalidPathException]) mustBe true
-    }
+    }.attempt
+      .map { result =>
+        result.isLeft mustBe true
+        result.left.exists(_.isInstanceOf[java.nio.file.InvalidPathException]) mustBe true
+      }
   }
 
   // ==================== list tests ====================
@@ -555,10 +556,8 @@ class FileRepositoryServiceSpec extends AnyFlatSpec with Matchers with BeforeAnd
   }
 }
 
-/**
- * A stub implementation of FileTypeDetector for testing purposes.
- * Allows setting the media type to be returned.
- */
+/** A stub implementation of FileTypeDetector for testing purposes. Allows setting the media type to be returned.
+  */
 class StubFileTypeDetector(private var mediaType: MediaType) extends FileTypeDetector[IO, Path] {
 
   def setMediaType(newMediaType: MediaType): Unit = {

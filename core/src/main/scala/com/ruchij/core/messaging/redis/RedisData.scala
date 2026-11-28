@@ -14,7 +14,9 @@ object RedisData {
   private val DATA_KEY: String = "data"
 
   def from[A](data: Map[String, String])(implicit decoder: Decoder[A]): Either[Exception, A] =
-    data.get(DATA_KEY).toRight(ValidationException(s"$data doesn't contain $DATA_KEY"))
+    data
+      .get(DATA_KEY)
+      .toRight(ValidationException(s"$data doesn't contain $DATA_KEY"))
       .flatMap(parse)
       .flatMap(decoder.decodeJson)
 }

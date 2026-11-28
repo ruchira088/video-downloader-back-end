@@ -6,12 +6,11 @@ import com.ruchij.core.config.KafkaConfiguration
 import com.ruchij.core.messaging.{MessagingTopic, PubSub}
 
 object KafkaPubSub {
-  def apply[F[_]: Async: Parallel, A](kafkaConfiguration: KafkaConfiguration)(
-    implicit kafkaTopic: MessagingTopic[A]
-  ): Resource[F, PubSub[F, A]] =
+  def apply[F[_]: Async: Parallel, A](
+    kafkaConfiguration: KafkaConfiguration
+  )(implicit kafkaTopic: MessagingTopic[A]): Resource[F, PubSub[F, A]] =
     for {
       publisher <- KafkaPublisher[F, A](kafkaConfiguration)
       subscriber = new KafkaSubscriber[F, A](kafkaConfiguration)
-    }
-    yield PubSub.from(publisher, subscriber)
+    } yield PubSub.from(publisher, subscriber)
 }

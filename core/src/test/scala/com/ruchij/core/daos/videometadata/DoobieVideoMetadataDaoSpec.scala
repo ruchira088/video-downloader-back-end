@@ -194,9 +194,7 @@ abstract class DoobieVideoMetadataDaoSpec extends AnyFlatSpec with Matchers with
 
   it should "return 0 when updating with no fields provided" in runTest { fixture =>
     for {
-      updateCount <- fixture.transaction(
-        DoobieVideoMetadataDao.update(fixture.videoMetadata.id, None, None, None)
-      )
+      updateCount <- fixture.transaction(DoobieVideoMetadataDao.update(fixture.videoMetadata.id, None, None, None))
 
       maybeUnchanged <- fixture.transaction(DoobieVideoMetadataDao.findById(fixture.videoMetadata.id))
 
@@ -334,21 +332,57 @@ abstract class DoobieVideoMetadataDaoSpec extends AnyFlatSpec with Matchers with
       timestamp <- Clock[IO].timestamp
 
       // Test PornOne
-      thumbnailPornOne = FileResource("thumbnail-pornone", timestamp, "/opt/image/pornone.jpg", MediaType.image.jpeg, 500)
+      thumbnailPornOne = FileResource(
+        "thumbnail-pornone",
+        timestamp,
+        "/opt/image/pornone.jpg",
+        MediaType.image.jpeg,
+        500
+      )
       _ <- fixture.transaction(DoobieFileResourceDao.insert(thumbnailPornOne))
-      videoMetadataPornOne = VideoMetadata(uri"https://pornone.com/test", "id-pornone", CustomVideoSite.PornOne, "PornOne Video", 3 minutes, 30000, thumbnailPornOne)
+      videoMetadataPornOne = VideoMetadata(
+        uri"https://pornone.com/test",
+        "id-pornone",
+        CustomVideoSite.PornOne,
+        "PornOne Video",
+        3 minutes,
+        30000,
+        thumbnailPornOne
+      )
       _ <- fixture.transaction(DoobieVideoMetadataDao.insert(videoMetadataPornOne))
 
       // Test FreshPorno
-      thumbnailFreshPorno = FileResource("thumbnail-freshporno", timestamp, "/opt/image/freshporno.jpg", MediaType.image.jpeg, 600)
+      thumbnailFreshPorno = FileResource(
+        "thumbnail-freshporno",
+        timestamp,
+        "/opt/image/freshporno.jpg",
+        MediaType.image.jpeg,
+        600
+      )
       _ <- fixture.transaction(DoobieFileResourceDao.insert(thumbnailFreshPorno))
-      videoMetadataFreshPorno = VideoMetadata(uri"https://freshporno.net/test", "id-freshporno", CustomVideoSite.FreshPorno, "FreshPorno Video", 4 minutes, 40000, thumbnailFreshPorno)
+      videoMetadataFreshPorno = VideoMetadata(
+        uri"https://freshporno.net/test",
+        "id-freshporno",
+        CustomVideoSite.FreshPorno,
+        "FreshPorno Video",
+        4 minutes,
+        40000,
+        thumbnailFreshPorno
+      )
       _ <- fixture.transaction(DoobieVideoMetadataDao.insert(videoMetadataFreshPorno))
 
       // Test TXXX
       thumbnailTxxx = FileResource("thumbnail-txxx", timestamp, "/opt/image/txxx.jpg", MediaType.image.jpeg, 700)
       _ <- fixture.transaction(DoobieFileResourceDao.insert(thumbnailTxxx))
-      videoMetadataTxxx = VideoMetadata(uri"https://txxx.com/test", "id-txxx", CustomVideoSite.TXXX, "TXXX Video", 6 minutes, 60000, thumbnailTxxx)
+      videoMetadataTxxx = VideoMetadata(
+        uri"https://txxx.com/test",
+        "id-txxx",
+        CustomVideoSite.TXXX,
+        "TXXX Video",
+        6 minutes,
+        60000,
+        thumbnailTxxx
+      )
       _ <- fixture.transaction(DoobieVideoMetadataDao.insert(videoMetadataTxxx))
 
       // Verify all are retrievable
@@ -664,7 +698,13 @@ abstract class DoobieVideoMetadataDaoSpec extends AnyFlatSpec with Matchers with
     for {
       timestamp <- Clock[IO].timestamp
 
-      thumbnailUpornia = FileResource("thumbnail-upornia", timestamp, "/opt/image/upornia.jpg", MediaType.image.jpeg, 900)
+      thumbnailUpornia = FileResource(
+        "thumbnail-upornia",
+        timestamp,
+        "/opt/image/upornia.jpg",
+        MediaType.image.jpeg,
+        900
+      )
       _ <- fixture.transaction(DoobieFileResourceDao.insert(thumbnailUpornia))
 
       uporniaMetadata = VideoMetadata(
@@ -690,7 +730,13 @@ abstract class DoobieVideoMetadataDaoSpec extends AnyFlatSpec with Matchers with
     for {
       timestamp <- Clock[IO].timestamp
 
-      thumbnailHotmovs = FileResource("thumbnail-hotmovs", timestamp, "/opt/image/hotmovs.jpg", MediaType.image.jpeg, 950)
+      thumbnailHotmovs = FileResource(
+        "thumbnail-hotmovs",
+        timestamp,
+        "/opt/image/hotmovs.jpg",
+        MediaType.image.jpeg,
+        950
+      )
       _ <- fixture.transaction(DoobieFileResourceDao.insert(thumbnailHotmovs))
 
       hotmovsMetadata = VideoMetadata(
@@ -778,7 +824,13 @@ abstract class DoobieVideoMetadataDaoSpec extends AnyFlatSpec with Matchers with
     for {
       timestamp <- Clock[IO].timestamp
 
-      thumbnailWithQuery = FileResource("thumbnail-query", timestamp, "/opt/image/query.jpg", MediaType.image.jpeg, 1200)
+      thumbnailWithQuery = FileResource(
+        "thumbnail-query",
+        timestamp,
+        "/opt/image/query.jpg",
+        MediaType.image.jpeg,
+        1200
+      )
       _ <- fixture.transaction(DoobieFileResourceDao.insert(thumbnailWithQuery))
 
       urlWithQuery = uri"https://example.com/video?id=123&quality=hd"
@@ -818,9 +870,7 @@ abstract class DoobieVideoMetadataDaoSpec extends AnyFlatSpec with Matchers with
 
   it should "return false for isThumbnailFileResource when file resource does not exist" in runTest { fixture =>
     for {
-      isThumbnail <- fixture.transaction(
-        DoobieVideoMetadataDao.isThumbnailFileResource("non-existent-file-resource")
-      )
+      isThumbnail <- fixture.transaction(DoobieVideoMetadataDao.isThumbnailFileResource("non-existent-file-resource"))
 
       _ <- IO.delay {
         isThumbnail mustBe false

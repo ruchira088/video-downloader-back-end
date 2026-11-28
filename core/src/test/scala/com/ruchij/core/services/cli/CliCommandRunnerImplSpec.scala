@@ -15,10 +15,11 @@ class CliCommandRunnerImplSpec extends AnyFlatSpec with Matchers {
     Dispatcher.parallel[IO].use { dispatcher =>
       val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
 
-      cliCommandRunner.run(List("echo", "Hello World"))
+      cliCommandRunner
+        .run(List("echo", "Hello World"))
         .compile
         .string
-        .flatMap { output => IO.delay(output mustBe "Hello World")}
+        .flatMap { output => IO.delay(output mustBe "Hello World") }
     }
   }
 
@@ -26,13 +27,14 @@ class CliCommandRunnerImplSpec extends AnyFlatSpec with Matchers {
     Dispatcher.parallel[IO].use { dispatcher =>
       val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
 
-      cliCommandRunner.run(List("invalid-program"))
+      cliCommandRunner
+        .run(List("invalid-program"))
         .compile
         .drain
         .error
         .flatMap { exception =>
           IO.delay {
-            exception mustBe a [CliCommandException]
+            exception mustBe a[CliCommandException]
             exception.getMessage must include("invalid-program")
           }
         }
@@ -45,7 +47,8 @@ class CliCommandRunnerImplSpec extends AnyFlatSpec with Matchers {
       val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
       val argument = "$(echo injected) `echo injected` ${HOME} ; echo injected | cat && echo 'quoted' > /dev/null"
 
-      cliCommandRunner.run(List("echo", argument))
+      cliCommandRunner
+        .run(List("echo", argument))
         .compile
         .string
         .flatMap { output => IO.delay(output mustBe argument) }
@@ -56,13 +59,14 @@ class CliCommandRunnerImplSpec extends AnyFlatSpec with Matchers {
     Dispatcher.parallel[IO].use { dispatcher =>
       val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
 
-      cliCommandRunner.run(List("false"))
+      cliCommandRunner
+        .run(List("false"))
         .compile
         .drain
         .error
         .flatMap { exception =>
           IO.delay {
-            exception mustBe a [CliCommandException]
+            exception mustBe a[CliCommandException]
             exception.getMessage mustBe "CLI command exited with 1 code"
           }
         }
@@ -73,7 +77,8 @@ class CliCommandRunnerImplSpec extends AnyFlatSpec with Matchers {
     Dispatcher.parallel[IO].use { dispatcher =>
       val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
 
-      cliCommandRunner.run(List("printf", "Line1\nLine2\nLine3\n"))
+      cliCommandRunner
+        .run(List("printf", "Line1\nLine2\nLine3\n"))
         .compile
         .toList
         .flatMap { lines =>
@@ -91,8 +96,9 @@ class CliCommandRunnerImplSpec extends AnyFlatSpec with Matchers {
     Dispatcher.parallel[IO].use { dispatcher =>
       val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
 
-      cliCommandRunner.run(List("sleep", "10"))
-        .take(0)  // Take nothing, which should interrupt immediately
+      cliCommandRunner
+        .run(List("sleep", "10"))
+        .take(0) // Take nothing, which should interrupt immediately
         .compile
         .drain
         .map(_ => succeed)
@@ -103,7 +109,8 @@ class CliCommandRunnerImplSpec extends AnyFlatSpec with Matchers {
     Dispatcher.parallel[IO].use { dispatcher =>
       val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
 
-      cliCommandRunner.run(List("seq", "1", "20000"))
+      cliCommandRunner
+        .run(List("seq", "1", "20000"))
         .compile
         .toList
         .flatMap { lines => IO.delay(lines mustBe (1 to 20000).map(_.toString).toList) }
@@ -114,7 +121,8 @@ class CliCommandRunnerImplSpec extends AnyFlatSpec with Matchers {
     Dispatcher.parallel[IO].use { dispatcher =>
       val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
 
-      cliCommandRunner.run(List("sh", "-c", "sleep 0.3; echo last"))
+      cliCommandRunner
+        .run(List("sh", "-c", "sleep 0.3; echo last"))
         .compile
         .toList
         .flatMap { lines => IO.delay(lines mustBe List("last")) }
@@ -125,13 +133,14 @@ class CliCommandRunnerImplSpec extends AnyFlatSpec with Matchers {
     Dispatcher.parallel[IO].use { dispatcher =>
       val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
 
-      cliCommandRunner.run(List("sh", "-c", "echo output; echo problem >&2"))
+      cliCommandRunner
+        .run(List("sh", "-c", "echo output; echo problem >&2"))
         .compile
         .drain
         .error
         .flatMap { exception =>
           IO.delay {
-            exception mustBe a [CliCommandException]
+            exception mustBe a[CliCommandException]
             exception.getMessage mustBe "problem"
           }
         }
@@ -142,7 +151,8 @@ class CliCommandRunnerImplSpec extends AnyFlatSpec with Matchers {
     Dispatcher.parallel[IO].use { dispatcher =>
       val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
 
-      cliCommandRunner.run(List("sh", "-c", "echo first; sleep 60"))
+      cliCommandRunner
+        .run(List("sh", "-c", "echo first; sleep 60"))
         .take(1)
         .compile
         .toList
@@ -169,7 +179,8 @@ class CliCommandRunnerImplSpec extends AnyFlatSpec with Matchers {
       val cliCommandRunner = new CliCommandRunnerImpl[IO](dispatcher)
 
       // Like yt-dlp with ffmpeg: the parent waits for a child, and killing only the parent would orphan that child
-      cliCommandRunner.run(List("sh", "-c", "sleep 60 & echo $!; wait"))
+      cliCommandRunner
+        .run(List("sh", "-c", "sleep 60 & echo $!; wait"))
         .take(1)
         .compile
         .lastOrError

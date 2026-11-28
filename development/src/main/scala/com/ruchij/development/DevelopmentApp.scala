@@ -67,7 +67,7 @@ object DevelopmentApp extends IOApp {
     databaseConfiguration: DatabaseConfiguration,
     redisConfiguration: RedisConfiguration,
     kafkaConfiguration: KafkaConfiguration,
-    spaSiteRendererConfiguration: SpaSiteRendererConfiguration,
+    spaSiteRendererConfiguration: SpaSiteRendererConfiguration
   ): ApiServiceConfiguration =
     ApiServiceConfiguration(
       HttpConfig,
@@ -117,22 +117,21 @@ object DevelopmentApp extends IOApp {
 
   override def run(args: List[String]): IO[ExitCode] =
     program[IO](new ContainerApiResourcesProvider[IO])
-      .flatMap {
-        case (api, batch) =>
-          Resource
-            .eval(createSslContext[IO].map(TLSContext.Builder.forAsync[IO].fromSSLContext))
-            .flatMap { tlsContext =>
-              EmberServerBuilder
-                .default[IO]
-                .withHttpApp(api)
-                .withHost(HttpConfig.host)
-                .withPort(HttpConfig.port)
-                .withTLS(tlsContext)
-                .build
-            }
-            .productR(FrontEndContainer.create[IO](uri"https://api.localhost"))
-            .evalMap(frontEndUri => logger.info[IO](s"***** FrontEnd URL: ${frontEndUri.renderString} *****"))
-            .as(batch)
+      .flatMap { case (api, batch) =>
+        Resource
+          .eval(createSslContext[IO].map(TLSContext.Builder.forAsync[IO].fromSSLContext))
+          .flatMap { tlsContext =>
+            EmberServerBuilder
+              .default[IO]
+              .withHttpApp(api)
+              .withHost(HttpConfig.host)
+              .withPort(HttpConfig.port)
+              .withTLS(tlsContext)
+              .build
+          }
+          .productR(FrontEndContainer.create[IO](uri"https://api.localhost"))
+          .evalMap(frontEndUri => logger.info[IO](s"***** FrontEnd URL: ${frontEndUri.renderString} *****"))
+          .as(batch)
       }
       .use { batch =>
         for {

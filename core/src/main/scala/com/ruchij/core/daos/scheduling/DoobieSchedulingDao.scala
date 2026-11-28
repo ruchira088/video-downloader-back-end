@@ -200,17 +200,17 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
     (SelectQuery ++ (if (maybeUserId.isEmpty) Fragment.empty
                      else fr"JOIN permission ON scheduled_video.video_metadata_id = permission.video_id")
       ++
-        whereAndOpt(
-          term.map(searchTerm => fr"video_metadata.title ILIKE ${"%" + searchTerm + "%"}"),
-          videoUrls.map(urls => in(fr"video_metadata.url", urls)),
-          schedulingStatuses.map(statuses => in(fr"scheduled_video.status", statuses)),
-          durationRange.max.map(maxDuration => fr"video_metadata.duration <= $maxDuration"),
-          durationRange.min.map(minDuration => fr"video_metadata.duration >= $minDuration"),
-          sizeRange.max.map(maxSize => fr"video_metadata.size <= $maxSize"),
-          sizeRange.min.map(minSize => fr"video_metadata.size >= $minSize"),
-          videoSites.map(sites => in(fr"video_metadata.video_site", sites)),
-          maybeUserId.map(userId => fr"permission.user_id = $userId")
-        )
+      whereAndOpt(
+        term.map(searchTerm => fr"video_metadata.title ILIKE ${"%" + searchTerm + "%"}"),
+        videoUrls.map(urls => in(fr"video_metadata.url", urls)),
+        schedulingStatuses.map(statuses => in(fr"scheduled_video.status", statuses)),
+        durationRange.max.map(maxDuration => fr"video_metadata.duration <= $maxDuration"),
+        durationRange.min.map(minDuration => fr"video_metadata.duration >= $minDuration"),
+        sizeRange.max.map(maxSize => fr"video_metadata.size <= $maxSize"),
+        sizeRange.min.map(minSize => fr"video_metadata.size >= $minSize"),
+        videoSites.map(sites => in(fr"video_metadata.video_site", sites)),
+        maybeUserId.map(userId => fr"permission.user_id = $userId")
+      )
       ++ fr"ORDER BY"
       ++ schedulingSortByFieldName(sortBy)
       ++ ordering(order)
@@ -227,9 +227,8 @@ object DoobieSchedulingDao extends SchedulingDao[ConnectionIO] {
   ): ConnectionIO[Seq[ScheduledVideoDownload]] =
     retryErroredScheduledDownloads(maybeUserId, timestamp, RetryPageSize)
 
-  /**
-    * Retries errored downloads one page at a time. Every retried row leaves the `Error` status, so the next
-    * batch is always found on the first page again. Requesting subsequent page numbers would skip rows.
+  /** Retries errored downloads one page at a time. Every retried row leaves the `Error` status, so the next batch is
+    * always found on the first page again. Requesting subsequent page numbers would skip rows.
     */
   private def retryErroredScheduledDownloads(
     maybeUserId: Option[String],

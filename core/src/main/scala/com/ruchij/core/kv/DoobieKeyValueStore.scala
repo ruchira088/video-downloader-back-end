@@ -13,9 +13,8 @@ import fs2.Stream
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class DoobieKeyValueStore[F[_]: MonadThrow: Clock, G[_]](keyValueDao: KeyValueDao[G])(
-    implicit transaction: G ~> F
-) extends KeyValueStore[F] {
+class DoobieKeyValueStore[F[_]: MonadThrow: Clock, G[_]](keyValueDao: KeyValueDao[G])(implicit transaction: G ~> F)
+    extends KeyValueStore[F] {
   override type InsertionResult = Unit
   override type DeletionResult = Unit
 
@@ -31,7 +30,11 @@ class DoobieKeyValueStore[F[_]: MonadThrow: Clock, G[_]](keyValueDao: KeyValueDa
       }
     } yield value
 
-  override def put[K: KVEncoder[F, *], V: KVEncoder[F, *]](key: K, value: V, maybeTtl: Option[FiniteDuration]): F[Unit] =
+  override def put[K: KVEncoder[F, *], V: KVEncoder[F, *]](
+    key: K,
+    value: V,
+    maybeTtl: Option[FiniteDuration]
+  ): F[Unit] =
     for {
       encodedKey <- KVEncoder[F, K].encode(key)
       encodedValue <- KVEncoder[F, V].encode(value)

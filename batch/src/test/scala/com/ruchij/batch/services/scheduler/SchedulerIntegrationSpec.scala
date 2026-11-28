@@ -32,7 +32,11 @@ class SchedulerIntegrationSpec extends AnyFlatSpec with Matchers with OptionValu
     } yield scheduledVideoDownload
   }
 
-  def insertWorker(workerDao: DoobieWorkerDao, workerId: String, status: WorkerStatus = WorkerStatus.Available): ConnectionIO[Int] = {
+  def insertWorker(
+    workerDao: DoobieWorkerDao,
+    workerId: String,
+    status: WorkerStatus = WorkerStatus.Available
+  ): ConnectionIO[Int] = {
     workerDao.insert(Worker(workerId, status, None, None, None, None))
   }
 
@@ -154,7 +158,9 @@ class SchedulerIntegrationSpec extends AnyFlatSpec with Matchers with OptionValu
         _ <- transactor(workerDao.reserveWorker(idleWorker.get.id, "test-owner", timestamp))
 
         // Assign task to worker
-        assigned <- transactor(workerDao.assignTask(idleWorker.get.id, scheduledVideo.videoMetadata.id, "test-owner", timestamp))
+        assigned <- transactor(
+          workerDao.assignTask(idleWorker.get.id, scheduledVideo.videoMetadata.id, "test-owner", timestamp)
+        )
         _ <- IO.delay {
           assigned mustBe defined
           assigned.get.scheduledVideoDownload.map(_.videoMetadata.id) mustBe Some(scheduledVideo.videoMetadata.id)

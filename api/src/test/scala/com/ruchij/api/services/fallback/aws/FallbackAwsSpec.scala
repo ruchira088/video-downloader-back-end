@@ -38,10 +38,8 @@ class FallbackAwsSpec extends AnyFlatSpec with Matchers {
   private val credentials = StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"))
 
   private def clients(endpoint: String): Resource[IO, FallbackSyncAwsClients] =
-    FallbackSyncAwsClients.create[IO](
-      FallbackSyncSettings("unused", "unused", "unused", "ap-southeast-2", Some(endpoint)),
-      credentials
-    )
+    FallbackSyncAwsClients
+      .create[IO](FallbackSyncSettings("unused", "unused", "unused", "ap-southeast-2", Some(endpoint)), credentials)
 
   private def queueUrl(aws: FallbackSyncAwsClients, name: String): IO[String] =
     IO.fromCompletableFuture(IO(aws.sqs.createQueue(CreateQueueRequest.builder().queueName(name).build())))
@@ -59,9 +57,10 @@ class FallbackAwsSpec extends AnyFlatSpec with Matchers {
     }
   }
 
-  /** A stubbed client, because ElasticMQ fails the whole call for the bodies a test can produce, so it can't return
-    * the successful-but-partially-failed responses these tests need. `respond` answers each call, given its number
-    * (from 1) and the request; the client records every request it receives. */
+  /** A stubbed client, because ElasticMQ fails the whole call for the bodies a test can produce, so it can't return the
+    * successful-but-partially-failed responses these tests need. `respond` answers each call, given its number (from 1)
+    * and the request; the client records every request it receives.
+    */
   private final class StubSqsClient(respond: (Int, SendMessageBatchRequest) => SendMessageBatchResponse)
       extends SqsAsyncClient {
     private val received = new java.util.concurrent.ConcurrentLinkedQueue[SendMessageBatchRequest]()
@@ -83,16 +82,18 @@ class FallbackAwsSpec extends AnyFlatSpec with Matchers {
     SendMessageBatchResponse
       .builder()
       .successful(
-        request.entries().asScala.filterNot(entry => failed.contains(entry.id())).map { entry =>
-          SendMessageBatchResultEntry.builder().id(entry.id()).messageId(s"message-${entry.id()}").build()
-        }.asJava
+        request
+          .entries()
+          .asScala
+          .filterNot(entry => failed.contains(entry.id()))
+          .map { entry =>
+            SendMessageBatchResultEntry.builder().id(entry.id()).messageId(s"message-${entry.id()}").build()
+          }
+          .asJava
       )
-      .failed(
-        failed.toList.map {
-          case (id, senderFault) =>
-            BatchResultErrorEntry.builder().id(id).code("SomeError").senderFault(senderFault).message("boom").build()
-        }.asJava
-      )
+      .failed(failed.toList.map { case (id, senderFault) =>
+        BatchResultErrorEntry.builder().id(id).code("SomeError").senderFault(senderFault).message("boom").build()
+      }.asJava)
       .build()
 
   private val noDelays = List(Duration.Zero, Duration.Zero)
@@ -192,17 +193,15 @@ class FallbackAwsSpec extends AnyFlatSpec with Matchers {
       // e.g. a misconfigured queue URL: not known to be about the messages, so they must not all be dropped
       sqsError(400, "InvalidParameterValue"),
       sqsError(400, "AWS.SimpleQueueService.NonExistentQueue")
-    )
-      .traverse { error =>
-        val sqs = new StubSqsClient((_, _) => throw error)
+    ).traverse { error =>
+      val sqs = new StubSqsClient((_, _) => throw error)
 
-        new SqsFallbackSyncTransport[IO](sqs, "queue-url", noDelays).send(removals(2)).attempt.map { result =>
-          result.left.map(_.getMessage.startsWith("SQS rejected 2 of 2 messages")) mustBe Left(true)
-          // Never split: each attempt resends the whole batch
-          sqs.requests.map(videoIds) mustBe List.fill(3)(List("video-1", "video-2"))
-        }
+      new SqsFallbackSyncTransport[IO](sqs, "queue-url", noDelays).send(removals(2)).attempt.map { result =>
+        result.left.map(_.getMessage.startsWith("SQS rejected 2 of 2 messages")) mustBe Left(true)
+        // Never split: each attempt resends the whole batch
+        sqs.requests.map(videoIds) mustBe List.fill(3)(List("video-1", "video-2"))
       }
-      .void
+    }.void
   }
 
   it should "split messages into batches of at most ten whose bodies fit in a batch's size limit" in runIO {

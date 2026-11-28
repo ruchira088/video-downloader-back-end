@@ -34,19 +34,20 @@ trait FallbackSyncTransport[F[_]] {
   def send(messages: List[MainToFallbackMessage]): F[Unit]
 }
 
-/** Sends messages in batches of at most 10 whose bodies total at most `MaxBatchBytes`, and sends every batch even
-  * after an earlier batch failed, so one bad batch can't hold back the rest (removals, sent last by the reconcile,
-  * would otherwise never go out).
+/** Sends messages in batches of at most 10 whose bodies total at most `MaxBatchBytes`, and sends every batch even after
+  * an earlier batch failed, so one bad batch can't hold back the rest (removals, sent last by the reconcile, would
+  * otherwise never go out).
   *
-  * A message SQS rejects as the sender's fault (e.g. one too large) can never succeed: it is logged and dropped
-  * rather than failing the send, which would only flag a reconcile that sends it again, forever. SQS reports this
-  * either for an entry, inside a successful response, or for the whole call (e.g. BatchRequestTooLong). A call it
-  * rejects as the sender's fault is split and each of its messages sent alone, so only a message that still fails
-  * alone is dropped. Only the call errors known to be about the messages count as the sender's fault; every other
-  * failure, of an entry or of a whole call, is transient, including throttling, denied or expired credentials, a
-  * missing queue or KMS key and any client error not known to be about the messages (so a misconfiguration can't
-  * make every message be dropped): it is retried after each of `retryDelays`, and those still failing are raised
-  * together once every batch has been attempted. */
+  * A message SQS rejects as the sender's fault (e.g. one too large) can never succeed: it is logged and dropped rather
+  * than failing the send, which would only flag a reconcile that sends it again, forever. SQS reports this either for
+  * an entry, inside a successful response, or for the whole call (e.g. BatchRequestTooLong). A call it rejects as the
+  * sender's fault is split and each of its messages sent alone, so only a message that still fails alone is dropped.
+  * Only the call errors known to be about the messages count as the sender's fault; every other failure, of an entry or
+  * of a whole call, is transient, including throttling, denied or expired credentials, a missing queue or KMS key and
+  * any client error not known to be about the messages (so a misconfiguration can't make every message be dropped): it
+  * is retried after each of `retryDelays`, and those still failing are raised together once every batch has been
+  * attempted.
+  */
 class SqsFallbackSyncTransport[F[_]: Async](
   sqsClient: SqsAsyncClient,
   queueUrl: String,
@@ -95,11 +96,9 @@ class SqsFallbackSyncTransport[F[_]: Async](
       SendMessageBatchRequest
         .builder()
         .queueUrl(queueUrl)
-        .entries(
-          entries.map { entry =>
-            SendMessageBatchRequestEntry.builder().id(entry.id).messageBody(entry.body).build()
-          }.asJava
-        )
+        .entries(entries.map { entry =>
+          SendMessageBatchRequestEntry.builder().id(entry.id).messageBody(entry.body).build()
+        }.asJava)
         .build()
 
     Async[F]
@@ -153,15 +152,17 @@ class SqsFallbackSyncTransport[F[_]: Async](
 object SqsFallbackSyncTransport {
   val MaxBatchEntries: Int = 10
 
-  /** SendMessageBatch rejects a call whose bodies total more than the queue's limit, 256 KiB unless the queue's
-    * maximum message size was raised, so batches stay below it with a margin. A single message larger than this is
-    * still sent, alone, leaving SQS to decide whether it is too large for the queue. */
+  /** SendMessageBatch rejects a call whose bodies total more than the queue's limit, 256 KiB unless the queue's maximum
+    * message size was raised, so batches stay below it with a margin. A single message larger than this is still sent,
+    * alone, leaving SQS to decide whether it is too large for the queue.
+    */
   val MaxBatchBytes: Long = 240 * 1024
 
   private final case class Entry(id: String, message: MainToFallbackMessage, body: String)
 
-  /** Groups items in order, starting a new batch whenever the next item would take the current one past either
-    * limit. An item larger than `maxBytes` goes in a batch of its own. */
+  /** Groups items in order, starting a new batch whenever the next item would take the current one past either limit.
+    * An item larger than `maxBytes` goes in a batch of its own.
+    */
   def batches[A](items: List[A], maxEntries: Int, maxBytes: Long)(size: A => Long): List[List[A]] =
     items
       .foldLeft(List.empty[(List[A], Long)]) {
@@ -173,8 +174,9 @@ object SqsFallbackSyncTransport {
       .map { case (batch, _) => batch.reverse }
       .reverse
 
-  /** Codes of the call errors caused by the messages sent, as either protocol reports them, e.g.
-    * "BatchRequestTooLong" or "AWS.SimpleQueueService.BatchRequestTooLong". */
+  /** Codes of the call errors caused by the messages sent, as either protocol reports them, e.g. "BatchRequestTooLong"
+    * or "AWS.SimpleQueueService.BatchRequestTooLong".
+    */
   private val SenderFaultErrorCodes: Set[String] =
     Set(
       "BatchEntryIdsNotDistinct",
@@ -186,13 +188,13 @@ object SqsFallbackSyncTransport {
     )
 
   /** Whether SQS rejected a whole call because of the messages in it, e.g. BatchRequestTooLong (a single message too
-    * large for the queue included) or InvalidMessageContents. An allowlist: any other error, such as a generic 400
-    * from a misconfigured queue URL, is left transient, since treating it as the messages' fault would drop them all. */
+    * large for the queue included) or InvalidMessageContents. An allowlist: any other error, such as a generic 400 from
+    * a misconfigured queue URL, is left transient, since treating it as the messages' fault would drop them all.
+    */
   def isSenderFault(error: Throwable): Boolean =
     error match {
-      case _: BatchRequestTooLongException | _: InvalidMessageContentsException |
-          _: BatchEntryIdsNotDistinctException | _: EmptyBatchRequestException | _: InvalidBatchEntryIdException |
-          _: TooManyEntriesInBatchRequestException =>
+      case _: BatchRequestTooLongException | _: InvalidMessageContentsException | _: BatchEntryIdsNotDistinctException |
+          _: EmptyBatchRequestException | _: InvalidBatchEntryIdException | _: TooManyEntriesInBatchRequestException =>
         true
 
       case sqsException: SqsException =>

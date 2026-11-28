@@ -14,7 +14,6 @@ import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-
 class H2DoobieCredentialsDaoSpec extends DoobieCredentialsDaoSpec with H2TestDatabase
 
 class PostgresDoobieCredentialsDaoSpec extends DoobieCredentialsDaoSpec with PostgresTestDatabase
@@ -33,9 +32,8 @@ abstract class DoobieCredentialsDaoSpec extends AnyFlatSpec with Matchers with O
           DoobieUserDao
             .insert(user)
             .product(DoobieCredentialsDao.insert(credentials))
-            .map {
-              case (userInsertionResult, credentialInsertionResult) =>
-                userInsertionResult + credentialInsertionResult
+            .map { case (userInsertionResult, credentialInsertionResult) =>
+              userInsertionResult + credentialInsertionResult
             }
         }
 
@@ -50,7 +48,10 @@ abstract class DoobieCredentialsDaoSpec extends AnyFlatSpec with Matchers with O
         updateResult <- transactor {
           DoobieCredentialsDao.update {
             credentials
-              .copy(hashedPassword = HashedPassword("new-credentials"), lastUpdatedAt = timestamp.plus(java.time.Duration.ofSeconds(10)))
+              .copy(
+                hashedPassword = HashedPassword("new-credentials"),
+                lastUpdatedAt = timestamp.plus(java.time.Duration.ofSeconds(10))
+              )
           }
         }
 

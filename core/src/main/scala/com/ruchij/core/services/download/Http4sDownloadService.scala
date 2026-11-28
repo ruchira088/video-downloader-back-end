@@ -18,58 +18,63 @@ import org.http4s.headers.{ETag, Range, `Content-Length`, `Content-Range`, `Cont
 import org.http4s.{EntityTag, Header, Headers, RangeUnit, Request, Response, Status, Uri}
 import org.typelevel.ci.CIString
 
-class Http4sDownloadService[F[_]: Temporal](
-  client: Client[F],
-  repositoryService: RepositoryService[F]
-) extends DownloadService[F] {
+class Http4sDownloadService[F[_]: Temporal](client: Client[F], repositoryService: RepositoryService[F])
+    extends DownloadService[F] {
 
   override def download(uri: Uri, fileKey: String): Resource[F, DownloadResult[F]] = {
     val metadataKey = s"$fileKey.http-download.json"
 
-    Resource.eval {
-      for {
-        initialSize <- repositoryService.size(fileKey).map(_.getOrElse(0L))
-        metadata <- readMetadata(metadataKey)
-        resume = metadata.filter { value =>
-          value.uri == uri.renderString && initialSize > 0 && initialSize < value.size &&
+    Resource
+      .eval {
+        for {
+          initialSize <- repositoryService.size(fileKey).map(_.getOrElse(0L))
+          metadata <- readMetadata(metadataKey)
+          resume = metadata.filter { value =>
+            value.uri == uri.renderString && initialSize > 0 && initialSize < value.size &&
             ETag.parse(value.etag).exists(_.tag.weakness == EntityTag.Strong)
-        }
-      } yield (initialSize, resume)
-    }.flatMap { case (initialSize, resume) =>
-      val headers = resume.fold(Headers.empty) { metadata =>
-        Headers(Range(initialSize), Header.Raw(CIString("If-Range"), metadata.etag))
-      }.put(Header.Raw(CIString("Accept-Encoding"), "identity"))
+          }
+        } yield (initialSize, resume)
+      }
+      .flatMap { case (initialSize, resume) =>
+        val headers = resume
+          .fold(Headers.empty) { metadata =>
+            Headers(Range(initialSize), Header.Raw(CIString("If-Range"), metadata.etag))
+          }
+          .put(Header.Raw(CIString("Accept-Encoding"), "identity"))
 
-      client.run(Request[F](uri = uri, headers = headers)).evalMap { response =>
-        validateResponse(uri, response, initialSize, resume).map { case (start, size, contentLength, mediaType) =>
-          val metadata = response.headers.get[ETag]
-            .filter(_.tag.weakness == EntityTag.Strong)
-            .map(etag => ResumeMetadata(uri.renderString, etag.tag.toString, size))
+        client.run(Request[F](uri = uri, headers = headers)).evalMap { response =>
+          validateResponse(uri, response, initialSize, resume).map { case (start, size, contentLength, mediaType) =>
+            val metadata = response.headers
+              .get[ETag]
+              .filter(_.tag.weakness == EntityTag.Strong)
+              .map(etag => ResumeMetadata(uri.renderString, etag.tag.toString, size))
 
-          // Delay replacing the old file until the caller consumes the download. A partial response keeps its
-          // original metadata; a full response starts a new representation, even after If-Range.
-          val prepare =
-            if (start > 0) Temporal[F].unit
-            else
-              repositoryService.delete(metadataKey).void *>
-                repositoryService.delete(fileKey).void *>
-                metadata.traverse_ { value =>
-                  repositoryService.write(metadataKey, Stream.emit(value.asJson.noSpaces).through(text.utf8.encode))
-                    .compile.drain
-                }
+            // Delay replacing the old file until the caller consumes the download. A partial response keeps its
+            // original metadata; a full response starts a new representation, even after If-Range.
+            val prepare =
+              if (start > 0) Temporal[F].unit
+              else
+                repositoryService.delete(metadataKey).void *>
+                  repositoryService.delete(fileKey).void *>
+                  metadata.traverse_ { value =>
+                    repositoryService
+                      .write(metadataKey, Stream.emit(value.asJson.noSpaces).through(text.utf8.encode))
+                      .compile
+                      .drain
+                  }
 
-          DownloadResult.create[F](uri, fileKey, size, mediaType) {
-            Stream.eval(prepare).drain ++
-              response.body
-                .through(checkLength(uri, contentLength))
-                .observe(data => repositoryService.write(fileKey, data))
-                .chunks
-                .scan(start) { case (total, chunk) => total + chunk.size } ++
-              Stream.eval(repositoryService.delete(metadataKey)).drain
+            DownloadResult.create[F](uri, fileKey, size, mediaType) {
+              Stream.eval(prepare).drain ++
+                response.body
+                  .through(checkLength(uri, contentLength))
+                  .observe(data => repositoryService.write(fileKey, data))
+                  .chunks
+                  .scan(start) { case (total, chunk) => total + chunk.size } ++
+                Stream.eval(repositoryService.delete(metadataKey)).drain
+            }
           }
         }
       }
-    }
   }
 
   private def readMetadata(key: String): F[Option[ResumeMetadata]] =
@@ -95,7 +100,8 @@ class Http4sDownloadService[F[_]: Temporal](
         s"Unexpected download status: ${response.status}"
       )
       _ <- requireValid(
-        response.headers.headers.filter(_.name == CIString("Content-Encoding"))
+        response.headers.headers
+          .filter(_.name == CIString("Content-Encoding"))
           .forall(_.value.equalsIgnoreCase("identity")),
         "Encoded download bodies are not supported"
       )

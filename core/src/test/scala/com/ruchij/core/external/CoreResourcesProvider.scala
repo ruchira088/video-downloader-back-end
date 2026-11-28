@@ -19,7 +19,8 @@ trait CoreResourcesProvider[F[_]] {
 }
 
 object CoreResourcesProvider {
-  val HashedAdminPassword = "$2a$10$m5CQAirrrJKRqG3oalNSU.TUOn56v88isxMbNPi8cXXI35gY20hO." // The password is "top-secret"
+  val HashedAdminPassword =
+    "$2a$10$m5CQAirrrJKRqG3oalNSU.TUOn56v88isxMbNPi8cXXI35gY20hO." // The password is "top-secret"
 
   def migrationServiceConfiguration(databaseConfiguration: DatabaseConfiguration): MigrationServiceConfiguration =
     MigrationServiceConfiguration(databaseConfiguration, AdminConfiguration(HashedAdminPassword))
@@ -35,10 +36,7 @@ object CoreResourcesProvider {
     } yield hikariTransactor.trans
 
   implicit class ExternalServiceProviderOps[F[_]](externalServiceProvider: CoreResourcesProvider[F]) {
-    def transactor(
-      implicit async: Async[F],
-      executionContext: ExecutionContext
-    ): Resource[F, ConnectionIO ~> F] =
+    def transactor(implicit async: Async[F], executionContext: ExecutionContext): Resource[F, ConnectionIO ~> F] =
       externalServiceProvider.databaseConfiguration
         .flatMap(databaseConfig => CoreResourcesProvider.transactor(databaseConfig))
   }

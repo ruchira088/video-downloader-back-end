@@ -2,7 +2,8 @@ package com.ruchij.core.types
 
 trait NamedToString extends Product {
   override def toString: String =
-    productElementNames.zip(productIterator)
+    productElementNames
+      .zip(productIterator)
       .map { case (key, value) =>
         val valueString = value match {
           case Some(v) => s"Some (\n\t${v.toString.replaceAll("\n", "\n\t")}\n)"

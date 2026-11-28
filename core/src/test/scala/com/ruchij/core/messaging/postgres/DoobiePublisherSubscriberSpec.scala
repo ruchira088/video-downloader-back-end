@@ -92,8 +92,7 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
 
   override def testTimeout: FiniteDuration = 30 seconds
 
-  /**
-    * A new group starts from the latest message, so its first poll would skip whatever was published before it.
+  /** A new group starts from the latest message, so its first poll would skip whatever was published before it.
     * Creating the group up front lets a test publish straight away, instead of sleeping until the first poll.
     */
   private def createGroup(groupId: String)(implicit transaction: ConnectionIO ~> IO): IO[Unit] =
@@ -102,266 +101,260 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
     }
 
   "DoobieSubscriber" should "deliver a row that commits after a row with a higher id" in runIO {
-    daoResource.use {
-      case (messageDao, transaction) =>
-        implicit val tx: ConnectionIO ~> IO = transaction
+    daoResource.use { case (messageDao, transaction) =>
+      implicit val tx: ConnectionIO ~> IO = transaction
 
-        val polls = new AtomicInteger(0)
-        val publisher = new DoobiePublisher[IO, ConnectionIO, TestMessage](messageDao)
-        val subscriber =
-          DoobieSubscriber.create[IO, ConnectionIO, TestMessage](
-            new FlakyConsumerGroupDao(DoobieMessageConsumerGroupDao, new AtomicInteger(0), lockCalls = polls),
-            200 milliseconds
-          )
+      val polls = new AtomicInteger(0)
+      val publisher = new DoobiePublisher[IO, ConnectionIO, TestMessage](messageDao)
+      val subscriber =
+        DoobieSubscriber.create[IO, ConnectionIO, TestMessage](
+          new FlakyConsumerGroupDao(DoobieMessageConsumerGroupDao, new AtomicInteger(0), lockCalls = polls),
+          200 milliseconds
+        )
 
-        def await(latch: CountDownLatch): IO[Boolean] =
-          IO.blocking(latch.await(testTimeout.toSeconds, TimeUnit.SECONDS))
+      def await(latch: CountDownLatch): IO[Boolean] =
+        IO.blocking(latch.await(testTimeout.toSeconds, TimeUnit.SECONDS))
 
-        for {
-          _ <- createGroup("late-commit-group")
-          inserted <- IO.delay(new CountDownLatch(1))
-          earlyAcknowledged <- IO.delay(new CountDownLatch(1))
-          commitLate <- IO.delay(new CountDownLatch(1))
+      for {
+        _ <- createGroup("late-commit-group")
+        inserted <- IO.delay(new CountDownLatch(1))
+        earlyAcknowledged <- IO.delay(new CountDownLatch(1))
+        commitLate <- IO.delay(new CountDownLatch(1))
 
-          receivedFiber <- subscriber
-            .subscribe("late-commit-group")
-            .evalMap(record => subscriber.commit(List(record)).as(subscriber.extractValue(record)))
-            .evalTap(message => IO.delay(earlyAcknowledged.countDown()).whenA(message.name == "early"))
-            .take(2)
-            .compile
-            .toList
-            .timeout(testTimeout)
-            .start
+        receivedFiber <- subscriber
+          .subscribe("late-commit-group")
+          .evalMap(record => subscriber.commit(List(record)).as(subscriber.extractValue(record)))
+          .evalTap(message => IO.delay(earlyAcknowledged.countDown()).whenA(message.name == "early"))
+          .take(2)
+          .compile
+          .toList
+          .timeout(testTimeout)
+          .start
 
-          now <- Clock[IO].timestamp
-          // Takes the lower id, but only commits once the message with the higher id has been acknowledged
-          slowInsert <- tx {
-            messageDao
-              .insert(testMessageMessagingTopic.name, testMessageCodec(TestMessage("late", 0)).noSpaces, now)
-              .productR(connectionDelay(inserted.countDown()))
-              .productR(connectionDelay(commitLate.await(testTimeout.toSeconds, TimeUnit.SECONDS)))
-          }.start
+        now <- Clock[IO].timestamp
+        // Takes the lower id, but only commits once the message with the higher id has been acknowledged
+        slowInsert <- tx {
+          messageDao
+            .insert(testMessageMessagingTopic.name, testMessageCodec(TestMessage("late", 0)).noSpaces, now)
+            .productR(connectionDelay(inserted.countDown()))
+            .productR(connectionDelay(commitLate.await(testTimeout.toSeconds, TimeUnit.SECONDS)))
+        }.start
 
-          _ <- await(inserted)
-          _ <- publisher.publishOne(TestMessage("early", 1))
-          acknowledged <- await(earlyAcknowledged)
+        _ <- await(inserted)
+        _ <- publisher.publishOne(TestMessage("early", 1))
+        acknowledged <- await(earlyAcknowledged)
 
-          // Every message up to the acknowledged one looks acknowledged while the lower id is uncommitted, so a poll
-          // could move the group's start id past it. Each poll locks the group once and polls run one after the
-          // other, so once two more polls have started, a whole poll has run after the acknowledgement.
-          pollsAfterAcknowledgement <- IO.delay(polls.get())
-          _ <- waitUntil(IO.delay(polls.get() >= pollsAfterAcknowledgement + 2)).timeout(testTimeout)
+        // Every message up to the acknowledged one looks acknowledged while the lower id is uncommitted, so a poll
+        // could move the group's start id past it. Each poll locks the group once and polls run one after the
+        // other, so once two more polls have started, a whole poll has run after the acknowledgement.
+        pollsAfterAcknowledgement <- IO.delay(polls.get())
+        _ <- waitUntil(IO.delay(polls.get() >= pollsAfterAcknowledgement + 2)).timeout(testTimeout)
 
-          _ <- IO.delay(commitLate.countDown())
-          _ <- slowInsert.joinWithNever
-          received <- receivedFiber.joinWithNever
+        _ <- IO.delay(commitLate.countDown())
+        _ <- slowInsert.joinWithNever
+        received <- receivedFiber.joinWithNever
 
-          _ <- IO.delay {
-            acknowledged mustBe true
-            received.map(_.name) mustBe List("early", "late")
-          }
-        } yield ()
+        _ <- IO.delay {
+          acknowledged mustBe true
+          received.map(_.name) mustBe List("early", "late")
+        }
+      } yield ()
     }
   }
 
   it should "keep polling after a transient database error" in runIO {
-    daoResource.use {
-      case (messageDao, transaction) =>
-        implicit val tx: ConnectionIO ~> IO = transaction
+    daoResource.use { case (messageDao, transaction) =>
+      implicit val tx: ConnectionIO ~> IO = transaction
 
-        for {
-          failures <- IO.delay(new AtomicInteger(3))
-          flakyConsumerGroupDao = new FlakyConsumerGroupDao(DoobieMessageConsumerGroupDao, failures)
+      for {
+        failures <- IO.delay(new AtomicInteger(3))
+        flakyConsumerGroupDao = new FlakyConsumerGroupDao(DoobieMessageConsumerGroupDao, failures)
 
-          publisher = new DoobiePublisher[IO, ConnectionIO, TestMessage](messageDao)
-          subscriber = DoobieSubscriber.create[IO, ConnectionIO, TestMessage](flakyConsumerGroupDao, 200 milliseconds)
+        publisher = new DoobiePublisher[IO, ConnectionIO, TestMessage](messageDao)
+        subscriber = DoobieSubscriber.create[IO, ConnectionIO, TestMessage](flakyConsumerGroupDao, 200 milliseconds)
 
-          _ <- createGroup("flaky-group")
-          receivedFiber <- subscriber
-            .subscribe("flaky-group")
-            .map(subscriber.extractValue)
-            .take(1)
-            .compile
-            .toList
-            .timeout(testTimeout)
-            .start
+        _ <- createGroup("flaky-group")
+        receivedFiber <- subscriber
+          .subscribe("flaky-group")
+          .map(subscriber.extractValue)
+          .take(1)
+          .compile
+          .toList
+          .timeout(testTimeout)
+          .start
 
-          _ <- publisher.publishOne(TestMessage("after-errors", 7))
+        _ <- publisher.publishOne(TestMessage("after-errors", 7))
 
-          received <- receivedFiber.joinWithNever
-          remainingFailures <- IO.delay(failures.get())
+        received <- receivedFiber.joinWithNever
+        remainingFailures <- IO.delay(failures.get())
 
-          _ <- IO.delay {
-            remainingFailures mustBe 0
-            received mustBe List(TestMessage("after-errors", 7))
-          }
-        } yield ()
+        _ <- IO.delay {
+          remainingFailures mustBe 0
+          received mustBe List(TestMessage("after-errors", 7))
+        }
+      } yield ()
     }
   }
 
   it should "redeliver a message that was received but never committed" in runIO {
-    daoResource.use {
-      case (messageDao, transaction) =>
-        implicit val tx: ConnectionIO ~> IO = transaction
+    daoResource.use { case (messageDao, transaction) =>
+      implicit val tx: ConnectionIO ~> IO = transaction
 
-        val publisher = new DoobiePublisher[IO, ConnectionIO, TestMessage](messageDao)
-        val subscriber =
-          DoobieSubscriber.create[IO, ConnectionIO, TestMessage](
-            DoobieMessageConsumerGroupDao,
-            200 milliseconds,
-            redeliveryTimeout = 1 second
-          )
+      val publisher = new DoobiePublisher[IO, ConnectionIO, TestMessage](messageDao)
+      val subscriber =
+        DoobieSubscriber.create[IO, ConnectionIO, TestMessage](
+          DoobieMessageConsumerGroupDao,
+          200 milliseconds,
+          redeliveryTimeout = 1 second
+        )
 
-        for {
-          _ <- createGroup("redelivery-group")
-          uncommittedFiber <- subscriber
-            .subscribe("redelivery-group")
-            .map(subscriber.extractValue)
-            .take(1)
-            .compile
-            .toList
-            .timeout(testTimeout)
-            .start
+      for {
+        _ <- createGroup("redelivery-group")
+        uncommittedFiber <- subscriber
+          .subscribe("redelivery-group")
+          .map(subscriber.extractValue)
+          .take(1)
+          .compile
+          .toList
+          .timeout(testTimeout)
+          .start
 
-          _ <- publisher.publishOne(TestMessage("redelivered", 3))
-          uncommitted <- uncommittedFiber.joinWithNever
+        _ <- publisher.publishOne(TestMessage("redelivered", 3))
+        uncommitted <- uncommittedFiber.joinWithNever
 
-          redelivered <- subscriber
-            .subscribe("redelivery-group")
-            .evalMap(record => subscriber.commit(List(record)).as(subscriber.extractValue(record)))
-            .take(1)
-            .compile
-            .toList
-            .timeout(testTimeout)
+        redelivered <- subscriber
+          .subscribe("redelivery-group")
+          .evalMap(record => subscriber.commit(List(record)).as(subscriber.extractValue(record)))
+          .take(1)
+          .compile
+          .toList
+          .timeout(testTimeout)
 
-          _ <- IO.delay {
-            uncommitted mustBe List(TestMessage("redelivered", 3))
-            redelivered mustBe List(TestMessage("redelivered", 3))
-          }
-        } yield ()
+        _ <- IO.delay {
+          uncommitted mustBe List(TestMessage("redelivered", 3))
+          redelivered mustBe List(TestMessage("redelivered", 3))
+        }
+      } yield ()
     }
   }
 
   it should "advance the group's start id past the messages it has acknowledged" in runIO {
-    daoResource.use {
-      case (messageDao, transaction) =>
-        implicit val tx: ConnectionIO ~> IO = transaction
+    daoResource.use { case (messageDao, transaction) =>
+      implicit val tx: ConnectionIO ~> IO = transaction
 
-        val publisher = new DoobiePublisher[IO, ConnectionIO, TestMessage](messageDao)
-        val subscriber =
-          DoobieSubscriber.create[IO, ConnectionIO, TestMessage](
-            DoobieMessageConsumerGroupDao,
-            200 milliseconds,
-            lateCommitWindow = 0 seconds
-          )
+      val publisher = new DoobiePublisher[IO, ConnectionIO, TestMessage](messageDao)
+      val subscriber =
+        DoobieSubscriber.create[IO, ConnectionIO, TestMessage](
+          DoobieMessageConsumerGroupDao,
+          200 milliseconds,
+          lateCommitWindow = 0 seconds
+        )
 
-        val startId: IO[Option[Long]] = tx(DoobieMessageConsumerGroupDao.lockGroup(channel, "low-water-group"))
+      val startId: IO[Option[Long]] = tx(DoobieMessageConsumerGroupDao.lockGroup(channel, "low-water-group"))
 
-        for {
-          _ <- createGroup("low-water-group")
-          receivedFiber <- subscriber
-            .subscribe("low-water-group")
-            .evalMap { record =>
-              // Messages 3 and 4 are received but never acknowledged
-              (if (record.value.index < 3) subscriber.commit(List(record)) else IO.unit).as(record.value)
-            }
-            .take(5)
-            .compile
-            .drain
-            .timeout(testTimeout)
-            .start
-
-          _ <- publishAll(publisher, "low-water", 0 until 5)
-          _ <- receivedFiber.joinWithNever
-          ids <- tx(messageDao.findAfter(channel, 0)).map(_.map { case (id, _) => id })
-
-          // Polling advances the start id, so keep a subscription that acknowledges nothing running
-          advancedStartId <- subscriber.subscribe("low-water-group").compile.drain.background.use { _ =>
-            waitUntil(startId.map(_.contains(ids(2)))).timeout(10 seconds) *> IO.sleep(1 second) *> startId
+      for {
+        _ <- createGroup("low-water-group")
+        receivedFiber <- subscriber
+          .subscribe("low-water-group")
+          .evalMap { record =>
+            // Messages 3 and 4 are received but never acknowledged
+            (if (record.value.index < 3) subscriber.commit(List(record)) else IO.unit).as(record.value)
           }
+          .take(5)
+          .compile
+          .drain
+          .timeout(testTimeout)
+          .start
 
-          _ <- IO.delay {
-            advancedStartId mustBe Some(ids(2))
-          }
-        } yield ()
+        _ <- publishAll(publisher, "low-water", 0 until 5)
+        _ <- receivedFiber.joinWithNever
+        ids <- tx(messageDao.findAfter(channel, 0)).map(_.map { case (id, _) => id })
+
+        // Polling advances the start id, so keep a subscription that acknowledges nothing running
+        advancedStartId <- subscriber.subscribe("low-water-group").compile.drain.background.use { _ =>
+          waitUntil(startId.map(_.contains(ids(2)))).timeout(10 seconds) *> IO.sleep(1 second) *> startId
+        }
+
+        _ <- IO.delay {
+          advancedStartId mustBe Some(ids(2))
+        }
+      } yield ()
     }
   }
 
   it should "keep consuming after failing to acknowledge a message it cannot decode" in runIO {
-    daoResource.use {
-      case (messageDao, transaction) =>
-        implicit val tx: ConnectionIO ~> IO = transaction
+    daoResource.use { case (messageDao, transaction) =>
+      implicit val tx: ConnectionIO ~> IO = transaction
 
-        for {
-          acknowledgeFailures <- IO.delay(new AtomicInteger(3))
-          flakyConsumerGroupDao =
-            new FlakyConsumerGroupDao(DoobieMessageConsumerGroupDao, new AtomicInteger(0), acknowledgeFailures)
+      for {
+        acknowledgeFailures <- IO.delay(new AtomicInteger(3))
+        flakyConsumerGroupDao =
+          new FlakyConsumerGroupDao(DoobieMessageConsumerGroupDao, new AtomicInteger(0), acknowledgeFailures)
 
-          publisher = new DoobiePublisher[IO, ConnectionIO, TestMessage](messageDao)
-          subscriber = DoobieSubscriber.create[IO, ConnectionIO, TestMessage](flakyConsumerGroupDao, 200 milliseconds)
+        publisher = new DoobiePublisher[IO, ConnectionIO, TestMessage](messageDao)
+        subscriber = DoobieSubscriber.create[IO, ConnectionIO, TestMessage](flakyConsumerGroupDao, 200 milliseconds)
 
-          _ <- createGroup("undecodable-group")
-          receivedFiber <- subscriber
-            .subscribe("undecodable-group")
-            .map(subscriber.extractValue)
-            .take(1)
-            .compile
-            .toList
-            .timeout(testTimeout)
-            .start
+        _ <- createGroup("undecodable-group")
+        receivedFiber <- subscriber
+          .subscribe("undecodable-group")
+          .map(subscriber.extractValue)
+          .take(1)
+          .compile
+          .toList
+          .timeout(testTimeout)
+          .start
 
-          now <- Clock[IO].timestamp
-          _ <- tx(messageDao.insert(channel, "not-json", now))
-          _ <- publisher.publishOne(TestMessage("decodable", 1))
+        now <- Clock[IO].timestamp
+        _ <- tx(messageDao.insert(channel, "not-json", now))
+        _ <- publisher.publishOne(TestMessage("decodable", 1))
 
-          received <- receivedFiber.joinWithNever
-          remainingFailures <- IO.delay(acknowledgeFailures.get())
+        received <- receivedFiber.joinWithNever
+        remainingFailures <- IO.delay(acknowledgeFailures.get())
 
-          _ <- IO.delay {
-            remainingFailures mustBe 0
-            received mustBe List(TestMessage("decodable", 1))
-          }
-        } yield ()
+        _ <- IO.delay {
+          remainingFailures mustBe 0
+          received mustBe List(TestMessage("decodable", 1))
+        }
+      } yield ()
     }
   }
 
   it should "release the messages a subscription claimed but never acknowledged once it ends" in runIO {
-    daoResource.use {
-      case (messageDao, transaction) =>
-        implicit val tx: ConnectionIO ~> IO = transaction
+    daoResource.use { case (messageDao, transaction) =>
+      implicit val tx: ConnectionIO ~> IO = transaction
 
-        val publisher = new DoobiePublisher[IO, ConnectionIO, TestMessage](messageDao)
-        // Uses the default redelivery timeout of 5 minutes, which is far longer than the test timeout
-        val subscriber =
-          DoobieSubscriber.create[IO, ConnectionIO, TestMessage](DoobieMessageConsumerGroupDao, 200 milliseconds)
+      val publisher = new DoobiePublisher[IO, ConnectionIO, TestMessage](messageDao)
+      // Uses the default redelivery timeout of 5 minutes, which is far longer than the test timeout
+      val subscriber =
+        DoobieSubscriber.create[IO, ConnectionIO, TestMessage](DoobieMessageConsumerGroupDao, 200 milliseconds)
 
-        for {
-          _ <- createGroup("release-group")
-          firstFiber <- subscriber
-            .subscribe("release-group")
-            .map(subscriber.extractValue)
-            .take(1)
-            .compile
-            .toList
-            .timeout(testTimeout)
-            .start
+      for {
+        _ <- createGroup("release-group")
+        firstFiber <- subscriber
+          .subscribe("release-group")
+          .map(subscriber.extractValue)
+          .take(1)
+          .compile
+          .toList
+          .timeout(testTimeout)
+          .start
 
-          _ <- publishAll(publisher, "release", 0 until 3)
-          first <- firstFiber.joinWithNever
+        _ <- publishAll(publisher, "release", 0 until 3)
+        first <- firstFiber.joinWithNever
 
-          second <- subscriber
-            .subscribe("release-group")
-            .evalMap(record => subscriber.commit(List(record)).as(subscriber.extractValue(record)))
-            .take(3)
-            .compile
-            .toList
-            .timeout(testTimeout)
+        second <- subscriber
+          .subscribe("release-group")
+          .evalMap(record => subscriber.commit(List(record)).as(subscriber.extractValue(record)))
+          .take(3)
+          .compile
+          .toList
+          .timeout(testTimeout)
 
-          _ <- IO.delay {
-            first.map(_.index) mustBe List(0)
-            second.map(_.index) mustBe List(0, 1, 2)
-          }
-        } yield ()
+        _ <- IO.delay {
+          first.map(_.index) mustBe List(0)
+          second.map(_.index) mustBe List(0, 1, 2)
+        }
+      } yield ()
     }
   }
 

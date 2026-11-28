@@ -57,19 +57,18 @@ class VideoAnalysisServiceImpl[F[_]: Async: Clock, T[_]: Monad](
 
       videoMetadataOpt <- transaction(videoMetadataDao.findByUrl(processedUri))
 
-      result <- videoMetadataOpt.fold[F[VideoMetadataResult]](createMetadata(processedUri, videoSite).map(NewlyCreated.apply)) {
-        videoMetadata =>
-          Applicative[F].pure[VideoMetadataResult](Existing(videoMetadata))
+      result <- videoMetadataOpt.fold[F[VideoMetadataResult]](
+        createMetadata(processedUri, videoSite).map(NewlyCreated.apply)
+      ) { videoMetadata =>
+        Applicative[F].pure[VideoMetadataResult](Existing(videoMetadata))
       }
 
     } yield result
 
   private def createMetadata(uri: Uri, videoSite: VideoSite): F[VideoMetadata] =
     for {
-      videoAnalysisResult @ VideoAnalysisResult(processedUri, videoSite, title, duration, size, thumbnailUri) <- analyze(
-        uri,
-        videoSite
-      )
+      videoAnalysisResult @ VideoAnalysisResult(processedUri, videoSite, title, duration, size, thumbnailUri) <-
+        analyze(uri, videoSite)
 
       _ <- logger.info[F](s"Uri=${processedUri.renderString} Result=$videoAnalysisResult")
 
@@ -108,18 +107,16 @@ class VideoAnalysisServiceImpl[F[_]: Async: Clock, T[_]: Monad](
               .insert(thumbnail)
               .productR(videoMetadataDao.insert(videoMetadata))
           }
-        } {
-          case exception =>
-            // A concurrent request may have inserted the same metadata between the lookup and the insert
-            withTimeout(FiniteDuration(3, TimeUnit.SECONDS)) {
-              transaction { videoMetadataDao.findByUrl(videoMetadata.url) }
-                .flatMap {
-                  case None => MonadCancelThrow[F].raiseError(exception)
-                  case _ => Applicative[F].pure(0)
-                }
-            }
+        } { case exception =>
+          // A concurrent request may have inserted the same metadata between the lookup and the insert
+          withTimeout(FiniteDuration(3, TimeUnit.SECONDS)) {
+            transaction { videoMetadataDao.findByUrl(videoMetadata.url) }
+              .flatMap {
+                case None => MonadCancelThrow[F].raiseError(exception)
+                case _ => Applicative[F].pure(0)
+              }
+          }
         }
-
 
     } yield videoMetadata
 
@@ -135,7 +132,8 @@ class VideoAnalysisServiceImpl[F[_]: Async: Clock, T[_]: Monad](
       retries = 3,
       timeout = FiniteDuration(30, TimeUnit.SECONDS),
       isRetryable = throwable => !throwable.isInstanceOf[ResourceNotFoundException],
-      failureMessage = throwable => s"Error occurred when analyzing uri=$processedUri. ${throwable.getMessage}. Retrying..."
+      failureMessage =
+        throwable => s"Error occurred when analyzing uri=$processedUri. ${throwable.getMessage}. Retrying..."
     ) {
       videoSite match {
         case customVideoSite: CustomVideoSite =>
@@ -216,7 +214,9 @@ class VideoAnalysisServiceImpl[F[_]: Async: Clock, T[_]: Monad](
 
   override def videoDurationFromPath(videoPath: String): F[FiniteDuration] =
     cliCommandRunner
-      .run(List("ffprobe", "-i", videoPath, "-show_entries", "format=duration", "-v", "quiet", "-print_format", "csv=p=0"))
+      .run(
+        List("ffprobe", "-i", videoPath, "-show_entries", "format=duration", "-v", "quiet", "-print_format", "csv=p=0")
+      )
       .compile
       .string
       .flatMap { output =>

@@ -17,12 +17,8 @@ class FileAssetSpec extends AnyFlatSpec with Matchers {
       multiparts
         .multipart(
           Vector(
-            Part.fileData[IO](
-              "file",
-              fileName,
-              Stream.emits[IO, Byte]("data".getBytes.toList),
-              `Content-Type`(mediaType)
-            )
+            Part
+              .fileData[IO]("file", fileName, Stream.emits[IO, Byte]("data".getBytes.toList), `Content-Type`(mediaType))
           )
         )
         .flatMap { multipart =>

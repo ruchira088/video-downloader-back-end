@@ -38,7 +38,8 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
     for {
       videoMetadata <- DataGenerators.videoMetadata[IO].generate
       _ <- transactor {
-        DoobieFileResourceDao.insert(videoMetadata.thumbnail)
+        DoobieFileResourceDao
+          .insert(videoMetadata.thumbnail)
           .productR(DoobieVideoMetadataDao.insert(videoMetadata))
       }
     } yield videoMetadata
@@ -85,12 +86,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
   def createBatchVideoService(
     videoService: VideoService[IO, IO] = new StubVideoService
   )(implicit clock: Clock[IO]): BatchVideoServiceImpl[IO, IO] = {
-    new BatchVideoServiceImpl[IO, IO](
-      videoService,
-      new StubVideoDao,
-      new StubVideoMetadataDao,
-      new StubFileResourceDao
-    )
+    new BatchVideoServiceImpl[IO, IO](videoService, new StubVideoDao, new StubVideoMetadataDao, new StubFileResourceDao)
   }
 
   class StubVideoDao(
@@ -151,7 +147,12 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
     override def insert(videoMetadata: VideoMetadata): IO[Int] = IO.pure(1)
     override def findById(id: String): IO[Option[VideoMetadata]] = IO.pure(Some(sampleVideoMetadata))
     override def findByUrl(uri: org.http4s.Uri): IO[Option[VideoMetadata]] = IO.pure(None)
-    override def update(id: String, title: Option[String], size: Option[Long], duration: Option[FiniteDuration]): IO[Int] = IO.pure(1)
+    override def update(
+      id: String,
+      title: Option[String],
+      size: Option[Long],
+      duration: Option[FiniteDuration]
+    ): IO[Int] = IO.pure(1)
     override def isThumbnailFileResource(thumbnailId: String): IO[Boolean] = IO.pure(false)
     override def deleteById(videoMetadataId: String): IO[Int] = IO.pure(1)
   }

@@ -17,7 +17,7 @@ class Fs2PubSub[F[_]: Applicative, A](topic: Topic[F, A]) extends PubSub[F, A] {
   override def subscribe(groupId: String): Stream[F, A] =
     topic.subscribe(Int.MaxValue)
 
-  override def commit[H[_] : Foldable : Functor](values: H[A]): F[Unit] =
+  override def commit[H[_]: Foldable: Functor](values: H[A]): F[Unit] =
     Applicative[F].unit
 
   override def extractValue(ca: A): A = ca

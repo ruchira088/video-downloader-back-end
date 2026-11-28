@@ -28,9 +28,8 @@ import org.scalatest.matchers.must.Matchers
 
 import scala.concurrent.duration._
 
-/**
-  * Boots the whole API against an in-memory database and a Redis container, then drives a few requests through the
-  * real routes, services and DAOs. It guards the hand-written wiring in ApiApp.program.
+/** Boots the whole API against an in-memory database and a Redis container, then drives a few requests through the real
+  * routes, services and DAOs. It guards the hand-written wiring in ApiApp.program.
   */
 class ApiAppSpec extends AnyFlatSpec with Matchers {
 

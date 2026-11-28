@@ -14,7 +14,8 @@ class ValidatorSpec extends AnyFlatSpec with Matchers {
   "WorkerStatusUpdateRequestValidator" should "accept Paused status" in runIO {
     val request = WorkerStatusUpdateRequest(WorkerStatus.Paused)
 
-    WorkerStatusUpdateRequest.workerStatusUpdateRequestValidator[IO]
+    WorkerStatusUpdateRequest
+      .workerStatusUpdateRequestValidator[IO]
       .validate(request)
       .map { result =>
         result mustBe request
@@ -24,7 +25,8 @@ class ValidatorSpec extends AnyFlatSpec with Matchers {
   it should "accept Available status" in runIO {
     val request = WorkerStatusUpdateRequest(WorkerStatus.Available)
 
-    WorkerStatusUpdateRequest.workerStatusUpdateRequestValidator[IO]
+    WorkerStatusUpdateRequest
+      .workerStatusUpdateRequestValidator[IO]
       .validate(request)
       .map { result =>
         result mustBe request
@@ -34,7 +36,8 @@ class ValidatorSpec extends AnyFlatSpec with Matchers {
   it should "reject Active status" in {
     val request = WorkerStatusUpdateRequest(WorkerStatus.Active)
 
-    val result = WorkerStatusUpdateRequest.workerStatusUpdateRequestValidator[IO]
+    val result = WorkerStatusUpdateRequest
+      .workerStatusUpdateRequestValidator[IO]
       .validate(request)
       .attempt
       .unsafeRunSync()
@@ -47,7 +50,8 @@ class ValidatorSpec extends AnyFlatSpec with Matchers {
   it should "reject Reserved status" in {
     val request = WorkerStatusUpdateRequest(WorkerStatus.Reserved)
 
-    val result = WorkerStatusUpdateRequest.workerStatusUpdateRequestValidator[IO]
+    val result = WorkerStatusUpdateRequest
+      .workerStatusUpdateRequestValidator[IO]
       .validate(request)
       .attempt
       .unsafeRunSync()
@@ -59,7 +63,8 @@ class ValidatorSpec extends AnyFlatSpec with Matchers {
   it should "reject Deleted status" in {
     val request = WorkerStatusUpdateRequest(WorkerStatus.Deleted)
 
-    val result = WorkerStatusUpdateRequest.workerStatusUpdateRequestValidator[IO]
+    val result = WorkerStatusUpdateRequest
+      .workerStatusUpdateRequestValidator[IO]
       .validate(request)
       .attempt
       .unsafeRunSync()
@@ -71,7 +76,8 @@ class ValidatorSpec extends AnyFlatSpec with Matchers {
   "UpdateScheduledVideoRequestValidator" should "accept Queued status" in runIO {
     val request = UpdateScheduledVideoRequest(SchedulingStatus.Queued)
 
-    UpdateScheduledVideoRequest.updateScheduledVideoRequestValidator[IO]
+    UpdateScheduledVideoRequest
+      .updateScheduledVideoRequestValidator[IO]
       .validate(request)
       .map { result =>
         result mustBe request
@@ -81,7 +87,8 @@ class ValidatorSpec extends AnyFlatSpec with Matchers {
   it should "accept Paused status" in runIO {
     val request = UpdateScheduledVideoRequest(SchedulingStatus.Paused)
 
-    UpdateScheduledVideoRequest.updateScheduledVideoRequestValidator[IO]
+    UpdateScheduledVideoRequest
+      .updateScheduledVideoRequestValidator[IO]
       .validate(request)
       .map { result =>
         result mustBe request
@@ -91,7 +98,8 @@ class ValidatorSpec extends AnyFlatSpec with Matchers {
   it should "reject Active status" in {
     val request = UpdateScheduledVideoRequest(SchedulingStatus.Active)
 
-    val result = UpdateScheduledVideoRequest.updateScheduledVideoRequestValidator[IO]
+    val result = UpdateScheduledVideoRequest
+      .updateScheduledVideoRequestValidator[IO]
       .validate(request)
       .attempt
       .unsafeRunSync()
@@ -104,7 +112,8 @@ class ValidatorSpec extends AnyFlatSpec with Matchers {
   it should "reject Completed status" in {
     val request = UpdateScheduledVideoRequest(SchedulingStatus.Completed)
 
-    val result = UpdateScheduledVideoRequest.updateScheduledVideoRequestValidator[IO]
+    val result = UpdateScheduledVideoRequest
+      .updateScheduledVideoRequestValidator[IO]
       .validate(request)
       .attempt
       .unsafeRunSync()
@@ -116,7 +125,8 @@ class ValidatorSpec extends AnyFlatSpec with Matchers {
   it should "reject Downloaded status" in {
     val request = UpdateScheduledVideoRequest(SchedulingStatus.Downloaded)
 
-    val result = UpdateScheduledVideoRequest.updateScheduledVideoRequestValidator[IO]
+    val result = UpdateScheduledVideoRequest
+      .updateScheduledVideoRequestValidator[IO]
       .validate(request)
       .attempt
       .unsafeRunSync()
@@ -128,7 +138,8 @@ class ValidatorSpec extends AnyFlatSpec with Matchers {
   it should "reject Error status" in {
     val request = UpdateScheduledVideoRequest(SchedulingStatus.Error)
 
-    val result = UpdateScheduledVideoRequest.updateScheduledVideoRequestValidator[IO]
+    val result = UpdateScheduledVideoRequest
+      .updateScheduledVideoRequestValidator[IO]
       .validate(request)
       .attempt
       .unsafeRunSync()
@@ -140,7 +151,8 @@ class ValidatorSpec extends AnyFlatSpec with Matchers {
   "noValidator" should "accept any value" in runIO {
     val anyValue = "test value"
 
-    Validator.noValidator[IO]
+    Validator
+      .noValidator[IO]
       .validate(anyValue)
       .map { result =>
         result mustBe anyValue
@@ -151,7 +163,8 @@ class ValidatorSpec extends AnyFlatSpec with Matchers {
     case class TestClass(value: Int)
     val testInstance = TestClass(42)
 
-    Validator.noValidator[IO]
+    Validator
+      .noValidator[IO]
       .validate(testInstance)
       .map { result =>
         result mustBe testInstance

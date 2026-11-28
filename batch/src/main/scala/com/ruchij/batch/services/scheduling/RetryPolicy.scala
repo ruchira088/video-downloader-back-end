@@ -7,11 +7,12 @@ import scala.concurrent.duration.FiniteDuration
 
 final case class RetryPolicy(configuration: RetryConfiguration) {
 
-  /**
-    * The delay before retrying a failed download, or None to give up and leave it in Error.
+  /** The delay before retrying a failed download, or None to give up and leave it in Error.
     *
-    * @param attempt how many failures of this download have already been retried (its current retryCount)
-    * @param jitter  a uniform random value in [0, 1), drawn by the caller so this function stays deterministic
+    * @param attempt
+    *   how many failures of this download have already been retried (its current retryCount)
+    * @param jitter
+    *   a uniform random value in [0, 1), drawn by the caller so this function stays deterministic
     */
   def nextDelay(attempt: Int, jitter: Double): Option[FiniteDuration] =
     if (attempt < 0 || attempt >= configuration.maxAttempts) None

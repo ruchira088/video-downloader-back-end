@@ -11,7 +11,8 @@ import pureconfig.ConfigSource
 
 class MigrationAppSpec extends AnyFlatSpec with Matchers {
   "migration" should "run without any errors" in {
-    MigrationApp.migration[IO](MigrationServiceConfiguration(DatabaseConfig, AdminConfig))
+    MigrationApp
+      .migration[IO](MigrationServiceConfiguration(DatabaseConfig, AdminConfig))
       .flatMap { migrationResult =>
         IO.delay { migrationResult.success mustBe true }
       }
@@ -26,7 +27,8 @@ class MigrationAppSpec extends AnyFlatSpec with Matchers {
     )
     val config = MigrationServiceConfiguration(freshDbConfig, AdminConfig)
 
-    MigrationApp.migration[IO](config)
+    MigrationApp
+      .migration[IO](config)
       .flatMap { migrationResult =>
         IO.delay {
           migrationResult.success mustBe true
@@ -49,13 +51,15 @@ class MigrationAppSpec extends AnyFlatSpec with Matchers {
       secondRun <- MigrationApp.migration[IO](config)
     } yield (firstRun, secondRun)
 
-    result.flatMap { case (first, second) =>
-      IO.delay {
-        first.success mustBe true
-        second.success mustBe true
-        second.migrationsExecuted mustBe 0  // No new migrations on second run
+    result
+      .flatMap { case (first, second) =>
+        IO.delay {
+          first.success mustBe true
+          second.success mustBe true
+          second.migrationsExecuted mustBe 0 // No new migrations on second run
+        }
       }
-    }.unsafeRunSync()
+      .unsafeRunSync()
   }
 }
 
@@ -135,7 +139,8 @@ class MigrationServiceConfigurationSpec extends AnyFlatSpec with Matchers {
 }
 
 object MigrationAppSpec {
-  val HashedAdminPassword = "$2a$10$m5CQAirrrJKRqG3oalNSU.TUOn56v88isxMbNPi8cXXI35gY20hO." // The password is "top-secret"
+  val HashedAdminPassword =
+    "$2a$10$m5CQAirrrJKRqG3oalNSU.TUOn56v88isxMbNPi8cXXI35gY20hO." // The password is "top-secret"
 
   val AdminConfig: AdminConfiguration = AdminConfiguration(HashedAdminPassword)
 

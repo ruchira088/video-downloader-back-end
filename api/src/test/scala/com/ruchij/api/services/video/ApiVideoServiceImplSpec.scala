@@ -50,24 +50,13 @@ import scala.language.postfixOps
 class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   import ApiVideoServiceImplSpec.VideoSearchCall
 
-
   private val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 30)
 
-  private val sampleFileResource = FileResource(
-    "file-resource-1",
-    timestamp,
-    "/videos/video1.mp4",
-    MediaType.video.mp4,
-    1000000L
-  )
+  private val sampleFileResource =
+    FileResource("file-resource-1", timestamp, "/videos/video1.mp4", MediaType.video.mp4, 1000000L)
 
-  private val sampleThumbnail = FileResource(
-    "thumbnail-1",
-    timestamp,
-    "/thumbnails/thumb1.jpg",
-    MediaType.image.jpeg,
-    5000L
-  )
+  private val sampleThumbnail =
+    FileResource("thumbnail-1", timestamp, "/thumbnails/thumb1.jpg", MediaType.image.jpeg, 5000L)
 
   private val sampleVideoMetadata = VideoMetadata(
     uri"https://example.com/video1",
@@ -79,12 +68,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     sampleThumbnail
   )
 
-  private val sampleVideo = Video(
-    sampleVideoMetadata,
-    sampleFileResource,
-    timestamp,
-    5 minutes
-  )
+  private val sampleVideo = Video(sampleVideoMetadata, sampleFileResource, timestamp, 5 minutes)
 
   private val sampleSnapshot = Snapshot(
     "video-1",
@@ -114,7 +98,8 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   private def createStubVideoService(
-    findVideoByIdResult: (String, Option[String]) => IO[Video] = (_, _) => IO.raiseError(new RuntimeException("Not implemented")),
+    findVideoByIdResult: (String, Option[String]) => IO[Video] = (_, _) =>
+      IO.raiseError(new RuntimeException("Not implemented")),
     deleteByIdResult: (String, Boolean) => IO[Video] = (_, _) => IO.raiseError(new RuntimeException("Not implemented")),
     queueIncorrectlyCompletedResult: IO[Seq[Video]] = IO.pure(Seq.empty)
   ): VideoService[IO, IO] = new VideoService[IO, IO] {
@@ -125,7 +110,6 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     override val queueIncorrectlyCompletedVideos: IO[Seq[Video]] = queueIncorrectlyCompletedResult
   }
 
-
   private def createStubVideoDao(
     searchResult: Seq[Video] = Seq.empty,
     searchCalls: mutable.ListBuffer[VideoSearchCall] = mutable.ListBuffer.empty,
@@ -135,12 +119,40 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     sitesResult: Set[VideoSite] = Set.empty,
     siteSummariesResult: Seq[VideoSiteSummary] = Seq.empty
   ): VideoDao[IO] = new VideoDao[IO] {
-    override def insert(videoMetadataId: String, videoFileResourceId: String, timestamp: Instant, watchTime: FiniteDuration): IO[Int] = IO.pure(1)
-    override def search(term: Option[String], videoUrls: Option[NonEmptyList[Uri]], durationRange: RangeValue[FiniteDuration], sizeRange: RangeValue[Long], pageNumber: Int, pageSize: Int, sortBy: SortBy, order: Order, videoSites: Option[NonEmptyList[VideoSite]], maybeUserId: Option[String]): IO[Seq[Video]] =
+    override def insert(
+      videoMetadataId: String,
+      videoFileResourceId: String,
+      timestamp: Instant,
+      watchTime: FiniteDuration
+    ): IO[Int] = IO.pure(1)
+    override def search(
+      term: Option[String],
+      videoUrls: Option[NonEmptyList[Uri]],
+      durationRange: RangeValue[FiniteDuration],
+      sizeRange: RangeValue[Long],
+      pageNumber: Int,
+      pageSize: Int,
+      sortBy: SortBy,
+      order: Order,
+      videoSites: Option[NonEmptyList[VideoSite]],
+      maybeUserId: Option[String]
+    ): IO[Seq[Video]] =
       IO.delay {
-        searchCalls += VideoSearchCall(term, videoUrls, durationRange, sizeRange, pageNumber, pageSize, sortBy, order, videoSites, maybeUserId)
+        searchCalls += VideoSearchCall(
+          term,
+          videoUrls,
+          durationRange,
+          sizeRange,
+          pageNumber,
+          pageSize,
+          sortBy,
+          order,
+          videoSites,
+          maybeUserId
+        )
       }.as(searchResult)
-    override def incrementWatchTime(videoId: String, finiteDuration: FiniteDuration): IO[Option[FiniteDuration]] = IO.pure(None)
+    override def incrementWatchTime(videoId: String, finiteDuration: FiniteDuration): IO[Option[FiniteDuration]] =
+      IO.pure(None)
     override def findById(videoId: String, maybeUserId: Option[String]): IO[Option[Video]] = IO.pure(None)
     override def findByIds(videoIds: NonEmptyList[String]): IO[Seq[Video]] = IO.pure(Seq.empty)
     override def findByVideoFileResourceId(fileResourceId: String): IO[Option[Video]] = IO.pure(None)
@@ -156,51 +168,51 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     override val siteSummaries: IO[Seq[VideoSiteSummary]] = IO.pure(siteSummariesResult)
   }
 
-  private def createStubVideoMetadataDao(
-    updateResult: Int = 1
-  ): VideoMetadataDao[IO] = new VideoMetadataDao[IO] {
+  private def createStubVideoMetadataDao(updateResult: Int = 1): VideoMetadataDao[IO] = new VideoMetadataDao[IO] {
     override def insert(videoMetadata: VideoMetadata): IO[Int] = IO.pure(1)
-    override def update(videoMetadataId: String, title: Option[String], size: Option[Long], maybeDuration: Option[FiniteDuration]): IO[Int] = IO.pure(updateResult)
+    override def update(
+      videoMetadataId: String,
+      title: Option[String],
+      size: Option[Long],
+      maybeDuration: Option[FiniteDuration]
+    ): IO[Int] = IO.pure(updateResult)
     override def findById(videoMetadataId: String): IO[Option[VideoMetadata]] = IO.pure(None)
     override def isThumbnailFileResource(thumbnailId: String): IO[Boolean] = IO.pure(false)
     override def findByUrl(uri: Uri): IO[Option[VideoMetadata]] = IO.pure(None)
     override def deleteById(videoMetadataId: String): IO[Int] = IO.pure(1)
   }
 
-  private def createStubSnapshotDao(
-    findByVideoResult: Seq[Snapshot] = Seq.empty
-  ): SnapshotDao[IO] = new SnapshotDao[IO] {
-    override def insert(snapshot: Snapshot): IO[Int] = IO.pure(1)
-    override def findByVideo(videoId: String, maybeUserId: Option[String]): IO[Seq[Snapshot]] = IO.pure(findByVideoResult)
-    override def hasPermission(snapshotFileResourceId: String, userId: String): IO[Boolean] = IO.pure(true)
-    override def isSnapshotFileResource(fileResourceId: String): IO[Boolean] = IO.pure(false)
-    override def deleteByVideo(videoId: String): IO[Int] = IO.pure(1)
-  }
+  private def createStubSnapshotDao(findByVideoResult: Seq[Snapshot] = Seq.empty): SnapshotDao[IO] =
+    new SnapshotDao[IO] {
+      override def insert(snapshot: Snapshot): IO[Int] = IO.pure(1)
+      override def findByVideo(videoId: String, maybeUserId: Option[String]): IO[Seq[Snapshot]] =
+        IO.pure(findByVideoResult)
+      override def hasPermission(snapshotFileResourceId: String, userId: String): IO[Boolean] = IO.pure(true)
+      override def isSnapshotFileResource(fileResourceId: String): IO[Boolean] = IO.pure(false)
+      override def deleteByVideo(videoId: String): IO[Int] = IO.pure(1)
+    }
 
-  private def createStubVideoTitleDao(
-    updateResult: Int = 1,
-    deleteResult: Int = 1
-  ): VideoTitleDao[IO] = new VideoTitleDao[IO] {
-    override def insert(videoTitle: VideoTitle): IO[Int] = IO.pure(1)
-    override def find(videoId: String, userId: String): IO[Option[VideoTitle]] = IO.pure(None)
-    override def update(videoId: String, userId: String, title: String): IO[Int] = IO.pure(updateResult)
-    override def delete(maybeVideoId: Option[String], maybeUserId: Option[String]): IO[Int] = IO.pure(deleteResult)
-  }
+  private def createStubVideoTitleDao(updateResult: Int = 1, deleteResult: Int = 1): VideoTitleDao[IO] =
+    new VideoTitleDao[IO] {
+      override def insert(videoTitle: VideoTitle): IO[Int] = IO.pure(1)
+      override def find(videoId: String, userId: String): IO[Option[VideoTitle]] = IO.pure(None)
+      override def update(videoId: String, userId: String, title: String): IO[Int] = IO.pure(updateResult)
+      override def delete(maybeVideoId: Option[String], maybeUserId: Option[String]): IO[Int] = IO.pure(deleteResult)
+    }
 
-  private def createStubVideoPermissionDao(
-    deleteResult: Int = 1
-  ): VideoPermissionDao[IO] = new VideoPermissionDao[IO] {
+  private def createStubVideoPermissionDao(deleteResult: Int = 1): VideoPermissionDao[IO] = new VideoPermissionDao[IO] {
     override def insert(videoPermission: VideoPermission): IO[Int] = IO.pure(1)
-    override def find(userId: Option[String], scheduledVideoId: Option[String]): IO[Seq[VideoPermission]] = IO.pure(Seq.empty)
-    override def delete(maybeUserId: Option[String], maybeScheduledVideoId: Option[String]): IO[Int] = IO.pure(deleteResult)
+    override def find(userId: Option[String], scheduledVideoId: Option[String]): IO[Seq[VideoPermission]] =
+      IO.pure(Seq.empty)
+    override def delete(maybeUserId: Option[String], maybeScheduledVideoId: Option[String]): IO[Int] =
+      IO.pure(deleteResult)
   }
 
-  private def createStubPublisher(
-    publishOneResult: IO[Unit] = IO.unit
-  ): Publisher[IO, ScanVideosCommand] = new Publisher[IO, ScanVideosCommand] {
-    override val publish: Pipe[IO, ScanVideosCommand, Unit] = _.evalMap(_ => publishOneResult)
-    override def publishOne(input: ScanVideosCommand): IO[Unit] = publishOneResult
-  }
+  private def createStubPublisher(publishOneResult: IO[Unit] = IO.unit): Publisher[IO, ScanVideosCommand] =
+    new Publisher[IO, ScanVideosCommand] {
+      override val publish: Pipe[IO, ScanVideosCommand, Unit] = _.evalMap(_ => publishOneResult)
+      override def publishOne(input: ScanVideosCommand): IO[Unit] = publishOneResult
+    }
 
   private val stubDuplicateDetectionService: ApiDuplicateDetectionService[IO] = new ApiDuplicateDetectionService[IO] {
     override def findDuplicateVideos(offset: Int, limit: Int): IO[Map[String, Set[DuplicateVideo]]] = IO.pure(Map.empty)
@@ -270,12 +282,10 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
 
-    val videoService = createStubVideoService(
-      findVideoByIdResult = (id, userId) => {
-        if (id == "video-1" && userId.isEmpty) IO.pure(sampleVideo)
-        else IO.raiseError(new RuntimeException("Video not found"))
-      }
-    )
+    val videoService = createStubVideoService(findVideoByIdResult = (id, userId) => {
+      if (id == "video-1" && userId.isEmpty) IO.pure(sampleVideo)
+      else IO.raiseError(new RuntimeException("Video not found"))
+    })
 
     val apiVideoService = createService(
       videoService,
@@ -297,12 +307,10 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
 
-    val videoService = createStubVideoService(
-      findVideoByIdResult = (id, userId) => {
-        if (id == "video-1" && userId.contains("user-1")) IO.pure(sampleVideo)
-        else IO.raiseError(new RuntimeException("Video not found"))
-      }
-    )
+    val videoService = createStubVideoService(findVideoByIdResult = (id, userId) => {
+      if (id == "video-1" && userId.contains("user-1")) IO.pure(sampleVideo)
+      else IO.raiseError(new RuntimeException("Video not found"))
+    })
 
     val apiVideoService = createService(
       videoService,
@@ -364,20 +372,16 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
 
-    val updatedVideo = sampleVideo.copy(
-      videoMetadata = sampleVideoMetadata.copy(title = "Updated Title")
-    )
+    val updatedVideo = sampleVideo.copy(videoMetadata = sampleVideoMetadata.copy(title = "Updated Title"))
 
     var callCount = 0
-    val videoService = createStubVideoService(
-      findVideoByIdResult = (id, userId) => {
-        callCount += 1
-        if (id == "video-1" && userId.isEmpty) {
-          if (callCount == 1) IO.pure(sampleVideo)
-          else IO.pure(updatedVideo)
-        } else IO.raiseError(new RuntimeException("Video not found"))
-      }
-    )
+    val videoService = createStubVideoService(findVideoByIdResult = (id, userId) => {
+      callCount += 1
+      if (id == "video-1" && userId.isEmpty) {
+        if (callCount == 1) IO.pure(sampleVideo)
+        else IO.pure(updatedVideo)
+      } else IO.raiseError(new RuntimeException("Video not found"))
+    })
 
     val apiVideoService = createService(
       videoService,
@@ -399,20 +403,16 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
 
-    val updatedVideo = sampleVideo.copy(
-      videoMetadata = sampleVideoMetadata.copy(title = "User Updated Title")
-    )
+    val updatedVideo = sampleVideo.copy(videoMetadata = sampleVideoMetadata.copy(title = "User Updated Title"))
 
     var callCount = 0
-    val videoService = createStubVideoService(
-      findVideoByIdResult = (id, userId) => {
-        callCount += 1
-        if (id == "video-1" && userId.contains("user-1")) {
-          if (callCount == 1) IO.pure(sampleVideo)
-          else IO.pure(updatedVideo)
-        } else IO.raiseError(new RuntimeException("Video not found"))
-      }
-    )
+    val videoService = createStubVideoService(findVideoByIdResult = (id, userId) => {
+      callCount += 1
+      if (id == "video-1" && userId.contains("user-1")) {
+        if (callCount == 1) IO.pure(sampleVideo)
+        else IO.pure(updatedVideo)
+      } else IO.raiseError(new RuntimeException("Video not found"))
+    })
 
     val apiVideoService = createService(
       videoService,
@@ -434,12 +434,10 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
 
-    val videoService = createStubVideoService(
-      deleteByIdResult = (id, deleteFile) => {
-        if (id == "video-1" && deleteFile) IO.pure(sampleVideo)
-        else IO.raiseError(new RuntimeException("Delete failed"))
-      }
-    )
+    val videoService = createStubVideoService(deleteByIdResult = (id, deleteFile) => {
+      if (id == "video-1" && deleteFile) IO.pure(sampleVideo)
+      else IO.raiseError(new RuntimeException("Delete failed"))
+    })
 
     val apiVideoService = createService(
       videoService,
@@ -461,12 +459,10 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
 
-    val videoService = createStubVideoService(
-      findVideoByIdResult = (id, userId) => {
-        if (id == "video-1" && userId.contains("user-1")) IO.pure(sampleVideo)
-        else IO.raiseError(new RuntimeException("Video not found"))
-      }
-    )
+    val videoService = createStubVideoService(findVideoByIdResult = (id, userId) => {
+      if (id == "video-1" && userId.contains("user-1")) IO.pure(sampleVideo)
+      else IO.raiseError(new RuntimeException("Video not found"))
+    })
 
     val apiVideoService = createService(
       videoService,
@@ -532,12 +528,10 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
 
-    val videoService = createStubVideoService(
-      deleteByIdResult = (id, deleteFile) => {
-        if (id == "video-1" && !deleteFile) IO.pure(sampleVideo)
-        else IO.raiseError(new RuntimeException("Delete failed"))
-      }
-    )
+    val videoService = createStubVideoService(deleteByIdResult = (id, deleteFile) => {
+      if (id == "video-1" && !deleteFile) IO.pure(sampleVideo)
+      else IO.raiseError(new RuntimeException("Delete failed"))
+    })
 
     val apiVideoService = createService(
       videoService,
@@ -697,23 +691,36 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
       createStubVideoPermissionDao()
     )
 
-    apiVideoService.search(
-      Some("test"),
-      None,
-      RangeValue.all[FiniteDuration],
-      RangeValue.all[Long],
-      0,
-      10,
-      SortBy.Date,
-      Order.Descending,
-      None,
-      None
-    ).map { result =>
-      result mustBe Seq(sampleVideo)
-      searchCalls.toList mustBe List(
-        VideoSearchCall(Some("test"), None, RangeValue.all[FiniteDuration], RangeValue.all[Long], 0, 10, SortBy.Date, Order.Descending, None, None)
+    apiVideoService
+      .search(
+        Some("test"),
+        None,
+        RangeValue.all[FiniteDuration],
+        RangeValue.all[Long],
+        0,
+        10,
+        SortBy.Date,
+        Order.Descending,
+        None,
+        None
       )
-    }
+      .map { result =>
+        result mustBe Seq(sampleVideo)
+        searchCalls.toList mustBe List(
+          VideoSearchCall(
+            Some("test"),
+            None,
+            RangeValue.all[FiniteDuration],
+            RangeValue.all[Long],
+            0,
+            10,
+            SortBy.Date,
+            Order.Descending,
+            None,
+            None
+          )
+        )
+      }
   }
 
   it should "search videos with video URLs" in runIO {
@@ -732,24 +739,37 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
       createStubVideoPermissionDao()
     )
 
-    apiVideoService.search(
-      None,
-      // YouTube URLs are reduced to their "v" parameter; other URLs are passed through unchanged
-      Some(NonEmptyList.of(uri"https://www.youtube.com/watch?v=abc123&list=PL123", uri"https://example.com/video1")),
-      RangeValue.all[FiniteDuration],
-      RangeValue.all[Long],
-      0,
-      10,
-      SortBy.Date,
-      Order.Descending,
-      None,
-      Some("user-1")
-    ).map { result =>
-      result mustBe Seq(sampleVideo)
-      searchCalls.toList mustBe List(
-        VideoSearchCall(None, Some(NonEmptyList.of(uri"https://www.youtube.com/watch?v=abc123", uri"https://example.com/video1")), RangeValue.all[FiniteDuration], RangeValue.all[Long], 0, 10, SortBy.Date, Order.Descending, None, Some("user-1"))
+    apiVideoService
+      .search(
+        None,
+        // YouTube URLs are reduced to their "v" parameter; other URLs are passed through unchanged
+        Some(NonEmptyList.of(uri"https://www.youtube.com/watch?v=abc123&list=PL123", uri"https://example.com/video1")),
+        RangeValue.all[FiniteDuration],
+        RangeValue.all[Long],
+        0,
+        10,
+        SortBy.Date,
+        Order.Descending,
+        None,
+        Some("user-1")
       )
-    }
+      .map { result =>
+        result mustBe Seq(sampleVideo)
+        searchCalls.toList mustBe List(
+          VideoSearchCall(
+            None,
+            Some(NonEmptyList.of(uri"https://www.youtube.com/watch?v=abc123", uri"https://example.com/video1")),
+            RangeValue.all[FiniteDuration],
+            RangeValue.all[Long],
+            0,
+            10,
+            SortBy.Date,
+            Order.Descending,
+            None,
+            Some("user-1")
+          )
+        )
+      }
   }
 
   it should "search videos with site filter" in runIO {
@@ -768,23 +788,36 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
       createStubVideoPermissionDao()
     )
 
-    apiVideoService.search(
-      None,
-      None,
-      RangeValue.all[FiniteDuration],
-      RangeValue.all[Long],
-      0,
-      20,
-      SortBy.Title,
-      Order.Ascending,
-      Some(NonEmptyList.of(CustomVideoSite.SpankBang)),
-      None
-    ).map { result =>
-      result mustBe Seq(sampleVideo)
-      searchCalls.toList mustBe List(
-        VideoSearchCall(None, None, RangeValue.all[FiniteDuration], RangeValue.all[Long], 0, 20, SortBy.Title, Order.Ascending, Some(NonEmptyList.of(CustomVideoSite.SpankBang)), None)
+    apiVideoService
+      .search(
+        None,
+        None,
+        RangeValue.all[FiniteDuration],
+        RangeValue.all[Long],
+        0,
+        20,
+        SortBy.Title,
+        Order.Ascending,
+        Some(NonEmptyList.of(CustomVideoSite.SpankBang)),
+        None
       )
-    }
+      .map { result =>
+        result mustBe Seq(sampleVideo)
+        searchCalls.toList mustBe List(
+          VideoSearchCall(
+            None,
+            None,
+            RangeValue.all[FiniteDuration],
+            RangeValue.all[Long],
+            0,
+            20,
+            SortBy.Title,
+            Order.Ascending,
+            Some(NonEmptyList.of(CustomVideoSite.SpankBang)),
+            None
+          )
+        )
+      }
   }
 
   it should "search videos with duration and size ranges" in runIO {
@@ -803,23 +836,36 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
       createStubVideoPermissionDao()
     )
 
-    apiVideoService.search(
-      Some("search term"),
-      None,
-      RangeValue(Some(5 minutes), Some(30 minutes)),
-      RangeValue(Some(100000L), Some(10000000L)),
-      1,
-      15,
-      SortBy.Size,
-      Order.Descending,
-      None,
-      None
-    ).map { result =>
-      result mustBe Seq(sampleVideo)
-      searchCalls.toList mustBe List(
-        VideoSearchCall(Some("search term"), None, RangeValue(Some(5 minutes), Some(30 minutes)), RangeValue(Some(100000L), Some(10000000L)), 1, 15, SortBy.Size, Order.Descending, None, None)
+    apiVideoService
+      .search(
+        Some("search term"),
+        None,
+        RangeValue(Some(5 minutes), Some(30 minutes)),
+        RangeValue(Some(100000L), Some(10000000L)),
+        1,
+        15,
+        SortBy.Size,
+        Order.Descending,
+        None,
+        None
       )
-    }
+      .map { result =>
+        result mustBe Seq(sampleVideo)
+        searchCalls.toList mustBe List(
+          VideoSearchCall(
+            Some("search term"),
+            None,
+            RangeValue(Some(5 minutes), Some(30 minutes)),
+            RangeValue(Some(100000L), Some(10000000L)),
+            1,
+            15,
+            SortBy.Size,
+            Order.Descending,
+            None,
+            None
+          )
+        )
+      }
   }
 
   "summary" should "return video service summary" in runIO {
@@ -1013,9 +1059,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
 
-    val videoService = createStubVideoService(
-      queueIncorrectlyCompletedResult = IO.pure(Seq(sampleVideo))
-    )
+    val videoService = createStubVideoService(queueIncorrectlyCompletedResult = IO.pure(Seq(sampleVideo)))
 
     val apiVideoService = createService(
       videoService,

@@ -42,11 +42,7 @@ class YTDataUnitSpec extends AnyFlatSpec with Matchers {
   }
 
   "values" should "contain all YTDataUnit types" in {
-    YTDataUnit.values must contain allOf (
-      YTDataUnit.KiB,
-      YTDataUnit.MiB,
-      YTDataUnit.GiB
-    )
+    YTDataUnit.values must contain allOf (YTDataUnit.KiB, YTDataUnit.MiB, YTDataUnit.GiB)
     YTDataUnit.values.size mustBe 3
   }
 

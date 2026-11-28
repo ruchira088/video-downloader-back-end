@@ -12,7 +12,10 @@ import com.ruchij.api.external.ApiResourcesProvider
 import com.ruchij.api.external.containers.ContainerApiResourcesProvider
 import com.ruchij.api.services.authentication.AuthenticationService.{Password, Secret}
 import com.ruchij.api.services.authentication.models.AuthenticationToken
-import com.ruchij.api.services.authentication.models.AuthenticationToken.{AuthenticationKeySpace, AuthenticationTokenKey}
+import com.ruchij.api.services.authentication.models.AuthenticationToken.{
+  AuthenticationKeySpace,
+  AuthenticationTokenKey
+}
 import com.ruchij.api.services.fallback.FallbackSyncRequester
 import com.ruchij.api.services.hashing.{BCryptPasswordHashingService, PasswordHashingService}
 import com.ruchij.api.services.user.{UserService, UserServiceImpl}
@@ -92,13 +95,7 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
     }
 
   def runTestWithFixtures(
-    testCase: (
-      RandomGenerator[IO, Secret],
-      Clock[IO],
-      UserService[IO],
-      AuthenticationService[IO],
-      Fixtures
-    ) => IO[Unit]
+    testCase: (RandomGenerator[IO, Secret], Clock[IO], UserService[IO], AuthenticationService[IO], Fixtures) => IO[Unit]
   ): Unit =
     runIO {
       val apiResourcesProvider: ApiResourcesProvider[IO] = new ContainerApiResourcesProvider[IO]
@@ -121,7 +118,9 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
 
               val passwordHashingService = new PasswordHashingService[IO] {
                 override def checkPassword(password: Password, hashedPassword: HashedPassword): IO[Boolean] =
-                  passwordCheckHook.getAndSet(IO.unit).flatten
+                  passwordCheckHook
+                    .getAndSet(IO.unit)
+                    .flatten
                     .productR(bCryptPasswordHashingService.checkPassword(password, hashedPassword))
 
                 override def hashPassword(password: Password): IO[HashedPassword] =
@@ -189,7 +188,10 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
         }
 
         _ <- IO.delay {
-          (() => clock.timestamp).expects().returns(IO.pure(timestamp.plus(java.time.Duration.ofSeconds(10)))).anyNumberOfTimes()
+          (() => clock.timestamp)
+            .expects()
+            .returns(IO.pure(timestamp.plus(java.time.Duration.ofSeconds(10))))
+            .anyNumberOfTimes()
         }
 
         (authenticationTokenTwo, authUser) <- authenticationService.authenticate(secret)
@@ -265,10 +267,14 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
 
         _ <- authenticationService.login(email, password)
 
-        _ <- IO.delay { (() => clock.timestamp).expects().returns(IO.pure(timestamp.plus(java.time.Duration.ofSeconds(15)))) }
+        _ <- IO.delay {
+          (() => clock.timestamp).expects().returns(IO.pure(timestamp.plus(java.time.Duration.ofSeconds(15))))
+        }
         _ <- authenticationService.authenticate(secret)
 
-        _ <- IO.delay { (() => clock.timestamp).expects().returns(IO.pure(timestamp.plus(java.time.Duration.ofSeconds(60)))) }
+        _ <- IO.delay {
+          (() => clock.timestamp).expects().returns(IO.pure(timestamp.plus(java.time.Duration.ofSeconds(60))))
+        }
         tokenExpiredException <- authenticationService.authenticate(secret).error
 
         _ <- IO.delay {
@@ -299,7 +305,9 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
         _ <- authenticationService.login(email, password)
 
         // Logout with expired token - timestamp is way past expiration
-        _ <- IO.delay { (() => clock.timestamp).expects().returns(IO.pure(timestamp.plus(java.time.Duration.ofMinutes(30)))) }
+        _ <- IO.delay {
+          (() => clock.timestamp).expects().returns(IO.pure(timestamp.plus(java.time.Duration.ofMinutes(30))))
+        }
         logoutException <- authenticationService.logout(secret).error
 
         _ <- IO.delay {
@@ -326,7 +334,9 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
         _ <- authenticationService.login(email, password)
 
         // Logout with valid (non-expired) token
-        _ <- IO.delay { (() => clock.timestamp).expects().returns(IO.pure(timestamp.plus(java.time.Duration.ofSeconds(5)))) }
+        _ <- IO.delay {
+          (() => clock.timestamp).expects().returns(IO.pure(timestamp.plus(java.time.Duration.ofSeconds(5))))
+        }
         loggedOutUser <- authenticationService.logout(secret)
 
         _ <- IO.delay {
@@ -612,10 +622,12 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
 }
 
 object AuthenticationServiceImplSpec {
-  /**
-    * @param passwordCheckHook runs once, the next time a password is checked, which lets a test interleave other
-    *                          operations between login reading the credentials and verifying the password
-    * @param keyValueStore the raw store backing the authentication tokens
+
+  /** @param passwordCheckHook
+    *   runs once, the next time a password is checked, which lets a test interleave other operations between login
+    *   reading the credentials and verifying the password
+    * @param keyValueStore
+    *   the raw store backing the authentication tokens
     */
   final case class Fixtures(passwordCheckHook: Ref[IO, IO[Unit]], keyValueStore: KeyValueStore[IO])
 

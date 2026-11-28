@@ -18,10 +18,9 @@ object FileAsset {
 
   implicit def fileAssetDecoder[F[_]: Async]: EntityDecoder[F, FileAsset[F]] = decoder[F](MaxRequestBodySize)
 
-  /**
-    * http4s' default multipart decoder buffers every part in memory, so the size of the body is limited before it is
-    * decoded: a body with a Content-Length over maxBodySize is rejected without being read, and any other body fails
-    * as soon as more than maxBodySize bytes of it have been read.
+  /** http4s' default multipart decoder buffers every part in memory, so the size of the body is limited before it is
+    * decoded: a body with a Content-Length over maxBodySize is rejected without being read, and any other body fails as
+    * soon as more than maxBodySize bytes of it have been read.
     */
   def decoder[F[_]: Async](maxBodySize: Long): EntityDecoder[F, FileAsset[F]] = {
     val multipartDecoder: EntityDecoder[F, FileAsset[F]] = fromMultipart[F]

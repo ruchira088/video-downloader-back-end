@@ -19,7 +19,9 @@ object DatabaseDriver extends Enum[DatabaseDriver[?]] {
       .find { driver => connectionUrl.startsWith(s"jdbc:${driver.entryName.toLowerCase}") }
       .toRight {
         new IllegalArgumentException(
-          s"""Unable to infer database driver from $connectionUrl. Supported protocols: [${DatabaseDriver.values.map(_.entryName).mkString(", ")}]"""
+          s"""Unable to infer database driver from $connectionUrl. Supported protocols: [${DatabaseDriver.values
+              .map(_.entryName)
+              .mkString(", ")}]"""
         )
       }
 

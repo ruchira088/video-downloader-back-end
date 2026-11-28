@@ -148,9 +148,8 @@ class HealthServiceImpl[F[_]: Async: AppClock: RandomGenerator.Of[UUID]](
       }
       .map(bytes => new String(bytes.toArray))
       .product(OptionT.liftF(repositoryService.delete(fileKey)))
-      .map {
-        case (data, deleted) =>
-          if (deleted && data.equalsIgnoreCase(BuildInfo.toString)) HealthStatus.Healthy else HealthStatus.Unhealthy
+      .map { case (data, deleted) =>
+        if (deleted && data.equalsIgnoreCase(BuildInfo.toString)) HealthStatus.Healthy else HealthStatus.Unhealthy
       }
       .getOrElse(HealthStatus.Unhealthy)
 
@@ -158,9 +157,8 @@ class HealthServiceImpl[F[_]: Async: AppClock: RandomGenerator.Of[UUID]](
     Concurrent[F]
       .race(serviceHealthCheck, timeout)
       .map(_.merge)
-      .recoverWith {
-        case throwable =>
-          logger.error[F]("Health check error", throwable).as(HealthStatus.Unhealthy)
+      .recoverWith { case throwable =>
+        logger.error[F]("Health check error", throwable).as(HealthStatus.Unhealthy)
       }
 
   private def runHealthCheck(serviceHealthCheck: F[HealthStatus]): F[HealthStatusDetails] =

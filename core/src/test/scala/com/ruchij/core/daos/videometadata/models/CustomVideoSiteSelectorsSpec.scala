@@ -15,12 +15,11 @@ import scala.concurrent.duration.DurationInt
 import scala.io.Source
 import scala.util.Using
 
-/**
-  * Exercises the JSoup selectors of every [[CustomVideoSite]] against recorded HTML fixtures.
+/** Exercises the JSoup selectors of every [[CustomVideoSite]] against recorded HTML fixtures.
   *
-  * The selectors are the part of the scraping layer that breaks whenever a site changes its markup,
-  * and they were previously only covered by the live-network tests in `VideoAnalysisServiceImplSpec`
-  * (all of which are `ignore`d). Fixtures keep that coverage deterministic and offline.
+  * The selectors are the part of the scraping layer that breaks whenever a site changes its markup, and they were
+  * previously only covered by the live-network tests in `VideoAnalysisServiceImplSpec` (all of which are `ignore`d).
+  * Fixtures keep that coverage deterministic and offline.
   */
 class CustomVideoSiteSelectorsSpec extends AnyFlatSpec with Matchers {
 

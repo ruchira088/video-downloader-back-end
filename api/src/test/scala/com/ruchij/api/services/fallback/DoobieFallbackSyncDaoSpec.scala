@@ -51,8 +51,8 @@ class DoobieFallbackSyncDaoSpec extends AnyFlatSpec with Matchers {
       // or duplicating rows across pages.
       val videos = (1 to 5).toList.map { index =>
         val video = scheduledVideoDownload(s"video-$index")
-        video.copy(
-          videoMetadata = video.videoMetadata.copy(
+        video.copy(videoMetadata =
+          video.videoMetadata.copy(
             url = Uri.unsafeFromString(s"https://example.com/video-$index"),
             thumbnail = video.videoMetadata.thumbnail.copy(path = s"/opt/thumbnail-$index.jpg")
           )
@@ -91,9 +91,9 @@ class DoobieFallbackSyncDaoSpec extends AnyFlatSpec with Matchers {
 
   /** `setSessionTimeZone` moves the session away from UTC before reading, so a decoding that shifts the timestamp by
     * the session's or the JVM's offset is caught even on a machine running in UTC, where both offsets are zero and
-    * comparing with the JVM clock alone could not tell. */
-  private def checkCurrentTimestamp(setSessionTimeZone: ConnectionIO[Unit])(transaction: ConnectionIO ~> IO)
-    : IO[Unit] =
+    * comparing with the JVM clock alone could not tell.
+    */
+  private def checkCurrentTimestamp(setSessionTimeZone: ConnectionIO[Unit])(transaction: ConnectionIO ~> IO): IO[Unit] =
     for {
       before <- IO.realTimeInstant
       (first, second, epoch) <- transaction {
@@ -133,12 +133,13 @@ class DoobieFallbackSyncDaoSpec extends AnyFlatSpec with Matchers {
   private val videoCount: ConnectionIO[Int] = sql"SELECT COUNT(*) FROM scheduled_video".query[Int].unique
 
   /** A video committed by another transaction between the timestamp and the rest of the read must stay invisible to
-    * that read, or the read could carry data newer than its timestamp. */
+    * that read, or the read could carry data newer than its timestamp.
+    */
   private def checkTimestampedReadSeesOneSnapshot(transaction: ConnectionIO ~> IO): IO[Unit] = {
     val video = {
       val base = scheduledVideoDownload("video-committed-mid-read")
-      base.copy(
-        videoMetadata = base.videoMetadata.copy(
+      base.copy(videoMetadata =
+        base.videoMetadata.copy(
           url = Uri.unsafeFromString("https://example.com/video-committed-mid-read"),
           thumbnail = base.videoMetadata.thumbnail.copy(path = "/opt/thumbnail-committed-mid-read.jpg")
         )

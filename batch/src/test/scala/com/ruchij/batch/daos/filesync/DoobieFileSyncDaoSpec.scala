@@ -12,17 +12,13 @@ import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-
 class H2DoobieFileSyncDaoSpec extends DoobieFileSyncDaoSpec with H2TestDatabase
 
 class PostgresDoobieFileSyncDaoSpec extends DoobieFileSyncDaoSpec with PostgresTestDatabase
 
 abstract class DoobieFileSyncDaoSpec extends AnyFlatSpec with Matchers with OptionValues with TestDatabase {
 
-  case class TestFixture(
-    transaction: ConnectionIO ~> IO,
-    timestamp: Instant
-  )
+  case class TestFixture(transaction: ConnectionIO ~> IO, timestamp: Instant)
 
   def runTest(testFn: TestFixture => IO[Unit]): Unit =
     runIO {
@@ -176,7 +172,9 @@ abstract class DoobieFileSyncDaoSpec extends AnyFlatSpec with Matchers with Opti
 
     for {
       _ <- fixture.transaction(DoobieFileSyncDao.insert(fileSync))
-      _ <- fixture.transaction(DoobieFileSyncDao.complete(path, fixture.timestamp.plusMillis(java.time.Duration.ofMinutes(5).toMillis)))
+      _ <- fixture.transaction(
+        DoobieFileSyncDao.complete(path, fixture.timestamp.plusMillis(java.time.Duration.ofMinutes(5).toMillis))
+      )
 
       maybeDeletedFileSync <- fixture.transaction(DoobieFileSyncDao.deleteByPath(path))
       _ <- IO.delay {
@@ -230,7 +228,9 @@ abstract class DoobieFileSyncDaoSpec extends AnyFlatSpec with Matchers with Opti
       _ <- fixture.transaction(DoobieFileSyncDao.insert(FileSync(fixture.timestamp, path2, None)))
       _ <- fixture.transaction(DoobieFileSyncDao.insert(FileSync(fixture.timestamp, path3, None)))
 
-      _ <- fixture.transaction(DoobieFileSyncDao.complete(path1, fixture.timestamp.plusMillis(java.time.Duration.ofMinutes(5).toMillis)))
+      _ <- fixture.transaction(
+        DoobieFileSyncDao.complete(path1, fixture.timestamp.plusMillis(java.time.Duration.ofMinutes(5).toMillis))
+      )
       _ <- fixture.transaction(DoobieFileSyncDao.deleteByPath(path2))
 
       maybeFile1 <- fixture.transaction(DoobieFileSyncDao.findByPath(path1))

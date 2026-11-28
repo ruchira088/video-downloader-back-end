@@ -62,7 +62,9 @@ class UserServiceImpl[F[_]: RandomGenerator.Of[UUID]: Sync: Clock, G[_]: MonadTh
 
       _ <-
         transaction {
-          userDao.insert(user).one
+          userDao
+            .insert(user)
+            .one
             .productL(credentialsDao.insert(credentials).one)
         }.adaptError {
           // A concurrent sign-up with the same email can pass the check above, leaving the unique index to catch it
@@ -88,11 +90,11 @@ class UserServiceImpl[F[_]: RandomGenerator.Of[UUID]: Sync: Clock, G[_]: MonadTh
             credentialsResetTokenDao.insert(resetToken).as(resetToken)
           }
       }
-    }
-    yield credentialsResetToken
+    } yield credentialsResetToken
 
   override def resetPassword(userId: String, resetToken: String, password: Password): F[User] =
-    Clock[F].timestamp.product(passwordHashingService.hashPassword(password))
+    Clock[F].timestamp
+      .product(passwordHashingService.hashPassword(password))
       .flatMap { case (timestamp, hashedPassword) =>
         transaction {
           OptionT(credentialsResetTokenDao.find(userId, resetToken))
@@ -112,7 +114,7 @@ class UserServiceImpl[F[_]: RandomGenerator.Of[UUID]: Sync: Clock, G[_]: MonadTh
               }
             }
         }
-    }
+      }
 
   override def delete(userId: String, adminUser: User): F[User] =
     if (adminUser.role != Role.Admin)
@@ -152,8 +154,7 @@ class UserServiceImpl[F[_]: RandomGenerator.Of[UUID]: Sync: Clock, G[_]: MonadTh
           .as(user)
       }
 
-  /**
-    * The admin rows are locked, so concurrent deletes of different admins run one after the other and the later one
+  /** The admin rows are locked, so concurrent deletes of different admins run one after the other and the later one
     * sees the earlier one's delete, rather than each leaving the other as the last admin.
     */
   private def ensureAnotherAdminRemains(adminId: String): G[Unit] =
@@ -182,6 +183,7 @@ class UserServiceImpl[F[_]: RandomGenerator.Of[UUID]: Sync: Clock, G[_]: MonadTh
 }
 
 object UserServiceImpl {
+
   /** The SQLSTATE that both PostgreSQL and H2 report for a unique constraint violation */
   val UniqueViolationSqlState = "23505"
 }

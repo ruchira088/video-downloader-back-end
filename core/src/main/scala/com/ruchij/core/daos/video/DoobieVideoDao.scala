@@ -24,10 +24,9 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
   private def titleField(maybeUserId: Option[String]): Fragment =
     if (maybeUserId.nonEmpty) fr"COALESCE(video_title.title, video_metadata.title)" else fr"video_metadata.title"
 
-  /**
-    * When a user ID is given, the query is restricted to videos the user has permission to view and the user's own
-    * title (if any) replaces the metadata title. The title join is a LEFT JOIN so that a permission without a
-    * matching `video_title` row still returns the video.
+  /** When a user ID is given, the query is restricted to videos the user has permission to view and the user's own
+    * title (if any) replaces the metadata title. The title join is a LEFT JOIN so that a permission without a matching
+    * `video_title` row still returns the video.
     */
   private def selectQuery(maybeUserId: Option[String]): Fragment =
     fr"""
@@ -53,13 +52,13 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
       INNER JOIN file_resource AS video_file ON video.file_resource_id = video_file.id
       INNER JOIN video_watch_time ON video.video_metadata_id = video_watch_time.video_id
     """ ++ maybeUserId.fold(Fragment.empty) { userId =>
-      fr"""
+        fr"""
         INNER JOIN permission
           ON permission.video_id = video.video_metadata_id AND permission.user_id = $userId
         LEFT JOIN video_title
           ON video_title.video_id = video.video_metadata_id AND video_title.user_id = $userId
       """
-    }
+      }
 
   override def insert(
     videoMetadataId: String,
@@ -70,19 +69,16 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
     sql"""
         INSERT INTO video (video_metadata_id, file_resource_id, created_at)
             VALUES ($videoMetadataId, $videoFileResourceId, $timestamp)
-    """.update.run.flatMap {
-      result =>
+    """.update.run
+      .flatMap { result =>
         sql"""
          INSERT INTO video_watch_time (video_id, watch_time_in_ms)
             VALUES ($videoMetadataId, $finiteDuration)
-           """
-          .update
-          .run.map(_ + result)
-    }
+           """.update.run.map(_ + result)
+      }
       .productL(restorePlaylistMemberships(videoMetadataId))
 
-  /**
-    * Puts a re-downloaded video back into the playlists it was in, at its old position unless that position has been
+  /** Puts a re-downloaded video back into the playlists it was in, at its old position unless that position has been
     * taken in the meantime, in which case it goes to the end of the playlist.
     */
   private def restorePlaylistMemberships(videoId: String): ConnectionIO[Int] =
@@ -144,12 +140,12 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
           sizeRange.max.map(maximum => fr"video_metadata.size <= $maximum"),
           videoSites.map(sites => in(fr"video_metadata.video_site", sites))
         )
-      ++ fr"ORDER BY"
-      ++ videoSortByFieldName(maybeUserId)(sortBy)
-      ++ ordering(order)
-      ++ fr", video.video_metadata_id"
-      ++ ordering(order)
-      ++ fr"LIMIT $pageSize OFFSET ${pageSize * pageNumber}")
+        ++ fr"ORDER BY"
+        ++ videoSortByFieldName(maybeUserId)(sortBy)
+        ++ ordering(order)
+        ++ fr", video.video_metadata_id"
+        ++ ordering(order)
+        ++ fr"LIMIT $pageSize OFFSET ${pageSize * pageNumber}")
       .query[Video]
       .to[Seq]
 
@@ -210,8 +206,8 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
 
   // Deleting the video row cascades to its playlist_video rows
   private def deleteVideo(videoId: String): ConnectionIO[Int] =
-    sql"DELETE FROM video_watch_time WHERE video_id = $videoId".update.run.flatMap {
-      count => sql"DELETE FROM video WHERE video_metadata_id = $videoId".update.run.map(_ + count)
+    sql"DELETE FROM video_watch_time WHERE video_id = $videoId".update.run.flatMap { count =>
+      sql"DELETE FROM video WHERE video_metadata_id = $videoId".update.run.map(_ + count)
     }
 
   override def hasVideoFilePermission(videoFileResourceId: String, userId: String): ConnectionIO[Boolean] =
@@ -260,8 +256,7 @@ object DoobieVideoDao extends VideoDao[ConnectionIO] {
       .query[VideoSite]
       .to[Set]
 
-  /**
-    * SUM over a BIGINT column is NUMERIC in PostgreSQL, so each sum is cast back to BIGINT. The watch time join is a
+  /** SUM over a BIGINT column is NUMERIC in PostgreSQL, so each sum is cast back to BIGINT. The watch time join is a
     * LEFT JOIN so that a video without a `video_watch_time` row counts as zero rather than being dropped.
     */
   override val siteSummaries: ConnectionIO[Seq[VideoSiteSummary]] =

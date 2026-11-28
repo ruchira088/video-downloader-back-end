@@ -72,7 +72,14 @@ class SchedulingUpdatesRoutesSpec extends AnyFlatSpec with Matchers with MockedR
         .expects(testSecret)
         .returns {
           IO.pure {
-            AuthenticationToken(user.id, testSecret, testTimestamp.plusSeconds(3600), testTimestamp, 0, testTimestamp) ->
+            AuthenticationToken(
+              user.id,
+              testSecret,
+              testTimestamp.plusSeconds(3600),
+              testTimestamp,
+              0,
+              testTimestamp
+            ) ->
               user
           }
         }
@@ -92,8 +99,7 @@ class SchedulingUpdatesRoutesSpec extends AnyFlatSpec with Matchers with MockedR
   private def receivedEvents(expected: Int): IO[List[(Option[String], Option[String])]] =
     receivedEventsWithStatus(expected).map(_.map { case (eventType, videoId, _) => eventType -> videoId })
 
-  /**
-    * Reads events until the expected number has arrived, however long that takes on a slow machine, and then for
+  /** Reads events until the expected number has arrived, however long that takes on a slow machine, and then for
     * another second, so that an unexpected extra event shows up in the count. The heart-beats never end the stream.
     */
   private def receivedEventsWithStatus(expected: Int): IO[List[(Option[String], Option[String], Option[String])]] =

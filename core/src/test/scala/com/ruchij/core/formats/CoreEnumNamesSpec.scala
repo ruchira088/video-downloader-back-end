@@ -56,18 +56,7 @@ object CoreEnumNamesSpec {
       EnumNames(
         "CustomVideoSite",
         CustomVideoSite.values.toList,
-        List(
-          "FreshPorno",
-          "PornOne",
-          "SpankBang",
-          "XFreeHD",
-          "SxyPrn",
-          "TXXX",
-          "UPornia",
-          "HClips",
-          "HotMovs",
-          "HdZog"
-        )
+        List("FreshPorno", "PornOne", "SpankBang", "XFreeHD", "SxyPrn", "TXXX", "UPornia", "HClips", "HotMovs", "HdZog")
       )(_.entryName, CustomVideoSite.withNameInsensitiveOption),
       EnumNames("DatabaseDriver", DatabaseDriver.values.toList, List("PostgreSQL", "H2"))(
         _.entryName,

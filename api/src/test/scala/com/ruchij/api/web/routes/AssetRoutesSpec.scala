@@ -29,57 +29,25 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   private val testTimestamp = TimeUtils.instantOf(2022, 8, 1, 10, 10)
   private val expiresAt = testTimestamp.plus(java.time.Duration.ofDays(45))
   private val testSecret = Secret("test-secret-uuid")
-  private val normalUserToken = AuthenticationToken(
-    ApiTestData.NormalUser.id,
-    testSecret,
-    expiresAt,
-    testTimestamp,
-    0,
-    testTimestamp
-  )
+  private val normalUserToken =
+    AuthenticationToken(ApiTestData.NormalUser.id, testSecret, expiresAt, testTimestamp, 0, testTimestamp)
 
-  private val testThumbnail = FileResource(
-    "thumbnail-123",
-    testTimestamp,
-    "/path/to/thumbnail.jpg",
-    MediaType.image.jpeg,
-    10096
-  )
+  private val testThumbnail =
+    FileResource("thumbnail-123", testTimestamp, "/path/to/thumbnail.jpg", MediaType.image.jpeg, 10096)
 
-  private val testSnapshot = FileResource(
-    "snapshot-123",
-    testTimestamp,
-    "/path/to/snapshot.png",
-    MediaType.image.png,
-    50000
-  )
+  private val testSnapshot =
+    FileResource("snapshot-123", testTimestamp, "/path/to/snapshot.png", MediaType.image.png, 50000)
 
-  private val testVideoFile = FileResource(
-    "video-123",
-    testTimestamp,
-    "/path/to/video.mp4",
-    MediaType.video.mp4,
-    5000000
-  )
+  private val testVideoFile =
+    FileResource("video-123", testTimestamp, "/path/to/video.mp4", MediaType.video.mp4, 5000000)
 
-  private val testAlbumArt = FileResource(
-    "album-art-123",
-    testTimestamp,
-    "/path/to/album-art.jpg",
-    MediaType.image.jpeg,
-    25000
-  )
+  private val testAlbumArt =
+    FileResource("album-art-123", testTimestamp, "/path/to/album-art.jpg", MediaType.image.jpeg, 25000)
 
-  private def authHeaders = org.http4s.Headers(
-    Authorization(Credentials.Token(AuthScheme.Bearer, testSecret.value))
-  )
+  private def authHeaders = org.http4s.Headers(Authorization(Credentials.Token(AuthScheme.Bearer, testSecret.value)))
 
   private def createAsset[A <: AssetType](fileResource: FileResource): Asset[IO, A] = {
-    Asset[IO, A](
-      fileResource,
-      Stream.emits[IO, Byte]("test data".getBytes.toSeq),
-      FileRange(0, fileResource.size)
-    )
+    Asset[IO, A](fileResource, Stream.emits[IO, Byte]("test data".getBytes.toSeq), FileRange(0, fileResource.size))
   }
 
   "GET /asset/thumbnail/id/:id" should "return a thumbnail image" in runIO {
@@ -93,13 +61,7 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/assets/thumbnail/id/thumbnail-123",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/assets/thumbnail/id/thumbnail-123", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.Ok)
@@ -119,13 +81,7 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/assets/thumbnail/id/nonexistent-thumbnail",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/assets/thumbnail/id/nonexistent-thumbnail", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.NotFound)
@@ -144,13 +100,7 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/assets/snapshot/id/snapshot-123",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/assets/snapshot/id/snapshot-123", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.Ok)
@@ -162,12 +112,7 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   it should "return unauthorized when not authenticated" in runIO {
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/assets/snapshot/id/snapshot-123"
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/assets/snapshot/id/snapshot-123"))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.Unauthorized)
@@ -186,13 +131,7 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/assets/video/id/video-123",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/assets/video/id/video-123", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.Ok)
@@ -304,12 +243,7 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   it should "return unauthorized when not authenticated" in runIO {
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/assets/video/id/video-123"
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/assets/video/id/video-123"))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.Unauthorized)
@@ -328,13 +262,7 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/assets/video/id/nonexistent-video",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/assets/video/id/nonexistent-video", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.NotFound)
@@ -353,13 +281,7 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/assets/album-art/id/album-art-123",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/assets/album-art/id/album-art-123", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.Ok)
@@ -379,13 +301,7 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/assets/album-art/id/nonexistent-art",
-            headers = authHeaders
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/assets/album-art/id/nonexistent-art", headers = authHeaders))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.NotFound)
@@ -396,12 +312,7 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   it should "return unauthorized when not authenticated" in runIO {
     ignoreHttpMetrics() *>
       createRoutes()
-        .run(
-          Request[IO](
-            method = GET,
-            uri = uri"/assets/album-art/id/album-art-123"
-          )
-        )
+        .run(Request[IO](method = GET, uri = uri"/assets/album-art/id/album-art-123"))
         .flatMap { response =>
           IO.delay {
             response must haveStatus(Status.Unauthorized)

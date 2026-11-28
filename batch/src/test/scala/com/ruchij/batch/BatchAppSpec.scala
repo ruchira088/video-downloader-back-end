@@ -22,7 +22,8 @@ import org.scalatest.matchers.must.Matchers
 import java.time.LocalTime
 import scala.concurrent.duration._
 
-/** Boots the batch worker against an in-memory database and a Redis container to guard the wiring in BatchApp.program. */
+/** Boots the batch worker against an in-memory database and a Redis container to guard the wiring in BatchApp.program.
+  */
 class BatchAppSpec extends AnyFlatSpec with Matchers {
 
   "BatchApp.program" should "initialise the workers and run the scheduler loop" in runIO {
@@ -54,17 +55,16 @@ class BatchAppSpec extends AnyFlatSpec with Matchers {
         transactor <- DoobieTransactor.create[IO](databaseConfiguration)
       } yield (scheduler, transactor)
 
-    resources.use {
-      case (scheduler, transactor) =>
-        for {
-          _ <- scheduler.init
-          // Let the polling loops run a few times to prove the wiring holds together
-          _ <- scheduler.run.interruptAfter(3.seconds).compile.drain
-          workers <- transactor.trans.apply(new DoobieWorkerDao(DoobieSchedulingDao).all)
-        } yield {
-          workers.map(_.id).sorted mustBe Seq("worker-00", "worker-01")
-          workers.map(_.status).toSet mustBe Set(WorkerStatus.Available)
-        }
+    resources.use { case (scheduler, transactor) =>
+      for {
+        _ <- scheduler.init
+        // Let the polling loops run a few times to prove the wiring holds together
+        _ <- scheduler.run.interruptAfter(3.seconds).compile.drain
+        workers <- transactor.trans.apply(new DoobieWorkerDao(DoobieSchedulingDao).all)
+      } yield {
+        workers.map(_.id).sorted mustBe Seq("worker-00", "worker-01")
+        workers.map(_.status).toSet mustBe Set(WorkerStatus.Available)
+      }
     }
   }
 }

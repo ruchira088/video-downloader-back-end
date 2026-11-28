@@ -23,8 +23,9 @@ class FallbackSyncRequesterSpec extends AnyFlatSpec with Matchers {
       override def publishOne(input: FallbackSyncRequest): IO[Unit] = send(input)
     }
 
-  /** An fs2-kafka-style producer stuck on metadata: the send is masked (uncancelable), so a plain
-    * `Async[F].timeout` cannot return until the send itself finishes. */
+  /** An fs2-kafka-style producer stuck on metadata: the send is masked (uncancelable), so a plain `Async[F].timeout`
+    * cannot return until the send itself finishes.
+    */
   private def uncancelableHangingPublisher(sleep: FiniteDuration): Publisher[IO, FallbackSyncRequest] =
     publisherOf(_ => IO.uncancelable(_ => IO.sleep(sleep)))
 
@@ -70,8 +71,8 @@ class FallbackSyncRequesterSpec extends AnyFlatSpec with Matchers {
     val test = requester(uncancelableHangingPublisher(1.minute)).request("video-1").timed
 
     runIO {
-      TestControl.executeEmbed(test).map {
-        case (duration, _) => duration mustBe 500.millis
+      TestControl.executeEmbed(test).map { case (duration, _) =>
+        duration mustBe 500.millis
       }
     }
   }
@@ -89,10 +90,9 @@ class FallbackSyncRequesterSpec extends AnyFlatSpec with Matchers {
       } yield (duration, attempted)
 
     runIO {
-      TestControl.executeEmbed(test).map {
-        case (duration, attempted) =>
-          duration mustBe Duration.Zero
-          attempted mustBe 2
+      TestControl.executeEmbed(test).map { case (duration, attempted) =>
+        duration mustBe Duration.Zero
+        attempted mustBe 2
       }
     }
   }
@@ -135,12 +135,11 @@ class FallbackSyncRequesterSpec extends AnyFlatSpec with Matchers {
       } yield (whileRunning, afterwards, finalCount, published)
 
     runIO {
-      TestControl.executeEmbed(test).map {
-        case (whileRunning, afterwards, finalCount, published) =>
-          whileRunning mustBe 1
-          afterwards mustBe 0
-          finalCount mustBe 0
-          published mustBe List(FallbackSyncRequest("video-1"), FallbackSyncRequest("video-2"))
+      TestControl.executeEmbed(test).map { case (whileRunning, afterwards, finalCount, published) =>
+        whileRunning mustBe 1
+        afterwards mustBe 0
+        finalCount mustBe 0
+        published mustBe List(FallbackSyncRequest("video-1"), FallbackSyncRequest("video-2"))
       }
     }
   }
@@ -226,11 +225,10 @@ class FallbackSyncRequesterSpec extends AnyFlatSpec with Matchers {
       } yield (maxConcurrent, completedRuns)
 
     runIO {
-      TestControl.executeEmbed(test).map {
-        case (maxConcurrent, completedRuns) =>
-          maxConcurrent mustBe 1
-          // One run for the first drop, plus one more covering every drop made while it ran
-          completedRuns mustBe 2
+      TestControl.executeEmbed(test).map { case (maxConcurrent, completedRuns) =>
+        maxConcurrent mustBe 1
+        // One run for the first drop, plus one more covering every drop made while it ran
+        completedRuns mustBe 2
       }
     }
   }
@@ -315,10 +313,9 @@ class FallbackSyncRequesterSpec extends AnyFlatSpec with Matchers {
         published <- recorded.get
       } yield (result, published)
 
-    TestControl.executeEmbed(test).map {
-      case (result, published) =>
-        result mustBe Right(())
-        published mustBe List("b", "c")
+    TestControl.executeEmbed(test).map { case (result, published) =>
+      result mustBe Right(())
+      published mustBe List("b", "c")
     }
   }
 
@@ -363,11 +360,10 @@ class FallbackSyncRequesterSpec extends AnyFlatSpec with Matchers {
       } yield (duration, ids, flagged)
 
     runIO {
-      TestControl.executeEmbed(test).map {
-        case (duration, ids, flagged) =>
-          duration mustBe Duration.Zero
-          ids mustBe List("a", "b")
-          flagged must be >= 1
+      TestControl.executeEmbed(test).map { case (duration, ids, flagged) =>
+        duration mustBe Duration.Zero
+        ids mustBe List("a", "b")
+        flagged must be >= 1
       }
     }
   }
@@ -379,8 +375,8 @@ class FallbackSyncRequesterSpec extends AnyFlatSpec with Matchers {
         .timed
 
     runIO {
-      TestControl.executeEmbed(test).map {
-        case (duration, _) => duration mustBe 500.millis
+      TestControl.executeEmbed(test).map { case (duration, _) =>
+        duration mustBe 500.millis
       }
     }
   }

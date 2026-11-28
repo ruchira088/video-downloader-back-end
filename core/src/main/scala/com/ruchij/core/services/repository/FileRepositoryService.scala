@@ -40,7 +40,12 @@ class FileRepositoryService[F[_]: Async: Files](fileTypeDetector: FileTypeDetect
               Sync[F].delay(
                 Some(
                   Files[F]
-                    .readRange(path, FileRepositoryService.CHUNK_SIZE, start.getOrElse(0L), end.getOrElse(Long.MaxValue))
+                    .readRange(
+                      path,
+                      FileRepositoryService.CHUNK_SIZE,
+                      start.getOrElse(0L),
+                      end.getOrElse(Long.MaxValue)
+                    )
                 )
               )
             else
@@ -53,8 +58,9 @@ class FileRepositoryService[F[_]: Async: Files](fileTypeDetector: FileTypeDetect
       path <- backedType(key)
       fileExists <- Files[F].exists(path)
 
-      bytes <- if (fileExists) Files[F].size(path).map[Option[Long]](Some.apply)
-      else Applicative[F].pure[Option[Long]](None)
+      bytes <-
+        if (fileExists) Files[F].size(path).map[Option[Long]](Some.apply)
+        else Applicative[F].pure[Option[Long]](None)
     } yield bytes
 
   override def exists(key: Key): F[Boolean] =

@@ -36,13 +36,8 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
 
   private val storageConfiguration = StorageConfiguration("videos", "images", List.empty)
 
-  private val sampleThumbnail = FileResource(
-    "thumbnail-1",
-    timestamp,
-    "/thumbnails/thumb1.jpg",
-    MediaType.image.jpeg,
-    50000L
-  )
+  private val sampleThumbnail =
+    FileResource("thumbnail-1", timestamp, "/thumbnails/thumb1.jpg", MediaType.image.jpeg, 50000L)
 
   private val sampleVideoMetadata = VideoMetadata(
     uri"https://example.com/video1",
@@ -54,38 +49,16 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
     sampleThumbnail
   )
 
-  private val sampleVideoFileResource = FileResource(
-    "file-resource-1",
-    timestamp,
-    "/videos/video1.mp4",
-    MediaType.video.mp4,
-    1024 * 1024 * 100L
-  )
+  private val sampleVideoFileResource =
+    FileResource("file-resource-1", timestamp, "/videos/video1.mp4", MediaType.video.mp4, 1024 * 1024 * 100L)
 
-  private val sampleVideo = Video(
-    sampleVideoMetadata,
-    sampleVideoFileResource,
-    timestamp,
-    5.minutes
-  )
+  private val sampleVideo = Video(sampleVideoMetadata, sampleVideoFileResource, timestamp, 5.minutes)
 
-  private val sampleAlbumArt = FileResource(
-    "album-art-1",
-    timestamp,
-    "/images/album-art.jpg",
-    MediaType.image.jpeg,
-    50000L
-  )
+  private val sampleAlbumArt =
+    FileResource("album-art-1", timestamp, "/images/album-art.jpg", MediaType.image.jpeg, 50000L)
 
-  private val samplePlaylist = Playlist(
-    "playlist-1",
-    "user-1",
-    timestamp,
-    "My Playlist",
-    Some("A test playlist"),
-    Seq(sampleVideo),
-    None
-  )
+  private val samplePlaylist =
+    Playlist("playlist-1", "user-1", timestamp, "My Playlist", Some("A test playlist"), Seq(sampleVideo), None)
 
   def stubUuidGenerator(uuid: UUID): RandomGenerator[IO, UUID] =
     new RandomGenerator[IO, UUID] {
@@ -129,9 +102,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
     override def deleteById(id: String, maybeUserId: Option[String]): IO[Int] = IO.pure(deleteResult)
   }
 
-  class StubFileResourceDao(
-    insertResult: Int = 1
-  ) extends FileResourceDao[IO] {
+  class StubFileResourceDao(insertResult: Int = 1) extends FileResourceDao[IO] {
     override def insert(resource: FileResource): IO[Int] = IO.pure(insertResult)
     override def update(id: String, size: Long): IO[Int] = IO.pure(1)
     override def getById(id: String): IO[Option[FileResource]] = IO.pure(None)
@@ -139,10 +110,8 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
     override def deleteById(id: String): IO[Int] = IO.pure(1)
   }
 
-  class StubRepositoryService(
-    writeResult: Boolean = true,
-    sizeResult: Option[Long] = Some(50000L)
-  ) extends RepositoryService[IO] {
+  class StubRepositoryService(writeResult: Boolean = true, sizeResult: Option[Long] = Some(50000L))
+      extends RepositoryService[IO] {
     override type BackedType = String
     val writtenKeys: mutable.ListBuffer[String] = mutable.ListBuffer.empty
 
@@ -170,12 +139,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
     fileResourceDao: FileResourceDao[IO] = new StubFileResourceDao(),
     repositoryService: RepositoryService[IO] = new StubRepositoryService()
   )(implicit clock: Clock[IO], randomGenerator: RandomGenerator[IO, UUID]): PlaylistServiceImpl[IO, IO] = {
-    new PlaylistServiceImpl[IO, IO](
-      playlistDao,
-      fileResourceDao,
-      repositoryService,
-      storageConfiguration
-    )
+    new PlaylistServiceImpl[IO, IO](playlistDao, fileResourceDao, repositoryService, storageConfiguration)
   }
 
   // create tests
@@ -232,9 +196,8 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
     val updatedPlaylist = samplePlaylist.copy(description = Some("New Description"))
-    val playlistDao = new StubPlaylistDao(
-      findByIdResult = (id, _) => if (id == "playlist-1") Some(updatedPlaylist) else None
-    )
+    val playlistDao =
+      new StubPlaylistDao(findByIdResult = (id, _) => if (id == "playlist-1") Some(updatedPlaylist) else None)
 
     val service = createService(playlistDao = playlistDao)
 
@@ -249,9 +212,8 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
 
     val video2 = sampleVideo.copy(videoMetadata = sampleVideoMetadata.copy(id = "video-2"))
     val updatedPlaylist = samplePlaylist.copy(videos = Seq(sampleVideo, video2))
-    val playlistDao = new StubPlaylistDao(
-      findByIdResult = (id, _) => if (id == "playlist-1") Some(updatedPlaylist) else None
-    )
+    val playlistDao =
+      new StubPlaylistDao(findByIdResult = (id, _) => if (id == "playlist-1") Some(updatedPlaylist) else None)
 
     val service = createService(playlistDao = playlistDao)
 
@@ -264,9 +226,8 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
-    val playlistDao = new StubPlaylistDao(
-      findByIdResult = (id, userId) =>
-        if (id == "playlist-1" && userId.contains("user-1")) Some(samplePlaylist) else None
+    val playlistDao = new StubPlaylistDao(findByIdResult =
+      (id, userId) => if (id == "playlist-1" && userId.contains("user-1")) Some(samplePlaylist) else None
     )
 
     val service = createService(playlistDao = playlistDao)
@@ -294,9 +255,8 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
-    val playlistDao = new StubPlaylistDao(
-      findByIdResult = (id, _) => if (id == "playlist-1") Some(samplePlaylist) else None
-    )
+    val playlistDao =
+      new StubPlaylistDao(findByIdResult = (id, _) => if (id == "playlist-1") Some(samplePlaylist) else None)
 
     val service = createService(playlistDao = playlistDao)
 
@@ -309,9 +269,8 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
-    val playlistDao = new StubPlaylistDao(
-      findByIdResult = (id, userId) =>
-        if (id == "playlist-1" && userId.contains("user-1")) Some(samplePlaylist) else None
+    val playlistDao = new StubPlaylistDao(findByIdResult =
+      (id, userId) => if (id == "playlist-1" && userId.contains("user-1")) Some(samplePlaylist) else None
     )
 
     val service = createService(playlistDao = playlistDao)
@@ -385,10 +344,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
 
     val repositoryService = new StubRepositoryService(sizeResult = Some(50000L))
 
-    val service = createService(
-      playlistDao = playlistDao,
-      repositoryService = repositoryService
-    )
+    val service = createService(playlistDao = playlistDao, repositoryService = repositoryService)
 
     val imageData = Stream.emits[IO, Byte](Array[Byte](1, 2, 3))
 
@@ -401,16 +357,12 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
-    val playlistDao = new StubPlaylistDao(
-      findByIdResult = (id, _) => if (id == "playlist-1") Some(samplePlaylist) else None
-    )
+    val playlistDao =
+      new StubPlaylistDao(findByIdResult = (id, _) => if (id == "playlist-1") Some(samplePlaylist) else None)
 
     val repositoryService = new StubRepositoryService(sizeResult = None)
 
-    val service = createService(
-      playlistDao = playlistDao,
-      repositoryService = repositoryService
-    )
+    val service = createService(playlistDao = playlistDao, repositoryService = repositoryService)
 
     val imageData = Stream.emits[IO, Byte](Array[Byte](1, 2, 3))
 
@@ -424,17 +376,11 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
-    val playlistDao = new StubPlaylistDao(
-      findByIdResult = (_, _) => None,
-      updateResult = 0
-    )
+    val playlistDao = new StubPlaylistDao(findByIdResult = (_, _) => None, updateResult = 0)
 
     val repositoryService = new StubRepositoryService(sizeResult = Some(50000L))
 
-    val service = createService(
-      playlistDao = playlistDao,
-      repositoryService = repositoryService
-    )
+    val service = createService(playlistDao = playlistDao, repositoryService = repositoryService)
 
     val imageData = Stream.emits[IO, Byte](Array[Byte](1, 2, 3))
 
@@ -449,17 +395,14 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
 
     val playlistWithAlbumArt = samplePlaylist.copy(albumArt = Some(sampleAlbumArt))
     val playlistDao = new StubPlaylistDao(
-      findByIdResult = (id, userId) =>
-        if (id == "playlist-1" && userId.contains("user-1")) Some(playlistWithAlbumArt) else None,
+      findByIdResult =
+        (id, userId) => if (id == "playlist-1" && userId.contains("user-1")) Some(playlistWithAlbumArt) else None,
       updateResult = 1
     )
 
     val repositoryService = new StubRepositoryService(sizeResult = Some(50000L))
 
-    val service = createService(
-      playlistDao = playlistDao,
-      repositoryService = repositoryService
-    )
+    val service = createService(playlistDao = playlistDao, repositoryService = repositoryService)
 
     val imageData = Stream.emits[IO, Byte](Array[Byte](1, 2, 3))
 
@@ -492,8 +435,8 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
 
     val playlistWithoutAlbumArt = samplePlaylist.copy(albumArt = None)
     val playlistDao = new StubPlaylistDao(
-      findByIdResult = (id, userId) =>
-        if (id == "playlist-1" && userId.contains("user-1")) Some(playlistWithoutAlbumArt) else None,
+      findByIdResult =
+        (id, userId) => if (id == "playlist-1" && userId.contains("user-1")) Some(playlistWithoutAlbumArt) else None,
       updateResult = 1
     )
 
@@ -508,10 +451,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
-    val playlistDao = new StubPlaylistDao(
-      findByIdResult = (_, _) => None,
-      updateResult = 0
-    )
+    val playlistDao = new StubPlaylistDao(findByIdResult = (_, _) => None, updateResult = 0)
 
     val service = createService(playlistDao = playlistDao)
 
@@ -542,8 +482,8 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
     val playlistDao = new StubPlaylistDao(
-      findByIdResult = (id, userId) =>
-        if (id == "playlist-1" && userId.contains("user-1")) Some(samplePlaylist) else None,
+      findByIdResult =
+        (id, userId) => if (id == "playlist-1" && userId.contains("user-1")) Some(samplePlaylist) else None,
       deleteResult = 1
     )
 
@@ -571,9 +511,8 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     implicit val randomGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator(testUuid)
 
-    val playlistDao = new StubPlaylistDao(
-      findByIdResult = (id, userId) =>
-        if (id == "playlist-1" && userId.isEmpty) Some(samplePlaylist) else None
+    val playlistDao = new StubPlaylistDao(findByIdResult =
+      (id, userId) => if (id == "playlist-1" && userId.isEmpty) Some(samplePlaylist) else None
     )
 
     val service = createService(playlistDao = playlistDao)

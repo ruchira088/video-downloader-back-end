@@ -11,7 +11,7 @@ class NamedToStringSpec extends AnyFlatSpec with Matchers {
     val person = Person(Name("John", "Smith"), 25, Some(jane))
 
     val expectedString =
-    """Person (
+      """Person (
        |	name = Name (
        |		firstName = John,
        |		lastName = Smith

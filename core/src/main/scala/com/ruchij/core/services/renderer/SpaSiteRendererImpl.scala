@@ -24,28 +24,30 @@ class SpaSiteRendererImpl[F[_]: Async](client: Client[F], spaSiteRendererConfigu
   import clientDsl._
 
   override def render(uri: Uri, readyCssSelectors: Seq[String]): F[String] =
-    client.expect[String](
-      POST(
-        SpaRendererRequest(uri, readyCssSelectors),
-        spaSiteRendererConfiguration.uri.withPath(Path.Root / "render")
+    client
+      .expect[String](
+        POST(
+          SpaRendererRequest(uri, readyCssSelectors),
+          spaSiteRendererConfiguration.uri.withPath(Path.Root / "render")
+        )
       )
-    )
-      .recoverWith {
-        case exception =>
-          logger.warn[F](s"Unable to render uri=$uri")
-            .productR { ApplicativeError[F, Throwable].raiseError(exception) }
+      .recoverWith { case exception =>
+        logger
+          .warn[F](s"Unable to render uri=$uri")
+          .productR { ApplicativeError[F, Throwable].raiseError(exception) }
       }
 
   override def executeJavaScript(uri: Uri, readyCssSelectors: Seq[String], script: String): F[String] =
-    client.expect[String](
-      POST(
-        JavaScriptExecutionRequest(uri, readyCssSelectors, script),
-        spaSiteRendererConfiguration.uri.withPath(Path.Root / "render" / "execute")
+    client
+      .expect[String](
+        POST(
+          JavaScriptExecutionRequest(uri, readyCssSelectors, script),
+          spaSiteRendererConfiguration.uri.withPath(Path.Root / "render" / "execute")
+        )
       )
-    )
-      .recoverWith {
-        case exception =>
-          logger.warn[F](s"Unable to execute JS for uri=$uri script=$script")
-            .productR { ApplicativeError[F, Throwable].raiseError(exception) }
+      .recoverWith { case exception =>
+        logger
+          .warn[F](s"Unable to execute JS for uri=$uri script=$script")
+          .productR { ApplicativeError[F, Throwable].raiseError(exception) }
       }
 }

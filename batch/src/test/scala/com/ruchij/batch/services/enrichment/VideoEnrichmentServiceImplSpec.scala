@@ -91,12 +91,7 @@ class VideoEnrichmentServiceImplSpec extends AnyFlatSpec with Matchers {
     snapshotDao: SnapshotDao[IO] = new StubSnapshotDao(),
     fileResourceDao: FileResourceDao[IO] = new StubFileResourceDao()
   )(implicit uuidGenerator: RandomGenerator[IO, UUID]): VideoEnrichmentServiceImpl[IO, IO] = {
-    new VideoEnrichmentServiceImpl[IO, IO](
-      videoSnapshotService,
-      snapshotDao,
-      fileResourceDao,
-      storageConfiguration
-    )
+    new VideoEnrichmentServiceImpl[IO, IO](videoSnapshotService, snapshotDao, fileResourceDao, storageConfiguration)
   }
 
   "snapshotMediaType" should "return image/jpeg" in runIO {
@@ -192,17 +187,10 @@ class VideoEnrichmentServiceImplSpec extends AnyFlatSpec with Matchers {
   "snapshotFileResource" should "delegate to video snapshot service" in runIO {
     implicit val uuidGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator
 
-    val expectedResource = FileResource(
-      "test-resource",
-      timestamp,
-      "/images/snapshot.jpg",
-      MediaType.image.jpeg,
-      25000L
-    )
+    val expectedResource =
+      FileResource("test-resource", timestamp, "/images/snapshot.jpg", MediaType.image.jpeg, 25000L)
 
-    val snapshotService = new StubVideoSnapshotService(
-      result = (_, _, _) => expectedResource
-    )
+    val snapshotService = new StubVideoSnapshotService(result = (_, _, _) => expectedResource)
 
     val service = createService(snapshotService)
 
@@ -235,8 +223,8 @@ class VideoEnrichmentServiceImplSpec extends AnyFlatSpec with Matchers {
     val snapshotService = new StubVideoSnapshotService()
     val service = createService(snapshotService)
 
-    val shortVideo = CoreTestData.YouTubeVideo.copy(
-      videoMetadata = CoreTestData.YouTubeVideo.videoMetadata.copy(duration = 13.seconds)
+    val shortVideo = CoreTestData.YouTubeVideo.copy(videoMetadata =
+      CoreTestData.YouTubeVideo.videoMetadata.copy(duration = 13.seconds)
     )
 
     service.videoSnapshots(shortVideo).map { snapshots =>
@@ -254,9 +242,8 @@ class VideoEnrichmentServiceImplSpec extends AnyFlatSpec with Matchers {
     val snapshotService = new StubVideoSnapshotService()
     val service = createService(snapshotService)
 
-    val longVideo = CoreTestData.YouTubeVideo.copy(
-      videoMetadata = CoreTestData.YouTubeVideo.videoMetadata.copy(duration = 3.hours)
-    )
+    val longVideo =
+      CoreTestData.YouTubeVideo.copy(videoMetadata = CoreTestData.YouTubeVideo.videoMetadata.copy(duration = 3.hours))
 
     service.videoSnapshots(longVideo).map { snapshots =>
       snapshots.size mustBe 12
@@ -279,9 +266,8 @@ class VideoEnrichmentServiceImplSpec extends AnyFlatSpec with Matchers {
       fileResourceDao.insertedResources.size mustBe 12
       snapshotDao.insertedSnapshots.size mustBe 12
 
-      snapshotDao.insertedSnapshots.zip(fileResourceDao.insertedResources).foreach {
-        case (snapshot, fileResource) =>
-          snapshot.fileResource.id mustBe fileResource.id
+      snapshotDao.insertedSnapshots.zip(fileResourceDao.insertedResources).foreach { case (snapshot, fileResource) =>
+        snapshot.fileResource.id mustBe fileResource.id
       }
     }
   }
@@ -292,8 +278,8 @@ class VideoEnrichmentServiceImplSpec extends AnyFlatSpec with Matchers {
     val snapshotService = new StubVideoSnapshotService()
     val service = createService(snapshotService)
 
-    val video = CoreTestData.YouTubeVideo.copy(
-      videoMetadata = CoreTestData.YouTubeVideo.videoMetadata.copy(duration = 130.seconds)
+    val video = CoreTestData.YouTubeVideo.copy(videoMetadata =
+      CoreTestData.YouTubeVideo.videoMetadata.copy(duration = 130.seconds)
     )
 
     service.videoSnapshots(video).map { snapshots =>

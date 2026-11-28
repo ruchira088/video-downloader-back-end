@@ -44,8 +44,7 @@ class KeySpacedKeyValueStoreSpec extends AnyFlatSpec with Matchers {
         keyValueStore.data.keys().asScala.toList mustBe List.empty
         keyValueStore.data.values().asScala.toList mustBe List.empty
       }
-    }
-    yield (): Unit
+    } yield (): Unit
   }
 
 }

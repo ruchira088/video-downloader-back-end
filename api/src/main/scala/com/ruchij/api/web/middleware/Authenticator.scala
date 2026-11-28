@@ -16,7 +16,13 @@ import org.http4s.server.Middleware
 
 object Authenticator {
   type AuthenticatedRequestContextMiddleware[F[_]] =
-    Middleware[OptionT[F, *], ContextRequest[F, AuthenticatedRequestContext], Response[F], ContextRequest[F, RequestContext], Response[F]]
+    Middleware[
+      OptionT[F, *],
+      ContextRequest[F, AuthenticatedRequestContext],
+      Response[F],
+      ContextRequest[F, RequestContext],
+      Response[F]
+    ]
 
   val CookieName = "authentication"
 
@@ -24,8 +30,8 @@ object Authenticator {
     request.headers
       .get[Authorization]
       .map(_.credentials)
-      .collect {
-        case Credentials.Token(AuthScheme.Bearer, bearerToken) => Secret(bearerToken)
+      .collect { case Credentials.Token(AuthScheme.Bearer, bearerToken) =>
+        Secret(bearerToken)
       }
 
   private def authenticationCookie[F[_]](request: Request[F]): Option[RequestCookie] =
@@ -36,10 +42,9 @@ object Authenticator {
       .map(cookie => Secret(cookie.content))
       .orElse(bearerToken(request))
 
-  /**
-    * Authenticates the request before running the routes. Only a request without credentials is rejected (when
-    * strict); an authenticated request that matches none of the routes yields None, so it falls through to the usual
-    * not-found handling instead of being treated as unauthenticated (which would also sign the user out).
+  /** Authenticates the request before running the routes. Only a request without credentials is rejected (when strict);
+    * an authenticated request that matches none of the routes yields None, so it falls through to the usual not-found
+    * handling instead of being treated as unauthenticated (which would also sign the user out).
     */
   def middleware[F[_]: MonadThrow](
     authenticationService: AuthenticationService[F],
@@ -52,17 +57,16 @@ object Authenticator {
           authenticationSecret(contextRequest.req).fold(onMissingCredentials[F](strict)) { secret =>
             OptionT
               .liftF(authenticationService.authenticate(secret))
-              .flatMap {
-                case (authenticationToken, user) =>
-                  httpAuthRoutes
-                    .run {
-                      ContextRequest(
-                        AuthenticatedRequestContext(user, contextRequest.context.requestId),
-                        contextRequest.req
-                      )
-                    }
-                    .semiflatMap(response => addCookie[F](authenticationToken, response))
-                    .map(response => response.withHeaders(response.headers.put(`X-User-ID`(user.id))))
+              .flatMap { case (authenticationToken, user) =>
+                httpAuthRoutes
+                  .run {
+                    ContextRequest(
+                      AuthenticatedRequestContext(user, contextRequest.context.requestId),
+                      contextRequest.req
+                    )
+                  }
+                  .semiflatMap(response => addCookie[F](authenticationToken, response))
+                  .map(response => response.withHeaders(response.headers.put(`X-User-ID`(user.id))))
               }
           }
         }

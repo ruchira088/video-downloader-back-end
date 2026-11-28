@@ -74,11 +74,10 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
               OptionT(workerDao.idleWorker).flatMap { worker =>
                 OptionT(workerDao.reserveWorker(worker.id, workerConfiguration.owner, timestamp))
               }.value
-            }.recoverWith {
-              case throwable =>
-                logger
-                  .error[F]("Error occurred when fetching idle worker", throwable)
-                  .productR(Applicative[F].pure(None))
+            }.recoverWith { case throwable =>
+              logger
+                .error[F]("Error occurred when fetching idle worker", throwable)
+                .productR(Applicative[F].pure(None))
             }
           }
         }
@@ -107,64 +106,57 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
           )
         }
         .product(OptionT.liftF(Clock[F].timestamp))
-        .flatMap {
-          case (task, timestamp) =>
-            ApplicativeError[OptionT[F, *], Throwable].recoverWith {
-              OptionT(
-                transaction(
-                  workerDao.assignTask(worker.id, task.videoMetadata.id, workerConfiguration.owner, timestamp)
-                )
-              ).product {
-                  OptionT.liftF {
-                    batchSchedulingService.publishScheduledVideoDownload(task.videoMetadata.id)
+        .flatMap { case (task, timestamp) =>
+          ApplicativeError[OptionT[F, *], Throwable].recoverWith {
+            OptionT(
+              transaction(workerDao.assignTask(worker.id, task.videoMetadata.id, workerConfiguration.owner, timestamp))
+            ).product {
+              OptionT.liftF {
+                batchSchedulingService.publishScheduledVideoDownload(task.videoMetadata.id)
+              }
+            }.as(timestamp -> task)
+          } { case throwable: Throwable =>
+            OptionT
+              .liftF {
+                logger
+                  .warn[F] {
+                    s"Error assigning task to worker. workerId=${worker.id}, " +
+                      s"scheduledVideoId=${task.videoMetadata.id} error=$throwable"
                   }
-                }
-                .as(timestamp -> task)
-            } {
-              case throwable: Throwable =>
-                OptionT
-                  .liftF {
-                    logger
-                      .warn[F] {
-                        s"Error assigning task to worker. workerId=${worker.id}, " +
-                          s"scheduledVideoId=${task.videoMetadata.id} error=$throwable"
-                      }
-                      .productR(releaseUnassignedTask(worker, task))
-                  }
-                  .productR(OptionT.none)
-            }
+                  .productR(releaseUnassignedTask(worker, task))
+              }
+              .productR(OptionT.none)
+          }
         }
-        .flatMapF {
-          case (timestamp, scheduledVideoDownload) =>
-            ApplicativeError[F, Throwable].recoverWith {
-              workExecutor
-                .execute(
-                  scheduledVideoDownload,
-                  worker,
-                  scheduledVideoDownloadUpdates
-                    .map { (value: ScheduledVideoDownload) =>
-                      value.videoMetadata.id == scheduledVideoDownload.videoMetadata.id &&
-                      Set[SchedulingStatus](
-                        SchedulingStatus.Error,
-                        SchedulingStatus.WorkersPaused,
-                        SchedulingStatus.Stale,
-                        SchedulingStatus.Paused,
-                        SchedulingStatus.Deleted
-                      ).contains(value.status) && value.lastUpdatedAt.isAfter(timestamp)
+        .flatMapF { case (timestamp, scheduledVideoDownload) =>
+          ApplicativeError[F, Throwable].recoverWith {
+            workExecutor
+              .execute(
+                scheduledVideoDownload,
+                worker,
+                scheduledVideoDownloadUpdates
+                  .map { (value: ScheduledVideoDownload) =>
+                    value.videoMetadata.id == scheduledVideoDownload.videoMetadata.id &&
+                    Set[SchedulingStatus](
+                      SchedulingStatus.Error,
+                      SchedulingStatus.WorkersPaused,
+                      SchedulingStatus.Stale,
+                      SchedulingStatus.Paused,
+                      SchedulingStatus.Deleted
+                    ).contains(value.status) && value.lastUpdatedAt.isAfter(timestamp)
+                  }
+                  .merge {
+                    workerStatusUpdates.map { (workerStatusUpdate: WorkerStatusUpdate) =>
+                      workerStatusUpdate.workerStatus == WorkerStatus.Paused
                     }
-                    .merge {
-                      workerStatusUpdates.map { (workerStatusUpdate: WorkerStatusUpdate) =>
-                        workerStatusUpdate.workerStatus == WorkerStatus.Paused
-                      }
-                    }
-                    .filter(identity),
-                  5
-                )
-                .map[Option[Video]](Some.apply)
-            } {
-              case PausedVideoDownload =>
-                logger.info[F](s"${scheduledVideoDownload.videoMetadata.url} has been paused/cancelled").as(None)
-            }
+                  }
+                  .filter(identity),
+                5
+              )
+              .map[Option[Video]](Some.apply)
+          } { case PausedVideoDownload =>
+            logger.info[F](s"${scheduledVideoDownload.videoMetadata.url} has been paused/cancelled").as(None)
+          }
         }
         .value
     } {
@@ -197,8 +189,7 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
       case (_, _) => Applicative[F].unit
     }
 
-  /**
-    * Puts back a task that was acquired, but could not be assigned to the worker or published. Otherwise it would be
+  /** Puts back a task that was acquired, but could not be assigned to the worker or published. Otherwise it would be
     * left Acquired without a worker until it times out. The workers may have been paused while the task was being
     * assigned, in which case the task is set to WorkersPaused, so that resuming the workers puts it back in the queue.
     */
@@ -220,7 +211,9 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
       // The worker was freed as stale, or paused, while this instance was using it and may have been claimed by
       // another instance since. It is no longer this instance's to release.
       case None =>
-        logger.warn[F](s"Worker is no longer owned by ${workerConfiguration.owner}, not releasing it. ID = ${worker.id}")
+        logger.warn[F](
+          s"Worker is no longer owned by ${workerConfiguration.owner}, not releasing it. ID = ${worker.id}"
+        )
     }
 
   override val run: Stream[F, Video] =
@@ -288,21 +281,21 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
           workerStatusUpdatesTopic.subscribe(Int.MaxValue)
         )
       }
-      .collect {
-        case Some(video) => video
+      .collect { case Some(video) =>
+        video
       }
 
   private val duplicateDetection =
     Stream
       .eval {
-        logger.info[F]("Starting duplicate detection")
+        logger
+          .info[F]("Starting duplicate detection")
           .productR {
             MonadThrow[F].recoverWith {
               duplicateDetectionService.run
                 .productL(logger.info[F]("Duplicate detection completed"))
-            } {
-              case exception =>
-                logger.error[F]("There was an error while duplicate detection", exception)
+            } { case exception =>
+              logger.error[F]("There was an error while duplicate detection", exception)
             }
 
           }
@@ -321,11 +314,10 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
       .flatMap { scheduledVideoDownload =>
         Stream
           .eval(batchSchedulingService.deleteById(scheduledVideoDownload.videoMetadata.id))
-          .recoverWith {
-            case throwable =>
-              Stream
-                .eval(logger.error[F](s"Unable to perform deletion for $scheduledVideoDownload", throwable))
-                .productR(Stream.empty)
+          .recoverWith { case throwable =>
+            Stream
+              .eval(logger.error[F](s"Unable to perform deletion for $scheduledVideoDownload", throwable))
+              .productR(Stream.empty)
           }
       }
 
@@ -367,16 +359,14 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
           },
         releaseWorker(worker)
       )
-      .recoverWith {
-        case throwable =>
-          logger.error[F]("Error occurred in work scheduler", throwable).as(None)
+      .recoverWith { case throwable =>
+        logger.error[F]("Error occurred in work scheduler", throwable).as(None)
       }
 
-  /**
-    * Records are committed once they have been processed, so a crash before the commit replays them (at-least-once).
-    * A failure is retried with a bounded exponential backoff, to ride out transient database errors without
-    * committing the record. A record that still fails after that, or refers to a video that no longer exists, is
-    * logged and skipped. Retrying it forever would block the whole partition behind a single poison message.
+  /** Records are committed once they have been processed, so a crash before the commit replays them (at-least-once). A
+    * failure is retried with a bounded exponential backoff, to ride out transient database errors without committing
+    * the record. A record that still fails after that, or refers to a video that no longer exists, is logged and
+    * skipped. Retrying it forever would block the whole partition behind a single poison message.
     */
   private val updateVideoWatchTimes: Stream[F, Unit] =
     videoWatchMetricsSubscriber
@@ -399,31 +389,30 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
     retryTransientFailures(s"Fetching the video for $videoWatchMetric") {
       batchVideoService.fetchByVideoFileResourceId(videoWatchMetric.videoFileResourceId)
     }.flatMap { video =>
-        val watchDuration =
-          FiniteDuration(
-            math.round(
-              (videoWatchMetric.size.toDouble / video.fileResource.size) * video.videoMetadata.duration.toMillis
-            ),
-            TimeUnit.MILLISECONDS
-          )
+      val watchDuration =
+        FiniteDuration(
+          math.round(
+            (videoWatchMetric.size.toDouble / video.fileResource.size) * video.videoMetadata.duration.toMillis
+          ),
+          TimeUnit.MILLISECONDS
+        )
 
-        // Each step is retried on its own, so that a failure in a later step does not repeat the earlier ones
-        retryTransientFailures(s"Incrementing the watch time for $videoWatchMetric") {
-          batchVideoService.incrementWatchTime(video.videoMetadata.id, watchDuration)
-        }.productR {
-          retryTransientFailures(s"Adding the watch history for $videoWatchMetric") {
-            videoWatchHistoryService.addWatchHistory(
-              videoWatchMetric.userId,
-              video.videoMetadata.id,
-              videoWatchMetric.timestamp,
-              watchDuration
-            )
-          }
+      // Each step is retried on its own, so that a failure in a later step does not repeat the earlier ones
+      retryTransientFailures(s"Incrementing the watch time for $videoWatchMetric") {
+        batchVideoService.incrementWatchTime(video.videoMetadata.id, watchDuration)
+      }.productR {
+        retryTransientFailures(s"Adding the watch history for $videoWatchMetric") {
+          videoWatchHistoryService.addWatchHistory(
+            videoWatchMetric.userId,
+            video.videoMetadata.id,
+            videoWatchMetric.timestamp,
+            watchDuration
+          )
         }
       }
-      .handleErrorWith { throwable =>
-        logger.error[F](s"Skipping the video watch metric $videoWatchMetric, it could not be processed", throwable)
-      }
+    }.handleErrorWith { throwable =>
+      logger.error[F](s"Skipping the video watch metric $videoWatchMetric, it could not be processed", throwable)
+    }
 
   private def retryTransientFailures[A](description: String, attempt: Int = 0)(fa: F[A]): F[A] =
     fa.handleErrorWith {
@@ -528,8 +517,8 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
                 .handleError(_ => 0)
             }
           }
-          .map {
-            case (deletions, insertions) => deletions.sum + insertions.sum
+          .map { case (deletions, insertions) =>
+            deletions.sum + insertions.sum
           }
       }
     }

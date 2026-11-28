@@ -30,8 +30,10 @@ object FallbackSyncTestData {
       completedAt = Some(Instant.parse("2026-09-25T21:09:42.500250Z"))
     )
 
-  def scheduledVideoDownload(videoId: String, status: SchedulingStatus = SchedulingStatus.Queued)
-    : ScheduledVideoDownload = {
+  def scheduledVideoDownload(
+    videoId: String,
+    status: SchedulingStatus = SchedulingStatus.Queued
+  ): ScheduledVideoDownload = {
     val timestamp = TimeUtils.instantOf(2026, 9, 25, 21, 4)
     val thumbnail = FileResource(s"$videoId-thumbnail", timestamp, "/opt/thumbnail.jpg", MediaType.image.jpeg, 100)
 

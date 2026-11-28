@@ -27,11 +27,12 @@ object DoobieUtils {
 
           case 1 => Applicative[F].pure(Some((): Unit))
 
-          case count => ApplicativeError[F, Throwable].raiseError {
-            InvalidConditionException {
-              s"0 or 1 row was expected to be updated, but $count rows were updated"
+          case count =>
+            ApplicativeError[F, Throwable].raiseError {
+              InvalidConditionException {
+                s"0 or 1 row was expected to be updated, but $count rows were updated"
+              }
             }
-          }
         }
       }
   }

@@ -29,8 +29,7 @@ import org.scalatest.matchers.must.Matchers
 
 import scala.concurrent.duration._
 
-/**
-  * The summary is a `val` on [[ApiVideoService]], which the mocked service cannot stub, so this suite replaces the
+/** The summary is a `val` on [[ApiVideoService]], which the mocked service cannot stub, so this suite replaces the
   * service with one that only answers the summary.
   */
 class VideoSummaryRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {

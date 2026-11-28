@@ -6,7 +6,8 @@ import com.ruchij.core.kv.codecs.KVCodec
 import com.ruchij.core.kv.keys.{KVStoreKey, KeySpace, KeySpacedKeyEncoder}
 
 class KeySpacedKeyValueStore[F[_], K <: KVStoreKey, V](keySpace: KeySpace[K, V], keyValueStore: KeyValueStore[F])(
-  implicit functor: Functor[F],
+  implicit
+  functor: Functor[F],
   keySpacedKeyEncoder: KeySpacedKeyEncoder[F, K],
   kvCodec: KVCodec[F, V]
 ) {

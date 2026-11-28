@@ -14,8 +14,8 @@ import org.scalatest.matchers.must.Matchers
 class MiddlewareSpec extends AnyFlatSpec with Matchers {
 
   "NotFoundHandler" should "pass through existing routes" in runIO {
-    val routes = ContextRoutes.of[Unit, IO] {
-      case GET -> Root / "test" as _ => Ok("found")
+    val routes = ContextRoutes.of[Unit, IO] { case GET -> Root / "test" as _ =>
+      Ok("found")
     }
 
     val handler = NotFoundHandler(routes)
@@ -28,8 +28,8 @@ class MiddlewareSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "raise ResourceNotFoundException for non-existing routes" in {
-    val routes = ContextRoutes.of[Unit, IO] {
-      case GET -> Root / "test" as _ => Ok("found")
+    val routes = ContextRoutes.of[Unit, IO] { case GET -> Root / "test" as _ =>
+      Ok("found")
     }
 
     val handler = NotFoundHandler(routes)
@@ -46,8 +46,8 @@ class MiddlewareSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "include HTTP method in error message" in {
-    val routes = ContextRoutes.of[Unit, IO] {
-      case GET -> Root / "test" as _ => Ok("found")
+    val routes = ContextRoutes.of[Unit, IO] { case GET -> Root / "test" as _ =>
+      Ok("found")
     }
 
     val handler = NotFoundHandler(routes)

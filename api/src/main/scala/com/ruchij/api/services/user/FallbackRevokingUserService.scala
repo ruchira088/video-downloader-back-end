@@ -8,9 +8,12 @@ import com.ruchij.api.services.authentication.AuthenticationService.Password
 import com.ruchij.api.services.fallback.FallbackUserRevoker
 
 /** Revokes the user's fallback account after each successful password reset or user deletion, which the fallback's
-  * Cognito login would otherwise never learn of. A decorator, so `UserServiceImpl` stays unaware of the fallback. */
-class FallbackRevokingUserService[F[_]: FlatMap](userService: UserService[F], fallbackUserRevoker: FallbackUserRevoker[F])
-    extends UserService[F] {
+  * Cognito login would otherwise never learn of. A decorator, so `UserServiceImpl` stays unaware of the fallback.
+  */
+class FallbackRevokingUserService[F[_]: FlatMap](
+  userService: UserService[F],
+  fallbackUserRevoker: FallbackUserRevoker[F]
+) extends UserService[F] {
 
   override def create(firstName: String, lastName: String, email: Email, password: Password): F[User] =
     userService.create(firstName, lastName, email, password)

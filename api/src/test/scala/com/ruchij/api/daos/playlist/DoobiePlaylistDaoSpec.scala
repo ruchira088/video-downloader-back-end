@@ -25,13 +25,8 @@ abstract class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with Opti
 
   val doobiePlaylistDao = new DoobiePlaylistDao(DoobieFileResourceDao, DoobieVideoDao)
 
-  val albumArtFileResource: FileResource = FileResource(
-    "album-art-001",
-    CoreTestData.Timestamp,
-    "/home/images/album-art.jpg",
-    MediaType.image.jpeg,
-    50000
-  )
+  val albumArtFileResource: FileResource =
+    FileResource("album-art-001", CoreTestData.Timestamp, "/home/images/album-art.jpg", MediaType.image.jpeg, 50000)
 
   "DoobiePlaylistDao" should "perform CRUD operations" in runIO {
     transactor.use { implicit transactor =>
@@ -68,7 +63,7 @@ abstract class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with Opti
         searchResultsWithTitle <- transactor {
           doobiePlaylistDao.search(Some("my"), 10, 0, Order.Descending, PlaylistSortBy.CreatedAt, None)
         }
-        _ <- IO.delay { searchResultsWithTitle mustBe List(playlist)}
+        _ <- IO.delay { searchResultsWithTitle mustBe List(playlist) }
 
         searchResultsWithDescription <- transactor {
           doobiePlaylistDao.search(Some("awesome"), 10, 0, Order.Descending, PlaylistSortBy.CreatedAt, None)
@@ -160,14 +155,7 @@ abstract class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with Opti
         _ <- transactor(doobiePlaylistDao.insert(playlist))
 
         updateWithArtResult <- transactor {
-          doobiePlaylistDao.update(
-            "playlist-update-art",
-            None,
-            None,
-            None,
-            Some(Right(albumArtFileResource.id)),
-            None
-          )
+          doobiePlaylistDao.update("playlist-update-art", None, None, None, Some(Right(albumArtFileResource.id)), None)
         }
         _ <- IO.delay { updateWithArtResult mustBe 1 }
 
@@ -177,14 +165,7 @@ abstract class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with Opti
         }
 
         updateRemoveArtResult <- transactor {
-          doobiePlaylistDao.update(
-            "playlist-update-art",
-            None,
-            None,
-            None,
-            Some(Left(())),
-            None
-          )
+          doobiePlaylistDao.update("playlist-update-art", None, None, None, Some(Left(())), None)
         }
         _ <- IO.delay { updateRemoveArtResult mustBe 1 }
 
@@ -268,14 +249,7 @@ abstract class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with Opti
         _ <- transactor(doobiePlaylistDao.insert(playlist))
 
         updateResult <- transactor {
-          doobiePlaylistDao.update(
-            "playlist-no-update",
-            None,
-            None,
-            None,
-            None,
-            None
-          )
+          doobiePlaylistDao.update("playlist-no-update", None, None, None, None, None)
         }
         _ <- IO.delay { updateResult mustBe 0 }
 
@@ -313,7 +287,14 @@ abstract class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with Opti
         _ <- transactor(doobiePlaylistDao.insert(normalUserPlaylist))
 
         searchWithAdminUser <- transactor {
-          doobiePlaylistDao.search(None, 10, 0, Order.Descending, PlaylistSortBy.CreatedAt, Some(ApiTestData.AdminUser.id))
+          doobiePlaylistDao.search(
+            None,
+            10,
+            0,
+            Order.Descending,
+            PlaylistSortBy.CreatedAt,
+            Some(ApiTestData.AdminUser.id)
+          )
         }
         _ <- IO.delay {
           searchWithAdminUser.size mustBe 1
@@ -321,7 +302,14 @@ abstract class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with Opti
         }
 
         searchWithNormalUser <- transactor {
-          doobiePlaylistDao.search(None, 10, 0, Order.Descending, PlaylistSortBy.CreatedAt, Some(ApiTestData.NormalUser.id))
+          doobiePlaylistDao.search(
+            None,
+            10,
+            0,
+            Order.Descending,
+            PlaylistSortBy.CreatedAt,
+            Some(ApiTestData.NormalUser.id)
+          )
         }
         _ <- IO.delay {
           searchWithNormalUser.size mustBe 1
@@ -408,9 +396,33 @@ abstract class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with Opti
       for {
         _ <- transactor(ApiTestData.setUpData)
 
-        playlist1 = Playlist("page-1", ApiTestData.AdminUser.id, CoreTestData.Timestamp, "Playlist 1", None, List.empty, None)
-        playlist2 = Playlist("page-2", ApiTestData.AdminUser.id, CoreTestData.Timestamp.plus(Duration.ofHours(1)), "Playlist 2", None, List.empty, None)
-        playlist3 = Playlist("page-3", ApiTestData.AdminUser.id, CoreTestData.Timestamp.plus(Duration.ofHours(2)), "Playlist 3", None, List.empty, None)
+        playlist1 = Playlist(
+          "page-1",
+          ApiTestData.AdminUser.id,
+          CoreTestData.Timestamp,
+          "Playlist 1",
+          None,
+          List.empty,
+          None
+        )
+        playlist2 = Playlist(
+          "page-2",
+          ApiTestData.AdminUser.id,
+          CoreTestData.Timestamp.plus(Duration.ofHours(1)),
+          "Playlist 2",
+          None,
+          List.empty,
+          None
+        )
+        playlist3 = Playlist(
+          "page-3",
+          ApiTestData.AdminUser.id,
+          CoreTestData.Timestamp.plus(Duration.ofHours(2)),
+          "Playlist 3",
+          None,
+          List.empty,
+          None
+        )
 
         _ <- transactor(doobiePlaylistDao.insert(playlist1))
         _ <- transactor(doobiePlaylistDao.insert(playlist2))

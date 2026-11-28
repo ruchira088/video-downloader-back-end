@@ -67,7 +67,8 @@ class FallbackReconciler[F[_]: Async, T[_]: Monad](
 
   /** Reconciles at startup, then on every `interval` tick unless any instance completed a reconcile within
     * `dailySkipWindow` (so the instances share one daily run), and whenever a flag check finds the flag set. After
-    * reconciles fail in a row, flag checks are passed over for a doubling while, up to an hour, before retrying. */
+    * reconciles fail in a row, flag checks are passed over for a doubling while, up to an hour, before retrying.
+    */
   def run(
     interval: FiniteDuration = 24.hours,
     flagCheckInterval: FiniteDuration = 5.minutes,
@@ -82,12 +83,13 @@ class FallbackReconciler[F[_]: Async, T[_]: Monad](
   }
 
   /** `retryWhenLocked` keeps a retry pending when another holder has the lock: that holder may be a crashed instance
-    * whose lock outlives it by up to its TTL, having already cleared the flag, so without it the startup or flagged
-    * run would be lost. Each flag check retries it until a reconcile, by any instance, completes after the lock was
-    * found held. The retry is kept on this instance rather than set as the shared flag, which would make every
-    * instance that starts alongside the lock's live holder after a deploy run one more full reconcile about
-    * `flagCheckInterval` later: the holder's run, completing after theirs found the lock held, now satisfies them.
-    * The daily run doesn't need it: if another instance holds the lock, that instance is reconciling. */
+    * whose lock outlives it by up to its TTL, having already cleared the flag, so without it the startup or flagged run
+    * would be lost. Each flag check retries it until a reconcile, by any instance, completes after the lock was found
+    * held. The retry is kept on this instance rather than set as the shared flag, which would make every instance that
+    * starts alongside the lock's live holder after a deploy run one more full reconcile about `flagCheckInterval`
+    * later: the holder's run, completing after theirs found the lock held, now satisfies them. The daily run doesn't
+    * need it: if another instance holds the lock, that instance is reconciling.
+    */
   private def reconcileSafely(retryWhenLocked: Boolean): F[Unit] =
     reconcile
       .flatMap {
@@ -115,14 +117,16 @@ class FallbackReconciler[F[_]: Async, T[_]: Monad](
       }
 
   /** Each instance's own record of its reconciles failing, which backs off its flagged retries: a persistent failure
-    * (e.g. denied SQS credentials or a deleted queue) would otherwise re-run a full reconcile at every flag check
-    * until it is fixed. */
+    * (e.g. denied SQS credentials or a deleted queue) would otherwise re-run a full reconcile at every flag check until
+    * it is fixed.
+    */
   private val consecutiveFailures: Ref[F, Int] = Ref.unsafe[F, Int](0)
   // Flag checks still to pass over before a flagged reconcile runs again
   private val skippedFlagChecks: Ref[F, Int] = Ref.unsafe[F, Int](0)
 
   /** The database's clock, shared by every instance: comparing when one instance completed a reconcile with when
-    * another found the lock held, or with the daily skip window, can't then be thrown off by skew between hosts. */
+    * another found the lock held, or with the daily skip window, can't then be thrown off by skew between hosts.
+    */
   private val databaseTime: F[Instant] = transaction(fallbackSyncDao.currentTimestamp)
 
   // When a startup or flagged reconcile first found the lock held, while its retry is pending
@@ -156,10 +160,11 @@ class FallbackReconciler[F[_]: Async, T[_]: Monad](
         case _ => reconcileSafely(retryWhenLocked = false)
       }
 
-  /** Every tick of the schedule must be fail-safe end to end: `Stream.merge` ends both the daily and flag-check
-    * paths the moment either side's `evalMap` raises, so a single bad tick (e.g. the key-value store or transport
-    * being down, which is the likely reason a reconcile failed in the first place) must never escape as an
-    * exception, or the whole reconciler dies silently until the process restarts. */
+  /** Every tick of the schedule must be fail-safe end to end: `Stream.merge` ends both the daily and flag-check paths
+    * the moment either side's `evalMap` raises, so a single bad tick (e.g. the key-value store or transport being down,
+    * which is the likely reason a reconcile failed in the first place) must never escape as an exception, or the whole
+    * reconciler dies silently until the process restarts.
+    */
   private def tick(run: F[Unit]): F[Unit] =
     run.handleErrorWith(error => logger.error[F]("Fallback reconcile tick failed unexpectedly", error))
 
@@ -173,8 +178,9 @@ class FallbackReconciler[F[_]: Async, T[_]: Monad](
       )
       .handleErrorWith(error => logger.error[F]("Fallback reconcile flag check failed unexpectedly", error))
 
-  /** Refuses a mass removal, which more likely means the main side read the wrong or an empty database than that
-    * most videos were really deleted: the fallback would then lose its copy exactly when it may be needed. */
+  /** Refuses a mass removal, which more likely means the main side read the wrong or an empty database than that most
+    * videos were really deleted: the fallback would then lose its copy exactly when it may be needed.
+    */
   private def removalsAllowed(manifestSize: Int, databaseEmpty: Boolean, removalCount: Int): F[Boolean] = {
     val refusal =
       if (removalCount == 0 || allowMassRemoval) None
@@ -198,8 +204,9 @@ class FallbackReconciler[F[_]: Async, T[_]: Monad](
     }
   }
 
-  /** The fallback skips any change whose capturedAt is not newer than the stored one, so an item stamped ahead of
-    * the database clock (e.g. by a clock that has since been corrected) ignores changes until the clock catches up. */
+  /** The fallback skips any change whose capturedAt is not newer than the stored one, so an item stamped ahead of the
+    * database clock (e.g. by a clock that has since been corrected) ignores changes until the clock catches up.
+    */
   private def warnAboutFutureCapturedAt(manifest: Map[String, ManifestEntry], databaseTime: Instant): F[Unit] = {
     val ahead = entriesAhead(manifest, databaseTime)
 
@@ -213,8 +220,9 @@ class FallbackReconciler[F[_]: Async, T[_]: Monad](
   }
 
   /** Re-checks each candidate: paging through the DB while rows change can miss a video that still exists. Each
-    * re-check takes a fresh timestamp in its own read's transaction: reusing the listing's older timestamp would let
-    * a removal lose to, or be stamped before, a change made between the listing and the re-check. */
+    * re-check takes a fresh timestamp in its own read's transaction: reusing the listing's older timestamp would let a
+    * removal lose to, or be stamped before, a change made between the listing and the re-check.
+    */
   private def confirmedRemovals(videoIds: List[String]): F[List[MainToFallbackMessage]] =
     videoIds.traverse { videoId =>
       transaction(fallbackSyncDao.timestamped(fallbackSyncDao.findById(videoId)))
@@ -229,7 +237,8 @@ object FallbackReconciler {
   val FutureCapturedAtTolerance: FiniteDuration = 1.minute
 
   /** How many flag checks to pass over after `failures` reconciles in a row failed, doubling the wait each time from
-    * one flag check to at most 12 (an hour at the default 5-minute interval). */
+    * one flag check to at most 12 (an hour at the default 5-minute interval).
+    */
   def flagChecksToSkip(failures: Int): Int = math.min(1 << math.min(math.max(failures - 1, 0), 4), 12) - 1
 
   /** The most removals one reconcile sends without `allowMassRemoval`: 50, or 20% of the manifest if more. */

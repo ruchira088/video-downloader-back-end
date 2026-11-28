@@ -28,15 +28,14 @@ object PureConfigReaders {
       Uri.fromString(input).left.map(error => CannotConvert(input, classOf[Uri].getSimpleName, error.message))
     }
 
-  implicit def stringIterableConfigReader[Itr[x] <: IterableOnce[x]](
-    implicit factory: Factory[String, Itr[String]]
+  implicit def stringIterableConfigReader[Itr[x] <: IterableOnce[x]](implicit
+    factory: Factory[String, Itr[String]]
   ): ConfigReader[Itr[String]] =
-    ConfigReader[String].map {
-       string =>
-        factory.fromSpecific {
-          string.split(ListSeparator).map(_.trim).filter(_.nonEmpty)
-        }
+    ConfigReader[String].map { string =>
+      factory.fromSpecific {
+        string.split(ListSeparator).map(_.trim).filter(_.nonEmpty)
       }
+    }
 
   implicit def enumPureConfigReader[A <: EnumEntry: ClassTag](implicit enumValues: Enum[A]): ConfigReader[A] =
     ConfigReader.fromNonEmptyStringOpt[A] { value =>

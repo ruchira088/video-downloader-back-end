@@ -42,10 +42,9 @@ class CorsSpec extends AnyFlatSpec with Matchers {
   }
 
   "Cors middleware" should "allow credentialed requests from an allowed host" in runIO {
-    Cors[IO](Set("example.com"))(testApp).run(request(Method.GET, uri"/test", "https://example.com")).map {
-      response =>
-        response.status mustBe Status.Ok
-        mustAllow(response, "https://example.com")
+    Cors[IO](Set("example.com"))(testApp).run(request(Method.GET, uri"/test", "https://example.com")).map { response =>
+      response.status mustBe Status.Ok
+      mustAllow(response, "https://example.com")
     }
   }
 

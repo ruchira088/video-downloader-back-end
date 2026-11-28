@@ -40,11 +40,10 @@ class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
       manifestReader = new FallbackManifestReader[IO] {
         override val manifest: IO[Map[String, ManifestEntry]] = manifestReads.update(_ + 1).as(Map.empty)
       }
-    } yield
-      (
-        new FallbackReconciler[IO, IO](manifestReader, virtualClockDao, transport, coordination, "instance-a"),
-        manifestReads
-      )
+    } yield (
+      new FallbackReconciler[IO, IO](manifestReader, virtualClockDao, transport, coordination, "instance-a"),
+      manifestReads
+    )
 
   private def holdLock(keyValueStore: InMemoryKeyValueStore[IO], owner: String): IO[Unit] =
     keyValueStore.put[String, String](FallbackSyncCoordination.ReconcileLockKey, owner, Some(30.minutes)).void
@@ -57,8 +56,9 @@ class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
     }
 
   /** Fails the first `remainingFailures` reads of `failingKey` (by default the reconcile flag), then delegates.
-    * Simulates the key-value store (e.g. Redis) being unreachable for that one read while everything else,
-    * including the reconcile lock, keeps working normally. */
+    * Simulates the key-value store (e.g. Redis) being unreachable for that one read while everything else, including
+    * the reconcile lock, keeps working normally.
+    */
   private final class FlakyKeyValueStore(
     delegate: InMemoryKeyValueStore[IO],
     remainingFailures: Ref[IO, Int],
@@ -419,11 +419,10 @@ class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
       } yield (afterSkippedDailyRun, afterNextDailyRun, lastRun)
 
     runIO {
-      TestControl.executeEmbed(test).map {
-        case (afterSkippedDailyRun, afterNextDailyRun, lastRun) =>
-          afterSkippedDailyRun mustBe 1 // only the startup reconcile
-          afterNextDailyRun mustBe 2 // 25 hours after the other instance's run
-          lastRun mustBe Some(Instant.EPOCH.plusSeconds(48.hours.toSeconds))
+      TestControl.executeEmbed(test).map { case (afterSkippedDailyRun, afterNextDailyRun, lastRun) =>
+        afterSkippedDailyRun mustBe 1 // only the startup reconcile
+        afterNextDailyRun mustBe 2 // 25 hours after the other instance's run
+        lastRun mustBe Some(Instant.EPOCH.plusSeconds(48.hours.toSeconds))
       }
     }
   }
@@ -455,10 +454,9 @@ class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
     (1 to count).map(index => s"gone-$index" -> ManifestEntry("h", Instant.EPOCH)).toMap
 
   it should "withhold every removal when the database returns no videos but the manifest isn't empty" in runIO {
-    massRemovalRun(Nil, goneEntries(3)).map {
-      case (summary, sent) =>
-        sent mustBe empty
-        summary mustBe Some(ReconcileSummary(upserts = 0, removals = 0, withheldRemovals = 3))
+    massRemovalRun(Nil, goneEntries(3)).map { case (summary, sent) =>
+      sent mustBe empty
+      summary mustBe Some(ReconcileSummary(upserts = 0, removals = 0, withheldRemovals = 3))
     }
   }
 
@@ -494,10 +492,9 @@ class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
     }.toMap
 
   it should "send a mass removal when explicitly allowed" in runIO {
-    massRemovalRun(Nil, goneEntries(60), allowMassRemoval = true).map {
-      case (summary, sent) =>
-        sent.collect { case removal: ScheduledVideoRemoval => removal } must have size 60
-        summary mustBe Some(ReconcileSummary(upserts = 0, removals = 60))
+    massRemovalRun(Nil, goneEntries(60), allowMassRemoval = true).map { case (summary, sent) =>
+      sent.collect { case removal: ScheduledVideoRemoval => removal } must have size 60
+      summary mustBe Some(ReconcileSummary(upserts = 0, removals = 60))
     }
   }
 

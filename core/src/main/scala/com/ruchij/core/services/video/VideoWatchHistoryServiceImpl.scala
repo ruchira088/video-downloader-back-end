@@ -28,12 +28,7 @@ class VideoWatchHistoryServiceImpl[F[_]: Sync: RandomGenerator.Of[UUID], G[_]: M
       videoWatchHistoryDao.findBy(userId, pageSize, pageNumber)
     }
 
-  override def addWatchHistory(
-    userId: String,
-    videoId: String,
-    timestamp: Instant,
-    duration: FiniteDuration
-  ): F[Unit] =
+  override def addWatchHistory(userId: String, videoId: String, timestamp: Instant, duration: FiniteDuration): F[Unit] =
     OptionT {
       transaction {
         OptionT {

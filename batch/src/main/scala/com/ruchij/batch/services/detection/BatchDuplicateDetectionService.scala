@@ -10,8 +10,7 @@ import scala.concurrent.duration.FiniteDuration
 trait BatchDuplicateDetectionService[F[_]] {
   def detect: F[Map[FiniteDuration, Set[Set[String]]]]
 
-  /**
-    * Detects duplicate videos and, in each group of duplicates, deletes every video except the one `videoToKeep` picks.
+  /** Detects duplicate videos and, in each group of duplicates, deletes every video except the one `videoToKeep` picks.
     * A video is only deleted when the same users hold it and the kept video, and it matches the kept video at every one
     * of the `verificationSnapshotTimestamps`; otherwise it stays in the group.
     */
@@ -29,13 +28,12 @@ object BatchDuplicateDetectionService {
       .map(snapshotTimestamps)
   }
 
-  /**
-    * Picks the duplicate to keep: the one with the largest file, taken to be the highest quality. Of files that are the
+  /** Picks the duplicate to keep: the one with the largest file, taken to be the highest quality. Of files that are the
     * same size, the newest video is kept. The video ID breaks any remaining tie, so that every batch instance picks the
     * same video.
     */
   def videoToKeep(videos: Seq[Video]): Option[Video] =
-    videos.maxByOption(video => (video.fileResource.size, video.createdAt, video.id))(
-      using Ordering.Tuple3(using Ordering.Long, Ordering.fromLessThan[Instant](_.isBefore(_)), Ordering.String)
+    videos.maxByOption(video => (video.fileResource.size, video.createdAt, video.id))(using
+      Ordering.Tuple3(using Ordering.Long, Ordering.fromLessThan[Instant](_.isBefore(_)), Ordering.String)
     )
 }

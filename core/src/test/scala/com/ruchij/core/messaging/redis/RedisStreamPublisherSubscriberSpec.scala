@@ -55,24 +55,23 @@ class RedisStreamPublisherSubscriberSpec extends AnyFlatSpec with Matchers with 
           .create[IO, TestMessage](redisConfiguration, maxLength = 100)
           .product(Redis[IO].utf8(redisConfiguration.uri))
       }
-      .use {
-        case (publisher, redisCommands) =>
-          for {
-            _ <- Stream
-              .range[IO, Int](0, 1000)
-              .map(index => TestMessage(s"capped-$index", index))
-              .through(publisher.publish)
-              .compile
-              .drain
+      .use { case (publisher, redisCommands) =>
+        for {
+          _ <- Stream
+            .range[IO, Int](0, 1000)
+            .map(index => TestMessage(s"capped-$index", index))
+            .through(publisher.publish)
+            .compile
+            .drain
 
-            length <- redisCommands.xLen(testMessageMessagingTopic.name)
+          length <- redisCommands.xLen(testMessageMessagingTopic.name)
 
-            // Approximate trimming removes whole macro nodes, so the stream can exceed the cap by a node or so
-            _ <- IO.delay {
-              length must be >= 100L
-              length must be <= 300L
-            }
-          } yield ()
+          // Approximate trimming removes whole macro nodes, so the stream can exceed the cap by a node or so
+          _ <- IO.delay {
+            length must be >= 100L
+            length must be <= 300L
+          }
+        } yield ()
       }
   }
 
@@ -90,34 +89,33 @@ class RedisStreamPublisherSubscriberSpec extends AnyFlatSpec with Matchers with 
             )
           }
       }
-      .use {
-        case (publisher, subscriber) =>
-          for {
-            uncommittedFiber <- subscriber
-              .subscribe("redelivery-group")
-              .map(subscriber.extractValue)
-              .take(1)
-              .compile
-              .toList
-              .timeout(testTimeout)
-              .start
+      .use { case (publisher, subscriber) =>
+        for {
+          uncommittedFiber <- subscriber
+            .subscribe("redelivery-group")
+            .map(subscriber.extractValue)
+            .take(1)
+            .compile
+            .toList
+            .timeout(testTimeout)
+            .start
 
-            _ <- publisher.publishOne(TestMessage("redelivered", 3))
-            uncommitted <- uncommittedFiber.joinWithNever
+          _ <- publisher.publishOne(TestMessage("redelivered", 3))
+          uncommitted <- uncommittedFiber.joinWithNever
 
-            redelivered <- subscriber
-              .subscribe("redelivery-group")
-              .evalMap(record => subscriber.commit(List(record)).as(subscriber.extractValue(record)))
-              .take(1)
-              .compile
-              .toList
-              .timeout(testTimeout)
+          redelivered <- subscriber
+            .subscribe("redelivery-group")
+            .evalMap(record => subscriber.commit(List(record)).as(subscriber.extractValue(record)))
+            .take(1)
+            .compile
+            .toList
+            .timeout(testTimeout)
 
-            _ <- IO.delay {
-              uncommitted mustBe List(TestMessage("redelivered", 3))
-              redelivered mustBe List(TestMessage("redelivered", 3))
-            }
-          } yield ()
+          _ <- IO.delay {
+            uncommitted mustBe List(TestMessage("redelivered", 3))
+            redelivered mustBe List(TestMessage("redelivered", 3))
+          }
+        } yield ()
       }
   }
 
@@ -133,40 +131,39 @@ class RedisStreamPublisherSubscriberSpec extends AnyFlatSpec with Matchers with 
           lettuce(redisConfiguration)
         ).tupled
       }
-      .use {
-        case (publisher, subscriber, redisCommands, lettuceCommands) =>
-          def setXAck(allowed: Boolean): IO[Unit] =
-            IO.blocking {
-              lettuceCommands.aclSetuser(
-                "default",
-                if (allowed) AclSetuserArgs.Builder.addCommand(CommandType.XACK)
-                else AclSetuserArgs.Builder.removeCommand(CommandType.XACK)
-              )
-            }.void
+      .use { case (publisher, subscriber, redisCommands, lettuceCommands) =>
+        def setXAck(allowed: Boolean): IO[Unit] =
+          IO.blocking {
+            lettuceCommands.aclSetuser(
+              "default",
+              if (allowed) AclSetuserArgs.Builder.addCommand(CommandType.XACK)
+              else AclSetuserArgs.Builder.removeCommand(CommandType.XACK)
+            )
+          }.void
 
-          for {
-            receivedFiber <- subscriber
-              .subscribe("undecodable-group")
-              .map(subscriber.extractValue)
-              .take(1)
-              .compile
-              .toList
-              .timeout(testTimeout)
-              .start
+        for {
+          receivedFiber <- subscriber
+            .subscribe("undecodable-group")
+            .map(subscriber.extractValue)
+            .take(1)
+            .compile
+            .toList
+            .timeout(testTimeout)
+            .start
 
-            // XACK fails with NOPERM until it is allowed again
-            _ <- setXAck(allowed = false)
-            _ <- redisCommands.xAdd(testMessageMessagingTopic.name, Map("data" -> "not-json"))
-            _ <- publisher.publishOne(TestMessage("decodable", 1))
-            _ <- IO.sleep(3 seconds)
-            _ <- setXAck(allowed = true)
+          // XACK fails with NOPERM until it is allowed again
+          _ <- setXAck(allowed = false)
+          _ <- redisCommands.xAdd(testMessageMessagingTopic.name, Map("data" -> "not-json"))
+          _ <- publisher.publishOne(TestMessage("decodable", 1))
+          _ <- IO.sleep(3 seconds)
+          _ <- setXAck(allowed = true)
 
-            received <- receivedFiber.joinWithNever
+          received <- receivedFiber.joinWithNever
 
-            _ <- IO.delay {
-              received mustBe List(TestMessage("decodable", 1))
-            }
-          } yield ()
+          _ <- IO.delay {
+            received mustBe List(TestMessage("decodable", 1))
+          }
+        } yield ()
       }
   }
 
@@ -180,34 +177,33 @@ class RedisStreamPublisherSubscriberSpec extends AnyFlatSpec with Matchers with 
           // Uses the default redelivery timeout of 5 minutes, which is far longer than the test timeout
           .product(RedisStreamSubscriber.create[IO, TestMessage](redisConfiguration))
       }
-      .use {
-        case (publisher, subscriber) =>
-          for {
-            firstFiber <- subscriber
-              .subscribe("release-group")
-              .map(subscriber.extractValue)
-              .take(1)
-              .compile
-              .toList
-              .timeout(testTimeout)
-              .start
+      .use { case (publisher, subscriber) =>
+        for {
+          firstFiber <- subscriber
+            .subscribe("release-group")
+            .map(subscriber.extractValue)
+            .take(1)
+            .compile
+            .toList
+            .timeout(testTimeout)
+            .start
 
-            _ <- publishAll(publisher, "release", 0 until 3)
-            first <- firstFiber.joinWithNever
+          _ <- publishAll(publisher, "release", 0 until 3)
+          first <- firstFiber.joinWithNever
 
-            second <- subscriber
-              .subscribe("release-group")
-              .evalMap(record => subscriber.commit(List(record)).as(subscriber.extractValue(record)))
-              .take(3)
-              .compile
-              .toList
-              .timeout(testTimeout)
+          second <- subscriber
+            .subscribe("release-group")
+            .evalMap(record => subscriber.commit(List(record)).as(subscriber.extractValue(record)))
+            .take(3)
+            .compile
+            .toList
+            .timeout(testTimeout)
 
-            _ <- IO.delay {
-              first.map(_.index) mustBe List(0)
-              second.map(_.index) mustBe List(0, 1, 2)
-            }
-          } yield ()
+          _ <- IO.delay {
+            first.map(_.index) mustBe List(0)
+            second.map(_.index) mustBe List(0, 1, 2)
+          }
+        } yield ()
       }
   }
 
@@ -225,52 +221,50 @@ class RedisStreamPublisherSubscriberSpec extends AnyFlatSpec with Matchers with 
           lettuce(redisConfiguration)
         ).tupled
       }
-      .use {
-        case (publisher, subscriber, lettuceCommands) =>
-          val consumerCount: IO[Int] =
-            IO.blocking(lettuceCommands.xinfoConsumers(testMessageMessagingTopic.name, "stale-group").size())
+      .use { case (publisher, subscriber, lettuceCommands) =>
+        val consumerCount: IO[Int] =
+          IO.blocking(lettuceCommands.xinfoConsumers(testMessageMessagingTopic.name, "stale-group").size())
 
-          for {
-            // Ends while holding a message it never acknowledged, so its consumer is kept
-            firstFiber <- subscriber
-              .subscribe("stale-group")
-              .map(subscriber.extractValue)
-              .take(1)
-              .compile
-              .toList
-              .timeout(testTimeout)
-              .start
+        for {
+          // Ends while holding a message it never acknowledged, so its consumer is kept
+          firstFiber <- subscriber
+            .subscribe("stale-group")
+            .map(subscriber.extractValue)
+            .take(1)
+            .compile
+            .toList
+            .timeout(testTimeout)
+            .start
 
-            _ <- publisher.publishOne(TestMessage("claimed-again", 1))
-            _ <- firstFiber.joinWithNever
+          _ <- publisher.publishOne(TestMessage("claimed-again", 1))
+          _ <- firstFiber.joinWithNever
 
-            acknowledged <- Deferred[IO, Unit]
+          acknowledged <- Deferred[IO, Unit]
 
-            // Claims the message from the first consumer and acknowledges it
-            consumerCounts <- subscriber
-              .subscribe("stale-group")
-              .evalMap(record => subscriber.commit(List(record)) *> acknowledged.complete(()).void)
-              .compile
-              .drain
-              .background
-              .use { _ =>
-                // The first consumer may already be gone by the time the message is acknowledged, so only the
-                // count it settles on is checked: the claiming consumer stays, the one that held the message doesn't
-                acknowledged.get.timeout(testTimeout) *>
-                  waitUntil(consumerCount.map(_ == 1)).timeout(15 seconds).attempt *>
-                  consumerCount
-              }
-
-            _ <- IO.delay {
-              consumerCounts mustBe 1
+          // Claims the message from the first consumer and acknowledges it
+          consumerCounts <- subscriber
+            .subscribe("stale-group")
+            .evalMap(record => subscriber.commit(List(record)) *> acknowledged.complete(()).void)
+            .compile
+            .drain
+            .background
+            .use { _ =>
+              // The first consumer may already be gone by the time the message is acknowledged, so only the
+              // count it settles on is checked: the claiming consumer stays, the one that held the message doesn't
+              acknowledged.get.timeout(testTimeout) *>
+                waitUntil(consumerCount.map(_ == 1)).timeout(15 seconds).attempt *>
+                consumerCount
             }
-          } yield ()
+
+          _ <- IO.delay {
+            consumerCounts mustBe 1
+          }
+        } yield ()
       }
   }
 
-  /**
-    * A new group starts from the latest message, so a message published before the subscriber's first read created
-    * the group would be skipped. Creating the group up front lets a test publish straight away.
+  /** A new group starts from the latest message, so a message published before the subscriber's first read created the
+    * group would be skipped. Creating the group up front lets a test publish straight away.
     */
   private def createGroup(redisConfiguration: RedisConfiguration, groupId: String): IO[Unit] =
     Redis[IO].utf8(redisConfiguration.uri).use { redisCommands =>

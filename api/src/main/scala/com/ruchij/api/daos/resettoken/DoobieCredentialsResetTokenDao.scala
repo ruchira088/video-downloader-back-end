@@ -12,9 +12,7 @@ object DoobieCredentialsResetTokenDao extends CredentialsResetTokenDao[Connectio
     sql"""
       INSERT INTO credentials_reset_token (user_id, created_at, token)
         VALUES (${credentialsResetToken.userId}, ${credentialsResetToken.createdAt}, ${credentialsResetToken.token})
-    """
-      .update
-      .run
+    """.update.run
 
   override def find(userId: String, token: String): ConnectionIO[Option[CredentialsResetToken]] =
     sql"SELECT user_id, created_at, token FROM credentials_reset_token WHERE user_id = $userId AND token = $token"
@@ -22,7 +20,5 @@ object DoobieCredentialsResetTokenDao extends CredentialsResetTokenDao[Connectio
       .option
 
   override def delete(userId: String, token: String): ConnectionIO[Int] =
-    sql"DELETE FROM credentials_reset_token WHERE user_id = $userId AND token = $token"
-      .update
-      .run
+    sql"DELETE FROM credentials_reset_token WHERE user_id = $userId AND token = $token".update.run
 }

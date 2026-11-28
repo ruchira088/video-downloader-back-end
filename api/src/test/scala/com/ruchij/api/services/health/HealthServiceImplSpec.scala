@@ -26,9 +26,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 class HealthServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
   "healthCheck" should "be healthy when all the services are healthy" in
-    runHealthCheck(proxiedHttpStatus = Status.Ok, directHttpStatus = Status.Ok) {
-      (healthCheck: HealthCheck) =>
-        healthCheck.isHealthy mustBe true
+    runHealthCheck(proxiedHttpStatus = Status.Ok, directHttpStatus = Status.Ok) { (healthCheck: HealthCheck) =>
+      healthCheck.isHealthy mustBe true
     }
 
   it should "be unhealthy when any of the services are unhealthy" in
@@ -52,18 +51,18 @@ class HealthServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     }
 
   it should "report healthy internet connectivity when proxied client returns Ok" in
-    runHealthCheck(proxiedHttpStatus = Status.Ok, directHttpStatus = Status.Ok) {
-      (healthCheck: HealthCheck) =>
-        healthCheck.internetConnectivity.healthStatus mustBe HealthStatus.Healthy
+    runHealthCheck(proxiedHttpStatus = Status.Ok, directHttpStatus = Status.Ok) { (healthCheck: HealthCheck) =>
+      healthCheck.internetConnectivity.healthStatus mustBe HealthStatus.Healthy
     }
 
   it should "report healthy spa renderer when direct client returns Ok" in
-    runHealthCheck(proxiedHttpStatus = Status.Ok, directHttpStatus = Status.Ok) {
-      (healthCheck: HealthCheck) =>
-        healthCheck.spaRenderer.healthStatus mustBe HealthStatus.Healthy
+    runHealthCheck(proxiedHttpStatus = Status.Ok, directHttpStatus = Status.Ok) { (healthCheck: HealthCheck) =>
+      healthCheck.spaRenderer.healthStatus mustBe HealthStatus.Healthy
     }
 
-  private def runHealthCheck(proxiedHttpStatus: Status, directHttpStatus: Status)(assertion: HealthCheck => Unit): Unit =
+  private def runHealthCheck(proxiedHttpStatus: Status, directHttpStatus: Status)(
+    assertion: HealthCheck => Unit
+  ): Unit =
     runIO {
       new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
         for {

@@ -61,8 +61,7 @@ object PubSub {
       override def extractValue(ca: subscriber.C[A]): A = subscriber.extractValue(ca)
     }
 
-  /**
-    * Creates the backend-specific resources once (for example a single connection pool for the Doobie backend) and
+  /** Creates the backend-specific resources once (for example a single connection pool for the Doobie backend) and
     * hands out per-topic `PubSub` instances from them.
     */
   def provider[F[_]: Async: Parallel: Clock](pubsubConfiguration: PubsubConfiguration): Resource[F, PubSubProvider[F]] =
@@ -72,15 +71,18 @@ object PubSub {
           .fold(missingConfiguration[F]("kafka-configuration", "kafka")) { kafkaConfiguration =>
             Resource.pure {
               new PubSubProvider[F] {
-                override def pubSub[A: MessagingTopic]: Resource[F, PubSub[F, A]] = KafkaPubSub[F, A](kafkaConfiguration)
+                override def pubSub[A: MessagingTopic]: Resource[F, PubSub[F, A]] =
+                  KafkaPubSub[F, A](kafkaConfiguration)
 
                 override def connectivityCheck: Resource[F, F[Unit]] =
-                  KafkaAdminClient.resource[F] {
-                    AdminClientSettings(kafkaConfiguration.bootstrapServers)
-                      .withProperty("default.api.timeout.ms", "2000")
-                      .withProperty("request.timeout.ms", "2000")
-                      .withCloseTimeout(2.seconds)
-                  }.map(admin => admin.describeCluster.nodes.void)
+                  KafkaAdminClient
+                    .resource[F] {
+                      AdminClientSettings(kafkaConfiguration.bootstrapServers)
+                        .withProperty("default.api.timeout.ms", "2000")
+                        .withProperty("request.timeout.ms", "2000")
+                        .withCloseTimeout(2.seconds)
+                    }
+                    .map(admin => admin.describeCluster.nodes.void)
 
                 override val messageTransaction: Option[ConnectionIO ~> F] = None
               }
@@ -127,7 +129,10 @@ object PubSub {
           }
     }
 
-  private def missingConfiguration[F[_]: MonadCancelThrow](key: String, pubsubType: String): Resource[F, PubSubProvider[F]] =
+  private def missingConfiguration[F[_]: MonadCancelThrow](
+    key: String,
+    pubsubType: String
+  ): Resource[F, PubSubProvider[F]] =
     Resource.eval {
       MonadCancelThrow[F].raiseError {
         ExternalServiceException(s"$key is empty despite the pubsub-type being '$pubsubType'")

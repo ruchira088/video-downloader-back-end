@@ -20,10 +20,7 @@ object Encoders {
 
   implicit val finiteDurationEncoder: Encoder[FiniteDuration] =
     (finiteDuration: FiniteDuration) =>
-      Json.obj(
-        "length" -> Json.fromLong(finiteDuration.length),
-        "unit" -> Json.fromString(finiteDuration.unit.name())
-      )
+      Json.obj("length" -> Json.fromLong(finiteDuration.length), "unit" -> Json.fromString(finiteDuration.unit.name()))
 
   implicit val videoSiteEncoder: Encoder[VideoSite] = Encoder[String].contramap[VideoSite](_.name.toLowerCase)
 

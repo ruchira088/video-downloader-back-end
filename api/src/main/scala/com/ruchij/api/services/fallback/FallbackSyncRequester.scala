@@ -19,6 +19,7 @@ trait FallbackSyncRequester[F[_]] {
 }
 
 object FallbackSyncRequester {
+
   /** Used while fallback sync is disabled: returns at once, without starting a fiber or a timer. */
   def noOp[F[_]: Applicative]: FallbackSyncRequester[F] =
     new FallbackSyncRequester[F] {
@@ -35,9 +36,9 @@ object FallbackSyncRequester {
   * completes before the call returns. A stuck publish keeps running in the background, holding one of `maxInFlight`
   * slots. A `requestAll` publishes its ids one after another in that one fiber, however long they take in all.
   * `publishTimeout` bounds each id's publish when it can be cancelled, but fs2-kafka's send is uncancelable while it
-  * waits on topic metadata (up to the producer's `max.block.ms`, 60 s by default), so such a send keeps its slot
-  * until it gives up by itself, however long `publishTimeout` is. Once every slot is held, calls skip publishing
-  * without waiting at all.
+  * waits on topic metadata (up to the producer's `max.block.ms`, 60 s by default), so such a send keeps its slot until
+  * it gives up by itself, however long `publishTimeout` is. Once every slot is held, calls skip publishing without
+  * waiting at all.
   *
   * A publish still running at `publishTimeout` also opens a circuit breaker: for `degradedPeriod` afterwards, calls
   * return at once without starting a publish. An outage therefore costs a bounded number of fibers, and at most
@@ -107,7 +108,8 @@ class PublishingFallbackSyncRequester[F[_]: Async](
 
   /** True when every id was published. Each id's publish is timed on its own, so a requestAll of many ids (e.g. a
     * deleted user's videos) may run well past `publishTimeout` in its background fiber without opening the breaker.
-    * Once one publish outlives `publishTimeout`, or the breaker is open, the remaining ids are dropped. */
+    * Once one publish outlives `publishTimeout`, or the breaker is open, the remaining ids are dropped.
+    */
   private def publishEach(videoIds: List[String]): F[Boolean] =
     videoIds match {
       case Nil => Async[F].pure(true)
@@ -157,9 +159,8 @@ class PublishingFallbackSyncRequester[F[_]: Async](
           case None => (None, (false, false))
         }
       }
-      .flatMap {
-        case (degraded, leaving) =>
-          logger.info[F]("Resuming fallback sync requests after the degraded period").whenA(leaving).as(degraded)
+      .flatMap { case (degraded, leaving) =>
+        logger.info[F]("Resuming fallback sync requests after the degraded period").whenA(leaving).as(degraded)
       }
 
   private val enterDegraded: F[Unit] =
@@ -178,16 +179,15 @@ class PublishingFallbackSyncRequester[F[_]: Async](
           .whenA(entering)
       }
 
-  /** Starts at most one fiber at a time to run `onDropped`, however many requests are dropped: drops made while it
-    * runs are coalesced into one more run once it finishes, so every drop is followed by a completed `onDropped`. */
+  /** Starts at most one fiber at a time to run `onDropped`, however many requests are dropped: drops made while it runs
+    * are coalesced into one more run once it finishes, so every drop is followed by a completed `onDropped`.
+    */
   private val flagDropped: F[Unit] =
     Async[F].uncancelable { _ =>
-      dropFlagState
-        .modify {
-          case DropFlagState.Idle => (DropFlagState.Running, Async[F].start(runOnDropped).void)
-          case _ => (DropFlagState.RunAgain, Async[F].unit)
-        }
-        .flatten
+      dropFlagState.modify {
+        case DropFlagState.Idle => (DropFlagState.Running, Async[F].start(runOnDropped).void)
+        case _ => (DropFlagState.RunAgain, Async[F].unit)
+      }.flatten
     }
 
   private lazy val runOnDropped: F[Unit] =

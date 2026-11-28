@@ -42,20 +42,17 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
     sampleThumbnail
   )
 
-  private val sampleScheduledVideoDownload = ScheduledVideoDownload(
-    timestamp,
-    timestamp,
-    SchedulingStatus.Queued,
-    0L,
-    sampleVideoMetadata,
-    None,
-    None
-  )
+  private val sampleScheduledVideoDownload =
+    ScheduledVideoDownload(timestamp, timestamp, SchedulingStatus.Queued, 0L, sampleVideoMetadata, None, None)
 
   class StubApiSchedulingService extends ApiSchedulingService[IO] {
     var updatedProgress: List[(String, Instant, Long)] = List.empty
 
-    override def updateDownloadProgress(id: String, timestamp: Instant, downloadedBytes: Long): IO[ScheduledVideoDownload] = {
+    override def updateDownloadProgress(
+      id: String,
+      timestamp: Instant,
+      downloadedBytes: Long
+    ): IO[ScheduledVideoDownload] = {
       updatedProgress = updatedProgress :+ (id, timestamp, downloadedBytes)
       IO.pure(sampleScheduledVideoDownload.copy(downloadedBytes = downloadedBytes))
     }
@@ -83,7 +80,11 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
     override def retryFailed(maybeUserId: Option[String]): IO[Seq[ScheduledVideoDownload]] =
       IO.pure(Seq.empty)
 
-    override def updateSchedulingStatus(id: String, status: SchedulingStatus, maybeUserId: Option[String]): IO[ScheduledVideoDownload] =
+    override def updateSchedulingStatus(
+      id: String,
+      status: SchedulingStatus,
+      maybeUserId: Option[String]
+    ): IO[ScheduledVideoDownload] =
       IO.pure(sampleScheduledVideoDownload.copy(status = status))
 
     override def updateWorkerStatus(workerStatus: WorkerStatus): IO[Unit] = IO.unit
@@ -116,16 +117,18 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
     val healthCheckSubscriber = new StubSubscriber[HealthCheckMessage]
     val scheduledVideoDownloadsSubscriber = new StubSubscriber[ScheduledVideoDownload]
 
-    BackgroundServiceImpl.create[IO](
-      apiSchedulingService,
-      downloadProgressSubscriber,
-      healthCheckSubscriber,
-      scheduledVideoDownloadsSubscriber,
-      new StubSubscriber[ScheduledVideoDeletion],
-      "test-group"
-    ).map { service =>
-      service must not be null
-    }
+    BackgroundServiceImpl
+      .create[IO](
+        apiSchedulingService,
+        downloadProgressSubscriber,
+        healthCheckSubscriber,
+        scheduledVideoDownloadsSubscriber,
+        new StubSubscriber[ScheduledVideoDeletion],
+        "test-group"
+      )
+      .map { service =>
+        service must not be null
+      }
   }
 
   // A topic drops messages published before a subscriber has registered, so wait for the subscribers to register
@@ -155,7 +158,10 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
       progress = DownloadProgress("video-1", timestamp, 1024L)
 
       // Publish and receive in parallel
-      received <- service.downloadProgress.take(1).compile.toList
+      received <- service.downloadProgress
+        .take(1)
+        .compile
+        .toList
         .timeout(5 seconds)
         .start
         .flatMap { fiber =>
@@ -193,7 +199,10 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
 
       healthCheck = HealthCheckMessage("instance-1", timestamp)
 
-      received <- service.healthChecks.take(1).compile.toList
+      received <- service.healthChecks
+        .take(1)
+        .compile
+        .toList
         .timeout(10.seconds)
         .start
         .flatMap { fiber =>
@@ -229,7 +238,10 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
         "test-group"
       )
 
-      received <- service.updates.take(1).compile.toList
+      received <- service.updates
+        .take(1)
+        .compile
+        .toList
         .timeout(10.seconds)
         .start
         .flatMap { fiber =>
@@ -303,7 +315,11 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
       )
 
       // Start receiving from topic before running the service
-      receivedFiber <- downloadProgressTopic.subscribe(10).take(1).compile.toList
+      receivedFiber <- downloadProgressTopic
+        .subscribe(10)
+        .take(1)
+        .compile
+        .toList
         .timeout(10.seconds)
         .start
       _ <- awaitSubscribers(downloadProgressTopic)
@@ -402,7 +418,11 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
       )
 
       // Start receiving from topic BEFORE starting the service
-      receivedFiber <- healthCheckTopic.subscribe(10).take(1).compile.toList
+      receivedFiber <- healthCheckTopic
+        .subscribe(10)
+        .take(1)
+        .compile
+        .toList
         .timeout(30 seconds)
         .start
 
@@ -453,7 +473,11 @@ class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {
       )
 
       // Start receiving from topic
-      receivedFiber <- scheduleVideoDownloadsTopic.subscribe(10).take(1).compile.toList
+      receivedFiber <- scheduleVideoDownloadsTopic
+        .subscribe(10)
+        .take(1)
+        .compile
+        .toList
         .timeout(30 seconds)
         .start
 

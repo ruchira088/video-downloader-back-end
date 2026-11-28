@@ -19,10 +19,10 @@ object YTDownloaderProgress {
   def unapply(input: String): Option[YTDownloaderProgress] =
     input match {
       case YTDownloaderProgressPattern(
-          DoubleNumber(completed),
-          YTDataSize(totalSize),
-          YTDataSize(downloadRate),
-          FiniteDurationValue(estimatedDuration)
+            DoubleNumber(completed),
+            YTDataSize(totalSize),
+            YTDataSize(downloadRate),
+            FiniteDurationValue(estimatedDuration)
           ) =>
         Some(YTDownloaderProgress(completed, totalSize, downloadRate, estimatedDuration))
 

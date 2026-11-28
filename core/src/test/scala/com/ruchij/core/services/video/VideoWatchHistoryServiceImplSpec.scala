@@ -29,10 +29,19 @@ class VideoWatchHistoryServiceImplSpec extends AnyFlatSpec with Matchers {
     override def findBy(userId: String, pageSize: Int, pageNumber: Int): IO[List[DetailedVideoWatchHistory]] =
       IO.pure(List.empty)
 
-    override def findBy(userId: String, videoId: String, pageSize: Int, pageNumber: Int): IO[List[DetailedVideoWatchHistory]] =
+    override def findBy(
+      userId: String,
+      videoId: String,
+      pageSize: Int,
+      pageNumber: Int
+    ): IO[List[DetailedVideoWatchHistory]] =
       IO.pure(List.empty)
 
-    override def findLastUpdatedAfter(userId: String, videoId: String, timestamp: Instant): IO[Option[VideoWatchHistory]] =
+    override def findLastUpdatedAfter(
+      userId: String,
+      videoId: String,
+      timestamp: Instant
+    ): IO[Option[VideoWatchHistory]] =
       IO.delay {
         store.values.find { history =>
           history.userId == userId &&

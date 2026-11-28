@@ -7,8 +7,7 @@ import io.circe.Json
 import org.http4s.Response
 import org.scalatest.matchers.{MatchResult, Matcher}
 
-class JsonResponseMatcher(expectedJson: Json)
-    extends Matcher[Response[IO]] {
+class JsonResponseMatcher(expectedJson: Json) extends Matcher[Response[IO]] {
   override def apply(response: Response[IO]): MatchResult = {
     val json: Json = JsonUtils.fromResponse(response).unsafeRunSync()
 
@@ -18,7 +17,8 @@ class JsonResponseMatcher(expectedJson: Json)
         |Expected: $expectedJson
         |
         |Actual: $json
-        |""".stripMargin, "JSON values are equal"
+        |""".stripMargin,
+      "JSON values are equal"
     )
   }
 }

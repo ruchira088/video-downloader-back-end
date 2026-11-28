@@ -31,7 +31,11 @@ trait ApiSchedulingService[F[_]] {
   def retryFailed(maybeUserId: Option[String]): F[Seq[ScheduledVideoDownload]]
 
   /** Non-admin callers pass their user ID and may only update downloads they have permission for. */
-  def updateSchedulingStatus(id: String, status: SchedulingStatus, maybeUserId: Option[String]): F[ScheduledVideoDownload]
+  def updateSchedulingStatus(
+    id: String,
+    status: SchedulingStatus,
+    maybeUserId: Option[String]
+  ): F[ScheduledVideoDownload]
 
   def getById(id: String, maybeUserId: Option[String]): F[ScheduledVideoDownload]
 

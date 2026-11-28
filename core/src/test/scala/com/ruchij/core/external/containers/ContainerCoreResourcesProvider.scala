@@ -14,8 +14,7 @@ import java.util.Properties
 import java.util.concurrent.TimeUnit
 import scala.util.Using
 
-class ContainerCoreResourcesProvider[F[_]: Sync]
-    extends CoreResourcesProvider[F] {
+class ContainerCoreResourcesProvider[F[_]: Sync] extends CoreResourcesProvider[F] {
   override val kafkaConfiguration: Resource[F, KafkaConfiguration] =
     ContainerCoreResourcesProvider.readyKafka[F](ContainerCoreResourcesProvider.ContainerAttempts)
 

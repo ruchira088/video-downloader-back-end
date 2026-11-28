@@ -123,10 +123,9 @@ object VideoRoutes {
       case GET -> Root / "id" / videoId as AuthenticatedRequestContext(user, _) =>
         Ok(apiVideoService.fetchById(videoId, user.nonAdminUserId))
 
-      case DELETE -> Root / "id" / videoId :? DeleteVideoFileQueryParameter(deleteVideoFile) as AuthenticatedRequestContext(
-            user,
-            _
-          ) =>
+      case DELETE -> Root / "id" / videoId :? DeleteVideoFileQueryParameter(
+            deleteVideoFile
+          ) as AuthenticatedRequestContext(user, _) =>
         Ok(apiVideoService.deleteById(videoId, user.nonAdminUserId, deleteVideoFile))
 
       case contextRequest @ PATCH -> Root / "id" / videoId / "metadata" as AuthenticatedRequestContext(user, _) =>

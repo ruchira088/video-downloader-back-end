@@ -41,9 +41,11 @@ class AssetServiceImpl[F[_]: MonadThrow: Clock, T[_]: MonadThrow](
         if (isValid) Applicative[T].unit
         else
           ApplicativeError[T, Throwable].raiseError[Unit] {
-            ResourceNotFoundException(s"Unable to find ${classTag.runtimeClass.getSimpleName.stripSuffix("$")} file $resourceId")
+            ResourceNotFoundException(
+              s"Unable to find ${classTag.runtimeClass.getSimpleName.stripSuffix("$")} file $resourceId"
+            )
           }
-    }
+      }
 
   private def notFoundError[K[_]: ApplicativeThrow, A <: AssetType](
     id: String
@@ -100,18 +102,17 @@ class AssetServiceImpl[F[_]: MonadThrow: Clock, T[_]: MonadThrow](
 
   override def albumArt(id: String, user: User): F[Asset[F, AlbumArt.type]] =
     user.nonAdminUserId.fold(
-      retrieve[AlbumArt.type ](id, typeValidator[AlbumArt.type](playlistDao.isAlbumArtFileResource))
+      retrieve[AlbumArt.type](id, typeValidator[AlbumArt.type](playlistDao.isAlbumArtFileResource))
     ) { userId =>
-      transaction(playlistDao.hasAlbumArtPermission(id, userId)).flatMap {
-        hasPermission =>
-          if (hasPermission)
-            retrieve[AlbumArt.type ](id)
-          else notFoundError[F, AlbumArt.type ](id)
+      transaction(playlistDao.hasAlbumArtPermission(id, userId)).flatMap { hasPermission =>
+        if (hasPermission)
+          retrieve[AlbumArt.type](id)
+        else notFoundError[F, AlbumArt.type](id)
       }
     }
 
   override def thumbnail(id: String): F[Asset[F, Thumbnail.type]] =
-    retrieve[Thumbnail.type](id, typeValidator[Thumbnail.type ](videoMetadataDao.isThumbnailFileResource))
+    retrieve[Thumbnail.type](id, typeValidator[Thumbnail.type](videoMetadataDao.isThumbnailFileResource))
 
   private def retrieve[A <: AssetType](
     id: String,
@@ -126,20 +127,18 @@ class AssetServiceImpl[F[_]: MonadThrow: Clock, T[_]: MonadThrow](
         }
       }
     }.flatMap { fileResource =>
-        OptionT.liftF(resolveRange(fileResource.size, maybeFileByteRange, maybeMaxStreamSize)).flatMap { fileRange =>
-          OptionT(repositoryService.read(fileResource.path, Some(fileRange.start), Some(fileRange.end))).map { stream =>
-            Asset[F, A](fileResource, stream.limit(fileRange.end - fileRange.start), fileRange)
-          }
+      OptionT.liftF(resolveRange(fileResource.size, maybeFileByteRange, maybeMaxStreamSize)).flatMap { fileRange =>
+        OptionT(repositoryService.read(fileResource.path, Some(fileRange.start), Some(fileRange.end))).map { stream =>
+          Asset[F, A](fileResource, stream.limit(fileRange.end - fileRange.start), fileRange)
         }
       }
-      .getOrElseF {
-        ApplicativeError[F, Throwable].raiseError(ResourceNotFoundException("Asset not found"))
-      }
+    }.getOrElseF {
+      ApplicativeError[F, Throwable].raiseError(ResourceNotFoundException("Asset not found"))
+    }
 
-  /**
-    * Resolves the requested range against the size of the file following RFC 7233: the last byte position is
-    * clamped to the end of the file, a suffix range selects the last bytes of the file, and a range that does not
-    * overlap the file is not satisfiable. The returned FileRange has an exclusive end.
+  /** Resolves the requested range against the size of the file following RFC 7233: the last byte position is clamped to
+    * the end of the file, a suffix range selects the last bytes of the file, and a range that does not overlap the file
+    * is not satisfiable. The returned FileRange has an exclusive end.
     */
   private def resolveRange(
     fileSize: Long,

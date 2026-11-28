@@ -48,12 +48,11 @@ import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
-/**
-  * Covers the behaviour of [[SynchronizationServiceImpl.sync]].
+/** Covers the behaviour of [[SynchronizationServiceImpl.sync]].
   *
-  * `SynchronizationServiceImplSpec` only exercises the pure `videoIdFromVideoFile` helper and the
-  * result models, which leaves the synchronization logic itself untested. These tests drive `sync`
-  * through in-memory DAOs and an in-memory file repository, so every branch runs without Docker.
+  * `SynchronizationServiceImplSpec` only exercises the pure `videoIdFromVideoFile` helper and the result models, which
+  * leaves the synchronization logic itself untested. These tests drive `sync` through in-memory DAOs and an in-memory
+  * file repository, so every branch runs without Docker.
   */
 class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers with OptionValues {
 
@@ -247,9 +246,8 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
 
     for {
       fixture <- TestFixture.create(files = PlaceholderFiles)
-      _ <- videoPaths.zipWithIndex.traverse {
-        case (videoPath, index) =>
-          fixture.insertVideo(videoId = s"video-$index", videoPath = videoPath, snapshotCount = 12)
+      _ <- videoPaths.zipWithIndex.traverse { case (videoPath, index) =>
+        fixture.insertVideo(videoId = s"video-$index", videoPath = videoPath, snapshotCount = 12)
       }
 
       result <- fixture.synchronizationService.sync
@@ -538,7 +536,13 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
         (1 to snapshotCount).map { index =>
           Snapshot(
             videoId,
-            FileResource(s"$videoId-snapshot-$index", Timestamp, s"/images/$videoId-$index.jpg", MediaType.image.jpeg, 5L),
+            FileResource(
+              s"$videoId-snapshot-$index",
+              Timestamp,
+              s"/images/$videoId-$index.jpg",
+              MediaType.image.jpeg,
+              5L
+            ),
             index.minutes
           )
         }
@@ -668,8 +672,7 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
           case VideoScan(_, scanStatus) => scanStatuses.update(_ :+ scanStatus)
           case _ => IO.unit
         }
-      }
-        .productR(delegate.put(key, value))
+      }.productR(delegate.put(key, value))
 
     override def delete[A: KVDecoder[IO, *]](key: SharedConfigKey[A]): IO[Option[A]] =
       delegate.delete(key)
@@ -690,8 +693,7 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
     override def getById(id: String): IO[Option[FileResource]] = notImplemented
   }
 
-  private class StubVideoMetadataDao(videoMetadata: Ref[IO, Map[String, VideoMetadata]])
-      extends VideoMetadataDao[IO] {
+  private class StubVideoMetadataDao(videoMetadata: Ref[IO, Map[String, VideoMetadata]]) extends VideoMetadataDao[IO] {
     override def insert(metadata: VideoMetadata): IO[Int] =
       videoMetadata.update(_ + (metadata.id -> metadata)).as(1)
 
@@ -740,7 +742,11 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
       maybeSoleUserId: Option[String]
     ): IO[Option[ScheduledVideoDownload]] = notImplemented
 
-    override def setErrorById(id: String, throwable: Throwable, timestamp: Instant): IO[Option[ScheduledVideoDownload]] =
+    override def setErrorById(
+      id: String,
+      throwable: Throwable,
+      timestamp: Instant
+    ): IO[Option[ScheduledVideoDownload]] =
       notImplemented
 
     override def scheduleRetry(
@@ -750,10 +756,8 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
       timestamp: Instant
     ): IO[Option[ScheduledVideoDownload]] = notImplemented
 
-    override def updateSchedulingStatus(
-      from: SchedulingStatus,
-      to: SchedulingStatus
-    ): IO[Seq[ScheduledVideoDownload]] = notImplemented
+    override def updateSchedulingStatus(from: SchedulingStatus, to: SchedulingStatus): IO[Seq[ScheduledVideoDownload]] =
+      notImplemented
 
     override def updateDownloadProgress(
       id: String,
@@ -785,10 +789,8 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
     override def staleTask(delay: FiniteDuration, timestamp: Instant): IO[Option[ScheduledVideoDownload]] =
       notImplemented
 
-    override def updateTimedOutTasks(
-      timeout: FiniteDuration,
-      timestamp: Instant
-    ): IO[Seq[ScheduledVideoDownload]] = notImplemented
+    override def updateTimedOutTasks(timeout: FiniteDuration, timestamp: Instant): IO[Seq[ScheduledVideoDownload]] =
+      notImplemented
 
     override def acquireTask(timestamp: Instant): IO[Option[ScheduledVideoDownload]] = notImplemented
   }
@@ -827,8 +829,12 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
       videoSites: Option[NonEmptyList[VideoSite]],
       maybeUserId: Option[String]
     ): IO[Seq[Video]] =
-      videos.get.map(_.toSeq.sortBy { case (id, _) => id }.map { case (_, video) => video }
-        .slice(pageNumber * pageSize, (pageNumber * pageSize) + pageSize))
+      videos.get.map(
+        _.toSeq
+          .sortBy { case (id, _) => id }
+          .map { case (_, video) => video }
+          .slice(pageNumber * pageSize, (pageNumber * pageSize) + pageSize)
+      )
 
     override def findByVideoPath(videoPath: String): IO[Option[Video]] =
       videos.get.map(_.values.find(_.fileResource.path == videoPath))

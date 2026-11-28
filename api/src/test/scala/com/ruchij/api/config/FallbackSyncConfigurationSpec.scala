@@ -10,15 +10,13 @@ class FallbackSyncConfigurationSpec extends AnyFlatSpec with Matchers {
   "FallbackSyncConfiguration" should "parse a fully configured block into settings" in {
     val configuration =
       ConfigSource
-        .string(
-          """
+        .string("""
             enabled = true
             main-to-fallback-queue-url = "https://sqs.example.com/m2f"
             fallback-to-main-queue-url = "https://sqs.example.com/f2m"
             table-name = "prod-fallback-scheduled-videos"
             aws-region = "ap-southeast-2"
-          """
-        )
+          """)
         .loadOrThrow[FallbackSyncConfiguration]
 
     configuration.settings mustBe Right(
@@ -38,16 +36,14 @@ class FallbackSyncConfigurationSpec extends AnyFlatSpec with Matchers {
   it should "read the mass-removal override" in {
     val configuration =
       ConfigSource
-        .string(
-          """
+        .string("""
             enabled = true
             main-to-fallback-queue-url = "https://sqs.example.com/m2f"
             fallback-to-main-queue-url = "https://sqs.example.com/f2m"
             table-name = "prod-fallback-scheduled-videos"
             aws-region = "ap-southeast-2"
             reconcile-allow-mass-removal = true
-          """
-        )
+          """)
         .loadOrThrow[FallbackSyncConfiguration]
 
     configuration.settings.map(_.map(_.reconcileAllowMassRemoval)) mustBe Right(Some(true))

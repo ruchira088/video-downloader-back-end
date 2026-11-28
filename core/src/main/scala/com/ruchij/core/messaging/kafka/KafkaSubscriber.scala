@@ -11,8 +11,9 @@ import com.ruchij.core.messaging.models.CommittableRecord
 import fs2.Stream
 import fs2.kafka._
 
-class KafkaSubscriber[F[_]: Async: Parallel, A](kafkaConfiguration: KafkaConfiguration)(implicit topic: MessagingTopic[A])
-    extends Subscriber[F, A] {
+class KafkaSubscriber[F[_]: Async: Parallel, A](kafkaConfiguration: KafkaConfiguration)(implicit
+  topic: MessagingTopic[A]
+) extends Subscriber[F, A] {
   override type C[X] = CommittableRecord[CommittableConsumerRecord[F, Unit, *], X]
 
   private val logger = Logger[KafkaSubscriber[F, A]]
@@ -44,7 +45,9 @@ class KafkaSubscriber[F[_]: Async: Parallel, A](kafkaConfiguration: KafkaConfigu
           }
       }
 
-  override def commit[H[_]: Foldable: Functor](values: H[CommittableRecord[CommittableConsumerRecord[F, Unit, *], A]]): F[Unit] =
+  override def commit[H[_]: Foldable: Functor](
+    values: H[CommittableRecord[CommittableConsumerRecord[F, Unit, *], A]]
+  ): F[Unit] =
     CommittableOffsetBatch.fromFoldable(values.map(_.raw.offset)).commit
 
   override def extractValue(ca: CommittableRecord[CommittableConsumerRecord[F, Unit, *], A]): A = ca.value

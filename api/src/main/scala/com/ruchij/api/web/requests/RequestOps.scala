@@ -15,8 +15,7 @@ object RequestOps {
       validatedEntity <- validator.validate[A](entity)
     } yield validatedEntity
 
-  /**
-    * A failure to decode the request body describes the client's own request, so it is returned to the client as a
+  /** A failure to decode the request body describes the client's own request, so it is returned to the client as a
     * ValidationException, whereas the message of any other http4s MessageFailure is withheld by the ExceptionHandler
     */
   private def invalidBody(decodeFailure: DecodeFailure): ValidationException =

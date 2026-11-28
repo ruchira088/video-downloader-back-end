@@ -61,22 +61,22 @@ class BackgroundServiceImpl[F[_]: Async](
   private def publishToTopic[A: ClassTag](subscriber: Subscriber[F, A], topic: Topic[F, A]): Stream[F, Unit] =
     subscriber
       .subscribe(subscriberGroupId)
-      .evalTap {
-        ca => topic.publish1(subscriber.extractValue(ca))
+      .evalTap { ca =>
+        topic.publish1(subscriber.extractValue(ca))
       }
       .groupWithin(20, 5 seconds)
-      .evalMap {
-        chunk =>
-          subscriber.commit(chunk)
-            .productR {
-              Sync[F].delay(classTag[A].runtimeClass.getSimpleName)
-                .flatMap {
-                  className =>
-                    logger.debug[F] {
-                      s"${className}Subscriber(groupId=$subscriberGroupId) committed ${chunk.size} messages"
-                    }
+      .evalMap { chunk =>
+        subscriber
+          .commit(chunk)
+          .productR {
+            Sync[F]
+              .delay(classTag[A].runtimeClass.getSimpleName)
+              .flatMap { className =>
+                logger.debug[F] {
+                  s"${className}Subscriber(groupId=$subscriberGroupId) committed ${chunk.size} messages"
                 }
-            }
+              }
+          }
       }
 
   private val updateScheduledVideoDownloads: Stream[F, ScheduledVideoDownload] =
@@ -89,9 +89,8 @@ class BackgroundServiceImpl[F[_]: Async](
           .mapValues(_.maxByOption(_.bytes))
           .collect { case (_, Some(videoDownloadProgress)) => videoDownloadProgress }
           .toList
-          .traverse {
-            case DownloadProgress(videoId, timestamp, bytes) =>
-              apiSchedulingService.updateDownloadProgress(videoId, timestamp, bytes)
+          .traverse { case DownloadProgress(videoId, timestamp, bytes) =>
+            apiSchedulingService.updateDownloadProgress(videoId, timestamp, bytes)
           }
       }
       .flatMap { scheduledVideoDownloads =>

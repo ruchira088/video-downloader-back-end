@@ -107,11 +107,7 @@ abstract class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with Opti
           _ <- transaction(DoobieFileResourceDao.insert(snapshotFileResource))
 
           // Create snapshot
-          snapshot = Snapshot(
-            videoId,
-            snapshotFileResource,
-            30 seconds
-          )
+          snapshot = Snapshot(videoId, snapshotFileResource, 30 seconds)
 
           result <- testFn(TestFixture(snapshot, videoId, snapshotFileResource, videoMetadata, transaction))
         } yield result
@@ -307,9 +303,7 @@ abstract class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with Opti
       _ <- fixture.transaction(insertScheduledVideo(fixture.videoId, timestamp))
       _ <- fixture.transaction(DoobieSnapshotDao.insert(fixture.snapshot))
 
-      hasPermission <- fixture.transaction(
-        DoobieSnapshotDao.hasPermission(fixture.snapshotFileResource.id, userId)
-      )
+      hasPermission <- fixture.transaction(DoobieSnapshotDao.hasPermission(fixture.snapshotFileResource.id, userId))
 
       _ <- IO.delay {
         hasPermission mustBe false
@@ -327,13 +321,9 @@ abstract class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with Opti
       _ <- fixture.transaction(DoobieSnapshotDao.insert(fixture.snapshot))
 
       // Grant permission
-      _ <- fixture.transaction(
-        DoobieVideoPermissionDao.insert(VideoPermission(timestamp, fixture.videoId, userId))
-      )
+      _ <- fixture.transaction(DoobieVideoPermissionDao.insert(VideoPermission(timestamp, fixture.videoId, userId)))
 
-      hasPermission <- fixture.transaction(
-        DoobieSnapshotDao.hasPermission(fixture.snapshotFileResource.id, userId)
-      )
+      hasPermission <- fixture.transaction(DoobieSnapshotDao.hasPermission(fixture.snapshotFileResource.id, userId))
 
       _ <- IO.delay {
         hasPermission mustBe true
@@ -353,9 +343,7 @@ abstract class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with Opti
       _ <- fixture.transaction(DoobieSnapshotDao.insert(fixture.snapshot))
 
       // Grant permission only to user1
-      _ <- fixture.transaction(
-        DoobieVideoPermissionDao.insert(VideoPermission(timestamp, fixture.videoId, userId1))
-      )
+      _ <- fixture.transaction(DoobieVideoPermissionDao.insert(VideoPermission(timestamp, fixture.videoId, userId1)))
 
       hasPermissionUser1 <- fixture.transaction(
         DoobieSnapshotDao.hasPermission(fixture.snapshotFileResource.id, userId1)
@@ -379,13 +367,9 @@ abstract class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with Opti
 
       _ <- fixture.transaction(insertTestUser(userId, "test@example.com", timestamp))
       _ <- fixture.transaction(insertScheduledVideo(fixture.videoId, timestamp))
-      _ <- fixture.transaction(
-        DoobieVideoPermissionDao.insert(VideoPermission(timestamp, fixture.videoId, userId))
-      )
+      _ <- fixture.transaction(DoobieVideoPermissionDao.insert(VideoPermission(timestamp, fixture.videoId, userId)))
 
-      hasPermission <- fixture.transaction(
-        DoobieSnapshotDao.hasPermission("non-existent-snapshot-id", userId)
-      )
+      hasPermission <- fixture.transaction(DoobieSnapshotDao.hasPermission("non-existent-snapshot-id", userId))
 
       _ <- IO.delay {
         hasPermission mustBe false
@@ -403,20 +387,14 @@ abstract class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with Opti
       _ <- fixture.transaction(DoobieSnapshotDao.insert(fixture.snapshot))
 
       // Query without permission should return empty
-      snapshotsWithoutPermission <- fixture.transaction(
-        DoobieSnapshotDao.findByVideo(fixture.videoId, Some(userId))
-      )
+      snapshotsWithoutPermission <- fixture.transaction(DoobieSnapshotDao.findByVideo(fixture.videoId, Some(userId)))
       _ <- IO.delay { snapshotsWithoutPermission mustBe empty }
 
       // Grant permission
-      _ <- fixture.transaction(
-        DoobieVideoPermissionDao.insert(VideoPermission(timestamp, fixture.videoId, userId))
-      )
+      _ <- fixture.transaction(DoobieVideoPermissionDao.insert(VideoPermission(timestamp, fixture.videoId, userId)))
 
       // Query with permission should return snapshot
-      snapshotsWithPermission <- fixture.transaction(
-        DoobieSnapshotDao.findByVideo(fixture.videoId, Some(userId))
-      )
+      snapshotsWithPermission <- fixture.transaction(DoobieSnapshotDao.findByVideo(fixture.videoId, Some(userId)))
 
       _ <- IO.delay {
         snapshotsWithPermission.size mustBe 1
@@ -438,17 +416,11 @@ abstract class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with Opti
       _ <- fixture.transaction(DoobieSnapshotDao.insert(fixture.snapshot))
 
       // Grant permission only to user1
-      _ <- fixture.transaction(
-        DoobieVideoPermissionDao.insert(VideoPermission(timestamp, fixture.videoId, userId1))
-      )
+      _ <- fixture.transaction(DoobieVideoPermissionDao.insert(VideoPermission(timestamp, fixture.videoId, userId1)))
 
-      snapshotsUser1 <- fixture.transaction(
-        DoobieSnapshotDao.findByVideo(fixture.videoId, Some(userId1))
-      )
+      snapshotsUser1 <- fixture.transaction(DoobieSnapshotDao.findByVideo(fixture.videoId, Some(userId1)))
 
-      snapshotsUser2 <- fixture.transaction(
-        DoobieSnapshotDao.findByVideo(fixture.videoId, Some(userId2))
-      )
+      snapshotsUser2 <- fixture.transaction(DoobieSnapshotDao.findByVideo(fixture.videoId, Some(userId2)))
 
       _ <- IO.delay {
         snapshotsUser1.size mustBe 1
@@ -614,9 +586,7 @@ abstract class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with Opti
       hasPermission1Before <- fixture.transaction(
         DoobieSnapshotDao.hasPermission(fixture.snapshotFileResource.id, userId)
       )
-      hasPermission2Before <- fixture.transaction(
-        DoobieSnapshotDao.hasPermission(snapshotFileResource2.id, userId)
-      )
+      hasPermission2Before <- fixture.transaction(DoobieSnapshotDao.hasPermission(snapshotFileResource2.id, userId))
 
       _ <- IO.delay {
         hasPermission1Before mustBe false
@@ -624,17 +594,13 @@ abstract class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with Opti
       }
 
       // Grant permission for the video
-      _ <- fixture.transaction(
-        DoobieVideoPermissionDao.insert(VideoPermission(timestamp, fixture.videoId, userId))
-      )
+      _ <- fixture.transaction(DoobieVideoPermissionDao.insert(VideoPermission(timestamp, fixture.videoId, userId)))
 
       // Check permissions after granting - both snapshots should be accessible
       hasPermission1After <- fixture.transaction(
         DoobieSnapshotDao.hasPermission(fixture.snapshotFileResource.id, userId)
       )
-      hasPermission2After <- fixture.transaction(
-        DoobieSnapshotDao.hasPermission(snapshotFileResource2.id, userId)
-      )
+      hasPermission2After <- fixture.transaction(DoobieSnapshotDao.hasPermission(snapshotFileResource2.id, userId))
 
       _ <- IO.delay {
         hasPermission1After mustBe true
@@ -669,39 +635,34 @@ abstract class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with Opti
     } yield ()
   }
 
-  it should "not find snapshots for video when querying without permission for a user that exists" in runTest { fixture =>
-    for {
-      timestamp <- Clock[IO].timestamp
-      userId = "test-user-id"
+  it should "not find snapshots for video when querying without permission for a user that exists" in runTest {
+    fixture =>
+      for {
+        timestamp <- Clock[IO].timestamp
+        userId = "test-user-id"
 
-      _ <- fixture.transaction(insertTestUser(userId, "test@example.com", timestamp))
-      _ <- fixture.transaction(insertScheduledVideo(fixture.videoId, timestamp))
-      _ <- fixture.transaction(DoobieSnapshotDao.insert(fixture.snapshot))
+        _ <- fixture.transaction(insertTestUser(userId, "test@example.com", timestamp))
+        _ <- fixture.transaction(insertScheduledVideo(fixture.videoId, timestamp))
+        _ <- fixture.transaction(DoobieSnapshotDao.insert(fixture.snapshot))
 
-      // Query without permission
-      snapshotsWithUserId <- fixture.transaction(
-        DoobieSnapshotDao.findByVideo(fixture.videoId, Some(userId))
-      )
+        // Query without permission
+        snapshotsWithUserId <- fixture.transaction(DoobieSnapshotDao.findByVideo(fixture.videoId, Some(userId)))
 
-      // Query without user ID should still return results
-      snapshotsWithoutUserId <- fixture.transaction(
-        DoobieSnapshotDao.findByVideo(fixture.videoId, None)
-      )
+        // Query without user ID should still return results
+        snapshotsWithoutUserId <- fixture.transaction(DoobieSnapshotDao.findByVideo(fixture.videoId, None))
 
-      _ <- IO.delay {
-        snapshotsWithUserId mustBe empty
-        snapshotsWithoutUserId.size mustBe 1
-      }
-    } yield ()
+        _ <- IO.delay {
+          snapshotsWithUserId mustBe empty
+          snapshotsWithoutUserId.size mustBe 1
+        }
+      } yield ()
   }
 
   it should "return true for isSnapshotFileResource when file resource is a snapshot" in runTest { fixture =>
     for {
       _ <- fixture.transaction(DoobieSnapshotDao.insert(fixture.snapshot))
 
-      isSnapshot <- fixture.transaction(
-        DoobieSnapshotDao.isSnapshotFileResource(fixture.snapshotFileResource.id)
-      )
+      isSnapshot <- fixture.transaction(DoobieSnapshotDao.isSnapshotFileResource(fixture.snapshotFileResource.id))
 
       _ <- IO.delay {
         isSnapshot mustBe true
@@ -711,9 +672,7 @@ abstract class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with Opti
 
   it should "return false for isSnapshotFileResource when file resource is not a snapshot" in runTest { fixture =>
     for {
-      isSnapshot <- fixture.transaction(
-        DoobieSnapshotDao.isSnapshotFileResource("non-existent-file-resource")
-      )
+      isSnapshot <- fixture.transaction(DoobieSnapshotDao.isSnapshotFileResource("non-existent-file-resource"))
 
       _ <- IO.delay {
         isSnapshot mustBe false
@@ -721,16 +680,15 @@ abstract class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with Opti
     } yield ()
   }
 
-  it should "return false for isSnapshotFileResource when file resource exists but is not a snapshot" in runTest { fixture =>
-    for {
-      // thumbnail-id exists as a file resource but is not a snapshot
-      isSnapshot <- fixture.transaction(
-        DoobieSnapshotDao.isSnapshotFileResource("thumbnail-id")
-      )
+  it should "return false for isSnapshotFileResource when file resource exists but is not a snapshot" in runTest {
+    fixture =>
+      for {
+        // thumbnail-id exists as a file resource but is not a snapshot
+        isSnapshot <- fixture.transaction(DoobieSnapshotDao.isSnapshotFileResource("thumbnail-id"))
 
-      _ <- IO.delay {
-        isSnapshot mustBe false
-      }
-    } yield ()
+        _ <- IO.delay {
+          isSnapshot mustBe false
+        }
+      } yield ()
   }
 }

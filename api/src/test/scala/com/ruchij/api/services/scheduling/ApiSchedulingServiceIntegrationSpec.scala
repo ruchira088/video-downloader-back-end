@@ -54,15 +54,7 @@ class ApiSchedulingServiceIntegrationSpec extends AnyFlatSpec with Matchers with
   private val AsNormalUser = Some(ApiTestData.NormalUser.id)
 
   private def scheduledVideo(video: Video, status: SchedulingStatus): ScheduledVideoDownload =
-    ScheduledVideoDownload(
-      CoreTestData.Timestamp,
-      CoreTestData.Timestamp,
-      status,
-      0,
-      video.videoMetadata,
-      None,
-      None
-    )
+    ScheduledVideoDownload(CoreTestData.Timestamp, CoreTestData.Timestamp, status, 0, video.videoMetadata, None, None)
 
   private def permission(videoId: String, user: User): VideoPermission =
     VideoPermission(CoreTestData.Timestamp, videoId, user.id)
@@ -119,94 +111,93 @@ class ApiSchedulingServiceIntegrationSpec extends AnyFlatSpec with Matchers with
       }
     }
 
-  providers.foreach {
-    case (databaseName, provider) =>
-      s"updateSchedulingStatus ($databaseName)" should "not queue a completed video again" in runTest(provider) {
-        fixture =>
-          for {
-            error <- fixture.service.updateSchedulingStatus(completedId, SchedulingStatus.Queued, AsNormalUser).error
-            adminError <- fixture.service.updateSchedulingStatus(completedId, SchedulingStatus.Queued, None).error
-            status <- fixture.status(completedId)
-            published <- fixture.scheduledVideoDownloads.messages
-          } yield {
-            error mustBe a[ValidationException]
-            adminError mustBe a[ValidationException]
-            status mustBe Some(SchedulingStatus.Completed)
-            published mustBe empty
-          }
-      }
-
-      it should "not let a user pause a video that another user is waiting for" in runTest(provider) { fixture =>
+  providers.foreach { case (databaseName, provider) =>
+    s"updateSchedulingStatus ($databaseName)" should "not queue a completed video again" in runTest(provider) {
+      fixture =>
         for {
-          error <- fixture.service.updateSchedulingStatus(sharedId, SchedulingStatus.Paused, AsNormalUser).error
-          status <- fixture.status(sharedId)
+          error <- fixture.service.updateSchedulingStatus(completedId, SchedulingStatus.Queued, AsNormalUser).error
+          adminError <- fixture.service.updateSchedulingStatus(completedId, SchedulingStatus.Queued, None).error
+          status <- fixture.status(completedId)
           published <- fixture.scheduledVideoDownloads.messages
-        } yield {
-          error mustBe an[AuthorizationException]
-          status mustBe Some(SchedulingStatus.Active)
-          published mustBe empty
-        }
-      }
-
-      it should "let a user pause and resume a video that only they are waiting for" in runTest(provider) { fixture =>
-        for {
-          paused <- fixture.service.updateSchedulingStatus(ownId, SchedulingStatus.Paused, AsNormalUser)
-          resumed <- fixture.service.updateSchedulingStatus(ownId, SchedulingStatus.Queued, AsNormalUser)
-          published <- fixture.scheduledVideoDownloads.messages
-        } yield {
-          paused.status mustBe SchedulingStatus.Paused
-          resumed.status mustBe SchedulingStatus.Queued
-          published.map(_.status) mustBe List(SchedulingStatus.Paused, SchedulingStatus.Queued)
-        }
-      }
-
-      it should "let an admin pause a shared video, and any of its users resume it" in runTest(provider) { fixture =>
-        for {
-          paused <- fixture.service.updateSchedulingStatus(sharedId, SchedulingStatus.Paused, None)
-          resumed <- fixture.service.updateSchedulingStatus(sharedId, SchedulingStatus.Queued, Some(OtherUser.id))
-        } yield {
-          paused.status mustBe SchedulingStatus.Paused
-          resumed.status mustBe SchedulingStatus.Queued
-        }
-      }
-
-      it should "not resume a video that is not paused or errored" in runTest(provider) { fixture =>
-        for {
-          error <- fixture.service.updateSchedulingStatus(ownId, SchedulingStatus.Queued, AsNormalUser).error
-          status <- fixture.status(ownId)
         } yield {
           error mustBe a[ValidationException]
-          status mustBe Some(SchedulingStatus.Active)
+          adminError mustBe a[ValidationException]
+          status mustBe Some(SchedulingStatus.Completed)
+          published mustBe empty
         }
-      }
+    }
 
-      s"deleteById ($databaseName)" should "name the video's users in an admin's deletion" in runTest(provider) {
-        fixture =>
-          for {
-            deleted <- fixture.service.deleteById(sharedId, None)
-            published <- fixture.scheduledVideoDownloads.messages
-            deletions <- fixture.scheduledVideoDeletions.messages
-            permissions <- fixture.transaction(DoobieVideoPermissionDao.find(None, Some(sharedId)))
-          } yield {
-            deleted.status mustBe SchedulingStatus.Deleted
-            published mustBe List(deleted)
-            deletions mustBe List(ScheduledVideoDeletion(deleted, List(ApiTestData.NormalUser.id, OtherUser.id).sorted))
-            permissions mustBe empty
-          }
+    it should "not let a user pause a video that another user is waiting for" in runTest(provider) { fixture =>
+      for {
+        error <- fixture.service.updateSchedulingStatus(sharedId, SchedulingStatus.Paused, AsNormalUser).error
+        status <- fixture.status(sharedId)
+        published <- fixture.scheduledVideoDownloads.messages
+      } yield {
+        error mustBe an[AuthorizationException]
+        status mustBe Some(SchedulingStatus.Active)
+        published mustBe empty
       }
+    }
 
-      it should "not publish a deletion when a user removes the video from their own downloads" in runTest(provider) {
-        fixture =>
-          for {
-            _ <- fixture.service.deleteById(sharedId, AsNormalUser)
-            published <- fixture.scheduledVideoDownloads.messages
-            deletions <- fixture.scheduledVideoDeletions.messages
-            permissions <- fixture.transaction(DoobieVideoPermissionDao.find(None, Some(sharedId)))
-          } yield {
-            published mustBe empty
-            deletions mustBe empty
-            permissions.map(_.userId) mustBe List(OtherUser.id)
-          }
+    it should "let a user pause and resume a video that only they are waiting for" in runTest(provider) { fixture =>
+      for {
+        paused <- fixture.service.updateSchedulingStatus(ownId, SchedulingStatus.Paused, AsNormalUser)
+        resumed <- fixture.service.updateSchedulingStatus(ownId, SchedulingStatus.Queued, AsNormalUser)
+        published <- fixture.scheduledVideoDownloads.messages
+      } yield {
+        paused.status mustBe SchedulingStatus.Paused
+        resumed.status mustBe SchedulingStatus.Queued
+        published.map(_.status) mustBe List(SchedulingStatus.Paused, SchedulingStatus.Queued)
       }
+    }
+
+    it should "let an admin pause a shared video, and any of its users resume it" in runTest(provider) { fixture =>
+      for {
+        paused <- fixture.service.updateSchedulingStatus(sharedId, SchedulingStatus.Paused, None)
+        resumed <- fixture.service.updateSchedulingStatus(sharedId, SchedulingStatus.Queued, Some(OtherUser.id))
+      } yield {
+        paused.status mustBe SchedulingStatus.Paused
+        resumed.status mustBe SchedulingStatus.Queued
+      }
+    }
+
+    it should "not resume a video that is not paused or errored" in runTest(provider) { fixture =>
+      for {
+        error <- fixture.service.updateSchedulingStatus(ownId, SchedulingStatus.Queued, AsNormalUser).error
+        status <- fixture.status(ownId)
+      } yield {
+        error mustBe a[ValidationException]
+        status mustBe Some(SchedulingStatus.Active)
+      }
+    }
+
+    s"deleteById ($databaseName)" should "name the video's users in an admin's deletion" in runTest(provider) {
+      fixture =>
+        for {
+          deleted <- fixture.service.deleteById(sharedId, None)
+          published <- fixture.scheduledVideoDownloads.messages
+          deletions <- fixture.scheduledVideoDeletions.messages
+          permissions <- fixture.transaction(DoobieVideoPermissionDao.find(None, Some(sharedId)))
+        } yield {
+          deleted.status mustBe SchedulingStatus.Deleted
+          published mustBe List(deleted)
+          deletions mustBe List(ScheduledVideoDeletion(deleted, List(ApiTestData.NormalUser.id, OtherUser.id).sorted))
+          permissions mustBe empty
+        }
+    }
+
+    it should "not publish a deletion when a user removes the video from their own downloads" in runTest(provider) {
+      fixture =>
+        for {
+          _ <- fixture.service.deleteById(sharedId, AsNormalUser)
+          published <- fixture.scheduledVideoDownloads.messages
+          deletions <- fixture.scheduledVideoDeletions.messages
+          permissions <- fixture.transaction(DoobieVideoPermissionDao.find(None, Some(sharedId)))
+        } yield {
+          published mustBe empty
+          deletions mustBe empty
+          permissions.map(_.userId) mustBe List(OtherUser.id)
+        }
+    }
   }
 }

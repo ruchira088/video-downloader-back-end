@@ -14,9 +14,10 @@ class BCryptPasswordHashingService[F[_]: Sync] extends PasswordHashingService[F]
     }
 
   override def hashPassword(password: Password): F[HashedPassword] =
-    Sync[F].delay {
-      BCrypt.hashpw(password.value, BCrypt.gensalt())
-    }
+    Sync[F]
+      .delay {
+        BCrypt.hashpw(password.value, BCrypt.gensalt())
+      }
       .map(hashed => HashedPassword(hashed))
 
 }

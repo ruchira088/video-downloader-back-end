@@ -22,13 +22,15 @@ final class BatchHealth[F[_]: Async] private (state: Ref[F, BatchHealth.State]) 
     monitor(databaseCheck.productR(messagingCheck))
 
   def monitor(check: F[Unit]): Stream[F, Unit] =
-    Stream.repeatEval {
-      check.timeout(2.seconds).attempt.flatMap { result =>
-        Async[F].monotonic.flatMap { now =>
-          state.update(_.copy(dependencyHealthy = result.isRight, checkedAt = Some(now)))
+    Stream
+      .repeatEval {
+        check.timeout(2.seconds).attempt.flatMap { result =>
+          Async[F].monotonic.flatMap { now =>
+            state.update(_.copy(dependencyHealthy = result.isRight, checkedAt = Some(now)))
+          }
         }
       }
-    }.metered(5.seconds)
+      .metered(5.seconds)
 
   val routes: HttpApp[F] = {
     val dsl = new Http4sDsl[F] {}
@@ -37,14 +39,16 @@ final class BatchHealth[F[_]: Async] private (state: Ref[F, BatchHealth.State]) 
     def respond(predicate: State => Boolean) =
       state.get.flatMap(value => if (predicate(value)) Ok() else ServiceUnavailable())
 
-    HttpRoutes.of[F] {
-      case GET -> Root / "health" / "started" => respond(_.started)
-      case GET -> Root / "health" / "live" => respond(_.running)
-      case GET -> Root / "health" / "ready" =>
-        Async[F].monotonic.flatMap { now =>
-          respond(s => s.running && s.dependencyHealthy && s.checkedAt.exists(now - _ < 15.seconds))
-        }
-    }.orNotFound
+    HttpRoutes
+      .of[F] {
+        case GET -> Root / "health" / "started" => respond(_.started)
+        case GET -> Root / "health" / "live" => respond(_.running)
+        case GET -> Root / "health" / "ready" =>
+          Async[F].monotonic.flatMap { now =>
+            respond(s => s.running && s.dependencyHealthy && s.checkedAt.exists(now - _ < 15.seconds))
+          }
+      }
+      .orNotFound
   }
 }
 

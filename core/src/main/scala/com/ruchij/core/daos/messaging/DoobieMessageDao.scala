@@ -11,10 +11,9 @@ object DoobieMessageDao extends MessageDao[ConnectionIO] {
   /** Mirrors Kafka's default retention.ms */
   val HardRetention: Duration = Duration.ofDays(7)
 
-  /**
-    * How long a consumer group may go without polling before it is deleted. Kafka keeps idle groups for 7 days
-    * (offsets.retention.minutes), but the API and batch instances use a group id per instance, so every restart
-    * leaves groups behind that would otherwise hold messages back for that long.
+  /** How long a consumer group may go without polling before it is deleted. Kafka keeps idle groups for 7 days
+    * (offsets.retention.minutes), but the API and batch instances use a group id per instance, so every restart leaves
+    * groups behind that would otherwise hold messages back for that long.
     */
   val IdleGroupExpiry: Duration = Duration.ofDays(1)
 

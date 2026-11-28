@@ -49,9 +49,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
 
   private val sampleVideo = Video(sampleVideoMetadata, sampleFileResource, timestamp, 5.minutes)
 
-  class StubVideoService(
-    deleteByIdResult: Video = sampleVideo
-  ) extends VideoService[IO, IO] {
+  class StubVideoService(deleteByIdResult: Video = sampleVideo) extends VideoService[IO, IO] {
     override def findVideoById(id: String, maybeUserId: Option[String]): IO[Video] =
       IO.pure(sampleVideo)
 
@@ -116,16 +114,19 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     override val siteSummaries: IO[Seq[VideoSiteSummary]] = IO.pure(Seq.empty)
   }
 
-  class StubVideoMetadataDao(
-    updateResult: Int = 1
-  ) extends VideoMetadataDao[IO] {
+  class StubVideoMetadataDao(updateResult: Int = 1) extends VideoMetadataDao[IO] {
     override def insert(videoMetadata: VideoMetadata): IO[Int] = IO.pure(1)
 
     override def findById(id: String): IO[Option[VideoMetadata]] = IO.pure(Some(sampleVideoMetadata))
 
     override def findByUrl(uri: org.http4s.Uri): IO[Option[VideoMetadata]] = IO.pure(None)
 
-    override def update(id: String, title: Option[String], size: Option[Long], duration: Option[FiniteDuration]): IO[Int] =
+    override def update(
+      id: String,
+      title: Option[String],
+      size: Option[Long],
+      duration: Option[FiniteDuration]
+    ): IO[Int] =
       IO.pure(updateResult)
 
     override def isThumbnailFileResource(thumbnailId: String): IO[Boolean] = IO.pure(false)
@@ -133,9 +134,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     override def deleteById(videoMetadataId: String): IO[Int] = IO.pure(1)
   }
 
-  class StubFileResourceDao(
-    updateResult: Int = 1
-  ) extends FileResourceDao[IO] {
+  class StubFileResourceDao(updateResult: Int = 1) extends FileResourceDao[IO] {
     override def insert(resource: FileResource): IO[Int] = IO.pure(1)
     override def update(id: String, size: Long): IO[Int] = IO.pure(updateResult)
     override def getById(id: String): IO[Option[FileResource]] = IO.pure(Some(sampleFileResource))
@@ -149,12 +148,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     videoMetadataDao: VideoMetadataDao[IO] = new StubVideoMetadataDao(),
     fileResourceDao: FileResourceDao[IO] = new StubFileResourceDao()
   )(implicit clock: Clock[IO]): BatchVideoServiceImpl[IO, IO] = {
-    new BatchVideoServiceImpl[IO, IO](
-      videoService,
-      videoDao,
-      videoMetadataDao,
-      fileResourceDao
-    )
+    new BatchVideoServiceImpl[IO, IO](videoService, videoDao, videoMetadataDao, fileResourceDao)
   }
 
   "insert" should "create a new video entry" in runIO {

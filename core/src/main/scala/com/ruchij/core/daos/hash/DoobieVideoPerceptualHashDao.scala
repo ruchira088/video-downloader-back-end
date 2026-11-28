@@ -29,7 +29,6 @@ object DoobieVideoPerceptualHashDao extends VideoPerceptualHashDao[ConnectionIO]
       .query[String]
       .to[Seq]
 
-
   override def insert(videoPerceptualHash: VideoPerceptualHash): ConnectionIO[Int] =
     sql"""
       INSERT INTO video_perceptual_hash(video_id, created_at, duration, snapshot_perceptual_hash, snapshot_timestamp)
@@ -61,7 +60,5 @@ object DoobieVideoPerceptualHashDao extends VideoPerceptualHashDao[ConnectionIO]
       .to[List]
 
   override def deleteByVideoId(videoId: String): ConnectionIO[Int] =
-    sql"DELETE FROM video_perceptual_hash WHERE video_id = $videoId"
-      .update
-      .run
+    sql"DELETE FROM video_perceptual_hash WHERE video_id = $videoId".update.run
 }

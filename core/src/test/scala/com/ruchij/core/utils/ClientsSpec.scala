@@ -75,16 +75,18 @@ class ClientsSpec extends AnyFlatSpec with Matchers {
       IO.delay { acquired = true }
     }
 
-    testResource.use { _ =>
-      IO.delay {
-        acquired mustBe true
+    testResource
+      .use { _ =>
+        IO.delay {
+          acquired mustBe true
+        }
       }
-    }.flatMap { _ =>
-      IO.delay {
-        // If we get here without error, the resource was properly acquired and released
-        acquired mustBe true
+      .flatMap { _ =>
+        IO.delay {
+          // If we get here without error, the resource was properly acquired and released
+          acquired mustBe true
+        }
       }
-    }
   }
 
   it should "create an HTTP client with proxy using localhost" in runIO {

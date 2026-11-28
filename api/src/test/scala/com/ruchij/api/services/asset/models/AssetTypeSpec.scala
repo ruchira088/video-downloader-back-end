@@ -6,12 +6,7 @@ import org.scalatest.matchers.must.Matchers
 class AssetTypeSpec extends AnyFlatSpec with Matchers {
 
   "AssetType" should "contain all expected values" in {
-    AssetType.values must contain allOf (
-      AssetType.Video,
-      AssetType.Thumbnail,
-      AssetType.Snapshot,
-      AssetType.AlbumArt
-    )
+    AssetType.values must contain allOf (AssetType.Video, AssetType.Thumbnail, AssetType.Snapshot, AssetType.AlbumArt)
   }
 
   it should "have exactly 4 values" in {

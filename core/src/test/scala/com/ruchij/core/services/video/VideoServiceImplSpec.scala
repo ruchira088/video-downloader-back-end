@@ -38,7 +38,6 @@ import scala.concurrent.duration._
 class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
   import VideoServiceImplSpec.VideoSearchCall
 
-
   private val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 30)
 
   implicit val transaction: IO ~> IO = new (IO ~> IO) {
@@ -67,7 +66,6 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
     FileResource("snapshot-file-1", timestamp, "/snapshots/snap1.jpg", MediaType.image.jpeg, 30000L)
 
   private val sampleSnapshot = Snapshot("video-1", snapshotFileResource, 2.minutes)
-
 
   class StubVideoDao(
     findByIdResult: (String, Option[String]) => Option[Video] = (_, _) => None,
@@ -100,7 +98,18 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
     ): IO[Seq[Video]] =
       IO.delay {
         searchCalls +=
-          VideoSearchCall(term, videoUrls, durationRange, sizeRange, pageNumber, pageSize, sortBy, order, videoSites, maybeUserId)
+          VideoSearchCall(
+            term,
+            videoUrls,
+            durationRange,
+            sizeRange,
+            pageNumber,
+            pageSize,
+            sortBy,
+            order,
+            videoSites,
+            maybeUserId
+          )
       }.as(searchResult)
 
     override def incrementWatchTime(videoId: String, finiteDuration: FiniteDuration): IO[Option[FiniteDuration]] =
@@ -307,8 +316,8 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
   it should "return video when found with user ID" in runIO {
     implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
-    val videoDao = new StubVideoDao(
-      findByIdResult = (id, userId) => if (id == "video-1" && userId.contains("user-1")) Some(sampleVideo) else None
+    val videoDao = new StubVideoDao(findByIdResult =
+      (id, userId) => if (id == "video-1" && userId.contains("user-1")) Some(sampleVideo) else None
     )
 
     val service = createService(videoDao = videoDao)
@@ -480,7 +489,18 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
 
       // Only videos of at most 1MB are treated as incorrectly completed
       videoDao.searchCalls.toList mustBe List(
-        VideoSearchCall(None, None, RangeValue.all, RangeValue(None, Some(1024 * 1024L)), 0, 100, SortBy.Date, Order.Descending, None, None)
+        VideoSearchCall(
+          None,
+          None,
+          RangeValue.all,
+          RangeValue(None, Some(1024 * 1024L)),
+          0,
+          100,
+          SortBy.Date,
+          Order.Descending,
+          None,
+          None
+        )
       )
 
       // deleteForRedownload, not deleteById, so the video's playlist memberships survive the re-download

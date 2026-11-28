@@ -82,10 +82,10 @@ trait GoldenFormat {
 }
 
 object GoldenFormat {
-  def apply[A](formatName: String, formatValue: A)(
-    encoder: A => Either[Throwable, String],
-    decoder: Option[String => Either[Throwable, A]]
-  ): GoldenFormat =
+  def apply[A](
+    formatName: String,
+    formatValue: A
+  )(encoder: A => Either[Throwable, String], decoder: Option[String => Either[Throwable, A]]): GoldenFormat =
     new GoldenFormat {
       override val name: String = formatName
 
@@ -107,8 +107,8 @@ object GoldenFormat {
   def kvKey[K <: KVStoreKey](name: String, key: K)(implicit encoder: KeySpacedKeyEncoder[Try, K]): GoldenFormat =
     GoldenFormat(s"kv-key-$name", key)(key => encoder.encode(key).toEither, None)
 
-  def kvValue[V](name: String, value: V)(
-    implicit encoder: KVEncoder[Try, V],
+  def kvValue[V](name: String, value: V)(implicit
+    encoder: KVEncoder[Try, V],
     decoder: KVDecoder[Try, V]
   ): GoldenFormat =
     GoldenFormat(s"kv-value-$name", value)(value => encoder.encode(value).toEither, Some(decoder.decode(_).toEither))

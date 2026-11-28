@@ -28,7 +28,7 @@ class VideoServiceImpl[F[_]: Monad: Clock, G[_]: MonadThrow](
   fileResourceDao: FileResourceDao[G],
   videoTitleDao: VideoTitleDao[G],
   videoPermissionDao: VideoPermissionDao[G],
-  schedulingDao: SchedulingDao[G],
+  schedulingDao: SchedulingDao[G]
 )(implicit transaction: G ~> F)
     extends VideoService[F, G] {
 
@@ -59,14 +59,13 @@ class VideoServiceImpl[F[_]: Monad: Clock, G[_]: MonadThrow](
             .productL(fileResourceDao.deleteById(video.fileResource.id))
             .map(snapshots => video -> snapshots)
         }
-    }.flatMap {
-      case (video, snapshots) =>
-        snapshots
-          .traverse(snapshot => repositoryService.delete(snapshot.fileResource.path))
-          .productR {
-            if (deleteVideoFile) repositoryService.delete(video.fileResource.path) else Applicative[F].pure(false)
-          }
-          .as(video)
+    }.flatMap { case (video, snapshots) =>
+      snapshots
+        .traverse(snapshot => repositoryService.delete(snapshot.fileResource.path))
+        .productR {
+          if (deleteVideoFile) repositoryService.delete(video.fileResource.path) else Applicative[F].pure(false)
+        }
+        .as(video)
     }
 
   override val queueIncorrectlyCompletedVideos: F[Seq[Video]] =

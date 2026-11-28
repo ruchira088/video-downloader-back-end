@@ -8,7 +8,6 @@ import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-
 class H2DoobieUserDaoSpec extends DoobieUserDaoSpec with H2TestDatabase
 
 class PostgresDoobieUserDaoSpec extends DoobieUserDaoSpec with PostgresTestDatabase
@@ -35,8 +34,7 @@ abstract class DoobieUserDaoSpec extends AnyFlatSpec with Matchers with TestData
 
         emptyResult <- transactor(DoobieUserDao.findById("my-user-id"))
         _ <- IO.delay(emptyResult mustBe None)
-      }
-      yield (): Unit
+      } yield (): Unit
     }
 
   }

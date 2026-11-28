@@ -267,4 +267,3 @@ object CirceCodecsSpec {
   // Test value class for stringWrapperDecoder tests
   final case class TestWrapper(value: String) extends AnyVal
 }
-

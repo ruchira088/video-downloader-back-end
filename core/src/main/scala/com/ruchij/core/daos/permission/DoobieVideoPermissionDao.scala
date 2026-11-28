@@ -33,7 +33,8 @@ object DoobieVideoPermissionDao extends VideoPermissionDao[ConnectionIO] {
     if (maybeUserId.isEmpty && maybeScheduledVideoId.isEmpty)
       ApplicativeError[ConnectionIO, Throwable].raiseError {
         new IllegalArgumentException("Both userId and scheduledVideoId cannot be empty")
-      } else
+      }
+    else
       (fr"DELETE FROM permission" ++ whereAndOpt(
         maybeUserId.map(userId => fr"user_id = $userId"),
         maybeScheduledVideoId.map(videoId => fr"video_id = $videoId")

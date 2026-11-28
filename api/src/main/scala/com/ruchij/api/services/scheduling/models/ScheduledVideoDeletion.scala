@@ -7,11 +7,10 @@ import io.circe.generic.semiauto.deriveCodec
 import vulcan.Codec
 import vulcan.generic._
 
-/**
-  * An admin's delete of a scheduled video download, together with the users who had scheduled it.
+/** An admin's delete of a scheduled video download, together with the users who had scheduled it.
   *
-  * Their permissions are deleted with the download, so the users are carried in the message: the API instances use
-  * them to send the Deleted update to those users' event streams, which could no longer find a permission to check.
+  * Their permissions are deleted with the download, so the users are carried in the message: the API instances use them
+  * to send the Deleted update to those users' event streams, which could no longer find a permission to check.
   */
 final case class ScheduledVideoDeletion(scheduledVideoDownload: ScheduledVideoDownload, userIds: List[String])
 

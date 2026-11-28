@@ -123,12 +123,10 @@ object DoobieMessageConsumerGroupDao extends MessageConsumerGroupDao[ConnectionI
     messageIds: List[Long],
     claimedAt: Instant
   ): ConnectionIO[Int] =
-    Update[(String, Long, String, Instant)](
-      """
+    Update[(String, Long, String, Instant)]("""
         INSERT INTO message_queue_delivery (group_id, message_id, consumer_id, delivered_at, acknowledged)
           VALUES (?, ?, ?, ?, FALSE)
-      """
-    ).updateMany(messageIds.map(messageId => (groupId, messageId, consumerId, claimedAt)))
+      """).updateMany(messageIds.map(messageId => (groupId, messageId, consumerId, claimedAt)))
 
   override def renewClaims(
     groupId: String,

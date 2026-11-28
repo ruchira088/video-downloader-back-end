@@ -18,6 +18,5 @@ object PagingAndSortingQuery {
       pagingQuery <- PagingQuery.from[F]
       maybeSortBy <- sortByQueryParameter[A].parse[F]
       order <- OrderQueryParameter.parse[F]
-    }
-    yield PagingAndSortingQuery(pagingQuery.pageSize, pagingQuery.pageNumber, order, maybeSortBy)
+    } yield PagingAndSortingQuery(pagingQuery.pageSize, pagingQuery.pageNumber, order, maybeSortBy)
 }

@@ -36,10 +36,7 @@ excludeDependencies += ExclusionRule("com.typesafe.scala-logging", "scala-loggin
 Test / parallelExecution := true
 Test / testForkedParallel := true
 
-Global / concurrentRestrictions := Seq(
-  Tags.limit(Tags.Test, 4),
-  Tags.limit(Tags.Compile, 4)
-)
+Global / concurrentRestrictions := Seq(Tags.limit(Tags.Test, 4), Tags.limit(Tags.Compile, 4))
 
 Global / excludeLintKeys ++= Set(
   maintainer,
@@ -133,7 +130,9 @@ lazy val api =
 
 lazy val batch =
   packagedApp("batch", "./batch", "com.eed3si9n.ruchij.batch")
-    .settings(libraryDependencies ++= Seq(postgresql, http4sEmberServer) ++ Seq(pegdown, catsEffectTestkit).map(_ % Test))
+    .settings(
+      libraryDependencies ++= Seq(postgresql, http4sEmberServer) ++ Seq(pegdown, catsEffectTestkit).map(_ % Test)
+    )
     .dependsOn(core % "compile->compile;test->test")
 
 // DevelopmentApp wires the API and batch apps to the TestContainers-backed resource providers, which live in the
@@ -147,7 +146,6 @@ lazy val development =
       api % "compile->compile;compile->test",
       batch % "compile->compile;compile->test"
     )
-
 
 // scoverage ships `coverageOn` / `coverageOff` as aliases for `set ThisBuild / coverageEnabled := ...`.
 // sbt 2's `set` command can fail to compile the synthetic wrapper it builds over this build's project

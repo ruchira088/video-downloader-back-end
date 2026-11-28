@@ -11,7 +11,6 @@ import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-
 class H2DoobieCredentialsResetTokenDaoSpec extends DoobieCredentialsResetTokenDaoSpec with H2TestDatabase
 
 class PostgresDoobieCredentialsResetTokenDaoSpec extends DoobieCredentialsResetTokenDaoSpec with PostgresTestDatabase
@@ -27,7 +26,8 @@ abstract class DoobieCredentialsResetTokenDaoSpec extends AnyFlatSpec with Match
       for {
         insertionResult <-
           transactor {
-            DoobieUserDao.insert(user)
+            DoobieUserDao
+              .insert(user)
               .product(DoobieCredentialsResetTokenDao.insert(credentialsResetToken))
               .map { case (resultOne, resultTwo) => resultOne + resultTwo }
           }
@@ -44,8 +44,7 @@ abstract class DoobieCredentialsResetTokenDaoSpec extends AnyFlatSpec with Match
 
         anotherFindResult <- transactor(DoobieCredentialsResetTokenDao.find("my-user-id", "my-token"))
         _ <- IO.delay(anotherFindResult mustBe None)
-      }
-      yield (): Unit
+      } yield (): Unit
     }
   }
 

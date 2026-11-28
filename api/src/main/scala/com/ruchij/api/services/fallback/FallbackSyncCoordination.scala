@@ -25,9 +25,8 @@ class FallbackSyncCoordination[F[_]: MonadCancelThrow](
   def recordSuccessfulReconcile(completedAt: Instant): F[Unit] =
     keyValueStore.put[String, Instant](LastSuccessfulReconcileKey, completedAt, Some(7.days)).void
 
-  /**
-    * Best-effort mutual exclusion: two instances can both acquire under a race, which is harmless because every
-    * sync message is idempotent. It only avoids routinely doing the same work three times.
+  /** Best-effort mutual exclusion: two instances can both acquire under a race, which is harmless because every sync
+    * message is idempotent. It only avoids routinely doing the same work three times.
     */
   def withReconcileLock[A](owner: String)(fa: F[A]): F[Option[A]] =
     tryAcquire(owner).flatMap { acquired =>

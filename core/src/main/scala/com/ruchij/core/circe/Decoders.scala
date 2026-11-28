@@ -20,8 +20,8 @@ object Decoders {
     Decoder.decodeDuration
       .map { duration => FiniteDuration(duration.toMillis, TimeUnit.MILLISECONDS) }
       .or {
-        Decoder.forProduct2[(Long, String), Long, String]("length", "unit")((_, _)).emapTry {
-          case (length, unit) => Try(FiniteDuration(length, TimeUnit.valueOf(unit)))
+        Decoder.forProduct2[(Long, String), Long, String]("length", "unit")((_, _)).emapTry { case (length, unit) =>
+          Try(FiniteDuration(length, TimeUnit.valueOf(unit)))
         }
       }
 
@@ -42,7 +42,7 @@ object Decoders {
 
   // Decodes a non-empty string into a value class that wraps it
   def stringWrapperDecoder[A](wrap: String => A): Decoder[A] =
-    Decoder.decodeString.emap {
-      value => if (value.trim.isEmpty) Left("Cannot be empty") else Right(wrap(value))
+    Decoder.decodeString.emap { value =>
+      if (value.trim.isEmpty) Left("Cannot be empty") else Right(wrap(value))
     }
 }

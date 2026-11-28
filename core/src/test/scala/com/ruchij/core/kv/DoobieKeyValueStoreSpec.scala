@@ -20,7 +20,8 @@ import scala.language.postfixOps
 class DoobieKeyValueStoreSpec extends AnyFlatSpec with Matchers {
 
   private val daoResource: Resource[IO, (KeyValueDao[ConnectionIO], ConnectionIO ~> IO)] =
-    PostgresContainer.create[IO]
+    PostgresContainer
+      .create[IO]
       .evalTap { dbConfig =>
         MigrationApp.migration[IO](MigrationServiceConfiguration(dbConfig, AdminConfiguration("dummy-hash"))).void
       }
@@ -144,36 +145,34 @@ class DoobieKeyValueStoreSpec extends AnyFlatSpec with Matchers {
 
   "DoobieKeyValueStore.create" should "purge expired entries in the background" in runIO {
     daoResource
-      .flatMap {
-        case (keyValueDao, transaction) =>
-          implicit val tx: ConnectionIO ~> IO = transaction
+      .flatMap { case (keyValueDao, transaction) =>
+        implicit val tx: ConnectionIO ~> IO = transaction
 
-          DoobieKeyValueStore
-            .create[IO, ConnectionIO](keyValueDao, 200 milliseconds)
-            .map(kvStore => (kvStore, transaction))
+        DoobieKeyValueStore
+          .create[IO, ConnectionIO](keyValueDao, 200 milliseconds)
+          .map(kvStore => (kvStore, transaction))
       }
-      .use {
-        case (kvStore, transaction) =>
-          val storedKeys: IO[List[String]] =
-            transaction(sql"SELECT store_key FROM key_value_store ORDER BY store_key".query[String].to[List])
+      .use { case (kvStore, transaction) =>
+        val storedKeys: IO[List[String]] =
+          transaction(sql"SELECT store_key FROM key_value_store ORDER BY store_key".query[String].to[List])
 
-          for {
-            _ <- kvStore.put("expiring-key", "expiring-value", Some(1 millisecond))
-            _ <- kvStore.put("permanent-key", "permanent-value", None)
-            _ <- kvStore.put("long-lived-key", "long-lived-value", Some(1 hour))
+        for {
+          _ <- kvStore.put("expiring-key", "expiring-value", Some(1 millisecond))
+          _ <- kvStore.put("permanent-key", "permanent-value", None)
+          _ <- kvStore.put("long-lived-key", "long-lived-value", Some(1 hour))
 
-            // Waits for a purge to run, however late, rather than sleeping for a few purge intervals
-            _ <- storedKeys
-              .map(keys => !keys.contains("expiring-key"))
-              .flatTap(purged => if (purged) IO.unit else IO.sleep(100 milliseconds))
-              .iterateUntil(purged => purged)
-              .timeout(30 seconds)
-            keys <- storedKeys
+          // Waits for a purge to run, however late, rather than sleeping for a few purge intervals
+          _ <- storedKeys
+            .map(keys => !keys.contains("expiring-key"))
+            .flatTap(purged => if (purged) IO.unit else IO.sleep(100 milliseconds))
+            .iterateUntil(purged => purged)
+            .timeout(30 seconds)
+          keys <- storedKeys
 
-            _ <- IO.delay {
-              keys mustBe List("long-lived-key", "permanent-key")
-            }
-          } yield ()
+          _ <- IO.delay {
+            keys mustBe List("long-lived-key", "permanent-key")
+          }
+        } yield ()
       }
   }
 }

@@ -10,10 +10,7 @@ import org.scalatest.matchers.must.Matchers
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class Fs2PublisherSubscriberSpec
-    extends AnyFlatSpec
-    with Matchers
-    with PublisherSubscriberSpec {
+class Fs2PublisherSubscriberSpec extends AnyFlatSpec with Matchers with PublisherSubscriberSpec {
 
   override def fixture: Resource[IO, PubSubFixture] =
     Resource.eval(Topic[IO, TestMessage]).map { topic =>

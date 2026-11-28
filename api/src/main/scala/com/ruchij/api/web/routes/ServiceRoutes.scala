@@ -13,27 +13,25 @@ import org.http4s.ContextRoutes
 import org.http4s.dsl.Http4sDsl
 
 object ServiceRoutes {
-  def apply[F[_]: Sync](healthService: HealthService[F], authenticationService: AuthenticationService[F])(
-    implicit dsl: Http4sDsl[F]
+  def apply[F[_]: Sync](healthService: HealthService[F], authenticationService: AuthenticationService[F])(implicit
+    dsl: Http4sDsl[F]
   ): ContextRoutes[RequestContext, F] = {
     import dsl._
 
     // Used by the k8s liveness and readiness probes, so it must not require authentication
     val unauthenticatedRoutes =
-      ContextRoutes.of[RequestContext, F] {
-        case GET -> Root / "info" as _ =>
-          healthService.serviceInformation
-            .flatMap(serviceInformation => Ok(serviceInformation))
+      ContextRoutes.of[RequestContext, F] { case GET -> Root / "info" as _ =>
+        healthService.serviceInformation
+          .flatMap(serviceInformation => Ok(serviceInformation))
       }
 
     // The health check writes to the storage folders, makes outbound calls and exposes the folder paths
     val authenticatedRoutes =
-      ContextRoutes.of[AuthenticatedRequestContext, F] {
-        case GET -> Root / "health" as _ =>
-          healthService.healthCheck
-            .flatMap { healthCheck =>
-              if (healthCheck.isHealthy) Ok(healthCheck) else ServiceUnavailable(healthCheck)
-            }
+      ContextRoutes.of[AuthenticatedRequestContext, F] { case GET -> Root / "health" as _ =>
+        healthService.healthCheck
+          .flatMap { healthCheck =>
+            if (healthCheck.isHealthy) Ok(healthCheck) else ServiceUnavailable(healthCheck)
+          }
       }
 
     unauthenticatedRoutes <+>

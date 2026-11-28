@@ -26,7 +26,11 @@ class PostgresDoobieVideoPerceptualHashDaoSpec extends DoobieVideoPerceptualHash
 
 abstract class DoobieVideoPerceptualHashDaoSpec extends AnyFlatSpec with Matchers with TestDatabase {
 
-  private def insertVideo(videoId: String, duration: FiniteDuration, timestamp: java.time.Instant): ConnectionIO[Unit] = {
+  private def insertVideo(
+    videoId: String,
+    duration: FiniteDuration,
+    timestamp: java.time.Instant
+  ): ConnectionIO[Unit] = {
     val thumbnailId = s"$videoId-thumb"
     val thumbnail = FileResource(thumbnailId, timestamp, s"/opt/images/$thumbnailId.jpg", MediaType.image.jpeg, 1000)
     val videoMetadata = VideoMetadata(

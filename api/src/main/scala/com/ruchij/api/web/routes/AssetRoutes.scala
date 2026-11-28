@@ -23,13 +23,15 @@ object AssetRoutes {
       case Range.SubRange(first, maybeLast) => Some(FileByteRange.ByteRange(first, maybeLast))
     }
 
-  def apply[F[_]: Sync](assetService: AssetService[F])(implicit dsl: Http4sDsl[F]): ContextRoutes[AuthenticatedRequestContext, F] = {
+  def apply[F[_]: Sync](
+    assetService: AssetService[F]
+  )(implicit dsl: Http4sDsl[F]): ContextRoutes[AuthenticatedRequestContext, F] = {
     import dsl._
 
     ContextRoutes.of[AuthenticatedRequestContext, F] {
       // Deliberately served to any authenticated user, see AssetService.thumbnail
       case GET -> Root / "thumbnail" / "id" / id as _ =>
-          assetService.thumbnail(id).flatMap(_.asResponse)
+        assetService.thumbnail(id).flatMap(_.asResponse)
 
       case GET -> Root / "snapshot" / "id" / id as AuthenticatedRequestContext(user, _) =>
         assetService.snapshot(id, user).flatMap(_.asResponse)
@@ -47,16 +49,10 @@ object AssetRoutes {
           }
 
           videoFileAsset <-
-            assetService.videoFile(
-              id,
-              user,
-              maybeFileByteRange,
-              Some(MaxVideoServeSize)
-            )
+            assetService.videoFile(id, user, maybeFileByteRange, Some(MaxVideoServeSize))
 
           response <- videoFileAsset.asResponse
-        }
-        yield response
+        } yield response
     }
   }
 }

@@ -81,7 +81,8 @@ class ApiVideoServiceImpl[F[_]: MonadThrow: Clock, G[_]: MonadThrow](
         }.flatTap(_ => fallbackSyncRequester.request(videoId))
 
       case None =>
-        apiDuplicateDetectionService.deleteVideo(videoId)
+        apiDuplicateDetectionService
+          .deleteVideo(videoId)
           .productR(videoService.deleteById(videoId, deleteVideoFile))
           .flatTap(_ => fallbackSyncRequester.request(videoId))
     }

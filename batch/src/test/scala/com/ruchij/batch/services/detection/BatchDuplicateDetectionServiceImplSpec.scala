@@ -40,9 +40,8 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
   private implicit val identityTransaction: IO ~> IO = cats.arrow.FunctionK.id[IO]
   private implicit val stubClock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
-  class StubRepositoryService(
-    readResult: Option[Stream[IO, Byte]] = Some(Stream.emits("image-data".getBytes))
-  ) extends RepositoryService[IO] {
+  class StubRepositoryService(readResult: Option[Stream[IO, Byte]] = Some(Stream.emits("image-data".getBytes)))
+      extends RepositoryService[IO] {
     override type BackedType = String
     override def write(key: Key, data: Stream[IO, Byte]): Stream[IO, Nothing] = Stream.empty
     override def read(key: Key, start: Option[Long], end: Option[Long]): IO[Option[Stream[IO, Byte]]] =
@@ -103,9 +102,7 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
     override def deleteAll: IO[Int] = IO.pure(0)
   }
 
-  class StubSnapshotDao(
-    snapshotsByVideo: Map[String, Seq[Snapshot]] = Map.empty
-  ) extends SnapshotDao[IO] {
+  class StubSnapshotDao(snapshotsByVideo: Map[String, Seq[Snapshot]] = Map.empty) extends SnapshotDao[IO] {
     override def insert(snapshot: Snapshot): IO[Int] = IO.pure(1)
     override def findByVideo(videoId: String, maybeUserId: Option[String]): IO[Seq[Snapshot]] =
       IO.pure(snapshotsByVideo.getOrElse(videoId, Seq.empty))
@@ -201,9 +198,18 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   private def video(videoId: String, size: Long, createdAt: Instant): Video = {
-    val thumbnail = FileResource(s"$videoId-thumbnail", createdAt, s"/opt/images/$videoId.jpg", MediaType.image.jpeg, 10)
+    val thumbnail =
+      FileResource(s"$videoId-thumbnail", createdAt, s"/opt/images/$videoId.jpg", MediaType.image.jpeg, 10)
     val videoMetadata =
-      VideoMetadata(uri"https://example.com/video", videoId, CustomVideoSite.SpankBang, videoId, 5 minutes, size, thumbnail)
+      VideoMetadata(
+        uri"https://example.com/video",
+        videoId,
+        CustomVideoSite.SpankBang,
+        videoId,
+        5 minutes,
+        size,
+        thumbnail
+      )
 
     Video(
       videoMetadata,
@@ -251,9 +257,7 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
       videoIdsByDuration = Map((5 minutes) -> Seq("v1", "v2")),
       hashesByDuration = Map((5 minutes) -> Seq(hash1, hash2))
     )
-    val hashingService = new StubPerceptualHashingService(
-      compareResults = Map((BigInt(100L), BigInt(101L)) -> 0.05)
-    )
+    val hashingService = new StubPerceptualHashingService(compareResults = Map((BigInt(100L), BigInt(101L)) -> 0.05))
     val service = createService(hashDao = hashDao, hashingService = hashingService)
 
     for {
@@ -274,9 +278,7 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
       videoIdsByDuration = Map((5 minutes) -> Seq("v1", "v2")),
       hashesByDuration = Map((5 minutes) -> Seq(hash1, hash2))
     )
-    val hashingService = new StubPerceptualHashingService(
-      compareResults = Map((BigInt(100L), BigInt(999L)) -> 0.8)
-    )
+    val hashingService = new StubPerceptualHashingService(compareResults = Map((BigInt(100L), BigInt(999L)) -> 0.8))
     val service = createService(hashDao = hashDao, hashingService = hashingService)
 
     for {
@@ -287,8 +289,10 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "compute hashes for videos without existing hashes" in runIO {
-    val snapshotTimestamps = com.ruchij.batch.services.enrichment.VideoEnrichmentService.snapshotTimestamps(5 minutes, 12)
-    val middleTimestamp = snapshotTimestamps.sorted(using FiniteDuration.FiniteDurationIsOrdered).toList(snapshotTimestamps.size / 2)
+    val snapshotTimestamps =
+      com.ruchij.batch.services.enrichment.VideoEnrichmentService.snapshotTimestamps(5 minutes, 12)
+    val middleTimestamp =
+      snapshotTimestamps.sorted(using FiniteDuration.FiniteDurationIsOrdered).toList(snapshotTimestamps.size / 2)
     val snapshotFR = FileResource("snap-1", timestamp, "/opt/snapshots/snap-1.png", MediaType.image.png, 5000)
     val snapshot = Snapshot("v1", snapshotFR, middleTimestamp)
 
@@ -353,11 +357,8 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
       videoIdsByDuration = Map((5 minutes) -> Seq("v1", "v2", "v3")),
       hashesByDuration = Map((5 minutes) -> Seq(hash1, hash2, hash3))
     )
-    val hashingService = new StubPerceptualHashingService(
-      compareResults = Map(
-        (BigInt(100L), BigInt(101L)) -> 0.05,
-        (BigInt(100L), BigInt(102L)) -> 0.10
-      )
+    val hashingService = new StubPerceptualHashingService(compareResults =
+      Map((BigInt(100L), BigInt(101L)) -> 0.05, (BigInt(100L), BigInt(102L)) -> 0.10)
     )
     val service = createService(hashDao = hashDao, hashingService = hashingService)
 
@@ -380,8 +381,8 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
       videoIdsByDuration = Map((5 minutes) -> Seq("v1", "v2", "v3", "v4")),
       hashesByDuration = Map((5 minutes) -> Seq(hash1, hash2, hash3, hash4))
     )
-    val hashingService = new StubPerceptualHashingService(
-      compareResults = Map(
+    val hashingService = new StubPerceptualHashingService(compareResults =
+      Map(
         (BigInt(100L), BigInt(101L)) -> 0.05,
         (BigInt(100L), BigInt(900L)) -> 0.8,
         (BigInt(100L), BigInt(901L)) -> 0.85,
@@ -409,9 +410,7 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
       videoIdsByDuration = Map((5 minutes) -> Seq("v1", "v2")),
       hashesByDuration = Map((5 minutes) -> Seq(hash1, hash2))
     )
-    val hashingService = new StubPerceptualHashingService(
-      compareResults = Map((BigInt(100L), BigInt(200L)) -> 0.2)
-    )
+    val hashingService = new StubPerceptualHashingService(compareResults = Map((BigInt(100L), BigInt(200L)) -> 0.2))
     val service = createService(hashDao = hashDao, hashingService = hashingService)
 
     for {
@@ -431,9 +430,7 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
       videoIdsByDuration = Map((5 minutes) -> Seq("v1", "v2")),
       hashesByDuration = Map((5 minutes) -> Seq(hash1, hash2))
     )
-    val hashingService = new StubPerceptualHashingService(
-      compareResults = Map((BigInt(100L), BigInt(200L)) -> 0.21)
-    )
+    val hashingService = new StubPerceptualHashingService(compareResults = Map((BigInt(100L), BigInt(200L)) -> 0.21))
     val service = createService(hashDao = hashDao, hashingService = hashingService)
 
     for {
@@ -453,9 +450,7 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
       hashesByDuration = Map((5 minutes) -> Seq(hash1, hash2))
     )
     val dupDao = new StubDuplicateVideoDao()
-    val hashingService = new StubPerceptualHashingService(
-      compareResults = Map((BigInt(100L), BigInt(101L)) -> 0.05)
-    )
+    val hashingService = new StubPerceptualHashingService(compareResults = Map((BigInt(100L), BigInt(101L)) -> 0.05))
     val service = createService(hashDao = hashDao, dupDao = dupDao, hashingService = hashingService)
 
     for {
@@ -476,16 +471,12 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
       videoIdsByDuration = Map((5 minutes) -> Seq("v1", "v2")),
       hashesByDuration = Map((5 minutes) -> Seq(hash1, hash2))
     )
-    val existingRecords = Seq(
-      DuplicateVideo("v1", "v1", timestamp),
-      DuplicateVideo("v2", "v1", timestamp)
-    )
+    val existingRecords = Seq(DuplicateVideo("v1", "v1", timestamp), DuplicateVideo("v2", "v1", timestamp))
     val dupDao = new StubDuplicateVideoDao(existingGroups = Map("v1" -> existingRecords))
-    val hashingService = new StubPerceptualHashingService(
-      compareResults = Map((BigInt(100L), BigInt(101L)) -> 0.05)
-    )
+    val hashingService = new StubPerceptualHashingService(compareResults = Map((BigInt(100L), BigInt(101L)) -> 0.05))
     val videoDao = new StubVideoDao(Seq(video("v1", 100, timestamp), video("v2", 200, timestamp)))
-    val service = createService(hashDao = hashDao, dupDao = dupDao, hashingService = hashingService, videoDao = videoDao)
+    val service =
+      createService(hashDao = hashDao, dupDao = dupDao, hashingService = hashingService, videoDao = videoDao)
 
     for {
       _ <- service.run
@@ -511,11 +502,8 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
       hashesByDuration = Map((5 minutes) -> Seq(hash1, hash2, hash3))
     )
     val dupDao = new StubDuplicateVideoDao()
-    val hashingService = new StubPerceptualHashingService(
-      compareResults = Map(
-        (BigInt(100L), BigInt(101L)) -> 0.05,
-        (BigInt(100L), BigInt(102L)) -> 0.10
-      )
+    val hashingService = new StubPerceptualHashingService(compareResults =
+      Map((BigInt(100L), BigInt(101L)) -> 0.05, (BigInt(100L), BigInt(102L)) -> 0.10)
     )
     val service = createService(hashDao = hashDao, dupDao = dupDao, hashingService = hashingService)
 
@@ -536,9 +524,7 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
       hashesByDuration = Map((5 minutes) -> Seq(hash1, hash2))
     )
     val dupDao = new StubDuplicateVideoDao()
-    val hashingService = new StubPerceptualHashingService(
-      compareResults = Map((BigInt(100L), BigInt(101L)) -> 0.05)
-    )
+    val hashingService = new StubPerceptualHashingService(compareResults = Map((BigInt(100L), BigInt(101L)) -> 0.05))
     val service = createService(hashDao = hashDao, dupDao = dupDao, hashingService = hashingService)
 
     for {
@@ -558,16 +544,12 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
       videoIdsByDuration = Map((5 minutes) -> Seq("v1", "v2")),
       hashesByDuration = Map((5 minutes) -> Seq(hash1, hash2))
     )
-    val existingRecords = Seq(
-      DuplicateVideo("v1", "v1", timestamp),
-      DuplicateVideo("v2", "v1", timestamp)
-    )
+    val existingRecords = Seq(DuplicateVideo("v1", "v1", timestamp), DuplicateVideo("v2", "v1", timestamp))
     val dupDao = new StubDuplicateVideoDao(existingGroups = Map("v1" -> existingRecords))
-    val hashingService = new StubPerceptualHashingService(
-      compareResults = Map((BigInt(100L), BigInt(101L)) -> 0.05)
-    )
+    val hashingService = new StubPerceptualHashingService(compareResults = Map((BigInt(100L), BigInt(101L)) -> 0.05))
     val videoDao = new StubVideoDao(Seq(video("v1", 100, timestamp), video("v2", 200, timestamp)))
-    val service = createService(hashDao = hashDao, dupDao = dupDao, hashingService = hashingService, videoDao = videoDao)
+    val service =
+      createService(hashDao = hashDao, dupDao = dupDao, hashingService = hashingService, videoDao = videoDao)
 
     for {
       _ <- service.run
@@ -578,7 +560,8 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   private def similarVideosHashDao(videoIds: String*): StubVideoPerceptualHashDao = {
-    val hashes = videoIds.toList.map(videoId => VideoPerceptualHash(videoId, timestamp, 5 minutes, BigInt(100L), 150 seconds))
+    val hashes =
+      videoIds.toList.map(videoId => VideoPerceptualHash(videoId, timestamp, 5 minutes, BigInt(100L), 150 seconds))
 
     new StubVideoPerceptualHashDao(
       durations = Set(5 minutes),
@@ -592,16 +575,14 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
 
   /** Gives each video a snapshot at every verification timestamp, except the ones in `missing`. */
   private def verificationSnapshotDao(videoIds: Seq[String], missing: Set[String]): StubSnapshotDao =
-    new StubSnapshotDao(
-      videoIds.map { videoId =>
-        videoId -> BatchDuplicateDetectionService.verificationSnapshotTimestamps(5 minutes).flatMap { snapshotTimestamp =>
-          val path = snapshotPath(videoId, snapshotTimestamp)
+    new StubSnapshotDao(videoIds.map { videoId =>
+      videoId -> BatchDuplicateDetectionService.verificationSnapshotTimestamps(5 minutes).flatMap { snapshotTimestamp =>
+        val path = snapshotPath(videoId, snapshotTimestamp)
 
-          if (missing.contains(path)) None
-          else Some(Snapshot(videoId, FileResource(path, timestamp, path, MediaType.image.png, 10), snapshotTimestamp))
-        }
-      }.toMap
-    )
+        if (missing.contains(path)) None
+        else Some(Snapshot(videoId, FileResource(path, timestamp, path, MediaType.image.png, 10), snapshotTimestamp))
+      }
+    }.toMap)
 
   /** Reads each file as its own path, so that the hashing service can tell the snapshots apart. */
   class PathRepositoryService extends StubRepositoryService {
@@ -800,8 +781,8 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "drop group members whose video is gone, closing a group left with one video" in runIO {
-    val dupDao = new StubDuplicateVideoDao(
-      initialVideos = Seq(DuplicateVideo("v1", "v1", timestamp), DuplicateVideo("v2", "v1", timestamp))
+    val dupDao = new StubDuplicateVideoDao(initialVideos =
+      Seq(DuplicateVideo("v1", "v1", timestamp), DuplicateVideo("v2", "v1", timestamp))
     )
     val batchVideoService = new StubBatchVideoService()
 
@@ -823,7 +804,9 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
 
   "verificationSnapshotTimestamps" should "be a quarter, half and three quarters of the way through the snapshots" in {
     val snapshotTimestamps =
-      com.ruchij.batch.services.enrichment.VideoEnrichmentService.snapshotTimestamps(13 minutes, 12).sorted(using FiniteDuration.FiniteDurationIsOrdered)
+      com.ruchij.batch.services.enrichment.VideoEnrichmentService
+        .snapshotTimestamps(13 minutes, 12)
+        .sorted(using FiniteDuration.FiniteDurationIsOrdered)
 
     BatchDuplicateDetectionService.verificationSnapshotTimestamps(13 minutes) mustBe
       Seq(snapshotTimestamps(3), snapshotTimestamps(6), snapshotTimestamps(9))
