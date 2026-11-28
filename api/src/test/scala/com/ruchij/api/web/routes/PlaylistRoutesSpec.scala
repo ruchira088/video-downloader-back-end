@@ -1,6 +1,6 @@
 package com.ruchij.api.web.routes
 
-import cats.effect.IO
+import cats.effect.{IO, Ref}
 import com.ruchij.api.daos.playlist.models.{Playlist, PlaylistSortBy}
 import com.ruchij.api.services.authentication.AuthenticationService.Secret
 import com.ruchij.api.services.authentication.models.AuthenticationToken
@@ -12,8 +12,10 @@ import com.ruchij.core.services.models.Order
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.data.CoreTestData
 import io.circe.literal._
-import org.http4s.headers.Authorization
-import org.http4s.{AuthScheme, Credentials, Request, Status}
+import fs2.Stream
+import org.http4s.headers.{Authorization, `Content-Type`}
+import org.http4s.multipart.{Multiparts, Part}
+import org.http4s.{AuthScheme, Credentials, MediaType, Request, Status}
 import org.http4s.circe.CirceEntityEncoder._
 import org.http4s.client.dsl.io._
 import org.http4s.dsl.io._
@@ -353,6 +355,46 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
             response must haveStatus(Status.Ok)
           }
         }
+  }
+
+  "PUT /playlist/id/:playlistId/album-art" should "add the uploaded image as album art" in runIO {
+    val imageBytes = Array[Byte](1, 2, 3, 4, 5)
+
+    (authenticationService.authenticate)
+      .expects(testSecret)
+      .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
+
+    for {
+      uploadedBytes <- Ref.of[IO, Option[List[Byte]]](None)
+
+      _ = (playlistService.addAlbumArt)
+        .expects("playlist-123", "cover.png", MediaType.image.png, *, Some(ApiTestData.NormalUser.id))
+        .onCall { (_: String, _: String, _: MediaType, data: Stream[IO, Byte], _: Option[String]) =>
+          data.compile.toList.flatMap(bytes => uploadedBytes.set(Some(bytes))).as(testPlaylist)
+        }
+
+      multipart <- Multiparts.forSync[IO].flatMap { multiparts =>
+        multiparts.multipart(
+          Vector(
+            Part.fileData[IO]("image", "cover.png", Stream.emits(imageBytes), `Content-Type`(MediaType.image.png))
+          )
+        )
+      }
+
+      response <- ignoreHttpMetrics() *>
+        createRoutes().run {
+          Request[IO](method = PUT, uri = uri"/playlists/id/playlist-123/album-art", headers = authHeaders)
+            .withEntity(multipart)
+            .putHeaders(multipart.headers)
+        }
+
+      bytes <- uploadedBytes.get
+
+      _ <- IO.delay {
+        response must haveStatus(Status.Ok)
+        bytes mustBe Some(imageBytes.toList)
+      }
+    } yield (): Unit
   }
 
   "DELETE /playlist/id/:playlistId/album-art" should "remove album art from playlist" in runIO {
