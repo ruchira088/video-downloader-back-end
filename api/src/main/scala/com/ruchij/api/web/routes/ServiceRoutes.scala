@@ -13,7 +13,7 @@ import org.http4s.ContextRoutes
 import org.http4s.dsl.Http4sDsl
 
 object ServiceRoutes {
-  def apply[F[_]: Sync](healthService: HealthService[F], authenticationService: AuthenticationService[F])(implicit
+  def apply[F[_]: Sync](healthService: HealthService[F], authenticationService: AuthenticationService[F])(using
     dsl: Http4sDsl[F]
   ): ContextRoutes[RequestContext, F] = {
     import dsl.*

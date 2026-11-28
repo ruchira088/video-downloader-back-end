@@ -18,13 +18,13 @@ object RandomGenerator {
   type Of[A] = [F[_]] =>> RandomGenerator[F, A]
 
   implicit class RandomGeneratorOps[F[_], A](randomGenerator: RandomGenerator[F, A]) {
-    def evalMap[B](f: A => F[B])(implicit monad: Monad[F]): RandomGenerator[F, B] =
+    def evalMap[B](f: A => F[B])(using monad: Monad[F]): RandomGenerator[F, B] =
       new RandomGenerator[F, B] {
         override def generate: F[B] = randomGenerator.generate.flatMap(f)
       }
   }
 
-  def apply[F[_], A](implicit randomGenerator: RandomGenerator[F, A]): RandomGenerator[F, A] = randomGenerator
+  def apply[F[_], A](using randomGenerator: RandomGenerator[F, A]): RandomGenerator[F, A] = randomGenerator
 
   def apply[F[_]: Sync, A](block: => A): RandomGenerator[F, A] =
     new RandomGenerator[F, A] {

@@ -28,7 +28,7 @@ object PureConfigReaders {
       Uri.fromString(input).left.map(error => CannotConvert(input, classOf[Uri].getSimpleName, error.message))
     }
 
-  implicit def stringIterableConfigReader[Itr[x] <: IterableOnce[x]](implicit
+  implicit def stringIterableConfigReader[Itr[x] <: IterableOnce[x]](using
     factory: Factory[String, Itr[String]]
   ): ConfigReader[Itr[String]] =
     ConfigReader[String].map { string =>
@@ -37,12 +37,12 @@ object PureConfigReaders {
       }
     }
 
-  implicit def enumPureConfigReader[A <: EnumEntry: ClassTag](implicit enumValues: Enum[A]): ConfigReader[A] =
+  implicit def enumPureConfigReader[A <: EnumEntry: ClassTag](using enumValues: Enum[A]): ConfigReader[A] =
     ConfigReader.fromNonEmptyStringOpt[A] { value =>
       enumValues.values.find(_.entryName.equalsIgnoreCase(value))
     }
 
-  private def stringConfigParserTry[A](parser: String => Try[A])(implicit classTag: ClassTag[A]): ConfigReader[A] =
+  private def stringConfigParserTry[A](parser: String => Try[A])(using classTag: ClassTag[A]): ConfigReader[A] =
     ConfigReader.fromNonEmptyString { value =>
       parser(value).toEither.left.map { throwable =>
         CannotConvert(value, classTag.runtimeClass.getSimpleName, throwable.getMessage)

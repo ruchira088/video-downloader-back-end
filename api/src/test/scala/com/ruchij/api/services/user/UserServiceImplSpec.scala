@@ -84,7 +84,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     videoTitleDao: VideoTitleDao[IO],
     videoPermissionDao: VideoPermissionDao[IO],
     fallbackSyncRequestPublisher: Publisher[IO, FallbackSyncRequest] = new NoOpPublisher[IO, FallbackSyncRequest]
-  )(implicit clock: Clock[IO], uuidGenerator: RandomGenerator[IO, UUID]): UserServiceImpl[IO, IO] = {
+  )(using clock: Clock[IO], uuidGenerator: RandomGenerator[IO, UUID]): UserServiceImpl[IO, IO] = {
     implicit val transaction: IO ~> IO = new (IO ~> IO) {
       override def apply[A](fa: IO[A]): IO[A] = fa
     }

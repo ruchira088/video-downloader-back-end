@@ -15,7 +15,7 @@ import scala.concurrent.duration.FiniteDuration
 object AvroCodecs {
   implicit val videoSiteCodex: Codec[VideoSite] = Codec[String].imap(VideoSite.from)(_.name)
 
-  implicit def enumCodec[A <: EnumEntry](implicit enumValues: Enum[A]): Codec[A] =
+  implicit def enumCodec[A <: EnumEntry](using enumValues: Enum[A]): Codec[A] =
     Codec[String].imapError[A] { input =>
       enumValues.withNameInsensitiveEither(input).left.map(error => AvroError(error.getMessage()))
     }(_.entryName)

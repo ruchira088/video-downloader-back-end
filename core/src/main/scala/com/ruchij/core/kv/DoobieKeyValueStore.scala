@@ -13,7 +13,7 @@ import fs2.Stream
 import scala.concurrent.duration.*
 import scala.language.postfixOps
 
-class DoobieKeyValueStore[F[_]: MonadThrow: Clock, G[_]](keyValueDao: KeyValueDao[G])(implicit transaction: G ~> F)
+class DoobieKeyValueStore[F[_]: MonadThrow: Clock, G[_]](keyValueDao: KeyValueDao[G])(using transaction: G ~> F)
     extends KeyValueStore[F] {
   override type InsertionResult = Unit
   override type DeletionResult = Unit
@@ -63,7 +63,7 @@ object DoobieKeyValueStore {
   def create[F[_]: Async: Clock, G[_]](
     keyValueDao: KeyValueDao[G],
     purgeInterval: FiniteDuration = DefaultPurgeInterval
-  )(implicit transaction: G ~> F): Resource[F, DoobieKeyValueStore[F, G]] = {
+  )(using transaction: G ~> F): Resource[F, DoobieKeyValueStore[F, G]] = {
     val keyValueStore = new DoobieKeyValueStore[F, G](keyValueDao)
 
     val purge: F[Unit] =

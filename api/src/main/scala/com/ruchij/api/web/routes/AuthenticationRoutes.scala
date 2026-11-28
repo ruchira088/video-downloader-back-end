@@ -19,7 +19,7 @@ import org.http4s.dsl.Http4sDsl
 object AuthenticationRoutes {
   def apply[F[_]: Async](
     authenticationService: AuthenticationService[F]
-  )(implicit dsl: Http4sDsl[F]): ContextRoutes[RequestContext, F] = {
+  )(using dsl: Http4sDsl[F]): ContextRoutes[RequestContext, F] = {
     import dsl.*
 
     val unauthenticatedRoutes =

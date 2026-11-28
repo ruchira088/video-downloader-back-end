@@ -27,7 +27,7 @@ object CoreResourcesProvider {
 
   def transactor[F[_]: Async](
     databaseConfig: DatabaseConfiguration
-  )(implicit executionContext: ExecutionContext): Resource[F, ConnectionIO ~> F] =
+  )(using executionContext: ExecutionContext): Resource[F, ConnectionIO ~> F] =
     for {
       hikariTransactor <- DoobieTransactor
         .create[F](databaseConfig, executionContext)
@@ -36,7 +36,7 @@ object CoreResourcesProvider {
     } yield hikariTransactor.trans
 
   implicit class ExternalServiceProviderOps[F[_]](externalServiceProvider: CoreResourcesProvider[F]) {
-    def transactor(implicit async: Async[F], executionContext: ExecutionContext): Resource[F, ConnectionIO ~> F] =
+    def transactor(using async: Async[F], executionContext: ExecutionContext): Resource[F, ConnectionIO ~> F] =
       externalServiceProvider.databaseConfiguration
         .flatMap(databaseConfig => CoreResourcesProvider.transactor(databaseConfig))
   }

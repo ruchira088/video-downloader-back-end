@@ -43,7 +43,7 @@ class ApiVideoServiceImpl[F[_]: MonadThrow: Clock, G[_]: MonadThrow](
   videoTitleDao: VideoTitleDao[G],
   videoPermissionDao: VideoPermissionDao[G],
   videoWatchHistoryDao: VideoWatchHistoryDao[G]
-)(implicit transaction: G ~> F)
+)(using transaction: G ~> F)
     extends ApiVideoService[F] {
 
   override def fetchById(videoId: String, maybeUserId: Option[String]): F[Video] =

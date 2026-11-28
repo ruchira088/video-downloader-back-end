@@ -43,7 +43,7 @@ class HealthServiceImpl[F[_]: Async: AppClock: RandomGenerator.Of[UUID]](
   httpClient: Client[F],
   storageConfiguration: StorageConfiguration,
   spaSiteRendererConfiguration: SpaSiteRendererConfiguration
-)(implicit transaction: ConnectionIO ~> F)
+)(using transaction: ConnectionIO ~> F)
     extends HealthService[F] {
 
   private val logger = Logger[HealthServiceImpl[F]]

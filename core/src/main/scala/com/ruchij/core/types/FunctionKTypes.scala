@@ -6,16 +6,16 @@ import cats.{Applicative, ApplicativeError, Functor, Monad, MonadError, ~>}
 
 object FunctionKTypes {
   implicit class FunctionK2TypeOps[F[_, _], A, B](value: F[B, A]) {
-    def toType[G[_], C >: B](implicit functionK: F[C, *] ~> G, functor: Functor[F[*, A]]): G[A] =
+    def toType[G[_], C >: B](using functionK: F[C, *] ~> G, functor: Functor[F[*, A]]): G[A] =
       functionK.apply(functor.map(value)(identity[C]))
   }
 
   implicit class FunctionKTypeOps[F[_], A](value: F[A]) {
-    def toType[G[_], B](failure: => B)(implicit functionK: F ~> OptionT[G, *], monadError: MonadError[G, B]): G[A] =
+    def toType[G[_], B](failure: => B)(using functionK: F ~> OptionT[G, *], monadError: MonadError[G, B]): G[A] =
       functionK.apply(value).getOrElseF(monadError.raiseError(failure))
   }
 
-  implicit def eitherToF[L, F[_]](implicit applicativeError: ApplicativeError[F, L]): Either[L, *] ~> F =
+  implicit def eitherToF[L, F[_]](using applicativeError: ApplicativeError[F, L]): Either[L, *] ~> F =
     new ~>[Either[L, *], F] {
       override def apply[A](either: Either[L, A]): F[A] =
         either.fold(ApplicativeError[F, L].raiseError, Applicative[F].pure)

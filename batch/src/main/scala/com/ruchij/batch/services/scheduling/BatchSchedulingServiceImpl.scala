@@ -33,7 +33,7 @@ class BatchSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
   storageConfiguration: StorageConfiguration,
   retryPolicy: RetryPolicy,
   jitterGenerator: RandomGenerator[F, Double]
-)(implicit transaction: T ~> F)
+)(using transaction: T ~> F)
     extends BatchSchedulingService[F] {
 
   private val logger = Logger[BatchSchedulingServiceImpl[F, T]]

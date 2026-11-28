@@ -208,7 +208,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
     playlistDao: PlaylistDao[IO] = new StubPlaylistDao(),
     repositoryService: RepositoryService[IO] = new StubRepositoryService(),
     publisher: Publisher[IO, VideoWatchMetric] = new StubPublisher()
-  )(implicit clock: Clock[IO]): AssetServiceImpl[IO, IO] = {
+  )(using clock: Clock[IO]): AssetServiceImpl[IO, IO] = {
     new AssetServiceImpl[IO, IO](
       fileResourceDao,
       snapshotDao,

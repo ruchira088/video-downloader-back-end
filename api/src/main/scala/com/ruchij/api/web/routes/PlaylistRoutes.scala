@@ -23,7 +23,7 @@ object PlaylistRoutes {
 
   def apply[F[_]: Async](
     playlistService: PlaylistService[F]
-  )(implicit dsl: Http4sDsl[F]): ContextRoutes[AuthenticatedRequestContext, F] = {
+  )(using dsl: Http4sDsl[F]): ContextRoutes[AuthenticatedRequestContext, F] = {
     import dsl.*
 
     ContextRoutes.of[AuthenticatedRequestContext, F] {

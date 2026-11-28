@@ -287,7 +287,7 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
     videoTitleDao: VideoTitleDao[IO] = new StubVideoTitleDao(),
     videoPermissionDao: VideoPermissionDao[IO] = new StubVideoPermissionDao(),
     schedulingDao: SchedulingDao[IO] = new StubSchedulingDao()
-  )(implicit clock: Clock[IO]): VideoServiceImpl[IO, IO] = {
+  )(using clock: Clock[IO]): VideoServiceImpl[IO, IO] = {
     new VideoServiceImpl[IO, IO](
       repositoryService,
       videoDao,

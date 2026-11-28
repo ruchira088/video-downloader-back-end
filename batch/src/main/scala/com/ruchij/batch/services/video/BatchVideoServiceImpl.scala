@@ -22,7 +22,7 @@ class BatchVideoServiceImpl[F[_]: Sync: Clock, G[_]: MonadThrow](
   videoDao: VideoDao[G],
   videoMetadataDao: VideoMetadataDao[G],
   fileResourceDao: FileResourceDao[G]
-)(implicit transaction: G ~> F)
+)(using transaction: G ~> F)
     extends BatchVideoService[F] {
 
   private val logger = Logger[BatchVideoServiceImpl[F, G]]

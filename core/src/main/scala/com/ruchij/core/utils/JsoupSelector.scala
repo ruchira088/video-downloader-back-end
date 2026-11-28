@@ -69,7 +69,7 @@ object JsoupSelector {
   def attribute[F[_]: ApplicativeThrow](element: Element, attributeKey: String): F[String] =
     parseProperty[Throwable, F](element.attr(attributeKey), AttributeNotFoundInElementException(element, attributeKey))
 
-  private def parseProperty[E, F[_]](value: String, onEmpty: => E)(implicit
+  private def parseProperty[E, F[_]](value: String, onEmpty: => E)(using
     applicativeError: ApplicativeError[F, E]
   ): F[String] =
     Option(value)

@@ -17,13 +17,13 @@ trait KVDecoder[F[_], A] { self =>
   // term counts for a product
   def termCount: Int = 1
 
-  def map[B](f: A => B)(implicit functor: Functor[F]): KVDecoder[F, B] =
+  def map[B](f: A => B)(using functor: Functor[F]): KVDecoder[F, B] =
     withTermCount(self.termCount)(value => self.decode(value).map(f))
 
-  def mapF[B](f: A => F[B])(implicit monad: Monad[F]): KVDecoder[F, B] =
+  def mapF[B](f: A => F[B])(using monad: Monad[F]): KVDecoder[F, B] =
     withTermCount(self.termCount)(value => self.decode(value).flatMap(f))
 
-  def mapEither[B](f: A => Either[String, B])(implicit monadError: MonadError[F, Throwable]): KVDecoder[F, B] =
+  def mapEither[B](f: A => Either[String, B])(using monadError: MonadError[F, Throwable]): KVDecoder[F, B] =
     withTermCount(self.termCount) { value =>
       self
         .decode(value)
@@ -45,17 +45,17 @@ trait KVDecoder[F[_], A] { self =>
 }
 
 object KVDecoder {
-  def apply[F[_], A](implicit kvDecoder: KVDecoder[F, A]): KVDecoder[F, A] = kvDecoder
+  def apply[F[_], A](using kvDecoder: KVDecoder[F, A]): KVDecoder[F, A] = kvDecoder
 
   implicit def stringKVDecoder[F[_]: Applicative]: KVDecoder[F, String] =
     (value: String) => Applicative[F].pure(value)
 
-  implicit def enumKVDecoder[F[_]: MonadThrow, A <: EnumEntry](implicit enumValues: Enum[A]): KVDecoder[F, A] =
+  implicit def enumKVDecoder[F[_]: MonadThrow, A <: EnumEntry](using enumValues: Enum[A]): KVDecoder[F, A] =
     stringKVDecoder[F].mapEither { string =>
       enumValues.withNameInsensitiveEither(string).left.map(_.getMessage)
     }
 
-  implicit def numericKVDecoder[F[_]: MonadThrow, A: Numeric](implicit classTag: ClassTag[A]): KVDecoder[F, A] =
+  implicit def numericKVDecoder[F[_]: MonadThrow, A: Numeric](using classTag: ClassTag[A]): KVDecoder[F, A] =
     stringKVDecoder[F].mapEither { value =>
       Numeric[A]
         .parseString(value)
@@ -73,19 +73,19 @@ object KVDecoder {
   // counts, so a field may itself be a product
   def forProduct2[F[_]: MonadThrow, A, B1, B2](
     construct: (B1, B2) => A
-  )(implicit decoder1: KVDecoder[F, B1], decoder2: KVDecoder[F, B2]): KVDecoder[F, A] =
+  )(using decoder1: KVDecoder[F, B1], decoder2: KVDecoder[F, B2]): KVDecoder[F, A] =
     product[F, A](List(decoder1.termCount, decoder2.termCount)) { fields =>
       (decoder1.decode(fields(0)), decoder2.decode(fields(1))).mapN(construct)
     }
 
   def forProduct3[F[_]: MonadThrow, A, B1, B2, B3](
     construct: (B1, B2, B3) => A
-  )(implicit decoder1: KVDecoder[F, B1], decoder2: KVDecoder[F, B2], decoder3: KVDecoder[F, B3]): KVDecoder[F, A] =
+  )(using decoder1: KVDecoder[F, B1], decoder2: KVDecoder[F, B2], decoder3: KVDecoder[F, B3]): KVDecoder[F, A] =
     product[F, A](List(decoder1.termCount, decoder2.termCount, decoder3.termCount)) { fields =>
       (decoder1.decode(fields(0)), decoder2.decode(fields(1)), decoder3.decode(fields(2))).mapN(construct)
     }
 
-  def forProduct4[F[_]: MonadThrow, A, B1, B2, B3, B4](construct: (B1, B2, B3, B4) => A)(implicit
+  def forProduct4[F[_]: MonadThrow, A, B1, B2, B3, B4](construct: (B1, B2, B3, B4) => A)(using
     decoder1: KVDecoder[F, B1],
     decoder2: KVDecoder[F, B2],
     decoder3: KVDecoder[F, B3],
@@ -96,7 +96,7 @@ object KVDecoder {
         .mapN(construct)
     }
 
-  def forProduct5[F[_]: MonadThrow, A, B1, B2, B3, B4, B5](construct: (B1, B2, B3, B4, B5) => A)(implicit
+  def forProduct5[F[_]: MonadThrow, A, B1, B2, B3, B4, B5](construct: (B1, B2, B3, B4, B5) => A)(using
     decoder1: KVDecoder[F, B1],
     decoder2: KVDecoder[F, B2],
     decoder3: KVDecoder[F, B3],
@@ -115,7 +115,7 @@ object KVDecoder {
       ).mapN(construct)
     }
 
-  def forProduct6[F[_]: MonadThrow, A, B1, B2, B3, B4, B5, B6](construct: (B1, B2, B3, B4, B5, B6) => A)(implicit
+  def forProduct6[F[_]: MonadThrow, A, B1, B2, B3, B4, B5, B6](construct: (B1, B2, B3, B4, B5, B6) => A)(using
     decoder1: KVDecoder[F, B1],
     decoder2: KVDecoder[F, B2],
     decoder3: KVDecoder[F, B3],

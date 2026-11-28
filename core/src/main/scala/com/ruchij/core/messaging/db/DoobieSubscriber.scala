@@ -37,7 +37,7 @@ class DoobieSubscriber[F[_]: Async: Clock, G[_]: Monad, A](
   redeliveryTimeout: FiniteDuration,
   maxRetryDelay: FiniteDuration,
   lateCommitWindow: FiniteDuration
-)(implicit messagingTopic: MessagingTopic[A], transaction: G ~> F)
+)(using messagingTopic: MessagingTopic[A], transaction: G ~> F)
     extends Subscriber[F, A] {
   private val logger = Logger[DoobieSubscriber[F, G, A]]
 
@@ -191,6 +191,6 @@ object DoobieSubscriber {
     redeliveryTimeout: FiniteDuration = DefaultRedeliveryTimeout,
     maxRetryDelay: FiniteDuration = DefaultMaxRetryDelay,
     lateCommitWindow: FiniteDuration = DefaultLateCommitWindow
-  )(implicit transaction: G ~> F): DoobieSubscriber[F, G, A] =
+  )(using transaction: G ~> F): DoobieSubscriber[F, G, A] =
     new DoobieSubscriber[F, G, A](consumerGroupDao, pollInterval, redeliveryTimeout, maxRetryDelay, lateCommitWindow)
 }

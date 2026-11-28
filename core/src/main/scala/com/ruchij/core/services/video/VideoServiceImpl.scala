@@ -29,7 +29,7 @@ class VideoServiceImpl[F[_]: Monad: Clock, G[_]: MonadThrow](
   videoTitleDao: VideoTitleDao[G],
   videoPermissionDao: VideoPermissionDao[G],
   schedulingDao: SchedulingDao[G]
-)(implicit transaction: G ~> F)
+)(using transaction: G ~> F)
     extends VideoService[F, G] {
 
   override def findVideoById(videoId: String, maybeUserId: Option[String]): G[Video] =

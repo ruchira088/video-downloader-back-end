@@ -26,7 +26,7 @@ trait FallbackSyncDao[F[_]] {
   def currentTimestamp: F[Instant]
 
   /** `read` stamped with `currentTimestamp`, both run in one transaction by the caller. */
-  def timestamped[A](read: F[A])(implicit monad: Monad[F]): F[(Instant, A)] = currentTimestamp.product(read)
+  def timestamped[A](read: F[A])(using monad: Monad[F]): F[(Instant, A)] = currentTimestamp.product(read)
 
   def findById(videoId: String): F[Option[SyncedVideo]]
 
@@ -47,7 +47,7 @@ class DoobieFallbackSyncDao(
     * the other's older data. A read-only transaction can't fail with a serialization error, and HikariCP restores the
     * pool's isolation level when the connection is returned.
     */
-  override def timestamped[A](read: ConnectionIO[A])(implicit monad: Monad[ConnectionIO]): ConnectionIO[(Instant, A)] =
+  override def timestamped[A](read: ConnectionIO[A])(using monad: Monad[ConnectionIO]): ConnectionIO[(Instant, A)] =
     FC.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ) *> currentTimestamp.product(read)
 
   override def findById(videoId: String): ConnectionIO[Option[SyncedVideo]] =

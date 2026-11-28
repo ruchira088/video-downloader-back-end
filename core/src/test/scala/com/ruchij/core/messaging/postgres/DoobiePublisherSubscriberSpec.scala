@@ -95,7 +95,7 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
   /** A new group starts from the latest message, so its first poll would skip whatever was published before it.
     * Creating the group up front lets a test publish straight away, instead of sleeping until the first poll.
     */
-  private def createGroup(groupId: String)(implicit transaction: ConnectionIO ~> IO): IO[Unit] =
+  private def createGroup(groupId: String)(using transaction: ConnectionIO ~> IO): IO[Unit] =
     Clock[IO].timestamp.flatMap { timestamp =>
       transaction(DoobieMessageConsumerGroupDao.createGroup(channel, groupId, timestamp)).void
     }

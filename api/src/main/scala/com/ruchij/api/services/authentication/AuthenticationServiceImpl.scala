@@ -24,7 +24,7 @@ class AuthenticationServiceImpl[F[_]: Async: Clock: RandomGenerator.Of[Secret], 
   userDao: UserDao[G],
   credentialsDao: CredentialsDao[G],
   authSessionDuration: FiniteDuration
-)(implicit transaction: G ~> F)
+)(using transaction: G ~> F)
     extends AuthenticationService[F] {
 
   override def login(email: Email, password: Password): F[AuthenticationToken] =

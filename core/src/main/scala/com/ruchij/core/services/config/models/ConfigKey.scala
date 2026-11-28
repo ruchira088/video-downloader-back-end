@@ -8,7 +8,7 @@ trait ConfigKey {
 }
 
 object ConfigKey {
-  implicit def configKeySpacedEncoder[F[_]: Applicative, C <: ConfigKey & KVStoreKey, D](implicit
+  implicit def configKeySpacedEncoder[F[_]: Applicative, C <: ConfigKey & KVStoreKey, D](using
     keyspace: KeySpace[C, D]
   ): KeySpacedKeyEncoder[F, C] =
     (value: C) => Applicative[F].pure(keyspace.name + KVStoreKey.KeySeparator + value.key)

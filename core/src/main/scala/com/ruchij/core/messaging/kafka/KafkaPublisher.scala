@@ -37,7 +37,7 @@ class KafkaPublisher[F[_]: Sync, A](topicName: String, kafkaProducer: KafkaProdu
 object KafkaPublisher {
   def apply[F[_]: Async, A](
     kafkaConfiguration: KafkaConfiguration
-  )(implicit topic: MessagingTopic[A]): Resource[F, KafkaPublisher[F, A]] =
+  )(using topic: MessagingTopic[A]): Resource[F, KafkaPublisher[F, A]] =
     KafkaProducer
       .resource {
         ProducerSettings[F, Unit, A](GenericSerializer[F, Unit], topic.serializer[F](kafkaConfiguration))

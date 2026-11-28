@@ -31,7 +31,7 @@ object VideoRoutes {
     videoAnalysisService: VideoAnalysisService[F],
     videoWatchHistoryService: VideoWatchHistoryService[F],
     duplicateDetectionService: ApiDuplicateDetectionService[F]
-  )(implicit dsl: Http4sDsl[F]): ContextRoutes[AuthenticatedRequestContext, F] = {
+  )(using dsl: Http4sDsl[F]): ContextRoutes[AuthenticatedRequestContext, F] = {
     import dsl.*
 
     ContextRoutes.of[AuthenticatedRequestContext, F] {

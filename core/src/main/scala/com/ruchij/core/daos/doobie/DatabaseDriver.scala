@@ -6,7 +6,7 @@ import org.{h2, postgresql}
 import java.sql
 import scala.reflect.ClassTag
 
-sealed abstract class DatabaseDriver[A <: sql.Driver](implicit classTag: ClassTag[A]) extends EnumEntry {
+sealed abstract class DatabaseDriver[A <: sql.Driver](using classTag: ClassTag[A]) extends EnumEntry {
   val driver: String = classTag.runtimeClass.getName
 }
 

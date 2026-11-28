@@ -22,7 +22,7 @@ object DoobieCustomMappings {
 
   implicit def enumPut[A <: EnumEntry]: Put[A] = Put[String].contramap[A](_.entryName)
 
-  implicit def enumGet[A <: EnumEntry](implicit enumValues: Enum[A]): Get[A] =
+  implicit def enumGet[A <: EnumEntry](using enumValues: Enum[A]): Get[A] =
     Get[String].temap(text => enumValues.withNameInsensitiveEither(text).left.map(_.getMessage()))
 
   implicit val uriPut: Put[Uri] = Put[String].contramap[Uri](_.renderString)

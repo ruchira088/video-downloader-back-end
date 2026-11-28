@@ -147,7 +147,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     videoDao: VideoDao[IO] = new StubVideoDao(),
     videoMetadataDao: VideoMetadataDao[IO] = new StubVideoMetadataDao(),
     fileResourceDao: FileResourceDao[IO] = new StubFileResourceDao()
-  )(implicit clock: Clock[IO]): BatchVideoServiceImpl[IO, IO] = {
+  )(using clock: Clock[IO]): BatchVideoServiceImpl[IO, IO] = {
     new BatchVideoServiceImpl[IO, IO](videoService, videoDao, videoMetadataDao, fileResourceDao)
   }
 

@@ -60,6 +60,6 @@ object KVDecoderSpec {
   implicit def studentKVDecoder[F[_]: MonadThrow]: KVDecoder[F, Student] = KVDecoder.forProduct2(Student.apply)
 
   implicit class KVDecoderStringExtension(string: String) {
-    def decodeAs[F[_], A](implicit decoder: KVDecoder[F, A]): F[A] = decoder.decode(string)
+    def decodeAs[F[_], A](using decoder: KVDecoder[F, A]): F[A] = decoder.decode(string)
   }
 }

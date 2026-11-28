@@ -438,7 +438,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   // The fixed clocks above are built in UTC, so evaluate the work period in UTC too
-  private def isWorkPeriodInUtc(start: LocalTime, end: LocalTime)(implicit clock: Clock[IO]): IO[Boolean] =
+  private def isWorkPeriodInUtc(start: LocalTime, end: LocalTime)(using clock: Clock[IO]): IO[Boolean] =
     SchedulerImpl.isWorkPeriod[IO](start, end, ZoneOffset.UTC)
 
   it should "evaluate the work period in the given time zone" in runIO {
@@ -532,7 +532,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     batchVideoService: BatchVideoService[IO] = new StubBatchVideoService,
     videoWatchMetricsSubscriber: Subscriber[IO, VideoWatchMetric] = new StubVideoWatchMetricsSubscriber,
     scanForVideosCommandSubscriber: Subscriber[IO, ScanVideosCommand] = new StubScanForVideosCommandSubscriber
-  )(implicit clock: Clock[IO]): SchedulerImpl[IO, IO] = {
+  )(using clock: Clock[IO]): SchedulerImpl[IO, IO] = {
     new SchedulerImpl[IO, IO](
       batchSchedulingService = batchSchedulingService,
       synchronizationService = synchronizationService,

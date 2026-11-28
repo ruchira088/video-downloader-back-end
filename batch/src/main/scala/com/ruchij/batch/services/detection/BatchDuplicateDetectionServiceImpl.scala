@@ -33,7 +33,7 @@ class BatchDuplicateDetectionServiceImpl[F[_]: Sync: Clock, G[_]: Monad](
   videoDao: VideoDao[G],
   videoPermissionDao: VideoPermissionDao[G],
   batchVideoService: BatchVideoService[F]
-)(implicit transaction: G ~> F)
+)(using transaction: G ~> F)
     extends BatchDuplicateDetectionService[F] {
   private val logger = Logger[BatchDuplicateDetectionServiceImpl[F, G]]
 

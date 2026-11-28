@@ -60,7 +60,7 @@ class UserServiceIntegrationSpec extends AnyFlatSpec with Matchers {
   private def userService(
     userDao: UserDao[ConnectionIO] = DoobieUserDao,
     files: ConcurrentHashMap[String, List[Byte]] = new ConcurrentHashMap[String, List[Byte]]()
-  )(implicit transaction: ConnectionIO ~> IO): UserServiceImpl[IO, ConnectionIO] =
+  )(using transaction: ConnectionIO ~> IO): UserServiceImpl[IO, ConnectionIO] =
     new UserServiceImpl[IO, ConnectionIO](
       new BCryptPasswordHashingService[IO],
       userDao,

@@ -11,9 +11,8 @@ import com.ruchij.core.messaging.models.CommittableRecord
 import fs2.Stream
 import fs2.kafka.*
 
-class KafkaSubscriber[F[_]: Async: Parallel, A](kafkaConfiguration: KafkaConfiguration)(implicit
-  topic: MessagingTopic[A]
-) extends Subscriber[F, A] {
+class KafkaSubscriber[F[_]: Async: Parallel, A](kafkaConfiguration: KafkaConfiguration)(using topic: MessagingTopic[A])
+    extends Subscriber[F, A] {
   override type C[X] = CommittableRecord[CommittableConsumerRecord[F, Unit, *], X]
 
   private val logger = Logger[KafkaSubscriber[F, A]]

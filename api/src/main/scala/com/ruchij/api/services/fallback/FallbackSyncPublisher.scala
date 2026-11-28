@@ -22,7 +22,7 @@ class FallbackSyncPublisher[F[_]: Async, T[_]: Monad](
   window: FiniteDuration = 30.seconds,
   maxBatchSize: Int = 500,
   retryDelays: List[FiniteDuration] = List(1.second, 5.seconds, 25.seconds)
-)(implicit transaction: T ~> F) {
+)(using transaction: T ~> F) {
   private val logger = Logger[FallbackSyncPublisher[?, ?]]
 
   /** Reads the current state at send time, so a late duplicate still carries fresh data. `deletions` maps each id with

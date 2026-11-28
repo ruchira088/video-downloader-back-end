@@ -10,7 +10,7 @@ import com.ruchij.core.daos.hash.VideoPerceptualHashDao
 class ApiDuplicateDetectionServiceImpl[F[_]: Functor, G[_]: Monad](
   duplicateVideoDao: DuplicateVideoDao[G],
   videoPerceptualHashDao: VideoPerceptualHashDao[G]
-)(implicit transaction: G ~> F)
+)(using transaction: G ~> F)
     extends ApiDuplicateDetectionService[F] {
 
   override def findDuplicateVideos(offset: Int, limit: Int): F[Map[String, Set[DuplicateVideo]]] =

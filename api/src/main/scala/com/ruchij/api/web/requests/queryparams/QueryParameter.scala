@@ -110,7 +110,7 @@ object QueryParameter {
           }
         )
 
-  implicit def enumQueryParamDecoder[A <: EnumEntry](implicit
+  implicit def enumQueryParamDecoder[A <: EnumEntry](using
     enumValue: Enum[A],
     classTag: ClassTag[A]
   ): QueryParamDecoder[A] =

@@ -43,7 +43,7 @@ object FallbackSync {
     keyValueStore: KeyValueStore[F],
     schedulingService: ApiSchedulingService[F],
     instanceId: String
-  )(implicit transaction: ConnectionIO ~> F): Stream[F, Unit] = {
+  )(using transaction: ConnectionIO ~> F): Stream[F, Unit] = {
     val settings = resources.settings
     val fallbackSyncDao = new DoobieFallbackSyncDao(DoobieSchedulingDao, DoobieVideoPermissionDao)
     val transport = new SqsFallbackSyncTransport[F](resources.awsClients.sqs, settings.mainToFallbackQueueUrl)

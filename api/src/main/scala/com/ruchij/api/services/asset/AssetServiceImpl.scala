@@ -30,12 +30,12 @@ class AssetServiceImpl[F[_]: MonadThrow: Clock, T[_]: MonadThrow](
   playlistDao: PlaylistDao[T],
   repositoryService: RepositoryService[F],
   publisher: Publisher[F, VideoWatchMetric]
-)(implicit transaction: T ~> F)
+)(using transaction: T ~> F)
     extends AssetService[F] {
 
   private def typeValidator[A <: AssetType](
     validator: String => T[Boolean]
-  )(implicit classTag: ClassTag[A]): String => T[Unit] =
+  )(using classTag: ClassTag[A]): String => T[Unit] =
     resourceId =>
       validator(resourceId).flatMap { isValid =>
         if (isValid) Applicative[T].unit
@@ -49,7 +49,7 @@ class AssetServiceImpl[F[_]: MonadThrow: Clock, T[_]: MonadThrow](
 
   private def notFoundError[K[_]: ApplicativeThrow, A <: AssetType](
     id: String
-  )(implicit classTag: ClassTag[A]): K[Asset[F, A]] =
+  )(using classTag: ClassTag[A]): K[Asset[F, A]] =
     ApplicativeError[K, Throwable].raiseError[Asset[F, A]] {
       ResourceNotFoundException(s"Unable to find ${classTag.runtimeClass.getSimpleName.stripSuffix("$")} file $id")
     }

@@ -221,7 +221,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
     schedulingDao: SchedulingDao[IO] = new StubSchedulingDao(),
     videoTitleDao: VideoTitleDao[IO] = new StubVideoTitleDao(),
     videoPermissionDao: VideoPermissionDao[IO] = new StubVideoPermissionDao()
-  )(implicit
+  )(using
     clock: Clock[IO]
   ): (ApiSchedulingServiceImpl[IO, IO], StubPublisher[ScheduledVideoDownload], StubPublisher[WorkerStatusUpdate]) = {
     val service = new ApiSchedulingServiceImpl[IO, IO](

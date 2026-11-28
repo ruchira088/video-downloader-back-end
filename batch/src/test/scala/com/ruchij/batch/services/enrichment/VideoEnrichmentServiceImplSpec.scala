@@ -90,7 +90,7 @@ class VideoEnrichmentServiceImplSpec extends AnyFlatSpec with Matchers {
     videoSnapshotService: VideoSnapshotService[IO] = new StubVideoSnapshotService(),
     snapshotDao: SnapshotDao[IO] = new StubSnapshotDao(),
     fileResourceDao: FileResourceDao[IO] = new StubFileResourceDao()
-  )(implicit uuidGenerator: RandomGenerator[IO, UUID]): VideoEnrichmentServiceImpl[IO, IO] = {
+  )(using uuidGenerator: RandomGenerator[IO, UUID]): VideoEnrichmentServiceImpl[IO, IO] = {
     new VideoEnrichmentServiceImpl[IO, IO](videoSnapshotService, snapshotDao, fileResourceDao, storageConfiguration)
   }
 

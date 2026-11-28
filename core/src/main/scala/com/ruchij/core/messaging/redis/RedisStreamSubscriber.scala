@@ -34,7 +34,7 @@ class RedisStreamSubscriber[F[_]: Async, A](
   redisCommands: RedisCommands[F, String, String],
   readerConnection: Resource[F, RedisCommands[F, String, String]],
   settings: Settings
-)(implicit messagingTopic: MessagingTopic[A])
+)(using messagingTopic: MessagingTopic[A])
     extends Subscriber[F, A] {
   private val logger = Logger[RedisStreamSubscriber[F, A]]
 

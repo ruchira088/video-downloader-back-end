@@ -41,7 +41,7 @@ object SchedulingRoutes {
     downloadProgressStream: Stream[F, DownloadProgress],
     scheduledVideoDownloadUpdatesStream: Stream[F, ScheduledVideoDownload],
     scheduledVideoDeletionsStream: Stream[F, ScheduledVideoDeletion]
-  )(implicit dsl: Http4sDsl[F]): ContextRoutes[AuthenticatedRequestContext, F] = {
+  )(using dsl: Http4sDsl[F]): ContextRoutes[AuthenticatedRequestContext, F] = {
     import dsl.*
 
     ContextRoutes.of[AuthenticatedRequestContext, F] {

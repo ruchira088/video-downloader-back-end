@@ -97,19 +97,16 @@ object GoldenFormat {
         decoder.fold[Either[Throwable, Option[Any]]](Right(None))(_(golden).map(Some.apply))
     }
 
-  def json[A](value: A)(implicit messagingTopic: MessagingTopic[A]): GoldenFormat =
+  def json[A](value: A)(using messagingTopic: MessagingTopic[A]): GoldenFormat =
     GoldenFormat(s"json-${messagingTopic.name}", value)(
       value => Right(messagingTopic.jsonCodec(value).spaces2),
       Some(golden => io.circe.parser.decode(golden)(using messagingTopic.jsonCodec))
     )
 
   // Keys are encoded with their key space's name in front, as KeySpacedKeyValueStore stores them
-  def kvKey[K <: KVStoreKey](name: String, key: K)(implicit encoder: KeySpacedKeyEncoder[Try, K]): GoldenFormat =
+  def kvKey[K <: KVStoreKey](name: String, key: K)(using encoder: KeySpacedKeyEncoder[Try, K]): GoldenFormat =
     GoldenFormat(s"kv-key-$name", key)(key => encoder.encode(key).toEither, None)
 
-  def kvValue[V](name: String, value: V)(implicit
-    encoder: KVEncoder[Try, V],
-    decoder: KVDecoder[Try, V]
-  ): GoldenFormat =
+  def kvValue[V](name: String, value: V)(using encoder: KVEncoder[Try, V], decoder: KVDecoder[Try, V]): GoldenFormat =
     GoldenFormat(s"kv-value-$name", value)(value => encoder.encode(value).toEither, Some(decoder.decode(_).toEither))
 }

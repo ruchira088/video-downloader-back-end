@@ -138,7 +138,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
     playlistDao: PlaylistDao[IO] = new StubPlaylistDao(),
     fileResourceDao: FileResourceDao[IO] = new StubFileResourceDao(),
     repositoryService: RepositoryService[IO] = new StubRepositoryService()
-  )(implicit clock: Clock[IO], randomGenerator: RandomGenerator[IO, UUID]): PlaylistServiceImpl[IO, IO] = {
+  )(using clock: Clock[IO], randomGenerator: RandomGenerator[IO, UUID]): PlaylistServiceImpl[IO, IO] = {
     new PlaylistServiceImpl[IO, IO](playlistDao, fileResourceDao, repositoryService, storageConfiguration)
   }
 

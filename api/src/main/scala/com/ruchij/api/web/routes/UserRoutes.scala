@@ -17,7 +17,7 @@ import org.http4s.circe.CirceEntityCodec.*
 import org.http4s.dsl.Http4sDsl
 
 object UserRoutes {
-  def apply[F[_]: Async](userService: UserService[F], authenticationService: AuthenticationService[F])(implicit
+  def apply[F[_]: Async](userService: UserService[F], authenticationService: AuthenticationService[F])(using
     dsl: Http4sDsl[F]
   ): ContextRoutes[RequestContext, F] = {
     import dsl.*

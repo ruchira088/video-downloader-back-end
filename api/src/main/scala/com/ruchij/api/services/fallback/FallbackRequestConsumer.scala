@@ -33,7 +33,7 @@ class FallbackRequestConsumer[F[_]: Async, T[_]: Monad](
   resolvedRequests: KeySpacedKeyValueStore[F, ResolvedRequestKey, String],
   pollInterval: FiniteDuration = 60.seconds,
   maxReceiveCount: Int = 5
-)(implicit transaction: T ~> F) {
+)(using transaction: T ~> F) {
   private val logger = Logger[FallbackRequestConsumer[?, ?]]
 
   val run: Stream[F, Unit] =

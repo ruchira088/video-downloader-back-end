@@ -233,7 +233,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     duplicateDetectionService: ApiDuplicateDetectionService[IO] = stubDuplicateDetectionService,
     videoWatchHistoryDao: VideoWatchHistoryDao[IO] = new RecordingVideoWatchHistoryDao,
     fallbackSyncRequestPublisher: Publisher[IO, FallbackSyncRequest] = new NoOpPublisher[IO, FallbackSyncRequest]
-  )(implicit clock: Clock[IO]): ApiVideoServiceImpl[IO, IO] = {
+  )(using clock: Clock[IO]): ApiVideoServiceImpl[IO, IO] = {
     implicit val transaction: IO ~> IO = new (IO ~> IO) {
       override def apply[A](fa: IO[A]): IO[A] = fa
     }

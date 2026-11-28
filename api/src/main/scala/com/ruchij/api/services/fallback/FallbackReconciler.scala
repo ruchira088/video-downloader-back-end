@@ -24,7 +24,7 @@ class FallbackReconciler[F[_]: Async, T[_]: Monad](
   coordination: FallbackSyncCoordination[F],
   instanceId: String,
   allowMassRemoval: Boolean = false
-)(implicit transaction: T ~> F) {
+)(using transaction: T ~> F) {
   import FallbackReconciler.*
 
   private val logger = Logger[FallbackReconciler[?, ?]]

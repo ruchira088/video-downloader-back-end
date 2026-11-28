@@ -8,7 +8,7 @@ import com.ruchij.core.kv.keys.KVStoreKey.KeySeparator
 trait KeySpacedKeyEncoder[F[_], K <: KVStoreKey] extends KVEncoder[F, K]
 
 object KeySpacedKeyEncoder {
-  def apply[F[_], K <: KVStoreKey](implicit encoder: KeySpacedKeyEncoder[F, K]): KeySpacedKeyEncoder[F, K] =
+  def apply[F[_], K <: KVStoreKey](using encoder: KeySpacedKeyEncoder[F, K]): KeySpacedKeyEncoder[F, K] =
     encoder
 
   // A key is stored with its key space's name in front of the key's own encoding

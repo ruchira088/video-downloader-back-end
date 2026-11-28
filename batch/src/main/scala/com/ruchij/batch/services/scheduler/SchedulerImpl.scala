@@ -57,7 +57,7 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
   maybeMessageTransaction: Option[T ~> F],
   workerConfiguration: WorkerConfiguration,
   instanceId: String
-)(implicit transaction: T ~> F)
+)(using transaction: T ~> F)
     extends Scheduler[F] {
 
   override type InitializationResult = Unit

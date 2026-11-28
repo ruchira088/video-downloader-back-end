@@ -76,7 +76,7 @@ class PlaylistVideoDeletionSpec extends AnyFlatSpec with Matchers with OptionVal
       }
     }
 
-  private def videoService(implicit transaction: ConnectionIO ~> IO): VideoServiceImpl[IO, ConnectionIO] =
+  private def videoService(using transaction: ConnectionIO ~> IO): VideoServiceImpl[IO, ConnectionIO] =
     new VideoServiceImpl[IO, ConnectionIO](
       NoOpRepositoryService,
       DoobieVideoDao,

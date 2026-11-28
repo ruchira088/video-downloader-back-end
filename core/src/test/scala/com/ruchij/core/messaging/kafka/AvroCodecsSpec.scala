@@ -277,7 +277,7 @@ class AvroCodecsSpec extends AnyFlatSpec with Matchers {
     roundTrip(errorInfo) mustBe Right(errorInfo)
   }
 
-  private def roundTrip[A](value: A)(implicit codec: Codec[A]): Either[AvroError, A] = {
+  private def roundTrip[A](value: A)(using codec: Codec[A]): Either[AvroError, A] = {
     for {
       schema <- codec.schema
       encoded <- codec.encode(value)

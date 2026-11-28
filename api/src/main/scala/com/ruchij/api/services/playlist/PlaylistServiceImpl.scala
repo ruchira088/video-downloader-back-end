@@ -29,7 +29,7 @@ class PlaylistServiceImpl[F[_]: Sync: Clock: RandomGenerator.Of[UUID], G[_]: Mon
   repositoryService: RepositoryService[F],
   storageConfiguration: StorageConfiguration,
   maxAlbumArtSize: Long = PlaylistService.MaxAlbumArtSize
-)(implicit transaction: G ~> F)
+)(using transaction: G ~> F)
     extends PlaylistService[F] {
 
   private val logger = Logger[PlaylistServiceImpl[F, G]]

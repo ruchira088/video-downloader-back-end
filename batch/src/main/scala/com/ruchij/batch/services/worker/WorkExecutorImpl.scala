@@ -46,7 +46,7 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
   youTubeVideoDownloader: YouTubeVideoDownloader[F],
   videoEnrichmentService: VideoEnrichmentService[F],
   storageConfiguration: StorageConfiguration
-)(implicit transaction: T ~> F)
+)(using transaction: T ~> F)
     extends WorkExecutor[F] {
 
   private val logger = Logger[WorkExecutorImpl[F, T]]

@@ -7,7 +7,7 @@ import org.http4s.dsl.Http4sDsl
 import org.http4s.{ContextRoutes, Response, StaticFile}
 
 object WebServerRoutes {
-  def apply[F[_]: Sync](implicit dsl: Http4sDsl[F]): ContextRoutes[RequestContext, F] = {
+  def apply[F[_]: Sync](using dsl: Http4sDsl[F]): ContextRoutes[RequestContext, F] = {
     import dsl.*
 
     ContextRoutes[RequestContext, F] {

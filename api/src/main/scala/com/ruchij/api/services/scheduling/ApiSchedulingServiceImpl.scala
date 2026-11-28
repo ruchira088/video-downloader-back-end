@@ -41,7 +41,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
   schedulingDao: SchedulingDao[T],
   videoTitleDao: VideoTitleDao[T],
   videoPermissionDao: VideoPermissionDao[T]
-)(implicit transaction: T ~> F)
+)(using transaction: T ~> F)
     extends ApiSchedulingService[F] {
 
   private val logger = Logger[ApiSchedulingServiceImpl[F, T]]

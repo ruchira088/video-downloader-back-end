@@ -8,7 +8,7 @@ import com.ruchij.core.messaging.{MessagingTopic, PubSub}
 object KafkaPubSub {
   def apply[F[_]: Async: Parallel, A](
     kafkaConfiguration: KafkaConfiguration
-  )(implicit kafkaTopic: MessagingTopic[A]): Resource[F, PubSub[F, A]] =
+  )(using kafkaTopic: MessagingTopic[A]): Resource[F, PubSub[F, A]] =
     for {
       publisher <- KafkaPublisher[F, A](kafkaConfiguration)
       subscriber = new KafkaSubscriber[F, A](kafkaConfiguration)

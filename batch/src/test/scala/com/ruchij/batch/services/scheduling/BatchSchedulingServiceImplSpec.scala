@@ -47,7 +47,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
 
   def createTestFixture(
     retryConfiguration: RetryConfiguration = RetryConfiguration.Disabled
-  )(implicit transactor: ConnectionIO ~> IO): TestFixture = {
+  )(using transactor: ConnectionIO ~> IO): TestFixture = {
     val downloadProgressPublisher = mock[Publisher[IO, DownloadProgress]]
     val repositoryService = mock[FileRepositoryService[IO]]
     val workerStatusSubscriber = mock[Subscriber[IO, WorkerStatusUpdate]]

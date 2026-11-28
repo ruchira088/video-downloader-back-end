@@ -35,7 +35,7 @@ object Decoders {
 
   implicit val statusDecoder: Decoder[Status] = Decoder.decodeInt.emap(Status.fromInt(_).left.map(_.message))
 
-  implicit def enumDecoder[A <: EnumEntry](implicit enumValues: Enum[A]): Decoder[A] =
+  implicit def enumDecoder[A <: EnumEntry](using enumValues: Enum[A]): Decoder[A] =
     Decoder.decodeString.emap { enumString =>
       enumValues.withNameInsensitiveEither(enumString).left.map(_.getMessage)
     }

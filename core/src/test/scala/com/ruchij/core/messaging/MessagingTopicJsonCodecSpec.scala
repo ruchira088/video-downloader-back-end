@@ -24,7 +24,7 @@ class MessagingTopicJsonCodecSpec extends AnyFlatSpec with Matchers {
 
   private val timestamp = TimeUtils.instantOf(2024, 3, 10, 8, 15)
 
-  private def roundTrip[A](value: A)(implicit messagingTopic: MessagingTopic[A]): Either[io.circe.Error, A] =
+  private def roundTrip[A](value: A)(using messagingTopic: MessagingTopic[A]): Either[io.circe.Error, A] =
     decode[A](messagingTopic.jsonCodec(value).noSpaces)(using messagingTopic.jsonCodec)
 
   "ScheduledVideoDownloadTopic" should "round-trip a ScheduledVideoDownload through its JSON codec" in {

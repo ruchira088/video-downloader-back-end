@@ -60,7 +60,7 @@ class SynchronizationServiceImpl[F[_]: Async: Clock, A, T[_]: MonadThrow](
   sharedConfigurationService: ConfigurationService[F, SharedConfigKey],
   fileTypeDetector: FileTypeDetector[F, A],
   storageConfiguration: StorageConfiguration
-)(implicit transaction: T ~> F)
+)(using transaction: T ~> F)
     extends SynchronizationService[F] {
 
   private val logger = Logger[SynchronizationServiceImpl[F, A, T]]

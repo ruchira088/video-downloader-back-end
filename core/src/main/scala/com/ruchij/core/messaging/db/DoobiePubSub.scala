@@ -13,7 +13,7 @@ object DoobiePubSub {
     messageDao: MessageDao[G],
     consumerGroupDao: MessageConsumerGroupDao[G],
     pollInterval: FiniteDuration = DoobieSubscriber.DefaultPollInterval
-  )(implicit transaction: G ~> F): PubSub[F, A] = {
+  )(using transaction: G ~> F): PubSub[F, A] = {
     val publisher = new DoobiePublisher[F, G, A](messageDao)
     val subscriber = DoobieSubscriber.create[F, G, A](consumerGroupDao, pollInterval)
     PubSub.from(publisher, subscriber)

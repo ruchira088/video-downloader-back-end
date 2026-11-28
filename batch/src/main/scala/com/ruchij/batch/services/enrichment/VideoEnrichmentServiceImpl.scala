@@ -22,7 +22,7 @@ class VideoEnrichmentServiceImpl[F[_]: Sync: RandomGenerator.Of[UUID], T[_]: Mon
   snapshotDao: SnapshotDao[T],
   fileResourceDao: FileResourceDao[T],
   storageConfiguration: StorageConfiguration
-)(implicit transaction: T ~> F)
+)(using transaction: T ~> F)
     extends VideoEnrichmentService[F] {
   private val logger = Logger[VideoEnrichmentServiceImpl[F, T]]
 

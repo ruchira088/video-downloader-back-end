@@ -16,7 +16,7 @@ import scala.concurrent.duration.FiniteDuration
 
 class VideoWatchHistoryServiceImpl[F[_]: Sync: RandomGenerator.Of[UUID], G[_]: Monad](
   videoWatchHistoryDao: VideoWatchHistoryDao[G]
-)(implicit transaction: G ~> F)
+)(using transaction: G ~> F)
     extends VideoWatchHistoryService[F] {
 
   override def getWatchHistoryByUser(

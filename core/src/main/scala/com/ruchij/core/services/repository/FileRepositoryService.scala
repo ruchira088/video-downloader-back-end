@@ -114,6 +114,6 @@ object FileRepositoryService {
 
   private val CHUNK_SIZE: Int = 4096
 
-  private def parsePath[F[_]](path: String)(implicit applicativeError: ApplicativeError[F, Throwable]): F[Path] =
+  private def parsePath[F[_]](path: String)(using applicativeError: ApplicativeError[F, Throwable]): F[Path] =
     applicativeError.catchNonFatal(Path.fromNioPath(Paths.get(path)))
 }

@@ -40,7 +40,7 @@ class UserServiceImpl[F[_]: RandomGenerator.Of[UUID]: Sync: Clock, G[_]: MonadTh
   fileResourceDao: FileResourceDao[G],
   repositoryService: RepositoryService[F],
   fallbackSyncRequester: FallbackSyncRequester[F]
-)(implicit transaction: G ~> F)
+)(using transaction: G ~> F)
     extends UserService[F] {
   import UserServiceImpl.UniqueViolationSqlState
 

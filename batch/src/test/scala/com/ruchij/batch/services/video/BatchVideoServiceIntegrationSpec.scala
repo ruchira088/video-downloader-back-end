@@ -34,7 +34,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
 
   val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 30)
 
-  def insertVideoMetadata(implicit transactor: ConnectionIO ~> IO): IO[VideoMetadata] =
+  def insertVideoMetadata(using transactor: ConnectionIO ~> IO): IO[VideoMetadata] =
     for {
       videoMetadata <- DataGenerators.videoMetadata[IO].generate
       _ <- transactor {
@@ -44,7 +44,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
       }
     } yield videoMetadata
 
-  def insertFileResource(implicit transactor: ConnectionIO ~> IO): IO[FileResource] =
+  def insertFileResource(using transactor: ConnectionIO ~> IO): IO[FileResource] =
     for {
       fileResource <- DataGenerators.fileResource[IO](cats.data.NonEmptyList.of(MediaType.video.mp4)).generate
       _ <- transactor(DoobieFileResourceDao.insert(fileResource))
@@ -85,7 +85,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
 
   def createBatchVideoService(
     videoService: VideoService[IO, IO] = new StubVideoService
-  )(implicit clock: Clock[IO]): BatchVideoServiceImpl[IO, IO] = {
+  )(using clock: Clock[IO]): BatchVideoServiceImpl[IO, IO] = {
     new BatchVideoServiceImpl[IO, IO](videoService, new StubVideoDao, new StubVideoMetadataDao, new StubFileResourceDao)
   }
 

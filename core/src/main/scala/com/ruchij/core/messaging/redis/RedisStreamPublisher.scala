@@ -12,7 +12,7 @@ import fs2.Pipe
 /** Appends messages to a Redis stream, capping it at roughly `maxLength` entries (XADD ... MAXLEN ~), since Redis keeps
   * every entry otherwise. Approximate trimming lets Redis drop whole macro nodes, which is much cheaper.
   */
-class RedisStreamPublisher[F[_]: Sync, A](redisCommands: RedisCommands[F, String, String], maxLength: Long)(implicit
+class RedisStreamPublisher[F[_]: Sync, A](redisCommands: RedisCommands[F, String, String], maxLength: Long)(using
   messagingTopic: MessagingTopic[A]
 ) extends Publisher[F, A] {
 

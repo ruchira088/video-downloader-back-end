@@ -42,7 +42,7 @@ class VideoAnalysisServiceImpl[F[_]: Async: Clock, T[_]: Monad](
   videoMetadataDao: VideoMetadataDao[T],
   fileResourceDao: FileResourceDao[T],
   storageConfiguration: StorageConfiguration
-)(implicit transaction: T ~> F)
+)(using transaction: T ~> F)
     extends VideoAnalysisService[F] {
 
   private val logger = Logger[VideoAnalysisServiceImpl[F, T]]
