@@ -34,7 +34,6 @@ object Dependencies {
 
   lazy val circeLiteral = "io.circe" %% "circe-literal" % CirceVersion
 
-
   lazy val doobie = "org.tpolecat" %% "doobie-core" % "1.0.0-RC12"
 
   lazy val doobieHikari = "org.tpolecat" %% "doobie-hikari" % "1.0.0-RC12"
@@ -44,8 +43,6 @@ object Dependencies {
   private val PureconfigVersion = "0.17.11"
 
   lazy val pureconfig = "com.github.pureconfig" %% "pureconfig-core" % PureconfigVersion
-
-  lazy val pureconfigGeneric = "com.github.pureconfig" %% "pureconfig-generic-scala3" % PureconfigVersion
 
   lazy val flywayCore = "org.flywaydb" % "flyway-core" % FlywayVersion
 

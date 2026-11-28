@@ -14,7 +14,6 @@ import com.ruchij.migration.config.DatabaseConfiguration
 import pureconfig.ConfigObjectSource
 import pureconfig.ConfigReader
 import pureconfig.error.ConfigReaderException
-import pureconfig.generic.semiauto.deriveReader
 
 final case class BatchServiceConfiguration(
   storageConfiguration: StorageConfiguration,
@@ -27,11 +26,9 @@ final case class BatchServiceConfiguration(
   httpProxyConfiguration: Option[HttpProxyConfiguration],
   retryConfiguration: RetryConfiguration = RetryConfiguration.Default,
   healthConfiguration: HealthConfiguration = HealthConfiguration()
-)
+) derives ConfigReader
 
 object BatchServiceConfiguration {
-  given configReader: ConfigReader[BatchServiceConfiguration] = deriveReader[BatchServiceConfiguration]
-
   def parse[F[_]: ApplicativeThrow](configObjectSource: ConfigObjectSource): F[BatchServiceConfiguration] =
     configObjectSource
       .load[BatchServiceConfiguration]

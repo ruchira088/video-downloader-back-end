@@ -57,7 +57,7 @@ lazy val migrationApplication =
   packagedApp("migrationApplication", "./migration-application", "com.eed3si9n.ruchij.migration")
     .settings(
       libraryDependencies ++=
-        Seq(catsEffect, flywayCore, flywayPostgresql, h2, postgresql, pureconfig, pureconfigGeneric) ++ logging,
+        Seq(catsEffect, flywayCore, flywayPostgresql, h2, postgresql, pureconfig) ++ logging,
       libraryDependencies ++= Seq(scalaTest).map(_ % Test)
     )
 
@@ -82,7 +82,6 @@ lazy val core =
           doobie,
           doobieHikari,
           pureconfig,
-          pureconfigGeneric,
           apacheTika,
           redis4CatsEffects,
           redis4catsStreams,
@@ -110,16 +109,7 @@ lazy val api =
     .settings(
       Test / fork := true,
       libraryDependencies ++=
-        Seq(
-          http4sEmberServer,
-          postgresql,
-          pureconfig,
-          pureconfigGeneric,
-          jbcrypt,
-          logbackClassic,
-          awsSqs,
-          awsDynamoDb
-        ) ++ circe ++
+        Seq(http4sEmberServer, postgresql, pureconfig, jbcrypt, logbackClassic, awsSqs, awsDynamoDb) ++ circe ++
           Seq(circeLiteral, pegdown, catsEffectTestkit).map(_ % Test),
       // The JSON contract shared with fallback-api/. As a resource directory its files are tracked inputs, so the
       // incremental `test` reruns the contract suites when a fixture changes. They land at the classpath root.

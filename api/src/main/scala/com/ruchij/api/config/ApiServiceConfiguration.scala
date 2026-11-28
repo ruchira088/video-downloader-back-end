@@ -7,7 +7,6 @@ import com.ruchij.migration.config.DatabaseConfiguration
 import pureconfig.ConfigObjectSource
 import pureconfig.ConfigReader
 import pureconfig.error.ConfigReaderException
-import pureconfig.generic.semiauto.deriveReader
 
 final case class ApiServiceConfiguration(
   httpConfiguration: HttpConfiguration,
@@ -20,11 +19,9 @@ final case class ApiServiceConfiguration(
   sentryConfiguration: SentryConfiguration,
   httpProxyConfiguration: Option[HttpProxyConfiguration],
   fallbackSyncConfiguration: FallbackSyncConfiguration = FallbackSyncConfiguration.Disabled
-)
+) derives ConfigReader
 
 object ApiServiceConfiguration {
-  given configReader: ConfigReader[ApiServiceConfiguration] = deriveReader[ApiServiceConfiguration]
-
   def parse[F[_]: ApplicativeThrow](configObjectSource: ConfigObjectSource): F[ApiServiceConfiguration] =
     configObjectSource
       .load[ApiServiceConfiguration]

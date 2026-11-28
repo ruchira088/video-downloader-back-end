@@ -1,7 +1,6 @@
 package com.ruchij.api.config
 
 import pureconfig.ConfigReader
-import pureconfig.generic.semiauto.deriveReader
 
 final case class FallbackSyncSettings(
   mainToFallbackQueueUrl: String,
@@ -20,7 +19,7 @@ final case class FallbackSyncConfiguration(
   awsRegion: Option[String],
   awsEndpointUrl: Option[String],
   reconcileAllowMassRemoval: Boolean = false
-) {
+) derives ConfigReader {
   val settings: Either[IllegalArgumentException, Option[FallbackSyncSettings]] =
     if (!enabled) Right(None)
     else
@@ -51,7 +50,5 @@ final case class FallbackSyncConfiguration(
 }
 
 object FallbackSyncConfiguration {
-  given configReader: ConfigReader[FallbackSyncConfiguration] = deriveReader[FallbackSyncConfiguration]
-
   val Disabled: FallbackSyncConfiguration = FallbackSyncConfiguration(false, None, None, None, None, None)
 }
