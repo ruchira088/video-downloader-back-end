@@ -115,6 +115,17 @@ class AuthenticationRoutesSpec extends AnyFlatSpec with Matchers with MockedRout
   }
 
   "GET /authentication/user" should "return the authenticated user details" in runIO {
+    // Email and Role must serialise as plain strings
+    val expectedJsonResponse =
+      json"""{
+        "id": "john.smith",
+        "createdAt": "2021-10-20T20:12:08.321Z",
+        "firstName": "John",
+        "lastName": "Smith",
+        "email": "john.smith@ruchij.com",
+        "role": "Admin"
+      }"""
+
     (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((testToken, ApiTestData.AdminUser)))
@@ -132,6 +143,7 @@ class AuthenticationRoutesSpec extends AnyFlatSpec with Matchers with MockedRout
           IO.delay {
             response must beJsonContentType
             response must haveStatus(Status.Ok)
+            response must haveJson(expectedJsonResponse)
           }
         }
   }

@@ -1,5 +1,6 @@
 package com.ruchij.api.web.routes
 
+import cats.data.NonEmptyList
 import cats.effect.IO
 import com.ruchij.api.services.authentication.AuthenticationService.Secret
 import com.ruchij.api.services.authentication.models.AuthenticationToken
@@ -153,7 +154,7 @@ class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
     (apiSchedulingService.search)
-      .expects(*, *, *, *, *, *, *, *, *, *, *)
+      .expects(*, *, *, *, *, *, *, *, Some(NonEmptyList.one(SchedulingStatus.Active)), *, *)
       .returns(IO.pure(Seq.empty))
 
     ignoreHttpMetrics() *>

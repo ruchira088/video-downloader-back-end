@@ -51,6 +51,45 @@ class DoobieCustomMappingsSpec extends AnyFlatSpec with Matchers {
     }
   }
 
+  // Round trips cannot detect a coordinated change to both directions, so the values stored by an earlier
+  // release are checked directly
+  "enumPut" should "store an enum value as its name" in runIO {
+    DoobieTransactor.create[IO](dbConfig).use { transactor =>
+      for {
+        _ <- sql"CREATE TABLE enum_raw_test (status VARCHAR(255))".update.run.transact(transactor)
+        _ <- sql"INSERT INTO enum_raw_test VALUES (${SchedulingStatus.Completed: SchedulingStatus})".update.run
+          .transact(transactor)
+        stored <- sql"SELECT status FROM enum_raw_test".query[String].unique.transact(transactor)
+        _ <- sql"INSERT INTO enum_raw_test VALUES ('WorkersPaused')".update.run.transact(transactor)
+        parsed <- sql"SELECT status FROM enum_raw_test WHERE status <> 'Completed'"
+          .query[SchedulingStatus]
+          .unique
+          .transact(transactor)
+      } yield {
+        stored mustBe "Completed"
+        parsed mustBe SchedulingStatus.WorkersPaused
+      }
+    }
+  }
+
+  "finiteDurationPut" should "store a FiniteDuration as milliseconds" in runIO {
+    DoobieTransactor.create[IO](dbConfig).use { transactor =>
+      for {
+        _ <- sql"CREATE TABLE duration_raw_test (duration BIGINT)".update.run.transact(transactor)
+        _ <- sql"INSERT INTO duration_raw_test VALUES (${5.seconds: FiniteDuration})".update.run.transact(transactor)
+        stored <- sql"SELECT duration FROM duration_raw_test".query[Long].unique.transact(transactor)
+        _ <- sql"INSERT INTO duration_raw_test VALUES (90000)".update.run.transact(transactor)
+        parsed <- sql"SELECT duration FROM duration_raw_test WHERE duration = 90000"
+          .query[FiniteDuration]
+          .unique
+          .transact(transactor)
+      } yield {
+        stored mustBe 5000
+        parsed mustBe 90.seconds
+      }
+    }
+  }
+
   "uriPut and uriGet" should "round-trip Uri values" in runIO {
     DoobieTransactor.create[IO](dbConfig).use { transactor =>
       val testUri = Uri.unsafeFromString("https://example.com/path?query=value")
