@@ -6,7 +6,7 @@ import com.ruchij.core.daos.videometadata.models.VideoSite.YTDownloaderSite
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata, VideoSite}
 import com.ruchij.core.types.TimeUtils
 import org.http4s.MediaType
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps

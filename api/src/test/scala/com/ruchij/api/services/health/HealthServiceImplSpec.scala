@@ -15,7 +15,7 @@ import com.ruchij.core.test.IOSupport.runIO
 import fs2.Stream
 import fs2.concurrent.Topic
 import org.http4s.client.Client
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import org.http4s.{HttpApp, Response, Status, Uri}
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.flatspec.AnyFlatSpec

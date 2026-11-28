@@ -33,7 +33,7 @@ import java.util.UUID
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class HealthServiceImpl[F[_]: Async: AppClock: RandomGenerator[*[_], UUID]](
+class HealthServiceImpl[F[_]: Async: AppClock: RandomGenerator.Of[UUID]](
   repositoryService: RepositoryService[F],
   keySpacedKeyValueStore: KeySpacedKeyValueStore[F, HealthCheckKey, Instant],
   healthCheckStream: Stream[F, HealthCheckMessage],

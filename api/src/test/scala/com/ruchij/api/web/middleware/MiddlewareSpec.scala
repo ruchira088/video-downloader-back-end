@@ -6,7 +6,7 @@ import com.ruchij.api.exceptions.AuthorizationException
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.test.IOSupport.runIO
 import org.http4s.dsl.io._
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import org.http4s.{ContextRequest, ContextRoutes, Request, Status}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers

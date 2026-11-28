@@ -14,7 +14,7 @@ import com.ruchij.core.types.{Clock, RandomGenerator}
 import java.util.UUID
 import scala.concurrent.duration.FiniteDuration
 
-class VideoSnapshotServiceImpl[F[_]: Async: Clock: RandomGenerator[*[_], UUID]](
+class VideoSnapshotServiceImpl[F[_]: Async: Clock: RandomGenerator.Of[UUID]](
   cliCommandRunner: CliCommandRunner[F],
   repositoryService: RepositoryService[F],
   hashingService: HashingService[F]

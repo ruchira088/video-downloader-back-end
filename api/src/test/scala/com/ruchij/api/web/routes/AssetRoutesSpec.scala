@@ -18,7 +18,7 @@ import fs2.Stream
 import org.http4s.headers.{Authorization, Range}
 import org.http4s.{AuthScheme, Credentials, MediaType, RangeUnit, Request, Status}
 import org.http4s.dsl.io._
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import org.typelevel.ci.CIStringSyntax
 import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
@@ -83,11 +83,11 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   "GET /asset/thumbnail/id/:id" should "return a thumbnail image" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (assetService.thumbnail _)
+    (assetService.thumbnail)
       .expects("thumbnail-123")
       .returns(IO.pure(createAsset[AssetType.Thumbnail.type](testThumbnail)))
 
@@ -109,11 +109,11 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   it should "return not found when thumbnail does not exist" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (assetService.thumbnail _)
+    (assetService.thumbnail)
       .expects("nonexistent-thumbnail")
       .returns(IO.raiseError(ResourceNotFoundException("Thumbnail not found")))
 
@@ -134,11 +134,11 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   "GET /asset/snapshot/id/:id" should "return a snapshot image for authenticated user" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (assetService.snapshot _)
+    (assetService.snapshot)
       .expects("snapshot-123", ApiTestData.NormalUser)
       .returns(IO.pure(createAsset[AssetType.Snapshot.type](testSnapshot)))
 
@@ -176,11 +176,11 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   "GET /asset/video/id/:id" should "return a video file for authenticated user" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (assetService.videoFile _)
+    (assetService.videoFile)
       .expects("video-123", ApiTestData.NormalUser, None, Some(5000000L))
       .returns(IO.pure(createAsset[AssetType.Video.type](testVideoFile)))
 
@@ -202,7 +202,7 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   it should "support range requests for video streaming" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
@@ -212,7 +212,7 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
       FileRange(0, 999999)
     )
 
-    (assetService.videoFile _)
+    (assetService.videoFile)
       .expects("video-123", ApiTestData.NormalUser, Some(ByteRange(0, Some(999999L))), Some(5000000L))
       .returns(IO.pure(rangeAsset))
 
@@ -238,11 +238,11 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
     expectedFileByteRange: Option[FileByteRange],
     result: IO[Asset[IO, AssetType.Video.type]]
   ): IO[org.http4s.Response[IO]] = {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (assetService.videoFile _)
+    (assetService.videoFile)
       .expects("video-123", ApiTestData.NormalUser, expectedFileByteRange, Some(5000000L))
       .returns(result)
 
@@ -318,11 +318,11 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   it should "return not found when video does not exist" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (assetService.videoFile _)
+    (assetService.videoFile)
       .expects("nonexistent-video", ApiTestData.NormalUser, None, Some(5000000L))
       .returns(IO.raiseError(ResourceNotFoundException("Video file not found")))
 
@@ -343,11 +343,11 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   "GET /asset/album-art/id/:id" should "return album art for authenticated user" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (assetService.albumArt _)
+    (assetService.albumArt)
       .expects("album-art-123", ApiTestData.NormalUser)
       .returns(IO.pure(createAsset[AssetType.AlbumArt.type](testAlbumArt)))
 
@@ -369,11 +369,11 @@ class AssetRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   it should "return not found when album art does not exist" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (assetService.albumArt _)
+    (assetService.albumArt)
       .expects("nonexistent-art", ApiTestData.NormalUser)
       .returns(IO.raiseError(ResourceNotFoundException("Album art not found")))
 

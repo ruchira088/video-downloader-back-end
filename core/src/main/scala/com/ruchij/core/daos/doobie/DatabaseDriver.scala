@@ -10,11 +10,11 @@ sealed abstract class DatabaseDriver[A <: sql.Driver](implicit classTag: ClassTa
   val driver: String = classTag.runtimeClass.getName
 }
 
-object DatabaseDriver extends Enum[DatabaseDriver[_]] {
+object DatabaseDriver extends Enum[DatabaseDriver[?]] {
   case object PostgreSQL extends DatabaseDriver[postgresql.Driver]
   case object H2 extends DatabaseDriver[h2.Driver]
 
-  def parseFromConnectionUrl(connectionUrl: String): Either[Throwable, DatabaseDriver[_]] =
+  def parseFromConnectionUrl(connectionUrl: String): Either[Throwable, DatabaseDriver[?]] =
     DatabaseDriver.values
       .find { driver => connectionUrl.startsWith(s"jdbc:${driver.entryName.toLowerCase}") }
       .toRight {
@@ -23,5 +23,5 @@ object DatabaseDriver extends Enum[DatabaseDriver[_]] {
         )
       }
 
-  override def values: IndexedSeq[DatabaseDriver[_]] = findValues
+  override def values: IndexedSeq[DatabaseDriver[?]] = findValues
 }

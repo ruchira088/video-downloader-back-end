@@ -236,7 +236,7 @@ class ApiSchedulingServiceImpl[F[_]: Async: Clock, T[_]: MonadThrow](
 
   override val getWorkerStatus: F[WorkerStatus] =
     configurationService
-      .get[WorkerStatus, ApiConfigKey](ApiConfigKey.WorkerStatus)
+      .get[WorkerStatus](ApiConfigKey.WorkerStatus)
       .map(_.getOrElse(WorkerStatus.Available))
 
   override def updateDownloadProgress(

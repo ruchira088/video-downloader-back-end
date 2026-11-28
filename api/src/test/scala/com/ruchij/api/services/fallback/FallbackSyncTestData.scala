@@ -6,7 +6,7 @@ import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, Schedulin
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata}
 import com.ruchij.core.types.TimeUtils
 import org.http4s.MediaType
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 
 import java.time.Instant
 import scala.concurrent.duration._

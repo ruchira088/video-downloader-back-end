@@ -1,6 +1,5 @@
 package com.ruchij.core.messaging.kafka
 
-import cats.Parallel
 import cats.effect.{Async, Resource, Sync}
 import cats.implicits._
 import com.ruchij.core.config.KafkaConfiguration
@@ -36,7 +35,7 @@ class KafkaPublisher[F[_]: Sync, A](topicName: String, kafkaProducer: KafkaProdu
 }
 
 object KafkaPublisher {
-  def apply[F[_]: Async: Parallel, A](kafkaConfiguration: KafkaConfiguration)(
+  def apply[F[_]: Async, A](kafkaConfiguration: KafkaConfiguration)(
     implicit topic: MessagingTopic[A]
   ): Resource[F, KafkaPublisher[F, A]] =
     KafkaProducer.resource {

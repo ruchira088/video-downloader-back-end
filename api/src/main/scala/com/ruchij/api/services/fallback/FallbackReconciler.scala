@@ -27,7 +27,7 @@ class FallbackReconciler[F[_]: Async, T[_]: Monad](
 )(implicit transaction: T ~> F) {
   import FallbackReconciler._
 
-  private val logger = Logger[FallbackReconciler[Any, Any]]
+  private val logger = Logger[FallbackReconciler[?, ?]]
 
   /** None when another instance holds the reconcile lock. */
   val reconcile: F[Option[ReconcileSummary]] =

@@ -1,6 +1,6 @@
 package com.ruchij.api.config
 
-import cats.ApplicativeError
+import cats.ApplicativeThrow
 import com.ruchij.core.config._
 import com.ruchij.core.types.FunctionKTypes._
 import com.ruchij.migration.config.DatabaseConfiguration
@@ -25,7 +25,7 @@ final case class ApiServiceConfiguration(
 object ApiServiceConfiguration {
   implicit val configReader: ConfigReader[ApiServiceConfiguration] = deriveReader[ApiServiceConfiguration]
 
-  def parse[F[_]: ApplicativeError[*[_], Throwable]](
+  def parse[F[_]: ApplicativeThrow](
     configObjectSource: ConfigObjectSource
   ): F[ApiServiceConfiguration] =
     configObjectSource

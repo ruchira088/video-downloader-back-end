@@ -1,6 +1,6 @@
 package com.ruchij.api.web.requests.queryparams
 
-import cats.ApplicativeError
+import cats.ApplicativeThrow
 import cats.data.Kleisli
 import com.ruchij.api.web.requests.queryparams.QueryParameter._
 import com.ruchij.core.daos.scheduling.models.RangeValue
@@ -11,7 +11,7 @@ import scala.concurrent.duration.FiniteDuration
 
 abstract class SingleValueQueryParameter[A: QueryParamDecoder](key: String, defaultValue: A)
     extends QueryParameter[A] {
-  override def parse[F[_]: ApplicativeError[*[_], Throwable]]: Kleisli[F, QueryParameters, A] =
+  override def parse[F[_]: ApplicativeThrow]: Kleisli[F, QueryParameters, A] =
     QueryParameter.parse[F, A](key).map(_.headOption.getOrElse(defaultValue))
 }
 

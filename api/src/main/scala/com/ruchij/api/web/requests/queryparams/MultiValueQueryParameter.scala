@@ -1,6 +1,6 @@
 package com.ruchij.api.web.requests.queryparams
 
-import cats.ApplicativeError
+import cats.ApplicativeThrow
 import cats.data.{Kleisli, NonEmptyList}
 import com.ruchij.api.web.requests.queryparams.QueryParameter._
 import com.ruchij.core.daos.scheduling.models.SchedulingStatus
@@ -11,7 +11,7 @@ import scala.reflect.ClassTag
 
 abstract class MultiValueQueryParameter[A: QueryParamDecoder: ClassTag](key: String)
     extends QueryParameter[Option[NonEmptyList[A]]] {
-  override def parse[F[_]: ApplicativeError[*[_], Throwable]]: Kleisli[F, QueryParameters, Option[NonEmptyList[A]]] =
+  override def parse[F[_]: ApplicativeThrow]: Kleisli[F, QueryParameters, Option[NonEmptyList[A]]] =
     QueryParameter
       .parse[F, Option[NonEmptyList[A]]](key)
       .map { values =>

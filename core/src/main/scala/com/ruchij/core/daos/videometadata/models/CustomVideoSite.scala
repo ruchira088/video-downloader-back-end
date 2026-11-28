@@ -2,7 +2,7 @@ package com.ruchij.core.daos.videometadata.models
 
 import cats.data.{Kleisli, NonEmptyList}
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, MonadThrow}
+import cats.{Applicative, ApplicativeError, ApplicativeThrow, MonadThrow}
 import com.ruchij.core.circe.Decoders.finiteDurationDecoder
 import com.ruchij.core.daos.videometadata.models.CustomVideoSite.Selector
 import com.ruchij.core.exceptions.ValidationException
@@ -12,10 +12,10 @@ import com.ruchij.core.utils.JsoupSelector
 import com.ruchij.core.utils.MatcherUtils.FiniteDurationValue
 import enumeratum.{Enum, EnumEntry}
 import org.http4s.circe.decodeUri
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import org.http4s.{Query, Uri}
 import io.circe.{parser => JsonParser}
-import io.circe.generic.auto.exportDecoder
+import io.circe.generic.auto._
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
@@ -38,7 +38,7 @@ sealed trait CustomVideoSite extends VideoSite with EnumEntry { self =>
 object CustomVideoSite extends Enum[CustomVideoSite] {
   type Selector[F[_], A] = Kleisli[F, WebPage, A]
 
-  private def parseDuration[F[_]: ApplicativeError[*[_], Throwable]](duration: String): F[FiniteDuration] =
+  private def parseDuration[F[_]: ApplicativeThrow](duration: String): F[FiniteDuration] =
     duration match {
       case FiniteDurationValue(finiteDuration) => Applicative[F].pure(finiteDuration)
 

@@ -4,7 +4,7 @@ import cats.effect.IO
 import com.ruchij.core.daos.videometadata.models.WebPage
 import com.ruchij.core.exceptions.JSoupException._
 import com.ruchij.core.test.IOSupport.runIO
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import org.jsoup.Jsoup
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers

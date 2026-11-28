@@ -459,7 +459,7 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
 
         // The YouTube download uses a different code path that creates streams differently
         _ <- IO.delay {
-          downloadResource mustBe a[Resource[IO, _]]
+          downloadResource mustBe a[Resource[IO, ?]]
         }
       } yield ()
     }
@@ -489,9 +489,7 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
         videoEnrichmentService = new StubVideoEnrichmentService(timestamp)
         // Repository that finds file by crawling
         repositoryService = new StubRepositoryService(true, Some(1000L), Some(MediaType.video.mp4)) {
-          private var sizeCallCount = 0
           override def size(key: String): IO[Option[Long]] = IO {
-            sizeCallCount += 1
             // First few calls for extension check return None
             // Then return Some for the crawled file
             if (key == s"/videos/${ytVideo.videoMetadata.id}.mp4") Some(1000L)

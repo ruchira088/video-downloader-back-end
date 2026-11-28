@@ -34,7 +34,7 @@ object SyncJson {
         "videoId" -> Json.fromString(upsert.videoId),
         "capturedAt" -> timestamp(upsert.capturedAt),
         "hash" -> Json.fromString(upsert.hash),
-        "userIds" -> Json.arr(upsert.userIds.map(Json.fromString): _*),
+        "userIds" -> Json.arr(upsert.userIds.map(Json.fromString)*),
         "url" -> Json.fromString(upsert.url),
         "videoSite" -> Json.fromString(upsert.videoSite),
         "title" -> Json.fromString(upsert.title),
@@ -101,7 +101,7 @@ object SyncJson {
         requestId <- cursor.get[String]("requestId")
         userId <- cursor.get[String]("userId")
         url <- cursor.get[String]("url")
-        requestedAt <- cursor.get[Instant]("requestedAt")(timestampDecoder)
+        requestedAt <- cursor.get[Instant]("requestedAt")(using timestampDecoder)
       } yield ScheduleRequest(requestId, userId, url, requestedAt)
     }
 
@@ -115,7 +115,7 @@ object SyncJson {
       for {
         _ <- messageType(cursor, "ScheduledVideoUpsert")
         videoId <- cursor.get[String]("videoId")
-        capturedAt <- cursor.get[Instant]("capturedAt")(timestampDecoder)
+        capturedAt <- cursor.get[Instant]("capturedAt")(using timestampDecoder)
         hash <- cursor.get[String]("hash")
         userIds <- cursor.get[List[String]]("userIds")
         url <- cursor.get[String]("url")
@@ -124,8 +124,8 @@ object SyncJson {
         durationMs <- cursor.get[Long]("durationMs")
         sizeBytes <- cursor.get[Long]("sizeBytes")
         status <- cursor.get[String]("status")
-        scheduledAt <- cursor.get[Instant]("scheduledAt")(timestampDecoder)
-        completedAt <- cursor.get[Option[Instant]]("completedAt")(Decoder.decodeOption(timestampDecoder))
+        scheduledAt <- cursor.get[Instant]("scheduledAt")(using timestampDecoder)
+        completedAt <- cursor.get[Option[Instant]]("completedAt")(using Decoder.decodeOption(using timestampDecoder))
       } yield
         ScheduledVideoUpsert(
           videoId,
@@ -155,7 +155,7 @@ object SyncJson {
         result <- outcome.get[String]("result")
         resolution <- result match {
           case "Scheduled" =>
-            outcome.get[ScheduledVideoUpsert]("upsert")(upsertDecoder).map(ResolutionOutcome.Scheduled.apply)
+            outcome.get[ScheduledVideoUpsert]("upsert")(using upsertDecoder).map(ResolutionOutcome.Scheduled.apply)
           case "Rejected" => outcome.get[String]("reason").map(ResolutionOutcome.Rejected.apply)
           case other => Left(DecodingFailure(s"Unexpected outcome: $other", outcome.history))
         }
@@ -165,8 +165,8 @@ object SyncJson {
   def encode(message: MainToFallbackMessage): String = mainToFallbackMessageEncoder(message).noSpaces
 
   def decodeRequestResolved(body: String): Either[io.circe.Error, RequestResolved] =
-    decode[RequestResolved](body)(requestResolvedDecoder)
+    decode[RequestResolved](body)(using requestResolvedDecoder)
 
   def decodeScheduleRequest(body: String): Either[io.circe.Error, ScheduleRequest] =
-    decode[ScheduleRequest](body)(scheduleRequestDecoder)
+    decode[ScheduleRequest](body)(using scheduleRequestDecoder)
 }

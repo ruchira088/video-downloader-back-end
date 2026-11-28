@@ -17,7 +17,7 @@ import org.http4s.MediaType
 import java.util.UUID
 import scala.concurrent.duration.FiniteDuration
 
-class VideoEnrichmentServiceImpl[F[_]: Sync: RandomGenerator[*[_], UUID],T[_]: Monad](
+class VideoEnrichmentServiceImpl[F[_]: Sync: RandomGenerator.Of[UUID],T[_]: Monad](
   videoSnapshotService: VideoSnapshotService[F],
   snapshotDao: SnapshotDao[T],
   fileResourceDao: FileResourceDao[T],

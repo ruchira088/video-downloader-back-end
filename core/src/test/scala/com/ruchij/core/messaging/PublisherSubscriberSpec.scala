@@ -14,7 +14,7 @@ import java.util.concurrent.TimeoutException
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-trait PublisherSubscriberSpec { self: AnyFlatSpec with Matchers =>
+trait PublisherSubscriberSpec { self: AnyFlatSpec & Matchers =>
 
   import PublisherSubscriberSpec._
 

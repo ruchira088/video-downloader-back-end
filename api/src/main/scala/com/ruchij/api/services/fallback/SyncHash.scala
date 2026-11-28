@@ -21,7 +21,7 @@ object SyncHash {
           Json.fromString(upsert.status),
           Json.fromString(SyncJson.formatTimestamp(upsert.scheduledAt)),
           upsert.completedAt.fold(Json.Null)(instant => Json.fromString(SyncJson.formatTimestamp(instant))),
-          Json.arr(upsert.userIds.sorted.map(Json.fromString): _*)
+          Json.arr(upsert.userIds.sorted.map(Json.fromString)*)
         )
         .noSpaces
 

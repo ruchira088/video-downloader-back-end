@@ -17,7 +17,7 @@ import org.http4s.{AuthScheme, Credentials, Request, Status}
 import org.http4s.circe.CirceEntityEncoder._
 import org.http4s.client.dsl.io._
 import org.http4s.dsl.io._
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -59,11 +59,11 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   )
 
   "POST /playlist" should "create a new playlist successfully" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (playlistService.create _)
+    (playlistService.create)
       .expects("My Playlist", Some("Test description"), ApiTestData.NormalUser.id)
       .returns(IO.pure(testPlaylist.copy(description = Some("Test description"))))
 
@@ -97,11 +97,11 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   it should "create a playlist without description" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (playlistService.create _)
+    (playlistService.create)
       .expects("My Playlist", None, ApiTestData.NormalUser.id)
       .returns(IO.pure(testPlaylist.copy(description = None)))
 
@@ -138,11 +138,11 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   "GET /playlist" should "return paginated playlists" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (playlistService.search _)
+    (playlistService.search)
       .expects(None, 25, 0, Order.Descending, PlaylistSortBy.CreatedAt, Some(ApiTestData.NormalUser.id))
       .returns(IO.pure(Seq(testPlaylist)))
 
@@ -164,11 +164,11 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   it should "support search term query parameter" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (playlistService.search _)
+    (playlistService.search)
       .expects(Some("test"), 25, 0, Order.Descending, PlaylistSortBy.CreatedAt, Some(ApiTestData.NormalUser.id))
       .returns(IO.pure(Seq(testPlaylist)))
 
@@ -189,11 +189,11 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   it should "support pagination parameters" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (playlistService.search _)
+    (playlistService.search)
       .expects(None, 5, 2, Order.Ascending, PlaylistSortBy.Title, Some(ApiTestData.NormalUser.id))
       .returns(IO.pure(Seq.empty))
 
@@ -214,11 +214,11 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   "GET /playlist/id/:playlistId" should "return a playlist by id" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (playlistService.fetchById _)
+    (playlistService.fetchById)
       .expects("playlist-123", Some(ApiTestData.NormalUser.id))
       .returns(IO.pure(testPlaylist))
 
@@ -252,11 +252,11 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   it should "return not found when playlist does not exist" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (playlistService.fetchById _)
+    (playlistService.fetchById)
       .expects("nonexistent-playlist", Some(ApiTestData.NormalUser.id))
       .returns(IO.raiseError(ResourceNotFoundException("Playlist not found: nonexistent-playlist")))
 
@@ -277,13 +277,13 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   "PUT /playlist/id/:playlistId" should "update a playlist successfully" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
     val updatedPlaylist = testPlaylist.copy(title = "Updated Title", description = Some("Updated description"))
 
-    (playlistService.updatePlaylist _)
+    (playlistService.updatePlaylist)
       .expects("playlist-123", Some("Updated Title"), Some("Updated description"), None, Some(ApiTestData.NormalUser.id))
       .returns(IO.pure(updatedPlaylist))
 
@@ -304,13 +304,13 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   it should "update playlist with video list" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
     val playlistWithVideos = testPlaylist.copy(videos = Seq(CoreTestData.YouTubeVideo))
 
-    (playlistService.updatePlaylist _)
+    (playlistService.updatePlaylist)
       .expects("playlist-123", None, None, Some(Seq("video-1", "video-2")), Some(ApiTestData.NormalUser.id))
       .returns(IO.pure(playlistWithVideos))
 
@@ -331,11 +331,11 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   "DELETE /playlist/id/:playlistId" should "delete a playlist successfully" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (playlistService.deletePlaylist _)
+    (playlistService.deletePlaylist)
       .expects("playlist-123", Some(ApiTestData.NormalUser.id))
       .returns(IO.pure(testPlaylist))
 
@@ -356,11 +356,11 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   "DELETE /playlist/id/:playlistId/album-art" should "remove album art from playlist" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (playlistService.removeAlbumArt _)
+    (playlistService.removeAlbumArt)
       .expects("playlist-123", Some(ApiTestData.NormalUser.id))
       .returns(IO.pure(testPlaylist))
 
@@ -381,11 +381,11 @@ class PlaylistRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   "Admin user" should "be able to access all playlists" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((adminToken, ApiTestData.AdminUser)))
 
-    (playlistService.search _)
+    (playlistService.search)
       .expects(None, 25, 0, Order.Descending, PlaylistSortBy.CreatedAt, None)
       .returns(IO.pure(Seq(testPlaylist)))
 

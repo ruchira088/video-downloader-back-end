@@ -2,7 +2,7 @@ package com.ruchij.api.services.asset
 
 import cats.data.OptionT
 import cats.implicits._
-import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
+import cats.{Applicative, ApplicativeError, ApplicativeThrow, MonadThrow, ~>}
 import com.ruchij.api.daos.playlist.PlaylistDao
 import com.ruchij.api.daos.user.models.User
 import com.ruchij.api.exceptions.RangeNotSatisfiableException
@@ -45,7 +45,7 @@ class AssetServiceImpl[F[_]: MonadThrow: Clock, T[_]: MonadThrow](
           }
     }
 
-  private def notFoundError[K[_]: ApplicativeError[*[_], Throwable], A <: AssetType](
+  private def notFoundError[K[_]: ApplicativeThrow, A <: AssetType](
     id: String
   )(implicit classTag: ClassTag[A]): K[Asset[F, A]] =
     ApplicativeError[K, Throwable].raiseError[Asset[F, A]] {

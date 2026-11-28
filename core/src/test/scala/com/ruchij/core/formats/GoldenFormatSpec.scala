@@ -100,7 +100,7 @@ object GoldenFormat {
   def json[A](value: A)(implicit messagingTopic: MessagingTopic[A]): GoldenFormat =
     GoldenFormat(s"json-${messagingTopic.name}", value)(
       value => Right(messagingTopic.jsonCodec(value).spaces2),
-      Some(golden => io.circe.parser.decode(golden)(messagingTopic.jsonCodec))
+      Some(golden => io.circe.parser.decode(golden)(using messagingTopic.jsonCodec))
     )
 
   // Keys are encoded with their key space's name in front, as KeySpacedKeyValueStore stores them

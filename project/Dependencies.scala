@@ -2,7 +2,7 @@ import sbt.*
 
 object Dependencies
 {
-  val ScalaVersion = "2.13.18"
+  val ScalaVersion = "3.10.1"
   private val Http4sVersion = "0.23.39"
   private val CirceVersion = "0.14.17"
   private val FlywayVersion = "13.13.0"
@@ -20,8 +20,6 @@ object Dependencies
   lazy val catsEffect = "org.typelevel" %% "cats-effect" % CatsEffectVersion
 
   lazy val catsEffectTestkit = "org.typelevel" %% "cats-effect-testkit" % CatsEffectVersion
-
-  lazy val kafka = "org.apache.kafka" %% "kafka" % "8.4.1-ccs"
 
   lazy val fs2Kafka = "org.typelevel" %% "fs2-kafka" % "4.2.0"
 
@@ -45,7 +43,11 @@ object Dependencies
 
   lazy val jsoup = "org.jsoup" % "jsoup" % "1.24.1"
 
-  lazy val pureconfig = "com.github.pureconfig" %% "pureconfig" % "0.17.11"
+  private val PureconfigVersion = "0.17.11"
+
+  lazy val pureconfig = "com.github.pureconfig" %% "pureconfig-core" % PureconfigVersion
+
+  lazy val pureconfigGeneric = "com.github.pureconfig" %% "pureconfig-generic-scala3" % PureconfigVersion
 
   lazy val flywayCore = "org.flywaydb" % "flyway-core" % FlywayVersion
 
@@ -80,10 +82,6 @@ object Dependencies
   lazy val logstashLogbackEncoder = "net.logstash.logback" % "logstash-logback-encoder" % "9.0"
 
   lazy val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.6"
-
-  lazy val kindProjector = ("org.typelevel" %% "kind-projector" % "0.13.4").cross(CrossVersion.full)
-
-  lazy val betterMonadicFor = "com.olegpy" %% "better-monadic-for" % "0.3.1"
 
   lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.2.20"
 

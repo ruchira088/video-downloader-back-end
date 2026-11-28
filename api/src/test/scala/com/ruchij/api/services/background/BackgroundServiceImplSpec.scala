@@ -16,7 +16,7 @@ import com.ruchij.core.test.IOSupport.runIO
 import fs2.Stream
 import fs2.concurrent.Topic
 import org.http4s.MediaType
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import java.time.Instant
 import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec

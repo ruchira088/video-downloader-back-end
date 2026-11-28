@@ -168,7 +168,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
         _ <- transactor(insertScheduledVideo(scheduledVideo))
 
-        _ = (fixture.scheduledVideoDownloadPubSub.publishOne _).expects(*).returning(IO.unit)
+        _ = (fixture.scheduledVideoDownloadPubSub.publishOne).expects(*).returning(IO.unit)
 
         updated <- fixture.batchSchedulingService.updateSchedulingStatusById(scheduledVideo.videoMetadata.id, SchedulingStatus.Downloaded)
         _ <- IO.delay {
@@ -208,7 +208,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         scheduledVideo = generated.copy(status = SchedulingStatus.Active)
         _ <- transactor(insertScheduledVideo(scheduledVideo))
 
-        _ = (fixture.scheduledVideoDownloadPubSub.publishOne _)
+        _ = (fixture.scheduledVideoDownloadPubSub.publishOne)
           .expects(where { (update: ScheduledVideoDownload) => update.status == SchedulingStatus.Queued })
           .returning(IO.unit)
 
@@ -233,7 +233,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         scheduledVideo = generated.copy(status = SchedulingStatus.Completed)
         _ <- transactor(insertScheduledVideo(scheduledVideo))
 
-        _ = (fixture.scheduledVideoDownloadPubSub.publishOne _).expects(*).never()
+        _ = (fixture.scheduledVideoDownloadPubSub.publishOne).expects(*).never()
 
         updated <- fixture.batchSchedulingService.transitionSchedulingStatusById(
           scheduledVideo.videoMetadata.id,
@@ -275,7 +275,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         scheduledVideo = generated.copy(status = SchedulingStatus.Active)
         _ <- transactor(insertScheduledVideo(scheduledVideo))
 
-        _ = (fixture.scheduledVideoDownloadPubSub.publishOne _)
+        _ = (fixture.scheduledVideoDownloadPubSub.publishOne)
           .expects(where { (update: ScheduledVideoDownload) => update.status == SchedulingStatus.Queued })
           .returning(IO.unit)
 
@@ -305,7 +305,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         scheduledVideo = generated.copy(status = SchedulingStatus.Downloaded)
         _ <- transactor(insertScheduledVideo(scheduledVideo))
 
-        _ = (fixture.scheduledVideoDownloadPubSub.publishOne _)
+        _ = (fixture.scheduledVideoDownloadPubSub.publishOne)
           .expects(where { (update: ScheduledVideoDownload) => update.status == SchedulingStatus.Queued })
           .returning(IO.unit)
 
@@ -331,7 +331,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
       val notOwnedStatuses =
         List(SchedulingStatus.Completed, SchedulingStatus.Paused, SchedulingStatus.WorkersPaused)
 
-      (fixture.scheduledVideoDownloadPubSub.publishOne _).expects(*).never()
+      (fixture.scheduledVideoDownloadPubSub.publishOne).expects(*).never()
 
       notOwnedStatuses.traverse_ { status =>
         for {
@@ -366,7 +366,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         scheduledVideo = generated.copy(status = SchedulingStatus.Active)
         _ <- transactor(insertScheduledVideo(scheduledVideo))
 
-        _ = (fixture.scheduledVideoDownloadPubSub.publishOne _).expects(*).returning(IO.unit).twice()
+        _ = (fixture.scheduledVideoDownloadPubSub.publishOne).expects(*).returning(IO.unit).twice()
 
         id = scheduledVideo.videoMetadata.id
         first <- fixture.batchSchedulingService.recordFailure(id, new RuntimeException("one")).map(_.value)
@@ -399,7 +399,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         scheduledVideo = generated.copy(status = SchedulingStatus.Active)
         _ <- transactor(insertScheduledVideo(scheduledVideo))
 
-        _ = (fixture.scheduledVideoDownloadPubSub.publishOne _).expects(*).returning(IO.unit)
+        _ = (fixture.scheduledVideoDownloadPubSub.publishOne).expects(*).returning(IO.unit)
 
         updated <- fixture.batchSchedulingService.recordFailure(scheduledVideo.videoMetadata.id, testError)
         _ <- IO.delay {
@@ -416,7 +416,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     batchServiceProvider.transactor.use { implicit transactor =>
       val fixture = createTestFixture()
 
-      (fixture.scheduledVideoDownloadPubSub.publishOne _).expects(*).never()
+      (fixture.scheduledVideoDownloadPubSub.publishOne).expects(*).never()
 
       fixture.batchSchedulingService
         .recordFailure("non-existent-id", new RuntimeException("Test error"))
@@ -434,7 +434,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
         _ <- transactor(insertScheduledVideo(scheduledVideo))
 
-        _ = (fixture.scheduledVideoDownloadPubSub.publishOne _).expects(*).returning(IO.unit)
+        _ = (fixture.scheduledVideoDownloadPubSub.publishOne).expects(*).returning(IO.unit)
 
         completed <- fixture.batchSchedulingService.completeScheduledVideoDownload(scheduledVideo.videoMetadata.id)
         _ <- IO.delay {
@@ -451,7 +451,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     batchServiceProvider.transactor.use { implicit transactor =>
       val fixture = createTestFixture()
 
-      (fixture.downloadProgressPublisher.publishOne _).expects(*).returning(IO.unit)
+      (fixture.downloadProgressPublisher.publishOne).expects(*).returning(IO.unit)
 
       fixture.batchSchedulingService.publishDownloadProgress("video-id", 1024L)
     }
@@ -467,7 +467,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
         _ <- transactor(insertScheduledVideo(scheduledVideo))
 
-        _ = (fixture.scheduledVideoDownloadPubSub.publishOne _).expects(*).returning(IO.unit)
+        _ = (fixture.scheduledVideoDownloadPubSub.publishOne).expects(*).returning(IO.unit)
 
         published <- fixture.batchSchedulingService.publishScheduledVideoDownload(scheduledVideo.videoMetadata.id)
         _ <- IO.delay {
@@ -590,10 +590,10 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         _ <- transactor(DoobieSchedulingDao.updateDownloadProgress(videoWithBytes.videoMetadata.id, 1024L, timestamp))
 
         // Mock repository to return the video file and accept delete
-        _ = (repositoryService.list _).expects("video-folder").returning(
+        _ = (repositoryService.list).expects("video-folder").returning(
           Stream.emit(s"video-folder/${videoWithBytes.videoMetadata.id}.mp4")
         )
-        _ = (repositoryService.delete _).expects(s"video-folder/${videoWithBytes.videoMetadata.id}.mp4").returning(IO.pure(true))
+        _ = (repositoryService.delete).expects(s"video-folder/${videoWithBytes.videoMetadata.id}.mp4").returning(IO.pure(true))
 
         deleted <- batchSchedulingService.deleteById(videoWithBytes.videoMetadata.id)
         _ <- IO.delay {
@@ -644,7 +644,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         RandomGenerator.eval(IO.pure(0.5))
       )
 
-      (workerStatusSubscriber.subscribe _).expects("test-group").returning(Stream.empty)
+      (workerStatusSubscriber.subscribe).expects("test-group").returning(Stream.empty)
 
       // Just verify the stream can be created without error
       val stream = batchSchedulingService.subscribeToWorkerStatusUpdates("test-group")
@@ -725,7 +725,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
         RandomGenerator.eval(IO.pure(0.5))
       )
 
-      (scheduledVideoDownloadPubSub.subscribe _).expects("test-group").returning(Stream.empty)
+      (scheduledVideoDownloadPubSub.subscribe).expects("test-group").returning(Stream.empty)
 
       // Just verify the stream can be created without error
       val stream = batchSchedulingService.subscribeToScheduledVideoDownloadUpdates("test-group")

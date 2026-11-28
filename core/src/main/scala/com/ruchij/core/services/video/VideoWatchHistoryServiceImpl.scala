@@ -14,7 +14,7 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
-class VideoWatchHistoryServiceImpl[F[_]: Sync: RandomGenerator[*[_], UUID], G[_]: Monad](
+class VideoWatchHistoryServiceImpl[F[_]: Sync: RandomGenerator.Of[UUID], G[_]: Monad](
   videoWatchHistoryDao: VideoWatchHistoryDao[G]
 )(implicit transaction: G ~> F)
     extends VideoWatchHistoryService[F] {

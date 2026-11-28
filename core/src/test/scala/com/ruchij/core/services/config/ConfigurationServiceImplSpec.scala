@@ -4,10 +4,10 @@ import cats.effect.IO
 import cats.effect.kernel.Sync
 import com.ruchij.core.daos.workers.models.VideoScan
 import com.ruchij.core.daos.workers.models.VideoScan.ScanStatus.Scheduled
-import com.ruchij.core.kv.keys.{KVStoreKey, KeySpace, KeySpacedKeyEncoder}
+import com.ruchij.core.kv.keys.KeySpace
 import com.ruchij.core.kv.{InMemoryKeyValueStore, KeySpacedKeyValueStore, KeyValueStore}
 import com.ruchij.core.services.config.models.SharedConfigKey.{SharedConfigKeySpace, VideoScanningStatus}
-import com.ruchij.core.services.config.models.{ConfigKey, SharedConfigKey}
+import com.ruchij.core.services.config.models.SharedConfigKey
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.types.Clock
 import org.scalatest.flatspec.AnyFlatSpec
@@ -15,7 +15,7 @@ import org.scalatest.matchers.must.Matchers
 
 class ConfigurationServiceImplSpec extends AnyFlatSpec with Matchers {
   "ConfigurationServiceImpl" should "be able to configure shared config keys" in runIO {
-    val configurationService = createConfigurationService[IO, SharedConfigKey](SharedConfigKeySpace)
+    val configurationService = createConfigurationService[IO](SharedConfigKeySpace)
     for {
       timestamp <- Clock[IO].timestamp
       result <- configurationService.put(VideoScanningStatus, VideoScan(timestamp, Scheduled))
@@ -26,14 +26,14 @@ class ConfigurationServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "return None when getting a non-existent key" in runIO {
-    val configurationService = createConfigurationService[IO, SharedConfigKey](SharedConfigKeySpace)
+    val configurationService = createConfigurationService[IO](SharedConfigKeySpace)
     configurationService.get(VideoScanningStatus).map { result =>
       result mustBe None
     }
   }
 
   it should "update existing config values" in runIO {
-    val configurationService = createConfigurationService[IO, SharedConfigKey](SharedConfigKeySpace)
+    val configurationService = createConfigurationService[IO](SharedConfigKeySpace)
     for {
       timestamp1 <- Clock[IO].timestamp
       timestamp2 <- Clock[IO].timestamp.map(_.plus(java.time.Duration.ofMinutes(1)))
@@ -49,7 +49,7 @@ class ConfigurationServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "delete config values" in runIO {
-    val configurationService = createConfigurationService[IO, SharedConfigKey](SharedConfigKeySpace)
+    val configurationService = createConfigurationService[IO](SharedConfigKeySpace)
     for {
       timestamp <- Clock[IO].timestamp
 
@@ -64,19 +64,20 @@ class ConfigurationServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "return None when deleting non-existent key" in runIO {
-    val configurationService = createConfigurationService[IO, SharedConfigKey](SharedConfigKeySpace)
+    val configurationService = createConfigurationService[IO](SharedConfigKeySpace)
     configurationService.delete(VideoScanningStatus).map { result =>
       result mustBe None
     }
   }
 
-  def createConfigurationService[F[_]: Sync, K[_] <: ConfigKey with KVStoreKey](
-    keySpace: KeySpace[K[_], String]
-  )(implicit keyspaceKeyEncoder: KeySpacedKeyEncoder[F, K[_]]): ConfigurationServiceImpl[F, K] = {
+  def createConfigurationService[F[_]: Sync](
+    keySpace: KeySpace[SharedConfigKey[?], String]
+  ): ConfigurationServiceImpl[F, SharedConfigKey, SharedConfigKey[?]] = {
     val keyValueStore: KeyValueStore[F] = new InMemoryKeyValueStore[F]
-    val keySpacedKeyValueStore: KeySpacedKeyValueStore[F, K[_], String] = new KeySpacedKeyValueStore[F, K[_], String](keySpace, keyValueStore)
 
-    new ConfigurationServiceImpl[F, K](keySpacedKeyValueStore)
+    new ConfigurationServiceImpl[F, SharedConfigKey, SharedConfigKey[?]](
+      new KeySpacedKeyValueStore[F, SharedConfigKey[?], String](keySpace, keyValueStore)
+    )
   }
 
 }

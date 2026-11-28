@@ -17,7 +17,7 @@ import scala.jdk.CollectionConverters._
 // Each module that defines MessagingTopic instances extends this spec with its topics. After an intended schema
 // change, regenerate the module's snapshots and review the diff:
 //   sbt "<module>/testOnly *AvroSchemaSnapshotSpec -- -Dupdate-avro-snapshots=true"
-abstract class AvroSchemaSnapshotSpec(module: String, topics: List[MessagingTopic[_]])
+abstract class AvroSchemaSnapshotSpec(module: String, topics: List[MessagingTopic[?]])
     extends FixtureAnyFlatSpec
     with ConfigMapFixture
     with Matchers {

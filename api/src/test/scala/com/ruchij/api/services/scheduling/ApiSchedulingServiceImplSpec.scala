@@ -104,17 +104,17 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   class StubConfigurationService(
     storage: mutable.Map[String, WorkerStatus] = mutable.Map.empty
   ) extends ConfigurationService[IO, ApiConfigKey] {
-    override def get[A: KVDecoder[IO, *], K[_] <: ApiConfigKey[_]](key: K[A]): IO[Option[A]] =
+    override def get[A: KVDecoder[IO, *]](key: ApiConfigKey[A]): IO[Option[A]] =
       IO.pure(storage.get(key.key).map(_.asInstanceOf[A]))
 
-    override def put[A: KVCodec[IO, *], K[_] <: ApiConfigKey[_]](key: K[A], value: A): IO[Option[A]] =
+    override def put[A: KVCodec[IO, *]](key: ApiConfigKey[A], value: A): IO[Option[A]] =
       IO.delay {
         val old = storage.get(key.key).map(_.asInstanceOf[A])
         storage.put(key.key, value.asInstanceOf[WorkerStatus])
         old
       }
 
-    override def delete[A: KVDecoder[IO, *], K[_] <: ApiConfigKey[_]](key: K[A]): IO[Option[A]] =
+    override def delete[A: KVDecoder[IO, *]](key: ApiConfigKey[A]): IO[Option[A]] =
       IO.delay { storage.remove(key.key).map(_.asInstanceOf[A]) }
   }
 

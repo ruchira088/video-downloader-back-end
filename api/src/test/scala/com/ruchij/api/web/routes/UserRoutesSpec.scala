@@ -17,7 +17,7 @@ import org.http4s.{AuthScheme, Credentials, Request, Status}
 import org.http4s.circe.CirceEntityEncoder._
 import org.http4s.client.dsl.io._
 import org.http4s.dsl.io._
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -51,7 +51,7 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
         "role": "User"
       }"""
 
-    (userService.create _)
+    (userService.create)
       .expects("New", "User", email, password)
       .returns(IO.pure(newUser))
 
@@ -76,7 +76,7 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
     val email = Email("existing@example.com")
     val password = Password("password")
 
-    (userService.create _)
+    (userService.create)
       .expects("John", "Doe", email, password)
       .returns(IO.raiseError(ResourceConflictException(s"User already exists with email: ${email.value}")))
 
@@ -105,7 +105,7 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
         "result": "Password reset token sent to john.smith@ruchij.com"
       }"""
 
-    (userService.forgotPassword _)
+    (userService.forgotPassword)
       .expects(email)
       .returns(IO.pure(resetToken))
 
@@ -129,7 +129,7 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   it should "return not found when email does not exist" in runIO {
     val email = Email("nonexistent@example.com")
 
-    (userService.forgotPassword _)
+    (userService.forgotPassword)
       .expects(email)
       .returns(IO.raiseError(ResourceNotFoundException(s"User not found with email: ${email.value}")))
 
@@ -152,7 +152,7 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
     val password = Password("new-secure-password")
     val updatedUser = ApiTestData.NormalUser
 
-    (userService.resetPassword _)
+    (userService.resetPassword)
       .expects("alice.doe", "valid-reset-token", password)
       .returns(IO.pure(updatedUser))
 
@@ -175,7 +175,7 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   it should "return not found when reset token is invalid" in runIO {
     val password = Password("new-password")
 
-    (userService.resetPassword _)
+    (userService.resetPassword)
       .expects("alice.doe", "invalid-token", password)
       .returns(IO.raiseError(ResourceNotFoundException("Invalid reset token")))
 
@@ -195,11 +195,11 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   "DELETE /user/id/:userId" should "delete user successfully when admin is authenticated" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((testToken, ApiTestData.AdminUser)))
 
-    (userService.delete _)
+    (userService.delete)
       .expects("alice.doe", ApiTestData.AdminUser)
       .returns(IO.pure(ApiTestData.NormalUser))
 
@@ -243,11 +243,11 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
       testTimestamp
     )
 
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((normalUserToken, ApiTestData.NormalUser)))
 
-    (userService.delete _)
+    (userService.delete)
       .expects("john.smith", ApiTestData.NormalUser)
       .returns(IO.raiseError(AuthorizationException("Only administrators can delete users")))
 
@@ -270,11 +270,11 @@ class UserRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
   }
 
   it should "return not found when user to delete does not exist" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((testToken, ApiTestData.AdminUser)))
 
-    (userService.delete _)
+    (userService.delete)
       .expects("nonexistent-user", ApiTestData.AdminUser)
       .returns(IO.raiseError(ResourceNotFoundException("User not found: nonexistent-user")))
 

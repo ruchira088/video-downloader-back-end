@@ -1,5 +1,6 @@
 package com.ruchij.api.web.requests.queryparams
 
+import cats.ApplicativeThrow
 import cats.data.{Kleisli, NonEmptyList}
 import cats.effect.IO
 import com.ruchij.api.daos.user.models.Role
@@ -286,7 +287,7 @@ class QueryParameterSpec extends AnyFlatSpec with Matchers {
 
   "QueryParameter trait" should "implement unapply correctly for successful parse" in {
     val queryParam = new QueryParameter[Int] {
-      override def parse[F[_]: cats.ApplicativeError[*[_], Throwable]]: Kleisli[F, QueryParameters, Int] =
+      override def parse[F[_]: cats.ApplicativeThrow]: Kleisli[F, QueryParameters, Int] =
         Kleisli { params =>
           params.get("value").flatMap(_.headOption).map(_.toInt) match {
             case Some(v) => cats.Applicative[F].pure(v)
@@ -303,7 +304,7 @@ class QueryParameterSpec extends AnyFlatSpec with Matchers {
 
   it should "return None for failed parse in unapply" in {
     val queryParam = new QueryParameter[Int] {
-      override def parse[F[_]: cats.ApplicativeError[*[_], Throwable]]: Kleisli[F, QueryParameters, Int] =
+      override def parse[F[_]: cats.ApplicativeThrow]: Kleisli[F, QueryParameters, Int] =
         Kleisli { _ =>
           cats.ApplicativeError[F, Throwable].raiseError(new RuntimeException("Always fails"))
         }

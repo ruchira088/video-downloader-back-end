@@ -2,7 +2,7 @@ package com.ruchij.api.web.middleware
 
 import cats.data.{Kleisli, OptionT}
 import cats.implicits._
-import cats.{ApplicativeError, MonadThrow}
+import cats.{ApplicativeError, ApplicativeThrow, MonadThrow}
 import com.ruchij.api.exceptions.AuthenticationException
 import com.ruchij.api.services.authentication.AuthenticationService
 import com.ruchij.api.services.authentication.AuthenticationService.Secret
@@ -68,12 +68,12 @@ object Authenticator {
         }
       }
 
-  private def onMissingCredentials[F[_]: ApplicativeError[*[_], Throwable]](strict: Boolean): OptionT[F, Response[F]] =
+  private def onMissingCredentials[F[_]: ApplicativeThrow](strict: Boolean): OptionT[F, Response[F]] =
     if (strict)
       OptionT.liftF(ApplicativeError[F, Throwable].raiseError(AuthenticationException.MissingAuthenticationToken))
     else OptionT.none[F, Response[F]]
 
-  def addCookie[F[_]: ApplicativeError[*[_], Throwable]](
+  def addCookie[F[_]: ApplicativeThrow](
     authenticationToken: AuthenticationToken,
     response: Response[F]
   ): F[Response[F]] =

@@ -81,7 +81,7 @@ class RedisStreamSubscriber[F[_]: Async, A](
               streamKey,
               streamConsumer,
               XClaimArgs(0 seconds, idle = Some(XClaimIdle.Relative(settings.redeliveryTimeout)), justId = true),
-              pending.map(_.id.value): _*
+              pending.map(_.id.value)*
             )
             .productR {
               if (pending.size < settings.batchSize) Applicative[F].pure(released + pending.size)
@@ -181,7 +181,7 @@ class RedisStreamSubscriber[F[_]: Async, A](
   private def decode(
     groupId: String
   )(message: StreamMessage[String, String]): F[Option[ConsumerGroupRecord[String, A]]] =
-    RedisData.from(message.body)(messagingTopic.jsonCodec) match {
+    RedisData.from(message.body)(using messagingTopic.jsonCodec) match {
       case Right(value) => Applicative[F].pure(Some(ConsumerGroupRecord(groupId, message.id.value, value)))
 
       case Left(exception) =>
@@ -200,7 +200,7 @@ class RedisStreamSubscriber[F[_]: Async, A](
     values.toList
       .groupMap(_.groupId)(_.id)
       .toList
-      .traverse_ { case (groupId, ids) => redisCommands.xAck(streamKey, groupId, ids: _*) }
+      .traverse_ { case (groupId, ids) => redisCommands.xAck(streamKey, groupId, ids*) }
 
   override def extractValue(ca: ConsumerGroupRecord[String, A]): A = ca.value
 }

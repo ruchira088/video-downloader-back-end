@@ -22,7 +22,7 @@ import io.circe.literal._
 import org.http4s.circe.CirceEntityDecoder._
 import org.http4s.dsl.io._
 import org.http4s.headers.Authorization
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import org.http4s.{AuthScheme, Credentials, Request, Status, Uri}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -93,7 +93,7 @@ class VideoSummaryRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutes
   private def unexpected[A]: IO[A] = IO.raiseError(new IllegalStateException("Unexpected call"))
 
   "GET /videos/summary" should "return the summary with a per-site breakdown for admin users" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((adminToken, ApiTestData.AdminUser)))
 

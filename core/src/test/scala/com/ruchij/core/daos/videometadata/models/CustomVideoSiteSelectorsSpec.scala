@@ -6,7 +6,7 @@ import com.ruchij.core.exceptions.JSoupException.NoMatchingElementsFoundExceptio
 import com.ruchij.core.services.renderer.SpaSiteRenderer
 import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import org.http4s.Uri
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import org.jsoup.Jsoup
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers

@@ -23,7 +23,7 @@ class FallbackSyncPublisher[F[_]: Async, T[_]: Monad](
   maxBatchSize: Int = 500,
   retryDelays: List[FiniteDuration] = List(1.second, 5.seconds, 25.seconds)
 )(implicit transaction: T ~> F) {
-  private val logger = Logger[FallbackSyncPublisher[Any, Any]]
+  private val logger = Logger[FallbackSyncPublisher[?, ?]]
 
   /** Reads the current state at send time, so a late duplicate still carries fresh data. `deletions` maps each id
     * with a `Deleted` event to the latest such event's timestamp. An admin delete publishes `Deleted` before batch

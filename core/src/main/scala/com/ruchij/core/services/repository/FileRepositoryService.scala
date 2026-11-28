@@ -40,7 +40,7 @@ class FileRepositoryService[F[_]: Async: Files](fileTypeDetector: FileTypeDetect
               Sync[F].delay(
                 Some(
                   Files[F]
-                    .readRange(path, FileRepositoryService.CHUNK_SIZE, start.getOrElse(0), end.getOrElse(Long.MaxValue))
+                    .readRange(path, FileRepositoryService.CHUNK_SIZE, start.getOrElse(0L), end.getOrElse(Long.MaxValue))
                 )
               )
             else

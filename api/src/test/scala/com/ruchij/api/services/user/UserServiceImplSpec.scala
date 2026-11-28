@@ -129,11 +129,11 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     val videoTitleDao = mock[VideoTitleDao[IO]]
     val videoPermissionDao = mock[VideoPermissionDao[IO]]
 
-    (userDao.findByEmail _).expects(testEmail).returning(IO.pure(None))
-    (passwordHashingService.hashPassword _).expects(testPassword).returning(IO.pure(testHashedPassword))
+    (userDao.findByEmail).expects(testEmail).returning(IO.pure(None))
+    (passwordHashingService.hashPassword).expects(testPassword).returning(IO.pure(testHashedPassword))
     (() => uuidGenerator.generate).expects().returning(IO.pure(UUID.fromString("00000000-0000-0000-0000-000000000123")))
-    (userDao.insert _).expects(*).returning(IO.pure(1))
-    (credentialsDao.insert _).expects(*).returning(IO.pure(1))
+    (userDao.insert).expects(*).returning(IO.pure(1))
+    (credentialsDao.insert).expects(*).returning(IO.pure(1))
 
     val userService = createService(
       passwordHashingService, userDao, credentialsDao,
@@ -159,7 +159,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     val videoTitleDao = mock[VideoTitleDao[IO]]
     val videoPermissionDao = mock[VideoPermissionDao[IO]]
 
-    (userDao.findByEmail _).expects(testEmail).returning(IO.pure(Some(sampleUser)))
+    (userDao.findByEmail).expects(testEmail).returning(IO.pure(Some(sampleUser)))
 
     val userService = createService(
       passwordHashingService, userDao, credentialsDao,
@@ -183,7 +183,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     val videoTitleDao = mock[VideoTitleDao[IO]]
     val videoPermissionDao = mock[VideoPermissionDao[IO]]
 
-    (userDao.findById _).expects(userId).returning(IO.pure(Some(sampleUser)))
+    (userDao.findById).expects(userId).returning(IO.pure(Some(sampleUser)))
 
     val userService = createService(
       passwordHashingService, userDao, credentialsDao,
@@ -206,7 +206,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     val videoTitleDao = mock[VideoTitleDao[IO]]
     val videoPermissionDao = mock[VideoPermissionDao[IO]]
 
-    (userDao.findById _).expects("non-existent").returning(IO.pure(None))
+    (userDao.findById).expects("non-existent").returning(IO.pure(None))
 
     val userService = createService(
       passwordHashingService, userDao, credentialsDao,
@@ -230,7 +230,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     val videoTitleDao = mock[VideoTitleDao[IO]]
     val videoPermissionDao = mock[VideoPermissionDao[IO]]
 
-    (userDao.findByEmail _).expects(testEmail).returning(IO.pure(Some(sampleUser)))
+    (userDao.findByEmail).expects(testEmail).returning(IO.pure(Some(sampleUser)))
 
     val userService = createService(
       passwordHashingService, userDao, credentialsDao,
@@ -254,7 +254,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     val videoPermissionDao = mock[VideoPermissionDao[IO]]
 
     val nonExistentEmail = Email("nonexistent@example.com")
-    (userDao.findByEmail _).expects(nonExistentEmail).returning(IO.pure(None))
+    (userDao.findByEmail).expects(nonExistentEmail).returning(IO.pure(None))
 
     val userService = createService(
       passwordHashingService, userDao, credentialsDao,
@@ -279,8 +279,8 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     val videoPermissionDao = mock[VideoPermissionDao[IO]]
 
     (() => uuidGenerator.generate).expects().returning(IO.pure(UUID.fromString("00000000-0000-0000-0000-000000000abc")))
-    (userDao.findByEmail _).expects(testEmail).returning(IO.pure(Some(sampleUser)))
-    (credentialsResetTokenDao.insert _).expects(*).returning(IO.pure(1))
+    (userDao.findByEmail).expects(testEmail).returning(IO.pure(Some(sampleUser)))
+    (credentialsResetTokenDao.insert).expects(*).returning(IO.pure(1))
 
     val userService = createService(
       passwordHashingService, userDao, credentialsDao,
@@ -306,7 +306,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
 
     val nonExistentEmail = Email("nonexistent@example.com")
     (() => uuidGenerator.generate).expects().returning(IO.pure(UUID.fromString("00000000-0000-0000-0000-000000000abc")))
-    (userDao.findByEmail _).expects(nonExistentEmail).returning(IO.pure(None))
+    (userDao.findByEmail).expects(nonExistentEmail).returning(IO.pure(None))
 
     val userService = createService(
       passwordHashingService, userDao, credentialsDao,
@@ -334,11 +334,11 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     val newHashedPassword = HashedPassword("new-hashed-password")
     val validResetToken = CredentialsResetToken(userId, timestamp.minus(java.time.Duration.ofHours(1)), resetToken)
 
-    (passwordHashingService.hashPassword _).expects(newPassword).returning(IO.pure(newHashedPassword))
-    (credentialsResetTokenDao.find _).expects(userId, resetToken).returning(IO.pure(Some(validResetToken)))
-    (credentialsDao.update _).expects(*).returning(IO.pure(1))
-    (credentialsResetTokenDao.delete _).expects(userId, resetToken).returning(IO.pure(1))
-    (userDao.findById _).expects(userId).returning(IO.pure(Some(sampleUser)))
+    (passwordHashingService.hashPassword).expects(newPassword).returning(IO.pure(newHashedPassword))
+    (credentialsResetTokenDao.find).expects(userId, resetToken).returning(IO.pure(Some(validResetToken)))
+    (credentialsDao.update).expects(*).returning(IO.pure(1))
+    (credentialsResetTokenDao.delete).expects(userId, resetToken).returning(IO.pure(1))
+    (userDao.findById).expects(userId).returning(IO.pure(Some(sampleUser)))
 
     val userService = createService(
       passwordHashingService, userDao, credentialsDao,
@@ -364,10 +364,10 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     val newPassword = Password("new-secure-password")
     val newHashedPassword = HashedPassword("new-hashed-password")
 
-    (passwordHashingService.hashPassword _).expects(newPassword).returning(IO.pure(newHashedPassword))
-    (credentialsResetTokenDao.find _).expects(userId, "invalid-token").returning(IO.pure(None))
+    (passwordHashingService.hashPassword).expects(newPassword).returning(IO.pure(newHashedPassword))
+    (credentialsResetTokenDao.find).expects(userId, "invalid-token").returning(IO.pure(None))
     // The user is only looked up once the token has been consumed
-    (userDao.findById _).expects(*).never()
+    (userDao.findById).expects(*).never()
 
     val userService = createService(
       passwordHashingService, userDao, credentialsDao,
@@ -395,10 +395,10 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     val newHashedPassword = HashedPassword("new-hashed-password")
     val expiredResetToken = CredentialsResetToken(userId, timestamp.minus(java.time.Duration.ofHours(5)), resetToken)
 
-    (passwordHashingService.hashPassword _).expects(newPassword).returning(IO.pure(newHashedPassword))
-    (credentialsResetTokenDao.find _).expects(userId, resetToken).returning(IO.pure(Some(expiredResetToken)))
+    (passwordHashingService.hashPassword).expects(newPassword).returning(IO.pure(newHashedPassword))
+    (credentialsResetTokenDao.find).expects(userId, resetToken).returning(IO.pure(Some(expiredResetToken)))
     // The user is only looked up once the token has been consumed
-    (userDao.findById _).expects(*).never()
+    (userDao.findById).expects(*).never()
 
     val userService = createService(
       passwordHashingService, userDao, credentialsDao,
@@ -422,12 +422,12 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     val videoTitleDao = mock[VideoTitleDao[IO]]
     val videoPermissionDao = mock[VideoPermissionDao[IO]]
 
-    (videoPermissionDao.find _).expects(Some(userId), None).returning(IO.pure(Seq.empty))
-    (videoTitleDao.delete _).expects(None, Some(userId)).returning(IO.pure(2))
-    (videoPermissionDao.delete _).expects(Some(userId), None).returning(IO.pure(3))
-    (credentialsDao.deleteByUserId _).expects(userId).returning(IO.pure(1))
-    (userDao.findById _).expects(userId).returning(IO.pure(Some(sampleUser)))
-    (userDao.deleteById _).expects(userId).returning(IO.pure(1))
+    (videoPermissionDao.find).expects(Some(userId), None).returning(IO.pure(Seq.empty))
+    (videoTitleDao.delete).expects(None, Some(userId)).returning(IO.pure(2))
+    (videoPermissionDao.delete).expects(Some(userId), None).returning(IO.pure(3))
+    (credentialsDao.deleteByUserId).expects(userId).returning(IO.pure(1))
+    (userDao.findById).expects(userId).returning(IO.pure(Some(sampleUser)))
+    (userDao.deleteById).expects(userId).returning(IO.pure(1))
 
     val userService = createService(
       passwordHashingService, userDao, credentialsDao,
@@ -448,16 +448,16 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     val videoTitleDao = mock[VideoTitleDao[IO]]
     val videoPermissionDao = mock[VideoPermissionDao[IO]]
 
-    (videoPermissionDao.find _)
+    (videoPermissionDao.find)
       .expects(Some(userId), None)
       .returning {
         IO.pure(Seq(VideoPermission(timestamp, "video-1", userId), VideoPermission(timestamp, "video-2", userId)))
       }
-    (videoTitleDao.delete _).expects(None, Some(userId)).returning(IO.pure(2))
-    (videoPermissionDao.delete _).expects(Some(userId), None).returning(IO.pure(2))
-    (credentialsDao.deleteByUserId _).expects(userId).returning(IO.pure(1))
-    (userDao.findById _).expects(userId).returning(IO.pure(Some(sampleUser)))
-    (userDao.deleteById _).expects(userId).returning(IO.pure(1))
+    (videoTitleDao.delete).expects(None, Some(userId)).returning(IO.pure(2))
+    (videoPermissionDao.delete).expects(Some(userId), None).returning(IO.pure(2))
+    (credentialsDao.deleteByUserId).expects(userId).returning(IO.pure(1))
+    (userDao.findById).expects(userId).returning(IO.pure(Some(sampleUser)))
+    (userDao.deleteById).expects(userId).returning(IO.pure(1))
 
     for {
       publisher <- RecordingPublisher[FallbackSyncRequest]
@@ -482,14 +482,14 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     val videoTitleDao = mock[VideoTitleDao[IO]]
     val videoPermissionDao = mock[VideoPermissionDao[IO]]
 
-    (videoPermissionDao.find _)
+    (videoPermissionDao.find)
       .expects(Some(userId), None)
       .returning(IO.pure(Seq(VideoPermission(timestamp, "video-1", userId))))
-    (videoTitleDao.delete _).expects(None, Some(userId)).returning(IO.pure(1))
-    (videoPermissionDao.delete _).expects(Some(userId), None).returning(IO.pure(1))
-    (credentialsDao.deleteByUserId _).expects(userId).returning(IO.pure(1))
-    (userDao.findById _).expects(userId).returning(IO.pure(Some(sampleUser)))
-    (userDao.deleteById _).expects(userId).returning(IO.pure(1))
+    (videoTitleDao.delete).expects(None, Some(userId)).returning(IO.pure(1))
+    (videoPermissionDao.delete).expects(Some(userId), None).returning(IO.pure(1))
+    (credentialsDao.deleteByUserId).expects(userId).returning(IO.pure(1))
+    (userDao.findById).expects(userId).returning(IO.pure(Some(sampleUser)))
+    (userDao.deleteById).expects(userId).returning(IO.pure(1))
 
     val userService = createService(
       mock[PasswordHashingService[IO]], userDao, credentialsDao,
@@ -538,7 +538,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     val videoPermissionDao = mock[VideoPermissionDao[IO]]
 
     // Nothing is deleted when the user does not exist
-    (userDao.findById _).expects("non-existent").returning(IO.pure(None))
+    (userDao.findById).expects("non-existent").returning(IO.pure(None))
 
     val userService = createService(
       passwordHashingService, userDao, credentialsDao,
@@ -565,10 +565,10 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     val generatedUuid = UUID.fromString("11111111-1111-1111-1111-111111111111")
     val email = Email("new.user@example.com")
 
-    (userDao.findByEmail _).expects(email).returning(IO.pure(None))
-    (passwordHashingService.hashPassword _).expects(testPassword).returning(IO.pure(testHashedPassword))
+    (userDao.findByEmail).expects(email).returning(IO.pure(None))
+    (passwordHashingService.hashPassword).expects(testPassword).returning(IO.pure(testHashedPassword))
     (() => uuidGenerator.generate).expects().returning(IO.pure(generatedUuid))
-    (userDao.insert _).expects(where { (user: User) =>
+    (userDao.insert).expects(where { (user: User) =>
       user.id == generatedUuid.toString &&
         user.firstName == "Jane" &&
         user.lastName == "Smith" &&
@@ -576,7 +576,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
         user.role == Role.User &&
         user.createdAt == timestamp
     }).returning(IO.pure(1))
-    (credentialsDao.insert _).expects(where { (creds: Credentials) =>
+    (credentialsDao.insert).expects(where { (creds: Credentials) =>
       creds.userId == generatedUuid.toString &&
         creds.hashedPassword == testHashedPassword &&
         creds.lastUpdatedAt == timestamp
@@ -611,8 +611,8 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     val tokenUuid = UUID.fromString("22222222-2222-2222-2222-222222222222")
 
     (() => uuidGenerator.generate).expects().returning(IO.pure(tokenUuid))
-    (userDao.findByEmail _).expects(testEmail).returning(IO.pure(Some(sampleUser)))
-    (credentialsResetTokenDao.insert _).expects(where { (token: CredentialsResetToken) =>
+    (userDao.findByEmail).expects(testEmail).returning(IO.pure(Some(sampleUser)))
+    (credentialsResetTokenDao.insert).expects(where { (token: CredentialsResetToken) =>
       token.userId == userId &&
         token.token == tokenUuid.toString &&
         token.createdAt == timestamp
@@ -651,12 +651,12 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
       Role.User
     )
 
-    (videoPermissionDao.find _).expects(Some(targetUserId), None).returning(IO.pure(Seq.empty))
-    (videoTitleDao.delete _).expects(None, Some(targetUserId)).returning(IO.pure(5))
-    (videoPermissionDao.delete _).expects(Some(targetUserId), None).returning(IO.pure(10))
-    (credentialsDao.deleteByUserId _).expects(targetUserId).returning(IO.pure(1))
-    (userDao.findById _).expects(targetUserId).returning(IO.pure(Some(targetUser)))
-    (userDao.deleteById _).expects(targetUserId).returning(IO.pure(1))
+    (videoPermissionDao.find).expects(Some(targetUserId), None).returning(IO.pure(Seq.empty))
+    (videoTitleDao.delete).expects(None, Some(targetUserId)).returning(IO.pure(5))
+    (videoPermissionDao.delete).expects(Some(targetUserId), None).returning(IO.pure(10))
+    (credentialsDao.deleteByUserId).expects(targetUserId).returning(IO.pure(1))
+    (userDao.findById).expects(targetUserId).returning(IO.pure(Some(targetUser)))
+    (userDao.deleteById).expects(targetUserId).returning(IO.pure(1))
 
     val userService = createService(
       passwordHashingService, userDao, credentialsDao,
@@ -684,15 +684,15 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     val newHashedPassword = HashedPassword("new-hashed-value")
     val validResetToken = CredentialsResetToken(userId, currentTimestamp.minus(java.time.Duration.ofHours(2)), resetToken)
 
-    (passwordHashingService.hashPassword _).expects(newPassword).returning(IO.pure(newHashedPassword))
-    (credentialsResetTokenDao.find _).expects(userId, resetToken).returning(IO.pure(Some(validResetToken)))
-    (credentialsDao.update _).expects(where { (creds: Credentials) =>
+    (passwordHashingService.hashPassword).expects(newPassword).returning(IO.pure(newHashedPassword))
+    (credentialsResetTokenDao.find).expects(userId, resetToken).returning(IO.pure(Some(validResetToken)))
+    (credentialsDao.update).expects(where { (creds: Credentials) =>
       creds.userId == userId &&
         creds.hashedPassword == newHashedPassword &&
         creds.lastUpdatedAt == currentTimestamp
     }).returning(IO.pure(1))
-    (credentialsResetTokenDao.delete _).expects(userId, resetToken).returning(IO.pure(1))
-    (userDao.findById _).expects(userId).returning(IO.pure(Some(sampleUser)))
+    (credentialsResetTokenDao.delete).expects(userId, resetToken).returning(IO.pure(1))
+    (userDao.findById).expects(userId).returning(IO.pure(Some(sampleUser)))
 
     val userService = createService(
       passwordHashingService, userDao, credentialsDao,
@@ -720,10 +720,10 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     val newHashedPassword = HashedPassword("hashed")
     val exactlyExpiredToken = CredentialsResetToken(userId, currentTimestamp.minus(java.time.Duration.ofHours(4)), resetToken)
 
-    (passwordHashingService.hashPassword _).expects(newPassword).returning(IO.pure(newHashedPassword))
-    (credentialsResetTokenDao.find _).expects(userId, resetToken).returning(IO.pure(Some(exactlyExpiredToken)))
+    (passwordHashingService.hashPassword).expects(newPassword).returning(IO.pure(newHashedPassword))
+    (credentialsResetTokenDao.find).expects(userId, resetToken).returning(IO.pure(Some(exactlyExpiredToken)))
     // The user is only looked up once the token has been consumed
-    (userDao.findById _).expects(*).never()
+    (userDao.findById).expects(*).never()
 
     val userService = createService(
       passwordHashingService, userDao, credentialsDao,
@@ -752,11 +752,11 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     val newHashedPassword = HashedPassword("hashed")
     val almostExpiredToken = CredentialsResetToken(userId, currentTimestamp.minus(java.time.Duration.ofHours(3)).minus(java.time.Duration.ofMinutes(59)), resetToken)
 
-    (passwordHashingService.hashPassword _).expects(newPassword).returning(IO.pure(newHashedPassword))
-    (credentialsResetTokenDao.find _).expects(userId, resetToken).returning(IO.pure(Some(almostExpiredToken)))
-    (credentialsDao.update _).expects(*).returning(IO.pure(1))
-    (credentialsResetTokenDao.delete _).expects(userId, resetToken).returning(IO.pure(1))
-    (userDao.findById _).expects(userId).returning(IO.pure(Some(sampleUser)))
+    (passwordHashingService.hashPassword).expects(newPassword).returning(IO.pure(newHashedPassword))
+    (credentialsResetTokenDao.find).expects(userId, resetToken).returning(IO.pure(Some(almostExpiredToken)))
+    (credentialsDao.update).expects(*).returning(IO.pure(1))
+    (credentialsResetTokenDao.delete).expects(userId, resetToken).returning(IO.pure(1))
+    (userDao.findById).expects(userId).returning(IO.pure(Some(sampleUser)))
 
     val userService = createService(
       passwordHashingService, userDao, credentialsDao,
@@ -782,11 +782,11 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     val newPassword = Password("new-password")
     val validResetToken = CredentialsResetToken(userId, timestamp.minus(java.time.Duration.ofHours(1)), resetToken)
 
-    (passwordHashingService.hashPassword _).expects(newPassword).returning(IO.pure(HashedPassword("hashed")))
-    (credentialsResetTokenDao.find _).expects(userId, resetToken).returning(IO.pure(Some(validResetToken)))
+    (passwordHashingService.hashPassword).expects(newPassword).returning(IO.pure(HashedPassword("hashed")))
+    (credentialsResetTokenDao.find).expects(userId, resetToken).returning(IO.pure(Some(validResetToken)))
     // Another reset deleted the token between the read and the delete
-    (credentialsResetTokenDao.delete _).expects(userId, resetToken).returning(IO.pure(0))
-    (credentialsDao.update _).expects(*).never()
+    (credentialsResetTokenDao.delete).expects(userId, resetToken).returning(IO.pure(0))
+    (credentialsDao.update).expects(*).never()
 
     val userService = createService(
       passwordHashingService, userDao, credentialsDao,
@@ -813,13 +813,13 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     val newPassword = Password("new-password")
     val validResetToken = CredentialsResetToken(userId, timestamp.minus(java.time.Duration.ofHours(1)), resetToken)
 
-    (passwordHashingService.hashPassword _).expects(newPassword).returning(IO.pure(HashedPassword("hashed")))
+    (passwordHashingService.hashPassword).expects(newPassword).returning(IO.pure(HashedPassword("hashed")))
 
     inSequence {
-      (credentialsResetTokenDao.find _).expects(userId, resetToken).returning(IO.pure(Some(validResetToken)))
-      (credentialsResetTokenDao.delete _).expects(userId, resetToken).returning(IO.pure(1))
-      (credentialsDao.update _).expects(*).returning(IO.pure(1))
-      (userDao.findById _).expects(userId).returning(IO.pure(Some(sampleUser)))
+      (credentialsResetTokenDao.find).expects(userId, resetToken).returning(IO.pure(Some(validResetToken)))
+      (credentialsResetTokenDao.delete).expects(userId, resetToken).returning(IO.pure(1))
+      (credentialsDao.update).expects(*).returning(IO.pure(1))
+      (userDao.findById).expects(userId).returning(IO.pure(Some(sampleUser)))
     }
 
     val userService = createService(

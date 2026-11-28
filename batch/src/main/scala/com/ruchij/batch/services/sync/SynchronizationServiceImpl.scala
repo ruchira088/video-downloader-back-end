@@ -178,7 +178,7 @@ class SynchronizationServiceImpl[F[_]: Async: Clock, A, T[_]: MonadThrow](
               }
               .as[FileSyncResult](MissingVideoFile(video))
               .recoverWith {
-                errorHandler[F](video.fileResource.path) { throwable =>
+                errorHandler[F, Unit](video.fileResource.path) { throwable =>
                   logger.error[F](s"Unable to delete video id=${video.videoMetadata.id}", throwable)
                 }.andThen(_.map(identity[FileSyncResult]))
               }
@@ -211,7 +211,7 @@ class SynchronizationServiceImpl[F[_]: Async: Clock, A, T[_]: MonadThrow](
                     .as(Option[FileSyncResult](VideoSnapshotsCreated(video)))
               }
               .recoverWith {
-                errorHandler[F](video.fileResource.path) { throwable =>
+                errorHandler[F, Unit](video.fileResource.path) { throwable =>
                   logger.error[F](s"Unable to create snapshots for video id=${video.videoMetadata.id}", throwable)
                 }.andThen(_.map(syncError => Option[FileSyncResult](syncError)))
               }
@@ -349,7 +349,7 @@ class SynchronizationServiceImpl[F[_]: Async: Clock, A, T[_]: MonadThrow](
       }
       .map[FileSyncResult](VideoSynced.apply)
       .recoverWith {
-        errorHandler[F](videoPath) { throwable =>
+        errorHandler[F, Unit](videoPath) { throwable =>
           logger.error[F](s"Unable to add video file at: $videoPath", throwable)
         }.andThen(_.map(identity[FileSyncResult]))
       }
@@ -421,9 +421,9 @@ object SynchronizationServiceImpl {
   private val MaxConcurrentSyncCount = 8
   private val VideoFileVideoIdPattern: Regex = "^([^-]+)-([^-\\.]+).*".r
 
-  private def errorHandler[F[_]: Functor](
+  private def errorHandler[F[_]: Functor, A](
     videoPath: String
-  )(handler: PartialFunction[Throwable, F[_]]): PartialFunction[Throwable, F[SyncError]] = {
+  )(handler: PartialFunction[Throwable, F[A]]): PartialFunction[Throwable, F[SyncError]] = {
     case throwable =>
       handler(throwable).as(SyncError(throwable, videoPath))
   }

@@ -64,7 +64,7 @@ object DoobieVideoWatchHistoryDao extends VideoWatchHistoryDao[ConnectionIO] {
     whereFragments: NonEmptySeq[Fragment]
   ): ConnectionIO[List[DetailedVideoWatchHistory]] =
     (SelectQuery ++
-      whereAnd(whereFragments.head, whereFragments.tail: _*) ++
+      whereAnd(whereFragments.head, whereFragments.tail*) ++
       fr"""
           ORDER BY video_watch_history.last_updated_at DESC, video_watch_history.id DESC
             LIMIT $pageSize OFFSET ${pageNumber * pageSize}

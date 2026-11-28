@@ -361,7 +361,7 @@ class WorkExecutorImpl[F[_]: Async: Clock, T[_]](
                 .productR(batchVideoService.insert(scheduledVideoDownload.videoMetadata.id, fileResource.id))
                 .productL {
                   if (fileResource.size != scheduledVideoDownload.videoMetadata.size) {
-                    batchVideoService.update(scheduledVideoDownload.videoMetadata.id, fileResource.size)
+                    batchVideoService.update(scheduledVideoDownload.videoMetadata.id, fileResource.size).void
                   } else Applicative[F].unit
                 }
                 .flatTap { video =>

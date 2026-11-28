@@ -212,7 +212,7 @@ object BatchApp extends IOApp {
 
           videoWatchHistoryService = new VideoWatchHistoryServiceImpl[F, ConnectionIO](DoobieVideoWatchHistoryDao)
 
-          sharedConfigurationService = new ConfigurationServiceImpl[F, SharedConfigKey](
+          sharedConfigurationService = new ConfigurationServiceImpl[F, SharedConfigKey, SharedConfigKey[?]](
             new KeySpacedKeyValueStore(SharedConfigKeySpace, keyValueStore)
           )
 

@@ -34,7 +34,7 @@ class EmbeddedCoreResourcesProvider[F[_]: Sync] extends CoreResourcesProvider[F]
         Sync[F]
           .blocking(
             EmbeddedKafka.start()(
-              EmbeddedKafkaSchemaRegistryConfig(kafkaPort = kafkaPort, schemaRegistryPort = schemaRegistryPort)
+              using EmbeddedKafkaSchemaRegistryConfig(kafkaPort = kafkaPort, schemaRegistryPort = schemaRegistryPort)
             )
           )
       ) { kafka =>

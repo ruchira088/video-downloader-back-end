@@ -17,7 +17,7 @@ import fs2.{Pull, Stream}
 import io.circe.parser.parse
 import org.http4s.dsl.io._
 import org.http4s.headers.Authorization
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import org.http4s.{AuthScheme, Credentials, Headers, Request, ServerSentEvent, Status}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -68,7 +68,7 @@ class SchedulingUpdatesRoutesSpec extends AnyFlatSpec with Matchers with MockedR
 
   private def authenticateAs(user: User): IO[Unit] =
     IO.delay {
-      (authenticationService.authenticate _)
+      (authenticationService.authenticate)
         .expects(testSecret)
         .returns {
           IO.pure {
@@ -127,12 +127,12 @@ class SchedulingUpdatesRoutesSpec extends AnyFlatSpec with Matchers with MockedR
     authenticateAs(ApiTestData.NormalUser) *>
       IO.delay {
         // The ownership of each video is looked up once and cached for the lifetime of the connection
-        (apiSchedulingService.hasPermission _)
+        (apiSchedulingService.hasPermission)
           .expects(OwnedVideoId, ApiTestData.NormalUser.id)
           .once()
           .returns(IO.pure(true))
 
-        (apiSchedulingService.hasPermission _)
+        (apiSchedulingService.hasPermission)
           .expects(OtherVideoId, ApiTestData.NormalUser.id)
           .once()
           .returns(IO.pure(false))
@@ -150,7 +150,7 @@ class SchedulingUpdatesRoutesSpec extends AnyFlatSpec with Matchers with MockedR
   it should "stream the events of every download to an admin user without permission look ups" in runIO {
     authenticateAs(ApiTestData.AdminUser) *>
       IO.delay {
-        (apiSchedulingService.hasPermission _).expects(*, *).never()
+        (apiSchedulingService.hasPermission).expects(*, *).never()
       } *>
       ignoreHttpMetrics() *>
       receivedEvents(expected = 7).flatMap { events =>
@@ -166,11 +166,11 @@ class SchedulingUpdatesRoutesSpec extends AnyFlatSpec with Matchers with MockedR
     runIO {
       authenticateAs(ApiTestData.NormalUser) *>
         IO.delay {
-          (apiSchedulingService.hasPermission _)
+          (apiSchedulingService.hasPermission)
             .expects(OwnedVideoId, ApiTestData.NormalUser.id)
             .returns(IO.pure(true))
 
-          (apiSchedulingService.hasPermission _)
+          (apiSchedulingService.hasPermission)
             .expects(OtherVideoId, ApiTestData.NormalUser.id)
             .returns(IO.pure(false))
         } *>

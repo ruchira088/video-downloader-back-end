@@ -2,7 +2,6 @@ package com.ruchij.batch.services.detection
 
 import cats.data.NonEmptyList
 import cats.effect.IO
-import cats.implicits._
 import cats.~>
 import com.ruchij.batch.services.video.BatchVideoService
 import com.ruchij.core.daos.duplicate.DuplicateVideoDao
@@ -26,7 +25,7 @@ import com.ruchij.core.test.Providers
 import com.ruchij.core.types.{Clock, TimeUtils}
 import fs2.Stream
 import org.http4s.{MediaType, Uri}
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
@@ -289,7 +288,7 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
 
   it should "compute hashes for videos without existing hashes" in runIO {
     val snapshotTimestamps = com.ruchij.batch.services.enrichment.VideoEnrichmentService.snapshotTimestamps(5 minutes, 12)
-    val middleTimestamp = snapshotTimestamps.sorted.toList(snapshotTimestamps.size / 2)
+    val middleTimestamp = snapshotTimestamps.sorted(using FiniteDuration.FiniteDurationIsOrdered).toList(snapshotTimestamps.size / 2)
     val snapshotFR = FileResource("snap-1", timestamp, "/opt/snapshots/snap-1.png", MediaType.image.png, 5000)
     val snapshot = Snapshot("v1", snapshotFR, middleTimestamp)
 
@@ -632,7 +631,7 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
     val videoIds = videos.map(_.id)
 
     createService(
-      hashDao.getOrElse(similarVideosHashDao(videoIds: _*)),
+      hashDao.getOrElse(similarVideosHashDao(videoIds*)),
       dupDao,
       verificationSnapshotDao(videoIds, missingSnapshotPaths),
       new PathHashingService(differentSnapshotPaths),
@@ -824,7 +823,7 @@ class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
 
   "verificationSnapshotTimestamps" should "be a quarter, half and three quarters of the way through the snapshots" in {
     val snapshotTimestamps =
-      com.ruchij.batch.services.enrichment.VideoEnrichmentService.snapshotTimestamps(13 minutes, 12).sorted
+      com.ruchij.batch.services.enrichment.VideoEnrichmentService.snapshotTimestamps(13 minutes, 12).sorted(using FiniteDuration.FiniteDurationIsOrdered)
 
     BatchDuplicateDetectionService.verificationSnapshotTimestamps(13 minutes) mustBe
       Seq(snapshotTimestamps(3), snapshotTimestamps(6), snapshotTimestamps(9))

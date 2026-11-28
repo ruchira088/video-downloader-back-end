@@ -15,7 +15,7 @@ import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.migration.MigrationApp
 import cats.effect.Resource
 import fs2.io.file.Files
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 

@@ -15,7 +15,7 @@ import org.http4s.{AuthScheme, Credentials, Request, Status}
 import org.http4s.circe.CirceEntityEncoder._
 import org.http4s.client.dsl.io._
 import org.http4s.dsl.io._
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
@@ -47,7 +47,7 @@ class AuthenticationRoutesSpec extends AnyFlatSpec with Matchers with MockedRout
         "renewals": 0
       }"""
 
-    (authenticationService.login _)
+    (authenticationService.login)
       .expects(email, password)
       .returns(IO.pure(testToken))
 
@@ -73,7 +73,7 @@ class AuthenticationRoutesSpec extends AnyFlatSpec with Matchers with MockedRout
     val email = Email("john.smith@ruchij.com")
     val password = Password("wrong-password")
 
-    (authenticationService.login _)
+    (authenticationService.login)
       .expects(email, password)
       .returns(IO.raiseError(AuthenticationException("Invalid credentials")))
 
@@ -94,7 +94,7 @@ class AuthenticationRoutesSpec extends AnyFlatSpec with Matchers with MockedRout
   }
 
   "DELETE /authentication/logout" should "return a successful response when logging out with a valid token" in runIO {
-    (authenticationService.logout _)
+    (authenticationService.logout)
       .expects(testSecret)
       .returns(IO.pure(ApiTestData.AdminUser))
 
@@ -129,7 +129,7 @@ class AuthenticationRoutesSpec extends AnyFlatSpec with Matchers with MockedRout
   }
 
   "GET /authentication/user" should "return the authenticated user details" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((testToken, ApiTestData.AdminUser)))
 
@@ -164,7 +164,7 @@ class AuthenticationRoutesSpec extends AnyFlatSpec with Matchers with MockedRout
   }
 
   it should "authenticate using cookie when bearer token is not provided" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.pure((testToken, ApiTestData.NormalUser)))
 
@@ -190,7 +190,7 @@ class AuthenticationRoutesSpec extends AnyFlatSpec with Matchers with MockedRout
   it should "return Unauthorized when authentication token is invalid" in runIO {
     val invalidSecret = Secret("invalid-secret")
 
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(invalidSecret)
       .returns(IO.raiseError(AuthenticationException("Invalid authentication token")))
 
@@ -213,7 +213,7 @@ class AuthenticationRoutesSpec extends AnyFlatSpec with Matchers with MockedRout
   }
 
   it should "return Unauthorized and clear the cookie when the session was revoked by a password reset" in runIO {
-    (authenticationService.authenticate _)
+    (authenticationService.authenticate)
       .expects(testSecret)
       .returns(IO.raiseError(AuthenticationException.RevokedAuthenticationToken))
 

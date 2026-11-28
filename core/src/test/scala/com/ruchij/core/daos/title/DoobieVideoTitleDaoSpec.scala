@@ -15,7 +15,7 @@ import com.ruchij.core.types.Clock
 import doobie.ConnectionIO
 import doobie.implicits._
 import org.http4s.MediaType
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.implicits._
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
