@@ -273,6 +273,26 @@ class KVCodecsSpec extends AnyFlatSpec with Matchers {
     }
   }
 
+  it should "ignore blank extra terms" in runIO {
+    for {
+      result <- KVDecoder[IO, KVCodecsSpec.Pair].decode("hello::42:: ")
+    } yield {
+      result mustBe KVCodecsSpec.Pair("hello", 42)
+    }
+  }
+
+  it should "read nested products decoded with mapF and mapEither by their term counts" in runIO {
+    for {
+      result <- KVDecoder[IO, KVCodecsSpec.Mapped].decode("a::1::b::2")
+    } yield {
+      result mustBe
+        KVCodecsSpec.Mapped(
+          KVCodecsSpec.Wrapped(KVCodecsSpec.Pair("a", 1)),
+          KVCodecsSpec.Checked(KVCodecsSpec.Pair("b", 2))
+        )
+    }
+  }
+
   it should "fail for values with too few terms" in runIO {
     for {
       result <- KVDecoder[IO, KVCodecsSpec.Pair].decode("hello").attempt
@@ -376,8 +396,10 @@ class KVCodecsSpec extends AnyFlatSpec with Matchers {
     KVDecoder[IO, KVCodecsSpec.Pairs].termCount mustBe 4
   }
 
-  it should "be kept by map" in {
+  it should "be kept by map, mapF and mapEither" in {
     KVDecoder[IO, KVCodecsSpec.Pair].map(_.name).termCount mustBe 2
+    KVDecoder[IO, KVCodecsSpec.Pair].mapF(pair => IO.pure(pair.name)).termCount mustBe 2
+    KVDecoder[IO, KVCodecsSpec.Pair].mapEither(pair => Right(pair.name)).termCount mustBe 2
   }
 }
 
@@ -385,6 +407,23 @@ object KVCodecsSpec {
   final case class Pair(name: String, count: Long)
   final case class Pairs(first: Pair, second: Pair)
   final case class Quad(first: String, second: Long, third: String, fourth: Long)
+  final case class Wrapped(pair: Pair)
+  final case class Checked(pair: Pair)
+  final case class Mapped(wrapped: Wrapped, checked: Checked)
+
+  object Wrapped {
+    implicit def kvDecoder[F[_]: MonadThrow]: KVDecoder[F, Wrapped] =
+      KVDecoder[F, Pair].mapF(pair => MonadThrow[F].pure(Wrapped(pair)))
+  }
+
+  object Checked {
+    implicit def kvDecoder[F[_]: MonadThrow]: KVDecoder[F, Checked] =
+      KVDecoder[F, Pair].mapEither(pair => Right(Checked(pair)))
+  }
+
+  object Mapped {
+    implicit def kvDecoder[F[_]: MonadThrow]: KVDecoder[F, Mapped] = KVDecoder.forProduct2(Mapped.apply)
+  }
 
   object Quad {
     implicit def kvEncoder[F[_]: Monad]: KVEncoder[F, Quad] =

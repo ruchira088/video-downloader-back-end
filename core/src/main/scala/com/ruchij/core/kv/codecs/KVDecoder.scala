@@ -166,17 +166,19 @@ object KVDecoder {
 
       override def decode(value: String): F[A] = {
         val terms = KeyList.unapplySeq(value).value
+        val extraTerms = terms.drop(termCount).mkString(KeySeparator)
 
         if (terms.length < termCount)
           ApplicativeError[F, Throwable].raiseError(new IllegalArgumentException("Key is too short"))
-        else if (terms.length > termCount)
+        // Blank extra terms are ignored, as the shapeless derived decoders that this replaces ignored them
+        else if (extraTerms.trim.nonEmpty)
           ApplicativeError[F, Throwable].raiseError {
-            new IllegalArgumentException(s"Key contains extra terms: ${terms.drop(termCount).mkString(KeySeparator)}")
+            new IllegalArgumentException(s"Key contains extra terms: $extraTerms")
           }
         else
           decodeFields {
             termCounts
-              .foldLeft((Vector.empty[String], terms)) { case ((fields, remaining), count) =>
+              .foldLeft((Vector.empty[String], terms.take(termCount))) { case ((fields, remaining), count) =>
                 (fields :+ remaining.take(count).mkString(KeySeparator), remaining.drop(count))
               }
               ._1
