@@ -8,7 +8,7 @@ import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
 import com.ruchij.api.daos.playlist.PlaylistDao
 import com.ruchij.api.daos.playlist.models.{Playlist, PlaylistSortBy}
 import com.ruchij.core.config.StorageConfiguration
-import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
+import com.ruchij.core.daos.doobie.DoobieUtils.{one, singleUpdate}
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.exceptions.{InvalidConditionException, ResourceNotFoundException, ValidationException}

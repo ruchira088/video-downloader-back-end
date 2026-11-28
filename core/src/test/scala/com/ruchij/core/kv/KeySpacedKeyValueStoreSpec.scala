@@ -53,21 +53,21 @@ object KeySpacedKeyValueStoreSpec {
   final case class PersonKey(id: Long) extends KVStoreKey
   final case class Person(id: Long, firstName: String, lastName: String)
 
-  implicit case object PersonKeySpace extends KeySpace[PersonKey, Person] {
+  given PersonKeySpace: KeySpace[PersonKey, Person] {
     override val name: String = "person"
 
     override val maybeTtl: Option[FiniteDuration] = Some(5 seconds)
   }
 
   object PersonKey {
-    implicit def keySpacedKeyEncoder[F[_]: Monad]: KeySpacedKeyEncoder[F, PersonKey] =
+    given keySpacedKeyEncoder[F[_]: Monad]: KeySpacedKeyEncoder[F, PersonKey] =
       KeySpacedKeyEncoder.of(PersonKeySpace, KVEncoder[F, Long].coMap[PersonKey](_.id))
   }
 
   object Person {
-    implicit def kvEncoder[F[_]: Monad]: KVEncoder[F, Person] =
+    given kvEncoder[F[_]: Monad]: KVEncoder[F, Person] =
       KVEncoder.forProduct3((person: Person) => (person.id, person.firstName, person.lastName))
 
-    implicit def kvDecoder[F[_]: MonadThrow]: KVDecoder[F, Person] = KVDecoder.forProduct3(Person.apply)
+    given kvDecoder[F[_]: MonadThrow]: KVDecoder[F, Person] = KVDecoder.forProduct3(Person.apply)
   }
 }

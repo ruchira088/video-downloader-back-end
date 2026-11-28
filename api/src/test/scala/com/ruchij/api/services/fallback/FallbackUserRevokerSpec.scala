@@ -15,7 +15,7 @@ import scala.concurrent.duration.*
 
 class FallbackUserRevokerSpec extends AnyFlatSpec with Matchers {
   private val timestamp = TimeUtils.instantOf(2026, 9, 26, 8, 25)
-  private implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+  private given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
   private val user =
     User("user-1", TimeUtils.instantOf(2024, 5, 15, 10, 30), "John", "Doe", Email("me@ruchij.com"), Role.User)

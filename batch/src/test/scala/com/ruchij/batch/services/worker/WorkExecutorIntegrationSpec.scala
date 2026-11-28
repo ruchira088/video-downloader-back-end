@@ -1,5 +1,6 @@
 package com.ruchij.batch.services.worker
 
+import cats.~>
 import cats.effect.{IO, Resource}
 import com.ruchij.batch.daos.workers.DoobieWorkerDao
 import com.ruchij.batch.daos.workers.models.Worker
@@ -50,7 +51,9 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
   "WorkExecutor download" should "download custom video site videos using download service" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
         customSiteVideo = scheduledVideo.copy(videoMetadata =
@@ -124,7 +127,9 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
   "WorkExecutor execute" should "complete video download workflow" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
         customSiteVideo = scheduledVideo.copy(videoMetadata =
@@ -199,7 +204,9 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
   "WorkExecutor execute" should "handle retry when file size is smaller than expected" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
         customSiteVideo = scheduledVideo.copy(videoMetadata =
@@ -274,7 +281,9 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
   it should "update video duration when original duration is 0" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
         customSiteVideo = scheduledVideo.copy(videoMetadata =
@@ -345,7 +354,9 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
   it should "handle file size mismatch and call update" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
         customSiteVideo = scheduledVideo.copy(videoMetadata =
@@ -415,7 +426,9 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
   "WorkExecutor download for YTDownloaderSite" should "create download stream for YouTube videos" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
         ytVideo = scheduledVideo.copy(videoMetadata =
@@ -481,7 +494,9 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
   "WorkExecutor with crawling repository" should "find video file by crawling when extension search fails" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
         ytVideo = scheduledVideo.copy(videoMetadata =
@@ -566,7 +581,9 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
   "findVideoFileByCrawling" should "raise ResourceNotFoundException when no file is found" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
         ytVideo = scheduledVideo.copy(videoMetadata =
@@ -639,7 +656,9 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
   it should "raise IllegalStateException when multiple files are found" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
         ytVideo = scheduledVideo.copy(videoMetadata =
@@ -713,7 +732,9 @@ class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matc
   "download method for CustomVideoSite" should "download video from custom site" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
         customVideo = scheduledVideo.copy(videoMetadata =

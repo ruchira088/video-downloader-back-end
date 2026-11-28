@@ -18,7 +18,7 @@ class PostgresDoobieCredentialsResetTokenDaoSpec extends DoobieCredentialsResetT
 abstract class DoobieCredentialsResetTokenDaoSpec extends AnyFlatSpec with Matchers with TestDatabase {
 
   "DoobieCredentialsResetTokenDao" should "perform CRUD operations" in runIO {
-    transactor.use { implicit transactor =>
+    transactor.use { transactor =>
       val timestamp = TimeUtils.instantOf(2021, 10, 18, 18, 5, 44, 100)
       val user = User("my-user-id", timestamp, "John", "Doe", Email("john@ruchij.com"), Role.User)
       val credentialsResetToken = CredentialsResetToken("my-user-id", timestamp, "my-token")

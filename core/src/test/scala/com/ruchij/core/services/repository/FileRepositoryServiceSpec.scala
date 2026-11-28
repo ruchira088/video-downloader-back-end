@@ -2,7 +2,7 @@ package com.ruchij.core.services.repository
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
+import com.ruchij.core.test.IOSupport.{withTimeout, runIO}
 import fs2.Stream
 import fs2.io.file.{Files, Path}
 import org.http4s.MediaType

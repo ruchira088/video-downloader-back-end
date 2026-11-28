@@ -47,7 +47,7 @@ object Routes {
     duplicateDetectionService: ApiDuplicateDetectionService[F],
     allowedOrigins: Set[String]
   ): HttpApp[F] = {
-    implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
+    given dsl: Http4sDsl[F] = new Http4sDsl[F] {}
 
     val authMiddleware: AuthenticatedRequestContextMiddleware[F] =
       Authenticator.middleware[F](authenticationService, strict = true)

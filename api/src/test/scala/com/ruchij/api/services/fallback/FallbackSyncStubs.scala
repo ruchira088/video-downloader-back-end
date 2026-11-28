@@ -12,7 +12,7 @@ import fs2.Pipe
 import java.time.Instant
 
 object FallbackSyncStubs {
-  implicit val identityTransaction: IO ~> IO = new (IO ~> IO) {
+  given identityTransaction: (IO ~> IO) = new (IO ~> IO) {
     override def apply[A](fa: IO[A]): IO[A] = fa
   }
 

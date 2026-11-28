@@ -11,7 +11,7 @@ import com.ruchij.core.daos.messaging.{
   MessageDao
 }
 import com.ruchij.core.external.containers.PostgresContainer
-import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage.*
+import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage.given
 import com.ruchij.core.messaging.PublisherSubscriberSpec.{PubSubFixture, SubscriptionReadiness, TestMessage}
 import com.ruchij.core.messaging.db.{DoobiePublisher, DoobieSubscriber}
 import com.ruchij.core.messaging.PublisherSubscriberSpec
@@ -66,7 +66,7 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
 
   override def fixture: Resource[IO, PubSubFixture] =
     daoResource.map { case (messageDao, transaction) =>
-      implicit val tx: ConnectionIO ~> IO = transaction
+      given tx: (ConnectionIO ~> IO) = transaction
 
       val publisher = new DoobiePublisher[IO, ConnectionIO, TestMessage](messageDao)
       val subscriber =
@@ -102,7 +102,7 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
 
   "DoobieSubscriber" should "deliver a row that commits after a row with a higher id" in runIO {
     daoResource.use { case (messageDao, transaction) =>
-      implicit val tx: ConnectionIO ~> IO = transaction
+      given tx: (ConnectionIO ~> IO) = transaction
 
       val polls = new AtomicInteger(0)
       val publisher = new DoobiePublisher[IO, ConnectionIO, TestMessage](messageDao)
@@ -164,7 +164,7 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
 
   it should "keep polling after a transient database error" in runIO {
     daoResource.use { case (messageDao, transaction) =>
-      implicit val tx: ConnectionIO ~> IO = transaction
+      given tx: (ConnectionIO ~> IO) = transaction
 
       for {
         failures <- IO.delay(new AtomicInteger(3))
@@ -198,7 +198,7 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
 
   it should "redeliver a message that was received but never committed" in runIO {
     daoResource.use { case (messageDao, transaction) =>
-      implicit val tx: ConnectionIO ~> IO = transaction
+      given tx: (ConnectionIO ~> IO) = transaction
 
       val publisher = new DoobiePublisher[IO, ConnectionIO, TestMessage](messageDao)
       val subscriber =
@@ -240,7 +240,7 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
 
   it should "advance the group's start id past the messages it has acknowledged" in runIO {
     daoResource.use { case (messageDao, transaction) =>
-      implicit val tx: ConnectionIO ~> IO = transaction
+      given tx: (ConnectionIO ~> IO) = transaction
 
       val publisher = new DoobiePublisher[IO, ConnectionIO, TestMessage](messageDao)
       val subscriber =
@@ -284,7 +284,7 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
 
   it should "keep consuming after failing to acknowledge a message it cannot decode" in runIO {
     daoResource.use { case (messageDao, transaction) =>
-      implicit val tx: ConnectionIO ~> IO = transaction
+      given tx: (ConnectionIO ~> IO) = transaction
 
       for {
         acknowledgeFailures <- IO.delay(new AtomicInteger(3))
@@ -321,7 +321,7 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
 
   it should "release the messages a subscription claimed but never acknowledged once it ends" in runIO {
     daoResource.use { case (messageDao, transaction) =>
-      implicit val tx: ConnectionIO ~> IO = transaction
+      given tx: (ConnectionIO ~> IO) = transaction
 
       val publisher = new DoobiePublisher[IO, ConnectionIO, TestMessage](messageDao)
       // Uses the default redelivery timeout of 5 minutes, which is far longer than the test timeout
@@ -360,7 +360,7 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
 
   "deleteBefore" should "remove messages created before the given timestamp" in runIO {
     daoResource.use { case (messageDao, transaction) =>
-      implicit val tx: ConnectionIO ~> IO = transaction
+      given tx: (ConnectionIO ~> IO) = transaction
 
       for {
         now <- Clock[IO].timestamp
@@ -383,7 +383,7 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
 
   it should "return 0 when no messages are older than the timestamp" in runIO {
     daoResource.use { case (messageDao, transaction) =>
-      implicit val tx: ConnectionIO ~> IO = transaction
+      given tx: (ConnectionIO ~> IO) = transaction
 
       for {
         now <- Clock[IO].timestamp
@@ -399,7 +399,7 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
 
   it should "keep messages that a consumer group of the channel hasn't acknowledged" in runIO {
     daoResource.use { case (messageDao, transaction) =>
-      implicit val tx: ConnectionIO ~> IO = transaction
+      given tx: (ConnectionIO ~> IO) = transaction
 
       for {
         now <- Clock[IO].timestamp
@@ -424,7 +424,7 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
 
   it should "remove unacknowledged messages older than the hard retention" in runIO {
     daoResource.use { case (messageDao, transaction) =>
-      implicit val tx: ConnectionIO ~> IO = transaction
+      given tx: (ConnectionIO ~> IO) = transaction
 
       for {
         now <- Clock[IO].timestamp
@@ -445,7 +445,7 @@ abstract class DoobiePublisherSubscriberSpec(databaseConfiguration: Resource[IO,
 
   it should "expire idle consumer groups, so that they stop holding back deletion" in runIO {
     daoResource.use { case (messageDao, transaction) =>
-      implicit val tx: ConnectionIO ~> IO = transaction
+      given tx: (ConnectionIO ~> IO) = transaction
 
       for {
         now <- Clock[IO].timestamp

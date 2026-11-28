@@ -3,7 +3,7 @@ package com.ruchij.api.services.fallback
 import cats.effect.IO
 import cats.effect.kernel.Ref
 import cats.{Foldable, Functor}
-import com.ruchij.api.services.fallback.FallbackSyncStubs.*
+import com.ruchij.api.services.fallback.FallbackSyncStubs.{given, *}
 import com.ruchij.api.services.fallback.FallbackSyncTestData.{capturedAt, scheduledVideoDownload}
 import com.ruchij.api.services.fallback.aws.FallbackSyncTransport
 import com.ruchij.api.services.fallback.models.{MainToFallbackMessage, ScheduledVideoRemoval, ScheduledVideoUpsert}
@@ -11,7 +11,7 @@ import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, Schedulin
 import com.ruchij.core.kv.InMemoryKeyValueStore
 import com.ruchij.core.messaging.Subscriber
 import com.ruchij.core.messaging.inmemory.Fs2PubSub
-import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
+import com.ruchij.core.test.IOSupport.{withTimeout, runIO}
 import org.scalatest.flatspec.AnyFlatSpec
 import fs2.Stream
 import fs2.concurrent.Topic

@@ -6,7 +6,7 @@ import com.ruchij.core.config.PubsubConfiguration
 import com.ruchij.core.exceptions.ExternalServiceException
 import com.ruchij.core.messaging.PubSub.PubsubType
 import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage
-import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage.*
+import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage.given
 import com.ruchij.core.external.CoreResourcesProvider
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
 import com.ruchij.core.test.IOSupport.runIO

@@ -20,7 +20,7 @@ import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata
 import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.services.download.models.DownloadResult
 import com.ruchij.core.services.video.models.{YTDataSize, YTDataUnit, YTDownloaderProgress}
-import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
+import com.ruchij.core.test.IOSupport.{error, withTimeout, runIO}
 import com.ruchij.core.types.{Clock, TimeUtils}
 import fs2.Stream
 import org.http4s.{MediaType, Uri}
@@ -68,9 +68,9 @@ class WorkExecutorImplSpec extends AnyFlatSpec with Matchers {
 
   private val worker = Worker("worker-00", WorkerStatus.Active, None, None, None, Some("test-owner"))
 
-  private implicit val identityTransaction: IO ~> IO = FunctionK.id[IO]
+  private given identityTransaction: (IO ~> IO) = FunctionK.id[IO]
 
-  private implicit val clock: Clock[IO] = com.ruchij.core.test.Providers.stubClock[IO](timestamp)
+  private given clock: Clock[IO] = com.ruchij.core.test.Providers.stubClock[IO](timestamp)
 
   private class RecordingWorkerDao(val heartBeats: Ref[IO, List[(String, Instant)]]) extends WorkerDao[IO] {
     private def notImplemented[A]: IO[A] = IO.raiseError(new NotImplementedError("Not used by WorkExecutorImpl"))

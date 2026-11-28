@@ -16,7 +16,7 @@ object FileAsset {
   /** The largest multipart request body accepted: the largest album art, plus room for the boundaries and headers */
   val MaxRequestBodySize: Long = PlaylistService.MaxAlbumArtSize + 64 * 1024
 
-  implicit def fileAssetDecoder[F[_]: Async]: EntityDecoder[F, FileAsset[F]] = decoder[F](MaxRequestBodySize)
+  given fileAssetDecoder[F[_]: Async]: EntityDecoder[F, FileAsset[F]] = decoder[F](MaxRequestBodySize)
 
   /** http4s' default multipart decoder buffers every part in memory, so the size of the body is limited before it is
     * decoded: a body with a Content-Length over maxBodySize is rejected without being read, and any other body fails as

@@ -12,7 +12,7 @@ trait Clock[F[_]] {
 object Clock {
   def apply[F[_]](using clock: Clock[F]): Clock[F] = clock
 
-  implicit val clockIO: Clock[IO] = new Clock[IO] {
+  given clockIO: Clock[IO] = new Clock[IO] {
     override val timestamp: IO[Instant] = IO.delay(Instant.now().truncatedTo(ChronoUnit.MILLIS))
   }
 }

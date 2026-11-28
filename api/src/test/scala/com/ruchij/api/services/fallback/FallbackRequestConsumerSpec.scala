@@ -6,7 +6,7 @@ import cats.effect.kernel.Ref
 import cats.implicits.*
 import com.ruchij.api.daos.user.UserDao
 import com.ruchij.api.daos.user.models.{Email, Role, User}
-import com.ruchij.api.services.fallback.FallbackSyncStubs.*
+import com.ruchij.api.services.fallback.FallbackSyncStubs.{given, *}
 import com.ruchij.api.services.fallback.FallbackSyncTestData.{capturedAt, scheduledVideoDownload}
 import com.ruchij.api.services.fallback.aws.{FallbackRequestQueue, FallbackSyncTransport, ReceivedMessage}
 import com.ruchij.api.services.fallback.models.*

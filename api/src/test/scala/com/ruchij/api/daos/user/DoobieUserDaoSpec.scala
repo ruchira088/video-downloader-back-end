@@ -18,7 +18,7 @@ abstract class DoobieUserDaoSpec extends AnyFlatSpec with Matchers with TestData
     val timestamp = TimeUtils.instantOf(2021, 10, 18, 9, 34, 8, 123)
     val user = User("my-user-id", timestamp, "Ruchira", "Jayasekara", Email("user@ruchij.com"), Role.Admin)
 
-    transactor.use { implicit transactor =>
+    transactor.use { transactor =>
       for {
         insertionResult <- transactor(DoobieUserDao.insert(user))
         _ <- IO.delay(insertionResult mustBe 1)

@@ -8,7 +8,7 @@ import vulcan.generic.*
 final case class FallbackSyncRequest(videoId: String)
 
 object FallbackSyncRequest {
-  implicit case object FallbackSyncRequestTopic extends MessagingTopic[FallbackSyncRequest] {
+  given FallbackSyncRequestTopic: MessagingTopic[FallbackSyncRequest] {
     override val name: String = "fallback-sync-requests"
 
     override val avroCodec: Codec[FallbackSyncRequest] = Codec.derive[FallbackSyncRequest]

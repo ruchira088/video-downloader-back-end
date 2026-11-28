@@ -3,7 +3,7 @@ package com.ruchij.api.web.responses
 import cats.effect.Sync
 import cats.implicits.*
 import com.ruchij.api.services.asset.models.{Asset, AssetType}
-import com.ruchij.core.types.FunctionKTypes.*
+import com.ruchij.core.types.FunctionKTypes.{given, *}
 import org.http4s.headers.{Range, `Accept-Ranges`, `Content-Length`, `Content-Range`, `Content-Type`}
 import org.http4s.{Headers, Response, Status}
 
@@ -35,7 +35,7 @@ object ResponseOps {
         }
     }
 
-  implicit class AssetResponseOps[F[_]: Sync, A <: AssetType](asset: Asset[F, A]) {
-    val asResponse: F[Response[F]] = assetResponse[F, A](asset)
+  extension [F[_]: Sync, A <: AssetType](asset: Asset[F, A]) {
+    def asResponse: F[Response[F]] = assetResponse[F, A](asset)
   }
 }

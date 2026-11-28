@@ -6,7 +6,7 @@ import doobie.implicits.toSqlInterpolator
 import doobie.generic.auto.*
 
 import scala.concurrent.duration.FiniteDuration
-import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.given
 
 object DoobieVideoPerceptualHashDao extends VideoPerceptualHashDao[ConnectionIO] {
 

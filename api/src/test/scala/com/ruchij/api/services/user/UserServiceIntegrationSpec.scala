@@ -27,7 +27,7 @@ import com.ruchij.core.external.CoreResourcesProvider
 import com.ruchij.core.external.containers.ContainerCoreResourcesProvider
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
 import com.ruchij.core.services.repository.InMemoryRepositoryService
-import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
+import com.ruchij.core.test.IOSupport.{error, runIO}
 import com.ruchij.core.test.data.CoreTestData
 import doobie.free.connection.ConnectionIO
 import doobie.implicits.*
@@ -89,7 +89,9 @@ class UserServiceIntegrationSpec extends AnyFlatSpec with Matchers {
 
   providers.foreach { case (databaseName, provider) =>
     s"delete ($databaseName)" should "delete a user who has playlists, watch history and reset tokens" in
-      runTest(provider) { implicit transaction =>
+      runTest(provider) { transaction =>
+        given (ConnectionIO ~> IO) = transaction
+
         val service = userService()
         val playlistDao = new DoobiePlaylistDao(DoobieFileResourceDao, DoobieVideoDao)
         val userId = ApiTestData.NormalUser.id
@@ -129,7 +131,9 @@ class UserServiceIntegrationSpec extends AnyFlatSpec with Matchers {
         }
       }
 
-    it should "delete the album art of the user's playlists" in runTest(provider) { implicit transaction =>
+    it should "delete the album art of the user's playlists" in runTest(provider) { transaction =>
+      given (ConnectionIO ~> IO) = transaction
+
       val files = new ConcurrentHashMap[String, List[Byte]]()
       val albumArt = FileResource("album-art", CoreTestData.Timestamp, "images/album-art.png", MediaType.image.png, 4)
       val userId = ApiTestData.NormalUser.id
@@ -151,7 +155,9 @@ class UserServiceIntegrationSpec extends AnyFlatSpec with Matchers {
       }
     }
 
-    it should "not let an admin delete their own account" in runTest(provider) { implicit transaction =>
+    it should "not let an admin delete their own account" in runTest(provider) { transaction =>
+      given (ConnectionIO ~> IO) = transaction
+
       for {
         error <- userService().delete(ApiTestData.AdminUser.id, ApiTestData.AdminUser).error
         maybeAdmin <- transaction(DoobieUserDao.findById(ApiTestData.AdminUser.id))
@@ -161,7 +167,9 @@ class UserServiceIntegrationSpec extends AnyFlatSpec with Matchers {
       }
     }
 
-    it should "not delete the last remaining admin" in runTest(provider) { implicit transaction =>
+    it should "not delete the last remaining admin" in runTest(provider) { transaction =>
+      given (ConnectionIO ~> IO) = transaction
+
       // An admin whose own account was deleted after they signed in
       val formerAdmin = ApiTestData.AdminUser.copy(id = "former-admin", email = Email("former-admin@ruchij.com"))
 
@@ -175,27 +183,30 @@ class UserServiceIntegrationSpec extends AnyFlatSpec with Matchers {
       }
     }
 
-    it should "keep an admin when two admins delete each other concurrently" in runTest(provider) {
-      implicit transaction =>
-        val otherAdmin = ApiTestData.AdminUser.copy(id = "other-admin", email = Email("other-admin@ruchij.com"))
-        val service = userService()
+    it should "keep an admin when two admins delete each other concurrently" in runTest(provider) { transaction =>
+      given (ConnectionIO ~> IO) = transaction
 
-        for {
-          _ <- service.delete(SeededAdminId, ApiTestData.AdminUser)
-          _ <- transaction(DoobieUserDao.insert(otherAdmin))
-          results <- List(
-            service.delete(otherAdmin.id, ApiTestData.AdminUser),
-            service.delete(ApiTestData.AdminUser.id, otherAdmin)
-          ).parTraverse(_.attempt)
-          admins <- transaction(sql"SELECT COUNT(*) FROM api_user WHERE role = 'Admin'".query[Int].unique)
-        } yield {
-          results.count(_.isRight) mustBe 1
-          admins mustBe 1
-        }
+      val otherAdmin = ApiTestData.AdminUser.copy(id = "other-admin", email = Email("other-admin@ruchij.com"))
+      val service = userService()
+
+      for {
+        _ <- service.delete(SeededAdminId, ApiTestData.AdminUser)
+        _ <- transaction(DoobieUserDao.insert(otherAdmin))
+        results <- List(
+          service.delete(otherAdmin.id, ApiTestData.AdminUser),
+          service.delete(ApiTestData.AdminUser.id, otherAdmin)
+        ).parTraverse(_.attempt)
+        admins <- transaction(sql"SELECT COUNT(*) FROM api_user WHERE role = 'Admin'".query[Int].unique)
+      } yield {
+        results.count(_.isRight) mustBe 1
+        admins mustBe 1
+      }
     }
 
     s"create ($databaseName)" should "reject a duplicate email even when the email check is raced" in
-      runTest(provider) { implicit transaction =>
+      runTest(provider) { transaction =>
+        given (ConnectionIO ~> IO) = transaction
+
         val service = userService(RacingUserDao)
 
         for {
@@ -212,7 +223,9 @@ class UserServiceIntegrationSpec extends AnyFlatSpec with Matchers {
       }
 
     s"resetPassword ($databaseName)" should "accept a reset token only once, even when used concurrently" in
-      runTest(provider) { implicit transaction =>
+      runTest(provider) { transaction =>
+        given (ConnectionIO ~> IO) = transaction
+
         val service = userService()
         val userId = ApiTestData.NormalUser.id
 

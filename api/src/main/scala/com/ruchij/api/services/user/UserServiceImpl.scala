@@ -16,7 +16,7 @@ import com.ruchij.api.exceptions.{AuthorizationException, ResourceConflictExcept
 import com.ruchij.api.services.authentication.AuthenticationService.Password
 import com.ruchij.api.services.fallback.FallbackSyncRequester
 import com.ruchij.api.services.hashing.PasswordHashingService
-import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
+import com.ruchij.core.daos.doobie.DoobieUtils.one
 import com.ruchij.core.daos.permission.VideoPermissionDao
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.title.VideoTitleDao

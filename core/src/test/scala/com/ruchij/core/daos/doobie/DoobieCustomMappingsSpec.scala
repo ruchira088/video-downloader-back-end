@@ -17,7 +17,7 @@ import scala.concurrent.duration.*
 
 class DoobieCustomMappingsSpec extends AnyFlatSpec with Matchers {
 
-  import DoobieCustomMappings.*
+  import DoobieCustomMappings.given
 
   private val dbConfig = DatabaseConfiguration(
     s"jdbc:h2:mem:test-custom-mappings-${System.currentTimeMillis()};MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false",

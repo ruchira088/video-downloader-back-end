@@ -95,7 +95,7 @@ class RandomGeneratorSpec extends AnyFlatSpec with Matchers {
   }
 
   "RandomGenerator evalMap" should "transform generated values with an effect" in runIO {
-    import RandomGenerator.RandomGeneratorOps
+    import RandomGenerator.evalMap
 
     val generator = RandomGenerator[IO, UUID].evalMap(uuid => IO.pure(uuid.toString))
 

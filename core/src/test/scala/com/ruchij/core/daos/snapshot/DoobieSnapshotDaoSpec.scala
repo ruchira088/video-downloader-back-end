@@ -32,7 +32,7 @@ class PostgresDoobieSnapshotDaoSpec extends DoobieSnapshotDaoSpec with PostgresT
 
 abstract class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with OptionValues with TestDatabase {
 
-  import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
+  import com.ruchij.core.daos.doobie.DoobieCustomMappings.given
 
   case class TestFixture(
     snapshot: Snapshot,

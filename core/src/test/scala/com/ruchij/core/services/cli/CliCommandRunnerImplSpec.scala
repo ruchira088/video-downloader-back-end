@@ -3,7 +3,7 @@ package com.ruchij.core.services.cli
 import cats.effect.IO
 import cats.effect.std.Dispatcher
 import com.ruchij.core.exceptions.CliCommandException
-import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
+import com.ruchij.core.test.IOSupport.{error, runIO}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 

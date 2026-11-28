@@ -11,26 +11,26 @@ import java.time.Instant
 import scala.concurrent.duration.FiniteDuration
 
 object Encoders {
-  implicit val instantEncoder: Encoder[Instant] = Encoder.encodeString.contramap[Instant](_.toString)
+  given instantEncoder: Encoder[Instant] = Encoder.encodeString.contramap[Instant](_.toString)
 
-  implicit def throwableEncoder[A <: Throwable]: Encoder[A] =
+  given throwableEncoder[A <: Throwable]: Encoder[A] =
     Encoder.encodeString.contramap[A](_.getMessage)
 
-  implicit def enumEncoder[A <: EnumEntry]: Encoder[A] = Encoder.encodeString.contramap[A](_.entryName)
+  given enumEncoder[A <: EnumEntry]: Encoder[A] = Encoder.encodeString.contramap[A](_.entryName)
 
-  implicit val finiteDurationEncoder: Encoder[FiniteDuration] =
+  given finiteDurationEncoder: Encoder[FiniteDuration] =
     (finiteDuration: FiniteDuration) =>
       Json.obj("length" -> Json.fromLong(finiteDuration.length), "unit" -> Json.fromString(finiteDuration.unit.name()))
 
-  implicit val videoSiteEncoder: Encoder[VideoSite] = Encoder[String].contramap[VideoSite](_.name.toLowerCase)
+  given videoSiteEncoder: Encoder[VideoSite] = Encoder[String].contramap[VideoSite](_.name.toLowerCase)
 
-  implicit val pathEncoder: Encoder[Path] = Encoder.encodeString.contramap[Path](_.toAbsolutePath.toString)
+  given pathEncoder: Encoder[Path] = Encoder.encodeString.contramap[Path](_.toAbsolutePath.toString)
 
-  implicit val mediaTypeEncoder: Encoder[MediaType] = Encoder.encodeString.contramap[MediaType](Show[MediaType].show)
+  given mediaTypeEncoder: Encoder[MediaType] = Encoder.encodeString.contramap[MediaType](Show[MediaType].show)
 
-  implicit val methodEncoder: Encoder[Method] = Encoder.encodeString.contramap(_.name)
+  given methodEncoder: Encoder[Method] = Encoder.encodeString.contramap(_.name)
 
-  implicit val statusEncoder: Encoder[Status] = Encoder.encodeInt.contramap(_.code)
+  given statusEncoder: Encoder[Status] = Encoder.encodeInt.contramap(_.code)
 
   // Encodes a value class as the string it wraps
   def stringWrapperEncoder[A](unwrap: A => String): Encoder[A] = Encoder[String].contramap[A](unwrap)

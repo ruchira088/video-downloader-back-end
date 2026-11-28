@@ -350,7 +350,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   it should "return true when current time is within work period (same day)" in runIO {
     // Create a fixed clock at 14:00
-    implicit val clock: Clock[IO] = createFixedClock(14, 0)
+    given clock: Clock[IO] = createFixedClock(14, 0)
 
     val startTime = java.time.LocalTime.of(9, 0)
     val endTime = java.time.LocalTime.of(18, 0)
@@ -362,7 +362,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   it should "return false when current time is outside work period (same day)" in runIO {
     // Create a fixed clock at 20:00 (8 PM)
-    implicit val clock: Clock[IO] = createFixedClock(20, 0)
+    given clock: Clock[IO] = createFixedClock(20, 0)
 
     val startTime = java.time.LocalTime.of(9, 0)
     val endTime = java.time.LocalTime.of(18, 0)
@@ -374,7 +374,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   it should "return true when current time is within overnight work period" in runIO {
     // Create a fixed clock at 23:00 (11 PM) - should be within 22:00 to 6:00
-    implicit val clock: Clock[IO] = createFixedClock(23, 0)
+    given clock: Clock[IO] = createFixedClock(23, 0)
 
     val startTime = java.time.LocalTime.of(22, 0)
     val endTime = java.time.LocalTime.of(6, 0) // Overnight period
@@ -386,7 +386,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   it should "return true when current time is in early morning of overnight work period" in runIO {
     // Create a fixed clock at 3:00 AM - should be within 22:00 to 6:00
-    implicit val clock: Clock[IO] = createFixedClock(3, 0)
+    given clock: Clock[IO] = createFixedClock(3, 0)
 
     val startTime = java.time.LocalTime.of(22, 0)
     val endTime = java.time.LocalTime.of(6, 0)
@@ -398,7 +398,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   it should "return false when current time is outside overnight work period" in runIO {
     // Create a fixed clock at 12:00 noon - should be outside 22:00 to 6:00
-    implicit val clock: Clock[IO] = createFixedClock(12, 0)
+    given clock: Clock[IO] = createFixedClock(12, 0)
 
     val startTime = java.time.LocalTime.of(22, 0)
     val endTime = java.time.LocalTime.of(6, 0)
@@ -410,7 +410,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   it should "handle edge case at exact start time" in runIO {
     // Create a fixed clock at exactly 9:00
-    implicit val clock: Clock[IO] = createFixedClock(9, 0)
+    given clock: Clock[IO] = createFixedClock(9, 0)
 
     val startTime = java.time.LocalTime.of(9, 0)
     val endTime = java.time.LocalTime.of(18, 0)
@@ -423,7 +423,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   it should "handle edge case just after start time" in runIO {
     // Create a fixed clock at 9:01
-    implicit val clock: Clock[IO] = createFixedClock(9, 1)
+    given clock: Clock[IO] = createFixedClock(9, 1)
 
     val startTime = java.time.LocalTime.of(9, 0)
     val endTime = java.time.LocalTime.of(18, 0)
@@ -443,7 +443,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   it should "evaluate the work period in the given time zone" in runIO {
     // 14:00 UTC on 15 Jan 2024 is 01:00 the next day in Sydney (UTC+11 during daylight saving)
-    implicit val clock: Clock[IO] = createFixedClock(14, 0)
+    given clock: Clock[IO] = createFixedClock(14, 0)
 
     val startTime = LocalTime.of(9, 0)
     val endTime = LocalTime.of(18, 0)
@@ -458,7 +458,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "use the system default time zone when none is given" in runIO {
-    implicit val clock: Clock[IO] = createFixedClock(14, 0)
+    given clock: Clock[IO] = createFixedClock(14, 0)
 
     val localTime = TimeUtils.instantOf(2024, 1, 15, 14, 0).atZone(ZoneId.systemDefault()).toLocalTime
     for {
@@ -471,7 +471,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   "isWorkPeriod" should "handle end of day edge case" in runIO {
-    implicit val clock: Clock[IO] = createFixedClock(23, 59)
+    given clock: Clock[IO] = createFixedClock(23, 59)
 
     val startTime = java.time.LocalTime.of(9, 0)
     val endTime = java.time.LocalTime.of(18, 0)
@@ -482,7 +482,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "handle midnight edge case" in runIO {
-    implicit val clock: Clock[IO] = createFixedClock(0, 0)
+    given clock: Clock[IO] = createFixedClock(0, 0)
 
     val startTime = java.time.LocalTime.of(22, 0)
     val endTime = java.time.LocalTime.of(6, 0)
@@ -494,7 +494,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "handle exact end time for overnight period" in runIO {
-    implicit val clock: Clock[IO] = createFixedClock(6, 0)
+    given clock: Clock[IO] = createFixedClock(6, 0)
 
     val startTime = java.time.LocalTime.of(22, 0)
     val endTime = java.time.LocalTime.of(6, 0)
@@ -506,7 +506,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "handle just before end time" in runIO {
-    implicit val clock: Clock[IO] = createFixedClock(17, 59)
+    given clock: Clock[IO] = createFixedClock(17, 59)
 
     val startTime = java.time.LocalTime.of(9, 0)
     val endTime = java.time.LocalTime.of(18, 0)
@@ -517,7 +517,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   // Identity transaction for testing (IO ~> IO)
-  implicit val identityTransaction: IO ~> IO = FunctionK.id[IO]
+  given identityTransaction: (IO ~> IO) = FunctionK.id[IO]
 
   // Default Clock for tests
   val defaultClock: Clock[IO] = Clock[IO]
@@ -552,7 +552,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   // SchedulerImpl.init tests
   "SchedulerImpl.init" should "create workers when none exist" in runIO {
-    implicit val clock: Clock[IO] = defaultClock
+    given clock: Clock[IO] = defaultClock
     val workerDao = new StubWorkerDao
     val config = createWorkerConfiguration(maxConcurrentDownloads = 2)
     val scheduler = createScheduler(workerDao, config)
@@ -565,7 +565,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "create correct number of workers based on configuration" in runIO {
-    implicit val clock: Clock[IO] = defaultClock
+    given clock: Clock[IO] = defaultClock
     val workerDao = new StubWorkerDao
     val config = createWorkerConfiguration(maxConcurrentDownloads = 5)
     val scheduler = createScheduler(workerDao, config)
@@ -577,7 +577,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "not create duplicate workers if they already exist" in runIO {
-    implicit val clock: Clock[IO] = defaultClock
+    given clock: Clock[IO] = defaultClock
     val workerDao = new StubWorkerDao
     // Pre-populate with existing workers
     workerDao.workers = List(
@@ -594,7 +594,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "mark extra workers as Deleted when reducing maxConcurrentDownloads" in runIO {
-    implicit val clock: Clock[IO] = defaultClock
+    given clock: Clock[IO] = defaultClock
     val workerDao = new StubWorkerDao
     // Pre-populate with 4 workers
     workerDao.workers = List(
@@ -614,7 +614,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "create new workers when increasing maxConcurrentDownloads" in runIO {
-    implicit val clock: Clock[IO] = defaultClock
+    given clock: Clock[IO] = defaultClock
     val workerDao = new StubWorkerDao
     // Pre-populate with 2 workers
     workerDao.workers = List(
@@ -632,7 +632,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "handle zero maxConcurrentDownloads" in runIO {
-    implicit val clock: Clock[IO] = defaultClock
+    given clock: Clock[IO] = defaultClock
     val workerDao = new StubWorkerDao
     val config = createWorkerConfiguration(maxConcurrentDownloads = 0)
     val scheduler = createScheduler(workerDao, config)
@@ -643,7 +643,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "not delete workers already marked as Deleted" in runIO {
-    implicit val clock: Clock[IO] = defaultClock
+    given clock: Clock[IO] = defaultClock
     val workerDao = new StubWorkerDao
     // Pre-populate with workers, some already deleted
     workerDao.workers = List(
@@ -663,7 +663,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "handle workers with Paused status when reducing count" in runIO {
-    implicit val clock: Clock[IO] = defaultClock
+    given clock: Clock[IO] = defaultClock
     val workerDao = new StubWorkerDao
     workerDao.workers = List(
       Worker("worker-00", WorkerStatus.Available, None, None, None, None),
@@ -681,7 +681,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "handle single worker configuration" in runIO {
-    implicit val clock: Clock[IO] = defaultClock
+    given clock: Clock[IO] = defaultClock
     val workerDao = new StubWorkerDao
     val config = createWorkerConfiguration(maxConcurrentDownloads = 1)
     val scheduler = createScheduler(workerDao, config)
@@ -693,7 +693,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "handle large maxConcurrentDownloads" in runIO {
-    implicit val clock: Clock[IO] = defaultClock
+    given clock: Clock[IO] = defaultClock
     val workerDao = new StubWorkerDao
     val config = createWorkerConfiguration(maxConcurrentDownloads = 10)
     val scheduler = createScheduler(workerDao, config)
@@ -706,7 +706,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 
   // Test StubWorkerDao cleanUpStaleWorkers
   "isWorkPeriod" should "handle work period spanning midnight start" in runIO {
-    implicit val clock: Clock[IO] = createFixedClock(22, 30)
+    given clock: Clock[IO] = createFixedClock(22, 30)
 
     val startTime = java.time.LocalTime.of(22, 0)
     val endTime = java.time.LocalTime.of(6, 0)
@@ -717,7 +717,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "handle just after midnight in overnight period" in runIO {
-    implicit val clock: Clock[IO] = createFixedClock(0, 30)
+    given clock: Clock[IO] = createFixedClock(0, 30)
 
     val startTime = java.time.LocalTime.of(22, 0)
     val endTime = java.time.LocalTime.of(6, 0)
@@ -728,7 +728,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "handle middle of day outside overnight period" in runIO {
-    implicit val clock: Clock[IO] = createFixedClock(15, 0)
+    given clock: Clock[IO] = createFixedClock(15, 0)
 
     val startTime = java.time.LocalTime.of(22, 0)
     val endTime = java.time.LocalTime.of(6, 0)
@@ -742,7 +742,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     Worker(id, WorkerStatus.Available, None, None, None, None)
 
   "SchedulerImpl.run" should "assign a queued task to an idle worker and emit the downloaded video" in runIO {
-    implicit val clock: Clock[IO] = defaultClock
+    given clock: Clock[IO] = defaultClock
 
     val task = createScheduledVideoDownload("queued-task")
     val video = createTestVideo("queued-task")
@@ -776,7 +776,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "record an error against the task and release the worker when the executor fails" in runIO {
-    implicit val clock: Clock[IO] = defaultClock
+    given clock: Clock[IO] = defaultClock
 
     val task = createScheduledVideoDownload("failing-task")
     val failure = new RuntimeException("Download failed")
@@ -804,7 +804,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "pause the active download and the workers when a worker pause update arrives" in runIO {
-    implicit val clock: Clock[IO] = defaultClock
+    given clock: Clock[IO] = defaultClock
 
     val task = createScheduledVideoDownload("paused-task")
 
@@ -840,7 +840,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "still emit the downloaded video when another instance has taken over the worker" in runIO {
-    implicit val clock: Clock[IO] = defaultClock
+    given clock: Clock[IO] = defaultClock
 
     val task = createScheduledVideoDownload("taken-over-task")
     val video = createTestVideo("taken-over-task")
@@ -882,7 +882,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   "SchedulerImpl.run" should "keep cleaning up stale workers and timed out downloads after a failure" in runIO {
-    implicit val clock: Clock[IO] = defaultClock
+    given clock: Clock[IO] = defaultClock
 
     val flakyCleanUp = new FlakyCall(failures = 1)
     val flakyTimedOutTasks = new FlakyCall(failures = 1)
@@ -909,7 +909,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "keep handling scan commands and worker status updates after they fail" in runIO {
-    implicit val clock: Clock[IO] = defaultClock
+    given clock: Clock[IO] = defaultClock
 
     val flakySync = new FlakyCall(failures = 1)
     val flakyWorkerStatuses = new FlakyCall(failures = 1)
@@ -974,7 +974,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "retry a video watch metric that fails transiently before committing it" in runIO {
-    implicit val clock: Clock[IO] = defaultClock
+    given clock: Clock[IO] = defaultClock
 
     val video = createTestVideo("watched-video")
     val fetchVideo = new FlakyCall(failures = 2)
@@ -999,7 +999,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "skip a video watch metric that keeps failing so that the later metrics are still processed" in runIO {
-    implicit val clock: Clock[IO] = defaultClock
+    given clock: Clock[IO] = defaultClock
 
     val video = createTestVideo("watched-video")
 
@@ -1036,7 +1036,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   private val ClaimedStatuses: Set[SchedulingStatus] = Set(SchedulingStatus.Acquired, SchedulingStatus.Active)
 
   "SchedulerImpl.run" should "re-queue a cancelled download only if its worker still owns it" in runIO {
-    implicit val clock: Clock[IO] = defaultClock
+    given clock: Clock[IO] = defaultClock
 
     val task = createScheduledVideoDownload("cancelled-task")
 
@@ -1065,7 +1065,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "shut down cleanly when a cancelled download has been deleted" in runIO {
-    implicit val clock: Clock[IO] = defaultClock
+    given clock: Clock[IO] = defaultClock
 
     val task = createScheduledVideoDownload("deleted-task")
 
@@ -1098,7 +1098,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "put a task back as WorkersPaused when the workers are paused while it is being assigned" in runIO {
-    implicit val clock: Clock[IO] = defaultClock
+    given clock: Clock[IO] = defaultClock
 
     val task = createScheduledVideoDownload("paused-during-claim")
 
@@ -1133,7 +1133,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "put a task back in the queue when it cannot be published after it was assigned" in runIO {
-    implicit val clock: Clock[IO] = defaultClock
+    given clock: Clock[IO] = defaultClock
 
     val task = createScheduledVideoDownload("unpublished-task")
 
@@ -1166,7 +1166,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "resubscribe to the scheduled video download and worker status updates with the same group ids" in runIO {
-    implicit val clock: Clock[IO] = defaultClock
+    given clock: Clock[IO] = defaultClock
 
     class FailingSubscriptions extends StubBatchSchedulingService() {
       @volatile var scheduledVideoDownloadGroupIds: List[String] = List.empty
@@ -1298,7 +1298,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
     Stream.sleep_[IO](1.second) ++ Stream.emits(updates) ++ Stream.never[IO]
 
   "SchedulerImpl.run" should "delete the scheduled video downloads that are updated to Deleted" in runIO {
-    implicit val clock: Clock[IO] = defaultClock
+    given clock: Clock[IO] = defaultClock
 
     val batchSchedulingService =
       new StubBatchSchedulingService(scheduledVideoDownloadUpdates =
@@ -1321,7 +1321,7 @@ class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
   }
 
   it should "keep deleting scheduled video downloads after a deletion fails" in runIO {
-    implicit val clock: Clock[IO] = defaultClock
+    given clock: Clock[IO] = defaultClock
 
     // The stub fails every deletion
     val batchSchedulingService =

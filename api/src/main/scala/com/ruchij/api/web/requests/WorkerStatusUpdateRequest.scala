@@ -9,7 +9,7 @@ final case class WorkerStatusUpdateRequest(workerStatus: WorkerStatus)
 object WorkerStatusUpdateRequest {
   private val ValidUpdateStatuses = Seq(WorkerStatus.Paused, WorkerStatus.Available)
 
-  implicit def workerStatusUpdateRequestValidator[F[_]: ApplicativeThrow]: Validator[F, WorkerStatusUpdateRequest] =
+  given workerStatusUpdateRequestValidator[F[_]: ApplicativeThrow]: Validator[F, WorkerStatusUpdateRequest] =
     new Validator[F, WorkerStatusUpdateRequest] {
       override def validate[B <: WorkerStatusUpdateRequest](workerStatusUpdateRequest: B): F[B] =
         if (ValidUpdateStatuses.contains(workerStatusUpdateRequest.workerStatus))

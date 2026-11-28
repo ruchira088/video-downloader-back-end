@@ -26,7 +26,7 @@ import com.ruchij.core.kv.{InMemoryKeyValueStore, KeySpacedKeyValueStore}
 import com.ruchij.core.services.config.ConfigurationServiceImpl
 import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
 import com.ruchij.core.services.video.VideoAnalysisService
-import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
+import com.ruchij.core.test.IOSupport.{error, runIO}
 import com.ruchij.core.test.data.CoreTestData
 import doobie.free.connection.ConnectionIO
 import org.scalamock.scalatest.MockFactory
@@ -87,7 +87,9 @@ class ApiSchedulingServiceIntegrationSpec extends AnyFlatSpec with Matchers with
 
   private def runTest(provider: () => CoreResourcesProvider[IO])(test: Fixture => IO[Any]): Unit =
     runIO {
-      provider().transactor.use { implicit transaction =>
+      provider().transactor.use { transaction =>
+        given (ConnectionIO ~> IO) = transaction
+
         for {
           _ <- transaction(setUpData)
           scheduledVideoDownloads <- RecordingPublisher[ScheduledVideoDownload]

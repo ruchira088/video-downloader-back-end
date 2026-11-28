@@ -11,7 +11,7 @@ final case class MigrationServiceConfiguration(
 )
 
 object MigrationServiceConfiguration {
-  implicit val configReader: ConfigReader[MigrationServiceConfiguration] = deriveReader[MigrationServiceConfiguration]
+  given configReader: ConfigReader[MigrationServiceConfiguration] = deriveReader[MigrationServiceConfiguration]
 
   def load(
     configObjectSource: ConfigObjectSource

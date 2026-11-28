@@ -7,7 +7,7 @@ import com.ruchij.api.daos.user.models.{Email, Role, User}
 import com.ruchij.api.services.authentication.AuthenticationService.Password
 import com.ruchij.api.services.fallback.FallbackUserRevoker
 import com.ruchij.core.exceptions.ResourceNotFoundException
-import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
+import com.ruchij.core.test.IOSupport.{error, runIO}
 import com.ruchij.core.types.TimeUtils
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.flatspec.AnyFlatSpec

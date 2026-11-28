@@ -1,6 +1,6 @@
 package com.ruchij.core.config
 
-import com.ruchij.core.config.PureConfigReaders.*
+import com.ruchij.core.config.PureConfigReaders.given
 import com.ruchij.core.messaging.PubSub.PubsubType
 import com.ruchij.migration.config.DatabaseConfiguration
 import pureconfig.ConfigReader
@@ -13,7 +13,7 @@ final case class PubsubConfiguration(
 )
 
 object PubsubConfiguration {
-  implicit val pubsubConfigurationConfigReader: ConfigReader[PubsubConfiguration] =
+  given pubsubConfigurationConfigReader: ConfigReader[PubsubConfiguration] =
     ConfigReader.fromCursor {
       _.asObjectCursor
         .flatMap { objectCursor =>

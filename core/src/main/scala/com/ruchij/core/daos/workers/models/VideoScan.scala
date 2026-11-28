@@ -20,8 +20,8 @@ object VideoScan {
     override def values: IndexedSeq[ScanStatus] = findValues
   }
 
-  implicit def kvEncoder[F[_]: Monad]: KVEncoder[F, VideoScan] =
+  given kvEncoder[F[_]: Monad]: KVEncoder[F, VideoScan] =
     KVEncoder.forProduct2((videoScan: VideoScan) => (videoScan.updatedAt, videoScan.status))
 
-  implicit def kvDecoder[F[_]: MonadThrow]: KVDecoder[F, VideoScan] = KVDecoder.forProduct2(VideoScan.apply)
+  given kvDecoder[F[_]: MonadThrow]: KVDecoder[F, VideoScan] = KVDecoder.forProduct2(VideoScan.apply)
 }

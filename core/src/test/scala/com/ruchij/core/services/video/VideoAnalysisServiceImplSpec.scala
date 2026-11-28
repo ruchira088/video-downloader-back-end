@@ -442,7 +442,7 @@ class VideoAnalysisServiceImplSpec extends AnyFlatSpec with MockFactory with Mat
     val cliCommandRunner = mock[CliCommandRunner[IO]]
     val storageConfiguration = StorageConfiguration("video-folder", "image-folder", List.empty)
 
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](CoreTestData.Timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](CoreTestData.Timestamp)
 
     new VideoAnalysisServiceImpl[IO, IO](
       hashingService,

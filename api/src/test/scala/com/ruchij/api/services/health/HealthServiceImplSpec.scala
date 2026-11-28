@@ -1,5 +1,7 @@
 package com.ruchij.api.services.health
 
+import cats.~>
+import doobie.ConnectionIO
 import cats.effect.*
 import com.ruchij.api.services.health.models.{HealthCheck, HealthStatus}
 import com.ruchij.api.services.health.models.kv.HealthCheckKey.HealthCheckKeySpace
@@ -64,7 +66,9 @@ class HealthServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     assertion: HealthCheck => Unit
   ): Unit =
     runIO {
-      new EmbeddedCoreResourcesProvider[IO].transactor.use { implicit transactor =>
+      new EmbeddedCoreResourcesProvider[IO].transactor.use { transactor =>
+        given (ConnectionIO ~> IO) = transactor
+
         for {
           healthCheckTopic <- Topic[IO, HealthCheckMessage]
 

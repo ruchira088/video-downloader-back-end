@@ -6,5 +6,5 @@ import pureconfig.generic.semiauto.deriveReader
 final case class SentryConfiguration(dsn: Option[String], environment: String, tracesSampleRate: Double)
 
 object SentryConfiguration {
-  implicit val configReader: ConfigReader[SentryConfiguration] = deriveReader[SentryConfiguration]
+  given configReader: ConfigReader[SentryConfiguration] = deriveReader[SentryConfiguration]
 }

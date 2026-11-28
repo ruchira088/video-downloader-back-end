@@ -53,8 +53,8 @@ class VideoSnapshotServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "takeSnapshot" should "execute ffmpeg command and return FileResource" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
-    implicit val randomGenerator: RandomGenerator[IO, UUID] = new RandomGenerator[IO, UUID] {
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given randomGenerator: RandomGenerator[IO, UUID] = new RandomGenerator[IO, UUID] {
       override val generate: IO[UUID] = IO.pure(fixedUUID)
     }
 
@@ -92,8 +92,8 @@ class VideoSnapshotServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "handle different video timestamps" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
-    implicit val randomGenerator: RandomGenerator[IO, UUID] = new RandomGenerator[IO, UUID] {
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given randomGenerator: RandomGenerator[IO, UUID] = new RandomGenerator[IO, UUID] {
       override val generate: IO[UUID] = IO.pure(fixedUUID)
     }
 
@@ -118,8 +118,8 @@ class VideoSnapshotServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "fail when snapshot file is not created (size is None)" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
-    implicit val randomGenerator: RandomGenerator[IO, UUID] = new RandomGenerator[IO, UUID] {
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given randomGenerator: RandomGenerator[IO, UUID] = new RandomGenerator[IO, UUID] {
       override val generate: IO[UUID] = IO.pure(fixedUUID)
     }
 
@@ -137,8 +137,8 @@ class VideoSnapshotServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "fail when file type cannot be determined" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
-    implicit val randomGenerator: RandomGenerator[IO, UUID] = new RandomGenerator[IO, UUID] {
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given randomGenerator: RandomGenerator[IO, UUID] = new RandomGenerator[IO, UUID] {
       override val generate: IO[UUID] = IO.pure(fixedUUID)
     }
 
@@ -155,8 +155,8 @@ class VideoSnapshotServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "fail when ffmpeg command fails" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
-    implicit val randomGenerator: RandomGenerator[IO, UUID] = new RandomGenerator[IO, UUID] {
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given randomGenerator: RandomGenerator[IO, UUID] = new RandomGenerator[IO, UUID] {
       override val generate: IO[UUID] = IO.pure(fixedUUID)
     }
 
@@ -173,13 +173,13 @@ class VideoSnapshotServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "generate unique IDs for each snapshot" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val uuids = List(
       UUID.fromString("aaaaa001-1234-1234-1234-123456789012"),
       UUID.fromString("bbbbb002-1234-1234-1234-123456789012")
     ).iterator
-    implicit val randomGenerator: RandomGenerator[IO, UUID] = new RandomGenerator[IO, UUID] {
+    given randomGenerator: RandomGenerator[IO, UUID] = new RandomGenerator[IO, UUID] {
       override val generate: IO[UUID] = IO.delay(uuids.next())
     }
 
@@ -200,8 +200,8 @@ class VideoSnapshotServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "use correct media type for jpeg snapshots" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
-    implicit val randomGenerator: RandomGenerator[IO, UUID] = new RandomGenerator[IO, UUID] {
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given randomGenerator: RandomGenerator[IO, UUID] = new RandomGenerator[IO, UUID] {
       override val generate: IO[UUID] = IO.pure(fixedUUID)
     }
 
@@ -217,8 +217,8 @@ class VideoSnapshotServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "VideoSnapshotService ffmpeg command" should "include correct parameters" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
-    implicit val randomGenerator: RandomGenerator[IO, UUID] = new RandomGenerator[IO, UUID] {
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given randomGenerator: RandomGenerator[IO, UUID] = new RandomGenerator[IO, UUID] {
       override val generate: IO[UUID] = IO.pure(fixedUUID)
     }
 

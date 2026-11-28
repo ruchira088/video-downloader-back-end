@@ -3,7 +3,7 @@ package com.ruchij.core.external.containers
 import cats.effect.kernel.{Resource, Sync}
 import cats.implicits.*
 import com.ruchij.core.config.SpaSiteRendererConfiguration
-import com.ruchij.core.types.FunctionKTypes.*
+import com.ruchij.core.types.FunctionKTypes.{given, *}
 import org.http4s.Uri
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy

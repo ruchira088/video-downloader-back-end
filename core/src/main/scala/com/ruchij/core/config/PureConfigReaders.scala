@@ -14,21 +14,21 @@ import scala.util.Try
 object PureConfigReaders {
   private val ListSeparator = ";"
 
-  implicit val localTimePureConfigReader: ConfigReader[LocalTime] =
+  given localTimePureConfigReader: ConfigReader[LocalTime] =
     stringConfigParserTry { localTime =>
       Try(LocalTime.parse(localTime))
     }
 
-  implicit val hostConfigReader: ConfigReader[Host] = ConfigReader.fromNonEmptyStringOpt(Host.fromString)
+  given hostConfigReader: ConfigReader[Host] = ConfigReader.fromNonEmptyStringOpt(Host.fromString)
 
-  implicit val portConfigReader: ConfigReader[Port] = ConfigReader.fromNonEmptyStringOpt(Port.fromString)
+  given portConfigReader: ConfigReader[Port] = ConfigReader.fromNonEmptyStringOpt(Port.fromString)
 
-  implicit val uriPureConfigReader: ConfigReader[Uri] =
+  given uriPureConfigReader: ConfigReader[Uri] =
     ConfigReader.fromNonEmptyString { input =>
       Uri.fromString(input).left.map(error => CannotConvert(input, classOf[Uri].getSimpleName, error.message))
     }
 
-  implicit def stringIterableConfigReader[Itr[x] <: IterableOnce[x]](using
+  given stringIterableConfigReader[Itr[x] <: IterableOnce[x]](using
     factory: Factory[String, Itr[String]]
   ): ConfigReader[Itr[String]] =
     ConfigReader[String].map { string =>
@@ -37,7 +37,7 @@ object PureConfigReaders {
       }
     }
 
-  implicit def enumPureConfigReader[A <: EnumEntry: ClassTag](using enumValues: Enum[A]): ConfigReader[A] =
+  given enumPureConfigReader[A <: EnumEntry: ClassTag](using enumValues: Enum[A]): ConfigReader[A] =
     ConfigReader.fromNonEmptyStringOpt[A] { value =>
       enumValues.values.find(_.entryName.equalsIgnoreCase(value))
     }

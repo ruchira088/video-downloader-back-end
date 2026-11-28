@@ -9,10 +9,10 @@ import com.ruchij.api.services.video.ApiVideoService
 import com.ruchij.api.web.middleware.Authorizer
 import com.ruchij.api.web.requests.{VideoMetadataRequest, VideoMetadataUpdateRequest}
 import com.ruchij.api.web.requests.queryparams.{PagingQuery, SearchQuery}
-import com.ruchij.api.web.requests.RequestOps.ContextRequestOpsSyntax
+import com.ruchij.api.web.requests.RequestOps.to
 import com.ruchij.api.web.requests.queryparams.SingleValueQueryParameter.DeleteVideoFileQueryParameter
 import com.ruchij.core.services.video.{VideoAnalysisService, VideoWatchHistoryService}
-import com.ruchij.core.circe.Encoders.*
+import com.ruchij.core.circe.Encoders.given
 import com.ruchij.api.web.responses.{IterableResponse, SearchResult, VideoScanProgressResponse}
 import com.ruchij.core.daos.workers.models.VideoScan
 import com.ruchij.core.daos.workers.models.VideoScan.ScanStatus

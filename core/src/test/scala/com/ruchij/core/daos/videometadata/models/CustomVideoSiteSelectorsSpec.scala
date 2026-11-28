@@ -4,7 +4,7 @@ import cats.effect.IO
 import com.ruchij.core.daos.videometadata.models.CustomVideoSite.*
 import com.ruchij.core.exceptions.JSoupException.NoMatchingElementsFoundException
 import com.ruchij.core.services.renderer.SpaSiteRenderer
-import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
+import com.ruchij.core.test.IOSupport.{error, runIO}
 import org.http4s.Uri
 import org.http4s.implicits.*
 import org.jsoup.Jsoup

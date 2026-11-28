@@ -56,8 +56,8 @@ import com.ruchij.core.daos.title.DoobieVideoTitleDao
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videowatchhistory.DoobieVideoWatchHistoryDao
-import com.ruchij.core.kv.codecs.KVDecoder.*
-import com.ruchij.core.kv.codecs.KVEncoder.*
+import com.ruchij.core.kv.codecs.KVDecoder.given
+import com.ruchij.core.kv.codecs.KVEncoder.given
 import com.ruchij.core.kv.{KeySpacedKeyValueStore, KeyValueStore, RedisKeyValueStore}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.PubSub
@@ -181,7 +181,7 @@ object ApiApp extends IOApp {
     apiServiceConfiguration: ApiServiceConfiguration,
     fallbackSyncResources: Option[FallbackSyncResources[F]]
   ): Resource[F, HttpApp[F]] = {
-    implicit val transactor: ConnectionIO ~> F = hikariTransactor.trans
+    given transactor: (ConnectionIO ~> F) = hikariTransactor.trans
 
     val healthCheckKeyStore: KeySpacedKeyValueStore[F, HealthCheckKey, Instant] =
       new KeySpacedKeyValueStore(HealthCheckKeySpace, keyValueStore)

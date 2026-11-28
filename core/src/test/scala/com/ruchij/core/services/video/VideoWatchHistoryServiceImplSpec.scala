@@ -72,11 +72,11 @@ class VideoWatchHistoryServiceImplSpec extends AnyFlatSpec with Matchers {
       }
   }
 
-  implicit val transaction: IO ~> IO = new (IO ~> IO) {
+  given transaction: (IO ~> IO) = new (IO ~> IO) {
     override def apply[A](fa: IO[A]): IO[A] = fa
   }
 
-  implicit val uuidRandomGenerator: RandomGenerator[IO, UUID] = new RandomGenerator[IO, UUID] {
+  given uuidRandomGenerator: RandomGenerator[IO, UUID] = new RandomGenerator[IO, UUID] {
     override def generate: IO[UUID] = IO.delay(UUID.randomUUID())
   }
 

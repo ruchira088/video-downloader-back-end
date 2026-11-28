@@ -7,14 +7,14 @@ import com.ruchij.api.daos.playlist.models.PlaylistSortBy
 import com.ruchij.api.services.models.Context.AuthenticatedRequestContext
 import com.ruchij.api.services.playlist.PlaylistService
 import com.ruchij.api.web.requests.{CreatePlaylistRequest, FileAsset, UpdatePlaylistRequest}
-import com.ruchij.api.web.requests.RequestOps.ContextRequestOpsSyntax
+import com.ruchij.api.web.requests.RequestOps.to
 import com.ruchij.api.web.requests.queryparams.PagingAndSortingQuery
 import com.ruchij.api.web.requests.queryparams.QueryParameter.enumQueryParamDecoder
 import com.ruchij.api.web.requests.queryparams.SingleValueQueryParameter.SearchTermQueryParameter
 import com.ruchij.api.web.responses.PagingResponse
-import com.ruchij.core.circe.Encoders.*
+import com.ruchij.core.circe.Encoders.given
 import io.circe.generic.auto.*
-import org.http4s.ContextRoutes
+import org.http4s.{ContextRoutes, EntityDecoder}
 import org.http4s.circe.CirceEntityCodec.*
 import org.http4s.circe.encodeUri
 import org.http4s.dsl.Http4sDsl
@@ -76,8 +76,10 @@ object PlaylistRoutes {
 
       case authRequest @ PUT -> Root / "id" / playlistId / "album-art" as AuthenticatedRequestContext(user, _) =>
         // FileAsset's multipart decoder, which circe's JSON entity decoder in scope would otherwise shadow
+        given EntityDecoder[F, FileAsset[F]] = FileAsset.fileAssetDecoder[F]
+
         authRequest
-          .to[FileAsset[F]](using FileAsset.fileAssetDecoder[F], summon)
+          .to[FileAsset[F]]
           .flatMap { fileAsset =>
             playlistService.addAlbumArt(
               playlistId,

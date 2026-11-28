@@ -34,7 +34,7 @@ class ClockSpec extends AnyFlatSpec with Matchers {
   it should "work with custom implementation" in runIO {
     val fixedTime = TimeUtils.instantOf(2024, 6, 15, 10, 30)
 
-    implicit val fixedClock: Clock[IO] = new Clock[IO] {
+    given fixedClock: Clock[IO] = new Clock[IO] {
       override val timestamp: IO[Instant] = IO.pure(fixedTime)
     }
 

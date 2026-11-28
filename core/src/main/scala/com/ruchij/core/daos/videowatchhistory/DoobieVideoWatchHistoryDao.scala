@@ -1,8 +1,8 @@
 package com.ruchij.core.daos.videowatchhistory
 
 import cats.data.NonEmptySeq
-import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
-import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.given
+import com.ruchij.core.daos.doobie.DoobieUtils.one
 import com.ruchij.core.daos.videowatchhistory.models.{DetailedVideoWatchHistory, VideoWatchHistory}
 import doobie.ConnectionIO
 import doobie.implicits.*

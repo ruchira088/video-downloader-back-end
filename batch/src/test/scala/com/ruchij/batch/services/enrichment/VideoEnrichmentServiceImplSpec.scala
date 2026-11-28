@@ -22,7 +22,7 @@ import scala.concurrent.duration.*
 
 class VideoEnrichmentServiceImplSpec extends AnyFlatSpec with Matchers {
 
-  implicit val transaction: IO ~> IO = new (IO ~> IO) {
+  given transaction: (IO ~> IO) = new (IO ~> IO) {
     override def apply[A](fa: IO[A]): IO[A] = fa
   }
 
@@ -95,7 +95,7 @@ class VideoEnrichmentServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "snapshotMediaType" should "return image/jpeg" in runIO {
-    implicit val uuidGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator
+    given uuidGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator
     val service = createService()
 
     IO.delay {
@@ -104,7 +104,7 @@ class VideoEnrichmentServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "videoSnapshots" should "create 12 snapshots for a video" in runIO {
-    implicit val uuidGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator
+    given uuidGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator
 
     val snapshotService = new StubVideoSnapshotService()
     val snapshotDao = new StubSnapshotDao()
@@ -122,7 +122,7 @@ class VideoEnrichmentServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "use correct video path" in runIO {
-    implicit val uuidGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator
+    given uuidGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator
 
     val snapshotService = new StubVideoSnapshotService()
     val service = createService(snapshotService)
@@ -136,7 +136,7 @@ class VideoEnrichmentServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "generate unique snapshot paths with video ID and timestamp" in runIO {
-    implicit val uuidGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator
+    given uuidGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator
 
     val snapshotService = new StubVideoSnapshotService()
     val service = createService(snapshotService)
@@ -151,7 +151,7 @@ class VideoEnrichmentServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "set correct timestamps on snapshots" in runIO {
-    implicit val uuidGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator
+    given uuidGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator
 
     val snapshotService = new StubVideoSnapshotService()
     val service = createService(snapshotService)
@@ -171,7 +171,7 @@ class VideoEnrichmentServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "set videoId on all snapshots" in runIO {
-    implicit val uuidGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator
+    given uuidGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator
 
     val snapshotDao = new StubSnapshotDao()
     val service = createService(snapshotDao = snapshotDao)
@@ -185,7 +185,7 @@ class VideoEnrichmentServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "snapshotFileResource" should "delegate to video snapshot service" in runIO {
-    implicit val uuidGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator
+    given uuidGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator
 
     val expectedResource =
       FileResource("test-resource", timestamp, "/images/snapshot.jpg", MediaType.image.jpeg, 25000L)
@@ -202,7 +202,7 @@ class VideoEnrichmentServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "handle different video timestamps" in runIO {
-    implicit val uuidGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator
+    given uuidGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator
 
     val snapshotService = new StubVideoSnapshotService()
     val service = createService(snapshotService)
@@ -218,7 +218,7 @@ class VideoEnrichmentServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "videoSnapshots" should "handle short videos" in runIO {
-    implicit val uuidGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator
+    given uuidGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator
 
     val snapshotService = new StubVideoSnapshotService()
     val service = createService(snapshotService)
@@ -237,7 +237,7 @@ class VideoEnrichmentServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "handle long videos" in runIO {
-    implicit val uuidGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator
+    given uuidGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator
 
     val snapshotService = new StubVideoSnapshotService()
     val service = createService(snapshotService)
@@ -255,7 +255,7 @@ class VideoEnrichmentServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "insert file resources and snapshots in transaction" in runIO {
-    implicit val uuidGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator
+    given uuidGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator
 
     val snapshotDao = new StubSnapshotDao()
     val fileResourceDao = new StubFileResourceDao()
@@ -273,7 +273,7 @@ class VideoEnrichmentServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "generate evenly spaced timestamps" in runIO {
-    implicit val uuidGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator
+    given uuidGenerator: RandomGenerator[IO, UUID] = stubUuidGenerator
 
     val snapshotService = new StubVideoSnapshotService()
     val service = createService(snapshotService)

@@ -15,17 +15,17 @@ import vulcan.generic.*
 final case class ScheduledVideoDeletion(scheduledVideoDownload: ScheduledVideoDownload, userIds: List[String])
 
 object ScheduledVideoDeletion {
-  implicit case object ScheduledVideoDeletionTopic extends MessagingTopic[ScheduledVideoDeletion] {
+  given ScheduledVideoDeletionTopic: MessagingTopic[ScheduledVideoDeletion] {
     override val name: String = "scheduled-video-deletions"
 
     override val avroCodec: Codec[ScheduledVideoDeletion] = {
-      implicit val scheduledVideoDownloadCodec: Codec[ScheduledVideoDownload] = ScheduledVideoDownloadTopic.avroCodec
+      given scheduledVideoDownloadCodec: Codec[ScheduledVideoDownload] = ScheduledVideoDownloadTopic.avroCodec
 
       Codec.derive[ScheduledVideoDeletion]
     }
 
     override val jsonCodec: io.circe.Codec[ScheduledVideoDeletion] = {
-      implicit val scheduledVideoDownloadCodec: io.circe.Codec[ScheduledVideoDownload] =
+      given scheduledVideoDownloadCodec: io.circe.Codec[ScheduledVideoDownload] =
         ScheduledVideoDownloadTopic.jsonCodec
 
       deriveCodec[ScheduledVideoDeletion]

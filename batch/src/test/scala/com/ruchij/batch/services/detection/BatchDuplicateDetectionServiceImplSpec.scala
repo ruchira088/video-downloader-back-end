@@ -37,8 +37,8 @@ import scala.language.postfixOps
 class BatchDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
 
   private val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 30)
-  private implicit val identityTransaction: IO ~> IO = cats.arrow.FunctionK.id[IO]
-  private implicit val stubClock: Clock[IO] = Providers.stubClock[IO](timestamp)
+  private given identityTransaction: (IO ~> IO) = cats.arrow.FunctionK.id[IO]
+  private given stubClock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
   class StubRepositoryService(readResult: Option[Stream[IO, Byte]] = Some(Stream.emits("image-data".getBytes)))
       extends RepositoryService[IO] {

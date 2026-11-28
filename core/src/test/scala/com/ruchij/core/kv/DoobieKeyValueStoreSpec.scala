@@ -33,7 +33,7 @@ class DoobieKeyValueStoreSpec extends AnyFlatSpec with Matchers {
 
   private val resource: Resource[IO, DoobieKeyValueStore[IO, ConnectionIO]] =
     daoResource.map { case (keyValueDao, transaction) =>
-      implicit val tx: ConnectionIO ~> IO = transaction
+      given tx: (ConnectionIO ~> IO) = transaction
       new DoobieKeyValueStore[IO, ConnectionIO](keyValueDao)
     }
 
@@ -102,7 +102,7 @@ class DoobieKeyValueStoreSpec extends AnyFlatSpec with Matchers {
 
   "deleteExpiredKeys" should "remove expired entries and keep non-expired ones" in runIO {
     daoResource.use { case (keyValueDao, transaction) =>
-      implicit val tx: ConnectionIO ~> IO = transaction
+      given tx: (ConnectionIO ~> IO) = transaction
 
       val kvStore = new DoobieKeyValueStore[IO, ConnectionIO](keyValueDao)
 
@@ -128,7 +128,7 @@ class DoobieKeyValueStoreSpec extends AnyFlatSpec with Matchers {
 
   it should "return 0 when there are no expired keys" in runIO {
     daoResource.use { case (keyValueDao, transaction) =>
-      implicit val tx: ConnectionIO ~> IO = transaction
+      given tx: (ConnectionIO ~> IO) = transaction
 
       val kvStore = new DoobieKeyValueStore[IO, ConnectionIO](keyValueDao)
 
@@ -146,7 +146,7 @@ class DoobieKeyValueStoreSpec extends AnyFlatSpec with Matchers {
   "DoobieKeyValueStore.create" should "purge expired entries in the background" in runIO {
     daoResource
       .flatMap { case (keyValueDao, transaction) =>
-        implicit val tx: ConnectionIO ~> IO = transaction
+        given tx: (ConnectionIO ~> IO) = transaction
 
         DoobieKeyValueStore
           .create[IO, ConnectionIO](keyValueDao, 200 milliseconds)

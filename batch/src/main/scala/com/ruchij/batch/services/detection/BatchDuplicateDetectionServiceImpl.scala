@@ -20,7 +20,7 @@ import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.hashing.PerceptualHashingService
 import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.types.Clock
-import com.ruchij.core.types.FunctionKTypes.{FunctionKTypeOps, optionToOptionT}
+import com.ruchij.core.types.FunctionKTypes.{toType, optionToOptionT}
 
 import scala.concurrent.duration.FiniteDuration
 

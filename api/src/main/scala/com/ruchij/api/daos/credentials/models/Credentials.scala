@@ -10,6 +10,6 @@ object Credentials {
   final case class HashedPassword(value: String) extends AnyVal
 
   object HashedPassword {
-    implicit val hashedPasswordMeta: Meta[HashedPassword] = Meta[String].timap(HashedPassword.apply)(_.value)
+    given hashedPasswordMeta: Meta[HashedPassword] = Meta[String].timap(HashedPassword.apply)(_.value)
   }
 }

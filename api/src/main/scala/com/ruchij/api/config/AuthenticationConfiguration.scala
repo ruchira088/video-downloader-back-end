@@ -8,5 +8,5 @@ import scala.concurrent.duration.FiniteDuration
 final case class AuthenticationConfiguration(sessionDuration: FiniteDuration)
 
 object AuthenticationConfiguration {
-  implicit val configReader: ConfigReader[AuthenticationConfiguration] = deriveReader[AuthenticationConfiguration]
+  given configReader: ConfigReader[AuthenticationConfiguration] = deriveReader[AuthenticationConfiguration]
 }

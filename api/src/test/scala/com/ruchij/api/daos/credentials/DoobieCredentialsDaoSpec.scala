@@ -21,7 +21,7 @@ class PostgresDoobieCredentialsDaoSpec extends DoobieCredentialsDaoSpec with Pos
 abstract class DoobieCredentialsDaoSpec extends AnyFlatSpec with Matchers with OptionValues with TestDatabase {
 
   "DoobieCredentialsDao" should "perform CRUD operations for Credentials in the database" in runIO {
-    transactor.use { implicit transactor =>
+    transactor.use { transactor =>
       val timestamp = TimeUtils.instantOf(2021, 10, 17, 22, 24, 10, 123)
 
       val user = User("my-user-id", timestamp, "John", "Doe", Email("john.doe@ruchij.com"), Role.Admin)

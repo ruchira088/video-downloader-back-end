@@ -4,7 +4,7 @@ import cats.effect.unsafe.implicits.global
 import cats.effect.{IO, Resource}
 import cats.~>
 import com.ruchij.core.daos.doobie.DoobieTransactor
-import com.ruchij.core.external.CoreResourcesProvider.ExternalServiceProviderOps
+import com.ruchij.core.external.CoreResourcesProvider.transactor
 import com.ruchij.core.external.containers.PostgresContainer
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
 import com.ruchij.migration.config.DatabaseConfiguration

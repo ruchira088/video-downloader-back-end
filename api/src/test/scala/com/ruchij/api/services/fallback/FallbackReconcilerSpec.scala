@@ -3,7 +3,7 @@ package com.ruchij.api.services.fallback
 import cats.effect.IO
 import cats.effect.kernel.Ref
 import cats.effect.testkit.TestControl
-import com.ruchij.api.services.fallback.FallbackSyncStubs.*
+import com.ruchij.api.services.fallback.FallbackSyncStubs.{given, *}
 import com.ruchij.api.services.fallback.FallbackSyncTestData.{capturedAt, scheduledVideoDownload}
 import com.ruchij.api.services.fallback.aws.{FallbackManifestReader, FallbackSyncTransport, ManifestEntry}
 import com.ruchij.api.services.fallback.models.{MainToFallbackMessage, ScheduledVideoRemoval, ScheduledVideoUpsert}
@@ -19,7 +19,7 @@ import scala.concurrent.duration.*
 
 class FallbackReconcilerSpec extends AnyFlatSpec with Matchers {
   // Follows TestControl's virtual time, unlike the default Clock[IO]
-  implicit val clock: Clock[IO] = new Clock[IO] {
+  given clock: Clock[IO] = new Clock[IO] {
     override val timestamp: IO[Instant] = IO.realTimeInstant
   }
 

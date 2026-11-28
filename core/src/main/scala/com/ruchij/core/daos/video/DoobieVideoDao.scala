@@ -2,8 +2,8 @@ package com.ruchij.core.daos.video
 
 import cats.data.NonEmptyList
 import cats.implicits.*
-import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
-import com.ruchij.core.daos.doobie.DoobieUtils.{SingleUpdateOps, ordering, sortByFieldName}
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.given
+import com.ruchij.core.daos.doobie.DoobieUtils.{singleUpdate, ordering, sortByFieldName}
 import com.ruchij.core.daos.scheduling.models.RangeValue
 import com.ruchij.core.daos.video.models.{Video, VideoSiteSummary}
 import com.ruchij.core.daos.videometadata.models.VideoSite

@@ -18,7 +18,7 @@ import com.ruchij.core.services.hashing.HashingService
 import com.ruchij.core.services.renderer.SpaSiteRenderer
 import com.ruchij.core.services.video.VideoAnalysisService.{Existing, NewlyCreated, VideoMetadataResult}
 import com.ruchij.core.services.video.models.VideoAnalysisResult
-import com.ruchij.core.types.FunctionKTypes.*
+import com.ruchij.core.types.FunctionKTypes.{given, *}
 import com.ruchij.core.types.Clock
 import com.ruchij.core.utils.Http4sUtils
 import org.http4s.Method.{GET, HEAD}

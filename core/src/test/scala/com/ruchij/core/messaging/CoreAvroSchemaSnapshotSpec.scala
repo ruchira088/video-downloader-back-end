@@ -1,6 +1,6 @@
 package com.ruchij.core.messaging
 
-import com.ruchij.core.messaging.MessagingTopic.*
+import com.ruchij.core.messaging.MessagingTopic.given
 
 // Add every new MessagingTopic defined in core here, so that its schema is snapshotted too
 class CoreAvroSchemaSnapshotSpec

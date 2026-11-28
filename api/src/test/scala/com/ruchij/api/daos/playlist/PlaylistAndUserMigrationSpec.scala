@@ -4,7 +4,7 @@ import cats.effect.{IO, Resource}
 import cats.implicits.*
 import com.ruchij.api.daos.user.DoobieUserDao
 import com.ruchij.api.test.data.ApiTestData
-import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.given
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao

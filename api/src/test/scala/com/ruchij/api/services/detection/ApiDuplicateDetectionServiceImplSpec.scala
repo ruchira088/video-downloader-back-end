@@ -18,7 +18,7 @@ class ApiDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
 
   private val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 30)
 
-  private implicit val identityTransaction: IO ~> IO = cats.arrow.FunctionK.id[IO]
+  private given identityTransaction: (IO ~> IO) = cats.arrow.FunctionK.id[IO]
 
   class StubVideoPerceptualHashDao extends VideoPerceptualHashDao[IO] {
     val deletedHashVideoIds: mutable.ListBuffer[String] = mutable.ListBuffer.empty

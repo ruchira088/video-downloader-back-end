@@ -1,6 +1,6 @@
 package com.ruchij.core.daos.resource
 
-import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.given
 import com.ruchij.core.daos.resource.models.FileResource
 import doobie.ConnectionIO
 import doobie.implicits.*

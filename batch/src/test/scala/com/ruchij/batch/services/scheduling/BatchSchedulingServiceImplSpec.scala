@@ -92,7 +92,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     val concurrency = 500
     val size = 1_000
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       val batchSchedulingServiceImpl =
         new BatchSchedulingServiceImpl[IO, ConnectionIO](
           downloadProgressPublisher,
@@ -162,7 +164,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
   "updateSchedulingStatusById" should "update the scheduling status and publish the update" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       val fixture = createTestFixture()
 
       for {
@@ -186,7 +190,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
   it should "raise an error for non-existent video" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       val fixture = createTestFixture()
 
       fixture.batchSchedulingService
@@ -204,7 +210,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
   "transitionSchedulingStatusById" should "change the status from one of the given statuses and publish it" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       val fixture = createTestFixture()
 
       for {
@@ -229,7 +237,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
   it should "leave any other status alone, and publish nothing" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       val fixture = createTestFixture()
 
       for {
@@ -256,7 +266,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
   it should "return None for a non-existent video" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       val fixture = createTestFixture()
 
       fixture.batchSchedulingService
@@ -269,7 +281,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
     val retryConfiguration = RetryConfiguration(maxAttempts = 2, baseDelay = 1.minute, maxDelay = 30.minutes)
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       val fixture = createTestFixture(retryConfiguration)
       val expectedDelay = RetryPolicy(retryConfiguration).nextDelay(0, 0.5).value
 
@@ -300,7 +314,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
     val retryConfiguration = RetryConfiguration(maxAttempts = 2, baseDelay = 1.minute, maxDelay = 30.minutes)
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       val fixture = createTestFixture(retryConfiguration)
 
       for {
@@ -327,7 +343,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
     val retryConfiguration = RetryConfiguration(maxAttempts = 5, baseDelay = 1.minute, maxDelay = 30.minutes)
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       val fixture = createTestFixture(retryConfiguration)
 
       // The user paused the download, the workers were paused, or another worker completed it, while this worker was
@@ -361,7 +379,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
     val retryConfiguration = RetryConfiguration(maxAttempts = 1, baseDelay = 1.minute, maxDelay = 30.minutes)
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       val fixture = createTestFixture(retryConfiguration)
 
       for {
@@ -394,7 +414,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
   it should "set Error once retries are disabled and publish the update" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       val fixture = createTestFixture()
       val testError = new RuntimeException("Test error message")
 
@@ -417,7 +439,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
   it should "write nothing, and return None, for a non-existent video" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       val fixture = createTestFixture()
 
       (fixture.scheduledVideoDownloadPubSub.publishOne).expects(*).never()
@@ -431,7 +455,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
   "completeScheduledVideoDownload" should "mark a video as complete and publish the update" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       val fixture = createTestFixture()
 
       for {
@@ -452,7 +478,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
   "publishDownloadProgress" should "publish download progress" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       val fixture = createTestFixture()
 
       (fixture.downloadProgressPublisher.publishOne).expects(*).returning(IO.unit)
@@ -464,7 +492,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
   "publishScheduledVideoDownload" should "fetch and publish the scheduled video download" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       val fixture = createTestFixture()
 
       for {
@@ -484,7 +514,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
   it should "raise an error for non-existent video" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       val fixture = createTestFixture()
 
       fixture.batchSchedulingService
@@ -502,7 +534,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
   "staleTask" should "return stale task if available" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       val fixture = createTestFixture()
 
       for {
@@ -524,7 +558,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
   "deleteById" should "delete a scheduled video download" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       val fixture = createTestFixture()
 
       for {
@@ -550,7 +586,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
   it should "raise an error for non-existent video" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       val fixture = createTestFixture()
 
       fixture.batchSchedulingService
@@ -568,7 +606,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
   it should "delete video file when downloadedBytes > 0" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       val workerStatusSubscriber = mock[Subscriber[IO, WorkerStatusUpdate]]
       val downloadProgressPublisher = mock[Publisher[IO, DownloadProgress]]
       val repositoryService = mock[FileRepositoryService[IO]]
@@ -616,7 +656,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
   "completeScheduledVideoDownload" should "raise an error for non-existent video" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       val fixture = createTestFixture()
 
       fixture.batchSchedulingService
@@ -634,7 +676,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
   "subscribeToWorkerStatusUpdates" should "return a stream" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       val workerStatusSubscriber = mock[Subscriber[IO, WorkerStatusUpdate]]
       val downloadProgressPublisher = mock[Publisher[IO, DownloadProgress]]
       val repositoryService = mock[FileRepositoryService[IO]]
@@ -688,7 +732,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
     val messages = List(WorkerStatusUpdate(WorkerStatus.Paused), WorkerStatusUpdate(WorkerStatus.Available))
     val workerStatusSubscriber = new FlakyCommitSubscriber(messages)
 
-    implicit val unusedTransaction: ConnectionIO ~> IO = new (ConnectionIO ~> IO) {
+    given unusedTransaction: (ConnectionIO ~> IO) = new (ConnectionIO ~> IO) {
       override def apply[A](fa: ConnectionIO[A]): IO[A] = IO.raiseError(new IllegalStateException("Not used"))
     }
 
@@ -715,7 +759,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
   "subscribeToScheduledVideoDownloadUpdates" should "return a stream" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       val workerStatusSubscriber = mock[Subscriber[IO, WorkerStatusUpdate]]
       val downloadProgressPublisher = mock[Publisher[IO, DownloadProgress]]
       val repositoryService = mock[FileRepositoryService[IO]]
@@ -749,7 +795,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
   "updateSchedulingStatus" should "update videos from one status to another and publish updates" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       val workerStatusSubscriber = mock[Subscriber[IO, WorkerStatusUpdate]]
       val downloadProgressPublisher = mock[Publisher[IO, DownloadProgress]]
       val repositoryService = mock[FileRepositoryService[IO]]
@@ -788,7 +836,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
   it should "return empty sequence when no videos match the from status" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       val workerStatusSubscriber = mock[Subscriber[IO, WorkerStatusUpdate]]
       val downloadProgressPublisher = mock[Publisher[IO, DownloadProgress]]
       val repositoryService = mock[FileRepositoryService[IO]]
@@ -819,7 +869,9 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
   "updateTimedOutTasks" should "update timed out tasks and publish updates" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       val workerStatusSubscriber = mock[Subscriber[IO, WorkerStatusUpdate]]
       val downloadProgressPublisher = mock[Publisher[IO, DownloadProgress]]
       val repositoryService = mock[FileRepositoryService[IO]]
@@ -853,7 +905,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
   "video deletion" should "succeed when video has perceptual hash records" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
         _ <- transactor(insertScheduledVideo(scheduledVideo))
@@ -894,7 +946,7 @@ class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with M
   it should "succeed when video has duplicate video records" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
       for {
         scheduledVideo <- DataGenerators.scheduledVideoDownload[IO].generate
         _ <- transactor(insertScheduledVideo(scheduledVideo))

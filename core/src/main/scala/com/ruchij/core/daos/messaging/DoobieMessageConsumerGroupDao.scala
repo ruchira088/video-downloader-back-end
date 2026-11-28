@@ -3,7 +3,7 @@ package com.ruchij.core.daos.messaging
 import cats.data.NonEmptyList
 import cats.free.Free
 import cats.implicits.*
-import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.given
 import doobie.free.connection.ConnectionIO
 import doobie.implicits.toSqlInterpolator
 import doobie.util.fragments.in

@@ -12,12 +12,12 @@ import scala.concurrent.duration.*
 final case class ResolvedRequestKey(requestId: String) extends KVStoreKey
 
 object ResolvedRequestKey {
-  implicit case object ResolvedRequestKeySpace extends KeySpace[ResolvedRequestKey, String] {
+  given ResolvedRequestKeySpace: KeySpace[ResolvedRequestKey, String] {
     override val name: String = "fallback-sync-resolved-request"
     // As long as SQS can keep the request itself
     override val maybeTtl: Option[FiniteDuration] = Some(14.days)
   }
 
-  implicit def keySpacedKeyEncoder[F[_]: Applicative]: KeySpacedKeyEncoder[F, ResolvedRequestKey] =
+  given keySpacedKeyEncoder[F[_]: Applicative]: KeySpacedKeyEncoder[F, ResolvedRequestKey] =
     KeySpacedKeyEncoder.of(ResolvedRequestKeySpace, KVEncoder[F, String].coMap[ResolvedRequestKey](_.requestId))
 }

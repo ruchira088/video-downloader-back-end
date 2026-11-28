@@ -2,7 +2,7 @@ package com.ruchij.api.config
 
 import cats.ApplicativeThrow
 import com.ruchij.core.config.*
-import com.ruchij.core.types.FunctionKTypes.*
+import com.ruchij.core.types.FunctionKTypes.{given, *}
 import com.ruchij.migration.config.DatabaseConfiguration
 import pureconfig.ConfigObjectSource
 import pureconfig.ConfigReader
@@ -23,7 +23,7 @@ final case class ApiServiceConfiguration(
 )
 
 object ApiServiceConfiguration {
-  implicit val configReader: ConfigReader[ApiServiceConfiguration] = deriveReader[ApiServiceConfiguration]
+  given configReader: ConfigReader[ApiServiceConfiguration] = deriveReader[ApiServiceConfiguration]
 
   def parse[F[_]: ApplicativeThrow](configObjectSource: ConfigObjectSource): F[ApiServiceConfiguration] =
     configObjectSource

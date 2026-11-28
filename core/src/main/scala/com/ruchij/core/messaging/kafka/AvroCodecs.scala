@@ -13,33 +13,33 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 
 object AvroCodecs {
-  implicit val videoSiteCodex: Codec[VideoSite] = Codec[String].imap(VideoSite.from)(_.name)
+  given videoSiteCodex: Codec[VideoSite] = Codec[String].imap(VideoSite.from)(_.name)
 
-  implicit def enumCodec[A <: EnumEntry](using enumValues: Enum[A]): Codec[A] =
+  given enumCodec[A <: EnumEntry](using enumValues: Enum[A]): Codec[A] =
     Codec[String].imapError[A] { input =>
       enumValues.withNameInsensitiveEither(input).left.map(error => AvroError(error.getMessage()))
     }(_.entryName)
 
-  implicit val finiteDurationCodec: Codec[FiniteDuration] =
+  given finiteDurationCodec: Codec[FiniteDuration] =
     Codec[Long].imap(milliseconds => FiniteDuration(milliseconds, TimeUnit.MILLISECONDS))(_.toMillis)
 
-  implicit val uriCodec: Codec[Uri] =
+  given uriCodec: Codec[Uri] =
     Codec[String].imapError(input => Uri.fromString(input).left.map(error => AvroError(error.message)))(_.renderString)
 
-  implicit val mediaTypeCodec: Codec[MediaType] =
+  given mediaTypeCodec: Codec[MediaType] =
     Codec[String].imapError { input =>
       MediaType.parse(input).left.map(error => AvroError(error.message))
     }(Show[MediaType].show)
 
-  implicit val statusCodec: Codec[Status] =
+  given statusCodec: Codec[Status] =
     Codec[Int].imapError(input => Status.fromInt(input).left.map(error => AvroError(error.message)))(_.code)
 
-  implicit val methodCodec: Codec[Method] =
+  given methodCodec: Codec[Method] =
     Codec[String].imapError(input => Method.fromString(input).left.map(error => AvroError(error.message)))(_.name)
 
-  implicit val fileResourceCodec: Codec[FileResource] = Codec.derive[FileResource]
+  given fileResourceCodec: Codec[FileResource] = Codec.derive[FileResource]
 
-  implicit val videoMetadataCodec: Codec[VideoMetadata] = Codec.derive[VideoMetadata]
+  given videoMetadataCodec: Codec[VideoMetadata] = Codec.derive[VideoMetadata]
 
-  implicit val errorInfoCodec: Codec[ErrorInfo] = Codec.derive[ErrorInfo]
+  given errorInfoCodec: Codec[ErrorInfo] = Codec.derive[ErrorInfo]
 }

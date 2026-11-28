@@ -13,9 +13,9 @@ import io.circe.generic.auto.*
 import io.circe.generic.semiauto.deriveCodec as deriveJsonCodec
 import io.circe.{Codec as JsonCodec, Json}
 import vulcan.generic.*
-import com.ruchij.core.messaging.kafka.AvroCodecs.*
-import com.ruchij.core.circe.Decoders.*
-import com.ruchij.core.circe.Encoders.*
+import com.ruchij.core.messaging.kafka.AvroCodecs.given
+import com.ruchij.core.circe.Decoders.given
+import com.ruchij.core.circe.Encoders.given
 import org.http4s.circe.decodeUri
 import org.http4s.circe.encodeUri
 import vulcan.Codec as AvroCodec
@@ -39,7 +39,7 @@ trait MessagingTopic[A] {
 }
 
 object MessagingTopic {
-  implicit case object ScheduledVideoDownloadTopic extends MessagingTopic[ScheduledVideoDownload] {
+  given ScheduledVideoDownloadTopic: MessagingTopic[ScheduledVideoDownload] {
     override val name: String = "scheduled-video-downloads"
 
     override val avroCodec: AvroCodec[ScheduledVideoDownload] = AvroCodec.derive[ScheduledVideoDownload]
@@ -60,7 +60,7 @@ object MessagingTopic {
     }
   }
 
-  implicit case object DownloadProgressTopic extends MessagingTopic[DownloadProgress] {
+  given DownloadProgressTopic: MessagingTopic[DownloadProgress] {
     override val name: String = "download-progress-topic"
 
     override val avroCodec: AvroCodec[DownloadProgress] = AvroCodec.derive[DownloadProgress]
@@ -68,7 +68,7 @@ object MessagingTopic {
     override val jsonCodec: JsonCodec[DownloadProgress] = deriveJsonCodec[DownloadProgress]
   }
 
-  implicit case object HttpMetricTopic extends MessagingTopic[HttpMetric] {
+  given HttpMetricTopic: MessagingTopic[HttpMetric] {
     override val name: String = "http-metrics"
 
     override val avroCodec: AvroCodec[HttpMetric] = AvroCodec.derive[HttpMetric]
@@ -76,7 +76,7 @@ object MessagingTopic {
     override val jsonCodec: JsonCodec[HttpMetric] = deriveJsonCodec[HttpMetric]
   }
 
-  implicit case object WorkerStatusUpdateTopic extends MessagingTopic[WorkerStatusUpdate] {
+  given WorkerStatusUpdateTopic: MessagingTopic[WorkerStatusUpdate] {
     override val name: String = "worker-status-updates"
 
     override val avroCodec: AvroCodec[WorkerStatusUpdate] = AvroCodec.derive[WorkerStatusUpdate]
@@ -84,7 +84,7 @@ object MessagingTopic {
     override val jsonCodec: JsonCodec[WorkerStatusUpdate] = deriveJsonCodec[WorkerStatusUpdate]
   }
 
-  implicit case object ScanVideoCommandTopic extends MessagingTopic[ScanVideosCommand] {
+  given ScanVideoCommandTopic: MessagingTopic[ScanVideosCommand] {
     override val name: String = "scan-videos-command"
 
     override val avroCodec: AvroCodec[ScanVideosCommand] = AvroCodec.derive[ScanVideosCommand]
@@ -92,7 +92,7 @@ object MessagingTopic {
     override val jsonCodec: JsonCodec[ScanVideosCommand] = deriveJsonCodec[ScanVideosCommand]
   }
 
-  implicit case object VideoWatchMetricTopic extends MessagingTopic[VideoWatchMetric] {
+  given VideoWatchMetricTopic: MessagingTopic[VideoWatchMetric] {
 
     override val name: String = "video-watch-metric"
 

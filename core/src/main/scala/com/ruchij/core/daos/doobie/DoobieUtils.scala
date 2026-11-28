@@ -10,8 +10,8 @@ import doobie.util.fragment.Fragment
 
 object DoobieUtils {
 
-  implicit class SingleUpdateOps[F[_]: MonadThrow](value: F[Int]) {
-    val one: F[Unit] =
+  extension [F[_]: MonadThrow](value: F[Int]) {
+    def one: F[Unit] =
       value.flatMap {
         case 1 => Applicative[F].unit
         case count =>
@@ -20,7 +20,7 @@ object DoobieUtils {
           }
       }
 
-    val singleUpdate: OptionT[F, Unit] =
+    def singleUpdate: OptionT[F, Unit] =
       OptionT {
         value.flatMap[Option[Unit]] {
           case 0 => Applicative[F].pure(None)

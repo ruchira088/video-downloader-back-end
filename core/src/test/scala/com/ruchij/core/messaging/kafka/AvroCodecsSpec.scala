@@ -14,7 +14,7 @@ import vulcan.{AvroError, Codec}
 import scala.concurrent.duration.*
 
 class AvroCodecsSpec extends AnyFlatSpec with Matchers {
-  import AvroCodecs.*
+  import AvroCodecs.given
 
   "instantCodec" should "encode and decode Instant correctly" in {
     val instant = TimeUtils.instantOf(2024, 5, 15, 10, 30, 45, 123)

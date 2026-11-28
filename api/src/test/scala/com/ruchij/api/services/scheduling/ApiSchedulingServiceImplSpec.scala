@@ -25,7 +25,7 @@ import com.ruchij.core.services.scheduling.models.WorkerStatusUpdate
 import com.ruchij.core.services.video.VideoAnalysisService
 import com.ruchij.core.services.video.VideoAnalysisService.{NewlyCreated, VideoMetadataResult}
 import com.ruchij.core.services.video.models.VideoAnalysisResult
-import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
+import com.ruchij.core.test.IOSupport.{error, runIO}
 import com.ruchij.core.test.Providers
 import com.ruchij.core.types.{Clock, TimeUtils}
 import org.http4s.implicits.*
@@ -42,7 +42,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
 
   private val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 30)
 
-  implicit val transaction: IO ~> IO = new (IO ~> IO) {
+  given transaction: (IO ~> IO) = new (IO ~> IO) {
     override def apply[A](fa: IO[A]): IO[A] = fa
   }
 
@@ -241,7 +241,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
 
   // schedule tests
   "schedule" should "create new scheduled video download when video doesn't exist" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoUrl = uri"https://youtube.com/watch?v=abc123"
     val publisher = new StubPublisher[ScheduledVideoDownload]()
@@ -263,7 +263,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "return AlreadyScheduled when video exists and user already has permission" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoUrl = uri"https://youtube.com/watch?v=abc123"
     val publisher = new StubPublisher[ScheduledVideoDownload]()
@@ -286,7 +286,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "return NewlyScheduled when video exists but user doesn't have permission" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoUrl = uri"https://youtube.com/watch?v=abc123"
     val publisher = new StubPublisher[ScheduledVideoDownload]()
@@ -304,7 +304,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "return AlreadyScheduled without publishing when the insert loses a scheduling race" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoUrl = uri"https://youtube.com/watch?v=abc123"
     val publisher = new StubPublisher[ScheduledVideoDownload]()
@@ -335,7 +335,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "return NewlyScheduled without publishing when the insert loses a scheduling race but the user gains access" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoUrl = uri"https://youtube.com/watch?v=abc123"
     val publisher = new StubPublisher[ScheduledVideoDownload]()
@@ -369,7 +369,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "request a fallback sync when an existing video gains a user" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val fallbackSyncRequests = new StubPublisher[FallbackSyncRequest]()
 
     val (service, _, _) = createService(
@@ -387,7 +387,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "not request a fallback sync when the user already had the video" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val fallbackSyncRequests = new StubPublisher[FallbackSyncRequest]()
 
     val (service, _, _) = createService(
@@ -403,7 +403,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "not fail when the fallback sync request publisher fails for an existing video that gains a user" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val (service, _, _) = createService(
       fallbackSyncRequestPublisher = new FailingPublisher[FallbackSyncRequest](),
@@ -420,7 +420,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
 
   // retryFailed tests
   "retryFailed" should "retry failed downloads and publish to stream" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val failedDownload = sampleScheduledVideoDownload.copy(status = SchedulingStatus.Error)
     val publisher = new StubPublisher[ScheduledVideoDownload]()
@@ -436,7 +436,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "return empty sequence when no failed downloads" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val publisher = new StubPublisher[ScheduledVideoDownload]()
     val schedulingDao = new StubSchedulingDao(retryErroredResult = Seq.empty)
@@ -450,7 +450,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "handle multiple failed downloads" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val failedDownload1 = sampleScheduledVideoDownload.copy(videoMetadata = sampleVideoMetadata.copy(id = "video-1"))
     val failedDownload2 = sampleScheduledVideoDownload.copy(videoMetadata = sampleVideoMetadata.copy(id = "video-2"))
@@ -468,7 +468,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
 
   // search tests
   "search" should "return search results from dao" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val schedulingDao = new StubSchedulingDao(searchResult = Seq(sampleScheduledVideoDownload))
     val (service, _, _) = createService(schedulingDao = schedulingDao)
@@ -493,7 +493,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "raise error when sortBy is WatchTime" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val (service, _, _) = createService()
 
@@ -519,7 +519,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "process video URLs before searching" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val schedulingDao = new StubSchedulingDao(searchResult = Seq(sampleScheduledVideoDownload))
     val (service, _, _) = createService(schedulingDao = schedulingDao)
@@ -547,7 +547,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "handle multiple video URLs and filters" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val schedulingDao = new StubSchedulingDao(searchResult = Seq(sampleScheduledVideoDownload))
     val (service, _, _) = createService(schedulingDao = schedulingDao)
@@ -597,7 +597,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
 
   // updateSchedulingStatus tests
   "updateSchedulingStatus" should "update status and publish" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val updatedDownload = sampleScheduledVideoDownload.copy(status = SchedulingStatus.Queued)
     val publisher = new StubPublisher[ScheduledVideoDownload]()
@@ -612,7 +612,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "update the status when the user has permission for the download" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val updatedDownload = sampleScheduledVideoDownload.copy(status = SchedulingStatus.Paused)
     val publisher = new StubPublisher[ScheduledVideoDownload]()
@@ -634,7 +634,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "not update the status when the user has no permission for the download" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val publisher = new StubPublisher[ScheduledVideoDownload]()
     val schedulingDao =
@@ -655,7 +655,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "raise ResourceNotFoundException when video not found" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val schedulingDao = new StubSchedulingDao(updateSchedulingStatusResult = None)
     val (service, _, _) = createService(schedulingDao = schedulingDao)
@@ -667,7 +667,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
 
   // getById tests
   "getById" should "return scheduled video download when found" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val schedulingDao = new StubSchedulingDao(getByIdResult =
       (id, _) => if (id == "video-1") Some(sampleScheduledVideoDownload) else None
@@ -680,7 +680,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "filter by user ID when provided" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val schedulingDao = new StubSchedulingDao(getByIdResult =
       (id, userId) => if (id == "video-1" && userId.contains("user-1")) Some(sampleScheduledVideoDownload) else None
@@ -693,7 +693,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "raise ResourceNotFoundException when not found" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val schedulingDao = new StubSchedulingDao(getByIdResult = (_, _) => None)
     val (service, _, _) = createService(schedulingDao = schedulingDao)
@@ -705,7 +705,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
 
   // updateWorkerStatus tests
   "updateWorkerStatus" should "update config and publish status update" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val configStorage = mutable.Map.empty[String, WorkerStatus]
     val configService = new StubConfigurationService(configStorage)
@@ -721,7 +721,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
 
   // getWorkerStatus tests
   "getWorkerStatus" should "return configured worker status" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val configStorage: mutable.Map[String, WorkerStatus] = mutable.Map("worker-status" -> WorkerStatus.Paused)
     val configService = new StubConfigurationService(configStorage)
@@ -734,7 +734,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "return Available as default when not configured" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val configService = new StubConfigurationService(mutable.Map.empty)
     val (service, _, _) = createService(configurationService = configService)
@@ -746,7 +746,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
 
   // updateDownloadProgress tests
   "updateDownloadProgress" should "update progress successfully" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val updatedDownload = sampleScheduledVideoDownload.copy(downloadedBytes = 1024)
     val schedulingDao = new StubSchedulingDao(updateDownloadProgressResult = Some(updatedDownload))
@@ -759,7 +759,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "fallback to getById when progress update returns None" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val schedulingDao = new StubSchedulingDao(
       updateDownloadProgressResult = None,
@@ -775,7 +775,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
 
   // deleteById tests
   "deleteById" should "delete scheduled video download with user filter" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val schedulingDao = new StubSchedulingDao(getByIdResult =
       (id, userId) => if (id == "video-1" && userId.contains("user-1")) Some(sampleScheduledVideoDownload) else None
@@ -789,7 +789,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "delete and publish for admin (no user ID)" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val publisher = new StubPublisher[ScheduledVideoDownload]()
     val schedulingDao = new StubSchedulingDao(getByIdResult =
@@ -806,7 +806,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "raise ValidationException when trying to delete Completed video" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val completedDownload = sampleScheduledVideoDownload.copy(status = SchedulingStatus.Completed)
     val schedulingDao =
@@ -821,7 +821,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "raise ValidationException when trying to delete Downloaded video" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val downloadedDownload = sampleScheduledVideoDownload.copy(status = SchedulingStatus.Downloaded)
     val schedulingDao =
@@ -836,7 +836,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "raise ResourceNotFoundException when video not found" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val schedulingDao = new StubSchedulingDao(getByIdResult = (_, _) => None)
     val (service, _, _) = createService(schedulingDao = schedulingDao)
@@ -847,7 +847,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "request a fallback sync when a user removes their copy" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val fallbackSyncRequests = new StubPublisher[FallbackSyncRequest]()
 
     val (service, _, _) = createService(
@@ -863,7 +863,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "not fail when the fallback sync request publisher fails for a non-admin delete" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val (service, _, _) = createService(
       fallbackSyncRequestPublisher = new FailingPublisher[FallbackSyncRequest](),
@@ -876,7 +876,7 @@ class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "hasPermission" should "be true only when the user has a permission for the scheduled video" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoPermissionDao = new StubVideoPermissionDao() {
       override def find(userId: Option[String], scheduledVideoId: Option[String]): IO[Seq[VideoPermission]] =

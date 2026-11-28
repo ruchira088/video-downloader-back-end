@@ -21,7 +21,7 @@ import com.ruchij.core.external.containers.ContainerCoreResourcesProvider
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
 import com.ruchij.core.services.models.Order
 import com.ruchij.core.services.repository.RepositoryService
-import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
+import com.ruchij.core.test.IOSupport.{error, runIO}
 import com.ruchij.core.test.data.CoreTestData
 import com.ruchij.core.types.Clock
 import doobie.free.connection.ConnectionIO
@@ -113,7 +113,9 @@ class PlaylistServiceIntegrationSpec extends AnyFlatSpec with Matchers with Opti
     test: Fixture => IO[Any]
   ): Unit =
     runIO {
-      provider().transactor.use { implicit transaction =>
+      provider().transactor.use { transaction =>
+        given (ConnectionIO ~> IO) = transaction
+
         for {
           _ <- transaction(setUpData)
           written <- Ref.of[IO, Map[String, Long]](Map.empty)

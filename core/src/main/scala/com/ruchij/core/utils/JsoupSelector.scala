@@ -6,7 +6,7 @@ import cats.{Applicative, ApplicativeError, ApplicativeThrow, MonadThrow}
 import com.ruchij.core.daos.videometadata.models.CustomVideoSite.Selector
 import com.ruchij.core.daos.videometadata.models.WebPage
 import com.ruchij.core.exceptions.JSoupException.*
-import com.ruchij.core.types.FunctionKTypes.*
+import com.ruchij.core.types.FunctionKTypes.{given, *}
 import org.http4s.Uri
 import org.jsoup.nodes.Element
 

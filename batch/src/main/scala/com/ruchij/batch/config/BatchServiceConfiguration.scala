@@ -9,7 +9,7 @@ import com.ruchij.core.config.{
   SpaSiteRendererConfiguration,
   StorageConfiguration
 }
-import com.ruchij.core.types.FunctionKTypes.*
+import com.ruchij.core.types.FunctionKTypes.{given, *}
 import com.ruchij.migration.config.DatabaseConfiguration
 import pureconfig.ConfigObjectSource
 import pureconfig.ConfigReader
@@ -30,7 +30,7 @@ final case class BatchServiceConfiguration(
 )
 
 object BatchServiceConfiguration {
-  implicit val configReader: ConfigReader[BatchServiceConfiguration] = deriveReader[BatchServiceConfiguration]
+  given configReader: ConfigReader[BatchServiceConfiguration] = deriveReader[BatchServiceConfiguration]
 
   def parse[F[_]: ApplicativeThrow](configObjectSource: ConfigObjectSource): F[BatchServiceConfiguration] =
     configObjectSource

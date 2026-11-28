@@ -11,7 +11,7 @@ import com.ruchij.core.daos.videometadata.VideoMetadataDao
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
 import com.ruchij.core.exceptions.{InvalidConditionException, ResourceNotFoundException}
 import com.ruchij.core.services.video.VideoService
-import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
+import com.ruchij.core.test.IOSupport.{error, runIO}
 import com.ruchij.core.test.Providers
 import com.ruchij.core.types.Clock
 import com.ruchij.core.types.TimeUtils
@@ -27,7 +27,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
 
   private val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 30)
 
-  implicit val transaction: IO ~> IO = new (IO ~> IO) {
+  given transaction: (IO ~> IO) = new (IO ~> IO) {
     override def apply[A](fa: IO[A]): IO[A] = fa
   }
 
@@ -152,7 +152,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "insert" should "create a new video entry" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(findByIdResult = Some(sampleVideo))
     val service = createService(videoDao = videoDao)
@@ -164,7 +164,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "throw InvalidConditionException when video cannot be retrieved after insert" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(findByIdResult = None)
     val service = createService(videoDao = videoDao)
@@ -176,7 +176,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "fetchByVideoFileResourceId" should "return video when found" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(findByVideoFileResourceIdResult = Some(sampleVideo))
     val service = createService(videoDao = videoDao)
@@ -187,7 +187,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "throw ResourceNotFoundException when video not found" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(findByVideoFileResourceIdResult = None)
     val service = createService(videoDao = videoDao)
@@ -199,7 +199,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "incrementWatchTime" should "return updated watch time" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(incrementWatchTimeResult = Some(15.minutes))
     val service = createService(videoDao = videoDao)
@@ -210,7 +210,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "throw ResourceNotFoundException when video not found" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(incrementWatchTimeResult = None)
     val service = createService(videoDao = videoDao)
@@ -222,7 +222,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "update" should "update video metadata and file resource size" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val updatedFileResource = sampleFileResource.copy(size = 200 * 1024 * 1024L)
     val updatedVideoMetadata = sampleVideoMetadata.copy(size = 200 * 1024 * 1024L)
@@ -245,7 +245,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "throw ResourceNotFoundException when video not found" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(findByIdResult = None)
     val service = createService(videoDao = videoDao)
@@ -257,7 +257,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "deleteById" should "delegate to videoService.deleteById" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     var deleteByIdCalled = false
     var deleteVideoFileParam = false
@@ -280,7 +280,7 @@ class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "pass deleteVideoFile=false to videoService" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     var deleteVideoFileParam = true
 

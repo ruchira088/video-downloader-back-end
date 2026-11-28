@@ -2,7 +2,7 @@ package com.ruchij.api.web.requests.queryparams
 
 import cats.ApplicativeThrow
 import cats.data.Kleisli
-import com.ruchij.api.web.requests.queryparams.QueryParameter.*
+import com.ruchij.api.web.requests.queryparams.QueryParameter.{given, *}
 import com.ruchij.core.daos.scheduling.models.RangeValue
 import com.ruchij.core.services.models.Order
 import org.http4s.QueryParamDecoder

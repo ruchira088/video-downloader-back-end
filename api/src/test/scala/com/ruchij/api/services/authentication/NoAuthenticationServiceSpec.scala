@@ -4,7 +4,7 @@ import cats.effect.IO
 import com.ruchij.api.daos.user.models.Email
 import com.ruchij.api.exceptions.AuthenticationException
 import com.ruchij.api.services.authentication.AuthenticationService.{Password, Secret}
-import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
+import com.ruchij.core.test.IOSupport.{error, runIO}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 

@@ -3,7 +3,7 @@ package com.ruchij.core.external.containers
 import cats.effect.Sync
 import cats.effect.kernel.Resource
 import cats.implicits.*
-import com.ruchij.core.types.FunctionKTypes.*
+import com.ruchij.core.types.FunctionKTypes.{given, *}
 import org.http4s.Uri
 import org.testcontainers.containers.{GenericContainer, Network}
 

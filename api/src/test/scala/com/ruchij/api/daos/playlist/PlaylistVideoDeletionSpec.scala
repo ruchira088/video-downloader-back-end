@@ -132,7 +132,9 @@ class PlaylistVideoDeletionSpec extends AnyFlatSpec with Matchers with OptionVal
   providers.foreach { case (databaseName, provider) =>
     s"VideoServiceImpl.queueIncorrectlyCompletedVideos ($databaseName)" should
       "keep the re-queued video in its playlists once it is downloaded again" in
-      withPlaylist(provider) { implicit transaction =>
+      withPlaylist(provider) { transaction =>
+        given (ConnectionIO ~> IO) = transaction
+
         val playlistId = playlistsWithSmallVideo.head.id
         val otherPlaylistId = playlistsWithSmallVideo.last.id
 
@@ -157,7 +159,9 @@ class PlaylistVideoDeletionSpec extends AnyFlatSpec with Matchers with OptionVal
       }
 
     it should "append the re-queued video when its position was taken while it was downloaded again" in
-      withPlaylist(provider) { implicit transaction =>
+      withPlaylist(provider) { transaction =>
+        given (ConnectionIO ~> IO) = transaction
+
         val playlistId = playlistsWithSmallVideo.head.id
         val reorderedVideoIds = List(CoreTestData.SpankBangVideo, CoreTestData.YouTubeVideo).map(_.videoMetadata.id)
 
@@ -174,7 +178,9 @@ class PlaylistVideoDeletionSpec extends AnyFlatSpec with Matchers with OptionVal
       }
 
     it should "not bring back a re-queued video that is deleted after it is downloaded again" in
-      withPlaylist(provider) { implicit transaction =>
+      withPlaylist(provider) { transaction =>
+        given (ConnectionIO ~> IO) = transaction
+
         val playlistId = playlistsWithSmallVideo.head.id
 
         for {
@@ -193,7 +199,9 @@ class PlaylistVideoDeletionSpec extends AnyFlatSpec with Matchers with OptionVal
       }
 
     s"VideoServiceImpl.deleteById ($databaseName)" should "delete a video that is in a playlist" in
-      withPlaylist(provider) { implicit transaction =>
+      withPlaylist(provider) { transaction =>
+        given (ConnectionIO ~> IO) = transaction
+
         for {
           deleted <- videoService.deleteById(CoreTestData.YouTubeVideo.videoMetadata.id, deleteVideoFile = false)
           remaining <- transaction(playlistDao.findById(playlist.id, None))

@@ -7,7 +7,7 @@ import com.ruchij.core.circe.Decoders.finiteDurationDecoder
 import com.ruchij.core.daos.videometadata.models.CustomVideoSite.Selector
 import com.ruchij.core.exceptions.ValidationException
 import com.ruchij.core.services.renderer.SpaSiteRenderer
-import com.ruchij.core.types.FunctionKTypes.*
+import com.ruchij.core.types.FunctionKTypes.{given, *}
 import com.ruchij.core.utils.JsoupSelector
 import com.ruchij.core.utils.MatcherUtils.FiniteDurationValue
 import enumeratum.{Enum, EnumEntry}

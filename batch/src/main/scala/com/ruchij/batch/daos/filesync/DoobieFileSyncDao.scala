@@ -3,7 +3,7 @@ package com.ruchij.batch.daos.filesync
 import cats.data.OptionT
 import cats.implicits.*
 import com.ruchij.batch.daos.filesync.models.FileSync
-import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
+import com.ruchij.core.daos.doobie.DoobieUtils.singleUpdate
 import com.ruchij.core.daos.doobie.DoobieCustomMappings.{instantGet, instantPut}
 import doobie.free.connection.ConnectionIO
 import doobie.implicits.toSqlInterpolator

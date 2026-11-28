@@ -9,7 +9,7 @@ import com.ruchij.api.services.authentication.AuthenticationService.Secret
 import com.ruchij.api.services.authentication.models.AuthenticationToken
 import com.ruchij.api.services.models.Context.{AuthenticatedRequestContext, RequestContext}
 import com.ruchij.api.web.headers.`X-User-ID`
-import com.ruchij.core.types.FunctionKTypes.*
+import com.ruchij.core.types.FunctionKTypes.{given, *}
 import org.http4s.*
 import org.http4s.headers.Authorization
 import org.http4s.server.Middleware

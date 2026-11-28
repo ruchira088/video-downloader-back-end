@@ -2,7 +2,7 @@ package com.ruchij.api.services.fallback
 
 import cats.Monad
 import cats.implicits.*
-import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.given
 import com.ruchij.core.daos.permission.VideoPermissionDao
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownload}

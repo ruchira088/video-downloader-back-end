@@ -21,7 +21,7 @@ import com.ruchij.core.daos.videowatchhistory.models.{DetailedVideoWatchHistory,
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.services.repository.RepositoryService
-import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
+import com.ruchij.core.test.IOSupport.{error, runIO}
 import com.ruchij.core.test.Providers
 import com.ruchij.core.types.Clock
 import com.ruchij.core.types.TimeUtils
@@ -40,7 +40,7 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
 
   private val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 30)
 
-  implicit val transaction: IO ~> IO = new (IO ~> IO) {
+  given transaction: (IO ~> IO) = new (IO ~> IO) {
     override def apply[A](fa: IO[A]): IO[A] = fa
   }
 
@@ -301,7 +301,7 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "findVideoById" should "return video when found" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(findByIdResult = (id, _) => if (id == "video-1") Some(sampleVideo) else None)
 
@@ -314,7 +314,7 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "return video when found with user ID" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(findByIdResult =
       (id, userId) => if (id == "video-1" && userId.contains("user-1")) Some(sampleVideo) else None
@@ -328,7 +328,7 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "throw ResourceNotFoundException when video not found" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(findByIdResult = (_, _) => None)
     val service = createService(videoDao = videoDao)
@@ -340,7 +340,7 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "deleteById" should "delete video and all associated resources with video file" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val deletedPaths = mutable.ListBuffer.empty[String]
 
@@ -365,7 +365,7 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "delete video but not the video file when deleteVideoFile is false" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val deletedPaths = mutable.ListBuffer.empty[String]
 
@@ -390,7 +390,7 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "throw ResourceNotFoundException when video to delete not found" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(findByIdResult = (_, _) => None)
     val service = createService(videoDao = videoDao)
@@ -402,7 +402,7 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "delete video with multiple snapshots" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val deletedPaths = mutable.ListBuffer.empty[String]
 
@@ -431,7 +431,7 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "delete video with no snapshots" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val deletedPaths = mutable.ListBuffer.empty[String]
 
@@ -456,7 +456,7 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "queueIncorrectlyCompletedVideos" should "requeue small videos found in search" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val smallFileResource = sampleFileResource.copy(size = 500 * 1024L) // 500KB - under 1MB threshold
     val smallVideoMetadata = sampleVideoMetadata.copy(size = 500 * 1024L)
@@ -513,7 +513,7 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "return empty sequence when no incorrectly completed videos" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(searchResult = Seq.empty)
     val service = createService(videoDao = videoDao)
@@ -524,7 +524,7 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "process multiple incorrectly completed videos" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val smallFileResource1 = sampleFileResource.copy(id = "file-1", path = "/videos/small1.mp4", size = 300 * 1024L)
     val smallFileResource2 = sampleFileResource.copy(id = "file-2", path = "/videos/small2.mp4", size = 400 * 1024L)
@@ -566,7 +566,7 @@ class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "delete the snapshot files before the video file" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val smallFileResource = sampleFileResource.copy(size = 500 * 1024L)
     val smallVideoMetadata = sampleVideoMetadata.copy(size = 500 * 1024L)

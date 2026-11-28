@@ -4,7 +4,7 @@ import cats.{Applicative, ApplicativeError}
 import cats.data.NonEmptyList
 import cats.implicits.*
 import com.ruchij.api.daos.playlist.models.{Playlist, PlaylistSortBy}
-import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.given
 import com.ruchij.core.daos.doobie.DoobieUtils.ordering
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource

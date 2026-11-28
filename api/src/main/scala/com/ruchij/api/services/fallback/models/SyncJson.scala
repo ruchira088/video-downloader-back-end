@@ -46,7 +46,7 @@ object SyncJson {
       )
       .dropNullValues
 
-  implicit val mainToFallbackMessageEncoder: Encoder[MainToFallbackMessage] =
+  given mainToFallbackMessageEncoder: Encoder[MainToFallbackMessage] =
     Encoder.instance {
       case upsert: ScheduledVideoUpsert => upsertJson(upsert)
 
@@ -83,7 +83,7 @@ object SyncJson {
         )
     }
 
-  implicit val scheduleRequestEncoder: Encoder[ScheduleRequest] =
+  given scheduleRequestEncoder: Encoder[ScheduleRequest] =
     Encoder.instance { request =>
       Json.obj(
         "type" -> Json.fromString("ScheduleRequest"),
@@ -94,7 +94,7 @@ object SyncJson {
       )
     }
 
-  implicit val scheduleRequestDecoder: Decoder[ScheduleRequest] =
+  given scheduleRequestDecoder: Decoder[ScheduleRequest] =
     Decoder.instance { cursor =>
       for {
         _ <- messageType(cursor, "ScheduleRequest")
@@ -143,7 +143,7 @@ object SyncJson {
     }
 
   /** The main side only decodes the replies it stored itself (see FallbackRequestConsumer). */
-  implicit val requestResolvedDecoder: Decoder[RequestResolved] =
+  given requestResolvedDecoder: Decoder[RequestResolved] =
     Decoder.instance { cursor =>
       val outcome = cursor.downField("outcome")
 

@@ -6,7 +6,7 @@ import cats.effect.Sync
 import cats.implicits.*
 import com.ruchij.api.services.asset.AssetService
 import com.ruchij.api.services.models.Context.AuthenticatedRequestContext
-import com.ruchij.api.web.responses.ResponseOps.AssetResponseOps
+import com.ruchij.api.web.responses.ResponseOps.asResponse
 import AssetService.FileByteRange
 import org.http4s.{ContextRoutes, RangeUnit}
 import org.http4s.dsl.Http4sDsl

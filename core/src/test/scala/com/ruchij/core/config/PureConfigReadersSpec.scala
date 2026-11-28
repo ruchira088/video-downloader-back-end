@@ -1,7 +1,7 @@
 package com.ruchij.core.config
 
 import com.comcast.ip4s.{Host, Port}
-import com.ruchij.core.config.PureConfigReaders.*
+import com.ruchij.core.config.PureConfigReaders.given
 import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 import com.ruchij.core.services.models.Order
 import com.typesafe.config.ConfigFactory

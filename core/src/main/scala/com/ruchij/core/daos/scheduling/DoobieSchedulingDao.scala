@@ -3,8 +3,8 @@ package com.ruchij.core.daos.scheduling
 import cats.data.{NonEmptyList, OptionT}
 import cats.implicits.*
 import cats.{Applicative, ApplicativeError}
-import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
-import com.ruchij.core.daos.doobie.DoobieUtils.{SingleUpdateOps, ordering, sortByFieldName}
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.given
+import com.ruchij.core.daos.doobie.DoobieUtils.{one, singleUpdate, ordering, sortByFieldName}
 import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.services.models.{Order, SortBy}

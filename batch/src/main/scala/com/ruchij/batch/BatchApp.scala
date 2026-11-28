@@ -1,6 +1,6 @@
 package com.ruchij.batch
 
-import cats.Parallel
+import cats.{Parallel, ~>}
 import cats.effect.*
 import cats.effect.kernel.Async
 import cats.effect.std.Dispatcher
@@ -33,7 +33,7 @@ import com.ruchij.core.daos.title.DoobieVideoTitleDao
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videowatchhistory.DoobieVideoWatchHistoryDao
-import com.ruchij.core.kv.codecs.KVEncoder.*
+import com.ruchij.core.kv.codecs.KVEncoder.given
 import com.ruchij.core.kv.{KeySpacedKeyValueStore, RedisKeyValueStore}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.PubSub
@@ -111,7 +111,9 @@ object BatchApp extends IOApp {
     DoobieTransactor
       .create[F](batchServiceConfiguration.databaseConfiguration)
       .map(_.trans)
-      .flatMap { implicit transaction =>
+      .flatMap { transaction =>
+        given (ConnectionIO ~> F) = transaction
+
         for {
           proxiedHttpClient <- Clients.create[F](batchServiceConfiguration.httpProxyConfiguration)
           httpClient <- Clients.create[F](None)

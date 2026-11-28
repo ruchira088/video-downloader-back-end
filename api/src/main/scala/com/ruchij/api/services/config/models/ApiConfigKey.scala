@@ -11,7 +11,7 @@ object ApiConfigKey {
     override val key: String = "worker-status"
   }
 
-  implicit case object ApiConfigKeySpace extends KeySpace[ApiConfigKey[?], String] {
+  given ApiConfigKeySpace: KeySpace[ApiConfigKey[?], String] {
     override val name: String = "api-config"
   }
 }

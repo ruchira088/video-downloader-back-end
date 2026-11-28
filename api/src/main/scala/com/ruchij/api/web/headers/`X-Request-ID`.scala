@@ -6,7 +6,7 @@ import org.typelevel.ci.CIStringSyntax
 final case class `X-Request-ID`(value: String)
 
 object `X-Request-ID` {
-  implicit val requestIdHeaderInstance: Header[`X-Request-ID`, Header.Single] =
+  given requestIdHeaderInstance: Header[`X-Request-ID`, Header.Single] =
     Header.create[`X-Request-ID`, Header.Single](
       ci"X-Request-ID",
       _.value,

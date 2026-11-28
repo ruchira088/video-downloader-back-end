@@ -114,7 +114,7 @@ object PubSub {
             DoobieTransactor
               .create[F](databaseConfiguration)
               .map { hikariTransactor =>
-                implicit val transaction: ConnectionIO ~> F = hikariTransactor.trans
+                given transaction: (ConnectionIO ~> F) = hikariTransactor.trans
 
                 new PubSubProvider[F] {
                   override def pubSub[A: MessagingTopic]: Resource[F, PubSub[F, A]] =

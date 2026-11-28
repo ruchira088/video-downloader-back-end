@@ -234,7 +234,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
     videoWatchHistoryDao: VideoWatchHistoryDao[IO] = new RecordingVideoWatchHistoryDao,
     fallbackSyncRequestPublisher: Publisher[IO, FallbackSyncRequest] = new NoOpPublisher[IO, FallbackSyncRequest]
   )(using clock: Clock[IO]): ApiVideoServiceImpl[IO, IO] = {
-    implicit val transaction: IO ~> IO = new (IO ~> IO) {
+    given transaction: (IO ~> IO) = new (IO ~> IO) {
       override def apply[A](fa: IO[A]): IO[A] = fa
     }
 
@@ -279,7 +279,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "fetchById" should "fetch video by ID without user ID" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
 
     val videoService = createStubVideoService(findVideoByIdResult = (id, userId) => {
@@ -304,7 +304,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "fetch video by ID with user ID" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
 
     val videoService = createStubVideoService(findVideoByIdResult = (id, userId) => {
@@ -329,7 +329,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "fetchVideoSnapshots" should "fetch snapshots for a video without user ID" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
 
     val apiVideoService = createService(
@@ -349,7 +349,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "fetch snapshots for a video with user ID" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
 
     val apiVideoService = createService(
@@ -369,7 +369,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "update" should "update video metadata title when no user ID provided (admin update)" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
 
     val updatedVideo = sampleVideo.copy(videoMetadata = sampleVideoMetadata.copy(title = "Updated Title"))
@@ -400,7 +400,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "update user-specific video title when user ID provided" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
 
     val updatedVideo = sampleVideo.copy(videoMetadata = sampleVideoMetadata.copy(title = "User Updated Title"))
@@ -431,7 +431,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "deleteById" should "delete video for admin (no user ID)" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
 
     val videoService = createStubVideoService(deleteByIdResult = (id, deleteFile) => {
@@ -456,7 +456,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "delete user-specific associations when user ID provided" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
 
     val videoService = createStubVideoService(findVideoByIdResult = (id, userId) => {
@@ -481,7 +481,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "delete the user's watch history of the video when user ID provided" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
     val videoWatchHistoryDao = new RecordingVideoWatchHistoryDao
 
@@ -503,7 +503,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "leave watch history to the video service when an admin deletes a video" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
     val videoWatchHistoryDao = new RecordingVideoWatchHistoryDao
 
@@ -525,7 +525,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "delete video without deleting file" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
 
     val videoService = createStubVideoService(deleteByIdResult = (id, deleteFile) => {
@@ -550,7 +550,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "update" should "request a fallback sync when an admin changes the title" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
 
     for {
@@ -572,7 +572,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "not request a fallback sync when a user changes only their own title" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
 
     for {
@@ -594,7 +594,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "not fail when the fallback sync request publisher fails" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
 
     val apiVideoService = createService(
@@ -613,7 +613,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "deleteById" should "request a fallback sync when an admin deletes a video" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
 
     for {
@@ -635,7 +635,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "request a fallback sync when a user removes a video from their list" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
 
     for {
@@ -657,7 +657,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "not fail the delete when the fallback sync request publisher fails" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
 
     val apiVideoService = createService(
@@ -676,7 +676,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "search" should "search videos without video URLs" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
     val searchCalls = mutable.ListBuffer.empty[VideoSearchCall]
 
@@ -724,7 +724,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "search videos with video URLs" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
     val searchCalls = mutable.ListBuffer.empty[VideoSearchCall]
 
@@ -773,7 +773,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "search videos with site filter" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
     val searchCalls = mutable.ListBuffer.empty[VideoSearchCall]
 
@@ -821,7 +821,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "search videos with duration and size ranges" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
     val searchCalls = mutable.ListBuffer.empty[VideoSearchCall]
 
@@ -869,7 +869,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "summary" should "return video service summary" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
 
     val sites: Set[VideoSite] = Set(CustomVideoSite.SpankBang, CustomVideoSite.PornOne)
@@ -903,7 +903,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "scanForVideos" should "return existing scan when already in progress" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val existingScan = VideoScan(timestamp, ScanStatus.InProgress)
     val (sharedConfigService, _) = createStubConfigService(Some(existingScan))
 
@@ -924,7 +924,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "schedule new scan when no scan in progress" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, stateRef) = createStubConfigService(None)
     val expectedScan = VideoScan(timestamp, ScanStatus.Scheduled)
 
@@ -946,7 +946,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "schedule new scan when previous scan is not in progress (Idle)" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val existingScan = VideoScan(timestamp.minus(java.time.Duration.ofHours(1)), ScanStatus.Idle)
     val (sharedConfigService, stateRef) = createStubConfigService(Some(existingScan))
     val expectedScan = VideoScan(timestamp, ScanStatus.Scheduled)
@@ -969,7 +969,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "schedule new scan when previous scan had error status" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val existingScan = VideoScan(timestamp.minus(java.time.Duration.ofHours(1)), ScanStatus.Error)
     val (sharedConfigService, stateRef) = createStubConfigService(Some(existingScan))
     val expectedScan = VideoScan(timestamp, ScanStatus.Scheduled)
@@ -992,7 +992,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "schedule new scan when previous scan was scheduled (not in progress)" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val existingScan = VideoScan(timestamp.minus(java.time.Duration.ofHours(1)), ScanStatus.Scheduled)
     val (sharedConfigService, stateRef) = createStubConfigService(Some(existingScan))
     val expectedScan = VideoScan(timestamp, ScanStatus.Scheduled)
@@ -1015,7 +1015,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "scanStatus" should "return current scan status" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val existingScan = VideoScan(timestamp, ScanStatus.InProgress)
     val (sharedConfigService, _) = createStubConfigService(Some(existingScan))
 
@@ -1036,7 +1036,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "return None when no scan status exists" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService(None)
 
     val apiVideoService = createService(
@@ -1056,7 +1056,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "queueIncorrectlyCompletedVideos" should "delegate to video service" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
 
     val videoService = createStubVideoService(queueIncorrectlyCompletedResult = IO.pure(Seq(sampleVideo)))
@@ -1078,7 +1078,7 @@ class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "return empty sequence when no incorrectly completed videos" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
     val (sharedConfigService, _) = createStubConfigService()
 
     val apiVideoService = createService(

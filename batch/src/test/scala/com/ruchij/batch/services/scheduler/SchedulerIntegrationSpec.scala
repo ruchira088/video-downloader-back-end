@@ -50,7 +50,7 @@ class SchedulerIntegrationSpec extends AnyFlatSpec with Matchers with OptionValu
   "Worker initialization via WorkerDao" should "insert workers into the database" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
       val workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
 
       for {
@@ -73,7 +73,7 @@ class SchedulerIntegrationSpec extends AnyFlatSpec with Matchers with OptionValu
   it should "handle status transitions correctly" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
       val workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
 
       for {
@@ -98,7 +98,7 @@ class SchedulerIntegrationSpec extends AnyFlatSpec with Matchers with OptionValu
   "Worker reservation" should "allow workers to be reserved and released" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
       val workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
 
       for {
@@ -140,7 +140,7 @@ class SchedulerIntegrationSpec extends AnyFlatSpec with Matchers with OptionValu
   "Task assignment" should "assign tasks to workers" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
       val workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
 
       for {
@@ -179,7 +179,7 @@ class SchedulerIntegrationSpec extends AnyFlatSpec with Matchers with OptionValu
   "Worker heartbeat" should "update worker heartbeat timestamp" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
       val workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
       val workerId = "heartbeat-test-worker"
 
@@ -207,7 +207,7 @@ class SchedulerIntegrationSpec extends AnyFlatSpec with Matchers with OptionValu
   "Stale worker cleanup" should "clean up workers with old heartbeats" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
       val workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
 
       for {
@@ -243,7 +243,7 @@ class SchedulerIntegrationSpec extends AnyFlatSpec with Matchers with OptionValu
   "Worker status updates" should "update all worker statuses" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
       val workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
 
       for {
@@ -272,7 +272,7 @@ class SchedulerIntegrationSpec extends AnyFlatSpec with Matchers with OptionValu
   "DoobieWorkerDao" should "get worker by ID" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
       val workerDao = new DoobieWorkerDao(DoobieSchedulingDao)
 
       for {

@@ -8,7 +8,7 @@ import com.ruchij.core.exceptions.{CliCommandException, ResourceNotFoundExceptio
 import com.ruchij.core.services.cli.{CliCommandRunner, CliCommandRunnerImpl}
 import com.ruchij.core.services.video.models.YTDataUnit.MiB
 import com.ruchij.core.services.video.models.{YTDataSize, YTDownloaderProgress}
-import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
+import com.ruchij.core.test.IOSupport.{error, runIO}
 import fs2.Stream
 import io.circe.ParsingFailure
 import org.http4s.Uri

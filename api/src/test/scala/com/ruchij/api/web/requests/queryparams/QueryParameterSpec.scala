@@ -4,11 +4,11 @@ import cats.ApplicativeThrow
 import cats.data.{Kleisli, NonEmptyList}
 import cats.effect.IO
 import com.ruchij.api.daos.user.models.Role
-import com.ruchij.api.web.requests.queryparams.QueryParameter.*
+import com.ruchij.api.web.requests.queryparams.QueryParameter.{given, *}
 import com.ruchij.core.daos.scheduling.models.RangeValue
 import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.exceptions.{AggregatedException, ValidationException}
-import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
+import com.ruchij.core.test.IOSupport.{error, runIO}
 import org.http4s.{QueryParamDecoder, QueryParameterValue}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers

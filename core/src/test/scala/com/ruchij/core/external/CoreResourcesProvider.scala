@@ -35,7 +35,7 @@ object CoreResourcesProvider {
       migrationResult <- Resource.eval(MigrationApp.migration[F](migrationServiceConfiguration(databaseConfig)))
     } yield hikariTransactor.trans
 
-  implicit class ExternalServiceProviderOps[F[_]](externalServiceProvider: CoreResourcesProvider[F]) {
+  extension [F[_]](externalServiceProvider: CoreResourcesProvider[F]) {
     def transactor(using async: Async[F], executionContext: ExecutionContext): Resource[F, ConnectionIO ~> F] =
       externalServiceProvider.databaseConfiguration
         .flatMap(databaseConfig => CoreResourcesProvider.transactor(databaseConfig))

@@ -19,29 +19,29 @@ final case class AuthenticationToken(
 )
 
 object AuthenticationToken {
+  private given secretKVEncoder[F[_]: Applicative]: KVEncoder[F, Secret] = KVEncoder[F, String].coMap(_.value)
+
+  private given secretKVDecoder[F[_]: Applicative]: KVDecoder[F, Secret] =
+    KVDecoder[F, String].map(Secret.apply)
+
   final case class AuthenticationTokenKey(secret: Secret) extends KVStoreKey
 
   object AuthenticationTokenKey {
-    implicit def keySpacedKeyEncoder[F[_]: Applicative]: KeySpacedKeyEncoder[F, AuthenticationTokenKey] =
+    given keySpacedKeyEncoder[F[_]: Applicative]: KeySpacedKeyEncoder[F, AuthenticationTokenKey] =
       KeySpacedKeyEncoder.of(AuthenticationKeySpace, secretKVEncoder[F].coMap[AuthenticationTokenKey](_.secret))
   }
 
-  implicit case object AuthenticationKeySpace extends KeySpace[AuthenticationTokenKey, AuthenticationToken] {
+  given AuthenticationKeySpace: KeySpace[AuthenticationTokenKey, AuthenticationToken] {
     override val name: String = "authentication"
 
     override val maybeTtl: Option[FiniteDuration] = Some(45 days)
   }
 
-  implicit def kvEncoder[F[_]: Monad]: KVEncoder[F, AuthenticationToken] =
+  given kvEncoder[F[_]: Monad]: KVEncoder[F, AuthenticationToken] =
     KVEncoder.forProduct6 { (token: AuthenticationToken) =>
       (token.userId, token.secret, token.expiresAt, token.issuedAt, token.renewals, token.credentialsLastUpdatedAt)
     }
 
-  implicit def kvDecoder[F[_]: MonadThrow]: KVDecoder[F, AuthenticationToken] =
+  given kvDecoder[F[_]: MonadThrow]: KVDecoder[F, AuthenticationToken] =
     KVDecoder.forProduct6(AuthenticationToken.apply)
-
-  private implicit def secretKVEncoder[F[_]: Applicative]: KVEncoder[F, Secret] = KVEncoder[F, String].coMap(_.value)
-
-  private implicit def secretKVDecoder[F[_]: Applicative]: KVDecoder[F, Secret] =
-    KVDecoder[F, String].map(Secret.apply)
 }

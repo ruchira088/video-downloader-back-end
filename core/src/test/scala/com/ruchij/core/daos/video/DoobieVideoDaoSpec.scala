@@ -33,7 +33,7 @@ class PostgresDoobieVideoDaoSpec extends DoobieVideoDaoSpec with PostgresTestDat
 
 abstract class DoobieVideoDaoSpec extends AnyFlatSpec with Matchers with OptionValues with TestDatabase {
 
-  import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
+  import com.ruchij.core.daos.doobie.DoobieCustomMappings.given
 
   private def insertTestUser(userId: String, email: String, timestamp: Instant): ConnectionIO[Int] =
     sql"""

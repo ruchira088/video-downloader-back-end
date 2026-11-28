@@ -45,7 +45,7 @@ object QueryParameter {
         }
     }
 
-  implicit def rangeValueQueryParamDecoder[A: QueryParamDecoder: Ordering]: QueryParamDecoder[RangeValue[A]] =
+  given rangeValueQueryParamDecoder[A: QueryParamDecoder: Ordering]: QueryParamDecoder[RangeValue[A]] =
     (queryParameterValue: QueryParameterValue) => {
       val valuesList = queryParameterValue.value.split('-').toList
 
@@ -72,18 +72,18 @@ object QueryParameter {
           }
     }
 
-  implicit val finiteDurationQueryParamDecoder: QueryParamDecoder[FiniteDuration] =
+  given finiteDurationQueryParamDecoder: QueryParamDecoder[FiniteDuration] =
     QueryParamDecoder[Long].map(number => FiniteDuration(number, TimeUnit.MINUTES))
 
-  implicit val videoSiteQueryParamDecoder: QueryParamDecoder[VideoSite] =
+  given videoSiteQueryParamDecoder: QueryParamDecoder[VideoSite] =
     QueryParamDecoder[String].map(VideoSite.from)
 
-  implicit def optionQueryParamDecoder[A: QueryParamDecoder]: QueryParamDecoder[Option[A]] =
+  given optionQueryParamDecoder[A: QueryParamDecoder]: QueryParamDecoder[Option[A]] =
     (queryParameterValue: QueryParameterValue) =>
       if (queryParameterValue.value.trim.isEmpty) Valid(None)
       else QueryParamDecoder[A].decode(queryParameterValue).map(Some.apply)
 
-  implicit def nonEmptyListQueryParamDecoder[A: QueryParamDecoder: ClassTag]: QueryParamDecoder[NonEmptyList[A]] =
+  given nonEmptyListQueryParamDecoder[A: QueryParamDecoder: ClassTag]: QueryParamDecoder[NonEmptyList[A]] =
     (queryParameterValue: QueryParameterValue) =>
       queryParameterValue.value
         .split(",")
@@ -110,10 +110,7 @@ object QueryParameter {
           }
         )
 
-  implicit def enumQueryParamDecoder[A <: EnumEntry](using
-    enumValue: Enum[A],
-    classTag: ClassTag[A]
-  ): QueryParamDecoder[A] =
+  given enumQueryParamDecoder[A <: EnumEntry](using enumValue: Enum[A], classTag: ClassTag[A]): QueryParamDecoder[A] =
     (queryParameterValue: QueryParameterValue) =>
       enumValue.values
         .find(_.entryName.equalsIgnoreCase(queryParameterValue.value))

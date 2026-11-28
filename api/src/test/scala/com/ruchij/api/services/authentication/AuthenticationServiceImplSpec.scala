@@ -1,5 +1,6 @@
 package com.ruchij.api.services.authentication
 
+import cats.~>
 import cats.effect.{IO, Ref}
 import cats.{Applicative, Monad, MonadThrow}
 import com.ruchij.api.daos.credentials.DoobieCredentialsDao
@@ -28,7 +29,7 @@ import com.ruchij.core.kv.{KeySpacedKeyValueStore, KeyValueStore, RedisKeyValueS
 import com.ruchij.core.kv.codecs.{KVDecoder, KVEncoder}
 import com.ruchij.core.kv.keys.KeySpacedKeyEncoder
 import com.ruchij.core.services.repository.InMemoryRepositoryService
-import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
+import com.ruchij.core.test.IOSupport.{error, runIO}
 import com.ruchij.core.types.{Clock, RandomGenerator, TimeUtils}
 import doobie.free.connection.ConnectionIO
 import org.scalamock.scalatest.MockFactory
@@ -109,10 +110,12 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
               redisKeyValueStore
             )
 
-          apiResourcesProvider.transactor.use { implicit transactor =>
+          apiResourcesProvider.transactor.use { transactor =>
+            given (ConnectionIO ~> IO) = transactor
+
             Ref.of[IO, IO[Unit]](IO.unit).flatMap { passwordCheckHook =>
-              implicit val clock: Clock[IO] = mock[Clock[IO]]
-              implicit val randomGenerator: RandomGenerator[IO, Secret] = mock[RandomGenerator[IO, Secret]]
+              given clock: Clock[IO] = mock[Clock[IO]]
+              given randomGenerator: RandomGenerator[IO, Secret] = mock[RandomGenerator[IO, Secret]]
 
               val bCryptPasswordHashingService = new BCryptPasswordHashingService[IO]
 
@@ -598,7 +601,7 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
       val timestamp = TimeUtils.instantOf(2022, 10, 21, 10, 0)
 
       // Writes to the same key the authentication service reads, i.e. prefixed with the authentication key space
-      implicit val authenticationTokenKeyEncoder: KVEncoder[IO, AuthenticationTokenKey] =
+      given authenticationTokenKeyEncoder: KVEncoder[IO, AuthenticationTokenKey] =
         KeySpacedKeyEncoder[IO, AuthenticationTokenKey]
 
       for {
@@ -641,17 +644,17 @@ object AuthenticationServiceImplSpec {
   )
 
   object LegacyAuthenticationToken {
-    private implicit def secretKVEncoder[F[_]: Applicative]: KVEncoder[F, Secret] = KVEncoder[F, String].coMap(_.value)
+    private given secretKVEncoder[F[_]: Applicative]: KVEncoder[F, Secret] = KVEncoder[F, String].coMap(_.value)
 
-    private implicit def secretKVDecoder[F[_]: Applicative]: KVDecoder[F, Secret] =
+    private given secretKVDecoder[F[_]: Applicative]: KVDecoder[F, Secret] =
       KVDecoder[F, String].map(Secret.apply)
 
-    implicit def kvEncoder[F[_]: Monad]: KVEncoder[F, LegacyAuthenticationToken] =
+    given kvEncoder[F[_]: Monad]: KVEncoder[F, LegacyAuthenticationToken] =
       KVEncoder.forProduct5 { (token: LegacyAuthenticationToken) =>
         (token.userId, token.secret, token.expiresAt, token.issuedAt, token.renewals)
       }
 
-    implicit def kvDecoder[F[_]: MonadThrow]: KVDecoder[F, LegacyAuthenticationToken] =
+    given kvDecoder[F[_]: MonadThrow]: KVDecoder[F, LegacyAuthenticationToken] =
       KVDecoder.forProduct5(LegacyAuthenticationToken.apply)
   }
 }

@@ -1,6 +1,6 @@
 package com.ruchij.core.daos.duplicate
 
-import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.given
 import com.ruchij.core.daos.duplicate.models.DuplicateVideo
 import doobie.ConnectionIO
 import doobie.implicits.*

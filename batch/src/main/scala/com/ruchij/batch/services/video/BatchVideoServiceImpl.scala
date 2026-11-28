@@ -4,7 +4,7 @@ import cats.data.OptionT
 import cats.effect.Sync
 import cats.implicits.*
 import cats.{ApplicativeError, MonadThrow, ~>}
-import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
+import com.ruchij.core.daos.doobie.DoobieUtils.one
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.video.VideoDao
 import com.ruchij.core.daos.video.models.Video

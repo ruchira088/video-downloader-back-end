@@ -4,7 +4,7 @@ import cats.data.NonEmptyList
 import cats.effect.unsafe.implicits.global
 import cats.effect.{IO, Resource}
 import cats.~>
-import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.given
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.permission.DoobieVideoPermissionDao
 import com.ruchij.core.daos.permission.models.VideoPermission

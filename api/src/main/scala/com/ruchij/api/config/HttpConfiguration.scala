@@ -1,7 +1,7 @@
 package com.ruchij.api.config
 
 import com.comcast.ip4s.{Host, Port}
-import com.ruchij.core.config.PureConfigReaders.*
+import com.ruchij.core.config.PureConfigReaders.given
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
 
@@ -10,5 +10,5 @@ final case class HttpConfiguration(host: Host, port: Port, private val allowedOr
 }
 
 object HttpConfiguration {
-  implicit val configReader: ConfigReader[HttpConfiguration] = deriveReader[HttpConfiguration]
+  given configReader: ConfigReader[HttpConfiguration] = deriveReader[HttpConfiguration]
 }

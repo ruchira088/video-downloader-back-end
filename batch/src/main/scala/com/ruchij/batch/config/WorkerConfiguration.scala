@@ -1,6 +1,6 @@
 package com.ruchij.batch.config
 
-import com.ruchij.core.config.PureConfigReaders.*
+import com.ruchij.core.config.PureConfigReaders.given
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
 
@@ -14,5 +14,5 @@ final case class WorkerConfiguration(
 )
 
 object WorkerConfiguration {
-  implicit val configReader: ConfigReader[WorkerConfiguration] = deriveReader[WorkerConfiguration]
+  given configReader: ConfigReader[WorkerConfiguration] = deriveReader[WorkerConfiguration]
 }

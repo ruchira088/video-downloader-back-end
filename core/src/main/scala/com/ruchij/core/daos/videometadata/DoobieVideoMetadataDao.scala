@@ -2,7 +2,7 @@ package com.ruchij.core.daos.videometadata
 
 import cats.Applicative
 import cats.data.NonEmptyList
-import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.given
 import com.ruchij.core.daos.videometadata.models.VideoMetadata
 import doobie.ConnectionIO
 import doobie.implicits.*

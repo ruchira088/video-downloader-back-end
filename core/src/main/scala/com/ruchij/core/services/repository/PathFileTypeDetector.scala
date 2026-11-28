@@ -2,7 +2,7 @@ package com.ruchij.core.services.repository
 
 import cats.effect.Sync
 import cats.implicits.*
-import com.ruchij.core.types.FunctionKTypes.*
+import com.ruchij.core.types.FunctionKTypes.{given, *}
 import fs2.io.file.Path
 import org.apache.tika.Tika
 import org.http4s.MediaType

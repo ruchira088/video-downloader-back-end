@@ -341,9 +341,9 @@ object PublisherSubscriberSpec {
   }
 
   object TestMessage {
-    implicit val testMessageCodec: Codec.AsObject[TestMessage] = deriveCodec[TestMessage]
+    given testMessageCodec: Codec.AsObject[TestMessage] = deriveCodec[TestMessage]
 
-    implicit val testMessageMessagingTopic: MessagingTopic[TestMessage] =
+    given testMessageMessagingTopic: MessagingTopic[TestMessage] =
       new MessagingTopic[TestMessage] {
         override val name: String = "test-message-topic"
         override val avroCodec: vulcan.Codec[TestMessage] = vulcan.Codec.derive[TestMessage]

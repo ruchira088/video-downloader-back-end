@@ -1,6 +1,6 @@
 package com.ruchij.core.daos.snapshot
 
-import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.given
 import com.ruchij.core.daos.snapshot.models.Snapshot
 import doobie.free.connection.ConnectionIO
 import doobie.implicits.*

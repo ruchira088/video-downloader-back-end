@@ -1,7 +1,7 @@
 package com.ruchij.core.daos.doobie
 
 import cats.effect.IO
-import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
+import com.ruchij.core.daos.doobie.DoobieUtils.{one, singleUpdate}
 import com.ruchij.core.exceptions.InvalidConditionException
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.test.IOSupport.runIO

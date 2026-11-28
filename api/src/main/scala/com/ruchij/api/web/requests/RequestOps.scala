@@ -7,13 +7,6 @@ import io.circe.DecodingFailure
 import org.http4s.{ContextRequest, DecodeFailure, EntityDecoder, Request}
 
 object RequestOps {
-  def to[F[_]: MonadThrow, A](
-    request: Request[F]
-  )(using entityDecoder: EntityDecoder[F, A], validator: Validator[F, A]): F[A] =
-    for {
-      entity <- request.as[A].adaptError { case decodeFailure: DecodeFailure => invalidBody(decodeFailure) }
-      validatedEntity <- validator.validate[A](entity)
-    } yield validatedEntity
 
   /** A failure to decode the request body describes the client's own request, so it is returned to the client as a
     * ValidationException, whereas the message of any other http4s MessageFailure is withheld by the ExceptionHandler
@@ -26,13 +19,16 @@ object RequestOps {
       case _ => ValidationException(decodeFailure.message)
     }
 
-  implicit class RequestOpsSyntax[F[_]: MonadThrow](request: Request[F]) {
+  extension [F[_]: MonadThrow](request: Request[F]) {
     def to[A](using entityDecoder: EntityDecoder[F, A], validator: Validator[F, A]): F[A] =
-      RequestOps.to[F, A](request)
+      for {
+        entity <- request.as[A].adaptError { case decodeFailure: DecodeFailure => invalidBody(decodeFailure) }
+        validatedEntity <- validator.validate[A](entity)
+      } yield validatedEntity
   }
 
-  implicit class ContextRequestOpsSyntax[F[_]: MonadThrow, T](contextRequest: ContextRequest[F, T]) {
+  extension [F[_]: MonadThrow, T](contextRequest: ContextRequest[F, T]) {
     def to[A](using entityDecoder: EntityDecoder[F, A], validator: Validator[F, A]): F[A] =
-      RequestOps.to[F, A](contextRequest.req)
+      contextRequest.req.to[A]
   }
 }

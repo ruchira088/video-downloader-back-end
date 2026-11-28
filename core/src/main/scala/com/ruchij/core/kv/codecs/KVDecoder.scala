@@ -47,15 +47,15 @@ trait KVDecoder[F[_], A] { self =>
 object KVDecoder {
   def apply[F[_], A](using kvDecoder: KVDecoder[F, A]): KVDecoder[F, A] = kvDecoder
 
-  implicit def stringKVDecoder[F[_]: Applicative]: KVDecoder[F, String] =
+  given stringKVDecoder[F[_]: Applicative]: KVDecoder[F, String] =
     (value: String) => Applicative[F].pure(value)
 
-  implicit def enumKVDecoder[F[_]: MonadThrow, A <: EnumEntry](using enumValues: Enum[A]): KVDecoder[F, A] =
+  given enumKVDecoder[F[_]: MonadThrow, A <: EnumEntry](using enumValues: Enum[A]): KVDecoder[F, A] =
     stringKVDecoder[F].mapEither { string =>
       enumValues.withNameInsensitiveEither(string).left.map(_.getMessage)
     }
 
-  implicit def numericKVDecoder[F[_]: MonadThrow, A: Numeric](using classTag: ClassTag[A]): KVDecoder[F, A] =
+  given numericKVDecoder[F[_]: MonadThrow, A: Numeric](using classTag: ClassTag[A]): KVDecoder[F, A] =
     stringKVDecoder[F].mapEither { value =>
       Numeric[A]
         .parseString(value)
@@ -64,7 +64,7 @@ object KVDecoder {
         )
     }
 
-  implicit def instantKVDecoder[F[_]: MonadThrow]: KVDecoder[F, Instant] =
+  given instantKVDecoder[F[_]: MonadThrow]: KVDecoder[F, Instant] =
     stringKVDecoder[F].mapEither { value =>
       Try(Instant.parse(value)).toEither.left.map(_.getMessage)
     }

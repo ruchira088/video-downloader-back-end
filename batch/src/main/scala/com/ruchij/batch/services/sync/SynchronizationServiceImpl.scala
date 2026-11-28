@@ -36,7 +36,7 @@ import com.ruchij.core.services.models.SortBy.Date
 import com.ruchij.core.services.repository.FileRepositoryService.FileRepository
 import com.ruchij.core.services.repository.FileTypeDetector
 import com.ruchij.core.services.video.VideoAnalysisService
-import com.ruchij.core.types.FunctionKTypes.*
+import com.ruchij.core.types.FunctionKTypes.{given, *}
 import com.ruchij.core.types.Clock
 import fs2.Stream
 import org.http4s.{MediaType, Uri}

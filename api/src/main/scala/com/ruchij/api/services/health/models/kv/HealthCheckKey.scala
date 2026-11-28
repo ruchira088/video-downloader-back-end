@@ -11,11 +11,11 @@ import scala.language.postfixOps
 final case class HealthCheckKey(dateTime: Instant) extends KVStoreKey
 
 object HealthCheckKey {
-  implicit case object HealthCheckKeySpace extends KeySpace[HealthCheckKey, Instant] {
+  given HealthCheckKeySpace: KeySpace[HealthCheckKey, Instant] {
     override val name: String = "health-check"
     override val maybeTtl: Option[FiniteDuration] = Some(10 seconds)
   }
 
-  implicit def keySpacedKeyEncoder[F[_]: Applicative]: KeySpacedKeyEncoder[F, HealthCheckKey] =
+  given keySpacedKeyEncoder[F[_]: Applicative]: KeySpacedKeyEncoder[F, HealthCheckKey] =
     KeySpacedKeyEncoder.of(HealthCheckKeySpace, KVEncoder[F, Instant].coMap[HealthCheckKey](_.dateTime))
 }

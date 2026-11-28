@@ -5,7 +5,7 @@ import cats.effect.unsafe.implicits.global as runtime
 import cats.implicits.*
 import cats.~>
 import com.ruchij.api.services.fallback.FallbackSyncTestData.scheduledVideoDownload
-import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.given
 import com.ruchij.core.daos.permission.DoobieVideoPermissionDao
 import com.ruchij.core.daos.permission.models.VideoPermission
 import com.ruchij.core.daos.resource.DoobieFileResourceDao

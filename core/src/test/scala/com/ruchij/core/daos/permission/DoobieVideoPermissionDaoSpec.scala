@@ -23,7 +23,7 @@ import org.scalatest.matchers.must.Matchers
 import scala.concurrent.duration.*
 import scala.language.postfixOps
 import doobie.implicits.*
-import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.given
 
 class H2DoobieVideoPermissionDaoSpec extends DoobieVideoPermissionDaoSpec with H2TestDatabase
 

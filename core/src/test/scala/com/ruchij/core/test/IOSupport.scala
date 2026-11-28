@@ -14,8 +14,8 @@ object IOSupport {
   def runIO[A](block: => IO[A]): A =
     IO.defer(block).timeoutAndForget(DefaultTestTimeout).unsafeRunSync()
 
-  implicit class IOWrapper[A](value: IO[A]) {
-    val error: IO[Throwable] =
+  extension [A](value: IO[A]) {
+    def error: IO[Throwable] =
       value.attempt.flatMap {
         case Left(throwable) => IO.pure(throwable)
         case Right(success) => IO.raiseError(new IllegalStateException(s"Expected an error, but returned $success"))

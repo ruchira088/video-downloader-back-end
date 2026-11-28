@@ -3,7 +3,7 @@ package com.ruchij.core.kv.codecs
 trait KVCodec[F[_], A] extends KVDecoder[F, A] with KVEncoder[F, A]
 
 object KVCodec {
-  implicit def apply[F[_], A](using kvDecoder: KVDecoder[F, A], kvEncoder: KVEncoder[F, A]): KVCodec[F, A] =
+  given apply[F[_], A](using kvDecoder: KVDecoder[F, A], kvEncoder: KVEncoder[F, A]): KVCodec[F, A] =
     new KVCodec[F, A] {
       override def decode(value: String): F[A] = kvDecoder.decode(value)
 

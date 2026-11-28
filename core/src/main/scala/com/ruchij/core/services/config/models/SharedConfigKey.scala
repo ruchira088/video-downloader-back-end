@@ -15,7 +15,7 @@ object SharedConfigKey {
     override val key: String = "video-scanning-status"
   }
 
-  implicit case object SharedConfigKeySpace extends KeySpace[SharedConfigKey[?], String] {
+  given SharedConfigKeySpace: KeySpace[SharedConfigKey[?], String] {
     override val name: String = "shared-config"
   }
 }

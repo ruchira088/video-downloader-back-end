@@ -8,14 +8,14 @@ import com.ruchij.api.services.models.Context.AuthenticatedRequestContext
 import com.ruchij.api.services.scheduling.models.ScheduledVideoDeletion
 import com.ruchij.api.services.scheduling.{ApiSchedulingService, VideoPermissionCache}
 import com.ruchij.api.web.middleware.Authorizer
-import com.ruchij.api.web.requests.RequestOps.ContextRequestOpsSyntax
+import com.ruchij.api.web.requests.RequestOps.to
 import com.ruchij.api.web.requests.UpdateScheduledVideoRequest.updateScheduledVideoRequestValidator
 import com.ruchij.api.web.requests.queryparams.SearchQuery
 import com.ruchij.api.web.requests.{SchedulingRequest, UpdateScheduledVideoRequest, WorkerStatusUpdateRequest}
 import com.ruchij.api.web.responses.EventStreamEventType.{ActiveDownload, HeartBeat, ScheduledVideoDownloadUpdate}
 import com.ruchij.api.web.responses.{EventStreamHeartBeat, IterableResponse, SearchResult, WorkerStatusResponse}
-import com.ruchij.core.circe.Decoders.*
-import com.ruchij.core.circe.Encoders.*
+import com.ruchij.core.circe.Decoders.given
+import com.ruchij.core.circe.Encoders.given
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.models.SortBy
@@ -155,14 +155,17 @@ object SchedulingRoutes {
               downloadProgressStream
                 .evalFilter(downloadProgress => isVisible(downloadProgress.videoId))
                 .map { downloadProgress =>
-                  ServerSentEvent(Some(Encoder[DownloadProgress].apply(downloadProgress).noSpaces), ActiveDownload)
+                  ServerSentEvent(
+                    Some(Encoder[DownloadProgress].apply(downloadProgress).noSpaces),
+                    ActiveDownload.eventType
+                  )
                 }
                 .merge {
                   scheduledVideoDownloadUpdates
                     .map { scheduledVideoDownload =>
                       ServerSentEvent(
                         Some(Encoder[ScheduledVideoDownload].apply(scheduledVideoDownload).noSpaces),
-                        ScheduledVideoDownloadUpdate
+                        ScheduledVideoDownloadUpdate.eventType
                       )
                     }
                 }
@@ -171,7 +174,7 @@ object SchedulingRoutes {
                     .fixedRate[F](10 seconds)
                     .zipRight(Stream.eval(Clock[F].timestamp).repeat)
                     .map { timestamp =>
-                      ServerSentEvent(Some(EventStreamHeartBeat(timestamp).asJson.noSpaces), HeartBeat)
+                      ServerSentEvent(Some(EventStreamHeartBeat(timestamp).asJson.noSpaces), HeartBeat.eventType)
                     }
                 }
             }

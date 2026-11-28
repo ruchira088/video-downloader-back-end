@@ -4,7 +4,7 @@ import cats.effect.{IO, Resource}
 import cats.implicits.*
 import com.ruchij.core.config.KafkaConfiguration
 import com.ruchij.core.external.containers.ContainerCoreResourcesProvider
-import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage.*
+import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage.given
 import com.ruchij.core.messaging.PublisherSubscriberSpec.{PubSubFixture, SubscriptionReadiness, TestMessage}
 import com.ruchij.core.messaging.PublisherSubscriberSpec
 import fs2.kafka.{AdminClientSettings, KafkaAdminClient}

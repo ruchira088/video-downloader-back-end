@@ -1,6 +1,6 @@
 package com.ruchij.core.config
 
-import com.ruchij.core.config.PureConfigReaders.*
+import com.ruchij.core.config.PureConfigReaders.given
 import org.http4s.Uri
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
@@ -10,5 +10,5 @@ final case class KafkaConfiguration(private val prefix: String, bootstrapServers
 }
 
 object KafkaConfiguration {
-  implicit val configReader: ConfigReader[KafkaConfiguration] = deriveReader[KafkaConfiguration]
+  given configReader: ConfigReader[KafkaConfiguration] = deriveReader[KafkaConfiguration]
 }

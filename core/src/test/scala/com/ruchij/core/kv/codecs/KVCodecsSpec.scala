@@ -409,37 +409,37 @@ object KVCodecsSpec {
   final case class Mapped(wrapped: Wrapped, checked: Checked)
 
   object Wrapped {
-    implicit def kvDecoder[F[_]: MonadThrow]: KVDecoder[F, Wrapped] =
+    given kvDecoder[F[_]: MonadThrow]: KVDecoder[F, Wrapped] =
       KVDecoder[F, Pair].mapF(pair => MonadThrow[F].pure(Wrapped(pair)))
   }
 
   object Checked {
-    implicit def kvDecoder[F[_]: MonadThrow]: KVDecoder[F, Checked] =
+    given kvDecoder[F[_]: MonadThrow]: KVDecoder[F, Checked] =
       KVDecoder[F, Pair].mapEither(pair => Right(Checked(pair)))
   }
 
   object Mapped {
-    implicit def kvDecoder[F[_]: MonadThrow]: KVDecoder[F, Mapped] = KVDecoder.forProduct2(Mapped.apply)
+    given kvDecoder[F[_]: MonadThrow]: KVDecoder[F, Mapped] = KVDecoder.forProduct2(Mapped.apply)
   }
 
   object Quad {
-    implicit def kvEncoder[F[_]: Monad]: KVEncoder[F, Quad] =
+    given kvEncoder[F[_]: Monad]: KVEncoder[F, Quad] =
       KVEncoder.forProduct4((quad: Quad) => (quad.first, quad.second, quad.third, quad.fourth))
 
-    implicit def kvDecoder[F[_]: MonadThrow]: KVDecoder[F, Quad] = KVDecoder.forProduct4(Quad.apply)
+    given kvDecoder[F[_]: MonadThrow]: KVDecoder[F, Quad] = KVDecoder.forProduct4(Quad.apply)
   }
 
   object Pair {
-    implicit def kvEncoder[F[_]: Monad]: KVEncoder[F, Pair] =
+    given kvEncoder[F[_]: Monad]: KVEncoder[F, Pair] =
       KVEncoder.forProduct2((pair: Pair) => (pair.name, pair.count))
 
-    implicit def kvDecoder[F[_]: MonadThrow]: KVDecoder[F, Pair] = KVDecoder.forProduct2(Pair.apply)
+    given kvDecoder[F[_]: MonadThrow]: KVDecoder[F, Pair] = KVDecoder.forProduct2(Pair.apply)
   }
 
   object Pairs {
-    implicit def kvEncoder[F[_]: Monad]: KVEncoder[F, Pairs] =
+    given kvEncoder[F[_]: Monad]: KVEncoder[F, Pairs] =
       KVEncoder.forProduct2((pairs: Pairs) => (pairs.first, pairs.second))
 
-    implicit def kvDecoder[F[_]: MonadThrow]: KVDecoder[F, Pairs] = KVDecoder.forProduct2(Pairs.apply)
+    given kvDecoder[F[_]: MonadThrow]: KVDecoder[F, Pairs] = KVDecoder.forProduct2(Pairs.apply)
   }
 }

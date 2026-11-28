@@ -14,39 +14,39 @@ import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
 object DoobieCustomMappings {
-  private implicit def stringShow: Show[String] = Show.fromToString
+  private given stringShow: Show[String] = Show.fromToString
 
-  implicit val videoSitePut: Put[VideoSite] = Put[String].contramap[VideoSite](_.name.toLowerCase)
+  given videoSitePut: Put[VideoSite] = Put[String].contramap[VideoSite](_.name.toLowerCase)
 
-  implicit val videoSiteGet: Get[VideoSite] = Get[String].map(VideoSite.from)
+  given videoSiteGet: Get[VideoSite] = Get[String].map(VideoSite.from)
 
-  implicit def enumPut[A <: EnumEntry]: Put[A] = Put[String].contramap[A](_.entryName)
+  given enumPut[A <: EnumEntry]: Put[A] = Put[String].contramap[A](_.entryName)
 
-  implicit def enumGet[A <: EnumEntry](using enumValues: Enum[A]): Get[A] =
+  given enumGet[A <: EnumEntry](using enumValues: Enum[A]): Get[A] =
     Get[String].temap(text => enumValues.withNameInsensitiveEither(text).left.map(_.getMessage()))
 
-  implicit val uriPut: Put[Uri] = Put[String].contramap[Uri](_.renderString)
+  given uriPut: Put[Uri] = Put[String].contramap[Uri](_.renderString)
 
-  implicit val uriGet: Get[Uri] = Get[String].temap(text => Uri.fromString(text).left.map(_.message))
+  given uriGet: Get[Uri] = Get[String].temap(text => Uri.fromString(text).left.map(_.message))
 
-  implicit val finiteDurationPut: Put[FiniteDuration] = Put[Long].contramap[FiniteDuration](_.toMillis)
+  given finiteDurationPut: Put[FiniteDuration] = Put[Long].contramap[FiniteDuration](_.toMillis)
 
-  implicit val finiteDurationGet: Get[FiniteDuration] =
+  given finiteDurationGet: Get[FiniteDuration] =
     Get[Long].map(number => FiniteDuration(number, TimeUnit.MILLISECONDS))
 
-  implicit val instantPut: Put[Instant] = Put[Timestamp].tcontramap[Instant](Timestamp.from)
+  given instantPut: Put[Instant] = Put[Timestamp].tcontramap[Instant](Timestamp.from)
 
-  implicit val instantGet: Get[Instant] = Get[Timestamp].map(_.toInstant)
+  given instantGet: Get[Instant] = Get[Timestamp].map(_.toInstant)
 
-  implicit val pathPut: Put[Path] = Put[String].contramap[Path](_.toAbsolutePath.toString)
+  given pathPut: Put[Path] = Put[String].contramap[Path](_.toAbsolutePath.toString)
 
-  implicit val pathGet: Get[Path] = Get[String].temap(text => Try(Paths.get(text)).toEither.left.map(_.getMessage))
+  given pathGet: Get[Path] = Get[String].temap(text => Try(Paths.get(text)).toEither.left.map(_.getMessage))
 
-  implicit val mediaTypePut: Put[MediaType] = Put[String].contramap[MediaType](Show[MediaType].show)
+  given mediaTypePut: Put[MediaType] = Put[String].contramap[MediaType](Show[MediaType].show)
 
-  implicit val mediaTypeGet: Get[MediaType] = Get[String].temap(value => MediaType.parse(value).left.map(_.message))
+  given mediaTypeGet: Get[MediaType] = Get[String].temap(value => MediaType.parse(value).left.map(_.message))
 
-  implicit val bigIntPut: Put[BigInt] = Put[String].contramap[BigInt](_.toString)
+  given bigIntPut: Put[BigInt] = Put[String].contramap[BigInt](_.toString)
 
-  implicit val bigIntGet: Get[BigInt] = Get[String].temap(text => Try(BigInt(text)).toEither.left.map(_.getMessage))
+  given bigIntGet: Get[BigInt] = Get[String].temap(text => Try(BigInt(text)).toEither.left.map(_.getMessage))
 }

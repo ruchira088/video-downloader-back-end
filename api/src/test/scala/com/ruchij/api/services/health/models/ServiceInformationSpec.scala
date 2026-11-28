@@ -12,7 +12,7 @@ class ServiceInformationSpec extends AnyFlatSpec with Matchers {
   private val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 30)
 
   "ServiceInformation.create" should "create ServiceInformation with provided yt-dlp version" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     ServiceInformation.create[IO]("2024.05.01").map { info =>
       info.`yt-dlpVersion` mustBe "2024.05.01"
@@ -27,7 +27,7 @@ class ServiceInformationSpec extends AnyFlatSpec with Matchers {
 
   it should "use current timestamp from Clock" in runIO {
     val customTimestamp = TimeUtils.instantOf(2025, 1, 15, 12, 0)
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](customTimestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](customTimestamp)
 
     ServiceInformation.create[IO]("2024.05.01").map { info =>
       info.currentTimestamp mustBe customTimestamp
@@ -35,7 +35,7 @@ class ServiceInformationSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "fetch Java version from system properties" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     ServiceInformation.create[IO]("2024.05.01").map { info =>
       info.javaVersion must not be empty

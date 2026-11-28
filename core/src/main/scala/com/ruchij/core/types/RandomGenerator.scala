@@ -17,7 +17,7 @@ object RandomGenerator {
   // A context bound for an effect that generates values of A, such as F[_]: RandomGenerator.Of[UUID]
   type Of[A] = [F[_]] =>> RandomGenerator[F, A]
 
-  implicit class RandomGeneratorOps[F[_], A](randomGenerator: RandomGenerator[F, A]) {
+  extension [F[_], A](randomGenerator: RandomGenerator[F, A]) {
     def evalMap[B](f: A => F[B])(using monad: Monad[F]): RandomGenerator[F, B] =
       new RandomGenerator[F, B] {
         override def generate: F[B] = randomGenerator.generate.flatMap(f)
@@ -46,10 +46,10 @@ object RandomGenerator {
         else Sync[F].delay(Random.between(start, end))
     }
 
-  implicit def instantRandomGenerator[F[_]: Clock: Sync]: RandomGenerator[F, Instant] =
+  given instantRandomGenerator[F[_]: Clock: Sync]: RandomGenerator[F, Instant] =
     range[F](-10_000, 0).evalMap(offset => Clock[F].timestamp.map(_.plus(Duration.ofMinutes(offset))))
 
-  implicit def randomGeneratorMonad[F[_]: Monad]: Monad[RandomGenerator[F, *]] =
+  given randomGeneratorMonad[F[_]: Monad]: Monad[RandomGenerator[F, *]] =
     new Monad[RandomGenerator[F, *]] {
       override def pure[A](x: A): RandomGenerator[F, A] =
         new RandomGenerator[F, A] {
@@ -68,7 +68,7 @@ object RandomGenerator {
         }
     }
 
-  implicit def uuidGenerator[F[_]: Sync]: RandomGenerator[F, UUID] =
+  given uuidGenerator[F[_]: Sync]: RandomGenerator[F, UUID] =
     new RandomGenerator[F, UUID] {
       override def generate: F[UUID] = Sync[F].delay(UUID.randomUUID())
     }

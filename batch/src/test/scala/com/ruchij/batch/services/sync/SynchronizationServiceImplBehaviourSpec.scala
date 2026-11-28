@@ -35,7 +35,7 @@ import com.ruchij.core.services.repository.{FileTypeDetector, InMemoryRepository
 import com.ruchij.core.services.video.VideoAnalysisService
 import com.ruchij.core.services.video.VideoAnalysisService.VideoMetadataResult
 import com.ruchij.core.services.video.models.VideoAnalysisResult
-import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
+import com.ruchij.core.test.IOSupport.{error, withTimeout, runIO}
 import com.ruchij.core.test.Providers
 import com.ruchij.core.types.{Clock, TimeUtils}
 import fs2.Stream
@@ -579,8 +579,8 @@ class SynchronizationServiceImplBehaviourSpec extends AnyFlatSpec with Matchers 
 
         fileRepositoryService <- fileRepository(files, listError, mountedFolders, directories)
       } yield {
-        implicit val clock: Clock[IO] = Providers.stubClock[IO](Timestamp)
-        implicit val transaction: IO ~> IO = FunctionK.id[IO]
+        given clock: Clock[IO] = Providers.stubClock[IO](Timestamp)
+        given transaction: (IO ~> IO) = FunctionK.id[IO]
 
         val sharedConfigurationService = configurationService(scanStatuses)
 

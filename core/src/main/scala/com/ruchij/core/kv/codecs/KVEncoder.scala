@@ -20,15 +20,15 @@ trait KVEncoder[F[_], -A] { self =>
 object KVEncoder {
   def apply[F[_], A](using kvEncoder: KVEncoder[F, A]): KVEncoder[F, A] = kvEncoder
 
-  implicit def stringKVEncoder[F[_]: Applicative]: KVEncoder[F, String] =
+  given stringKVEncoder[F[_]: Applicative]: KVEncoder[F, String] =
     (value: String) => Applicative[F].pure(value)
 
-  implicit def enumKVEncoder[F[_]: Applicative, A <: EnumEntry]: KVEncoder[F, A] =
+  given enumKVEncoder[F[_]: Applicative, A <: EnumEntry]: KVEncoder[F, A] =
     stringKVEncoder[F].coMap[A](_.entryName)
 
-  implicit def longKVEncoder[F[_]: Monad]: KVEncoder[F, Long] = stringKVEncoder[F].coMap[Long](_.toString)
+  given longKVEncoder[F[_]: Monad]: KVEncoder[F, Long] = stringKVEncoder[F].coMap[Long](_.toString)
 
-  implicit def instantKVEncoder[F[_]: Applicative]: KVEncoder[F, Instant] =
+  given instantKVEncoder[F[_]: Applicative]: KVEncoder[F, Instant] =
     stringKVEncoder[F].coMap[Instant](_.toString)
 
   // A product is stored as the encodings of its fields, in order, joined with the key separator. KVDecoder.forProductN

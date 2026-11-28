@@ -51,7 +51,7 @@ final case class FallbackSyncConfiguration(
 }
 
 object FallbackSyncConfiguration {
-  implicit val configReader: ConfigReader[FallbackSyncConfiguration] = deriveReader[FallbackSyncConfiguration]
+  given configReader: ConfigReader[FallbackSyncConfiguration] = deriveReader[FallbackSyncConfiguration]
 
   val Disabled: FallbackSyncConfiguration = FallbackSyncConfiguration(false, None, None, None, None, None)
 }

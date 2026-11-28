@@ -23,7 +23,7 @@ import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.messaging.models.VideoWatchMetric
 import com.ruchij.core.services.models.Order
 import com.ruchij.core.services.repository.RepositoryService
-import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
+import com.ruchij.core.test.IOSupport.{error, runIO}
 import com.ruchij.core.test.Providers
 import com.ruchij.core.types.{Clock, TimeUtils}
 import fs2.Stream
@@ -39,7 +39,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
 
   private val timestamp = TimeUtils.instantOf(2024, 5, 15, 10, 30)
 
-  implicit val transaction: IO ~> IO = new (IO ~> IO) {
+  given transaction: (IO ~> IO) = new (IO ~> IO) {
     override def apply[A](fa: IO[A]): IO[A] = fa
   }
 
@@ -221,7 +221,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "thumbnail" should "return asset for a valid thumbnail" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val fileResourceDao =
       new StubFileResourceDao(getByIdResult = id => if (id == "thumbnail-1") Some(sampleThumbnail) else None)
@@ -234,7 +234,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "throw ResourceNotFoundException when thumbnail not found" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val fileResourceDao = new StubFileResourceDao(getByIdResult = _ => None)
     val service = createService(fileResourceDao = fileResourceDao)
@@ -245,7 +245,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "include Thumbnail type name in error when type validation fails" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoMetadataDao = new StubVideoMetadataDao(isThumbnailFileResourceResult = false)
     val service = createService(videoMetadataDao = videoMetadataDao)
@@ -256,7 +256,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "snapshot" should "return asset for admin user" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val fileResourceDao =
       new StubFileResourceDao(getByIdResult = id => if (id == "snapshot-file-1") Some(snapshotFileResource) else None)
@@ -268,7 +268,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "return asset for normal user with permission" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val fileResourceDao =
       new StubFileResourceDao(getByIdResult = id => if (id == "snapshot-file-1") Some(snapshotFileResource) else None)
@@ -281,7 +281,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "throw ResourceNotFoundException for normal user without permission" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val snapshotDao = new StubSnapshotDao(hasPermissionResult = false)
     val service = createService(snapshotDao = snapshotDao)
@@ -292,7 +292,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "include Snapshot type name in error when type validation fails" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val snapshotDao = new StubSnapshotDao(isSnapshotFileResourceResult = false)
     val service = createService(snapshotDao = snapshotDao)
@@ -303,7 +303,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "include Snapshot type name in error when normal user lacks permission" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val snapshotDao = new StubSnapshotDao(hasPermissionResult = false)
     val service = createService(snapshotDao = snapshotDao)
@@ -314,7 +314,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "videoFile" should "return asset for admin user" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val publisher = new StubPublisher()
     val service = createService(publisher = publisher)
@@ -327,7 +327,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "return asset for normal user with permission" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(hasVideoFilePermissionResult = true)
     val publisher = new StubPublisher()
@@ -340,7 +340,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "throw ResourceNotFoundException for normal user without permission" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(hasVideoFilePermissionResult = false)
     val service = createService(videoDao = videoDao)
@@ -351,7 +351,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "include Video type name in error when type validation fails" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(isVideoFileResourceExistResult = false)
     val service = createService(videoDao = videoDao)
@@ -362,7 +362,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "include Video type name in error when normal user lacks permission" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(hasVideoFilePermissionResult = false)
     val service = createService(videoDao = videoDao)
@@ -376,7 +376,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
     fileByteRange: FileByteRange,
     maybeMaxStreamSize: Option[Long] = None
   ): IO[(Asset.FileRange, Option[(Option[Long], Option[Long])])] = {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val fileResourceDao = new StubFileResourceDao(getByIdResult = _ => Some(sampleFileResource.copy(size = 10000L)))
     val repositoryService = new StubRepositoryService()
@@ -445,7 +445,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "handle max stream size" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val fileResourceDao = new StubFileResourceDao(getByIdResult = _ => Some(sampleFileResource.copy(size = 10000L)))
     val publisher = new StubPublisher()
@@ -458,7 +458,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "throw ResourceNotFoundException when file resource not found" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val fileResourceDao = new StubFileResourceDao(getByIdResult = _ => None)
     val service = createService(fileResourceDao = fileResourceDao)
@@ -469,7 +469,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "throw ResourceNotFoundException when repository read returns None" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val repositoryService = new StubRepositoryService(readResult = None)
     val service = createService(repositoryService = repositoryService)
@@ -480,7 +480,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   "albumArt" should "return asset for admin user" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val albumArtFileResource =
       FileResource("album-art-1", timestamp, "/album-art/art1.jpg", MediaType.image.jpeg, 40000L)
@@ -494,7 +494,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "return asset for normal user with permission" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val albumArtFileResource =
       FileResource("album-art-1", timestamp, "/album-art/art1.jpg", MediaType.image.jpeg, 40000L)
@@ -509,7 +509,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "throw ResourceNotFoundException for normal user without permission" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val playlistDao = new StubPlaylistDao(hasAlbumArtPermissionResult = false)
     val service = createService(playlistDao = playlistDao)
@@ -520,7 +520,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "include AlbumArt type name in error when type validation fails" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val playlistDao = new StubPlaylistDao(isAlbumArtFileResourceResult = false)
     val service = createService(playlistDao = playlistDao)
@@ -531,7 +531,7 @@ class AssetServiceImplSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "include AlbumArt type name in error when normal user lacks permission" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val playlistDao = new StubPlaylistDao(hasAlbumArtPermissionResult = false)
     val service = createService(playlistDao = playlistDao)

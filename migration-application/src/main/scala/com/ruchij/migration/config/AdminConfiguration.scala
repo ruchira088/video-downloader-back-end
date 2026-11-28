@@ -6,5 +6,5 @@ import pureconfig.generic.semiauto.deriveReader
 final case class AdminConfiguration(hashedAdminPassword: String)
 
 object AdminConfiguration {
-  implicit val configReader: ConfigReader[AdminConfiguration] = deriveReader[AdminConfiguration]
+  given configReader: ConfigReader[AdminConfiguration] = deriveReader[AdminConfiguration]
 }

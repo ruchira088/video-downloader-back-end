@@ -79,7 +79,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
     override val queueIncorrectlyCompletedVideos: IO[Seq[Video]] = IO.pure(Seq.empty)
   }
 
-  implicit val transaction: IO ~> IO = new (IO ~> IO) {
+  given transaction: (IO ~> IO) = new (IO ~> IO) {
     override def apply[A](fa: IO[A]): IO[A] = fa
   }
 
@@ -166,7 +166,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
   }
 
   "insert" should "create a new video entry" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val service = createBatchVideoService()
 
@@ -176,7 +176,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
   }
 
   "incrementWatchTime" should "return updated watch time" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val service = createBatchVideoService()
 
@@ -186,7 +186,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
   }
 
   it should "fail for non-existent video" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(incrementWatchTimeResult = None)
     val service = new BatchVideoServiceImpl[IO, IO](
@@ -203,7 +203,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
   }
 
   "update" should "update video size" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val service = createBatchVideoService()
 
@@ -213,7 +213,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
   }
 
   it should "fail for non-existent video" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(findByIdResult = None)
     val service = new BatchVideoServiceImpl[IO, IO](
@@ -230,7 +230,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
   }
 
   "fetchByVideoFileResourceId" should "return video when found" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val videoDao = new StubVideoDao(findByVideoFileResourceIdResult = Some(sampleVideo))
     val service = new BatchVideoServiceImpl[IO, IO](
@@ -246,7 +246,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
   }
 
   it should "fail for non-existent file resource ID" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     val service = createBatchVideoService()
 
@@ -257,7 +257,7 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
   }
 
   "deleteById" should "delegate to videoService" in runIO {
-    implicit val clock: Clock[IO] = Providers.stubClock[IO](timestamp)
+    given clock: Clock[IO] = Providers.stubClock[IO](timestamp)
 
     var deleteVideoFileCalled = false
 
@@ -279,7 +279,9 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
   "database integration" should "insert and retrieve video data" in runIO {
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       for {
         // Insert video metadata
         videoMetadata <- insertVideoMetadata
@@ -308,7 +310,9 @@ class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with Op
     val batchServiceProvider: BatchResourcesProvider[IO] = new ContainerBatchResourcesProvider[IO]
     val concurrency = 10
 
-    batchServiceProvider.transactor.use { implicit transactor =>
+    batchServiceProvider.transactor.use { transactor =>
+      given (ConnectionIO ~> IO) = transactor
+
       fs2.Stream
         .range(0, concurrency)
         .covary[IO]

@@ -8,5 +8,5 @@ final case class RedisConfiguration(hostname: String, port: Int, password: Optio
 }
 
 object RedisConfiguration {
-  implicit val configReader: ConfigReader[RedisConfiguration] = deriveReader[RedisConfiguration]
+  given configReader: ConfigReader[RedisConfiguration] = deriveReader[RedisConfiguration]
 }

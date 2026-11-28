@@ -16,7 +16,7 @@ import com.ruchij.core.services.video.YouTubeVideoDownloaderImpl.{
 }
 import com.ruchij.core.services.video.models.YTDataSize.ytDataSizeOrdering
 import com.ruchij.core.services.video.models.*
-import com.ruchij.core.types.FunctionKTypes.*
+import com.ruchij.core.types.FunctionKTypes.{given, *}
 import com.ruchij.core.utils.{JsoupSelector, Timers}
 import fs2.Stream
 import io.circe.generic.auto.*

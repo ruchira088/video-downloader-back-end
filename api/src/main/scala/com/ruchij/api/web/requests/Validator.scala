@@ -7,7 +7,7 @@ trait Validator[F[_], -A] {
 }
 
 object Validator {
-  implicit def noValidator[F[_]: Applicative]: Validator[F, Any] = new Validator[F, Any] {
+  given noValidator[F[_]: Applicative]: Validator[F, Any] = new Validator[F, Any] {
     override def validate[B <: Any](value: B): F[B] = Applicative[F].pure(value)
   }
 }

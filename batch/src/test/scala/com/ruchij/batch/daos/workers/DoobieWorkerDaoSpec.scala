@@ -3,7 +3,7 @@ package com.ruchij.batch.daos.workers
 import cats.effect.IO
 import cats.~>
 import com.ruchij.batch.daos.workers.models.Worker
-import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.given
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao

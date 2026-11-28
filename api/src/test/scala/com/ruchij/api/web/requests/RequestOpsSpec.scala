@@ -1,6 +1,7 @@
 package com.ruchij.api.web.requests
 
 import cats.effect.IO
+import com.ruchij.api.web.requests.RequestOps.to
 import com.ruchij.core.exceptions.ValidationException
 import com.ruchij.core.test.IOSupport.runIO
 import io.circe.Json
@@ -20,7 +21,7 @@ class RequestOpsSpec extends AnyFlatSpec with Matchers {
     val entity = TestEntity("test", 42)
     val request = Request[IO](Method.POST, uri"/test").withEntity(entity)
 
-    RequestOps.to[IO, TestEntity](request).map { result =>
+    request.to[TestEntity].map { result =>
       result.name mustBe "test"
       result.value mustBe 42
     }
@@ -29,7 +30,7 @@ class RequestOpsSpec extends AnyFlatSpec with Matchers {
   it should "fail with a ValidationException that describes a request body that cannot be decoded" in runIO {
     val request = Request[IO](Method.POST, uri"/test").withEntity(Json.obj("name" -> Json.fromString("test")))
 
-    RequestOps.to[IO, TestEntity](request).attempt.map { result =>
+    request.to[TestEntity].attempt.map { result =>
       result.left.map(_.getClass) mustBe Left(classOf[ValidationException])
       result.left.map(_.getMessage).left.getOrElse("") must include("value")
     }
@@ -41,13 +42,12 @@ class RequestOpsSpec extends AnyFlatSpec with Matchers {
         .withEntity("{ not json")
         .withContentType(`Content-Type`(MediaType.application.json))
 
-    RequestOps.to[IO, TestEntity](request).attempt.map { result =>
+    request.to[TestEntity].attempt.map { result =>
       result.left.map(_.getClass) mustBe Left(classOf[ValidationException])
     }
   }
 
   "RequestOpsSyntax" should "provide an implicit .to method on Request" in runIO {
-    import RequestOps.*
 
     val entity = TestEntity("syntax-test", 100)
     val request = Request[IO](Method.POST, uri"/test").withEntity(entity)
@@ -59,7 +59,6 @@ class RequestOpsSpec extends AnyFlatSpec with Matchers {
   }
 
   "ContextRequestOpsSyntax" should "provide an implicit .to method on ContextRequest" in runIO {
-    import RequestOps.*
 
     val entity = TestEntity("context-test", 200)
     val request = Request[IO](Method.POST, uri"/test").withEntity(entity)
@@ -72,7 +71,6 @@ class RequestOpsSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "work with different context types" in runIO {
-    import RequestOps.*
 
     val entity = TestEntity("int-context", 300)
     val request = Request[IO](Method.POST, uri"/test").withEntity(entity)

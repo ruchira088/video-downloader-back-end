@@ -26,18 +26,18 @@ class EventStreamEventTypeSpec extends AnyFlatSpec with Matchers {
     EventStreamEventType.ScheduledVideoDownloadUpdate.entryName mustBe "scheduled-video-download-update"
   }
 
-  "implicit eventType conversion" should "convert HeartBeat to Some[String]" in {
-    val result: Some[String] = EventStreamEventType.HeartBeat
+  "eventType" should "convert HeartBeat to Some[String]" in {
+    val result: Some[String] = EventStreamEventType.HeartBeat.eventType
     result mustBe Some("heart-beat")
   }
 
   it should "convert ActiveDownload to Some[String]" in {
-    val result: Some[String] = EventStreamEventType.ActiveDownload
+    val result: Some[String] = EventStreamEventType.ActiveDownload.eventType
     result mustBe Some("active-download")
   }
 
   it should "convert ScheduledVideoDownloadUpdate to Some[String]" in {
-    val result: Some[String] = EventStreamEventType.ScheduledVideoDownloadUpdate
+    val result: Some[String] = EventStreamEventType.ScheduledVideoDownloadUpdate.eventType
     result mustBe Some("scheduled-video-download-update")
   }
 

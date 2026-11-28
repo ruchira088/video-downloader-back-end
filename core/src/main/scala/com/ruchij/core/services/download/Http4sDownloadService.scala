@@ -156,6 +156,6 @@ object Http4sDownloadService {
   private final case class ResumeMetadata(uri: String, etag: String, size: Long)
 
   private object ResumeMetadata {
-    implicit val codec: Codec[ResumeMetadata] = deriveCodec[ResumeMetadata]
+    given codec: Codec[ResumeMetadata] = deriveCodec[ResumeMetadata]
   }
 }

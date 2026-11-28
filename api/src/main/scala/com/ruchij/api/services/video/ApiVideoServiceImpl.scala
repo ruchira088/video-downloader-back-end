@@ -6,7 +6,7 @@ import cats.{Applicative, MonadThrow, ~>}
 import com.ruchij.api.services.detection.ApiDuplicateDetectionService
 import com.ruchij.api.services.fallback.FallbackSyncRequester
 import com.ruchij.core.commands.ScanVideosCommand
-import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
+import com.ruchij.core.daos.doobie.DoobieUtils.one
 import com.ruchij.core.daos.permission.VideoPermissionDao
 import com.ruchij.core.daos.scheduling.models.RangeValue
 import com.ruchij.core.daos.snapshot.SnapshotDao

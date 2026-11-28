@@ -5,5 +5,5 @@ import doobie.Meta
 final case class Email(value: String) extends AnyVal
 
 object Email {
-  implicit val emailMeta: Meta[Email] = Meta[String].timap(Email.apply)(_.value)
+  given emailMeta: Meta[Email] = Meta[String].timap(Email.apply)(_.value)
 }
