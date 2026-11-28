@@ -1,5 +1,8 @@
 package com.ruchij.api.config
 
+import pureconfig.ConfigReader
+import pureconfig.generic.semiauto.deriveReader
+
 final case class FallbackSyncSettings(
   mainToFallbackQueueUrl: String,
   fallbackToMainQueueUrl: String,
@@ -48,5 +51,7 @@ final case class FallbackSyncConfiguration(
 }
 
 object FallbackSyncConfiguration {
+  implicit val configReader: ConfigReader[FallbackSyncConfiguration] = deriveReader[FallbackSyncConfiguration]
+
   val Disabled: FallbackSyncConfiguration = FallbackSyncConfiguration(false, None, None, None, None, None)
 }

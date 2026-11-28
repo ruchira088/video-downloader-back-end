@@ -2,12 +2,12 @@ package com.ruchij.api.config
 
 import cats.ApplicativeError
 import com.ruchij.core.config._
-import com.ruchij.core.config.PureConfigReaders._
 import com.ruchij.core.types.FunctionKTypes._
 import com.ruchij.migration.config.DatabaseConfiguration
 import pureconfig.ConfigObjectSource
+import pureconfig.ConfigReader
 import pureconfig.error.ConfigReaderException
-import pureconfig.generic.auto._
+import pureconfig.generic.semiauto.deriveReader
 
 final case class ApiServiceConfiguration(
   httpConfiguration: HttpConfiguration,
@@ -23,6 +23,8 @@ final case class ApiServiceConfiguration(
 )
 
 object ApiServiceConfiguration {
+  implicit val configReader: ConfigReader[ApiServiceConfiguration] = deriveReader[ApiServiceConfiguration]
+
   def parse[F[_]: ApplicativeError[*[_], Throwable]](
     configObjectSource: ConfigObjectSource
   ): F[ApiServiceConfiguration] =

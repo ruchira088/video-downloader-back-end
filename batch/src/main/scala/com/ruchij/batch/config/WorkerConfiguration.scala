@@ -1,5 +1,9 @@
 package com.ruchij.batch.config
 
+import com.ruchij.core.config.PureConfigReaders._
+import pureconfig.ConfigReader
+import pureconfig.generic.semiauto.deriveReader
+
 import java.time.LocalTime
 
 final case class WorkerConfiguration(
@@ -8,3 +12,7 @@ final case class WorkerConfiguration(
   endTime: LocalTime,
   owner: String
 )
+
+object WorkerConfiguration {
+  implicit val configReader: ConfigReader[WorkerConfiguration] = deriveReader[WorkerConfiguration]
+}

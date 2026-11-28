@@ -4,7 +4,6 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 import com.typesafe.config.ConfigFactory
 import pureconfig.ConfigSource
-import pureconfig.generic.auto._
 
 class FallbackSyncConfigurationSpec extends AnyFlatSpec with Matchers {
 

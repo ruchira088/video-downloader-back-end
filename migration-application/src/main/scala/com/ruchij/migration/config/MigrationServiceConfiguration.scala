@@ -1,8 +1,9 @@
 package com.ruchij.migration.config
 
 import pureconfig.ConfigObjectSource
+import pureconfig.ConfigReader
 import pureconfig.error.ConfigReaderException
-import pureconfig.generic.auto._
+import pureconfig.generic.semiauto.deriveReader
 
 final case class MigrationServiceConfiguration(
   databaseConfiguration: DatabaseConfiguration,
@@ -10,6 +11,8 @@ final case class MigrationServiceConfiguration(
 )
 
 object MigrationServiceConfiguration {
+  implicit val configReader: ConfigReader[MigrationServiceConfiguration] = deriveReader[MigrationServiceConfiguration]
+
   def load(
     configObjectSource: ConfigObjectSource
   ): Either[ConfigReaderException[MigrationServiceConfiguration], MigrationServiceConfiguration] =

@@ -4,7 +4,6 @@ import com.ruchij.core.config.PureConfigReaders._
 import com.ruchij.core.messaging.PubSub.PubsubType
 import com.ruchij.migration.config.DatabaseConfiguration
 import pureconfig.ConfigReader
-import pureconfig.generic.auto._
 
 final case class PubsubConfiguration(
   pubsubType: PubsubType,
