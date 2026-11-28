@@ -2,7 +2,7 @@ package com.ruchij.core.services.hashing
 
 import cats.Applicative
 import cats.effect.kernel.Sync
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.services.hashing.PerceptualHashingServiceImpl.BitResolution
 import dev.brachtendorf.jimagehash.hash.Hash
 import dev.brachtendorf.jimagehash.hashAlgorithms.PerceptiveHash

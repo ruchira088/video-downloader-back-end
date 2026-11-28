@@ -1,14 +1,14 @@
 package com.ruchij.core.circe
 
 import com.ruchij.core.circe.CirceCodecsSpec.TestWrapper
-import com.ruchij.core.circe.Decoders._
-import com.ruchij.core.circe.Encoders._
+import com.ruchij.core.circe.Decoders.*
+import com.ruchij.core.circe.Encoders.*
 import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoSite}
 import com.ruchij.core.services.models.{Order, SortBy}
 import io.circe.Decoder
-import io.circe.parser._
-import io.circe.syntax._
+import io.circe.parser.*
+import io.circe.syntax.*
 import org.http4s.MediaType
 
 import java.time.{Instant, ZoneOffset}

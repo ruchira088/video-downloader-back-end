@@ -1,9 +1,9 @@
 package com.ruchij.core.daos.snapshot
 
-import com.ruchij.core.daos.doobie.DoobieCustomMappings._
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
 import com.ruchij.core.daos.snapshot.models.Snapshot
 import doobie.free.connection.ConnectionIO
-import doobie.implicits._
+import doobie.implicits.*
 import doobie.util.fragment.Fragment
 import doobie.util.fragments.whereAndOpt
 

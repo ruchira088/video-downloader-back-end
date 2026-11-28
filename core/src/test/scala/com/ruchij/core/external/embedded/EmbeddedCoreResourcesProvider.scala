@@ -2,14 +2,14 @@ package com.ruchij.core.external.embedded
 
 import cats.MonadError
 import cats.effect.{MonadCancelThrow, Resource, Sync}
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.config.{KafkaConfiguration, SpaSiteRendererConfiguration}
 import com.ruchij.core.external.CoreResourcesProvider
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider.availablePort
 import com.ruchij.core.types.RandomGenerator
 import com.ruchij.migration.config.DatabaseConfiguration
 import io.github.embeddedkafka.EmbeddedKafkaConfig
-import io.github.embeddedkafka.schemaregistry.{EmbeddedKafka, EmbeddedKafkaConfig => EmbeddedKafkaSchemaRegistryConfig}
+import io.github.embeddedkafka.schemaregistry.{EmbeddedKafka, EmbeddedKafkaConfig as EmbeddedKafkaSchemaRegistryConfig}
 import org.http4s.Uri
 import org.http4s.Uri.Scheme
 

@@ -1,9 +1,9 @@
 package com.ruchij.batch.daos.scheduling
 
-import com.ruchij.core.daos.doobie.DoobieCustomMappings._
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
 import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 import doobie.free.connection.ConnectionIO
-import doobie.implicits._
+import doobie.implicits.*
 
 object DoobieBatchSchedulingDao extends BatchSchedulingDao[ConnectionIO] {
 

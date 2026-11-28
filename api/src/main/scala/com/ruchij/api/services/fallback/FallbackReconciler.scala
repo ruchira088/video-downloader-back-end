@@ -1,7 +1,7 @@
 package com.ruchij.api.services.fallback
 
 import cats.effect.{Async, Ref}
-import cats.implicits._
+import cats.implicits.*
 import cats.{Monad, ~>}
 import com.ruchij.api.services.fallback.aws.{FallbackManifestReader, FallbackSyncTransport, ManifestEntry}
 import com.ruchij.api.services.fallback.models.{MainToFallbackMessage, ScheduledVideoRemoval, ScheduledVideoUpsert}
@@ -9,7 +9,7 @@ import com.ruchij.core.logging.Logger
 import fs2.Stream
 
 import java.time.Instant
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 /** `withheldRemovals` counts removals the mass-removal guard refused to send. */
 final case class ReconcileSummary(upserts: Int, removals: Int, withheldRemovals: Int = 0)
@@ -25,7 +25,7 @@ class FallbackReconciler[F[_]: Async, T[_]: Monad](
   instanceId: String,
   allowMassRemoval: Boolean = false
 )(implicit transaction: T ~> F) {
-  import FallbackReconciler._
+  import FallbackReconciler.*
 
   private val logger = Logger[FallbackReconciler[?, ?]]
 

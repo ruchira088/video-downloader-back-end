@@ -2,7 +2,7 @@ package com.ruchij.core.services.config
 
 import cats.Monad
 import cats.data.OptionT
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.kv.KeySpacedKeyValueStore
 import com.ruchij.core.kv.codecs.{KVCodec, KVDecoder, KVEncoder}
 import com.ruchij.core.kv.keys.KVStoreKey

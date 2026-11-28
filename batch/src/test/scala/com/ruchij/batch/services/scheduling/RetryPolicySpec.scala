@@ -5,7 +5,7 @@ import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class RetryPolicySpec extends AnyFlatSpec with Matchers with OptionValues {
   private val configuration = RetryConfiguration(maxAttempts = 5, baseDelay = 1.minute, maxDelay = 30.minutes)

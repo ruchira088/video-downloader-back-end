@@ -10,7 +10,7 @@ import com.ruchij.core.messaging.models.{HttpMetric, VideoWatchMetric}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.types.TimeUtils
 import io.circe.parser.decode
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import org.http4s.{MediaType, Method, Status}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers

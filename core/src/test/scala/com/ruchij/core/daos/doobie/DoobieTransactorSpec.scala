@@ -3,7 +3,7 @@ package com.ruchij.core.daos.doobie
 import cats.effect.IO
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.migration.config.DatabaseConfiguration
-import doobie.implicits._
+import doobie.implicits.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 

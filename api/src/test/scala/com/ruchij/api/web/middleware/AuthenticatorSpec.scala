@@ -3,9 +3,9 @@ package com.ruchij.api.web.middleware
 import cats.effect.IO
 import com.ruchij.api.services.authentication.AuthenticationService.Secret
 import com.ruchij.core.test.IOSupport.runIO
-import org.http4s._
+import org.http4s.*
 import org.http4s.headers.Authorization
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers

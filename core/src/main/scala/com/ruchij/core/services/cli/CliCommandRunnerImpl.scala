@@ -2,13 +2,13 @@ package com.ruchij.core.services.cli
 
 import cats.effect.std.{Dispatcher, Queue}
 import cats.effect.{Async, Deferred, Sync}
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.exceptions.CliCommandException
 import com.ruchij.core.logging.Logger
 import fs2.Stream
 
 import java.io.{BufferedReader, IOException, InputStream, InputStreamReader}
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 
 class CliCommandRunnerImpl[F[_]: Async](dispatcher: Dispatcher[F]) extends CliCommandRunner[F] {
 

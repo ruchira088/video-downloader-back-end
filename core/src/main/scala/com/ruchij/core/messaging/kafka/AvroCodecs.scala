@@ -6,7 +6,7 @@ import com.ruchij.core.daos.scheduling.models.ScheduledVideoDownload.ErrorInfo
 import com.ruchij.core.daos.videometadata.models.{VideoMetadata, VideoSite}
 import enumeratum.{Enum, EnumEntry}
 import org.http4s.{MediaType, Method, Status, Uri}
-import vulcan.generic._
+import vulcan.generic.*
 import vulcan.{AvroError, Codec}
 
 import java.util.concurrent.TimeUnit

@@ -1,7 +1,7 @@
 package com.ruchij.api.web.middleware
 
 import cats.data.{Kleisli, OptionT}
-import cats.implicits._
+import cats.implicits.*
 import cats.{ApplicativeError, ApplicativeThrow, MonadThrow}
 import com.ruchij.api.exceptions.AuthenticationException
 import com.ruchij.api.services.authentication.AuthenticationService
@@ -9,8 +9,8 @@ import com.ruchij.api.services.authentication.AuthenticationService.Secret
 import com.ruchij.api.services.authentication.models.AuthenticationToken
 import com.ruchij.api.services.models.Context.{AuthenticatedRequestContext, RequestContext}
 import com.ruchij.api.web.headers.`X-User-ID`
-import com.ruchij.core.types.FunctionKTypes._
-import org.http4s._
+import com.ruchij.core.types.FunctionKTypes.*
+import org.http4s.*
 import org.http4s.headers.Authorization
 import org.http4s.server.Middleware
 

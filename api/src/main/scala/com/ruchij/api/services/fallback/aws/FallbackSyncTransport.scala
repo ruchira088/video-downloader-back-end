@@ -1,7 +1,7 @@
 package com.ruchij.api.services.fallback.aws
 
 import cats.effect.{Async, Sync}
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.api.services.fallback.aws.SqsFallbackSyncTransport.{Entry, MaxBatchBytes, MaxBatchEntries}
 import com.ruchij.api.services.fallback.models.{
   MainToFallbackMessage,
@@ -27,8 +27,8 @@ import software.amazon.awssdk.services.sqs.model.{
 
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.{CompletionException, ExecutionException}
-import scala.concurrent.duration._
-import scala.jdk.CollectionConverters._
+import scala.concurrent.duration.*
+import scala.jdk.CollectionConverters.*
 
 trait FallbackSyncTransport[F[_]] {
   def send(messages: List[MainToFallbackMessage]): F[Unit]

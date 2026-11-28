@@ -8,9 +8,9 @@ import com.ruchij.api.config.{
   FallbackSyncConfiguration,
   HttpConfiguration
 }
-import com.ruchij.api.test.matchers._
+import com.ruchij.api.test.matchers.*
 import com.ruchij.api.test.utils.JsonUtils
-import com.ruchij.core.config._
+import com.ruchij.core.config.*
 import com.ruchij.core.external.CoreResourcesProvider
 import com.ruchij.core.external.containers.RedisContainer
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
@@ -18,15 +18,15 @@ import com.ruchij.core.messaging.PubSub.PubsubType
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.migration.MigrationApp
 import fs2.io.file.Files
-import io.circe.literal._
-import org.http4s.circe.CirceEntityEncoder._
+import io.circe.literal.*
+import org.http4s.circe.CirceEntityEncoder.*
 import org.http4s.headers.Authorization
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import org.http4s.{AuthScheme, Credentials, HttpApp, Method, Request, Status}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 /** Boots the whole API against an in-memory database and a Redis container, then drives a few requests through the real
   * routes, services and DAOs. It guards the hand-written wiring in ApiApp.program.

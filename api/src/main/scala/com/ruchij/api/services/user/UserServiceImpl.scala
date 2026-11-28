@@ -1,7 +1,7 @@
 package com.ruchij.api.services.user
 
 import cats.data.OptionT
-import cats.implicits._
+import cats.implicits.*
 import cats.effect.Sync
 import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
 import com.ruchij.api.daos.credentials.CredentialsDao

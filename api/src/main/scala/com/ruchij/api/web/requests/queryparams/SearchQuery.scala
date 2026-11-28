@@ -8,7 +8,7 @@ import com.ruchij.api.web.requests.queryparams.MultiValueQueryParameter.{
   VideoUrlsQueryParameter
 }
 import com.ruchij.api.web.requests.queryparams.QueryParameter.{QueryParameters, enumQueryParamDecoder}
-import com.ruchij.api.web.requests.queryparams.SingleValueQueryParameter._
+import com.ruchij.api.web.requests.queryparams.SingleValueQueryParameter.*
 import com.ruchij.core.daos.scheduling.models.{RangeValue, SchedulingStatus}
 import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.services.models.SortBy

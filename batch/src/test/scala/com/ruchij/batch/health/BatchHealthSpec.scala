@@ -7,7 +7,7 @@ import org.http4s.{Method, Request, Status, Uri}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class BatchHealthSpec extends AnyFlatSpec with Matchers {
   private def status(health: BatchHealth[IO], endpoint: String): IO[Status] =

@@ -3,7 +3,7 @@ package com.ruchij.core.utils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class MatcherUtilsSpec extends AnyFlatSpec with Matchers {
 

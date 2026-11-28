@@ -1,7 +1,7 @@
 package com.ruchij.api.services.user
 
 import cats.FlatMap
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.api.daos.resettoken.models.CredentialsResetToken
 import com.ruchij.api.daos.user.models.{Email, User}
 import com.ruchij.api.services.authentication.AuthenticationService.Password

@@ -2,7 +2,7 @@ package com.ruchij.api.services.scheduling
 
 import cats.data.{NonEmptyList, OptionT}
 import cats.effect.Async
-import cats.implicits._
+import cats.implicits.*
 import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
 import com.ruchij.api.exceptions.AuthorizationException
 import com.ruchij.api.services.config.models.ApiConfigKey

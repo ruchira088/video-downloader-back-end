@@ -9,16 +9,16 @@ import com.ruchij.core.messaging.models.{HttpMetric, VideoWatchMetric}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import fs2.kafka.vulcan.{AvroSettings, SchemaRegistryClientSettings, avroDeserializer, avroSerializer}
 import fs2.kafka.{ValueDeserializer, ValueSerializer}
-import io.circe.generic.auto._
-import io.circe.generic.semiauto.{deriveCodec => deriveJsonCodec}
-import io.circe.{Codec => JsonCodec, Json}
-import vulcan.generic._
-import com.ruchij.core.messaging.kafka.AvroCodecs._
-import com.ruchij.core.circe.Decoders._
-import com.ruchij.core.circe.Encoders._
+import io.circe.generic.auto.*
+import io.circe.generic.semiauto.deriveCodec as deriveJsonCodec
+import io.circe.{Codec as JsonCodec, Json}
+import vulcan.generic.*
+import com.ruchij.core.messaging.kafka.AvroCodecs.*
+import com.ruchij.core.circe.Decoders.*
+import com.ruchij.core.circe.Encoders.*
 import org.http4s.circe.decodeUri
 import org.http4s.circe.encodeUri
-import vulcan.{Codec => AvroCodec}
+import vulcan.Codec as AvroCodec
 
 trait MessagingTopic[A] {
   val name: String

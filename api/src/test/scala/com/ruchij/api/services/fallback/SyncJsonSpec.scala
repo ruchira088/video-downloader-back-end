@@ -2,7 +2,7 @@ package com.ruchij.api.services.fallback
 
 import com.ruchij.api.services.fallback.ContractFixtures.{canonical, json, read}
 import com.ruchij.api.services.fallback.FallbackSyncTestData.fixtureUpsert
-import com.ruchij.api.services.fallback.models._
+import com.ruchij.api.services.fallback.models.*
 import io.circe.parser.parse
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers

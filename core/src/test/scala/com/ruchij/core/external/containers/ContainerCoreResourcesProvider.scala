@@ -1,7 +1,7 @@
 package com.ruchij.core.external.containers
 
 import cats.effect.{Resource, Sync}
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.config.{KafkaConfiguration, SpaSiteRendererConfiguration}
 import com.ruchij.core.external.CoreResourcesProvider
 import com.ruchij.migration.config.DatabaseConfiguration

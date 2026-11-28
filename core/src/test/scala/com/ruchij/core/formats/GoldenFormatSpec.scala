@@ -25,7 +25,7 @@ abstract class GoldenFormatSpec(module: String, formats: List[GoldenFormat])
     extends FixtureAnyFlatSpec
     with ConfigMapFixture
     with Matchers {
-  import GoldenFormatSpec._
+  import GoldenFormatSpec.*
 
   private val snapshotFiles = SnapshotFiles("golden-formats", module, "txt")
 

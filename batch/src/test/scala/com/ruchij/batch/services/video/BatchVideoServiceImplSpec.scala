@@ -16,12 +16,12 @@ import com.ruchij.core.test.Providers
 import com.ruchij.core.types.Clock
 import com.ruchij.core.types.TimeUtils
 import org.http4s.MediaType
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import java.time.Instant
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class BatchVideoServiceImplSpec extends AnyFlatSpec with Matchers {
 

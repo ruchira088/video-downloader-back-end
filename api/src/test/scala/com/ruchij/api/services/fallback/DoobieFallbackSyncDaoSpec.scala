@@ -1,11 +1,11 @@
 package com.ruchij.api.services.fallback
 
 import cats.effect.IO
-import cats.effect.unsafe.implicits.{global => runtime}
-import cats.implicits._
+import cats.effect.unsafe.implicits.global as runtime
+import cats.implicits.*
 import cats.~>
 import com.ruchij.api.services.fallback.FallbackSyncTestData.scheduledVideoDownload
-import com.ruchij.core.daos.doobie.DoobieCustomMappings._
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
 import com.ruchij.core.daos.permission.DoobieVideoPermissionDao
 import com.ruchij.core.daos.permission.models.VideoPermission
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
@@ -17,8 +17,8 @@ import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.types.Clock
 import doobie.{ConnectionIO, Fragment}
-import doobie.free.{connection => FC}
-import doobie.implicits._
+import doobie.free.connection as FC
+import doobie.implicits.*
 import org.http4s.Uri
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers

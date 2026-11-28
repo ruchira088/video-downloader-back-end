@@ -13,7 +13,7 @@ import fs2.Stream
 import io.circe.ParsingFailure
 import org.http4s.Uri
 import org.http4s.client.Client
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers

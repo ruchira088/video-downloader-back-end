@@ -1,6 +1,6 @@
 package com.ruchij.core.kv.codecs
 
-import cats.implicits._
+import cats.implicits.*
 import cats.{Applicative, ApplicativeError, Functor, Monad, MonadError, MonadThrow}
 import com.ruchij.core.kv.keys.KVStoreKey.{KeyList, KeySeparator}
 import enumeratum.{Enum, EnumEntry}

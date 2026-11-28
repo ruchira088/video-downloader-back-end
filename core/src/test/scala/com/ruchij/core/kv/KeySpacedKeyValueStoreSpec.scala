@@ -9,9 +9,9 @@ import com.ruchij.core.test.IOSupport.runIO
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.language.postfixOps
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 
 class KeySpacedKeyValueStoreSpec extends AnyFlatSpec with Matchers {
 

@@ -7,7 +7,7 @@ import org.scalatest.flatspec.FixtureAnyFlatSpec
 import org.scalatest.fixture.ConfigMapFixture
 import org.scalatest.matchers.must.Matchers
 
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 
 // Kafka messages are written with Avro schemas that vulcan-generic derives at compile time, and Schema Registry
 // rejects a schema that is incompatible with the one it already holds for the topic. A new compiler (such as Scala 3)
@@ -21,7 +21,7 @@ abstract class AvroSchemaSnapshotSpec(module: String, topics: List[MessagingTopi
     extends FixtureAnyFlatSpec
     with ConfigMapFixture
     with Matchers {
-  import AvroSchemaSnapshotSpec._
+  import AvroSchemaSnapshotSpec.*
 
   private val snapshotFiles = SnapshotFiles("avro-schemas", module, "avsc")
 

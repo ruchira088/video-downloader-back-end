@@ -2,7 +2,7 @@ package com.ruchij.core.services.video
 
 import cats.data.Kleisli
 import cats.effect.{Async, Concurrent, MonadCancelThrow, Sync}
-import cats.implicits._
+import cats.implicits.*
 import cats.{Applicative, ApplicativeError, Monad, MonadError, ~>}
 import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.resource.FileResourceDao
@@ -18,7 +18,7 @@ import com.ruchij.core.services.hashing.HashingService
 import com.ruchij.core.services.renderer.SpaSiteRenderer
 import com.ruchij.core.services.video.VideoAnalysisService.{Existing, NewlyCreated, VideoMetadataResult}
 import com.ruchij.core.services.video.models.VideoAnalysisResult
-import com.ruchij.core.types.FunctionKTypes._
+import com.ruchij.core.types.FunctionKTypes.*
 import com.ruchij.core.types.Clock
 import com.ruchij.core.utils.Http4sUtils
 import org.http4s.Method.{GET, HEAD}
@@ -48,7 +48,7 @@ class VideoAnalysisServiceImpl[F[_]: Async: Clock, T[_]: Monad](
   private val logger = Logger[VideoAnalysisServiceImpl[F, T]]
 
   private val clientDsl = Http4sClientDsl[F]
-  import clientDsl._
+  import clientDsl.*
 
   override def metadata(uri: Uri): F[VideoMetadataResult] =
     for {

@@ -1,7 +1,7 @@
 package com.ruchij.api.services.hashing
 
 import cats.effect.Sync
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.api.daos.credentials.models.Credentials.HashedPassword
 import com.ruchij.api.services.authentication.AuthenticationService.Password
 import org.mindrot.jbcrypt.BCrypt

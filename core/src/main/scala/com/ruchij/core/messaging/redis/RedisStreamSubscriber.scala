@@ -1,7 +1,7 @@
 package com.ruchij.core.messaging.redis
 
 import cats.effect.kernel.{Async, Resource}
-import cats.implicits._
+import cats.implicits.*
 import cats.{Applicative, Foldable, Functor}
 import com.ruchij.core.config.RedisConfiguration
 import com.ruchij.core.logging.Logger
@@ -11,11 +11,11 @@ import com.ruchij.core.messaging.{MessagingTopic, Subscriber}
 import com.ruchij.core.types.RandomGenerator
 import dev.profunktor.redis4cats.{Redis, RedisCommands}
 import dev.profunktor.redis4cats.effect.Log.Stdout.instance
-import dev.profunktor.redis4cats.effects._
+import dev.profunktor.redis4cats.effects.*
 import fs2.Stream
 
 import java.util.UUID
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.language.postfixOps
 
 /** Reads a Redis stream through a consumer group, mirroring the Kafka backend's semantics:

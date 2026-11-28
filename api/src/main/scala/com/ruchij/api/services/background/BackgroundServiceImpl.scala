@@ -2,7 +2,7 @@ package com.ruchij.api.services.background
 
 import cats.effect.kernel.Async
 import cats.effect.{Concurrent, Fiber, Sync}
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.api.services.health.models.messaging.HealthCheckMessage
 import com.ruchij.api.services.scheduling.ApiSchedulingService
 import com.ruchij.api.services.scheduling.models.ScheduledVideoDeletion

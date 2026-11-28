@@ -1,12 +1,12 @@
 package com.ruchij.core.messaging
 
 import cats.effect.{IO, Resource}
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.config.PubsubConfiguration
 import com.ruchij.core.exceptions.ExternalServiceException
 import com.ruchij.core.messaging.PubSub.PubsubType
 import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage
-import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage._
+import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage.*
 import com.ruchij.core.external.CoreResourcesProvider
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
 import com.ruchij.core.test.IOSupport.runIO
@@ -15,7 +15,7 @@ import fs2.Stream
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class PubSubSpec extends AnyFlatSpec with Matchers {
 

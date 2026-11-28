@@ -1,7 +1,7 @@
 package com.ruchij.core.services.hashing
 
 import cats.effect.IO
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.test.IOSupport.runIO
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers

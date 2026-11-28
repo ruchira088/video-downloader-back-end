@@ -15,15 +15,15 @@ import com.ruchij.core.test.{H2TestDatabase, PostgresTestDatabase, TestDatabase}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.types.Clock
 import doobie.ConnectionIO
-import doobie.implicits._
+import doobie.implicits.*
 import org.http4s.MediaType
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import java.time.Instant
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.language.postfixOps
 
 class H2DoobieSnapshotDaoSpec extends DoobieSnapshotDaoSpec with H2TestDatabase
@@ -32,7 +32,7 @@ class PostgresDoobieSnapshotDaoSpec extends DoobieSnapshotDaoSpec with PostgresT
 
 abstract class DoobieSnapshotDaoSpec extends AnyFlatSpec with Matchers with OptionValues with TestDatabase {
 
-  import com.ruchij.core.daos.doobie.DoobieCustomMappings._
+  import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
 
   case class TestFixture(
     snapshot: Snapshot,

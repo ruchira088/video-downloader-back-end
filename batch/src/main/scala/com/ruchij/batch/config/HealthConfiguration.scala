@@ -1,7 +1,7 @@
 package com.ruchij.batch.config
 
-import com.comcast.ip4s._
-import com.ruchij.core.config.PureConfigReaders._
+import com.comcast.ip4s.*
+import com.ruchij.core.config.PureConfigReaders.*
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
 

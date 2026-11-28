@@ -14,7 +14,7 @@ import doobie.implicits.toSqlInterpolator
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.language.postfixOps
 
 class DoobieKeyValueStoreSpec extends AnyFlatSpec with Matchers {

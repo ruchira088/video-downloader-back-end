@@ -1,7 +1,7 @@
 package com.ruchij.core.messaging.postgres
 
 import cats.effect.{IO, Resource}
-import cats.implicits._
+import cats.implicits.*
 import cats.~>
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.messaging.{
@@ -11,7 +11,7 @@ import com.ruchij.core.daos.messaging.{
   MessageDao
 }
 import com.ruchij.core.external.containers.PostgresContainer
-import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage._
+import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage.*
 import com.ruchij.core.messaging.PublisherSubscriberSpec.{PubSubFixture, SubscriptionReadiness, TestMessage}
 import com.ruchij.core.messaging.db.{DoobiePublisher, DoobieSubscriber}
 import com.ruchij.core.messaging.PublisherSubscriberSpec
@@ -20,7 +20,7 @@ import com.ruchij.core.types.Clock
 import com.ruchij.migration.MigrationApp
 import com.ruchij.migration.config.{AdminConfiguration, DatabaseConfiguration, MigrationServiceConfiguration}
 import doobie.ConnectionIO
-import doobie.free.connection.{raiseError, delay => connectionDelay}
+import doobie.free.connection.{raiseError, delay as connectionDelay}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
@@ -30,7 +30,7 @@ import java.time.temporal.ChronoUnit
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CountDownLatch, TimeUnit}
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.language.postfixOps
 
 class PostgresDoobiePublisherSubscriberSpec extends DoobiePublisherSubscriberSpec(PostgresContainer.create[IO])

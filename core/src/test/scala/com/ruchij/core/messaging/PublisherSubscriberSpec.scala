@@ -1,22 +1,22 @@
 package com.ruchij.core.messaging
 
 import cats.effect.{IO, Ref, Resource}
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.test.IOSupport.runIO
 import fs2.Stream
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import org.scalatest.flatspec.AnyFlatSpec
-import vulcan.generic._
+import vulcan.generic.*
 import org.scalatest.matchers.must.Matchers
 
 import java.util.concurrent.TimeoutException
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.language.postfixOps
 
 trait PublisherSubscriberSpec { self: AnyFlatSpec & Matchers =>
 
-  import PublisherSubscriberSpec._
+  import PublisherSubscriberSpec.*
 
   /** The publisher and subscriber, together with how the tests make sure a subscription can receive before they
     * publish. A fixed delay is not enough: every backend starts a new subscription from the latest message, so a

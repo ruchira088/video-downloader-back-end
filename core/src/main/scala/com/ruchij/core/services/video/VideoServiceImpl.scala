@@ -2,7 +2,7 @@ package com.ruchij.core.services.video
 
 import cats.{Applicative, ApplicativeError, Monad, MonadThrow, ~>}
 import cats.data.OptionT
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.daos.permission.VideoPermissionDao
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.scheduling.SchedulingDao

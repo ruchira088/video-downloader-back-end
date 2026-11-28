@@ -1,6 +1,6 @@
 package com.ruchij.batch.services.sync
 
-import com.ruchij.batch.services.sync.models.FileSyncResult._
+import com.ruchij.batch.services.sync.models.FileSyncResult.*
 import com.ruchij.batch.services.sync.models.SynchronizationResult
 import com.ruchij.core.test.data.CoreTestData
 import org.scalatest.flatspec.AnyFlatSpec

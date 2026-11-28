@@ -1,7 +1,7 @@
 package com.ruchij.core.kv
 
 import cats.effect.Sync
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.kv.codecs.{KVDecoder, KVEncoder}
 
 import java.util.concurrent.ConcurrentHashMap

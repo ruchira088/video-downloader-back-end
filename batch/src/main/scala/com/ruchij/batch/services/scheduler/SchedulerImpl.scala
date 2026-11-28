@@ -3,7 +3,7 @@ package com.ruchij.batch.services.scheduler
 import cats.data.OptionT
 import cats.effect.kernel.Outcome.{Canceled, Errored}
 import cats.effect.{Async, Sync}
-import cats.implicits._
+import cats.implicits.*
 import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
 import com.ruchij.batch.config.WorkerConfiguration
 import com.ruchij.batch.daos.workers.WorkerDao
@@ -40,7 +40,7 @@ import fs2.concurrent.Topic
 import java.time.temporal.ChronoUnit
 import java.time.{Duration, LocalTime, ZoneId}
 import java.util.concurrent.TimeUnit
-import scala.concurrent.duration.{FiniteDuration, _}
+import scala.concurrent.duration.{FiniteDuration, *}
 import scala.language.postfixOps
 
 class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](

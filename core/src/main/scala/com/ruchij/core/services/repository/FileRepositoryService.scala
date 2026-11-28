@@ -1,7 +1,7 @@
 package com.ruchij.core.services.repository
 
-import cats.effect._
-import cats.implicits._
+import cats.effect.*
+import cats.implicits.*
 import cats.{Applicative, ApplicativeError}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.utils.Timers

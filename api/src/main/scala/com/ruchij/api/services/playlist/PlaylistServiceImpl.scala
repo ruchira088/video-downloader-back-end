@@ -2,8 +2,8 @@ package com.ruchij.api.services.playlist
 
 import cats.data.OptionT
 import cats.effect.{Outcome, Sync}
-import cats.effect.implicits._
-import cats.implicits._
+import cats.effect.implicits.*
+import cats.implicits.*
 import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
 import com.ruchij.api.daos.playlist.PlaylistDao
 import com.ruchij.api.daos.playlist.models.{Playlist, PlaylistSortBy}

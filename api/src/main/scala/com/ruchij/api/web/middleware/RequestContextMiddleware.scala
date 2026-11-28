@@ -1,7 +1,7 @@
 package com.ruchij.api.web.middleware
 
 import cats.data.Kleisli
-import cats.implicits._
+import cats.implicits.*
 import cats.{Applicative, Monad}
 import com.ruchij.api.services.models.Context.RequestContext
 import com.ruchij.api.web.headers.`X-Request-ID`

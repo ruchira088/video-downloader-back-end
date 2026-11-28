@@ -1,11 +1,11 @@
 package com.ruchij.core.daos.doobie
 
 import cats.data.OptionT
-import cats.implicits._
+import cats.implicits.*
 import cats.{Applicative, ApplicativeError, MonadThrow}
 import com.ruchij.core.exceptions.InvalidConditionException
 import com.ruchij.core.services.models.{Order, SortBy}
-import doobie.implicits._
+import doobie.implicits.*
 import doobie.util.fragment.Fragment
 
 object DoobieUtils {

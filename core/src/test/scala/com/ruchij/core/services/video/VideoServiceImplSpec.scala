@@ -27,13 +27,13 @@ import com.ruchij.core.types.Clock
 import com.ruchij.core.types.TimeUtils
 import fs2.Stream
 import org.http4s.MediaType
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import java.time.Instant
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import scala.collection.mutable
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class VideoServiceImplSpec extends AnyFlatSpec with Matchers {
   import VideoServiceImplSpec.VideoSearchCall

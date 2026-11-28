@@ -4,7 +4,7 @@ import cats.effect.IO
 import com.ruchij.core.config.HttpProxyConfiguration
 import com.ruchij.core.test.IOSupport.runIO
 import org.http4s.Uri
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 

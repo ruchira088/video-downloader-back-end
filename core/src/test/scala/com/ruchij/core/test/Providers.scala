@@ -2,7 +2,7 @@ package com.ruchij.core.test
 
 import cats.{Applicative, ApplicativeError}
 import cats.effect.kernel.Temporal
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.types.Clock
 
 import java.time.Instant

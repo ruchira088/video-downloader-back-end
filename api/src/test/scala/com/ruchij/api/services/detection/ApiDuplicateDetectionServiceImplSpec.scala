@@ -12,7 +12,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import scala.collection.mutable
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class ApiDuplicateDetectionServiceImplSpec extends AnyFlatSpec with Matchers {
 

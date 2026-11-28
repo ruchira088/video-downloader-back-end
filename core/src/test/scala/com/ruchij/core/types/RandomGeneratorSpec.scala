@@ -2,7 +2,7 @@ package com.ruchij.core.types
 
 import cats.data.NonEmptyList
 import cats.effect.IO
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.test.IOSupport.runIO
 import java.time.Instant
 import org.scalatest.flatspec.AnyFlatSpec

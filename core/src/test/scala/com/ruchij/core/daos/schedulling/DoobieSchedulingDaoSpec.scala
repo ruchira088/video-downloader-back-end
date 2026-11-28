@@ -2,7 +2,7 @@ package com.ruchij.core.daos.schedulling
 
 import cats.data.NonEmptyList
 import cats.effect.IO
-import cats.implicits._
+import cats.implicits.*
 import cats.~>
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
@@ -16,12 +16,12 @@ import com.ruchij.core.test.{H2TestDatabase, PostgresTestDatabase, TestDatabase}
 import com.ruchij.core.types.Clock
 import doobie.ConnectionIO
 import org.http4s.{MediaType, Uri}
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.language.postfixOps
 
 class H2DoobieSchedulingDaoSpec extends DoobieSchedulingDaoSpec with H2TestDatabase

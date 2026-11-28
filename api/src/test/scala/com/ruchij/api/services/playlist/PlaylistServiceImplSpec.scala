@@ -17,13 +17,13 @@ import com.ruchij.core.test.Providers
 import com.ruchij.core.types.{Clock, RandomGenerator, TimeUtils}
 import fs2.Stream
 import org.http4s.MediaType
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import java.util.UUID
 import scala.collection.mutable
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
 

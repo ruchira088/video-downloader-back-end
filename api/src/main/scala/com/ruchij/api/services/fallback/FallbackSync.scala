@@ -4,7 +4,7 @@ import cats.effect.Async
 import cats.~>
 import com.ruchij.api.config.FallbackSyncSettings
 import com.ruchij.api.daos.user.DoobieUserDao
-import com.ruchij.api.services.fallback.aws._
+import com.ruchij.api.services.fallback.aws.*
 import com.ruchij.api.services.fallback.models.{FallbackSyncRequest, ResolvedRequestKey}
 import com.ruchij.api.services.scheduling.ApiSchedulingService
 import com.ruchij.core.daos.permission.DoobieVideoPermissionDao
@@ -16,7 +16,7 @@ import com.ruchij.core.messaging.{PubSub, Subscriber}
 import doobie.free.connection.ConnectionIO
 import fs2.Stream
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 final case class FallbackSyncResources[F[_]](
   settings: FallbackSyncSettings,

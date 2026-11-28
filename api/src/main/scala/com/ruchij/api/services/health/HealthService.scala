@@ -1,7 +1,7 @@
 package com.ruchij.api.services.health
 
 import com.ruchij.api.services.health.models.{HealthCheck, ServiceInformation}
-import org.http4s.implicits._
+import org.http4s.implicits.*
 
 trait HealthService[F[_]] {
   def serviceInformation: F[ServiceInformation]

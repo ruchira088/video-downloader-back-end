@@ -3,7 +3,7 @@ package com.ruchij.api.services.fallback
 import cats.effect.IO
 import cats.effect.kernel.Ref
 import cats.{Foldable, Functor}
-import com.ruchij.api.services.fallback.FallbackSyncStubs._
+import com.ruchij.api.services.fallback.FallbackSyncStubs.*
 import com.ruchij.api.services.fallback.FallbackSyncTestData.{capturedAt, scheduledVideoDownload}
 import com.ruchij.api.services.fallback.aws.FallbackSyncTransport
 import com.ruchij.api.services.fallback.models.{MainToFallbackMessage, ScheduledVideoRemoval, ScheduledVideoUpsert}
@@ -18,7 +18,7 @@ import fs2.concurrent.Topic
 import org.scalatest.matchers.must.Matchers
 
 import java.time.Instant
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class FallbackSyncPublisherSpec extends AnyFlatSpec with Matchers {
   private val noDelays = List(Duration.Zero, Duration.Zero, Duration.Zero)

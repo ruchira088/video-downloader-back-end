@@ -12,7 +12,7 @@ import org.scalatest.matchers.must.Matchers
 
 import java.util.UUID
 import scala.collection.mutable
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.language.postfixOps
 
 class VideoWatchHistoryServiceImplSpec extends AnyFlatSpec with Matchers {

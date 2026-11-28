@@ -1,6 +1,6 @@
 package com.ruchij.core.config
 
-import com.ruchij.core.config.PureConfigReaders._
+import com.ruchij.core.config.PureConfigReaders.*
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
 

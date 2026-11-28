@@ -3,7 +3,7 @@ package com.ruchij.api.web.routes
 import cats.Applicative
 import cats.data.NonEmptyList
 import cats.effect.Sync
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.api.services.asset.AssetService
 import com.ruchij.api.services.models.Context.AuthenticatedRequestContext
 import com.ruchij.api.web.responses.ResponseOps.AssetResponseOps
@@ -26,7 +26,7 @@ object AssetRoutes {
   def apply[F[_]: Sync](
     assetService: AssetService[F]
   )(implicit dsl: Http4sDsl[F]): ContextRoutes[AuthenticatedRequestContext, F] = {
-    import dsl._
+    import dsl.*
 
     ContextRoutes.of[AuthenticatedRequestContext, F] {
       // Deliberately served to any authenticated user, see AssetService.thumbnail

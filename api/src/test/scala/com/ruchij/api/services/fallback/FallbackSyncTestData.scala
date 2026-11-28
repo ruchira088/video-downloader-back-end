@@ -6,10 +6,10 @@ import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, Schedulin
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata}
 import com.ruchij.core.types.TimeUtils
 import org.http4s.MediaType
-import org.http4s.implicits._
+import org.http4s.implicits.*
 
 import java.time.Instant
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 object FallbackSyncTestData {
   val capturedAt: Instant = TimeUtils.instantOf(2026, 9, 26, 8, 15)

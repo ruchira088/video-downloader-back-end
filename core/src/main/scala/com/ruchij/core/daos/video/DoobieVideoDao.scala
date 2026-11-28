@@ -1,8 +1,8 @@
 package com.ruchij.core.daos.video
 
 import cats.data.NonEmptyList
-import cats.implicits._
-import com.ruchij.core.daos.doobie.DoobieCustomMappings._
+import cats.implicits.*
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
 import com.ruchij.core.daos.doobie.DoobieUtils.{SingleUpdateOps, ordering, sortByFieldName}
 import com.ruchij.core.daos.scheduling.models.RangeValue
 import com.ruchij.core.daos.video.models.{Video, VideoSiteSummary}
@@ -10,7 +10,7 @@ import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.services.models.{Order, SortBy}
 import doobie.Fragments.{in, whereAndOpt}
 import doobie.free.connection.ConnectionIO
-import doobie.implicits._
+import doobie.implicits.*
 import doobie.util.fragment.Fragment
 import org.http4s.Uri
 import java.time.Instant

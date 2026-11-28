@@ -1,7 +1,7 @@
 package com.ruchij.api.services.playlist
 
 import cats.effect.{IO, Ref}
-import cats.implicits._
+import cats.implicits.*
 import cats.~>
 import com.ruchij.api.daos.playlist.DoobiePlaylistDao
 import com.ruchij.api.daos.playlist.models.{Playlist, PlaylistSortBy}
@@ -32,7 +32,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 /** Runs PlaylistServiceImpl against real DAOs, on both H2 (PostgreSQL mode) and PostgreSQL. */
 class PlaylistServiceIntegrationSpec extends AnyFlatSpec with Matchers with OptionValues {

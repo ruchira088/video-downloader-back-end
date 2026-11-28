@@ -13,12 +13,12 @@ import com.ruchij.core.config.{
 import com.ruchij.core.messaging.PubSub.PubsubType
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.migration.config.DatabaseConfiguration
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 import pureconfig.ConfigSource
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class BatchServiceConfigurationSpec extends AnyFlatSpec with Matchers {
 

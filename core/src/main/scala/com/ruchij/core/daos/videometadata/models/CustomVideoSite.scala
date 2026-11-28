@@ -1,21 +1,21 @@
 package com.ruchij.core.daos.videometadata.models
 
 import cats.data.{Kleisli, NonEmptyList}
-import cats.implicits._
+import cats.implicits.*
 import cats.{Applicative, ApplicativeError, ApplicativeThrow, MonadThrow}
 import com.ruchij.core.circe.Decoders.finiteDurationDecoder
 import com.ruchij.core.daos.videometadata.models.CustomVideoSite.Selector
 import com.ruchij.core.exceptions.ValidationException
 import com.ruchij.core.services.renderer.SpaSiteRenderer
-import com.ruchij.core.types.FunctionKTypes._
+import com.ruchij.core.types.FunctionKTypes.*
 import com.ruchij.core.utils.JsoupSelector
 import com.ruchij.core.utils.MatcherUtils.FiniteDurationValue
 import enumeratum.{Enum, EnumEntry}
 import org.http4s.circe.decodeUri
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import org.http4s.{Query, Uri}
-import io.circe.{parser => JsonParser}
-import io.circe.generic.auto._
+import io.circe.parser as JsonParser
+import io.circe.generic.auto.*
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration

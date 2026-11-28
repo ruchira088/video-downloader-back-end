@@ -5,7 +5,7 @@ import com.ruchij.core.messaging.MessagingTopic
 import com.ruchij.core.messaging.MessagingTopic.ScheduledVideoDownloadTopic
 import io.circe.generic.semiauto.deriveCodec
 import vulcan.Codec
-import vulcan.generic._
+import vulcan.generic.*
 
 /** An admin's delete of a scheduled video download, together with the users who had scheduled it.
   *

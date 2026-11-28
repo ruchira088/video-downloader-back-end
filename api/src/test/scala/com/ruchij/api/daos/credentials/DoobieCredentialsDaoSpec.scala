@@ -1,7 +1,7 @@
 package com.ruchij.api.daos.credentials
 
 import cats.effect.IO
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.api.daos.credentials.DoobieCredentialsDao
 import com.ruchij.api.daos.credentials.models.Credentials
 import com.ruchij.api.daos.credentials.models.Credentials.HashedPassword

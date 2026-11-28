@@ -6,7 +6,7 @@ import org.apache.avro.SchemaCompatibility.SchemaCompatibilityType
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 
 class MessagingTopicSpec extends AnyFlatSpec with Matchers {
 

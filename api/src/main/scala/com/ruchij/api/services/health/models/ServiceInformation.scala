@@ -1,7 +1,7 @@
 package com.ruchij.api.services.health.models
 
 import cats.effect.Sync
-import cats.implicits._
+import cats.implicits.*
 import com.eed3si9n.ruchij.api.BuildInfo
 import com.ruchij.core.types.Clock
 

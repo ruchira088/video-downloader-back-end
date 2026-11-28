@@ -1,16 +1,16 @@
 package com.ruchij.api.web.routes
 
 import cats.effect.Async
-import cats.implicits._
-import com.ruchij.api.circe.ValueClassCodecs._
+import cats.implicits.*
+import com.ruchij.api.circe.ValueClassCodecs.*
 import com.ruchij.api.services.authentication.AuthenticationService
 import com.ruchij.api.services.models.Context.{AuthenticatedRequestContext, RequestContext}
 import com.ruchij.api.web.requests.LoginRequest
 import com.ruchij.api.web.requests.RequestOps.ContextRequestOpsSyntax
 import org.http4s.circe.CirceEntityDecoder.circeEntityDecoder
 import org.http4s.circe.CirceEntityEncoder.circeEntityEncoder
-import io.circe.generic.auto._
-import com.ruchij.core.circe.Encoders._
+import io.circe.generic.auto.*
+import com.ruchij.core.circe.Encoders.*
 import com.ruchij.api.web.middleware.Authenticator
 import com.ruchij.api.web.responses.AuthenticationTokenResponse
 import org.http4s.{AuthedRoutes, ContextRoutes, Response}
@@ -20,7 +20,7 @@ object AuthenticationRoutes {
   def apply[F[_]: Async](
     authenticationService: AuthenticationService[F]
   )(implicit dsl: Http4sDsl[F]): ContextRoutes[RequestContext, F] = {
-    import dsl._
+    import dsl.*
 
     val unauthenticatedRoutes =
       ContextRoutes.of[RequestContext, F] {

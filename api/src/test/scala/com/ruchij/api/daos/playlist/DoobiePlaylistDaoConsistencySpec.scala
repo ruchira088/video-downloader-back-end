@@ -1,7 +1,7 @@
 package com.ruchij.api.daos.playlist
 
 import cats.effect.IO
-import cats.implicits._
+import cats.implicits.*
 import cats.~>
 import com.ruchij.api.daos.playlist.models.{Playlist, PlaylistSortBy}
 import com.ruchij.api.test.data.ApiTestData
@@ -14,7 +14,7 @@ import com.ruchij.core.services.models.Order
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.data.CoreTestData
 import doobie.free.connection.ConnectionIO
-import doobie.free.{connection => FC}
+import doobie.free.connection as FC
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers

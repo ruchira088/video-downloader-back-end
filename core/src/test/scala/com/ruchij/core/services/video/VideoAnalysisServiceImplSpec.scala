@@ -3,7 +3,7 @@ package com.ruchij.core.services.video
 import cats.data.OptionT
 import cats.effect.std.Dispatcher
 import cats.effect.{Async, IO, Ref, Resource, Sync}
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
@@ -26,7 +26,7 @@ import com.ruchij.core.types.Clock
 import com.ruchij.core.types.FunctionKTypes.identityFunctionK
 import fs2.Stream
 import org.http4s.client.Client
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import org.http4s.jdkhttpclient.JdkHttpClient
 import org.http4s.{HttpApp, MediaType, Query, Uri}
 import org.scalamock.scalatest.MockFactory

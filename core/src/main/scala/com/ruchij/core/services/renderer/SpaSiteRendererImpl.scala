@@ -6,7 +6,7 @@ import cats.implicits.{catsSyntaxApplicativeError, catsSyntaxApplyOps}
 import com.ruchij.core.config.SpaSiteRendererConfiguration
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.renderer.models.{JavaScriptExecutionRequest, SpaRendererRequest}
-import io.circe.generic.auto._
+import io.circe.generic.auto.*
 import org.http4s.Method.POST
 import org.http4s.Uri
 import org.http4s.Uri.Path
@@ -21,7 +21,7 @@ class SpaSiteRendererImpl[F[_]: Async](client: Client[F], spaSiteRendererConfigu
 
   private val clientDsl = Http4sClientDsl[F]
 
-  import clientDsl._
+  import clientDsl.*
 
   override def render(uri: Uri, readyCssSelectors: Seq[String]): F[String] =
     client

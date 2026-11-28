@@ -7,7 +7,7 @@ import fs2.Stream
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class FallbackSyncSpec extends AnyFlatSpec with Matchers {
 

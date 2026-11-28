@@ -1,17 +1,17 @@
 package com.ruchij.api.services.fallback
 
 import cats.effect.MonadCancelThrow
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.kv.KeyValueStore
 
 import java.time.Instant
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class FallbackSyncCoordination[F[_]: MonadCancelThrow](
   keyValueStore: KeyValueStore[F],
   lockTtl: FiniteDuration = 30.minutes
 ) {
-  import FallbackSyncCoordination._
+  import FallbackSyncCoordination.*
 
   def markReconcileNeeded: F[Unit] = keyValueStore.put[String, String](ReconcileNeededKey, "true", None).void
 

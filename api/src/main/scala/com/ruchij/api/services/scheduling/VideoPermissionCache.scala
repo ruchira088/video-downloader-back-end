@@ -1,12 +1,12 @@
 package com.ruchij.api.services.scheduling
 
-import cats.effect.implicits._
+import cats.effect.implicits.*
 import cats.effect.{Concurrent, Deferred, Poll, Ref}
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.types.Clock
 
 import java.time.Instant
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.language.postfixOps
 
 /** Answers whether a single user has permission for (i.e. owns) a video, caching the answers. */

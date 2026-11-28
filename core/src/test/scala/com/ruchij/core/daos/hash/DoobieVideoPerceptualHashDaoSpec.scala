@@ -1,7 +1,7 @@
 package com.ruchij.core.daos.hash
 
 import cats.effect.IO
-import cats.implicits._
+import cats.implicits.*
 import cats.~>
 import com.ruchij.core.daos.hash.models.VideoPerceptualHash
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
@@ -17,7 +17,7 @@ import org.http4s.MediaType
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.language.postfixOps
 
 class H2DoobieVideoPerceptualHashDaoSpec extends DoobieVideoPerceptualHashDaoSpec with H2TestDatabase

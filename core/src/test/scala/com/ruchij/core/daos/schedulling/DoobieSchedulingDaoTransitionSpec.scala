@@ -4,7 +4,7 @@ import cats.data.NonEmptyList
 import cats.effect.unsafe.implicits.global
 import cats.effect.{IO, Resource}
 import cats.~>
-import com.ruchij.core.daos.doobie.DoobieCustomMappings._
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.permission.DoobieVideoPermissionDao
 import com.ruchij.core.daos.permission.models.VideoPermission
@@ -20,16 +20,16 @@ import com.ruchij.core.types.TimeUtils
 import com.ruchij.migration.MigrationApp
 import com.ruchij.migration.config.{AdminConfiguration, DatabaseConfiguration, MigrationServiceConfiguration}
 import doobie.ConnectionIO
-import doobie.implicits._
+import doobie.implicits.*
 import org.http4s.MediaType
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.{BeforeAndAfterAll, OptionValues}
 
 import java.time.Instant
 import java.util.UUID
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class PostgresDoobieSchedulingDaoTransitionSpec extends DoobieSchedulingDaoTransitionSpec(PostgresContainer.create[IO])
 

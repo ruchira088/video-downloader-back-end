@@ -4,7 +4,7 @@ import cats.effect.Resource
 import com.ruchij.core.config.{KafkaConfiguration, SpaSiteRendererConfiguration}
 import com.ruchij.core.external.CoreResourcesProvider
 import com.ruchij.migration.config.DatabaseConfiguration
-import org.http4s.implicits._
+import org.http4s.implicits.*
 
 class LocalCoreResourcesProvider[F[_]] extends CoreResourcesProvider[F] {
   override val kafkaConfiguration: Resource[F, KafkaConfiguration] =

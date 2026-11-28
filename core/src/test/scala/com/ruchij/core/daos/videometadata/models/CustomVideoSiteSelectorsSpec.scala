@@ -1,12 +1,12 @@
 package com.ruchij.core.daos.videometadata.models
 
 import cats.effect.IO
-import com.ruchij.core.daos.videometadata.models.CustomVideoSite._
+import com.ruchij.core.daos.videometadata.models.CustomVideoSite.*
 import com.ruchij.core.exceptions.JSoupException.NoMatchingElementsFoundException
 import com.ruchij.core.services.renderer.SpaSiteRenderer
 import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import org.http4s.Uri
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import org.jsoup.Jsoup
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers

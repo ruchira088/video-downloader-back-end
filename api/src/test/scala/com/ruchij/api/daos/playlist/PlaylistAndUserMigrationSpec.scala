@@ -1,10 +1,10 @@
 package com.ruchij.api.daos.playlist
 
 import cats.effect.{IO, Resource}
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.api.daos.user.DoobieUserDao
 import com.ruchij.api.test.data.ApiTestData
-import com.ruchij.core.daos.doobie.DoobieCustomMappings._
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
@@ -15,7 +15,7 @@ import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.data.CoreTestData
 import com.ruchij.migration.config.DatabaseConfiguration
 import doobie.free.connection.ConnectionIO
-import doobie.implicits._
+import doobie.implicits.*
 import doobie.util.transactor.Transactor
 import org.flywaydb.core.Flyway
 import org.scalatest.flatspec.AnyFlatSpec

@@ -3,17 +3,17 @@ package com.ruchij.development
 import cats.ApplicativeError
 import cats.Parallel
 import cats.data.OptionT
-import cats.effect._
-import cats.implicits._
+import cats.effect.*
+import cats.implicits.*
 import com.comcast.ip4s.{ipv4, port}
 import com.ruchij.api.ApiApp
-import com.ruchij.api.config._
+import com.ruchij.api.config.*
 import com.ruchij.api.external.ApiResourcesProvider
 import com.ruchij.api.external.containers.ContainerApiResourcesProvider
 import com.ruchij.batch.BatchApp
 import com.ruchij.batch.config.{BatchServiceConfiguration, WorkerConfiguration}
 import com.ruchij.batch.services.scheduler.Scheduler
-import com.ruchij.core.config._
+import com.ruchij.core.config.*
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.external.CoreResourcesProvider.HashedAdminPassword
 import com.ruchij.core.logging.Logger
@@ -27,7 +27,7 @@ import fs2.io.file.Files
 import fs2.io.net.tls.TLSContext
 import org.http4s.HttpApp
 import org.http4s.ember.server.EmberServerBuilder
-import org.http4s.implicits._
+import org.http4s.implicits.*
 
 import java.nio.file.Paths
 import java.security.KeyStore

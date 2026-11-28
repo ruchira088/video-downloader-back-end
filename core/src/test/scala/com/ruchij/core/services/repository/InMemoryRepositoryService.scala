@@ -1,13 +1,13 @@
 package com.ruchij.core.services.repository
 
 import cats.effect.Sync
-import cats.implicits._
+import cats.implicits.*
 import cats.{Applicative, ApplicativeError}
 import fs2.Stream
 import org.http4s.MediaType
 
 import java.util.concurrent.ConcurrentHashMap
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.Try
 
 class InMemoryRepositoryService[F[_]: Sync](concurrentHashMap: ConcurrentHashMap[String, List[Byte]])

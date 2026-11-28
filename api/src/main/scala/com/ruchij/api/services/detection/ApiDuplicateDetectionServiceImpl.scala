@@ -1,7 +1,7 @@
 package com.ruchij.api.services.detection
 
 import cats.data.OptionT
-import cats.implicits._
+import cats.implicits.*
 import cats.{Applicative, Functor, Monad, ~>}
 import com.ruchij.core.daos.duplicate.DuplicateVideoDao
 import com.ruchij.core.daos.duplicate.models.DuplicateVideo

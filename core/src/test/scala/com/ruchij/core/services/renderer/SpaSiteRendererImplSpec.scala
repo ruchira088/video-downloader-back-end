@@ -4,9 +4,9 @@ import cats.effect.IO
 import com.ruchij.core.config.SpaSiteRendererConfiguration
 import com.ruchij.core.test.IOSupport.runIO
 import fs2.Stream
-import org.http4s._
+import org.http4s.*
 import org.http4s.client.Client
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 

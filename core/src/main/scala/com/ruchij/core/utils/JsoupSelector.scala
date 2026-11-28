@@ -1,16 +1,16 @@
 package com.ruchij.core.utils
 
 import cats.data.{Kleisli, NonEmptyList}
-import cats.implicits._
+import cats.implicits.*
 import cats.{Applicative, ApplicativeError, ApplicativeThrow, MonadThrow}
 import com.ruchij.core.daos.videometadata.models.CustomVideoSite.Selector
 import com.ruchij.core.daos.videometadata.models.WebPage
-import com.ruchij.core.exceptions.JSoupException._
-import com.ruchij.core.types.FunctionKTypes._
+import com.ruchij.core.exceptions.JSoupException.*
+import com.ruchij.core.types.FunctionKTypes.*
 import org.http4s.Uri
 import org.jsoup.nodes.Element
 
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 
 object JsoupSelector {
 

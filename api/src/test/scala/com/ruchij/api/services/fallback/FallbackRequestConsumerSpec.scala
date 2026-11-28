@@ -3,13 +3,13 @@ package com.ruchij.api.services.fallback
 import cats.data.NonEmptyList
 import cats.effect.IO
 import cats.effect.kernel.Ref
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.api.daos.user.UserDao
 import com.ruchij.api.daos.user.models.{Email, Role, User}
-import com.ruchij.api.services.fallback.FallbackSyncStubs._
+import com.ruchij.api.services.fallback.FallbackSyncStubs.*
 import com.ruchij.api.services.fallback.FallbackSyncTestData.{capturedAt, scheduledVideoDownload}
 import com.ruchij.api.services.fallback.aws.{FallbackRequestQueue, FallbackSyncTransport, ReceivedMessage}
-import com.ruchij.api.services.fallback.models._
+import com.ruchij.api.services.fallback.models.*
 import com.ruchij.api.services.scheduling.ApiSchedulingService
 import com.ruchij.api.services.scheduling.models.ScheduledVideoResult
 import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownload, SchedulingStatus}

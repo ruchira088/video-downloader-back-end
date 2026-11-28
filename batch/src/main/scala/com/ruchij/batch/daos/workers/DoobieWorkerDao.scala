@@ -1,17 +1,17 @@
 package com.ruchij.batch.daos.workers
 
 import cats.data.{NonEmptyList, OptionT}
-import cats.implicits._
+import cats.implicits.*
 import cats.{Applicative, ApplicativeError}
 import com.ruchij.batch.daos.workers.models.Worker
-import com.ruchij.core.daos.doobie.DoobieCustomMappings._
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
 import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 import com.ruchij.core.daos.workers.models.WorkerStatus
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import doobie.free.connection.ConnectionIO
-import doobie.implicits._
+import doobie.implicits.*
 import doobie.util.fragment.Fragment
 
 import java.time.Instant

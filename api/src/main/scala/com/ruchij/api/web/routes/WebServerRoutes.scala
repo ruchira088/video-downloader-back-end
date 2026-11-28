@@ -8,7 +8,7 @@ import org.http4s.{ContextRoutes, Response, StaticFile}
 
 object WebServerRoutes {
   def apply[F[_]: Sync](implicit dsl: Http4sDsl[F]): ContextRoutes[RequestContext, F] = {
-    import dsl._
+    import dsl.*
 
     ContextRoutes[RequestContext, F] {
       case contextRequest @ GET -> Root / (fileName @ "favicon.ico") as _ =>

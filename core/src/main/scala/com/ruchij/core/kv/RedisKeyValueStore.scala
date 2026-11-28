@@ -1,7 +1,7 @@
 package com.ruchij.core.kv
 
 import cats.effect.kernel.{Async, Resource}
-import cats.implicits._
+import cats.implicits.*
 import cats.{Applicative, MonadThrow}
 import com.ruchij.core.config.RedisConfiguration
 import com.ruchij.core.kv.codecs.{KVDecoder, KVEncoder}

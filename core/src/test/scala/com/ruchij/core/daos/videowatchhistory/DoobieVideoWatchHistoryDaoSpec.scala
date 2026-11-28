@@ -1,7 +1,7 @@
 package com.ruchij.core.daos.videowatchhistory
 
 import cats.effect.IO
-import cats.implicits._
+import cats.implicits.*
 import cats.~>
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
@@ -14,15 +14,15 @@ import com.ruchij.core.test.{H2TestDatabase, PostgresTestDatabase, TestDatabase}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.types.Clock
 import doobie.ConnectionIO
-import doobie.implicits._
+import doobie.implicits.*
 import org.http4s.MediaType
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import java.time.Instant
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.language.postfixOps
 
 class H2DoobieVideoWatchHistoryDaoSpec extends DoobieVideoWatchHistoryDaoSpec with H2TestDatabase

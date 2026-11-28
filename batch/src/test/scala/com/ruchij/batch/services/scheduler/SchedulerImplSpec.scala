@@ -38,7 +38,7 @@ import org.scalamock.scalatest.MockFactory
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class SchedulerImplSpec extends AnyFlatSpec with MockFactory with Matchers {
 

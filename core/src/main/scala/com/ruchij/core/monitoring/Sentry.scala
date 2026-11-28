@@ -1,10 +1,10 @@
 package com.ruchij.core.monitoring
 
 import cats.effect.{Resource, Sync}
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.config.SentryConfiguration
 import com.ruchij.core.logging.Logger
-import io.sentry.{SentryOptions, Sentry => JavaSentry}
+import io.sentry.{SentryOptions, Sentry as JavaSentry}
 
 object Sentry {
   private val logger = Logger[Sentry.type]

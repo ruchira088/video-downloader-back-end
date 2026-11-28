@@ -10,7 +10,7 @@ import com.ruchij.core.daos.workers.models.{VideoScan, WorkerStatus}
 import com.ruchij.core.messaging.models.{HttpMetric, VideoWatchMetric}
 import com.ruchij.core.services.scheduling.models.{DownloadProgress, WorkerStatusUpdate}
 import com.ruchij.core.types.TimeUtils
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import org.http4s.{MediaType, Method, Status}
 
 import java.util.concurrent.TimeUnit

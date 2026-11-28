@@ -1,7 +1,7 @@
 package com.ruchij.migration
 
 import cats.effect.{ExitCode, IO, IOApp, Sync}
-import cats.implicits._
+import cats.implicits.*
 import com.eed3si9n.ruchij.migration.BuildInfo
 import com.ruchij.migration.config.MigrationServiceConfiguration
 import com.typesafe.scalalogging.Logger

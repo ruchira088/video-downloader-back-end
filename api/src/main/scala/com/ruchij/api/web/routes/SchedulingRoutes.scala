@@ -2,7 +2,7 @@ package com.ruchij.api.web.routes
 
 import cats.Applicative
 import cats.effect.Async
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.api.daos.user.models.Role
 import com.ruchij.api.services.models.Context.AuthenticatedRequestContext
 import com.ruchij.api.services.scheduling.models.ScheduledVideoDeletion
@@ -14,8 +14,8 @@ import com.ruchij.api.web.requests.queryparams.SearchQuery
 import com.ruchij.api.web.requests.{SchedulingRequest, UpdateScheduledVideoRequest, WorkerStatusUpdateRequest}
 import com.ruchij.api.web.responses.EventStreamEventType.{ActiveDownload, HeartBeat, ScheduledVideoDownloadUpdate}
 import com.ruchij.api.web.responses.{EventStreamHeartBeat, IterableResponse, SearchResult, WorkerStatusResponse}
-import com.ruchij.core.circe.Decoders._
-import com.ruchij.core.circe.Encoders._
+import com.ruchij.core.circe.Decoders.*
+import com.ruchij.core.circe.Encoders.*
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.services.models.SortBy
@@ -23,14 +23,14 @@ import com.ruchij.core.services.scheduling.models.DownloadProgress
 import com.ruchij.core.types.Clock
 import fs2.Stream
 import io.circe.Encoder
-import io.circe.generic.auto._
-import io.circe.syntax._
-import org.http4s.circe.CirceEntityCodec._
-import org.http4s.circe._
+import io.circe.generic.auto.*
+import io.circe.syntax.*
+import org.http4s.circe.CirceEntityCodec.*
+import org.http4s.circe.*
 import org.http4s.dsl.Http4sDsl
 import org.http4s.{ContextRoutes, ServerSentEvent}
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.language.postfixOps
 
 object SchedulingRoutes {
@@ -42,7 +42,7 @@ object SchedulingRoutes {
     scheduledVideoDownloadUpdatesStream: Stream[F, ScheduledVideoDownload],
     scheduledVideoDeletionsStream: Stream[F, ScheduledVideoDeletion]
   )(implicit dsl: Http4sDsl[F]): ContextRoutes[AuthenticatedRequestContext, F] = {
-    import dsl._
+    import dsl.*
 
     ContextRoutes.of[AuthenticatedRequestContext, F] {
       case contextRequest @ POST -> Root as AuthenticatedRequestContext(user, _) =>

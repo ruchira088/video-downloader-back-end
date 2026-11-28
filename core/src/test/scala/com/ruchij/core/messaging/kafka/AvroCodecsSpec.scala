@@ -11,10 +11,10 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 import vulcan.{AvroError, Codec}
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class AvroCodecsSpec extends AnyFlatSpec with Matchers {
-  import AvroCodecs._
+  import AvroCodecs.*
 
   "instantCodec" should "encode and decode Instant correctly" in {
     val instant = TimeUtils.instantOf(2024, 5, 15, 10, 30, 45, 123)

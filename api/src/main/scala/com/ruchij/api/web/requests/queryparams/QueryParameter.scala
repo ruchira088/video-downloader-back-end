@@ -3,7 +3,7 @@ package com.ruchij.api.web.requests.queryparams
 import java.util.concurrent.TimeUnit
 import cats.data.Validated.{Invalid, Valid}
 import cats.data.{Kleisli, NonEmptyList, Validated, ValidatedNel}
-import cats.implicits._
+import cats.implicits.*
 import cats.{Applicative, ApplicativeError, ApplicativeThrow}
 import com.ruchij.api.web.requests.queryparams.QueryParameter.QueryParameters
 import com.ruchij.core.daos.scheduling.models.RangeValue

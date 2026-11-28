@@ -1,11 +1,11 @@
 package com.ruchij.core.daos.videometadata.models
 
 import cats.effect.IO
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.daos.videometadata.models.VideoSite.YTDownloaderSite
 import com.ruchij.core.exceptions.ValidationException
 import com.ruchij.core.test.IOSupport.runIO
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 

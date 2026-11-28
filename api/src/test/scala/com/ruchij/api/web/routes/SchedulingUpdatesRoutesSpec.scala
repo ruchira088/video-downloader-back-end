@@ -6,7 +6,7 @@ import com.ruchij.api.services.authentication.AuthenticationService.Secret
 import com.ruchij.api.services.authentication.models.AuthenticationToken
 import com.ruchij.api.services.scheduling.models.ScheduledVideoDeletion
 import com.ruchij.api.test.data.ApiTestData
-import com.ruchij.api.test.matchers._
+import com.ruchij.api.test.matchers.*
 import com.ruchij.api.test.mixins.io.MockedRoutesIO
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.services.scheduling.models.DownloadProgress
@@ -15,14 +15,14 @@ import com.ruchij.core.test.data.CoreTestData
 import com.ruchij.core.types.TimeUtils
 import fs2.{Pull, Stream}
 import io.circe.parser.parse
-import org.http4s.dsl.io._
+import org.http4s.dsl.io.*
 import org.http4s.headers.Authorization
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import org.http4s.{AuthScheme, Credentials, Headers, Request, ServerSentEvent, Status}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class SchedulingUpdatesRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 

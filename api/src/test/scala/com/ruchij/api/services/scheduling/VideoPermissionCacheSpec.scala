@@ -1,7 +1,7 @@
 package com.ruchij.api.services.scheduling
 
 import cats.effect.{IO, Ref}
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.api.services.scheduling.VideoPermissionCache.Settings
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.types.{Clock, TimeUtils}
@@ -9,7 +9,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import java.time.Instant
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class VideoPermissionCacheSpec extends AnyFlatSpec with Matchers {
   private val startTime = TimeUtils.instantOf(2024, 5, 15, 10, 0)

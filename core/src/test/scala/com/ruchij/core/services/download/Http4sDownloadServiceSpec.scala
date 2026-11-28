@@ -1,16 +1,16 @@
 package com.ruchij.core.services.download
 
 import cats.effect.{IO, Ref, Resource}
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.exceptions.ExternalServiceException
 import com.ruchij.core.services.repository.{FileRepositoryService, FileTypeDetector}
 import com.ruchij.core.test.IOSupport.runIO
 import fs2.{Stream, text}
 import fs2.io.file.{Files, Path}
-import org.http4s._
+import org.http4s.*
 import org.http4s.client.Client
 import org.http4s.headers.{ETag, Range, `Content-Length`, `Content-Type`, `If-Range`}
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers

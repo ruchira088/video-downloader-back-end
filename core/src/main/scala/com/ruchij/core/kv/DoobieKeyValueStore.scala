@@ -1,8 +1,8 @@
 package com.ruchij.core.kv
 
 import cats.effect.kernel.{Async, Resource}
-import cats.effect.syntax.spawn._
-import cats.implicits._
+import cats.effect.syntax.spawn.*
+import cats.implicits.*
 import cats.{Applicative, MonadThrow, ~>}
 import com.ruchij.core.daos.keyvalue.KeyValueDao
 import com.ruchij.core.kv.codecs.{KVDecoder, KVEncoder}
@@ -10,7 +10,7 @@ import com.ruchij.core.logging.Logger
 import com.ruchij.core.types.Clock
 import fs2.Stream
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.language.postfixOps
 
 class DoobieKeyValueStore[F[_]: MonadThrow: Clock, G[_]](keyValueDao: KeyValueDao[G])(implicit transaction: G ~> F)

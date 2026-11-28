@@ -7,7 +7,7 @@ import fs2.concurrent.Topic
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.language.postfixOps
 
 class Fs2PublisherSubscriberSpec extends AnyFlatSpec with Matchers with PublisherSubscriberSpec {

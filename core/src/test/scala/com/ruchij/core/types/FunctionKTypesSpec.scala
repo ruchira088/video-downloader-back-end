@@ -3,7 +3,7 @@ package com.ruchij.core.types
 import cats.data.Kleisli
 import cats.effect.IO
 import com.ruchij.core.test.IOSupport.runIO
-import com.ruchij.core.types.FunctionKTypes._
+import com.ruchij.core.types.FunctionKTypes.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 

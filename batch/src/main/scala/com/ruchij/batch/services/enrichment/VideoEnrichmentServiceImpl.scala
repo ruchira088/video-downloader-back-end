@@ -1,7 +1,7 @@
 package com.ruchij.batch.services.enrichment
 
 import cats.effect.Sync
-import cats.implicits._
+import cats.implicits.*
 import cats.{Monad, ~>}
 import com.ruchij.batch.services.snapshots.VideoSnapshotService
 import com.ruchij.core.config.StorageConfiguration

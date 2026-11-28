@@ -2,10 +2,10 @@ package com.ruchij.core.daos.videometadata
 
 import cats.Applicative
 import cats.data.NonEmptyList
-import com.ruchij.core.daos.doobie.DoobieCustomMappings._
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
 import com.ruchij.core.daos.videometadata.models.VideoMetadata
 import doobie.ConnectionIO
-import doobie.implicits._
+import doobie.implicits.*
 import doobie.util.fragments.set
 import org.http4s.Uri
 

@@ -14,7 +14,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import java.util.UUID
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class VideoSnapshotServiceImplSpec extends AnyFlatSpec with Matchers {
 

@@ -1,10 +1,10 @@
 package com.ruchij.api
 
 import cats.Parallel
-import cats.effect._
+import cats.effect.*
 import cats.effect.kernel.Async
 import cats.effect.std.Dispatcher
-import cats.implicits._
+import cats.implicits.*
 import cats.~>
 import com.eed3si9n.ruchij.api.BuildInfo
 import com.ruchij.api.config.ApiServiceConfiguration
@@ -14,7 +14,7 @@ import com.ruchij.api.daos.resettoken.DoobieCredentialsResetTokenDao
 import com.ruchij.api.daos.user.DoobieUserDao
 import com.ruchij.api.models.ApiMessageBrokers
 import com.ruchij.api.services.asset.AssetServiceImpl
-import com.ruchij.api.services.authentication._
+import com.ruchij.api.services.authentication.*
 import com.ruchij.api.services.authentication.models.AuthenticationToken
 import com.ruchij.api.services.authentication.models.AuthenticationToken.AuthenticationKeySpace
 import com.ruchij.api.services.background.BackgroundServiceImpl
@@ -56,8 +56,8 @@ import com.ruchij.core.daos.title.DoobieVideoTitleDao
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videowatchhistory.DoobieVideoWatchHistoryDao
-import com.ruchij.core.kv.codecs.KVDecoder._
-import com.ruchij.core.kv.codecs.KVEncoder._
+import com.ruchij.core.kv.codecs.KVDecoder.*
+import com.ruchij.core.kv.codecs.KVEncoder.*
 import com.ruchij.core.kv.{KeySpacedKeyValueStore, KeyValueStore, RedisKeyValueStore}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.PubSub

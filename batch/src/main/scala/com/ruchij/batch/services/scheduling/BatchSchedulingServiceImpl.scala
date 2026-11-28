@@ -2,7 +2,7 @@ package com.ruchij.batch.services.scheduling
 
 import cats.data.OptionT
 import cats.effect.Async
-import cats.implicits._
+import cats.implicits.*
 import cats.{Applicative, ApplicativeError, MonadThrow, ~>}
 import com.ruchij.batch.daos.scheduling.BatchSchedulingDao
 import com.ruchij.batch.daos.workers.WorkerDao

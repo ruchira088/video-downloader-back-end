@@ -28,14 +28,14 @@ import com.ruchij.core.services.video.models.VideoAnalysisResult
 import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import com.ruchij.core.test.Providers
 import com.ruchij.core.types.{Clock, TimeUtils}
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import org.http4s.{MediaType, Uri}
 import java.time.Instant
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import scala.collection.mutable
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class ApiSchedulingServiceImplSpec extends AnyFlatSpec with Matchers {
   import ApiSchedulingServiceImplSpec.SearchCall

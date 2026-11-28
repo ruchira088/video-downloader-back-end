@@ -43,7 +43,7 @@ import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
 
 class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
-  import AuthenticationServiceImplSpec._
+  import AuthenticationServiceImplSpec.*
 
   private val RevokedTokenMessage = "Authentication token has been revoked"
   private val MissingTokenMessage = "Authentication cookie/token not found"

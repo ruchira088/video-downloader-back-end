@@ -1,7 +1,7 @@
 package com.ruchij.core.exceptions
 
 import cats.data.NonEmptyList
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 

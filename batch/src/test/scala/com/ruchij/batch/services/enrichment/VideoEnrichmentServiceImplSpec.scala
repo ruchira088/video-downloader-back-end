@@ -18,7 +18,7 @@ import org.scalatest.matchers.must.Matchers
 
 import java.util.UUID
 import scala.collection.mutable
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class VideoEnrichmentServiceImplSpec extends AnyFlatSpec with Matchers {
 

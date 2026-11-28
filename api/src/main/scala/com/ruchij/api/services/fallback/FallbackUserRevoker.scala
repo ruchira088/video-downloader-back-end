@@ -2,14 +2,14 @@ package com.ruchij.api.services.fallback
 
 import cats.Applicative
 import cats.effect.Async
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.api.daos.user.models.User
 import com.ruchij.api.services.fallback.aws.FallbackSyncTransport
 import com.ruchij.api.services.fallback.models.UserRevocation
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.types.Clock
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 /** Revokes a user's fallback account once their credentials changed (a password reset) or they were deleted, so the
   * fallback stops accepting their old password and tokens. Never fails.

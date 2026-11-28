@@ -1,7 +1,7 @@
 package com.ruchij.api.services.fallback
 
 import cats.effect.{Async, Temporal}
-import cats.implicits._
+import cats.implicits.*
 import cats.{Monad, ~>}
 import com.ruchij.api.services.fallback.aws.FallbackSyncTransport
 import com.ruchij.api.services.fallback.models.{MainToFallbackMessage, ScheduledVideoRemoval}
@@ -10,7 +10,7 @@ import com.ruchij.core.messaging.Subscriber
 import fs2.Stream
 
 import java.time.Instant
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 // Async[F], not just Temporal[F], because the failure path logs via `com.ruchij.core.logging.Logger`, which is
 // Sync-based; Temporal and Sync are siblings in the cats-effect hierarchy (joined only by Async), so requiring both

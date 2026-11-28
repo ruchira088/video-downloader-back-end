@@ -6,7 +6,7 @@ import com.ruchij.core.kv.codecs.{KVDecoder, KVEncoder}
 import com.ruchij.core.kv.keys.{KVStoreKey, KeySpace, KeySpacedKeyEncoder}
 
 import java.time.Instant
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.language.postfixOps
 
 final case class AuthenticationToken(

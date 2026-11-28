@@ -1,7 +1,7 @@
 package com.ruchij.api.services.asset
 
 import cats.data.OptionT
-import cats.implicits._
+import cats.implicits.*
 import cats.{Applicative, ApplicativeError, ApplicativeThrow, MonadThrow, ~>}
 import com.ruchij.api.daos.playlist.PlaylistDao
 import com.ruchij.api.daos.user.models.User

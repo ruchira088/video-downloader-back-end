@@ -1,8 +1,8 @@
 package com.ruchij.core.test
 
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.test.IOSupport.runIO
-import doobie.implicits._
+import doobie.implicits.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 

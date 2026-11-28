@@ -2,14 +2,14 @@ package com.ruchij.core.messaging.kafka
 
 import cats.Parallel
 import cats.effect.Async
-import cats.implicits._
+import cats.implicits.*
 import cats.{Foldable, Functor}
 import com.ruchij.core.config.KafkaConfiguration
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.{MessagingTopic, Subscriber}
 import com.ruchij.core.messaging.models.CommittableRecord
 import fs2.Stream
-import fs2.kafka._
+import fs2.kafka.*
 
 class KafkaSubscriber[F[_]: Async: Parallel, A](kafkaConfiguration: KafkaConfiguration)(implicit
   topic: MessagingTopic[A]

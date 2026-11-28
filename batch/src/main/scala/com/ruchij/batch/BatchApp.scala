@@ -1,10 +1,10 @@
 package com.ruchij.batch
 
 import cats.Parallel
-import cats.effect._
+import cats.effect.*
 import cats.effect.kernel.Async
 import cats.effect.std.Dispatcher
-import cats.implicits._
+import cats.implicits.*
 import com.eed3si9n.ruchij.batch.BuildInfo
 import com.ruchij.batch.config.BatchServiceConfiguration
 import com.ruchij.batch.health.BatchHealth
@@ -33,7 +33,7 @@ import com.ruchij.core.daos.title.DoobieVideoTitleDao
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.daos.videometadata.DoobieVideoMetadataDao
 import com.ruchij.core.daos.videowatchhistory.DoobieVideoWatchHistoryDao
-import com.ruchij.core.kv.codecs.KVEncoder._
+import com.ruchij.core.kv.codecs.KVEncoder.*
 import com.ruchij.core.kv.{KeySpacedKeyValueStore, RedisKeyValueStore}
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.PubSub
@@ -57,7 +57,7 @@ import com.ruchij.core.services.video.{
 import com.ruchij.core.types.{Clock, RandomGenerator}
 import com.ruchij.core.utils.Clients
 import doobie.free.connection.ConnectionIO
-import doobie.implicits._
+import doobie.implicits.*
 import fs2.io.file.Files
 import org.apache.tika.Tika
 import org.http4s.ember.server.EmberServerBuilder

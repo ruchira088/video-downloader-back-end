@@ -3,10 +3,10 @@ package com.ruchij.core.daos.hash
 import com.ruchij.core.daos.hash.models.VideoPerceptualHash
 import doobie.free.connection.ConnectionIO
 import doobie.implicits.toSqlInterpolator
-import doobie.generic.auto._
+import doobie.generic.auto.*
 
 import scala.concurrent.duration.FiniteDuration
-import com.ruchij.core.daos.doobie.DoobieCustomMappings._
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
 
 object DoobieVideoPerceptualHashDao extends VideoPerceptualHashDao[ConnectionIO] {
 

@@ -1,7 +1,7 @@
 package com.ruchij.api.services.user
 
 import cats.effect.IO
-import cats.implicits._
+import cats.implicits.*
 import cats.~>
 import com.ruchij.api.daos.credentials.DoobieCredentialsDao
 import com.ruchij.api.daos.playlist.DoobiePlaylistDao
@@ -30,14 +30,14 @@ import com.ruchij.core.services.repository.InMemoryRepositoryService
 import com.ruchij.core.test.IOSupport.{IOWrapper, runIO}
 import com.ruchij.core.test.data.CoreTestData
 import doobie.free.connection.ConnectionIO
-import doobie.implicits._
+import doobie.implicits.*
 import org.http4s.MediaType
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import java.util.concurrent.ConcurrentHashMap
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 /** Runs UserServiceImpl against real DAOs, on both H2 (PostgreSQL mode) and PostgreSQL. */
 class UserServiceIntegrationSpec extends AnyFlatSpec with Matchers {

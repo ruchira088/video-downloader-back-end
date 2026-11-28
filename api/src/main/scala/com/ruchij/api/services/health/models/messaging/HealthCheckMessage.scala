@@ -1,12 +1,12 @@
 package com.ruchij.api.services.health.models.messaging
 
-import com.ruchij.core.circe.Decoders._
-import com.ruchij.core.circe.Encoders._
+import com.ruchij.core.circe.Decoders.*
+import com.ruchij.core.circe.Encoders.*
 import com.ruchij.core.messaging.MessagingTopic
 import io.circe.generic.semiauto.deriveCodec
 import java.time.Instant
 import vulcan.Codec
-import vulcan.generic._
+import vulcan.generic.*
 
 final case class HealthCheckMessage(instanceId: String, dateTime: Instant)
 

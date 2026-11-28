@@ -2,7 +2,7 @@ package com.ruchij.core.types
 
 import cats.data.NonEmptyList
 import cats.effect.Sync
-import cats.implicits._
+import cats.implicits.*
 import cats.{Applicative, Monad, MonadThrow}
 import com.ruchij.core.exceptions.ValidationException
 import java.time.{Duration, Instant}

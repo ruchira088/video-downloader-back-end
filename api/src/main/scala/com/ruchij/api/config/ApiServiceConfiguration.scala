@@ -1,8 +1,8 @@
 package com.ruchij.api.config
 
 import cats.ApplicativeThrow
-import com.ruchij.core.config._
-import com.ruchij.core.types.FunctionKTypes._
+import com.ruchij.core.config.*
+import com.ruchij.core.types.FunctionKTypes.*
 import com.ruchij.migration.config.DatabaseConfiguration
 import pureconfig.ConfigObjectSource
 import pureconfig.ConfigReader

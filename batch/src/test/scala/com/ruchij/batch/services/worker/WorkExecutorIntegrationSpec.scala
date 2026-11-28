@@ -5,7 +5,7 @@ import com.ruchij.batch.daos.workers.DoobieWorkerDao
 import com.ruchij.batch.daos.workers.models.Worker
 import com.ruchij.batch.external.BatchResourcesProvider
 import com.ruchij.batch.external.containers.ContainerBatchResourcesProvider
-import com.ruchij.batch.test.stubs.BatchStubs._
+import com.ruchij.batch.test.stubs.BatchStubs.*
 import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
@@ -29,7 +29,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class WorkExecutorIntegrationSpec extends AnyFlatSpec with MockFactory with Matchers with OptionValues {
 

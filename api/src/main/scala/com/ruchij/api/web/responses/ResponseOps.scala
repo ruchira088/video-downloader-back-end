@@ -1,9 +1,9 @@
 package com.ruchij.api.web.responses
 
 import cats.effect.Sync
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.api.services.asset.models.{Asset, AssetType}
-import com.ruchij.core.types.FunctionKTypes._
+import com.ruchij.core.types.FunctionKTypes.*
 import org.http4s.headers.{Range, `Accept-Ranges`, `Content-Length`, `Content-Range`, `Content-Type`}
 import org.http4s.{Headers, Response, Status}
 

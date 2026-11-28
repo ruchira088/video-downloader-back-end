@@ -3,7 +3,7 @@ package com.ruchij.api.services.fallback
 import cats.effect.IO
 import cats.effect.kernel.Ref
 import cats.effect.testkit.TestControl
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.api.services.fallback.FallbackSyncStubs.{FailingPublisher, RecordingPublisher}
 import com.ruchij.api.services.fallback.models.FallbackSyncRequest
 import com.ruchij.core.messaging.Publisher
@@ -12,7 +12,7 @@ import fs2.Pipe
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class FallbackSyncRequesterSpec extends AnyFlatSpec with Matchers {
 

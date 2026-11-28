@@ -3,7 +3,7 @@ package com.ruchij.batch.services.snapshots
 import cats.ApplicativeError
 import cats.data.OptionT
 import cats.effect.Async
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.batch.exceptions.SynchronizationException
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.services.cli.CliCommandRunner

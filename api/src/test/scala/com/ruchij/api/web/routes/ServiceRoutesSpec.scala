@@ -4,18 +4,18 @@ import cats.effect.IO
 import com.ruchij.api.services.health.models.HealthCheck.{FilePathCheck, FileRepositoryCheck, HealthStatusDetails}
 import com.ruchij.api.services.health.models.HealthStatus.{Healthy, Unhealthy}
 import com.ruchij.api.services.health.models.{HealthCheck, ServiceInformation}
-import com.ruchij.api.test.matchers._
+import com.ruchij.api.test.matchers.*
 import com.ruchij.api.test.mixins.io.MockedRoutesIO
 import com.ruchij.core.test.IOSupport.runIO
-import io.circe.literal._
+import io.circe.literal.*
 import com.ruchij.api.services.authentication.AuthenticationService.Secret
 import com.ruchij.api.services.authentication.models.AuthenticationToken
 import com.ruchij.api.test.data.ApiTestData
 import org.http4s.headers.Authorization
 import org.http4s.{AuthScheme, Credentials, Status}
-import org.http4s.client.dsl.io._
+import org.http4s.client.dsl.io.*
 import org.http4s.dsl.io.GET
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers

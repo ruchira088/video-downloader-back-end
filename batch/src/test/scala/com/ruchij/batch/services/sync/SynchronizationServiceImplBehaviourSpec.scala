@@ -3,7 +3,7 @@ package com.ruchij.batch.services.sync
 import cats.arrow.FunctionK
 import cats.data.NonEmptyList
 import cats.effect.{IO, Ref}
-import cats.implicits._
+import cats.implicits.*
 import cats.~>
 import com.ruchij.batch.daos.filesync.FileSyncDao
 import com.ruchij.batch.daos.filesync.models.FileSync

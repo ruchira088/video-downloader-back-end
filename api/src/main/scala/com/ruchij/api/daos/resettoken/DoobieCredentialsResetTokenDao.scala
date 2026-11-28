@@ -3,7 +3,7 @@ package com.ruchij.api.daos.resettoken
 import com.ruchij.core.daos.doobie.DoobieCustomMappings.{instantGet, instantPut}
 import com.ruchij.api.daos.resettoken.models.CredentialsResetToken
 import doobie.free.connection.ConnectionIO
-import doobie.generic.auto._
+import doobie.generic.auto.*
 import doobie.implicits.toSqlInterpolator
 
 object DoobieCredentialsResetTokenDao extends CredentialsResetTokenDao[ConnectionIO] {

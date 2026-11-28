@@ -11,7 +11,7 @@ import com.ruchij.core.types.{Clock, TimeUtils}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class FallbackUserRevokerSpec extends AnyFlatSpec with Matchers {
   private val timestamp = TimeUtils.instantOf(2026, 9, 26, 8, 25)

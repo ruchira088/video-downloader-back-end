@@ -1,14 +1,14 @@
 package com.ruchij.api.web.middleware
 
 import cats.effect.IO
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.test.IOSupport.runIO
-import org.http4s._
+import org.http4s.*
 import org.http4s.headers.Origin
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
-import org.typelevel.ci._
+import org.typelevel.ci.*
 
 class CorsSpec extends AnyFlatSpec with Matchers {
 

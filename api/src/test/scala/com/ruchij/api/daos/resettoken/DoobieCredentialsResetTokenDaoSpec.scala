@@ -1,7 +1,7 @@
 package com.ruchij.api.daos.resettoken
 
 import cats.effect.IO
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.api.daos.resettoken.models.CredentialsResetToken
 import com.ruchij.api.daos.user.DoobieUserDao
 import com.ruchij.api.daos.user.models.{Email, Role, User}

@@ -2,7 +2,7 @@ package com.ruchij.batch.services.video
 
 import cats.data.NonEmptyList
 import cats.effect.IO
-import cats.implicits._
+import cats.implicits.*
 import cats.~>
 import com.ruchij.batch.external.BatchResourcesProvider
 import com.ruchij.batch.external.containers.ContainerBatchResourcesProvider
@@ -21,14 +21,14 @@ import com.ruchij.core.types.Clock
 import com.ruchij.core.types.TimeUtils
 import doobie.free.connection.ConnectionIO
 import org.http4s.MediaType
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import java.time.Instant
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class BatchVideoServiceIntegrationSpec extends AnyFlatSpec with Matchers with OptionValues {
 

@@ -3,7 +3,7 @@ package com.ruchij.core.daos.doobie
 import cats.effect.{Async, Resource, Sync}
 import com.ruchij.core.daos.doobie.DatabaseDriver.parseFromConnectionUrl
 import com.ruchij.migration.config.DatabaseConfiguration
-import com.ruchij.core.types.FunctionKTypes._
+import com.ruchij.core.types.FunctionKTypes.*
 import doobie.hikari.HikariTransactor
 
 import java.util.concurrent.Executors

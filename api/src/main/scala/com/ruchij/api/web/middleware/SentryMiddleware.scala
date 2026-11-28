@@ -2,9 +2,9 @@ package com.ruchij.api.web.middleware
 
 import cats.data.Kleisli
 import cats.effect.Sync
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.monitoring.Sentry
-import io.sentry.{Sentry => JavaSentry}
+import io.sentry.Sentry as JavaSentry
 import org.http4s.{ContextRequest, Response, Status}
 
 object SentryMiddleware {

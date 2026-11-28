@@ -1,7 +1,7 @@
 package com.ruchij.api.services.video
 
 import cats.data.NonEmptyList
-import cats.implicits._
+import cats.implicits.*
 import cats.{Applicative, MonadThrow, ~>}
 import com.ruchij.api.services.detection.ApiDuplicateDetectionService
 import com.ruchij.api.services.fallback.FallbackSyncRequester

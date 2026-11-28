@@ -3,7 +3,7 @@ package com.ruchij.batch
 import cats.effect.IO
 import com.ruchij.batch.config.{BatchServiceConfiguration, WorkerConfiguration}
 import com.ruchij.batch.daos.workers.DoobieWorkerDao
-import com.ruchij.core.config._
+import com.ruchij.core.config.*
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.scheduling.DoobieSchedulingDao
 import com.ruchij.core.daos.workers.models.WorkerStatus
@@ -15,12 +15,12 @@ import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.migration.MigrationApp
 import cats.effect.Resource
 import fs2.io.file.Files
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import java.time.LocalTime
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 /** Boots the batch worker against an in-memory database and a Redis container to guard the wiring in BatchApp.program.
   */

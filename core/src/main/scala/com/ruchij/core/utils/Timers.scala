@@ -2,7 +2,7 @@ package com.ruchij.core.utils
 
 import cats.Applicative
 import cats.effect.{Ref, Temporal}
-import cats.implicits._
+import cats.implicits.*
 import fs2.Stream
 
 import java.util.concurrent.TimeoutException

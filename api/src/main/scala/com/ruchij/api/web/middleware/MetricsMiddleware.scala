@@ -1,7 +1,7 @@
 package com.ruchij.api.web.middleware
 
 import cats.Monad
-import cats.implicits._
+import cats.implicits.*
 import cats.data.Kleisli
 import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.messaging.models.HttpMetric

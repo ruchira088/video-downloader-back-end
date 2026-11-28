@@ -1,7 +1,7 @@
 package com.ruchij.api.services.scheduling
 
 import cats.effect.IO
-import cats.implicits._
+import cats.implicits.*
 import cats.~>
 import com.ruchij.api.daos.user.DoobieUserDao
 import com.ruchij.api.daos.user.models.{Email, Role, User}

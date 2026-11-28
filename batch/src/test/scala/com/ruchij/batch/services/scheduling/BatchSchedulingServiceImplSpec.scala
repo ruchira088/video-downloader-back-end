@@ -1,7 +1,7 @@
 package com.ruchij.batch.services.scheduling
 
 import cats.effect.IO
-import cats.implicits._
+import cats.implicits.*
 import cats.{Foldable, Functor, ~>}
 import com.ruchij.batch.config.RetryConfiguration
 import com.ruchij.batch.daos.scheduling.DoobieBatchSchedulingDao
@@ -34,7 +34,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class BatchSchedulingServiceImplSpec extends AnyFlatSpec with MockFactory with Matchers with OptionValues {
 

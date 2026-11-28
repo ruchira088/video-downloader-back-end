@@ -1,14 +1,14 @@
 package com.ruchij.api.services.fallback.aws
 
 import cats.effect.{Async, Sync}
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.logging.Logger
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, ScanRequest}
 
 import java.time.Instant
-import java.util.{Map => JMap}
-import scala.jdk.CollectionConverters._
+import java.util.Map as JMap
+import scala.jdk.CollectionConverters.*
 
 final case class ManifestEntry(hash: String, capturedAt: Instant)
 

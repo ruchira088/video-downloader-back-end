@@ -1,10 +1,10 @@
 package com.ruchij.core.messaging.kafka
 
 import cats.effect.{IO, Resource}
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.config.KafkaConfiguration
 import com.ruchij.core.external.containers.ContainerCoreResourcesProvider
-import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage._
+import com.ruchij.core.messaging.PublisherSubscriberSpec.TestMessage.*
 import com.ruchij.core.messaging.PublisherSubscriberSpec.{PubSubFixture, SubscriptionReadiness, TestMessage}
 import com.ruchij.core.messaging.PublisherSubscriberSpec
 import fs2.kafka.{AdminClientSettings, KafkaAdminClient}
@@ -16,8 +16,8 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import java.util.concurrent.TimeoutException
-import scala.concurrent.duration._
-import scala.jdk.CollectionConverters._
+import scala.concurrent.duration.*
+import scala.jdk.CollectionConverters.*
 import scala.language.postfixOps
 
 class KafkaPublisherSubscriberSpec extends AnyFlatSpec with Matchers with PublisherSubscriberSpec {

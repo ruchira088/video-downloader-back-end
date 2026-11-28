@@ -1,7 +1,7 @@
 package com.ruchij.api.daos.playlist
 
 import cats.effect.IO
-import cats.implicits._
+import cats.implicits.*
 import cats.~>
 import com.ruchij.api.daos.playlist.models.Playlist
 import com.ruchij.api.test.data.ApiTestData
@@ -24,13 +24,13 @@ import com.ruchij.core.test.data.CoreTestData
 import doobie.free.connection.ConnectionIO
 import fs2.Stream
 import org.http4s.MediaType
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 /** Deleting a video must also remove it from every playlist that contains it. */
 class PlaylistVideoDeletionSpec extends AnyFlatSpec with Matchers with OptionValues {

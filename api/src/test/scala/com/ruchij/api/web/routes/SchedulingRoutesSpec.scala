@@ -5,7 +5,7 @@ import com.ruchij.api.services.authentication.AuthenticationService.Secret
 import com.ruchij.api.services.authentication.models.AuthenticationToken
 import com.ruchij.api.services.scheduling.models.ScheduledVideoResult.{AlreadyScheduled, NewlyScheduled}
 import com.ruchij.api.test.data.ApiTestData
-import com.ruchij.api.test.matchers._
+import com.ruchij.api.test.matchers.*
 import com.ruchij.api.test.mixins.io.MockedRoutesIO
 import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownload, SchedulingStatus}
 import com.ruchij.core.daos.workers.models.WorkerStatus
@@ -13,17 +13,17 @@ import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.services.models.{Order, SortBy}
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.data.CoreTestData
-import io.circe.literal._
+import io.circe.literal.*
 import org.http4s.{AuthScheme, Credentials, Request, Status}
-import org.http4s.circe.CirceEntityEncoder._
-import org.http4s.dsl.io._
+import org.http4s.circe.CirceEntityEncoder.*
+import org.http4s.dsl.io.*
 import org.http4s.headers.Authorization
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class SchedulingRoutesSpec extends AnyFlatSpec with Matchers with MockedRoutesIO {
 

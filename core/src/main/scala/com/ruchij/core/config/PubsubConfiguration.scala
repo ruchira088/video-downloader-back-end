@@ -1,6 +1,6 @@
 package com.ruchij.core.config
 
-import com.ruchij.core.config.PureConfigReaders._
+import com.ruchij.core.config.PureConfigReaders.*
 import com.ruchij.core.messaging.PubSub.PubsubType
 import com.ruchij.migration.config.DatabaseConfiguration
 import pureconfig.ConfigReader

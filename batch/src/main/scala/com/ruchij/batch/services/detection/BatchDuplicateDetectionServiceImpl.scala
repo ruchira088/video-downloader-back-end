@@ -2,7 +2,7 @@ package com.ruchij.batch.services.detection
 
 import cats.data.{NonEmptyList, OptionT}
 import cats.effect.kernel.Sync
-import cats.implicits._
+import cats.implicits.*
 import cats.{Applicative, Monad, ~>}
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService.SnapshotCount

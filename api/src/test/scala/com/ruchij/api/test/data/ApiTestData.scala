@@ -1,6 +1,6 @@
 package com.ruchij.api.test.data
 
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.api.daos.user.DoobieUserDao
 import com.ruchij.api.daos.user.models.{Email, Role, User}
 import com.ruchij.core.daos.resource.DoobieFileResourceDao

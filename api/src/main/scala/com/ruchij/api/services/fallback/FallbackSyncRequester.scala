@@ -2,13 +2,13 @@ package com.ruchij.api.services.fallback
 
 import cats.Applicative
 import cats.effect.{Async, Fiber, Ref}
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.api.services.fallback.models.FallbackSyncRequest
 import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Publisher
 
 import java.util.concurrent.TimeoutException
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 /** Asks for a fallback sync of videos after a user-visible write. Never fails and never holds the caller for long. */
 trait FallbackSyncRequester[F[_]] {
@@ -53,7 +53,7 @@ class PublishingFallbackSyncRequester[F[_]: Async](
   degradedPeriod: FiniteDuration = 60.seconds,
   onDroppedTimeout: FiniteDuration = 10.seconds
 ) extends FallbackSyncRequester[F] {
-  import PublishingFallbackSyncRequester._
+  import PublishingFallbackSyncRequester.*
 
   private val logger = Logger[PublishingFallbackSyncRequester[F]]
 

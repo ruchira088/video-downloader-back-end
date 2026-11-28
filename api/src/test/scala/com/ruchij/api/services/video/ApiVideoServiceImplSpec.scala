@@ -37,14 +37,14 @@ import com.ruchij.core.test.Providers
 import com.ruchij.core.types.{Clock, TimeUtils}
 import fs2.Pipe
 import org.http4s.{MediaType, Uri}
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import java.time.Instant
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.mutable
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.language.postfixOps
 
 class ApiVideoServiceImplSpec extends AnyFlatSpec with Matchers {

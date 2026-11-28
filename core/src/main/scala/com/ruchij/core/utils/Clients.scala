@@ -2,7 +2,7 @@ package com.ruchij.core.utils
 
 import cats.effect.Async
 import cats.effect.kernel.{Resource, Sync}
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.config.HttpProxyConfiguration
 import org.http4s.client.Client
 import org.http4s.jdkhttpclient.JdkHttpClient

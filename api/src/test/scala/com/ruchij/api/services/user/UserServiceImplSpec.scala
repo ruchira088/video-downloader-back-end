@@ -33,7 +33,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import java.util.UUID
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
 

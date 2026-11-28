@@ -2,7 +2,7 @@ package com.ruchij.core.messaging.inmemory
 
 import cats.{Applicative, Foldable, Functor}
 import cats.effect.Concurrent
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.messaging.PubSub
 import fs2.concurrent.Topic
 import fs2.{Pipe, Stream}

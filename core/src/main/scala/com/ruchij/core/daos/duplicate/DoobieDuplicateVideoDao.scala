@@ -1,9 +1,9 @@
 package com.ruchij.core.daos.duplicate
 
-import com.ruchij.core.daos.doobie.DoobieCustomMappings._
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
 import com.ruchij.core.daos.duplicate.models.DuplicateVideo
 import doobie.ConnectionIO
-import doobie.implicits._
+import doobie.implicits.*
 
 object DoobieDuplicateVideoDao extends DuplicateVideoDao[ConnectionIO] {
 

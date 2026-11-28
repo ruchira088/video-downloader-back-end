@@ -4,7 +4,7 @@ import cats.Parallel
 import cats.effect.kernel.Resource
 import cats.effect.{Async, MonadCancelThrow}
 import cats.{Foldable, Functor, ~>}
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.config.PubsubConfiguration
 import com.ruchij.core.daos.doobie.DoobieTransactor
 import com.ruchij.core.daos.messaging.{DoobieMessageConsumerGroupDao, DoobieMessageDao}
@@ -14,14 +14,14 @@ import com.ruchij.core.messaging.kafka.KafkaPubSub
 import com.ruchij.core.messaging.redis.{RedisStreamPublisher, RedisStreamSubscriber}
 import com.ruchij.core.types.Clock
 import doobie.ConnectionIO
-import doobie.implicits._
+import doobie.implicits.*
 import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.effect.Log.Stdout.instance
 import enumeratum.{Enum, EnumEntry}
 import fs2.{Pipe, Stream}
 import fs2.kafka.{AdminClientSettings, KafkaAdminClient}
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 trait PubSub[F[_], A] extends Publisher[F, A] with Subscriber[F, A]
 

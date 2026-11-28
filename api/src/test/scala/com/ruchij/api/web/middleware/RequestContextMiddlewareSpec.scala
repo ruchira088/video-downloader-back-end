@@ -5,8 +5,8 @@ import cats.effect.IO
 import com.ruchij.api.services.models.Context.RequestContext
 import com.ruchij.api.web.headers.`X-Request-ID`
 import com.ruchij.core.test.IOSupport.runIO
-import org.http4s._
-import org.http4s.implicits._
+import org.http4s.*
+import org.http4s.implicits.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 

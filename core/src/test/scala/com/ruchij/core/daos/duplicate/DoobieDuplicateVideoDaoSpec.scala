@@ -1,7 +1,7 @@
 package com.ruchij.core.daos.duplicate
 
 import cats.effect.IO
-import cats.implicits._
+import cats.implicits.*
 import cats.~>
 import com.ruchij.core.daos.duplicate.models.DuplicateVideo
 import com.ruchij.core.daos.resource.DoobieFileResourceDao
@@ -18,7 +18,7 @@ import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.language.postfixOps
 
 class H2DoobieDuplicateVideoDaoSpec extends DoobieDuplicateVideoDaoSpec with H2TestDatabase

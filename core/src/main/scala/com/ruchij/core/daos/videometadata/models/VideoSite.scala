@@ -3,7 +3,7 @@ package com.ruchij.core.daos.videometadata.models
 import cats.implicits.toFlatMapOps
 import cats.{Applicative, MonadThrow}
 import com.ruchij.core.exceptions.ValidationException
-import com.ruchij.core.types.FunctionKTypes._
+import com.ruchij.core.types.FunctionKTypes.*
 import org.http4s.Uri
 
 trait VideoSite {

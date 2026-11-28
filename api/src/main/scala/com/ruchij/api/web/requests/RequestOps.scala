@@ -1,7 +1,7 @@
 package com.ruchij.api.web.requests
 
 import cats.{MonadThrow, Show}
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.exceptions.ValidationException
 import io.circe.DecodingFailure
 import org.http4s.{ContextRequest, DecodeFailure, EntityDecoder, Request}

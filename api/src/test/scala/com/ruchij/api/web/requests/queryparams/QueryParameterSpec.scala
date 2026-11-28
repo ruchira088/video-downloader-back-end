@@ -4,7 +4,7 @@ import cats.ApplicativeThrow
 import cats.data.{Kleisli, NonEmptyList}
 import cats.effect.IO
 import com.ruchij.api.daos.user.models.Role
-import com.ruchij.api.web.requests.queryparams.QueryParameter._
+import com.ruchij.api.web.requests.queryparams.QueryParameter.*
 import com.ruchij.core.daos.scheduling.models.RangeValue
 import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.exceptions.{AggregatedException, ValidationException}

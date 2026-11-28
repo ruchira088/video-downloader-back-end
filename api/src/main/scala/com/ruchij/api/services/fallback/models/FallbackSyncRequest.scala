@@ -3,7 +3,7 @@ package com.ruchij.api.services.fallback.models
 import com.ruchij.core.messaging.MessagingTopic
 import io.circe.generic.semiauto.deriveCodec
 import vulcan.Codec
-import vulcan.generic._
+import vulcan.generic.*
 
 final case class FallbackSyncRequest(videoId: String)
 

@@ -2,10 +2,10 @@ package com.ruchij.core.test.data
 
 import cats.data.NonEmptyList
 import cats.effect.kernel.Sync
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.scheduling.models.{ScheduledVideoDownload, SchedulingStatus}
-import com.ruchij.core.daos.videometadata.models.CustomVideoSite._
+import com.ruchij.core.daos.videometadata.models.CustomVideoSite.*
 import com.ruchij.core.daos.videometadata.models.{CustomVideoSite, VideoMetadata}
 import com.ruchij.core.types.FunctionKTypes.{FunctionK2TypeOps, eitherLeftFunctor, eitherToF}
 import com.ruchij.core.types.{Clock, RandomGenerator}

@@ -1,7 +1,7 @@
 package com.ruchij.core.messaging
 
 import cats.effect.IO
-import com.redis.testcontainers.{RedisContainer => RedisTestContainer}
+import com.redis.testcontainers.RedisContainer as RedisTestContainer
 import com.ruchij.core.config.{KafkaConfiguration, PubsubConfiguration, RedisConfiguration}
 import com.ruchij.core.external.containers.{ContainerCoreResourcesProvider, RedisContainer}
 import com.ruchij.core.external.embedded.EmbeddedCoreResourcesProvider
@@ -13,7 +13,7 @@ import org.scalatest.matchers.must.Matchers
 import org.testcontainers.kafka.ConfluentKafkaContainer
 import org.testcontainers.utility.DockerImageName
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class MessagingConnectivitySpec extends AnyFlatSpec with Matchers {
   "Messaging connectivity" should "use the configured messaging database without requiring migrated tables" in runIO {

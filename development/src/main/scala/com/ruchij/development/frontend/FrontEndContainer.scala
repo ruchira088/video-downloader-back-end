@@ -1,9 +1,9 @@
 package com.ruchij.development.frontend
 
 import cats.effect.kernel.{Resource, Sync}
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.external.containers.ContainerCoreResourcesProvider
-import com.ruchij.core.types.FunctionKTypes._
+import com.ruchij.core.types.FunctionKTypes.*
 import org.http4s.Uri
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.wait.strategy.Wait

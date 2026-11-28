@@ -4,7 +4,7 @@ import cats.Show
 import cats.arrow.FunctionK
 import cats.data.{Kleisli, NonEmptyList}
 import cats.effect.Sync
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.api.exceptions.{
   AuthenticationException,
   AuthorizationException,
@@ -12,10 +12,10 @@ import com.ruchij.api.exceptions.{
   ResourceConflictException
 }
 import com.ruchij.api.web.responses.ErrorResponse
-import com.ruchij.core.exceptions._
+import com.ruchij.core.exceptions.*
 import com.ruchij.core.logging.Logger
 import io.circe.DecodingFailure
-import io.circe.generic.auto._
+import io.circe.generic.auto.*
 import org.http4s.circe.CirceEntityEncoder.circeEntityEncoder
 import org.http4s.dsl.impl.EntityResponseGenerator
 import org.http4s.{ContextRequest, Header, MessageFailure, ParseFailure, Request, Response, Status}

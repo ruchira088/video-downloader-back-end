@@ -1,16 +1,16 @@
 package com.ruchij.batch.health
 
 import cats.effect.{Async, Ref, Resource}
-import cats.effect.syntax.all._
-import cats.implicits._
+import cats.effect.syntax.all.*
+import cats.implicits.*
 import fs2.Stream
 import org.http4s.{HttpApp, HttpRoutes}
 import org.http4s.dsl.Http4sDsl
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 final class BatchHealth[F[_]: Async] private (state: Ref[F, BatchHealth.State]) {
-  import BatchHealth._
+  import BatchHealth.*
 
   def running: Resource[F, Unit] =
     Resource.make(state.update(_.copy(started = true, running = true)))(_ =>
@@ -34,7 +34,7 @@ final class BatchHealth[F[_]: Async] private (state: Ref[F, BatchHealth.State]) 
 
   val routes: HttpApp[F] = {
     val dsl = new Http4sDsl[F] {}
-    import dsl._
+    import dsl.*
 
     def respond(predicate: State => Boolean) =
       state.get.flatMap(value => if (predicate(value)) Ok() else ServiceUnavailable())

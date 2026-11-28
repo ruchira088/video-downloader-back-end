@@ -1,15 +1,15 @@
 package com.ruchij.api.services.fallback
 
 import cats.Monad
-import cats.implicits._
-import com.ruchij.core.daos.doobie.DoobieCustomMappings._
+import cats.implicits.*
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
 import com.ruchij.core.daos.permission.VideoPermissionDao
 import com.ruchij.core.daos.scheduling.SchedulingDao
 import com.ruchij.core.daos.scheduling.models.{RangeValue, ScheduledVideoDownload}
 import com.ruchij.core.services.models.{Order, SortBy}
 import doobie.free.connection.ConnectionIO
-import doobie.free.{connection => FC}
-import doobie.implicits._
+import doobie.free.connection as FC
+import doobie.implicits.*
 
 import java.sql.Connection
 import java.time.Instant

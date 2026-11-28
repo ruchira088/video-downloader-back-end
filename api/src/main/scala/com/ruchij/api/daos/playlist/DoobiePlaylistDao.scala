@@ -2,9 +2,9 @@ package com.ruchij.api.daos.playlist
 
 import cats.{Applicative, ApplicativeError}
 import cats.data.NonEmptyList
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.api.daos.playlist.models.{Playlist, PlaylistSortBy}
-import com.ruchij.core.daos.doobie.DoobieCustomMappings._
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
 import com.ruchij.core.daos.doobie.DoobieUtils.ordering
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
@@ -13,7 +13,7 @@ import com.ruchij.core.daos.video.models.Video
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.services.models.Order
 import doobie.free.connection.ConnectionIO
-import doobie.generic.auto._
+import doobie.generic.auto.*
 import doobie.implicits.toSqlInterpolator
 import doobie.util.fragment.Fragment
 import doobie.util.fragments.{in, set, whereAndOpt}

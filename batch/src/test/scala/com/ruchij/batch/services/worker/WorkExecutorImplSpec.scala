@@ -8,7 +8,7 @@ import com.ruchij.batch.daos.workers.WorkerDao
 import com.ruchij.batch.daos.workers.models.Worker
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService
 import com.ruchij.batch.services.scheduler.Scheduler.PausedVideoDownload
-import com.ruchij.batch.test.stubs.BatchStubs._
+import com.ruchij.batch.test.stubs.BatchStubs.*
 import com.ruchij.core.config.StorageConfiguration
 import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
@@ -28,7 +28,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import java.time.Instant
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class WorkExecutorImplSpec extends AnyFlatSpec with Matchers {
 

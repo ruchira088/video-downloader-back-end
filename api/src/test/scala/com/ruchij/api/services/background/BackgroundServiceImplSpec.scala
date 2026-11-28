@@ -16,13 +16,13 @@ import com.ruchij.core.test.IOSupport.runIO
 import fs2.Stream
 import fs2.concurrent.Topic
 import org.http4s.MediaType
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import java.time.Instant
 import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.language.postfixOps
 
 class BackgroundServiceImplSpec extends AnyFlatSpec with Matchers {

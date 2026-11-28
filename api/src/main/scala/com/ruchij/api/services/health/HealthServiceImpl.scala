@@ -2,9 +2,9 @@ package com.ruchij.api.services.health
 
 import cats.data.OptionT
 import cats.effect.kernel.Async
-import cats.effect.implicits._
+import cats.effect.implicits.*
 import cats.effect.{Clock, Concurrent}
-import cats.implicits._
+import cats.implicits.*
 import cats.{Applicative, ~>}
 import com.eed3si9n.ruchij.api.BuildInfo
 import com.ruchij.api.services.health.models.HealthCheck.{FilePathCheck, FileRepositoryCheck, HealthStatusDetails}
@@ -17,9 +17,9 @@ import com.ruchij.core.logging.Logger
 import com.ruchij.core.messaging.Publisher
 import com.ruchij.core.services.repository.RepositoryService
 import com.ruchij.core.services.video.YouTubeVideoDownloader
-import com.ruchij.core.types.{RandomGenerator, Clock => AppClock}
+import com.ruchij.core.types.{RandomGenerator, Clock as AppClock}
 import doobie.free.connection.ConnectionIO
-import doobie.implicits._
+import doobie.implicits.*
 import fs2.Stream
 import org.http4s.Method.GET
 import org.http4s.Status
@@ -30,7 +30,7 @@ import org.http4s.client.dsl.Http4sClientDsl
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.util.UUID
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.language.postfixOps
 
 class HealthServiceImpl[F[_]: Async: AppClock: RandomGenerator.Of[UUID]](
@@ -50,7 +50,7 @@ class HealthServiceImpl[F[_]: Async: AppClock: RandomGenerator.Of[UUID]](
 
   private val clientDsl = new Http4sClientDsl[F] {}
 
-  import clientDsl._
+  import clientDsl.*
 
   private def healthStatusDetails(healthStatusF: F[HealthStatus]): F[HealthStatusDetails] =
     for {

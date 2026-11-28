@@ -4,7 +4,7 @@ import cats.data.OptionT
 import cats.effect.kernel.Deferred
 import cats.effect.kernel.Resource.ExitCase
 import cats.effect.{Async, Ref, Resource, Temporal}
-import cats.implicits._
+import cats.implicits.*
 import cats.{Applicative, ApplicativeError, ~>}
 import com.ruchij.batch.daos.workers.WorkerDao
 import com.ruchij.batch.daos.workers.models.Worker

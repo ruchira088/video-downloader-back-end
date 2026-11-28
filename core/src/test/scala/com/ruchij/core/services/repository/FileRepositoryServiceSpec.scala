@@ -463,7 +463,7 @@ class FileRepositoryServiceSpec extends AnyFlatSpec with Matchers with BeforeAnd
   }
 
   it should "handle concurrent writes to different files" in runIO {
-    import cats.implicits._
+    import cats.implicits.*
 
     val file1Path = tempDir.resolve("concurrent-1.txt").toString
     val file2Path = tempDir.resolve("concurrent-2.txt").toString

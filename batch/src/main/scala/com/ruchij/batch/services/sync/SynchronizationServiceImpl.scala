@@ -2,13 +2,13 @@ package com.ruchij.batch.services.sync
 
 import cats.data.OptionT
 import cats.effect.{Async, Sync}
-import cats.implicits._
+import cats.implicits.*
 import cats.{Applicative, ApplicativeError, Functor, MonadThrow, ~>}
 import com.ruchij.batch.daos.filesync.FileSyncDao
 import com.ruchij.batch.daos.filesync.models.FileSync
 import com.ruchij.batch.services.enrichment.VideoEnrichmentService
-import com.ruchij.batch.services.sync.SynchronizationServiceImpl._
-import com.ruchij.batch.services.sync.models.FileSyncResult._
+import com.ruchij.batch.services.sync.SynchronizationServiceImpl.*
+import com.ruchij.batch.services.sync.models.FileSyncResult.*
 import com.ruchij.batch.services.sync.models.{FileSyncResult, SynchronizationResult}
 import com.ruchij.batch.services.video.BatchVideoService
 import com.ruchij.batch.utils.Constants
@@ -36,7 +36,7 @@ import com.ruchij.core.services.models.SortBy.Date
 import com.ruchij.core.services.repository.FileRepositoryService.FileRepository
 import com.ruchij.core.services.repository.FileTypeDetector
 import com.ruchij.core.services.video.VideoAnalysisService
-import com.ruchij.core.types.FunctionKTypes._
+import com.ruchij.core.types.FunctionKTypes.*
 import com.ruchij.core.types.Clock
 import fs2.Stream
 import org.http4s.{MediaType, Uri}

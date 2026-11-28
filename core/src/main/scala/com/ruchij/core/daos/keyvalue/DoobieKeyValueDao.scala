@@ -1,6 +1,6 @@
 package com.ruchij.core.daos.keyvalue
 
-import com.ruchij.core.daos.doobie.DoobieCustomMappings._
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
 import doobie.free.connection.ConnectionIO
 import doobie.implicits.toSqlInterpolator
 

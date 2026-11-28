@@ -5,21 +5,21 @@ import com.ruchij.api.daos.playlist.models.{Playlist, PlaylistSortBy}
 import com.ruchij.api.services.authentication.AuthenticationService.Secret
 import com.ruchij.api.services.authentication.models.AuthenticationToken
 import com.ruchij.api.test.data.ApiTestData
-import com.ruchij.api.test.matchers._
+import com.ruchij.api.test.matchers.*
 import com.ruchij.api.test.mixins.io.MockedRoutesIO
 import com.ruchij.core.exceptions.ResourceNotFoundException
 import com.ruchij.core.services.models.Order
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.test.data.CoreTestData
-import io.circe.literal._
+import io.circe.literal.*
 import fs2.Stream
 import org.http4s.headers.{Authorization, `Content-Type`}
 import org.http4s.multipart.{Multiparts, Part}
 import org.http4s.{AuthScheme, Credentials, MediaType, Request, Status}
-import org.http4s.circe.CirceEntityEncoder._
-import org.http4s.client.dsl.io._
-import org.http4s.dsl.io._
-import org.http4s.implicits._
+import org.http4s.circe.CirceEntityEncoder.*
+import org.http4s.client.dsl.io.*
+import org.http4s.dsl.io.*
+import org.http4s.implicits.*
 import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers

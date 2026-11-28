@@ -1,7 +1,7 @@
 package com.ruchij.api.services.fallback.aws
 
 import cats.effect.{IO, Resource}
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.api.config.FallbackSyncSettings
 import com.ruchij.api.external.containers.{DynamoDbLocalContainer, ElasticMqContainer}
 import com.ruchij.api.services.fallback.ContractFixtures
@@ -13,7 +13,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
 import software.amazon.awssdk.awscore.exception.AwsErrorDetails
-import software.amazon.awssdk.services.dynamodb.model._
+import software.amazon.awssdk.services.dynamodb.model.*
 import software.amazon.awssdk.services.sqs.SqsAsyncClient
 import software.amazon.awssdk.services.sqs.model.{
   BatchRequestTooLongException,
@@ -29,8 +29,8 @@ import software.amazon.awssdk.services.sqs.model.{
 import java.nio.charset.StandardCharsets
 import java.time.Instant
 import java.util.concurrent.CompletableFuture
-import scala.concurrent.duration._
-import scala.jdk.CollectionConverters._
+import scala.concurrent.duration.*
+import scala.jdk.CollectionConverters.*
 import scala.util.control.NonFatal
 
 class FallbackAwsSpec extends AnyFlatSpec with Matchers {

@@ -2,7 +2,7 @@ package com.ruchij.api.services.fallback
 
 import cats.effect.IO
 import cats.effect.kernel.Ref
-import cats.implicits._
+import cats.implicits.*
 import cats.~>
 import com.ruchij.api.services.fallback.aws.FallbackSyncTransport
 import com.ruchij.api.services.fallback.models.MainToFallbackMessage

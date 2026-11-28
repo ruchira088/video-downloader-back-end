@@ -3,7 +3,7 @@ package com.ruchij.core.services.video
 import cats.{Applicative, MonadThrow}
 import cats.data.{Kleisli, OptionT}
 import cats.effect.{Async, Deferred, Ref, Sync}
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.config.HttpProxyConfiguration
 import com.ruchij.core.daos.videometadata.models.{VideoSite, WebPage}
 import com.ruchij.core.exceptions.{CliCommandException, ResourceNotFoundException}
@@ -15,16 +15,16 @@ import com.ruchij.core.services.video.YouTubeVideoDownloaderImpl.{
   isPostProcessing
 }
 import com.ruchij.core.services.video.models.YTDataSize.ytDataSizeOrdering
-import com.ruchij.core.services.video.models._
-import com.ruchij.core.types.FunctionKTypes._
+import com.ruchij.core.services.video.models.*
+import com.ruchij.core.types.FunctionKTypes.*
 import com.ruchij.core.utils.{JsoupSelector, Timers}
 import fs2.Stream
-import io.circe.generic.auto._
-import io.circe.{parser => JsonParser}
+import io.circe.generic.auto.*
+import io.circe.parser as JsonParser
 import org.http4s.Uri
 import org.http4s.circe.decodeUri
 import org.http4s.client.Client
-import org.http4s.implicits._
+import org.http4s.implicits.*
 import org.jsoup.Jsoup
 
 import java.util.concurrent.{TimeUnit, TimeoutException}

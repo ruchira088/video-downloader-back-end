@@ -2,7 +2,7 @@ package com.ruchij.core.services.download
 
 import cats.effect.Resource
 import cats.effect.kernel.Temporal
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.exceptions.ExternalServiceException
 import com.ruchij.core.services.download.Http4sDownloadService.ResumeMetadata
 import com.ruchij.core.services.download.models.DownloadResult
@@ -12,7 +12,7 @@ import fs2.{Pipe, Stream, text}
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import io.circe.parser.decode
-import io.circe.syntax._
+import io.circe.syntax.*
 import org.http4s.client.Client
 import org.http4s.headers.{ETag, Range, `Content-Length`, `Content-Range`, `Content-Type`}
 import org.http4s.{EntityTag, Header, Headers, RangeUnit, Request, Response, Status, Uri}

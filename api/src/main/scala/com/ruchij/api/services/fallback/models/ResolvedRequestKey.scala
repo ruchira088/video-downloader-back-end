@@ -4,7 +4,7 @@ import cats.Applicative
 import com.ruchij.core.kv.codecs.KVEncoder
 import com.ruchij.core.kv.keys.{KVStoreKey, KeySpace, KeySpacedKeyEncoder}
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 /** Holds the encoded `RequestResolved` reply to a handled fallback schedule request, so a redelivery of the request
   * re-sends that reply instead of scheduling the video again.

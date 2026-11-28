@@ -5,7 +5,7 @@ import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 import com.ruchij.core.daos.videometadata.models.VideoSite
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.migration.config.DatabaseConfiguration
-import doobie.implicits._
+import doobie.implicits.*
 import org.http4s.{MediaType, Uri}
 import java.time.Instant
 import com.ruchij.core.types.TimeUtils
@@ -13,11 +13,11 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import java.nio.file.{Path, Paths}
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class DoobieCustomMappingsSpec extends AnyFlatSpec with Matchers {
 
-  import DoobieCustomMappings._
+  import DoobieCustomMappings.*
 
   private val dbConfig = DatabaseConfiguration(
     s"jdbc:h2:mem:test-custom-mappings-${System.currentTimeMillis()};MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false",

@@ -1,11 +1,11 @@
 package com.ruchij.core.daos.videowatchhistory
 
 import cats.data.NonEmptySeq
-import com.ruchij.core.daos.doobie.DoobieCustomMappings._
+import com.ruchij.core.daos.doobie.DoobieCustomMappings.*
 import com.ruchij.core.daos.doobie.DoobieUtils.SingleUpdateOps
 import com.ruchij.core.daos.videowatchhistory.models.{DetailedVideoWatchHistory, VideoWatchHistory}
 import doobie.ConnectionIO
-import doobie.implicits._
+import doobie.implicits.*
 import doobie.util.fragment.Fragment
 import doobie.util.fragments.whereAnd
 import java.time.Instant

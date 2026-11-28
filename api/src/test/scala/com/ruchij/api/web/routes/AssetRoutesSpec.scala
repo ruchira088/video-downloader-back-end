@@ -9,7 +9,7 @@ import com.ruchij.api.services.asset.models.Asset.FileRange
 import com.ruchij.api.services.authentication.AuthenticationService.Secret
 import com.ruchij.api.services.authentication.models.AuthenticationToken
 import com.ruchij.api.test.data.ApiTestData
-import com.ruchij.api.test.matchers._
+import com.ruchij.api.test.matchers.*
 import com.ruchij.api.test.mixins.io.MockedRoutesIO
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.exceptions.ResourceNotFoundException
@@ -17,8 +17,8 @@ import com.ruchij.core.test.IOSupport.runIO
 import fs2.Stream
 import org.http4s.headers.{Authorization, Range}
 import org.http4s.{AuthScheme, Credentials, MediaType, RangeUnit, Request, Status}
-import org.http4s.dsl.io._
-import org.http4s.implicits._
+import org.http4s.dsl.io.*
+import org.http4s.implicits.*
 import org.typelevel.ci.CIStringSyntax
 import com.ruchij.core.types.TimeUtils
 import org.scalatest.flatspec.AnyFlatSpec

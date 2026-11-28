@@ -2,7 +2,7 @@ package com.ruchij.api.services.authentication
 
 import cats.data.OptionT
 import cats.effect.kernel.Async
-import cats.implicits._
+import cats.implicits.*
 import cats.{Applicative, MonadThrow, ~>}
 import com.ruchij.api.daos.credentials.CredentialsDao
 import com.ruchij.api.daos.user.UserDao

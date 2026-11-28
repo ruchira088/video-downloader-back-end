@@ -1,6 +1,6 @@
 package com.ruchij.core.messaging.db
 
-import cats.implicits._
+import cats.implicits.*
 import cats.{MonadThrow, ~>}
 import com.ruchij.core.daos.messaging.MessageDao
 import com.ruchij.core.messaging.{MessagingTopic, Publisher}

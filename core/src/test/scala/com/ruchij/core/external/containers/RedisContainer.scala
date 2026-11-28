@@ -1,8 +1,8 @@
 package com.ruchij.core.external.containers
 
 import cats.effect.{Resource, Sync}
-import cats.implicits._
-import com.redis.testcontainers.{RedisContainer => RedisTestContainer}
+import cats.implicits.*
+import com.redis.testcontainers.RedisContainer as RedisTestContainer
 import com.ruchij.core.config.RedisConfiguration
 import io.lettuce.core.{RedisClient, RedisURI}
 

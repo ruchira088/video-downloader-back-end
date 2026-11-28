@@ -4,7 +4,7 @@ import com.ruchij.core.test.data.CoreTestData
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class VideoEnrichmentServiceSpec extends AnyFlatSpec with Matchers {
 

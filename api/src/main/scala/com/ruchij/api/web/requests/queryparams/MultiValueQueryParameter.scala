@@ -2,7 +2,7 @@ package com.ruchij.api.web.requests.queryparams
 
 import cats.ApplicativeThrow
 import cats.data.{Kleisli, NonEmptyList}
-import com.ruchij.api.web.requests.queryparams.QueryParameter._
+import com.ruchij.api.web.requests.queryparams.QueryParameter.*
 import com.ruchij.core.daos.scheduling.models.SchedulingStatus
 import com.ruchij.core.daos.videometadata.models.VideoSite
 import org.http4s.{QueryParamDecoder, Uri}

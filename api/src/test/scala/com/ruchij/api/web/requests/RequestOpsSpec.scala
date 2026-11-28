@@ -4,9 +4,9 @@ import cats.effect.IO
 import com.ruchij.core.exceptions.ValidationException
 import com.ruchij.core.test.IOSupport.runIO
 import io.circe.Json
-import io.circe.generic.auto._
-import org.http4s.circe.CirceEntityCodec._
-import org.http4s.implicits._
+import io.circe.generic.auto.*
+import org.http4s.circe.CirceEntityCodec.*
+import org.http4s.implicits.*
 import org.http4s.headers.`Content-Type`
 import org.http4s.{ContextRequest, MediaType, Method, Request}
 import org.scalatest.flatspec.AnyFlatSpec
@@ -47,7 +47,7 @@ class RequestOpsSpec extends AnyFlatSpec with Matchers {
   }
 
   "RequestOpsSyntax" should "provide an implicit .to method on Request" in runIO {
-    import RequestOps._
+    import RequestOps.*
 
     val entity = TestEntity("syntax-test", 100)
     val request = Request[IO](Method.POST, uri"/test").withEntity(entity)
@@ -59,7 +59,7 @@ class RequestOpsSpec extends AnyFlatSpec with Matchers {
   }
 
   "ContextRequestOpsSyntax" should "provide an implicit .to method on ContextRequest" in runIO {
-    import RequestOps._
+    import RequestOps.*
 
     val entity = TestEntity("context-test", 200)
     val request = Request[IO](Method.POST, uri"/test").withEntity(entity)
@@ -72,7 +72,7 @@ class RequestOpsSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "work with different context types" in runIO {
-    import RequestOps._
+    import RequestOps.*
 
     val entity = TestEntity("int-context", 300)
     val request = Request[IO](Method.POST, uri"/test").withEntity(entity)

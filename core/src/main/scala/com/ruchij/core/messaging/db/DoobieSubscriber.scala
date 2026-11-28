@@ -1,7 +1,7 @@
 package com.ruchij.core.messaging.db
 
 import cats.effect.kernel.{Async, Resource}
-import cats.implicits._
+import cats.implicits.*
 import cats.{Applicative, Foldable, Functor, Monad, ~>}
 import com.ruchij.core.daos.messaging.MessageConsumerGroupDao
 import com.ruchij.core.logging.Logger
@@ -15,7 +15,7 @@ import io.circe.parser.parse
 import java.sql.SQLException
 import java.time.Instant
 import java.util.UUID
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.language.postfixOps
 
 /** Polls the message_queue table on behalf of a consumer group, mirroring the Kafka backend's semantics:

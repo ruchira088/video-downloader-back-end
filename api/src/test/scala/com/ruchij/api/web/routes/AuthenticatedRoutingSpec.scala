@@ -4,13 +4,13 @@ import cats.effect.IO
 import com.ruchij.api.services.authentication.AuthenticationService.Secret
 import com.ruchij.api.services.authentication.models.AuthenticationToken
 import com.ruchij.api.test.data.ApiTestData
-import com.ruchij.api.test.matchers._
+import com.ruchij.api.test.matchers.*
 import com.ruchij.api.test.mixins.io.MockedRoutesIO
 import com.ruchij.api.web.middleware.Authenticator
 import com.ruchij.core.test.IOSupport.runIO
 import com.ruchij.core.types.TimeUtils
-import org.http4s.dsl.io._
-import org.http4s.implicits._
+import org.http4s.dsl.io.*
+import org.http4s.implicits.*
 import org.http4s.{Method, Request, RequestCookie, Response, Status, Uri}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers

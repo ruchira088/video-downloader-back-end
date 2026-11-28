@@ -7,7 +7,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 
 import java.util.concurrent.TimeoutException
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class TimersSpec extends AnyFlatSpec with Matchers {
   // Timers polls the reset signal every 5 seconds, so intervals must be longer than that for a reset to be seen

@@ -1,7 +1,7 @@
 package com.ruchij.core.logging
 
 import cats.effect.Sync
-import com.typesafe.scalalogging.{Logger => TypesafeLogger}
+import com.typesafe.scalalogging.Logger as TypesafeLogger
 
 import scala.reflect.ClassTag
 

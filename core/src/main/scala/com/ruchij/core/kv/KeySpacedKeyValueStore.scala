@@ -1,7 +1,7 @@
 package com.ruchij.core.kv
 
 import cats.Functor
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.kv.codecs.KVCodec
 import com.ruchij.core.kv.keys.{KVStoreKey, KeySpace, KeySpacedKeyEncoder}
 

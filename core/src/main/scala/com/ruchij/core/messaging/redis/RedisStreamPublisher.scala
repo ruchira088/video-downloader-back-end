@@ -1,7 +1,7 @@
 package com.ruchij.core.messaging.redis
 
 import cats.effect.kernel.{Async, Resource, Sync}
-import cats.implicits._
+import cats.implicits.*
 import com.ruchij.core.config.RedisConfiguration
 import com.ruchij.core.messaging.{MessagingTopic, Publisher}
 import dev.profunktor.redis4cats.{Redis, RedisCommands}
