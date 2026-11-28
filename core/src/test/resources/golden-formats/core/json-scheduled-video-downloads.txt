@@ -1,0 +1,31 @@
+{
+  "scheduledAt" : "2024-03-10T08:15:00Z",
+  "lastUpdatedAt" : "2024-03-10T08:15:00Z",
+  "status" : "Error",
+  "downloadedBytes" : 1024,
+  "videoMetadata" : {
+    "url" : "https://spankbang.com/abc/video/title",
+    "id" : "video-id",
+    "videoSite" : "spankbang",
+    "title" : "Sample title",
+    "duration" : {
+      "length" : 212000,
+      "unit" : "MILLISECONDS"
+    },
+    "size" : 4096,
+    "thumbnail" : {
+      "id" : "thumbnail-id",
+      "createdAt" : "2024-03-10T08:15:00Z",
+      "path" : "/opt/images/thumbnail.jpg",
+      "mediaType" : "image/jpeg",
+      "size" : 256
+    }
+  },
+  "completedAt" : "2024-03-10T08:15:00Z",
+  "errorInfo" : {
+    "message" : "Download failed",
+    "details" : "details"
+  },
+  "retryCount" : 2,
+  "retryAfter" : "2024-03-10T08:15:00Z"
+}

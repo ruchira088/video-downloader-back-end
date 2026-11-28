@@ -400,6 +400,12 @@ intended change, regenerate the snapshots and review the diff:
 sbt "core/testOnly *AvroSchemaSnapshotSpec -- -Dupdate-avro-snapshots=true"   # likewise api/testOnly
 ```
 
+The JSON messages of the Redis and Doobie backends, and the keys and values of the key-value store, are pinned the
+same way, because they outlive the release that wrote them: Doobie keeps messages in PostgreSQL, and authentication
+tokens stay in the key-value store for weeks. `CoreGoldenFormatSpec` / `ApiGoldenFormatSpec` compare each encoding
+with a golden copy under `<module>/src/test/resources/golden-formats/<module>`, and check that the golden copy still
+decodes. Regenerate them with `-Dupdate-golden-formats=true` on `*GoldenFormatSpec`.
+
 When an admin deletes a scheduled video, the API also publishes a `scheduled-video-deletions` message naming the
 users who had scheduled it, since their permissions are deleted with it. Every API instance uses it to send the
 `Deleted` update to those users' `/schedule/updates` streams. With `PUBSUB_TYPE=Kafka`, create the

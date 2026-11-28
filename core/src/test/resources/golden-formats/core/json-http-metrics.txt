@@ -1,0 +1,11 @@
+{
+  "method" : "GET",
+  "uri" : "https://localhost/videos?page=1",
+  "finiteDuration" : {
+    "length" : 150,
+    "unit" : "MILLISECONDS"
+  },
+  "responseStatus" : 200,
+  "contentType" : "application/json",
+  "size" : 512
+}
