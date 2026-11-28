@@ -57,7 +57,7 @@ class VideoAnalysisServiceImpl[F[_]: Async: Clock, T[_]: Monad](
 
       videoMetadataOpt <- transaction(videoMetadataDao.findByUrl(processedUri))
 
-      result <- videoMetadataOpt.fold[F[VideoMetadataResult]](createMetadata(processedUri, videoSite).map(NewlyCreated)) {
+      result <- videoMetadataOpt.fold[F[VideoMetadataResult]](createMetadata(processedUri, videoSite).map(NewlyCreated.apply)) {
         videoMetadata =>
           Applicative[F].pure[VideoMetadataResult](Existing(videoMetadata))
       }

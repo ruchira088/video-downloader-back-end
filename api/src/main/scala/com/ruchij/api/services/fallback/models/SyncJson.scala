@@ -155,8 +155,8 @@ object SyncJson {
         result <- outcome.get[String]("result")
         resolution <- result match {
           case "Scheduled" =>
-            outcome.get[ScheduledVideoUpsert]("upsert")(upsertDecoder).map(ResolutionOutcome.Scheduled)
-          case "Rejected" => outcome.get[String]("reason").map(ResolutionOutcome.Rejected)
+            outcome.get[ScheduledVideoUpsert]("upsert")(upsertDecoder).map(ResolutionOutcome.Scheduled.apply)
+          case "Rejected" => outcome.get[String]("reason").map(ResolutionOutcome.Rejected.apply)
           case other => Left(DecodingFailure(s"Unexpected outcome: $other", outcome.history))
         }
       } yield RequestResolved(requestId, userId, resolution)

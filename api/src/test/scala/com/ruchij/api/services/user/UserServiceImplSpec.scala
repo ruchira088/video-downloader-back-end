@@ -568,7 +568,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
     (userDao.findByEmail _).expects(email).returning(IO.pure(None))
     (passwordHashingService.hashPassword _).expects(testPassword).returning(IO.pure(testHashedPassword))
     (() => uuidGenerator.generate).expects().returning(IO.pure(generatedUuid))
-    (userDao.insert _).expects(where { user: User =>
+    (userDao.insert _).expects(where { (user: User) =>
       user.id == generatedUuid.toString &&
         user.firstName == "Jane" &&
         user.lastName == "Smith" &&
@@ -576,7 +576,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
         user.role == Role.User &&
         user.createdAt == timestamp
     }).returning(IO.pure(1))
-    (credentialsDao.insert _).expects(where { creds: Credentials =>
+    (credentialsDao.insert _).expects(where { (creds: Credentials) =>
       creds.userId == generatedUuid.toString &&
         creds.hashedPassword == testHashedPassword &&
         creds.lastUpdatedAt == timestamp
@@ -612,7 +612,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
 
     (() => uuidGenerator.generate).expects().returning(IO.pure(tokenUuid))
     (userDao.findByEmail _).expects(testEmail).returning(IO.pure(Some(sampleUser)))
-    (credentialsResetTokenDao.insert _).expects(where { token: CredentialsResetToken =>
+    (credentialsResetTokenDao.insert _).expects(where { (token: CredentialsResetToken) =>
       token.userId == userId &&
         token.token == tokenUuid.toString &&
         token.createdAt == timestamp
@@ -686,7 +686,7 @@ class UserServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
 
     (passwordHashingService.hashPassword _).expects(newPassword).returning(IO.pure(newHashedPassword))
     (credentialsResetTokenDao.find _).expects(userId, resetToken).returning(IO.pure(Some(validResetToken)))
-    (credentialsDao.update _).expects(where { creds: Credentials =>
+    (credentialsDao.update _).expects(where { (creds: Credentials) =>
       creds.userId == userId &&
         creds.hashedPassword == newHashedPassword &&
         creds.lastUpdatedAt == currentTimestamp

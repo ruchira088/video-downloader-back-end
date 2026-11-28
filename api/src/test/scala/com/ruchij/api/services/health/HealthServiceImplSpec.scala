@@ -27,39 +27,39 @@ import scala.concurrent.ExecutionContext.Implicits.global
 class HealthServiceImplSpec extends AnyFlatSpec with Matchers with MockFactory {
   "healthCheck" should "be healthy when all the services are healthy" in
     runHealthCheck(proxiedHttpStatus = Status.Ok, directHttpStatus = Status.Ok) {
-      healthCheck: HealthCheck =>
+      (healthCheck: HealthCheck) =>
         healthCheck.isHealthy mustBe true
     }
 
   it should "be unhealthy when any of the services are unhealthy" in
     runHealthCheck(proxiedHttpStatus = Status.InternalServerError, directHttpStatus = Status.InternalServerError) {
-      healthCheck: HealthCheck =>
+      (healthCheck: HealthCheck) =>
         healthCheck.isHealthy mustBe false
     }
 
   it should "be unhealthy when proxied client fails but direct client succeeds" in
     runHealthCheck(proxiedHttpStatus = Status.InternalServerError, directHttpStatus = Status.Ok) {
-      healthCheck: HealthCheck =>
+      (healthCheck: HealthCheck) =>
         healthCheck.isHealthy mustBe false
         healthCheck.internetConnectivity.healthStatus mustBe HealthStatus.Unhealthy
     }
 
   it should "be unhealthy when direct client fails but proxied client succeeds" in
     runHealthCheck(proxiedHttpStatus = Status.Ok, directHttpStatus = Status.InternalServerError) {
-      healthCheck: HealthCheck =>
+      (healthCheck: HealthCheck) =>
         healthCheck.isHealthy mustBe false
         healthCheck.spaRenderer.healthStatus mustBe HealthStatus.Unhealthy
     }
 
   it should "report healthy internet connectivity when proxied client returns Ok" in
     runHealthCheck(proxiedHttpStatus = Status.Ok, directHttpStatus = Status.Ok) {
-      healthCheck: HealthCheck =>
+      (healthCheck: HealthCheck) =>
         healthCheck.internetConnectivity.healthStatus mustBe HealthStatus.Healthy
     }
 
   it should "report healthy spa renderer when direct client returns Ok" in
     runHealthCheck(proxiedHttpStatus = Status.Ok, directHttpStatus = Status.Ok) {
-      healthCheck: HealthCheck =>
+      (healthCheck: HealthCheck) =>
         healthCheck.spaRenderer.healthStatus mustBe HealthStatus.Healthy
     }
 

@@ -53,7 +53,7 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
   }
 
   sealed trait SpaCustomVideoSite extends CustomVideoSite {
-    private case class JsExecutionOutput private (videoUrl: String)
+    private case class JsExecutionOutput(videoUrl: String)
 
     protected def parseJsOutput[F[_]: MonadThrow](output: String): Kleisli[F, Uri, Uri] =
       Kleisli
@@ -243,7 +243,7 @@ object CustomVideoSite extends Enum[CustomVideoSite] {
   }
 
   sealed trait TxxxNetwork extends SpaCustomVideoSite {
-    private case class TxxNetworkMetadata private (
+    private case class TxxNetworkMetadata(
       name: String,
       thumbnailUrl: Option[Uri],
       duration: Option[FiniteDuration]

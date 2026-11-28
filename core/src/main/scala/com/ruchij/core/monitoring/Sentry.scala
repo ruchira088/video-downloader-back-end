@@ -16,7 +16,7 @@ object Sentry {
         Resource.make(
           Sync[F]
             .delay {
-              JavaSentry.init { sentryOptions: SentryOptions =>
+              JavaSentry.init { (sentryOptions: SentryOptions) =>
                 sentryOptions.setDsn(dsn)
                 sentryOptions.setEnvironment(sentryConfiguration.environment)
                 sentryOptions.setTracesSampleRate(sentryConfiguration.tracesSampleRate)

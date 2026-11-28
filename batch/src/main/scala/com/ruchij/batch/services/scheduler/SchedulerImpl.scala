@@ -142,7 +142,7 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
                   scheduledVideoDownload,
                   worker,
                   scheduledVideoDownloadUpdates
-                    .map { value: ScheduledVideoDownload =>
+                    .map { (value: ScheduledVideoDownload) =>
                       value.videoMetadata.id == scheduledVideoDownload.videoMetadata.id &&
                       Set[SchedulingStatus](
                         SchedulingStatus.Error,
@@ -153,7 +153,7 @@ class SchedulerImpl[F[_]: Async: Clock, T[_]: MonadThrow](
                       ).contains(value.status) && value.lastUpdatedAt.isAfter(timestamp)
                     }
                     .merge {
-                      workerStatusUpdates.map { workerStatusUpdate: WorkerStatusUpdate =>
+                      workerStatusUpdates.map { (workerStatusUpdate: WorkerStatusUpdate) =>
                         workerStatusUpdate.workerStatus == WorkerStatus.Paused
                       }
                     }

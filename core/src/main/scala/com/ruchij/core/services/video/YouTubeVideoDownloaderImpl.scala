@@ -106,7 +106,7 @@ class YouTubeVideoDownloaderImpl[F[_]: Async](
       .singleElement[F]("video")
       .flatMapF(videoElement => JsoupSelector.attribute[F](videoElement, "poster"))
       .flatMapF(property => Uri.fromString(property).toType[F, Throwable])
-      .compose[Uri, WebPage] { uri: Uri =>
+      .compose[Uri, WebPage] { (uri: Uri) =>
         client
           .expect[String](uri)
           .flatMap(html => Sync[F].catchNonFatal(Jsoup.parse(html)))

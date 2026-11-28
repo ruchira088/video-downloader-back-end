@@ -349,7 +349,7 @@ class SynchronizationServiceImpl[F[_]: Async: Clock, A, T[_]: MonadThrow](
               .productR(ApplicativeError[F, Throwable].raiseError(throwable))
         }
       }
-      .map[FileSyncResult](VideoSynced)
+      .map[FileSyncResult](VideoSynced.apply)
       .recoverWith {
         errorHandler[F](videoPath) { throwable =>
           logger.error[F](s"Unable to add video file at: $videoPath", throwable)

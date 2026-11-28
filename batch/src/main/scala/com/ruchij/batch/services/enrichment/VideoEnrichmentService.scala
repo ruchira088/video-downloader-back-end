@@ -24,6 +24,6 @@ object VideoEnrichmentService {
   def snapshotTimestamps(videoDuration: FiniteDuration, snapshotCount: Int): Seq[FiniteDuration] = {
     val period = videoDuration / (snapshotCount + 1)
 
-    Range(1, snapshotCount + 1).map(_ * period)
+    Range(1, snapshotCount + 1).map(index => period * index.toLong)
   }
 }

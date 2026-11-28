@@ -9,7 +9,11 @@ import scala.util.Try
 organization := "com.ruchij"
 scalaVersion := Dependencies.ScalaVersion
 maintainer := "me@ruchij.com"
-scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-Xfatal-warnings", "-Xlint")
+scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-Xfatal-warnings", "-Xlint", "-Xsource:3-cross")
+// Generated sources, such as sbt-buildinfo's BuildInfo, are not ours to fix
+scalacOptions += "-Wconf:src=src_managed/.*:s"
+// -Xsource:3-cross adopts the Scala 3 semantics that differ from Scala 2, so that the code keeps compiling the same way
+// once the build moves to Scala 3.
 // Production code must not silently discard effects such as an un-chained `logger.info(...)`.
 // The test sources are exempt because their assertions are non-Unit statements by design.
 Compile / scalacOptions += "-Wnonunit-statement"
