@@ -41,7 +41,7 @@ class PlaylistVideoDeletionSpec extends AnyFlatSpec with Matchers with OptionVal
       "PostgreSQL" -> (() => new ContainerCoreResourcesProvider[IO])
     )
 
-  private val playlistDao = new DoobiePlaylistDao(DoobieFileResourceDao, DoobieVideoDao)
+  private val playlistDao = new DoobiePlaylistDao(DoobieVideoDao)
 
   private object NoOpRepositoryService extends RepositoryService[IO] {
     override type BackedType = String

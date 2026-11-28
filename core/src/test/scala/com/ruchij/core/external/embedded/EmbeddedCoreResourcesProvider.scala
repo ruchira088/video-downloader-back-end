@@ -30,7 +30,7 @@ class EmbeddedCoreResourcesProvider[F[_]: Sync] extends CoreResourcesProvider[F]
         Uri(Some(Scheme.http), Some(Uri.Authority(port = Some(schemaRegistryPort))))
       )
 
-      embeddedKafkaWithSR <- Resource.make(
+      _ <- Resource.make(
         Sync[F]
           .blocking(
             EmbeddedKafka.start()(using

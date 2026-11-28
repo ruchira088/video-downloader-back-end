@@ -147,7 +147,7 @@ class AuthenticationServiceImplSpec extends AnyFlatSpec with Matchers with MockF
                   DoobieCredentialsResetTokenDao,
                   DoobieVideoTitleDao,
                   DoobieVideoPermissionDao,
-                  new DoobiePlaylistDao(DoobieFileResourceDao, DoobieVideoDao),
+                  new DoobiePlaylistDao(DoobieVideoDao),
                   DoobieFileResourceDao,
                   new InMemoryRepositoryService[IO](new ConcurrentHashMap[String, List[Byte]]()),
                   FallbackSyncRequester.noOp[IO]

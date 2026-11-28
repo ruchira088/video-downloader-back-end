@@ -32,7 +32,7 @@ object CoreResourcesProvider {
       hikariTransactor <- DoobieTransactor
         .create[F](databaseConfig, executionContext)
 
-      migrationResult <- Resource.eval(MigrationApp.migration[F](migrationServiceConfiguration(databaseConfig)))
+      _ <- Resource.eval(MigrationApp.migration[F](migrationServiceConfiguration(databaseConfig)))
     } yield hikariTransactor.trans
 
   extension [F[_]](externalServiceProvider: CoreResourcesProvider[F]) {

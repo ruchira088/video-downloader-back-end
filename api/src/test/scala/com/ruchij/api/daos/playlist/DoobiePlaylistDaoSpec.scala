@@ -23,7 +23,7 @@ class PostgresDoobiePlaylistDaoSpec extends DoobiePlaylistDaoSpec with PostgresT
 
 abstract class DoobiePlaylistDaoSpec extends AnyFlatSpec with Matchers with OptionValues with TestDatabase {
 
-  val doobiePlaylistDao = new DoobiePlaylistDao(DoobieFileResourceDao, DoobieVideoDao)
+  val doobiePlaylistDao = new DoobiePlaylistDao(DoobieVideoDao)
 
   val albumArtFileResource: FileResource =
     FileResource("album-art-001", CoreTestData.Timestamp, "/home/images/album-art.jpg", MediaType.image.jpeg, 50000)

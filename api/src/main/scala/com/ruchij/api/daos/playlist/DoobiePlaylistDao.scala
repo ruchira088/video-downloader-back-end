@@ -6,7 +6,6 @@ import cats.implicits.*
 import com.ruchij.api.daos.playlist.models.{Playlist, PlaylistSortBy}
 import com.ruchij.core.daos.doobie.DoobieCustomMappings.given
 import com.ruchij.core.daos.doobie.DoobieUtils.ordering
-import com.ruchij.core.daos.resource.FileResourceDao
 import com.ruchij.core.daos.resource.models.FileResource
 import com.ruchij.core.daos.video.VideoDao
 import com.ruchij.core.daos.video.models.Video
@@ -19,8 +18,7 @@ import doobie.util.fragment.Fragment
 import doobie.util.fragments.{in, set, whereAndOpt}
 import java.time.Instant
 
-class DoobiePlaylistDao(fileResourceDao: FileResourceDao[ConnectionIO], videoDao: VideoDao[ConnectionIO])
-    extends PlaylistDao[ConnectionIO] {
+class DoobiePlaylistDao(videoDao: VideoDao[ConnectionIO]) extends PlaylistDao[ConnectionIO] {
   import DoobiePlaylistDao.PlaylistRow
 
   override def insert(playlist: Playlist): ConnectionIO[Int] =

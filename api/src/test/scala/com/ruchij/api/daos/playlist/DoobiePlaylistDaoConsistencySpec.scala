@@ -5,7 +5,6 @@ import cats.implicits.*
 import cats.~>
 import com.ruchij.api.daos.playlist.models.{Playlist, PlaylistSortBy}
 import com.ruchij.api.test.data.ApiTestData
-import com.ruchij.core.daos.resource.DoobieFileResourceDao
 import com.ruchij.core.daos.video.DoobieVideoDao
 import com.ruchij.core.external.CoreResourcesProvider
 import com.ruchij.core.external.containers.ContainerCoreResourcesProvider
@@ -31,7 +30,7 @@ class DoobiePlaylistDaoConsistencySpec extends AnyFlatSpec with Matchers with Op
       "PostgreSQL" -> (() => new ContainerCoreResourcesProvider[IO])
     )
 
-  private val playlistDao = new DoobiePlaylistDao(DoobieFileResourceDao, DoobieVideoDao)
+  private val playlistDao = new DoobiePlaylistDao(DoobieVideoDao)
 
   private def playlist(id: String, title: String): Playlist =
     Playlist(id, ApiTestData.AdminUser.id, CoreTestData.Timestamp, title, None, Nil, None)

@@ -110,8 +110,7 @@ class PlaylistServiceImplSpec extends AnyFlatSpec with Matchers {
     override def deleteById(id: String): IO[Int] = IO.pure(1)
   }
 
-  class StubRepositoryService(writeResult: Boolean = true, sizeResult: Option[Long] = Some(50000L))
-      extends RepositoryService[IO] {
+  class StubRepositoryService(sizeResult: Option[Long] = Some(50000L)) extends RepositoryService[IO] {
     override type BackedType = String
     val writtenKeys: mutable.ListBuffer[String] = mutable.ListBuffer.empty
 

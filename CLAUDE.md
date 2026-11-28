@@ -73,15 +73,25 @@ placeholder such as `*[_]` is not supported, so write `ApplicativeThrow` or `Ran
 **Two-effect service pattern.** Database-touching services take two type parameters, e.g.
 `VideoServiceImpl[F[_], T[_]]`, where `T` is doobie's `ConnectionIO`. DAOs (`Doobie*Dao` objects in `core/.../daos/`
 and `api/.../daos/`) are written purely in `ConnectionIO`; services compose DAO calls into transactions and lift them
-via an `implicit transactor: ConnectionIO ~> F` (natural transformation from the Hikari transactor). No DI framework —
+via a `using transaction: ConnectionIO ~> F` (natural transformation from the Hikari transactor). No DI framework —
 everything is wired by hand in `ApiApp.program` / `BatchApp` / `DevelopmentApp`.
 
 **Pluggable messaging** (`core/.../messaging/`). `PubSub[F, A]` = `Publisher` + `Subscriber`. Three backends selected
 at runtime by `PUBSUB_TYPE` (`Kafka` | `Redis` | `Doobie`): Kafka uses Avro + Schema Registry, Redis Streams and
-Doobie (Postgres-as-queue) use JSON. Each message type has an `implicit case object` `MessagingTopic[A]` instance
+Doobie (Postgres-as-queue) use JSON. Each message type has a `given` `MessagingTopic[A]` object instance
 declaring the topic name plus both an Avro codec (vulcan) and a JSON codec (circe). `Subscriber` abstracts backend
 wrapper types with a type member `C[_]` (Kafka's `CommittableRecord` vs identity). API and batch communicate
 exclusively through these topics (scheduled downloads, download progress, health checks, metrics).
+
+**Scala 3 idioms.** Type class instances are `given`s, context parameters are `using` clauses, and syntax is
+`extension` methods. A wildcard import does not bring givens into scope, so import an object that defines them with
+`import X.{given, *}` (or `X.given`). This matters most for the codec objects (`Decoders`, `Encoders`, `AvroCodecs`,
+`DoobieCustomMappings`, `ValueClassCodecs`): with their givens missing, circe's and vulcan's automatic derivation can
+silently encode a value class or enum as an object instead of failing to compile. Enums are Scala 3 `enum`s whose
+companion extends `EnumValues` (`core/.../types/EnumValues.scala`), which supplies the `withName*` lookups; a value's
+`entryName` is what PostgreSQL, Redis, messages and query parameters store, and `*EnumNamesSpec` pins every name.
+Configuration classes use `derives ConfigReader`. Scalac runs with `-Wunused:all`, and main code also with
+`-Wnonunit-statement` and `-Wvalue-discard`.
 
 **Redis KV store** (`core/.../kv/`). `KeyValueStore[F]` wrapped by `KeySpacedKeyValueStore` for typed key spaces —
 used for auth session tokens, health checks, and dynamic config (`ConfigurationService`).

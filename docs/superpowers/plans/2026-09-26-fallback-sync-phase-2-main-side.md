@@ -24,6 +24,7 @@ Local containers. `ApiApp` starts the combined stream in the background, like `B
 - The build uses `-Xfatal-warnings`: no unused imports, no deprecated APIs (use
   `DefaultCredentialsProvider.builder().build()`, `messageSystemAttributeNames(...)`), exhaustive matches.
 - Scala stays on 2.13 (never Scala 3).
+  (Superseded: the project moved to Scala 3 on 2026-11-28. This plan is kept as written.)
 - Tagless final: components are parameterised over `F[_]` (and `T[_]` for DB work lifted through
   `implicit transaction: T ~> F`); `IO` only appears in tests and `*App` objects.
 - Time comes from `com.ruchij.core.types.Clock` (`Clock[F].timestamp`), not cats `Clock`.

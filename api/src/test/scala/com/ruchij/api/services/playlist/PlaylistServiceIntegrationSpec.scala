@@ -119,7 +119,7 @@ class PlaylistServiceIntegrationSpec extends AnyFlatSpec with Matchers with Opti
         for {
           _ <- transaction(setUpData)
           written <- Ref.of[IO, Map[String, Long]](Map.empty)
-          playlistDao = new DoobiePlaylistDao(DoobieFileResourceDao, DoobieVideoDao)
+          playlistDao = new DoobiePlaylistDao(DoobieVideoDao)
           service = new PlaylistServiceImpl[IO, ConnectionIO](
             playlistDao,
             DoobieFileResourceDao,

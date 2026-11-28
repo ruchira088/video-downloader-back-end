@@ -32,7 +32,7 @@ object SentryMiddleware {
           scope.setTag("client.address", remote.host.toString)
         }
 
-        JavaSentry.captureException(throwable)
+        JavaSentry.captureException(throwable): Unit
       }
     }
 

@@ -10,24 +10,16 @@ organization := "com.ruchij"
 scalaVersion := Dependencies.ScalaVersion
 maintainer := "me@ruchij.com"
 // -Xkind-projector supports the type lambda syntax of the kind-projector plugin, such as `F[*]`.
-// The -Wunused categories are the ones Scala 2's -Xlint checked. circe's automatic derivation inlines once per
-// nested type, and some API responses nest deeper than the default limit of 32 inlines.
+// circe's automatic derivation inlines once per nested type, and some API responses nest deeper than the default
+// limit of 32 inlines.
 scalacOptions ++=
-  Seq(
-    "-deprecation",
-    "-feature",
-    "-unchecked",
-    "-Werror",
-    "-Xkind-projector",
-    "-Wunused:imports,privates,locals,implicits,nowarn",
-    "-Xmax-inlines:128"
-  )
+  Seq("-deprecation", "-feature", "-unchecked", "-Werror", "-Xkind-projector", "-Wunused:all", "-Xmax-inlines:128")
 // Generated sources, such as sbt-buildinfo's BuildInfo, are not ours to fix
 scalacOptions += "-Wconf:src=src_managed/.*:s"
-// Production code must not silently discard effects such as an un-chained `logger.info(...)`.
-// The test sources are exempt because their assertions are non-Unit statements by design.
-Compile / scalacOptions += "-Wnonunit-statement"
-Test / scalacOptions -= "-Wnonunit-statement"
+// Production code must not silently discard effects such as an un-chained `logger.info(...)`, or a value returned
+// where Unit is expected. The test sources are exempt because their assertions are non-Unit statements by design.
+Compile / scalacOptions ++= Seq("-Wnonunit-statement", "-Wvalue-discard")
+Test / scalacOptions --= Seq("-Wnonunit-statement", "-Wvalue-discard")
 resolvers ++= Seq("Confluent" at "https://packages.confluent.io/maven/", "jitpack" at "https://jitpack.io")
 dependencyOverrides ++= nettyOverrides
 // The Kafka broker that embedded Kafka runs in the tests is only published for Scala 2.13, and depends on the

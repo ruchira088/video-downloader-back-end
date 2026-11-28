@@ -20,6 +20,7 @@ for service tests), Flyway, PureConfig, circe, vulcan (Avro), ScalaTest + scalam
 
 - The build uses `-Xfatal-warnings`: any compiler warning (unused import, unused parameter) fails the build.
 - Scala stays on 2.13. No new dependencies.
+  (Superseded: the project moved to Scala 3 on 2026-11-28. This plan is kept as written.)
 - No new `SchedulingStatus` value. A row waiting to retry is `Queued`.
 - Defaults: `max-attempts = 5`, `base-delay = 1 minute`, `max-delay = 30 minutes`; env overrides
   `RETRY_MAX_ATTEMPTS`, `RETRY_BASE_DELAY`, `RETRY_MAX_DELAY`. `max-attempts = 0` disables auto-retry.

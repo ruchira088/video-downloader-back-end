@@ -277,7 +277,7 @@ object ApiApp extends IOApp {
       DoobieVideoWatchHistoryDao
     )
 
-    val playlistDao = new DoobiePlaylistDao(DoobieFileResourceDao, DoobieVideoDao)
+    val playlistDao = new DoobiePlaylistDao(DoobieVideoDao)
 
     val playlistService = new PlaylistServiceImpl[F, ConnectionIO](
       playlistDao,

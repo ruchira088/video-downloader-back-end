@@ -68,7 +68,7 @@ class UserServiceIntegrationSpec extends AnyFlatSpec with Matchers {
       DoobieCredentialsResetTokenDao,
       DoobieVideoTitleDao,
       DoobieVideoPermissionDao,
-      new DoobiePlaylistDao(DoobieFileResourceDao, DoobieVideoDao),
+      new DoobiePlaylistDao(DoobieVideoDao),
       DoobieFileResourceDao,
       new InMemoryRepositoryService[IO](files),
       FallbackSyncRequester.noOp[IO]
@@ -93,7 +93,7 @@ class UserServiceIntegrationSpec extends AnyFlatSpec with Matchers {
         given (ConnectionIO ~> IO) = transaction
 
         val service = userService()
-        val playlistDao = new DoobiePlaylistDao(DoobieFileResourceDao, DoobieVideoDao)
+        val playlistDao = new DoobiePlaylistDao(DoobieVideoDao)
         val userId = ApiTestData.NormalUser.id
 
         for {
@@ -142,7 +142,7 @@ class UserServiceIntegrationSpec extends AnyFlatSpec with Matchers {
         _ <- IO.delay(files.put(albumArt.path, List[Byte](1, 2, 3, 4)))
         _ <- transaction {
           DoobieFileResourceDao.insert(albumArt) *>
-            new DoobiePlaylistDao(DoobieFileResourceDao, DoobieVideoDao)
+            new DoobiePlaylistDao(DoobieVideoDao)
               .insert(Playlist("playlist", userId, CoreTestData.Timestamp, "Mine", None, Nil, Some(albumArt)))
         }
 

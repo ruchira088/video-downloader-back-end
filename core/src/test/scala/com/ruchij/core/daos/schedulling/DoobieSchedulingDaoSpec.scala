@@ -837,15 +837,14 @@ abstract class DoobieSchedulingDaoSpec extends AnyFlatSpec with Matchers with Op
     } yield (): Unit
   }
 
-  it should "getById with groupId filter returns None when videoId doesn't match" in runTest {
-    (scheduledVideoDownload, transaction) =>
-      for {
-        result <- transaction(DoobieSchedulingDao.getById("non-existent-video-id", None))
+  it should "getById with groupId filter returns None when videoId doesn't match" in runTest { (_, transaction) =>
+    for {
+      result <- transaction(DoobieSchedulingDao.getById("non-existent-video-id", None))
 
-        _ <- IO.delay {
-          result mustBe None
-        }
-      } yield (): Unit
+      _ <- IO.delay {
+        result mustBe None
+      }
+    } yield (): Unit
   }
 
   it should "getById with groupId filter can filter by groupId" in runTest { (scheduledVideoDownload, transaction) =>
